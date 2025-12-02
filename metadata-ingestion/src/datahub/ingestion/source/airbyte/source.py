@@ -631,6 +631,44 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         return AirbyteInputOutputDatasets(input_urns=inputs, output_urns=outputs)
 
+    def _enrich_job_properties_with_details(
+        self, properties: Dict[str, str], job_details: dict, stream_name: str
+    ) -> None:
+        """Enrich job execution properties with detailed metrics from get_job().
+
+        Args:
+            properties: Dictionary to enrich with job details
+            job_details: Response from get_job() API call
+            stream_name: Name of the stream to extract stream-specific metrics
+        """
+        if job_details.get("bytesCommitted"):
+            properties["bytes_committed"] = str(job_details["bytesCommitted"])
+        if job_details.get("recordsCommitted"):
+            properties["records_committed"] = str(job_details["recordsCommitted"])
+
+        stream_stats = job_details.get("streamStatuses", [])
+        for stream_stat in stream_stats:
+            if stream_stat.get("streamName") == stream_name:
+                if stream_stat.get("recordsCommitted") is not None:
+                    properties["stream_records_committed"] = str(
+                        stream_stat["recordsCommitted"]
+                    )
+                if stream_stat.get("bytesCommitted") is not None:
+                    properties["stream_bytes_committed"] = str(
+                        stream_stat["bytesCommitted"]
+                    )
+                break
+
+        if job_details.get("failureReason"):
+            failure_info = job_details["failureReason"]
+            if isinstance(failure_info, dict):
+                if failure_info.get("failureType"):
+                    properties["failure_type"] = failure_info["failureType"]
+                if failure_info.get("externalMessage"):
+                    properties["failure_message"] = failure_info["externalMessage"]
+            elif isinstance(failure_info, str):
+                properties["failure_message"] = failure_info
+
     def _create_job_executions_workunits(
         self,
         pipeline_info: AirbytePipelineInfo,
@@ -688,6 +726,14 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     if not job_id:
                         continue
 
+                    job_details = None
+                    try:
+                        job_details = self.client.get_job(str(job_id))
+                    except Exception as e:
+                        logger.debug(
+                            f"Could not fetch detailed job info for {job_id}: {e}"
+                        )
+
                     # Process job attempts
                     attempts = job.get("attempts", [])
                     for attempt_idx, attempt in enumerate(attempts):
@@ -709,19 +755,29 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         # Create unique ID for this execution
                         execution_id = f"{job_id}-{attempt_id}-{stream_name}"
 
+                        properties = {
+                            "job_id": str(job_id),
+                            "attempt_id": str(attempt_id),
+                            "connection_id": connection_id,
+                            "stream_name": stream_name,
+                            "status": attempt_status,
+                        }
+
+                        if job_details:
+                            self._enrich_job_properties_with_details(
+                                properties, job_details, stream_name
+                            )
+
                         # Create a DataProcessInstance for this execution
+                        # URL links to connection's status page where job history is visible
+                        job_url = f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}/status"
+
                         dpi = DataProcessInstance(
                             orchestrator=self.platform,
                             id=execution_id,
                             template_urn=datajob_urn,
-                            properties={
-                                "job_id": str(job_id),  # Ensure string
-                                "attempt_id": str(attempt_id),
-                                "connection_id": connection_id,
-                                "stream_name": stream_name,
-                                "status": attempt_status,
-                            },
-                            url=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}",
+                            properties=properties,
+                            url=job_url,
                         )
 
                         # Generate the main entity MCPs

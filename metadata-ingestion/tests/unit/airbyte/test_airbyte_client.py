@@ -972,3 +972,229 @@ class TestGetConnection:
         result = client.get_connection("conn-123")
 
         assert result["syncCatalog"]["streams"][0]["name"] == "users"
+
+
+class TestClientSSLAndHeaders:
+    """Tests for SSL and header configuration."""
+
+    def test_client_with_extra_headers(self):
+        """Test client with extra headers."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            extra_headers={"X-Custom-Header": "test-value"},
+        )
+        client = AirbyteOSSClient(config)
+
+        assert "X-Custom-Header" in client.session.headers
+        assert client.session.headers["X-Custom-Header"] == "test-value"
+
+    @patch("os.path.isfile", return_value=True)
+    def test_client_with_valid_ssl_ca_cert(self, mock_isfile):
+        """Test client with valid SSL CA certificate."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            verify_ssl=True,
+            ssl_ca_cert="/path/to/ca-cert.pem",
+        )
+        client = AirbyteOSSClient(config)
+
+        assert client.session.verify == "/path/to/ca-cert.pem"
+
+    @patch("os.path.isfile", return_value=False)
+    def test_client_with_invalid_ssl_ca_cert(self, mock_isfile, caplog):
+        """Test client with invalid SSL CA certificate path."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            verify_ssl=True,
+            ssl_ca_cert="/invalid/path/ca-cert.pem",
+        )
+
+        with caplog.at_level("WARNING"):
+            _ = AirbyteOSSClient(config)
+
+        assert "CA certificate file not found" in caplog.text
+
+
+class TestClientListJobs:
+    """Tests for list_jobs method."""
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_list_jobs_basic(self, mock_make_request):
+        """Test basic list_jobs call."""
+        mock_make_request.return_value = {
+            "jobs": [
+                {"jobId": "job-1", "status": "succeeded"},
+                {"jobId": "job-2", "status": "failed"},
+            ]
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        jobs = client.list_jobs("connection-123")
+
+        assert len(jobs) == 2
+        assert jobs[0]["jobId"] == "job-1"
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_list_jobs_with_date_filters(self, mock_make_request):
+        """Test list_jobs with date filters."""
+        mock_make_request.return_value = {"jobs": [{"jobId": "job-1"}]}
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        client.list_jobs(
+            "connection-123",
+            workspace_id="workspace-1",
+            start_date="2024-01-01T00:00:00Z",
+            end_date="2024-12-31T23:59:59Z",
+        )
+
+        mock_make_request.assert_called_once()
+        call_args = mock_make_request.call_args
+        params = call_args[1]["params"]
+        assert params["workspaceId"] == "workspace-1"
+        assert params["updatedAtStart"] == "2024-01-01T00:00:00Z"
+        assert params["updatedAtEnd"] == "2024-12-31T23:59:59Z"
+
+
+class TestClientGetMethods:
+    """Tests for get_source, get_destination, get_job methods."""
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_source(self, mock_make_request):
+        """Test get_source method."""
+        mock_make_request.return_value = {
+            "sourceId": "source-123",
+            "name": "Test Source",
+            "sourceType": "postgres",
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        result = client.get_source("source-123")
+
+        assert result["sourceId"] == "source-123"
+        mock_make_request.assert_called_once_with("/sources/source-123", method="GET")
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_destination(self, mock_make_request):
+        """Test get_destination method."""
+        mock_make_request.return_value = {
+            "destinationId": "dest-123",
+            "name": "Test Destination",
+            "destinationType": "snowflake",
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        result = client.get_destination("dest-123")
+
+        assert result["destinationId"] == "dest-123"
+        mock_make_request.assert_called_once_with(
+            "/destinations/dest-123", method="GET"
+        )
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_job(self, mock_make_request):
+        """Test get_job method retrieves detailed job information."""
+        mock_make_request.return_value = {
+            "jobId": "job-123",
+            "status": "succeeded",
+            "jobType": "sync",
+            "bytesCommitted": 1024000,
+            "recordsCommitted": 5000,
+            "streamStatuses": [
+                {"streamName": "users", "recordsCommitted": 3000},
+                {"streamName": "orders", "recordsCommitted": 2000},
+            ],
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        result = client.get_job("job-123")
+
+        assert result["jobId"] == "job-123"
+        assert result["status"] == "succeeded"
+        assert result["bytesCommitted"] == 1024000
+        assert result["recordsCommitted"] == 5000
+        assert len(result["streamStatuses"]) == 2
+
+
+class TestClientListStreams:
+    """Tests for list_streams method."""
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_list_streams(self, mock_make_request):
+        """Test list_streams method."""
+        mock_make_request.return_value = {
+            "streams": [
+                {"streamName": "users", "namespace": "public"},
+                {"streamName": "orders", "namespace": "public"},
+            ]
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        streams = client.list_streams("source-123")
+
+        assert len(streams) == 2
+        assert streams[0]["streamName"] == "users"
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_list_streams_empty(self, mock_make_request):
+        """Test list_streams returns empty list when no streams."""
+        mock_make_request.return_value = {"streams": []}
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        streams = client.list_streams("source-123")
+
+        assert streams == []
+
+
+class TestClientListTags:
+    """Tests for list_tags method."""
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_list_tags(self, mock_make_request):
+        """Test list_tags method."""
+        mock_make_request.return_value = {
+            "tags": [
+                {"id": "tag-1", "name": "production"},
+                {"id": "tag-2", "name": "critical"},
+            ]
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        tags = client.list_tags("workspace-123")
+
+        assert len(tags) == 2
+        assert tags[0]["name"] == "production"

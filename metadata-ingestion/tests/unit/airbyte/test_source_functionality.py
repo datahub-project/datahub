@@ -16,6 +16,9 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteWorkspacePartial,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
+from datahub.metadata.schema_classes import DataProcessInstancePropertiesClass
+from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 
 @pytest.fixture
@@ -311,3 +314,260 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
 
     assert len(pipelines) == 0
     assert len(source.report.failures) == 1
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_job_execution_enrichment_with_get_job(
+    mock_create_client, mock_ctx, mock_client
+):
+    """Test that job executions are enriched with detailed sync statistics from get_job()."""
+    mock_create_client.return_value = mock_client
+
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-123", name="Test Workspace"
+    )
+    source = AirbyteSourcePartial(
+        source_id="source-123",
+        name="Postgres Source",
+        source_type="postgres",
+        workspace_id="workspace-123",
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="dest-123",
+        name="Snowflake Destination",
+        destination_type="snowflake",
+        workspace_id="workspace-123",
+    )
+    connection = AirbyteConnectionPartial(
+        connection_id="conn-123",
+        name="Test Connection",
+        source_id="source-123",
+        destination_id="dest-123",
+        status="active",
+        sync_catalog={
+            "streams": [
+                {
+                    "stream": {
+                        "name": "users",
+                        "namespace": "public",
+                        "jsonSchema": {
+                            "type": "object",
+                            "properties": {"id": {"type": "integer"}},
+                        },
+                    },
+                    "config": {"selected": True, "destinationSyncMode": "append"},
+                }
+            ]
+        },
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=workspace,
+        source=source,
+        destination=destination,
+        connection=connection,
+    )
+
+    mock_client.list_jobs.return_value = [
+        {
+            "id": "job-456",
+            "attempts": [
+                {
+                    "id": "attempt-1",
+                    "status": "succeeded",
+                    "createdAt": 1609459200000,
+                    "endedAt": 1609462800000,
+                }
+            ],
+        }
+    ]
+
+    mock_client.get_job.return_value = {
+        "jobId": "job-456",
+        "status": "succeeded",
+        "bytesCommitted": 2048000,
+        "recordsCommitted": 10000,
+        "streamStatuses": [
+            {
+                "streamName": "public.users",
+                "recordsCommitted": 10000,
+                "bytesCommitted": 2048000,
+            }
+        ],
+    }
+
+    mock_client.list_streams.return_value = {
+        "streams": [
+            {
+                "streamName": "users",
+                "namespace": "public",
+                "propertyFields": [["id"], ["name"], ["email"]],
+            }
+        ]
+    }
+
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+    )
+
+    source_obj = AirbyteSource(config, mock_ctx)
+    source_obj.client = mock_client
+
+    connection_dataflow_urn = DataFlowUrn(
+        orchestrator="airbyte",
+        flow_id="conn-123",
+        cluster="PROD",
+    )
+    datajob_urn = DataJobUrn(
+        flow=connection_dataflow_urn,
+        job_id="conn-123_public.users",
+    )
+
+    workunits = list(
+        source_obj._create_job_executions_workunits(
+            pipeline_info, datajob_urn, "public.users"
+        )
+    )
+
+    assert len(workunits) > 0
+
+    dpi_props_found = False
+    for wu in workunits:
+        if hasattr(wu.metadata, "aspect") and isinstance(
+            wu.metadata.aspect, DataProcessInstancePropertiesClass
+        ):
+            props = wu.metadata.aspect.customProperties
+            if props.get("job_id") == "job-456":
+                dpi_props_found = True
+                assert props.get("bytes_committed") == "2048000"
+                assert props.get("records_committed") == "10000"
+                assert props.get("stream_records_committed") == "10000"
+                assert props.get("stream_bytes_committed") == "2048000"
+                break
+
+    assert dpi_props_found, (
+        "DataProcessInstanceProperties with enriched job stats not found"
+    )
+    mock_client.get_job.assert_called_once_with("job-456")
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_job_execution_without_get_job_details(
+    mock_create_client, mock_ctx, mock_client
+):
+    """Test that job executions work even when get_job() fails."""
+    mock_create_client.return_value = mock_client
+
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-123", name="Test Workspace"
+    )
+    source = AirbyteSourcePartial(
+        source_id="source-123",
+        name="Postgres Source",
+        source_type="postgres",
+        workspace_id="workspace-123",
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="dest-123",
+        name="Snowflake Destination",
+        destination_type="snowflake",
+        workspace_id="workspace-123",
+    )
+    connection = AirbyteConnectionPartial(
+        connection_id="conn-123",
+        name="Test Connection",
+        source_id="source-123",
+        destination_id="dest-123",
+        status="active",
+        sync_catalog={
+            "streams": [
+                {
+                    "stream": {
+                        "name": "orders",
+                        "namespace": "public",
+                        "jsonSchema": {
+                            "type": "object",
+                            "properties": {"id": {"type": "integer"}},
+                        },
+                    },
+                    "config": {"selected": True, "destinationSyncMode": "append"},
+                }
+            ]
+        },
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=workspace,
+        source=source,
+        destination=destination,
+        connection=connection,
+    )
+
+    mock_client.list_jobs.return_value = [
+        {
+            "id": "job-789",
+            "attempts": [
+                {
+                    "id": "attempt-1",
+                    "status": "succeeded",
+                    "createdAt": 1609459200000,
+                    "endedAt": 1609462800000,
+                }
+            ],
+        }
+    ]
+
+    mock_client.get_job.side_effect = Exception("API Error")
+
+    mock_client.list_streams.return_value = {
+        "streams": [
+            {
+                "streamName": "orders",
+                "namespace": "public",
+                "propertyFields": [["id"]],
+            }
+        ]
+    }
+
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+    )
+
+    source_obj = AirbyteSource(config, mock_ctx)
+    source_obj.client = mock_client
+
+    connection_dataflow_urn = DataFlowUrn(
+        orchestrator="airbyte",
+        flow_id="conn-123",
+        cluster="PROD",
+    )
+    datajob_urn = DataJobUrn(
+        flow=connection_dataflow_urn,
+        job_id="conn-123_public.orders",
+    )
+
+    workunits = list(
+        source_obj._create_job_executions_workunits(
+            pipeline_info, datajob_urn, "public.orders"
+        )
+    )
+
+    assert len(workunits) > 0
+
+    dpi_props_found = False
+    for wu in workunits:
+        if hasattr(wu.metadata, "aspect") and isinstance(
+            wu.metadata.aspect, DataProcessInstancePropertiesClass
+        ):
+            props = wu.metadata.aspect.customProperties
+            if props.get("job_id") == "job-789":
+                dpi_props_found = True
+                assert "bytes_committed" not in props
+                assert "records_committed" not in props
+                break
+
+    assert dpi_props_found, (
+        "DataProcessInstanceProperties not found even without get_job details"
+    )
