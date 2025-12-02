@@ -55,6 +55,14 @@ public class DocumentMapper {
               new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data()), entityUrn));
     }
 
+    // Map Document Settings aspect
+    final EnvelopedAspect envelopedSettings = aspects.get(Constants.DOCUMENT_SETTINGS_ASPECT_NAME);
+    if (envelopedSettings != null) {
+      result.setSettings(
+          mapDocumentSettings(
+              new com.linkedin.knowledge.DocumentSettings(envelopedSettings.getValue().data())));
+    }
+
     // Map SubTypes aspect to subType field (get first type if available)
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
     if (envelopedSubTypes != null) {
@@ -266,6 +274,17 @@ public class DocumentMapper {
     if (source.hasExternalId()) {
       result.setExternalId(source.getExternalId());
     }
+
+    return result;
+  }
+
+  /** Maps the Document Settings PDL model to the GraphQL model */
+  private static com.linkedin.datahub.graphql.generated.DocumentSettings mapDocumentSettings(
+      final com.linkedin.knowledge.DocumentSettings settings) {
+    final com.linkedin.datahub.graphql.generated.DocumentSettings result =
+        new com.linkedin.datahub.graphql.generated.DocumentSettings();
+
+    result.setShowInGlobalContext(settings.isShowInGlobalContext());
 
     return result;
   }

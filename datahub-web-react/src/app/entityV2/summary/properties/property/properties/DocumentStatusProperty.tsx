@@ -64,14 +64,7 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
 
         return (
             <StatusSelectWrapper>
-                <Tooltip
-                    title={
-                        <>
-                            Publish this document to make it visible to <b>Ask DataHub</b>
-                        </>
-                    }
-                    placement="top"
-                >
+                <Tooltip title={<>Publish this document to make it visible to others</>} placement="top">
                     <div data-testid="document-status-select">
                         <SimpleSelect
                             values={[optimisticStatus]}

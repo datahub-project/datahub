@@ -10,6 +10,7 @@ import {
     useMoveDocumentMutation,
     useUpdateDocumentContentsMutation,
 } from '@graphql/document.generated';
+import { DocumentState } from '@types';
 
 /**
  * Hooks that combine tree state updates with backend mutations.
@@ -51,7 +52,9 @@ export function useCreateDocumentTreeMutation() {
                             title: input.title,
                             parentDocument: input.parentDocument,
                             subType: input.subType, // No default subType - let users choose
+                            state: DocumentState.Published, // UI-created documents are published by default
                             contents: { text: '' }, // Empty initial content
+                            settings: { showInGlobalContext: true }, // UI-created documents are always visible in global context
                         },
                     },
                 });
