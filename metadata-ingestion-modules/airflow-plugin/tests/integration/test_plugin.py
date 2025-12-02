@@ -768,6 +768,8 @@ test_cases_airflow2 = [
     DagTestCase("custom_operator_sql_parsing", v2_only=True),
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
     DagTestCase("athena_operator", v2_only=True),
+    DagTestCase("bigquery_insert_job_operator", v2_only=True),
+    DagTestCase("teradata_operator", v2_only=True),
 ]
 
 # Airflow 3.x test cases - these DAGs are in tests/integration/dags/airflow3/
@@ -792,7 +794,7 @@ test_cases_airflow3 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
     DagTestCase("bigquery_insert_job_operator"),
-    DagTestCase("teradata_operator"),
+    # Note: teradata_operator is Airflow 2 only (uses Legacy OpenLineage extractor)
 ]
 
 
