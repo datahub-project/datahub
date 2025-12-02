@@ -194,7 +194,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .collect(Collectors.toList());
 
     final List<EbeanAspectV2> results;
-    if (forUpdate) {
+    if (forUpdate && canWrite) {
       results = server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
     } else {
       results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
@@ -425,7 +425,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     // Add FOR UPDATE clause only once at the end of the entire statement
-    if (forUpdate) {
+    if (forUpdate && canWrite) {
       sb.append(" FOR UPDATE");
     }
 
@@ -484,7 +484,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     sb.append(")");
 
-    if (forUpdate) {
+    if (forUpdate && canWrite) {
       sb.append(" FOR UPDATE");
     }
 
@@ -891,7 +891,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
     // max(version) was invalidated
-    server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
+    if (canWrite) {
+      server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
+    }
 
     Junction<EbeanAspectV2> queryJunction =
         server
