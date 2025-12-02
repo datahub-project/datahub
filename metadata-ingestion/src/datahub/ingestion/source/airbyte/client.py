@@ -84,14 +84,11 @@ class AirbyteBaseClient(ABC):
         """
         session = requests.Session()
 
-        # Set up base headers
         session.headers.update({"Content-Type": "application/json"})
 
-        # Add custom headers if provided
         if self.config.extra_headers:
             session.headers.update(self.config.extra_headers)
 
-        # Configure SSL verification
         session.verify = self.config.verify_ssl
         if self.config.verify_ssl and self.config.ssl_ca_cert:
             if os.path.isfile(self.config.ssl_ca_cert):
@@ -104,12 +101,10 @@ class AirbyteBaseClient(ABC):
 
         if not self.config.verify_ssl:
             logger.warning("SSL certificate verification is disabled")
-            # Suppress insecure request warnings when verify is False
             import urllib3
 
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-        # Configure retry logic
         retry_strategy = Retry(
             total=self.config.max_retries,
             backoff_factor=self.config.retry_backoff_factor,
@@ -234,27 +229,21 @@ class AirbyteBaseClient(ABC):
 
             response = self._make_request(endpoint, method, data, params)
 
-            # Extract items from the response
             items = response.get(result_key, [])
             if isinstance(items, list):
                 for item in items:
                     yield item
                     total_items += 1
 
-                    # Check if we've reached the requested limit
                     if limit and total_items >= limit:
                         return
             else:
-                # Not a list, might be just one item or an error
                 logger.warning(f"Expected list for {result_key} but got {type(items)}")
 
-            # Check if there are more pages
             next_token = response.get(next_page_token_key)
             if not next_token or next_token == "":
-                # No more pages
                 break
 
-            # Update offset for the next page
             offset += page_size
 
     @staticmethod
@@ -757,15 +746,12 @@ class AirbyteOSSClient(AirbyteBaseClient):
         """
         super().__init__(config)
 
-        # Ensure host_port is not None for OSS
         if not config.host_port:
             raise ValueError("host_port is required for open_source deployment")
 
-        # Set the base URL for API requests - OSS uses /api/public/v1
-        # Per https://docs.airbyte.com/developers/api-documentation
+        # OSS uses /api/public/v1 per https://docs.airbyte.com/developers/api-documentation
         self.base_url = f"{self._clean_uri(config.host_port)}/api/public/v1"
 
-        # Configure authentication
         self._setup_authentication()
 
     def _setup_authentication(self) -> None:
@@ -773,13 +759,10 @@ class AirbyteOSSClient(AirbyteBaseClient):
         Set up the appropriate authentication method based on configuration.
         Prioritizes API key/token over username/password if both are provided.
         """
-        # Check for API key/token first (PAT)
         if self.config.api_key:
-            # Add as Bearer token in the Authorization header
             token = self.config.api_key.get_secret_value()
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             logger.debug("Using API key/token authentication")
-        # Fall back to basic auth if username is provided
         elif self.config.username:
             password = (
                 self.config.password.get_secret_value() if self.config.password else ""
@@ -831,10 +814,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
         if not self.workspace_id:
             raise ValueError("Workspace ID is required for Airbyte Cloud")
 
-        # Set the base URL for API requests
         self.base_url = self.CLOUD_BASE_URL
-
-        # Set up OAuth2 authentication
         self._setup_oauth_authentication()
 
     def _setup_oauth_authentication(self) -> None:
@@ -849,7 +829,6 @@ class AirbyteCloudClient(AirbyteBaseClient):
         if not self.config.oauth2_client_secret:
             raise ValueError("OAuth2 client secret is required for Airbyte Cloud")
 
-        # Set up initial token
         self._refresh_oauth_token()
 
     def _refresh_oauth_token(self) -> None:
@@ -858,11 +837,9 @@ class AirbyteCloudClient(AirbyteBaseClient):
         """
         logger.debug("Refreshing OAuth2 token")
 
-        # Ensure oauth2_client_secret is not None
         if not self.config.oauth2_client_secret:
             raise ValueError("OAuth2 client secret is required for token refresh")
 
-        # Ensure oauth2_refresh_token is not None
         if not self.config.oauth2_refresh_token:
             raise ValueError("OAuth2 refresh token is required for token refresh")
 

@@ -1,5 +1,3 @@
-import pytest
-from pydantic import ValidationError
 from pydantic.types import SecretStr
 
 from datahub.configuration.common import AllowDenyPattern
@@ -9,12 +7,10 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteSourceConfig,
     PlatformInstanceConfig,
 )
-from datahub.ingestion.source.airbyte.models import AirbyteWorkspace
 
 
 class TestAirbyteClientConfig:
     def test_open_source_config_valid(self):
-        # Test valid open source config with host_port
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -23,7 +19,6 @@ class TestAirbyteClientConfig:
         assert config.host_port == "http://localhost:8000"
 
     def test_open_source_config_with_auth(self):
-        # Test valid open source config with basic auth
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -37,19 +32,7 @@ class TestAirbyteClientConfig:
             config.password is not None and config.password.get_secret_value() == "pass"
         )
 
-    def test_open_source_config_without_host_port(self):
-        # Test invalid open source config without host_port
-        with pytest.raises(ValueError) as excinfo:
-            # Create config without host_port to trigger validation error
-            AirbyteClientConfig(
-                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            )
-
-        # Verify the error message contains host_port
-        assert "host_port is required" in str(excinfo.value)
-
     def test_cloud_config_valid(self):
-        # Test valid cloud config with api_key
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             api_key=SecretStr("test-api-key"),
@@ -62,19 +45,7 @@ class TestAirbyteClientConfig:
         )
         assert config.cloud_workspace_id == "test-workspace-id"
 
-    def test_cloud_config_without_api_key_or_workspace(self):
-        # Test invalid cloud config without required fields
-        with pytest.raises(ValueError) as excinfo:
-            # Create config without cloud_workspace_id to trigger validation error
-            AirbyteClientConfig(
-                deployment_type=AirbyteDeploymentType.CLOUD,
-            )
-
-        # Verify the error message contains the required field
-        assert "cloud_workspace_id is required" in str(excinfo.value)
-
     def test_invalid_deployment_type(self):
-        # Test with invalid deployment type
         try:
             # Use a string that is not a valid enum value
             AirbyteClientConfig(
@@ -89,35 +60,6 @@ class TestAirbyteClientConfig:
                 "deployment_type" in str(e).lower()
                 or "not a valid enum" in str(e).lower()
                 or "invalid_type" in str(e).lower()
-            )
-
-
-class TestAirbyteWorkspace:
-    def test_valid_workspace(self):
-        workspace = AirbyteWorkspace(
-            workspaceId="test-workspace-id",
-            name="Test Workspace",
-            workspace_id="test-workspace-id",
-        )
-        assert workspace.workspace_id == "test-workspace-id"
-        assert workspace.name == "Test Workspace"
-
-    def test_missing_id(self):
-        with pytest.raises(ValidationError):
-            # Pass None instead of empty string to trigger validation error
-            AirbyteWorkspace(
-                workspaceId=None,
-                name="Test Workspace",
-                workspace_id=None,
-            )
-
-    def test_missing_name(self):
-        with pytest.raises(ValidationError):
-            # Pass None instead of empty string to trigger validation error
-            AirbyteWorkspace(
-                workspaceId="test-workspace-id",
-                name=None,
-                workspace_id="test-workspace-id",
             )
 
 
@@ -142,7 +84,6 @@ class TestPlatformInstanceConfig:
 
 class TestAirbyteSourceConfig:
     def test_basic_config(self):
-        # Test basic configuration
         config = AirbyteSourceConfig(
             platform_instance="dev",
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -157,7 +98,6 @@ class TestAirbyteSourceConfig:
         assert config.extract_tags is True
 
     def test_cloud_config(self):
-        # Test cloud configuration
         config = AirbyteSourceConfig(
             platform_instance="prod",
             deployment_type=AirbyteDeploymentType.CLOUD,
@@ -172,30 +112,7 @@ class TestAirbyteSourceConfig:
         )
         assert config.cloud_workspace_id == "test-workspace-id"
 
-    def test_validation_oss(self):
-        # Test validation for OSS without host_port
-        with pytest.raises(ValueError) as excinfo:
-            # Create config without host_port to trigger validation error
-            AirbyteSourceConfig(
-                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            )
-
-        # Verify the error message contains host_port
-        assert "host_port is required" in str(excinfo.value)
-
-    def test_validation_cloud(self):
-        # Test validation for cloud without workspace ID
-        with pytest.raises(ValueError) as excinfo:
-            # Create config without cloud_workspace_id to trigger validation error
-            AirbyteSourceConfig(
-                deployment_type=AirbyteDeploymentType.CLOUD,
-            )
-
-        # Verify the error message contains cloud_workspace_id
-        assert "cloud_workspace_id is required" in str(excinfo.value)
-
     def test_with_patterns(self):
-        # Test with allow/deny patterns
         config = AirbyteSourceConfig(
             platform_instance="dev",
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,

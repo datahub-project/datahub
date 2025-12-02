@@ -17,34 +17,27 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteDeploymentType,
 )
 
-# Import the real AirbyteSource class from the source module, not from models
-
 
 class TestCreateAirbyteClient:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient")
     def test_create_oss_client(self, mock_oss_client):
-        # Set up a mock client instance that will be returned
         mock_client_instance = MagicMock()
         mock_oss_client.return_value = mock_client_instance
 
-        # Create the client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="localhost:8000",
         )
         client = create_airbyte_client(config)
 
-        # Assert the OSS client was created with the right config
         mock_oss_client.assert_called_once_with(config)
         assert client == mock_client_instance
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient")
     def test_create_cloud_client(self, mock_cloud_client):
-        # Set up a mock client instance that will be returned
         mock_client_instance = MagicMock()
         mock_cloud_client.return_value = mock_client_instance
 
-        # Create the client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
@@ -54,21 +47,16 @@ class TestCreateAirbyteClient:
         )
         client = create_airbyte_client(config)
 
-        # Assert the Cloud client was created with the right config
         mock_cloud_client.assert_called_once_with(config)
         assert client == mock_client_instance
 
     def test_create_invalid_client(self):
-        # Use an invalid deployment type
         with pytest.raises(ValueError):
-            # Create config with valid enum
             config = AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
                 host_port="localhost:8000",
             )
 
-            # Instead of accessing __wrapped__, which doesn't exist,
-            # monkey patch create_airbyte_client to simulate invalid type behavior
             with patch(
                 "datahub.ingestion.source.airbyte.client.create_airbyte_client"
             ) as mock_create:
@@ -78,7 +66,6 @@ class TestCreateAirbyteClient:
 
 class TestAirbyteOSSClient:
     def test_init_with_defaults(self):
-        # Create client with config
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -90,7 +77,6 @@ class TestAirbyteOSSClient:
         assert client.config.api_key is None
 
     def test_init_with_api_key(self):
-        # Create client with API key
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -104,24 +90,20 @@ class TestAirbyteOSSClient:
         assert client.config.api_key.get_secret_value() == "test-api-key"
 
     def test_init_without_host_port(self):
-        # Missing host_port should raise ValidationError during config creation
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="host_port is required"):
             AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-                # Missing host_port
             )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_list_workspaces(self, mock_paginate_results):
-        # Mock the _paginate_results to return the items we want
         mock_paginate_results.return_value = [
             {"workspaceId": "workspace-id-1", "name": "Workspace 1"},
             {"workspaceId": "workspace-id-2", "name": "Workspace 2"},
         ]
 
-        # Create client and call method
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -129,13 +111,10 @@ class TestAirbyteOSSClient:
         client = AirbyteOSSClient(config)
         workspaces = client.list_workspaces()
 
-        # Verify the results
         assert len(workspaces) == 2
-        # Since the client returns raw dictionaries, not models
         assert workspaces[0].get("workspaceId") == "workspace-id-1"
         assert workspaces[0].get("name") == "Workspace 1"
 
-        # Mock should have been called once
         mock_paginate_results.assert_called_once_with(
             endpoint="/workspaces", method="GET", result_key="data"
         )
@@ -145,34 +124,28 @@ class TestAirbyteOSSClient:
     def test_list_workspaces_with_pattern(
         self, mock_apply_pattern, mock_paginate_results
     ):
-        # Mock the _paginate_results method to return the items we want
         mock_paginate_results.return_value = [
             {"workspaceId": "workspace-id-1", "name": "Test Workspace"},
             {"workspaceId": "workspace-id-2", "name": "Production Workspace"},
         ]
 
-        # Mock the _apply_pattern method to filter results
         mock_apply_pattern.return_value = [
             {"workspaceId": "workspace-id-1", "name": "Test Workspace"}
         ]
 
-        # Create client and call method with pattern
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
 
-        # Create a pattern that only allows "Test" workspaces
         pattern = AllowDenyPattern(allow=["Test.*"])
         workspaces = client.list_workspaces(pattern)
 
-        # Verify filtered results
         assert len(workspaces) == 1
         assert workspaces[0].get("workspaceId") == "workspace-id-1"
         assert workspaces[0].get("name") == "Test Workspace"
 
-        # Mocks should have been called correctly
         mock_paginate_results.assert_called_once_with(
             endpoint="/workspaces", method="GET", result_key="data"
         )
@@ -180,7 +153,6 @@ class TestAirbyteOSSClient:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_list_connections(self, mock_paginate_results):
-        # Mock the _paginate_results method to return the items we want
         mock_paginate_results.return_value = [
             {
                 "connectionId": "connection-id-1",
@@ -191,21 +163,15 @@ class TestAirbyteOSSClient:
                 "schedule": {"scheduleType": "basic", "timeUnit": "hours", "units": 1},
             }
         ]
-
-        # Create client and call method
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
         connections = client.list_connections("workspace-id-1")
-
-        # Verify the results
         assert len(connections) == 1
         assert connections[0].get("connectionId") == "connection-id-1"
         assert connections[0].get("name") == "Connection 1"
-
-        # Verify the mock was called correctly
         mock_paginate_results.assert_called_once_with(
             endpoint="/connections",
             method="GET",
@@ -219,8 +185,6 @@ class TestAirbyteOSSClient:
         mock_make_request.side_effect = requests.exceptions.HTTPError(
             "404 Client Error: Not Found"
         )
-
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -291,24 +255,18 @@ class TestAirbyteClientBase:
 class TestAirbyteOpenSourceClient:
     @patch("datahub.ingestion.source.airbyte.client.requests.Session")
     def test_init(self, mock_session):
-        # Setup mock
         mock_session_instance = MagicMock()
         mock_session.return_value = mock_session_instance
-
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
-
-        # Verify session setup
         assert client.base_url == "http://localhost:8000/api/public/v1"
         mock_session.assert_called_once()
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_get_workspaces(self, mock_paginate_results):
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -323,30 +281,21 @@ class TestAirbyteOpenSourceClient:
                 "slug": "default-workspace",
             }
         ]
-
-        # Call the method
         workspaces = client.list_workspaces()
-
-        # Check that we got the expected response
         assert len(workspaces) == 1
         assert workspaces[0].get("workspaceId") == "workspace-id-1"
         assert workspaces[0].get("name") == "Default Workspace"
-
-        # Verify the mock was called correctly
         mock_paginate_results.assert_called_once_with(
             endpoint="/workspaces", method="GET", result_key="data"
         )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_get_sources(self, mock_paginate_results):
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
-
-        # Mock the response
         mock_paginate_results.return_value = [
             {
                 "sourceId": "source-id-1",
@@ -361,16 +310,10 @@ class TestAirbyteOpenSourceClient:
                 },
             }
         ]
-
-        # Call the method
         sources = client.list_sources("workspace-id-1")
-
-        # Verify response
         assert len(sources) == 1
         assert sources[0].get("sourceId") == "source-id-1"
         assert sources[0].get("name") == "PostgreSQL Source"
-
-        # Verify the mock was called correctly
         mock_paginate_results.assert_called_once_with(
             endpoint="/sources",
             method="GET",
@@ -380,14 +323,11 @@ class TestAirbyteOpenSourceClient:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_get_destinations(self, mock_paginate_results):
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
-
-        # Mock the response
         mock_paginate_results.return_value = [
             {
                 "destinationId": "dest-id-1",
@@ -402,16 +342,10 @@ class TestAirbyteOpenSourceClient:
                 },
             }
         ]
-
-        # Call the method
         destinations = client.list_destinations("workspace-id-1")
-
-        # Verify response
         assert len(destinations) == 1
         assert destinations[0].get("destinationId") == "dest-id-1"
         assert destinations[0].get("name") == "PostgreSQL Destination"
-
-        # Verify the mock was called correctly
         mock_paginate_results.assert_called_once_with(
             endpoint="/destinations",
             method="GET",
@@ -421,14 +355,11 @@ class TestAirbyteOpenSourceClient:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
     def test_get_connections(self, mock_paginate_results):
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
-
-        # Mock the response
         mock_paginate_results.return_value = [
             {
                 "connectionId": "conn-id-1",
@@ -460,16 +391,10 @@ class TestAirbyteOpenSourceClient:
                 "schedule": {"scheduleType": "manual"},
             }
         ]
-
-        # Call the method
         connections = client.list_connections("workspace-id-1")
-
-        # Verify response
         assert len(connections) == 1
         assert connections[0].get("connectionId") == "conn-id-1"
         assert connections[0].get("name") == "Postgres to Snowflake"
-
-        # Verify the mock was called correctly
         mock_paginate_results.assert_called_once_with(
             endpoint="/connections",
             method="GET",
@@ -480,7 +405,6 @@ class TestAirbyteOpenSourceClient:
 
 class TestAirbyteCloudClient:
     def test_init_with_defaults(self):
-        # Create client with required config
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
@@ -561,10 +485,8 @@ class TestAirbyteCloudClient:
         "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._paginate_results"
     )
     def test_get_sources(self, mock_paginate_results, mock_refresh_token):
-        # Mock the oauth refresh
         mock_refresh_token.return_value = None
 
-        # Set up the mock to return an iterator of items
         mock_paginate_results.return_value = iter(
             [
                 {
@@ -575,8 +497,6 @@ class TestAirbyteCloudClient:
                 }
             ]
         )
-
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
@@ -586,16 +506,11 @@ class TestAirbyteCloudClient:
         )
         client = AirbyteCloudClient(config)
         client.access_token = "test-token"  # Set the access token directly
-
-        # Call the method
         sources = client.list_sources(workspace_id="workspace-id-1")
-
-        # Verify response
         assert len(sources) == 1
         assert sources[0].get("sourceId") == "source-id-1"
         assert sources[0].get("name") == "Source 1"
 
-        # Verify the correct endpoint was used
         mock_paginate_results.assert_called_once_with(
             endpoint="/sources",
             method="GET",
@@ -610,10 +525,8 @@ class TestAirbyteCloudClient:
         "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._paginate_results"
     )
     def test_get_destinations(self, mock_paginate_results, mock_refresh_token):
-        # Mock the oauth refresh
         mock_refresh_token.return_value = None
 
-        # Set up the mock to return an iterator of items
         mock_paginate_results.return_value = iter(
             [
                 {
@@ -624,8 +537,6 @@ class TestAirbyteCloudClient:
                 }
             ]
         )
-
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
@@ -635,16 +546,11 @@ class TestAirbyteCloudClient:
         )
         client = AirbyteCloudClient(config)
         client.access_token = "test-token"  # Set the access token directly
-
-        # Call the method
         destinations = client.list_destinations(workspace_id="workspace-id-1")
-
-        # Verify response
         assert len(destinations) == 1
         assert destinations[0].get("destinationId") == "destination-id-1"
         assert destinations[0].get("name") == "Destination 1"
 
-        # Verify the correct endpoint was used
         mock_paginate_results.assert_called_once_with(
             endpoint="/destinations",
             method="GET",
@@ -659,10 +565,8 @@ class TestAirbyteCloudClient:
         "datahub.ingestion.source.airbyte.client.AirbyteCloudClient._paginate_results"
     )
     def test_get_connections(self, mock_paginate_results, mock_refresh_token):
-        # Mock the oauth refresh
         mock_refresh_token.return_value = None
 
-        # Set up the mock to return an iterator of items
         mock_paginate_results.return_value = iter(
             [
                 {
@@ -674,8 +578,6 @@ class TestAirbyteCloudClient:
                 }
             ]
         )
-
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
@@ -685,16 +587,11 @@ class TestAirbyteCloudClient:
         )
         client = AirbyteCloudClient(config)
         client.access_token = "test-token"  # Set the access token directly
-
-        # Call the method
         connections = client.list_connections(workspace_id="workspace-id-1")
-
-        # Verify response
         assert len(connections) == 1
         assert connections[0].get("connectionId") == "connection-id-1"
         assert connections[0].get("name") == "Connection 1"
 
-        # Verify the correct endpoint was used
         mock_paginate_results.assert_called_once_with(
             endpoint="/connections",
             method="GET",
@@ -707,10 +604,8 @@ class TestAirbyteCloudClient:
     )
     @patch("datahub.ingestion.source.airbyte.client.AirbyteCloudClient._make_request")
     def test_list_workspaces(self, mock_make_request, mock_refresh_token):
-        # Mock the oauth refresh
         mock_refresh_token.return_value = None
 
-        # Set up the mock response
         mock_make_request.return_value = {
             "workspaceId": "workspace-id-1",
             "name": "Workspace 1",
@@ -723,8 +618,6 @@ class TestAirbyteCloudClient:
             "securityUpdates": True,
             "organizationId": "org-id-1",
         }
-
-        # Create client
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
@@ -734,8 +627,6 @@ class TestAirbyteCloudClient:
         )
         client = AirbyteCloudClient(config)
         client.access_token = "test-token"  # Set the access token directly
-
-        # Call the method
         workspaces = client.list_workspaces()
 
         # Verify response - cloud only returns the configured workspace
@@ -911,7 +802,7 @@ class TestClientSSLAndAuth:
             client = AirbyteOSSClient(config)
 
         # API key authentication is handled by _check_auth_before_request
-        # Just verify client is created
+
         assert client is not None
 
     def test_oss_client_with_username_password(self, caplog):
