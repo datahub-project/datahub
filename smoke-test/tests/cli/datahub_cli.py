@@ -72,7 +72,7 @@ def test_rollback_editable(auth_session, graph_client):
 
     gms_host = graph_client.config.server
 
-    logger.info("Ingested dataset id: %s", ingested_dataset_run_id)
+    logger.info(f"Ingested dataset id: {ingested_dataset_run_id}")
     # Assert that second data ingestion worked
 
     assert graph_client.get_aspect(dataset_urn, BrowsePathsV2Class) is not None
@@ -81,7 +81,7 @@ def test_rollback_editable(auth_session, graph_client):
     ingested_editable_run_id = ingest_file_via_rest(
         auth_session, "tests/cli/cli_editable_test_data.json"
     ).config.run_id
-    logger.info("ingested editable id: %s", ingested_editable_run_id)
+    logger.info(f"ingested editable id: {ingested_editable_run_id}")
     # Assert that second data ingestion worked
 
     assert (
