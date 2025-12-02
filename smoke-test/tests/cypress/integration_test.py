@@ -311,6 +311,6 @@ def test_run_cypress(auth_session):
     stdout_thread.join()
     stderr_thread.join()
 
-    logger.info("return code", return_code)
+    logger.info(f"return code: {return_code}")
     print_now()
     assert return_code == 0
