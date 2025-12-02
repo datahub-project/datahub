@@ -1453,7 +1453,9 @@ def _parse_stored_procedure_fallback(
     # treats as a single statement. We need to extract just the body.
     sql_to_parse = sql
     sql_upper = sql.upper()
+    logger.debug(f"Checking for CREATE PROCEDURE wrapper. SQL starts with: {sql[:100]}")
     if "CREATE PROCEDURE" in sql_upper or "CREATE OR REPLACE PROCEDURE" in sql_upper:
+        logger.debug("CREATE PROCEDURE detected, attempting to strip wrapper")
         # Try to extract the body between AS and the final END
         # Pattern: CREATE PROCEDURE ... AS <body>
         import re
@@ -1467,6 +1469,8 @@ def _parse_stored_procedure_fallback(
             logger.debug(
                 f"Stripped CREATE PROCEDURE wrapper, parsing body only ({len(sql_to_parse)} chars)"
             )
+        else:
+            logger.debug("No AS keyword found after CREATE PROCEDURE")
 
     # Split into individual statements
     statements = list(split_statements(sql_to_parse))
