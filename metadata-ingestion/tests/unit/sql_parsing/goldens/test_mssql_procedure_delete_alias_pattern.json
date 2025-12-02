@@ -1,5 +1,5 @@
 {
-    "query_type": "CREATE_OTHER",
+    "query_type": "UNKNOWN",
     "query_type_props": {
         "kind": "PROCEDURE"
     },
