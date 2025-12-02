@@ -16,12 +16,15 @@ Validates end-to-end functionality of:
 Tests are idempotent and use unique IDs for created documents.
 """
 
+import logging
 import time
 import uuid
 
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+
+logger = logging.getLogger(__name__)
 
 
 def execute_graphql(auth_session, query: str, variables: dict | None = None) -> dict:
@@ -393,7 +396,7 @@ def test_search_documents(auth_session):
 
     # Search can fail if index is not ready - log and skip assertion if it fails
     if "errors" in search_res:
-        print(
+        logger.info(
             f"WARNING: Search failed (index may not be ready): {search_res.get('errors')}"
         )
         # Cleanup and return early
@@ -886,7 +889,7 @@ def test_search_documents_with_filters(auth_session):
 
     # Search can fail if index is not ready
     if "errors" in search_res:
-        print(
+        logger.info(
             f"WARNING: Search with filters failed (index may not be ready): {search_res.get('errors')}"
         )
         # Cleanup and return early
@@ -1253,7 +1256,7 @@ def test_search_ownership_filtering(auth_session):
 
     # Search can fail if index is not ready
     if "errors" in search_res:
-        print(
+        logger.info(
             f"WARNING: Ownership search failed (index may not be ready): {search_res.get('errors')}"
         )
         # Cleanup and return early

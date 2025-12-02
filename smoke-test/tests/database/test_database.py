@@ -14,11 +14,11 @@ generated_urns = [make_dataset_urn("test", f"database_test_{i}") for i in range(
 
 @pytest.fixture(scope="module")
 def ingest_cleanup_data(graph_client, request):
-    print("removing test data before")
+    logger.info("removing test data before")
     delete_urns(graph_client, generated_urns)
     wait_for_writes_to_sync()
     yield
-    print("removing test data after")
+    logger.info("removing test data after")
     delete_urns(graph_client, generated_urns)
     wait_for_writes_to_sync()
 
