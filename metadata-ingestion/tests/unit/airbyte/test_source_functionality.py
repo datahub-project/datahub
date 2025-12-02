@@ -94,6 +94,7 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
     source_dict = {
         "sourceId": "source-1",
         "name": "Test Source",
+        "sourceType": "postgres",
         "sourceDefinitionId": "source-def-1",
         "workspaceId": "workspace-1",
         "connectionConfiguration": {"host": "localhost", "port": 5432},
@@ -101,6 +102,7 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
     destination_dict = {
         "destinationId": "destination-1",
         "name": "Test Destination",
+        "destinationType": "postgres",
         "destinationDefinitionId": "dest-def-1",
         "workspaceId": "workspace-1",
         "connectionConfiguration": {"host": "localhost", "port": 5432},
@@ -160,6 +162,7 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     source_dict = {
         "sourceId": "source-1",
         "name": "Test Source",
+        "sourceType": "postgres",
         "sourceDefinitionId": "source-def-1",
         "workspaceId": "workspace-1",
         "connectionConfiguration": {"host": "localhost", "port": 5432},
@@ -167,6 +170,7 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     destination_dict = {
         "destinationId": "destination-1",
         "name": "Test Destination",
+        "destinationType": "postgres",
         "destinationDefinitionId": "dest-def-1",
         "workspaceId": "workspace-1",
         "connectionConfiguration": {"host": "localhost", "port": 5432},

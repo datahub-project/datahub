@@ -27,6 +27,10 @@ source:
     extract_column_level_lineage: true # Extract column-level lineage information
     include_statuses: true             # Include connection job statuses
     job_statuses_limit: 100            # Max number of job statuses to retrieve
+    
+    # Lineage emission mode
+    incremental_lineage: true          # Emit lineage as patch (incremental) rather than full replacement
+                                       # Set to false to re-state all lineage on each run
 
     # Optional: Extract ownership and tags
     extract_owners: false              # Extract owners from connection names

@@ -8,6 +8,9 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     EnvConfigMixin,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -22,6 +25,88 @@ class AirbyteDeploymentType(StrEnum):
 
     OPEN_SOURCE = "oss"
     CLOUD = "cloud"
+
+
+# Known source type to DataHub platform mapping
+KNOWN_SOURCE_TYPE_MAPPING = {
+    # Relational Databases
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mariadb",
+    "mssql": "mssql",
+    "sql-server": "mssql",
+    "sqlserver": "mssql",
+    "oracle": "oracle",
+    "db2": "db2",
+    # Cloud Data Warehouses
+    "snowflake": "snowflake",
+    "bigquery": "bigquery",
+    "redshift": "redshift",
+    "databricks": "databricks",
+    "synapse": "mssql",
+    # NoSQL Databases
+    "mongodb": "mongodb",
+    "mongo": "mongodb",
+    "cassandra": "cassandra",
+    "dynamodb": "dynamodb",
+    "elasticsearch": "elasticsearch",
+    "opensearch": "opensearch",
+    "clickhouse": "clickhouse",
+    # Big Data & Analytics
+    "hive": "hive",
+    "presto": "presto",
+    "trino": "trino",
+    "athena": "athena",
+    "vertica": "vertica",
+    "teradata": "teradata",
+    "druid": "druid",
+    # Cloud Storage
+    "s3": "s3",
+    "gcs": "gcs",
+    "google-cloud-storage": "gcs",
+    "azure-blob-storage": "abs",
+    "abs": "abs",
+    # Streaming & Messaging
+    "kafka": "kafka",
+    "pulsar": "pulsar",
+    "kinesis": "kinesis",
+    # File Formats & Data Lakes
+    "delta-lake": "delta-lake",
+    "iceberg": "iceberg",
+    "hudi": "hudi",
+    # Other
+    "glue": "glue",
+    "salesforce": "salesforce",
+    "netsuite": "netsuite",
+    "sap-hana": "hana",
+    "hana": "hana",
+}
+
+
+class PlatformDetail(ConfigModel):
+    """Configuration for mapping a specific Airbyte source/destination to DataHub URNs."""
+
+    platform: Optional[str] = Field(
+        default=None,
+        description="Override the platform type detection (e.g., 'postgres', 'mysql')",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="The instance of the platform that all assets belong to",
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment to use for dataset URNs (e.g., PROD, DEV, STAGING)",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="Override the database name for all datasets from this source/destination",
+    )
+    include_schema_in_urn: bool = Field(
+        default=True,
+        description="Include schema in the dataset URN. Set to false for two-tier sources like MySQL.",
+    )
 
 
 class PlatformInstanceConfig(ConfigModel):
@@ -196,6 +281,7 @@ class AirbyteSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     EnvConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
     """Airbyte source configuration for metadata ingestion"""
 
@@ -223,6 +309,29 @@ class AirbyteSourceConfig(
     destination_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter destinations. Use the pattern format as in other DataHub sources.",
+    )
+
+    # Source type mapping for platform names
+    source_type_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping from Airbyte sourceType/destinationType to DataHub platform names. "
+        "Use this to normalize Airbyte's source types to DataHub platform names. "
+        "Example: {'PostgreSQL': 'postgres', 'MySQL': 'mysql'}. "
+        "If not specified, the sourceType/destinationType from Airbyte is sanitized and used directly.",
+    )
+
+    # Per-source and per-destination platform instance mapping
+    sources_to_platform_instance: Dict[str, PlatformDetail] = Field(
+        default_factory=dict,
+        description="A mapping from Airbyte source ID to its platform/instance/env/database details. "
+        "Use this to override platform details for specific sources. "
+        "Example: {'11111111-1111-1111-1111-111111111111': {'platform': 'postgres', 'platform_instance': 'prod-postgres', 'env': 'PROD'}}",
+    )
+
+    destinations_to_platform_instance: Dict[str, PlatformDetail] = Field(
+        default_factory=dict,
+        description="A mapping from Airbyte destination ID to its platform/instance/env/database details. "
+        "Use this to override platform details for specific destinations.",
     )
 
     # Jobs and status configuration

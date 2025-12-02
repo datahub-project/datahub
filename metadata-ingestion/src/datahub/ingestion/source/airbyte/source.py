@@ -1,5 +1,6 @@
 import logging
-from typing import Iterable, List, Optional
+from functools import partial
+from typing import Dict, Iterable, List, Optional
 
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -21,6 +22,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceCapability,
@@ -31,7 +33,10 @@ from datahub.ingestion.source.airbyte.client import (
     AirbyteBaseClient,
     create_airbyte_client,
 )
-from datahub.ingestion.source.airbyte.config import AirbyteSourceConfig
+from datahub.ingestion.source.airbyte.config import (
+    KNOWN_SOURCE_TYPE_MAPPING,
+    AirbyteSourceConfig,
+)
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
     AirbyteDatasetMapping,
@@ -88,6 +93,46 @@ def _sanitize_platform_name(platform_name: str) -> str:
     return platform_name.lower().replace(" ", "-")
 
 
+def _map_source_type_to_platform(
+    source_type: str, source_type_mapping: Dict[str, str]
+) -> str:
+    """Map Airbyte source type to DataHub platform name.
+
+    Args:
+        source_type: Airbyte sourceType or destinationType
+        source_type_mapping: User-configured mapping from source types to platform names
+
+    Returns:
+        Mapped platform name, or sanitized source_type if no mapping exists
+    """
+
+    # Check if user provided an explicit mapping
+    if source_type in source_type_mapping:
+        return source_type_mapping[source_type]
+
+    # Check known source type mapping
+    source_type_lower = source_type.lower()
+    if source_type_lower in KNOWN_SOURCE_TYPE_MAPPING:
+        return KNOWN_SOURCE_TYPE_MAPPING[source_type_lower]
+
+    # Otherwise sanitize the source type (lowercase, replace spaces with hyphens)
+    return _sanitize_platform_name(source_type)
+
+
+def _get_platform_from_source_type(source_type: str) -> str:
+    """Get platform from Airbyte source type with built-in mappings.
+
+    This is a simpler version without user overrides, used for fallback scenarios.
+    """
+    from datahub.ingestion.source.airbyte.config import KNOWN_SOURCE_TYPE_MAPPING
+
+    source_type_lower = source_type.lower()
+    if source_type_lower in KNOWN_SOURCE_TYPE_MAPPING:
+        return KNOWN_SOURCE_TYPE_MAPPING[source_type_lower]
+
+    return _sanitize_platform_name(source_type)
+
+
 @platform_name("Airbyte")
 @config_class(AirbyteSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -126,6 +171,74 @@ class AirbyteSource(StatefulIngestionSourceBase):
         config = AirbyteSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    def _get_platform_for_source(
+        self, source: AirbyteSourcePartial
+    ) -> tuple[str, Optional[str], Optional[str]]:
+        """Get platform, platform_instance, and env for a source.
+
+        Returns:
+            Tuple of (platform, platform_instance, env)
+        """
+        from datahub.ingestion.source.airbyte.config import PlatformDetail
+
+        # Check if there's a per-source override
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source.source_id, PlatformDetail()
+        )
+
+        # Determine platform
+        if source_details.platform:
+            platform = source_details.platform
+        elif source.source_type:
+            platform = _map_source_type_to_platform(
+                source.source_type, self.source_config.source_type_mapping
+            )
+        elif source.name:
+            platform = _map_source_type_to_platform(
+                source.name, self.source_config.source_type_mapping
+            )
+        else:
+            platform = ""
+
+        platform_instance = source_details.platform_instance
+        env = source_details.env
+
+        return platform, platform_instance, env
+
+    def _get_platform_for_destination(
+        self, destination: AirbyteDestinationPartial
+    ) -> tuple[str, Optional[str], Optional[str]]:
+        """Get platform, platform_instance, and env for a destination.
+
+        Returns:
+            Tuple of (platform, platform_instance, env)
+        """
+        from datahub.ingestion.source.airbyte.config import PlatformDetail
+
+        # Check if there's a per-destination override
+        dest_details = self.source_config.destinations_to_platform_instance.get(
+            destination.destination_id, PlatformDetail()
+        )
+
+        # Determine platform
+        if dest_details.platform:
+            platform = dest_details.platform
+        elif destination.destination_type:
+            platform = _map_source_type_to_platform(
+                destination.destination_type, self.source_config.source_type_mapping
+            )
+        elif destination.name:
+            platform = _map_source_type_to_platform(
+                destination.name, self.source_config.source_type_mapping
+            )
+        else:
+            platform = ""
+
+        platform_instance = dest_details.platform_instance
+        env = dest_details.env
+
+        return platform, platform_instance, env
+
     def _validate_pipeline_ids(
         self, pipeline_info: AirbytePipelineInfo, operation: str
     ) -> Optional[ValidatedPipelineIds]:
@@ -156,6 +269,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            partial(auto_incremental_lineage, self.source_config.incremental_lineage),
             StaleEntityRemovalHandler.create(
                 self, self.source_config, self.ctx
             ).workunit_processor,
@@ -333,8 +447,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         workspace_id = workspace.workspace_id
         connection_id = connection.connection_id
         connection_name = connection.name or "Unnamed Connection"
-        source_service_name = source.name or ""
-        destination_service_name = destination.name or ""
+
+        # Get platform details with per-source/destination overrides
+        source_platform, _, _ = self._get_platform_for_source(source)
+        destination_platform, _, _ = self._get_platform_for_destination(destination)
 
         # Prepare inputs and outputs from source and destination
         dataset_urns = AirbyteInputOutputDatasets()
@@ -342,8 +458,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if connection.sync_catalog:
             dataset_urns = self._get_input_output_datasets(
                 pipeline_info,
-                source_service_name,
-                destination_service_name,
+                source_platform,
+                destination_platform,
             )
 
         # Create a DataJob object with the parent flow URN
@@ -371,8 +487,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
             "connection_id": connection_id,
             "source_id": source.source_id or "",
             "destination_id": destination.destination_id or "",
-            "source_name": source_service_name,
-            "destination_name": destination_service_name,
+            "source_name": source.name or "",
+            "destination_name": destination.name or "",
+            "source_platform": source_platform,
+            "destination_platform": destination_platform,
             "status": connection.status or "",
             "schedule_type": connection.schedule_type or "",
             "schedule_data": str(connection.schedule_data or {}),
@@ -456,6 +574,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_platform: str,
         destination_platform: str,
     ) -> AirbyteInputOutputDatasets:
+        """Get input and output dataset URNs for a connection.
+
+        NOTE: This method does NOT apply per-source/per-destination platform_instance overrides.
+        It only uses the platform mapping configuration. Per-source/per-destination overrides
+        are applied in _create_dataset_urns which is used for per-stream lineage.
+        """
         inputs: List[str] = []
         outputs: List[str] = []
 
@@ -479,18 +603,14 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     source_platform, schema_name, table_name
                 )
 
-                # Override platform instance if specified
-                platform_instance = source_mapping.platform_instance
-                if not platform_instance and self.source_config.platform_instance:
-                    platform_instance = self.source_config.platform_instance
-
+                # Use platform_instance from mapping only (no global fallback)
                 source_urn = make_dataset_urn_with_platform_instance(
                     platform=source_mapping.platform,
                     name=source_mapping.name,
                     env=source_mapping.env
                     if source_mapping.env
                     else FabricTypeClass.PROD,
-                    platform_instance=platform_instance,
+                    platform_instance=source_mapping.platform_instance,
                 )
                 inputs.append(source_urn)
 
@@ -500,16 +620,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     destination_platform, schema_name, table_name
                 )
 
-                # Override platform instance if specified
-                platform_instance = dest_mapping.platform_instance
-                if not platform_instance and self.source_config.platform_instance:
-                    platform_instance = self.source_config.platform_instance
-
+                # Use platform_instance from mapping only (no global fallback)
                 destination_urn = make_dataset_urn_with_platform_instance(
                     platform=dest_mapping.platform,
                     name=dest_mapping.name,
                     env=dest_mapping.env if dest_mapping.env else FabricTypeClass.PROD,
-                    platform_instance=platform_instance,
+                    platform_instance=dest_mapping.platform_instance,
                 )
                 outputs.append(destination_urn)
 
@@ -715,6 +831,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 properties = {}
                 if stream.json_schema and "properties" in stream.json_schema:
                     properties = stream.json_schema.get("properties", {})
+                elif not stream.json_schema:
+                    logger.debug(
+                        f"Stream {stream.name} has no jsonSchema - column-level lineage will not be available"
+                    )
 
                 property_fields = []
                 for field_name, _field_schema in properties.items():
@@ -968,14 +1088,40 @@ class AirbyteSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Create lineage between source and destination datasets.
 
-        Note: Fine-grained (column-level) lineages are attached to the DataJob's
-        DataJobInputOutput aspect, NOT to the dataset's UpstreamLineage aspect.
-        This follows the same pattern as Fivetran and other DataHub sources.
+        This emits both dataset-level lineage (upstreams) and column-level lineage
+        (fineGrainedLineages) on the dataset's UpstreamLineage aspect, following the
+        same pattern as DBT and other DataHub sources.
+
+        Note: Column-level lineage is ALSO attached to the DataJob's DataJobInputOutput
+        aspect. This dual emission ensures lineage is visible both at the dataset level
+        and at the job level.
+
+        The UpstreamLineage aspect is marked as non-primary (is_primary_source=False)
+        because Airbyte is not the authoritative source for these datasets. This ensures
+        lineage is only added if the datasets already exist from their respective source
+        connectors (postgres, mysql, etc.).
         """
         work_units = []
 
-        # Create simple dataset-level lineage (without fine-grained lineages)
-        # Fine-grained lineages are handled by the DataJob's InputOutput aspect
+        # Build fine-grained (column-level) lineages if enabled
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        if self.source_config.extract_column_level_lineage:
+            property_fields = stream.get_column_names()
+            if property_fields:
+                for column_name in property_fields:
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=[make_schema_field_urn(source_urn, column_name)],
+                            downstreams=[
+                                make_schema_field_urn(destination_urn, column_name)
+                            ],
+                        )
+                    )
+
+        # Create dataset-level lineage with fine-grained lineages
+        # Mark as non-primary since Airbyte is not authoritative for these datasets
         work_units.append(
             MetadataChangeProposalWrapper(
                 entityUrn=destination_urn,
@@ -985,11 +1131,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             dataset=source_urn, type=DatasetLineageTypeClass.TRANSFORMED
                         )
                     ],
+                    fineGrainedLineages=fine_grained_lineages or None,
                 ),
-            ).as_workunit()
+            ).as_workunit(is_primary_source=False)
         )
 
         # Add tags to datasets
+        # Also marked as non-primary since Airbyte is not authoritative for these datasets
         if tags:
             logger.info(f"Adding {len(tags)} tags to source and destination datasets")
             for dataset_urn in [source_urn, destination_urn]:
@@ -999,7 +1147,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 work_units.append(
                     MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=global_tags
-                    ).as_workunit()
+                    ).as_workunit(is_primary_source=False)
                 )
 
         return work_units
@@ -1017,8 +1165,15 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source = pipeline_info.source
         destination = pipeline_info.destination
 
-        source_name = source.name or ""
-        destination_name = destination.name or ""
+        # Get platform details with per-source/destination overrides
+        source_platform, source_plat_instance, source_env = (
+            self._get_platform_for_source(source)
+        )
+        (
+            destination_platform,
+            dest_plat_instance,
+            dest_env,
+        ) = self._get_platform_for_destination(destination)
 
         schema_name = stream.namespace or ""
         table_name = stream.stream_name
@@ -1035,11 +1190,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
         # SOURCE DATASET URN CREATION
         # Map the source dataset components
         source_mapping = self._map_dataset_urn_components(
-            source_name, schema_name, table_name
+            source_platform, schema_name, table_name
         )
 
-        # Get platform instance if specified in the mapping
-        source_platform_instance = source_mapping.platform_instance or platform_instance
+        # Prioritize per-source platform_instance, then mapping
+        # NOTE: We do NOT fall back to the global platform_instance for dataset URNs
+        # Following Fivetran's approach: only use per-source/per-destination overrides
+        source_platform_instance = (
+            source_plat_instance or source_mapping.platform_instance
+        )
+
+        # Prioritize per-source env, then mapping, then PROD
+        source_env_final = source_env or source_mapping.env or FabricTypeClass.PROD
 
         # Create fully qualified dataset name including database
         source_mapped_name = source_mapping.name
@@ -1066,7 +1228,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_urn = make_dataset_urn_with_platform_instance(
             platform=source_mapping.platform,
             name=source_mapped_name,
-            env=source_mapping.env if source_mapping.env else FabricTypeClass.PROD,
+            env=source_env_final,
             platform_instance=source_platform_instance,
         )
 
@@ -1076,11 +1238,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         # Map the destination dataset components
         dest_mapping = self._map_dataset_urn_components(
-            destination_name, dest_namespace, table_name
+            destination_platform, dest_namespace, table_name
         )
 
-        # Get platform instance if specified in the mapping
-        dest_platform_instance = dest_mapping.platform_instance or platform_instance
+        # Prioritize per-destination platform_instance, then mapping
+        # NOTE: We do NOT fall back to the global platform_instance for dataset URNs
+        # Following Fivetran's approach: only use per-source/per-destination overrides
+        dest_platform_instance = dest_plat_instance or dest_mapping.platform_instance
+
+        # Prioritize per-destination env, then mapping, then PROD
+        dest_env_final = dest_env or dest_mapping.env or FabricTypeClass.PROD
 
         # Create fully qualified dataset name including database
         dest_mapped_name = dest_mapping.name
@@ -1109,7 +1276,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         destination_urn = make_dataset_urn_with_platform_instance(
             platform=dest_mapping.platform,
             name=dest_mapped_name,
-            env=dest_mapping.env if dest_mapping.env else FabricTypeClass.PROD,
+            env=dest_env_final,
             platform_instance=dest_platform_instance,
         )
 

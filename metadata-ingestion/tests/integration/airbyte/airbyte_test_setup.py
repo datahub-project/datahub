@@ -41,10 +41,8 @@ STATIC_POSTGRES_DEST_ID = "44444444-4444-4444-4444-444444444444"
 STATIC_PG_TO_PG_CONNECTION_ID = "55555555-5555-5555-5555-555555555555"
 STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
 
-# Pinned abctl version for reproducible CI tests
-# Note: This version is known to work with our test setup and fallback logic
-# Update carefully and test thoroughly when upgrading
-ABCTL_VERSION = "v0.30.1"
+# abctl v0.30.3 deploys Airbyte 1.8+
+ABCTL_VERSION = "v0.30.3"
 
 # Global API URL (will be updated dynamically)
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
@@ -258,6 +256,36 @@ def check_airbyte_pods_ready() -> bool:
         return False
 
 
+def get_airbyte_version() -> Optional[str]:
+    """Detect the actual Airbyte version deployed by abctl."""
+    try:
+        # Try to get version from the airbyte-server deployment
+        result = subprocess.run(
+            [
+                "kubectl",
+                "get",
+                "deployment",
+                "airbyte-server",
+                "-n",
+                "airbyte-abctl",
+                "-o",
+                "jsonpath={.spec.template.spec.containers[0].image}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout:
+            # Image format is typically: airbyte/server:1.2.3 or airbyte/server:1.2.3-abctl
+            image = result.stdout.strip()
+            if ":" in image:
+                version = image.split(":")[-1]
+                return version
+    except Exception:
+        pass
+    return None
+
+
 def wait_for_airbyte_ready(timeout: int = 600) -> bool:
     """Wait for Airbyte API to be ready."""
     print(f"Waiting for Airbyte API (timeout: {timeout}s)...")
@@ -265,7 +293,9 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
     time.sleep(45)
 
     if check_airbyte_pods_ready():
-        print("Airbyte pods ready")
+        airbyte_version = get_airbyte_version()
+        version_str = f" ({airbyte_version})" if airbyte_version else ""
+        print(f"Airbyte pods ready{version_str}")
 
     end_time = time.time() + timeout
     check_interval = 15
@@ -346,6 +376,8 @@ def update_all_ids_atomically(
             new_conn_id = conn_data["new_id"]
             new_source_id = conn_data["new_source_id"]
             new_dest_id = conn_data["new_dest_id"]
+            # Update connection ID and foreign keys
+            # All other columns (including catalog-related columns) are preserved
             sql_statements.append(
                 f"UPDATE connection SET id = '{new_conn_id}', "
                 f"source_id = '{new_source_id}', destination_id = '{new_dest_id}' "
@@ -391,10 +423,7 @@ def update_airbyte_database_id(
     kubeconfig_path: Path, table_name: str, old_id: str, new_id: str
 ) -> bool:
     """Update a single Airbyte database ID using kubectl."""
-    print(f"Updating {table_name}: {old_id} -> {new_id}")
-
     if not kubeconfig_path.exists():
-        print(f"WARNING: kubeconfig not found at {kubeconfig_path}")
         return False
 
     try:
@@ -405,10 +434,8 @@ def update_airbyte_database_id(
             timeout=5,
         )
         if kubectl_check.returncode != 0:
-            print("WARNING: kubectl not available")
             return False
     except (subprocess.SubprocessError, FileNotFoundError):
-        print("WARNING: kubectl not found in PATH")
         return False
 
     try:
@@ -434,18 +461,9 @@ def update_airbyte_database_id(
             timeout=30,
         )
 
-        if result.returncode == 0:
-            print(f"Updated {table_name} ID")
-            return True
-        else:
-            print(f"WARNING: Failed to update {table_name} ID: {result.stderr}")
-            return False
+        return result.returncode == 0
 
-    except subprocess.TimeoutExpired:
-        print(f"WARNING: Timeout updating {table_name} ID")
-        return False
-    except Exception as e:
-        print(f"WARNING: Error updating {table_name} ID: {e}")
+    except (subprocess.TimeoutExpired, Exception):
         return False
 
 
@@ -544,12 +562,8 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             elif "mysql" in name and not mysql_source_def_id:
                 mysql_source_def_id = source_def["sourceDefinitionId"]
 
-        if not postgres_source_def_id:
-            print("WARNING: Could not find PostgreSQL source definition")
-            return created_ids
-
-        if not mysql_source_def_id:
-            print("WARNING: Could not find MySQL source definition")
+        if not postgres_source_def_id or not mysql_source_def_id:
+            print("ERROR: Could not find required source definitions")
             return created_ids
 
         # Create PostgreSQL source
@@ -578,11 +592,8 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
         if postgres_source_response.status_code in [200, 201]:
             postgres_source_id = postgres_source_response.json()["sourceId"]
             created_ids["postgres_source_id"] = postgres_source_id
-            print(f"Created PostgreSQL source: {postgres_source_id}")
         else:
-            print(
-                f"ERROR: Failed to create PostgreSQL source: {postgres_source_response.status_code}"
-            )
+            print("ERROR: Failed to create PostgreSQL source")
             return created_ids
 
         # Create MySQL source
@@ -609,11 +620,8 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
         if mysql_source_response.status_code in [200, 201]:
             mysql_source_id = mysql_source_response.json()["sourceId"]
             created_ids["mysql_source_id"] = mysql_source_id
-            print(f"Created MySQL source: {mysql_source_id}")
         else:
-            print(
-                f"WARNING: Failed to create MySQL source: {mysql_source_response.status_code}"
-            )
+            print("WARNING: Failed to create MySQL source")
 
         # Get destination definitions
         dest_defs_response = requests.post(
@@ -633,13 +641,10 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             name = dest_def.get("name", "").lower()
             if "postgres" in name:
                 postgres_dest_def_id = dest_def["destinationDefinitionId"]
-                print(
-                    f"Found PostgreSQL destination definition: {dest_def['name']} ({postgres_dest_def_id})"
-                )
                 break
 
         if not postgres_dest_def_id:
-            print("WARNING: Could not find PostgreSQL destination definition")
+            print("ERROR: Could not find PostgreSQL destination definition")
             return created_ids
 
         # Create PostgreSQL destination
@@ -669,11 +674,8 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
         if postgres_dest_response.status_code in [200, 201]:
             postgres_dest_id = postgres_dest_response.json()["destinationId"]
             created_ids["postgres_dest_id"] = postgres_dest_id
-            print(f"Created PostgreSQL destination: {postgres_dest_id}")
         else:
-            print(
-                f"ERROR: Failed to create PostgreSQL destination: {postgres_dest_response.status_code}"
-            )
+            print("ERROR: Failed to create PostgreSQL destination")
             return created_ids
 
         # Discover and create connections
@@ -686,8 +688,15 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
                 api_url, auth, mysql_source_id, postgres_dest_id, created_ids
             )
 
-        # Trigger sync jobs
+        # Trigger sync jobs to populate catalog and generate job metadata
+        # Do this BEFORE ID updates so jobs are created with dynamic IDs
+        # The atomic transaction will update connection foreign keys to link to static IDs
+        print("Triggering sync jobs for connections...")
         _trigger_sync_jobs(api_url, auth, created_ids)
+
+        # Wait for jobs to be registered in the database
+        print("Waiting 10 seconds for sync jobs to be registered...")
+        time.sleep(10)
 
         print("All Airbyte resources created")
 
@@ -707,6 +716,9 @@ def _discover_schema(
 
     for attempt in range(3):
         try:
+            print(
+                f"Schema discovery attempt {attempt + 1}/3 for {source_name} (source_id: {source_id})"
+            )
             discover_response = requests.post(
                 f"{api_url}/sources/discover_schema",
                 auth=auth,
@@ -717,6 +729,7 @@ def _discover_schema(
             if discover_response.status_code == 200:
                 catalog_data = discover_response.json()
                 sync_catalog = catalog_data.get("catalog")
+
                 if sync_catalog and "streams" in sync_catalog:
                     for stream in sync_catalog["streams"]:
                         if "config" not in stream:
@@ -728,17 +741,13 @@ def _discover_schema(
                         f"Discovered {len(sync_catalog['streams'])} {source_name} streams"
                     )
                 return sync_catalog
-            else:
-                if attempt < 2:
-                    time.sleep(30)
-        except requests.exceptions.Timeout:
-            if attempt < 2:
+            elif attempt < 2:
                 time.sleep(30)
-        except Exception:
+        except (requests.exceptions.Timeout, Exception):
             if attempt < 2:
                 time.sleep(30)
 
-    print(f"WARNING: {source_name} schema discovery failed, using minimal catalog")
+    print(f"ERROR: {source_name} schema discovery failed, using empty catalog")
     return {"streams": []}
 
 
@@ -766,11 +775,6 @@ def _create_postgres_connection(
     if connection_response.status_code in [200, 201]:
         connection_id = connection_response.json().get("connectionId")
         created_ids["pg_to_pg_connection_id"] = connection_id
-        print(f"Created Postgres-to-Postgres connection: {connection_id}")
-    else:
-        print(
-            f"WARNING: Failed to create Postgres connection: {connection_response.status_code}"
-        )
 
 
 def _create_mysql_connection(
@@ -798,32 +802,20 @@ def _create_mysql_connection(
     if connection_response.status_code in [200, 201]:
         connection_id = connection_response.json().get("connectionId")
         created_ids["mysql_to_pg_connection_id"] = connection_id
-        print(f"Created MySQL-to-Postgres connection: {connection_id}")
-    else:
-        print(
-            f"WARNING: Failed to create MySQL connection: {connection_response.status_code}"
-        )
 
 
 def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
     """Trigger sync jobs for connections."""
-    for conn_key, conn_name in [
-        ("pg_to_pg_connection_id", "Postgres-to-Postgres"),
-        ("mysql_to_pg_connection_id", "MySQL-to-Postgres"),
-    ]:
+    for conn_key in ["pg_to_pg_connection_id", "mysql_to_pg_connection_id"]:
         conn_id = created_ids.get(conn_key)
         if conn_id:
             try:
-                sync_response = requests.post(
+                requests.post(
                     f"{api_url}/connections/sync",
                     auth=auth,
                     json={"connectionId": conn_id},
                     timeout=30,
                 )
-                if sync_response.status_code in [200, 201]:
-                    job_info = sync_response.json()
-                    job_id = job_info.get("job", {}).get("id")
-                    print(f"Started {conn_name} sync: {job_id}")
             except Exception:
                 pass
 
@@ -832,7 +824,6 @@ def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
 
 def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[str]]:
     """Set up Airbyte sources, destinations, and connections for testing."""
-    print("Setting up Airbyte connections...")
 
     workspace_id = try_direct_api_setup()
 
@@ -852,24 +843,9 @@ def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[st
     # Create sources, destinations, and connections
     created_ids = create_airbyte_test_setup(workspace_id)
 
-    # Update all IDs atomically
-    print("Updating IDs to static values...")
     _update_ids_to_static(kubeconfig, created_ids)
-
-    # Debug: Check what's in the connection table
-    print("\n" + "=" * 80)
-    print("DEBUG: Checking connection table schema and data")
-    print("=" * 80)
-    pg_conn_id = created_ids.get("pg_to_pg_connection_id")
-    mysql_conn_id = created_ids.get("mysql_to_pg_connection_id")
-    print(f"Postgres connection ID: {pg_conn_id}")
-    print(f"MySQL connection ID: {mysql_conn_id}")
-    if pg_conn_id:
-        print(f"\nQuerying connection {pg_conn_id}...")
-        _query_connection_catalog(kubeconfig, pg_conn_id)
-
-    # Restart Airbyte server to reload IDs
     _restart_airbyte_server(kubeconfig)
+    time.sleep(15)
 
     return created_ids
 
@@ -918,78 +894,9 @@ def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
     else:
         print("WARNING: Atomic ID update failed, IDs may be dynamic")
 
-    print(f"Updated all IDs: {created_ids}")
-
-
-def _query_connection_catalog(
-    kubeconfig: Path, connection_id: str
-) -> Optional[Dict[str, Any]]:
-    """Query the Airbyte database to get catalog-related columns for a connection."""
-    if not shutil.which("kubectl") or not kubeconfig.exists():
-        return None
-
-    try:
-        db_pod_name = "airbyte-db-0"
-
-        # First, list all columns in the connection table
-        columns_sql = "SELECT column_name FROM information_schema.columns WHERE table_name = 'connection' ORDER BY column_name;"
-
-        command = [
-            "kubectl",
-            "--kubeconfig",
-            str(kubeconfig),
-            "exec",
-            "-n",
-            "airbyte-abctl",
-            db_pod_name,
-            "--",
-            "psql",
-            "-U",
-            "airbyte",
-            "-d",
-            "db-airbyte",
-            "-t",
-            "-A",
-            "-c",
-            columns_sql,
-        ]
-
-        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            columns = result.stdout.strip().split("\n")
-            print(f"Connection table columns: {', '.join(columns)}")
-
-            # Now try to query catalog-related columns
-            catalog_columns = [
-                col
-                for col in columns
-                if "catalog" in col.lower() or "configuration" in col.lower()
-            ]
-            if catalog_columns:
-                print(f"Catalog-related columns: {', '.join(catalog_columns)}")
-
-                # Query the specific connection
-                for col in catalog_columns:
-                    sql = f"SELECT LENGTH(CAST({col} AS TEXT)) FROM connection WHERE id = '{connection_id}';"
-                    result = subprocess.run(
-                        command[:-2] + ["-c", sql],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        length = result.stdout.strip()
-                        print(f"  {col}: length = {length}")
-
-        return None
-    except Exception as e:
-        print(f"Error querying connection catalog: {e}")
-        return None
-
 
 def _restart_airbyte_server(kubeconfig: Path) -> None:
     """Restart Airbyte server pod to reload static IDs."""
-    print("Restarting Airbyte server...")
     try:
         restart_cmd = [
             "kubectl",
@@ -1021,7 +928,6 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
                 rollout_status_cmd, capture_output=True, text=True, timeout=130
             )
             time.sleep(15)
-            print("Airbyte server restarted")
     except Exception:
         pass
 
@@ -1032,9 +938,11 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
 
 
 def init_test_data(test_resources_dir: Path) -> None:
-    """Initialize test data in PostgreSQL and MySQL containers using SQL files."""
-    print("Initializing test data...")
+    """Initialize test data in PostgreSQL container using SQL files.
 
+    Note: MySQL is automatically initialized via docker-compose volume mount
+    to /docker-entrypoint-initdb.d/init.sql
+    """
     try:
         postgres_init_file = test_resources_dir / "setup" / "init-test-db.sql"
         if postgres_init_file.exists():
@@ -1061,31 +969,6 @@ def init_test_data(test_resources_dir: Path) -> None:
     except Exception:
         pass
 
-    try:
-        mysql_init_file = test_resources_dir / "setup" / "init-test-mysql.sql"
-        if mysql_init_file.exists():
-            with open(mysql_init_file, "r") as f:
-                mysql_sql = f.read()
-
-            subprocess.run(
-                [
-                    "docker",
-                    "exec",
-                    "test-mysql",
-                    "mysql",
-                    "-u",
-                    "root",
-                    "-prootpwd123",
-                    "-e",
-                    mysql_sql,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-    except Exception:
-        pass
-
 
 # =============================================================================
 # abctl Management
@@ -1094,19 +977,15 @@ def init_test_data(test_resources_dir: Path) -> None:
 
 def install_abctl(test_resources_dir: Path) -> Path:
     """Install abctl if not already available."""
-    print("Installing abctl...")
 
     try:
         result = subprocess.run(
             ["abctl", "version"], capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
-            print(f"abctl already installed: {result.stdout.strip()}")
             return Path("abctl")
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
-
-    print("Downloading abctl for CI environment...")
     import platform
 
     system = platform.system().lower()
@@ -1126,7 +1005,6 @@ def install_abctl(test_resources_dir: Path) -> Path:
     abctl_path = test_resources_dir / "abctl"
     archive_path = test_resources_dir / f"abctl-{ABCTL_VERSION}-{os_name}-{arch}.tar.gz"
 
-    print(f"Downloading {download_url}...")
     try:
         urllib.request.urlretrieve(download_url, archive_path)
 
@@ -1157,7 +1035,6 @@ def install_abctl(test_resources_dir: Path) -> Path:
         if result.returncode != 0:
             raise RuntimeError(f"Downloaded abctl is not working: {result.stderr}")
 
-        print(f"abctl {ABCTL_VERSION} installed successfully for {os_name}-{arch}")
         return abctl_path
 
     except Exception as e:
@@ -1170,7 +1047,6 @@ def install_abctl(test_resources_dir: Path) -> Path:
 
 def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
     """Clean up Airbyte and Kubernetes environment."""
-    print("Cleaning up Airbyte environment...")
     try:
         cleanup_result = subprocess.run(
             [str(abctl_path), "local", "uninstall", "--persisted"],
@@ -1180,10 +1056,8 @@ def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
             timeout=300,
         )
         if cleanup_result.returncode == 0:
-            print("Airbyte and Kubernetes environment cleaned up successfully")
-            time.sleep(5)  # Give time for Kubernetes to fully shut down
+            time.sleep(5)
         else:
-            print(f"Cleanup failed: {cleanup_result.stderr}")
             fallback_result = subprocess.run(
                 [str(abctl_path), "local", "uninstall"],
                 cwd=test_resources_dir,
@@ -1192,22 +1066,14 @@ def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
                 timeout=300,
             )
             if fallback_result.returncode == 0:
-                print("Basic Airbyte uninstall completed")
-                time.sleep(5)  # Give time for Kubernetes to fully shut down
-            else:
-                print(
-                    f"WARNING: Fallback uninstall also failed: {fallback_result.stderr}"
-                )
+                time.sleep(5)
 
-    except subprocess.TimeoutExpired:
-        print("WARNING: Airbyte cleanup timed out")
-    except Exception as e:
-        print(f"WARNING: Error during Airbyte cleanup: {e}")
+    except (subprocess.TimeoutExpired, Exception):
+        pass
 
 
 def get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
     """Retrieve and store Airbyte credentials from abctl."""
-    print("Getting Airbyte credentials...")
     try:
         creds_result = subprocess.run(
             [str(abctl_path), "local", "credentials"],
@@ -1234,23 +1100,17 @@ def get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
                     client_secret = re.sub(r"\x1b\[[0-9;]*m", "", client_secret)
 
             if password:
-                print("Retrieved Airbyte credentials")
                 os.environ["AIRBYTE_PASSWORD"] = password
                 if client_id:
                     os.environ["AIRBYTE_CLIENT_ID"] = client_id
                 if client_secret:
                     os.environ["AIRBYTE_CLIENT_SECRET"] = client_secret
-            else:
-                print("WARNING: Could not parse password from credentials output")
-        else:
-            print(f"Failed to get credentials: {creds_result.stderr}")
-    except Exception as e:
-        print(f"Error getting credentials: {e}")
+    except Exception:
+        pass
 
 
 def complete_airbyte_onboarding() -> bool:
     """Complete Airbyte onboarding programmatically."""
-    print("Attempting to complete Airbyte onboarding programmatically...")
     try:
         api_endpoints = [
             f"http://localhost:{AIRBYTE_API_PORT}/api/v1",
@@ -1259,10 +1119,6 @@ def complete_airbyte_onboarding() -> bool:
 
         for api_endpoint in api_endpoints:
             try:
-                print(
-                    f"Trying onboarding setup at {api_endpoint}/instance_configuration/setup"
-                )
-
                 password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
                 auth = (BASIC_AUTH_USERNAME, password)
 
@@ -1281,21 +1137,14 @@ def complete_airbyte_onboarding() -> bool:
                 )
 
                 if response.status_code in [200, 201]:
-                    print("Onboarding completed")
-                    print("Waiting 15 seconds for Airbyte to process onboarding...")
+                    print("Onboarding completed, waiting 15 seconds...")
                     time.sleep(15)
                     return True
-                else:
-                    print(f"Onboarding setup returned {response.status_code}")
 
-            except requests.RequestException as e:
-                print(f"Onboarding setup failed for {api_endpoint}: {e}")
+            except requests.RequestException:
                 continue
 
-        print("Could not complete onboarding setup, continuing anyway...")
         return False
 
-    except Exception as e:
-        print(f"Exception during onboarding setup: {e}")
-        print("Continuing with normal API readiness check...")
+    except Exception:
         return False
