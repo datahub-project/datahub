@@ -407,7 +407,7 @@ class SnowflakeV2Config(
     )
 
     @cached_property
-    def _compiled_temporary_tables_pattern(self) -> List[re.Pattern]:
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
         return [
             re.compile(pattern, re.IGNORECASE)
             for pattern in self.temporary_tables_pattern
