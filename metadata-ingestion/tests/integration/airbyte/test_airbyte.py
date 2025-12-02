@@ -59,7 +59,15 @@ def test_databases(
         else:
             raise RuntimeError("MySQL test database failed to start")
 
+        print("Initializing test data in databases...")
         init_test_data(test_resources_dir)
+        print("PostgreSQL data initialized.")
+        print(
+            "Waiting 10 seconds for MySQL auto-initialization to complete (via docker-entrypoint-initdb.d)..."
+        )
+        time.sleep(10)
+        print("Test databases ready with data")
+
         yield docker_services
 
 
@@ -156,11 +164,26 @@ def airbyte_service(
 
     # If onboarding succeeded, API is ready; otherwise check readiness
     if onboarding_succeeded:
+        print("Waiting 15 seconds for Airbyte to process onboarding...")
+        time.sleep(15)
         print("Onboarding completed - API is ready")
     elif not wait_for_airbyte_ready(timeout=300):
         raise RuntimeError("Airbyte failed to become ready")
 
+    # CRITICAL: Verify databases have data before creating Airbyte resources
+    # This ensures schema discovery finds tables
+    print("\nVerifying test databases have data before creating Airbyte connections...")
+    max_verify_attempts = 10
+    for _attempt in range(max_verify_attempts):
+        if is_postgres_ready("test-postgres") and is_mysql_ready("test-mysql"):
+            print("✓ Databases are ready")
+            break
+        time.sleep(2)
+    else:
+        raise RuntimeError("Test databases not ready after data initialization")
+
     # Set up sources, destinations, and connections
+    # Schema discovery will now find the tables that were initialized
     setup_airbyte_connections(test_resources_dir)
 
     print("\n" + "=" * 80)

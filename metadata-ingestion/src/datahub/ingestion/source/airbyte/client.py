@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict
 from urllib.parse import urljoin
 
 import requests
@@ -17,6 +17,47 @@ from datahub.ingestion.source.airbyte.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class StreamConfigDict(TypedDict):
+    """Type definition for stream configuration returned by _build_stream_config."""
+
+    selected: bool
+    syncMode: str
+    destinationSyncMode: str
+    primaryKey: List[List[str]]
+    cursorField: List[str]
+
+
+class StreamSchemaDict(TypedDict):
+    """Type definition for stream schema in syncCatalog."""
+
+    name: str
+    namespace: Optional[str]
+    jsonSchema: Dict[str, object]
+
+
+class StreamSyncDict(TypedDict):
+    """Type definition for stream in syncCatalog with config."""
+
+    stream: StreamSchemaDict
+    config: StreamConfigDict
+
+
+class SyncCatalogDict(TypedDict):
+    """Type definition for syncCatalog structure."""
+
+    streams: List[StreamSyncDict]
+
+
+class JsonSchemaDict(TypedDict, total=False):
+    """Type definition for JSON Schema structure.
+
+    Uses total=False since properties and other fields are optional.
+    """
+
+    type: str
+    properties: Dict[str, Dict[str, object]]
 
 
 class AirbyteBaseClient(ABC):
@@ -440,7 +481,7 @@ class AirbyteBaseClient(ABC):
 
         return destinations
 
-    def get_connection(self, connection_id: str) -> Dict:
+    def get_connection(self, connection_id: str) -> Dict[str, Any]:
         """
         Get connection details including sync catalog
 
@@ -455,39 +496,211 @@ class AirbyteBaseClient(ABC):
             f"/connections/{connection_id}", method="GET"
         )
 
-        # Workaround for Airbyte v0.30.1: syncCatalog may be in 'configuration' field
+        # Airbyte 1.x public API returns 'configurations.streams' instead of 'syncCatalog.streams'
+        # Transform to the format expected by DataHub connector for backward compatibility
         if not connection_data.get("syncCatalog") and connection_data.get(
-            "configuration"
+            "configurations"
         ):
-            config = connection_data.get("configuration", {})
-            if "syncCatalog" in config:
-                connection_data["syncCatalog"] = config["syncCatalog"]
+            configurations = connection_data.get("configurations", {})
+            if "streams" in configurations:
+                # Fetch column schema information from /streams endpoint
+                stream_property_fields = self._fetch_stream_property_fields(
+                    connection_data.get("sourceId")
+                )
+
+                # Build syncCatalog from configurations.streams
+                connection_data["syncCatalog"] = self._build_sync_catalog(
+                    configurations["streams"], stream_property_fields
+                )
 
         return connection_data
+
+    def _fetch_stream_property_fields(
+        self, source_id: Optional[str]
+    ) -> Dict[Tuple[str, str], List[List[str]]]:
+        """
+        Fetch propertyFields (column names) from /streams endpoint.
+
+        Args:
+            source_id: Source ID to fetch streams for
+
+        Returns:
+            Dict mapping (stream_name, namespace) tuple to list of property field paths.
+            Each property field is represented as a list of strings (e.g., [["column_name"]] for simple columns).
+        """
+        if not source_id:
+            return {}
+
+        try:
+            detailed_streams = self.list_streams(source_id=source_id)
+            stream_property_fields = {}
+
+            for stream in detailed_streams:
+                if not isinstance(stream, dict) or not stream.get("propertyFields"):
+                    continue
+
+                # Extract stream name (handle field name variations)
+                stream_name = stream.get("streamName") or stream.get("name")
+                if not stream_name or not isinstance(stream_name, str):
+                    continue
+
+                # Extract namespace (handle field name variations)
+                # Default to empty string to match return type Dict[Tuple[str, str], ...]
+                namespace = (
+                    stream.get("namespace")
+                    or stream.get("streamnamespace")
+                    or stream.get("streamNamespace")
+                    or ""
+                )
+                if not isinstance(namespace, str):
+                    namespace = ""
+
+                stream_property_fields[(stream_name, namespace)] = stream.get(
+                    "propertyFields", []
+                )
+
+            if stream_property_fields:
+                logger.info(
+                    f"Retrieved propertyFields for {len(stream_property_fields)} streams from /streams endpoint"
+                )
+
+            return stream_property_fields
+
+        except Exception as e:
+            logger.debug(
+                f"/streams endpoint not available or failed: {e}. Using schema from configurations."
+            )
+            return {}
+
+    def _build_sync_catalog(
+        self,
+        config_streams: List[Dict[str, Any]],
+        stream_property_fields: Dict[Tuple[str, str], List[List[str]]],
+    ) -> SyncCatalogDict:
+        """
+        Build syncCatalog structure from configurations.streams.
+
+        Args:
+            config_streams: List of stream dicts from configurations (raw API response)
+            stream_property_fields: Property fields from /streams endpoint, mapping (stream_name, namespace) to column paths
+
+        Returns:
+            syncCatalog dict with streams array
+        """
+        streams: List[StreamSyncDict] = []
+        for stream in config_streams:
+            # Extract name and namespace with type safety
+            name = stream.get("name")
+            namespace = stream.get("namespace")
+
+            # Ensure types match TypedDict requirements
+            if not isinstance(name, str):
+                name = str(name) if name is not None else ""
+            if not isinstance(namespace, str):
+                namespace = str(namespace) if namespace is not None else ""
+
+            # Get property fields using properly typed tuple key
+            property_fields = stream_property_fields.get((name, namespace))
+
+            stream_schema: StreamSchemaDict = {
+                "name": name,
+                "namespace": namespace if namespace else None,
+                "jsonSchema": self._get_json_schema_for_stream(stream, property_fields),
+            }
+
+            stream_sync: StreamSyncDict = {
+                "stream": stream_schema,
+                "config": self._build_stream_config(stream),
+            }
+
+            streams.append(stream_sync)
+
+        return {"streams": streams}
+
+    def _build_stream_config(self, stream: Dict[str, Any]) -> StreamConfigDict:
+        """
+        Build stream config from configurations stream data.
+
+        Args:
+            stream: Stream data dict from configurations (raw API response)
+
+        Returns:
+            Stream config dict with syncMode, destinationSyncMode, etc.
+        """
+        sync_mode = stream.get("syncMode", "")
+
+        return {
+            "selected": True,
+            "syncMode": sync_mode.split("_")[0] if sync_mode else "full_refresh",
+            "destinationSyncMode": (
+                sync_mode.split("_")[1] if "_" in sync_mode else "overwrite"
+            ),
+            "primaryKey": stream.get("primaryKey", []),
+            "cursorField": stream.get("cursorField", []),
+        }
+
+    def _get_json_schema_for_stream(
+        self,
+        stream: Dict[str, Any],
+        property_fields: Optional[List[List[str]]] = None,
+    ) -> Dict[str, object]:
+        """Get jsonSchema for a stream, converting propertyFields if needed.
+
+        Args:
+            stream: Stream data dict from configurations (raw API response)
+            property_fields: propertyFields from /streams endpoint (if available), where each field is a list of strings representing the path
+
+        Returns:
+            jsonSchema dict with properties (structure varies by schema), or empty dict if not available
+        """
+        # Priority 1: Convert propertyFields from /streams endpoint to jsonSchema format
+        # This is the primary source in modern Airbyte (1.8+) public API
+        if property_fields:
+            properties = {}
+            for field in property_fields:
+                # propertyFields is [[field_name], ...] format
+                field_name = field[0] if isinstance(field, list) and field else field
+                if field_name:
+                    properties[field_name] = {
+                        "type": ["null", "string"]
+                    }  # Generic type
+
+            if properties:
+                return {"type": "object", "properties": properties}
+
+        # Priority 2: Check if configurations already has jsonSchema
+        # This is rare/non-existent in public API but may exist in other deployments
+        if stream.get("jsonSchema"):
+            return stream["jsonSchema"]
+        if stream.get("json_schema"):
+            return stream["json_schema"]
+
+        # Priority 3: Empty schema (no column-level lineage available)
+        return {}
 
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
     ) -> List[dict]:
         """
-        List streams available in Airbyte.
+        List streams available in Airbyte with detailed schema information.
         Can be filtered by source_id or destination_id.
 
-        WARNING: This endpoint is NOT available in Airbyte versions <= v0.30.1
-        and will return 500 errors. Use connection.sync_catalog.streams instead
-        for a reliable, version-independent approach.
+        This endpoint provides propertyFields (column names) which are converted to
+        jsonSchema format for extracting column-level lineage. This is the primary
+        source of schema information in modern Airbyte (1.8+) public API.
 
-        This method is kept for potential future use with newer Airbyte versions,
-        but is not currently used in the ingestion source.
+        Note: This endpoint may not be available in older Airbyte versions.
+        The connector gracefully handles failures and falls back to other sources.
 
         Args:
             source_id: Optional source ID to filter streams
             destination_id: Optional destination ID to filter streams
 
         Returns:
-            List of stream metadata
+            List of stream metadata with propertyFields (column names)
 
         Raises:
-            Exception: If the endpoint is not available (typically 500 error)
+            Exception: If the endpoint is not available (handled gracefully by caller)
         """
         self._check_auth_before_request()
         query_params = []
@@ -503,7 +716,7 @@ class AirbyteBaseClient(ABC):
         response = self._make_request(endpoint, method="GET")
         return response if isinstance(response, list) else response.get("streams", [])
 
-    def get_job(self, job_id: str) -> Dict:
+    def get_job(self, job_id: str) -> Dict[str, Any]:
         """
         Get job details
 
@@ -549,6 +762,7 @@ class AirbyteOSSClient(AirbyteBaseClient):
             raise ValueError("host_port is required for open_source deployment")
 
         # Set the base URL for API requests - OSS uses /api/public/v1
+        # Per https://docs.airbyte.com/developers/api-documentation
         self.base_url = f"{self._clean_uri(config.host_port)}/api/public/v1"
 
         # Configure authentication
