@@ -1208,53 +1208,51 @@ class SQLServerSource(SQLAlchemySource):
                 f"[PROC-START] Platform instance: {self.get_schema_resolver().platform_instance}"
             )
 
-        for idx, procedure in enumerate(self.stored_procedures, start=1):
-            logger.info(
-                f"[PROC] Processing procedure {idx}/{len(self.stored_procedures)}: "
-                f"{procedure.full_name} (db={procedure.db}, schema={procedure.schema})"
-            )
-
-            # Log SQL code snippet at DEBUG level
-            if procedure.procedure_definition:
-                sql_snippet = (
-                    procedure.procedure_definition[:200]
-                    .replace("\n", " ")
-                    .replace("\r", "")
-                )
-                logger.debug(
-                    f"[SQL-SNIPPET] First 200 chars of {procedure.name}: {sql_snippet}..."
+            for idx, procedure in enumerate(self.stored_procedures, start=1):
+                logger.info(
+                    f"[PROC] Processing procedure {idx}/{len(self.stored_procedures)}: "
+                    f"{procedure.full_name} (db={procedure.db}, schema={procedure.schema})"
                 )
 
-            with self.report.report_exc(
-                message="Failed to parse stored procedure lineage",
-                context=procedure.full_name,
-                level=StructuredLogLevel.WARN,
-            ):
-                workunit_count = 0
-                for workunit in auto_workunit(
-                    self._filter_procedure_lineage(
-                        generate_procedure_lineage(
-                            schema_resolver=self.get_schema_resolver(),
-                            procedure=procedure.to_base_procedure(),
-                            procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                            is_temp_table=self.is_temp_table,
-                            default_db=procedure.db,
-                            default_schema=procedure.schema,
-                        ),
-                        procedure_name=procedure.name,
+                # Log SQL code snippet at DEBUG level
+                if procedure.code:
+                    sql_snippet = (
+                        procedure.code[:200].replace("\n", " ").replace("\r", "")
                     )
+                    logger.debug(
+                        f"[SQL-SNIPPET] First 200 chars of {procedure.name}: {sql_snippet}..."
+                    )
+
+                with self.report.report_exc(
+                    message="Failed to parse stored procedure lineage",
+                    context=procedure.full_name,
+                    level=StructuredLogLevel.WARN,
                 ):
-                    workunit_count += 1
-                    yield workunit
+                    workunit_count = 0
+                    for workunit in auto_workunit(
+                        self._filter_procedure_lineage(
+                            generate_procedure_lineage(
+                                schema_resolver=self.get_schema_resolver(),
+                                procedure=procedure.to_base_procedure(),
+                                procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                                is_temp_table=self.is_temp_table,
+                                default_db=procedure.db,
+                                default_schema=procedure.schema,
+                            ),
+                            procedure_name=procedure.name,
+                        )
+                    ):
+                        workunit_count += 1
+                        yield workunit
 
-                if workunit_count == 0:
-                    logger.warning(
-                        f"[NO-LINEAGE] No workunits generated for procedure: {procedure.name}"
-                    )
-                else:
-                    logger.info(
-                        f"[SUCCESS] Generated {workunit_count} workunit(s) for procedure: {procedure.name}"
-                    )
+                    if workunit_count == 0:
+                        logger.warning(
+                            f"[NO-LINEAGE] No workunits generated for procedure: {procedure.name}"
+                        )
+                    else:
+                        logger.info(
+                            f"[SUCCESS] Generated {workunit_count} workunit(s) for procedure: {procedure.name}"
+                        )
 
     def is_temp_table(self, name: str) -> bool:
         if any(
