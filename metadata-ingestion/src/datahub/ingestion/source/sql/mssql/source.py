@@ -1259,6 +1259,7 @@ class SQLServerSource(SQLAlchemySource):
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
+            logger.debug(f"[IS-TEMP] {name} matched temporary_tables_pattern")
             return True
 
         try:
@@ -1268,6 +1269,7 @@ class SQLServerSource(SQLAlchemySource):
             db_name = parts[-3]
 
             if table_name.startswith("#"):
+                logger.debug(f"[IS-TEMP] {name} starts with #")
                 return True
 
             # This is also a temp table if
@@ -1281,8 +1283,15 @@ class SQLServerSource(SQLAlchemySource):
                 and self.config.table_pattern.allowed(name)
             ):
                 if standardized_name not in self.discovered_datasets:
+                    logger.info(
+                        f"[IS-TEMP] {name} treated as temp: passes patterns but not in discovered_datasets "
+                        f"(standardized: {standardized_name})"
+                    )
                     return True
                 else:
+                    logger.debug(
+                        f"[IS-TEMP] {name} is NOT temp: found in discovered_datasets"
+                    )
                     return False
             else:
                 return False
