@@ -4,6 +4,7 @@ import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
+import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -38,6 +39,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.SubscribedAssets) return SubscriptionsModule; // SaaS-only
         if (module.properties.type === DataHubPageModuleType.Workflows) return WorkflowsModule;
         if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
+        if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);

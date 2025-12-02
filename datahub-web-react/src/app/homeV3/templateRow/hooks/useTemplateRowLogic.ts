@@ -34,6 +34,7 @@ export function useTemplateRowLogic(row: WrappedRow, rowIndex: number) {
                     rowIndex,
                     rowSide: moduleIndex === 0 ? 'left' : 'right',
                     moduleIndex,
+                    numberOfModulesInRow: row.modules.length,
                 } as ModulePositionInput,
                 key: `${module.urn}-${moduleIndex}`,
             })),
