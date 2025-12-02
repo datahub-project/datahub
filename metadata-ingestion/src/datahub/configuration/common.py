@@ -385,11 +385,11 @@ class AllowDenyPattern(ConfigModel):
         return re.IGNORECASE if self.ignoreCase else 0
 
     @cached_property
-    def _compiled_allow(self) -> List[re.Pattern]:
+    def _compiled_allow(self) -> "List[re.Pattern]":
         return [re.compile(pattern, self.regex_flags) for pattern in self.allow]
 
     @cached_property
-    def _compiled_deny(self) -> List[re.Pattern]:
+    def _compiled_deny(self) -> "List[re.Pattern]":
         return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
 
     @classmethod
