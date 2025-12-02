@@ -4,6 +4,7 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
+from functools import cached_property
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -21,7 +22,6 @@ from typing import (
 
 import pydantic
 import pydantic_core
-from cached_property import cached_property
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, model_validator
 from pydantic.fields import Field
 from typing_extensions import Protocol, Self
