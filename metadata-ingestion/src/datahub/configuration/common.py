@@ -384,6 +384,14 @@ class AllowDenyPattern(ConfigModel):
     def regex_flags(self) -> int:
         return re.IGNORECASE if self.ignoreCase else 0
 
+    @cached_property
+    def _compiled_allow(self) -> List[re.Pattern]:
+        return [re.compile(pattern, self.regex_flags) for pattern in self.allow]
+
+    @cached_property
+    def _compiled_deny(self) -> List[re.Pattern]:
+        return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
+
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
@@ -392,17 +400,10 @@ class AllowDenyPattern(ConfigModel):
         if self.denied(string):
             return False
 
-        return any(
-            re.match(allow_pattern, string, self.regex_flags)
-            for allow_pattern in self.allow
-        )
+        return any(pattern.match(string) for pattern in self._compiled_allow)
 
     def denied(self, string: str) -> bool:
-        for deny_pattern in self.deny:
-            if re.match(deny_pattern, string, self.regex_flags):
-                return True
-
-        return False
+        return any(pattern.match(string) for pattern in self._compiled_deny)
 
     def is_fully_specified_allow_list(self) -> bool:
         """
