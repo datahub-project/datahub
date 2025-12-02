@@ -26,9 +26,7 @@ export default class DatasetHelper {
       cy.get(".ant-tag-close-icon").click();
     });
 
-    cy.get(".ant-modal-confirm-confirm").within(() => {
-      cy.get(".ant-btn-primary").click();
-    });
+    cy.getWithTestId("modal-confirm-button").click();
 
     cy.waitTextVisible("Removed Tag!");
   }

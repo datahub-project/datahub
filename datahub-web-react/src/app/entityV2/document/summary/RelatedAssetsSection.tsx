@@ -11,14 +11,22 @@ import { DocumentRelatedAsset, EntityType } from '@types';
 const SectionHeader = styled.h4`
     font-size: 16px;
     font-weight: 600;
-    margin: 0 0 8px 0;
-    color: ${colors.gray[1700]};
+    margin: 0;
+    color: ${colors.gray[600]};
 `;
 
 const List = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
+`;
+
+const EmptyState = styled.div`
+    font-size: 14px;
+    font-weight: 400;
+    color: ${colors.gray[600]};
+    text-align: center;
+    padding: 8px;
 `;
 
 interface RelatedAssetsSectionProps {
@@ -28,15 +36,11 @@ interface RelatedAssetsSectionProps {
 export const RelatedAssetsSection: React.FC<RelatedAssetsSectionProps> = ({ relatedAssets }) => {
     const entityRegistry = useEntityRegistry();
 
-    if (!relatedAssets || relatedAssets.length === 0) {
-        return null;
-    }
-
     return (
         <SectionContainer>
-            <SectionHeader>Related Assets</SectionHeader>
+            <SectionHeader>Related</SectionHeader>
             <List>
-                {relatedAssets.map((relatedAsset) => {
+                {relatedAssets?.map((relatedAsset) => {
                     const { asset } = relatedAsset;
                     const genericProperties = entityRegistry.getGenericEntityProperties(
                         asset.type as EntityType,
@@ -45,6 +49,7 @@ export const RelatedAssetsSection: React.FC<RelatedAssetsSectionProps> = ({ rela
 
                     return <EntityLink key={asset.urn} entity={genericProperties} showHealthIcon showDeprecatedIcon />;
                 })}
+                {relatedAssets?.length === 0 || !relatedAssets ? <EmptyState>No related assets yet</EmptyState> : null}
             </List>
         </SectionContainer>
     );
