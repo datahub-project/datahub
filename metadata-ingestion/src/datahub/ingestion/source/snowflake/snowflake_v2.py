@@ -469,7 +469,7 @@ class SnowflakeV2Source(
     def _is_temp_table(self, name: str) -> bool:
         if any(
             pattern.match(name)
-            for pattern in self.config._compiled_temporary_tables_pattern
+            for pattern in self.config._get_compiled_temporary_tables_pattern()
         ):
             return True
 

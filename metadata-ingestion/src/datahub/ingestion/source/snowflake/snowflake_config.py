@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from cached_property import cached_property
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
@@ -406,12 +405,17 @@ class SnowflakeV2Config(
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
 
-    @cached_property  # type: ignore[misc]
-    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
-        return [
-            re.compile(pattern, re.IGNORECASE)
-            for pattern in self.temporary_tables_pattern
-        ]
+    def _get_compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        if not hasattr(self, "_cached_temp_tables_pattern"):
+            object.__setattr__(
+                self,
+                "_cached_temp_tables_pattern",
+                [
+                    re.compile(pattern, re.IGNORECASE)
+                    for pattern in self.temporary_tables_pattern
+                ],
+            )
+        return self._cached_temp_tables_pattern  # type: ignore[attr-defined]
 
     @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod

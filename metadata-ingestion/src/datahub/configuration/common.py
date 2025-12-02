@@ -384,13 +384,23 @@ class AllowDenyPattern(ConfigModel):
     def regex_flags(self) -> int:
         return re.IGNORECASE if self.ignoreCase else 0
 
-    @cached_property  # type: ignore[misc]
-    def _compiled_allow(self) -> "List[re.Pattern]":
-        return [re.compile(pattern, self.regex_flags) for pattern in self.allow]
+    def _get_compiled_allow(self) -> "List[re.Pattern]":
+        if not hasattr(self, "_cached_compiled_allow"):
+            object.__setattr__(
+                self,
+                "_cached_compiled_allow",
+                [re.compile(pattern, self.regex_flags) for pattern in self.allow],
+            )
+        return self._cached_compiled_allow  # type: ignore[attr-defined]
 
-    @cached_property  # type: ignore[misc]
-    def _compiled_deny(self) -> "List[re.Pattern]":
-        return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
+    def _get_compiled_deny(self) -> "List[re.Pattern]":
+        if not hasattr(self, "_cached_compiled_deny"):
+            object.__setattr__(
+                self,
+                "_cached_compiled_deny",
+                [re.compile(pattern, self.regex_flags) for pattern in self.deny],
+            )
+        return self._cached_compiled_deny  # type: ignore[attr-defined]
 
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
@@ -400,10 +410,10 @@ class AllowDenyPattern(ConfigModel):
         if self.denied(string):
             return False
 
-        return any(pattern.match(string) for pattern in self._compiled_allow)
+        return any(pattern.match(string) for pattern in self._get_compiled_allow())
 
     def denied(self, string: str) -> bool:
-        return any(pattern.match(string) for pattern in self._compiled_deny)
+        return any(pattern.match(string) for pattern in self._get_compiled_deny())
 
     def is_fully_specified_allow_list(self) -> bool:
         """
