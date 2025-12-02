@@ -8,10 +8,10 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from functools import cached_property
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pydantic
+from cached_property import cached_property
 from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
@@ -148,7 +148,7 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
 
-    @cached_property
+    @cached_property  # type: ignore[misc]
     def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
         return [
             re.compile(pattern, re.IGNORECASE)
