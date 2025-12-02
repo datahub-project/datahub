@@ -1447,13 +1447,17 @@ def _parse_stored_procedure_fallback(
     logger.info(
         "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements [WHEEL-BUILD-VERSION-2025-12-02]"
     )
+    logger.info(f"[FALLBACK-START] SQL length: {len(sql)} chars")
 
     # Strip CREATE PROCEDURE wrapper if present
     # The sql might be the full CREATE PROCEDURE statement, which split_statements
     # treats as a single statement. We need to extract just the body.
     sql_to_parse = sql
+    logger.info("[FALLBACK-PARSE] Assigned sql_to_parse, about to call .upper()")
     sql_upper = sql.upper()
-    logger.debug(f"Checking for CREATE PROCEDURE wrapper. SQL starts with: {sql[:100]}")
+    logger.info(
+        f"[FALLBACK-UPPER] Got sql_upper, checking for CREATE PROCEDURE. SQL starts with: {sql[:100]}"
+    )
     if "CREATE PROCEDURE" in sql_upper or "CREATE OR REPLACE PROCEDURE" in sql_upper:
         logger.debug("CREATE PROCEDURE detected, attempting to strip wrapper")
         # Try to extract the body between AS and the final END
