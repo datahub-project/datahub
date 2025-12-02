@@ -7,6 +7,7 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -14,7 +15,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -29,11 +29,8 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
-import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
-import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
@@ -41,7 +38,6 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
-import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
@@ -266,70 +262,12 @@ public class ESWriteDAO {
     // Instead of deleting all documents (inefficient), delete the indices themselves
     for (String indexName : allIndices) {
       try {
-        // Check if the index name is an alias or a concrete index
-        GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
-        GetAliasesResponse aliasesResponse =
-            searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
-        Collection<String> indicesToDelete;
-        if (aliasesResponse.getAliases().isEmpty()) {
-          // Not an alias, check if it's a concrete index
-          boolean indexExists =
-              searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
-          if (!indexExists) {
-            log.debug("Index {} does not exist, skipping", indexName);
-            continue;
-          }
-
-          // Check if this concrete index has any aliases pointing to it
-          // If so, track the alias name for recreation, not the concrete index name
-          GetAliasesRequest aliasesForIndexRequest = new GetAliasesRequest();
-          aliasesForIndexRequest.indices(indexName);
-          GetAliasesResponse aliasesForIndex =
-              searchClient.getIndexAliases(aliasesForIndexRequest, RequestOptions.DEFAULT);
-
-          String nameToTrack = indexName;
-          if (!aliasesForIndex.getAliases().isEmpty()
-              && aliasesForIndex.getAliases().containsKey(indexName)) {
-            // Get the alias names that point to this concrete index
-            Set<AliasMetadata> aliases = aliasesForIndex.getAliases().get(indexName);
-            if (aliases != null && !aliases.isEmpty()) {
-              // Use the first alias name (typically there's only one)
-              nameToTrack = aliases.iterator().next().alias();
-              log.info(
-                  "Concrete index {} has alias {}, tracking alias for recreation",
-                  indexName,
-                  nameToTrack);
-            }
-          }
-
+        String nameToTrack = IndexDeletionUtils.deleteIndex(searchClient, indexName);
+        if (nameToTrack != null) {
           deletedIndexNames.add(nameToTrack);
-          indicesToDelete = List.of(indexName);
-          log.info("Deleting concrete index {} for efficient clearing", indexName);
-        } else {
-          // It's an alias, delete the concrete indices behind it
-          indicesToDelete = aliasesResponse.getAliases().keySet();
-          log.info(
-              "Deleting concrete indices {} behind alias {} for efficient clearing",
-              indicesToDelete,
-              indexName);
-          // Track the alias name, not the concrete indices
-          deletedIndexNames.add(indexName);
-        }
-
-        // Delete the concrete indices
-        for (String concreteIndex : indicesToDelete) {
-          try {
-            DeleteIndexRequest deleteRequest = new DeleteIndexRequest(concreteIndex);
-            deleteRequest.timeout(org.opensearch.common.unit.TimeValue.timeValueSeconds(30));
-            searchClient.deleteIndex(deleteRequest, RequestOptions.DEFAULT);
-            log.info("Successfully deleted index {}", concreteIndex);
-          } catch (IOException e) {
-            log.error("Failed to delete index {} during clear operation", concreteIndex, e);
-            throw new RuntimeException("Failed to delete index: " + concreteIndex, e);
-          }
         }
       } catch (IOException e) {
-        log.error("Failed to check aliases for index {} during clear operation", indexName, e);
+        log.error("Failed to delete index {} during clear operation", indexName, e);
         throw new RuntimeException("Failed to clear index: " + indexName, e);
       }
     }

@@ -1262,25 +1262,14 @@ public class ESIndexBuilder {
    * @throws IOException If there's an error communicating with Elasticsearch
    */
   public void deleteIndex(@Nonnull String indexName) throws IOException {
-    // Check if it's an alias
-    GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
-    GetAliasesResponse aliasesResponse =
-        searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
-
-    Collection<String> indicesToDelete;
-    if (aliasesResponse.getAliases().isEmpty()) {
-      // Not an alias, delete the concrete index directly
-      indicesToDelete = List.of(indexName);
-    } else {
-      // It's an alias, get the concrete indices behind it
-      indicesToDelete = aliasesResponse.getAliases().keySet();
-      log.info(
-          "Index {} is an alias pointing to {}, deleting concrete indices",
-          indexName,
-          indicesToDelete);
+    IndexDeletionUtils.IndexResolutionResult resolution =
+        IndexDeletionUtils.resolveIndexForDeletion(searchClient, indexName);
+    if (resolution == null) {
+      log.debug("Index {} does not exist, nothing to delete", indexName);
+      return;
     }
 
-    for (String concreteIndex : indicesToDelete) {
+    for (String concreteIndex : resolution.indicesToDelete()) {
       try {
         deleteActionWithRetry(searchClient, concreteIndex);
       } catch (Exception e) {
@@ -1295,17 +1284,6 @@ public class ESIndexBuilder {
     Map<String, Object> settings = state.targetSettings();
     log.info("Creating index {} with targetMappings: {}", indexName, mappings);
     log.info("Creating index {} with targetSettings: {}", indexName, settings);
-
-    // Verify mappings contain the expected fields
-    if (mappings != null && mappings.containsKey("properties")) {
-      Map<String, Object> props = (Map<String, Object>) mappings.get("properties");
-      log.info("Index {} properties keys: {}", indexName, props.keySet());
-      if (props.containsKey("updatedOn")) {
-        log.info("Index {} updatedOn mapping: {}", indexName, props.get("updatedOn"));
-      } else {
-        log.warn("Index {} is MISSING updatedOn mapping!", indexName);
-      }
-    }
 
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
     createIndexRequest.mapping(mappings);
@@ -1323,59 +1301,10 @@ public class ESIndexBuilder {
    * @throws IOException If the deletion or creation fails
    */
   public void clearIndex(String indexName, ReindexConfig config) throws IOException {
-    // The indexName must be either an alias or an actual index
-    GetAliasesRequest getAliasesRequest = new GetAliasesRequest(indexName);
-    GetAliasesResponse aliasesResponse;
-    try {
-      aliasesResponse = searchClient.getIndexAliases(getAliasesRequest, RequestOptions.DEFAULT);
-    } catch (IOException | RuntimeException e) {
-      // If getIndexAliases throws, check if it's because index/alias doesn't exist
-      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
-        // Check if it's an actual index
-        boolean indexExists =
-            searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
-        if (!indexExists) {
-          throw new IOException(
-              "Index or alias " + indexName + " does not exist and cannot be cleared", e);
-        }
-        // Index exists but getIndexAliases failed, treat as concrete index (not an alias)
-        aliasesResponse = null;
-      } else {
-        throw new IOException("Failed to get index aliases for " + indexName, e);
-      }
-    }
-
-    Collection<String> indicesToDelete;
-    if (aliasesResponse == null || aliasesResponse.getAliases().isEmpty()) {
-      // Not an alias, must be a concrete index - verify it exists
-      boolean indexExists =
-          searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
-      if (!indexExists) {
-        throw new IOException("Index " + indexName + " does not exist and cannot be cleared");
-      }
-      indicesToDelete = List.of(indexName);
-      log.info("Deleting concrete index {} for efficient clearing", indexName);
-    } else {
-      // It's an alias, delete the concrete indices behind it
-      indicesToDelete = aliasesResponse.getAliases().keySet();
-      log.info(
-          "Deleting concrete indices {} behind alias {} for efficient clearing",
-          indicesToDelete,
-          indexName);
-    }
-
-    // Delete the concrete indices
-    for (String concreteIndex : indicesToDelete) {
-      try {
-        deleteActionWithRetry(searchClient, concreteIndex);
-      } catch (Exception e) {
-        log.error("Failed to delete index {} during clear operation", concreteIndex, e);
-        throw new IOException("Failed to delete index: " + concreteIndex, e);
-      }
-    }
+    // Delete the index (handles both aliases and concrete indices)
+    deleteIndex(indexName);
 
     // Recreate the index with the same mappings and settings
-    // This will recreate the alias if the original was an alias
     log.info("Recreating index {} after clearing", indexName);
     createIndex(indexName, config);
   }
