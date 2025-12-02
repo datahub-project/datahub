@@ -2,7 +2,7 @@ const MFE_CONTAINER_CSS_SELECTOR = '[data-testid="mfe-configurable-container"]';
 
 describe("MFE YAML Config - Valid Config", () => {
   beforeEach(() => {
-    cy.intercept("GET", "/api/mfe/config", {
+    cy.intercept("GET", "/mfe/config", {
       statusCode: 200,
       body: `
 subNavigationMode: false

@@ -100,7 +100,7 @@ export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
  * - Returns the parsed and validated MFESchema.
  */
 async function fetchMFEConfig(): Promise<MFESchema> {
-    const response = await fetch('/api/mfe/config');
+    const response = await fetch('/mfe/config');
     if (!response.ok) throw new Error(`Failed to fetch YAML: ${response.statusText}`);
     const yamlText = await response.text();
     console.log('[MFE Loader] Fetched YAML: ', yamlText);
