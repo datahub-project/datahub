@@ -1,4 +1,5 @@
-import { Button, Modal, Select } from 'antd';
+import { Modal } from '@components';
+import { Select } from 'antd';
 import React, { useState } from 'react';
 
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -8,7 +9,7 @@ import { EntityType } from '@types';
 type Props = {
     onCloseModal: () => void;
     onOk?: (results: string[]) => void;
-    title?: string;
+    title: string;
     defaultValues?: string[];
 };
 
@@ -31,19 +32,22 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
     return (
         <Modal
             title={title}
-            visible
+            open
             onCancel={onCloseModal}
             keyboard
-            footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
-                        Cancel
-                    </Button>
-                    <Button disabled={stagedValues.length === 0} onClick={() => onOk?.(stagedValues)}>
-                        Done
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: 'Done',
+                    variant: 'filled',
+                    disabled: stagedValues.length === 0,
+                    onClick: () => onOk?.(stagedValues),
+                },
+            ]}
         >
             <Select
                 mode="multiple"
