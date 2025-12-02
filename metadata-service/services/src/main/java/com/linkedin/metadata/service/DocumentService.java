@@ -526,7 +526,7 @@ public class DocumentService {
   }
 
   /**
-   * Updates the sub-type of a document.
+   * Update the sub type for a document
    *
    * @param opContext the operation context
    * @param documentUrn the document URN

@@ -567,6 +567,12 @@ input SearchDocumentsInput {
   states: [DocumentState!]
 
   """
+  Optional document source type to filter by.
+  If not provided, searches all documents regardless of source.
+  """
+  sourceType: DocumentSourceType
+
+  """
   Whether to include draft documents in the search results.
   Draft documents have draftOf set and are hidden from normal browsing by default.
   Defaults to false (excludes drafts).

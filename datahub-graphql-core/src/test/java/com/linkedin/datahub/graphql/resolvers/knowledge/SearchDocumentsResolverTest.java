@@ -9,11 +9,14 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DocumentSourceType;
 import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -24,6 +27,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -253,5 +257,73 @@ public class SearchDocumentsResolverTest {
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+  }
+
+  @Test
+  public void testSearchDocumentsWithSourceType() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setSourceType(DocumentSourceType.NATIVE);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10));
+
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter, "Filter should not be null");
+    assertNotNull(filter.getOr(), "Filter OR clause should not be null");
+
+    boolean hasSourceType =
+        filter.getOr().stream()
+            .flatMap(cc -> cc.getAnd().stream())
+            .anyMatch(
+                c ->
+                    "sourceType".equals(c.getField())
+                        && c.getValues() != null
+                        && c.getValues().contains("NATIVE")
+                        && c.getCondition() == Condition.EQUAL);
+
+    assertTrue(hasSourceType, "Filter should contain sourceType=NATIVE");
+  }
+
+  @Test
+  public void testSearchDocumentsDefaultSourceType() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setSourceType(null);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10));
+
+    Filter filter = filterCaptor.getValue();
+    if (filter != null) {
+      boolean hasSourceType =
+          filter.getOr().stream()
+              .flatMap(cc -> cc.getAnd().stream())
+              .anyMatch(c -> "sourceType".equals(c.getField()));
+
+      assertFalse(hasSourceType, "Filter should NOT contain sourceType when not provided");
+    }
   }
 }

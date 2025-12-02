@@ -29,6 +29,7 @@ export enum PageRoutes {
     FORM_ANALYTICS = '/govern/dashboard/form-analytics',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
+    DOCUMENT = '/document',
     GLOSSARY = '/glossary',
     STRUCTURED_PROPERTIES = '/structured-properties',
     TESTS = '/tests',

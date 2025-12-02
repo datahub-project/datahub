@@ -41,7 +41,11 @@ type Props = {
 
 const SectionActionButton = ({ tip, button, onClick, actionPrivilege = true, dataTestId }: Props) => {
     return (
-        <Tooltip placement="top" title={!actionPrivilege ? 'No access' : tip} showArrow={false}>
+        <Tooltip
+            placement="top"
+            title={!actionPrivilege ? 'You do not have permission to change this.' : tip}
+            showArrow={false}
+        >
             <>
                 <ActionButton onClick={onClick} privilege={actionPrivilege} data-testid={dataTestId}>
                     {button}
