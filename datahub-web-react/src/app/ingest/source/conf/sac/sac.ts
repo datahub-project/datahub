@@ -12,6 +12,8 @@ source:
         # Add secret in Secrets Tab with relevant names for each variable
         client_id: "\${SAC_CLIENT_ID}" # Your SAP Analytics Cloud client id
         client_secret: "\${SAC_CLIENT_SECRET}" # Your SAP Analytics Cloud client secret
+        stateful_ingestion:
+            enabled: true
 `;
 
 export const SAC = 'sac';

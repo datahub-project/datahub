@@ -22,6 +22,8 @@ source:
         # Profiling
         profiling:
             enabled: false
+        stateful_ingestion:
+            enabled: true
 `;
 
 const mysqlConfig: SourceConfig = {

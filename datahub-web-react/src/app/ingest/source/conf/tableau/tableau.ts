@@ -21,6 +21,8 @@ source:
     default_schema_map:
       mydatabase: public
       anotherdatabase: anotherschema
+    stateful_ingestion:
+      enabled: true
 `;
 
 export const TABLEAU = 'tableau';

@@ -92,7 +92,7 @@ class KafkaSchemaRegistryBase(ABC):
 
 The custom schema registry class can be configured using the `schema_registry_class` config param of the `kafka` source as shown below.
 
-```YAML
+```yaml
 source:
   type: "kafka"
   config:
@@ -106,13 +106,93 @@ source:
 
 ### OAuth Callback
 
-The OAuth callback function can be set up using `config.connection.consumer_config.oauth_cb`.
+The OAuth callback function can be set up for both Kafka sources (consumers) and sinks (producers):
+
+- For sources: `config.connection.consumer_config.oauth_cb`
+- For sinks: `config.connection.producer_config.oauth_cb`
 
 You need to specify a Python function reference in the format &lt;python-module&gt;:&lt;function-name&gt;.
 
 For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
 
-```YAML
+#### Deploying Custom OAuth Callbacks
+
+**For Built-in Callbacks (Recommended):**
+
+DataHub includes pre-built OAuth callbacks for common use cases:
+
+- **AWS MSK IAM**: `datahub_actions.utils.kafka_msk_iam:oauth_cb`
+- **Azure Event Hubs**: `datahub_actions.utils.kafka_eventhubs_auth:oauth_cb`
+
+**Important:** To use these built-in callbacks, you must install the `acryl-datahub-actions` package:
+
+```bash
+pip install acryl-datahub-actions>=1.3.1.2
+```
+
+**For Custom OAuth Callbacks:**
+
+If you need to implement a custom OAuth callback, you must ensure your Python module is accessible to the DataHub process:
+
+1. **Docker Deployments (datahub-gms, datahub-actions containers):**
+
+   ```bash
+   # Option A: Mount your module as a volume in docker-compose.yml
+   volumes:
+     - ./my_oauth_module:/etc/datahub/my_oauth_module
+   environment:
+     - PYTHONPATH=/etc/datahub/my_oauth_module:$PYTHONPATH
+   ```
+
+   ```bash
+   # Option B: Build a custom Docker image with your module
+   FROM acryldata/datahub-gms:latest
+   COPY my_oauth_module/ /etc/datahub/my_oauth_module/
+   ENV PYTHONPATH=/etc/datahub/my_oauth_module:$PYTHONPATH
+   ```
+
+2. **Kubernetes Deployments:**
+
+   ```yaml
+   # Use a ConfigMap or Secret to mount your module
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: oauth-callback
+   data:
+     oauth.py: |
+       def create_token(oauth_config):
+           # Your implementation
+           return (token, expiry_time)
+   ---
+   # In your deployment spec:
+   volumeMounts:
+     - name: oauth-callback
+       mountPath: /etc/datahub/oauth
+   env:
+     - name: PYTHONPATH
+       value: "/etc/datahub/oauth:$PYTHONPATH"
+   ```
+
+3. **Local Development / CLI Ingestion:**
+
+   ```bash
+   # Ensure your module is in PYTHONPATH
+   export PYTHONPATH=/path/to/your/module:$PYTHONPATH
+   datahub ingest -c your_recipe.yml
+   ```
+
+4. **Python Package Installation:**
+
+   ```bash
+   # Install your module as a package
+   pip install my-oauth-package
+   # Then reference it: oauth_cb: "my_oauth_package.auth:create_token"
+   ```
+
+**Example for Kafka Source:**
+
+```yaml
 source:
   type: "kafka"
   config:
@@ -127,6 +207,22 @@ source:
         sasl.mechanism: "OAUTHBEARER"
         oauth_cb: "oauth:create_token"
 # sink configs
+```
+
+**Example for Kafka Sink (e.g., MSK IAM authentication):**
+
+```yaml
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: "b-1.msk.us-west-2.amazonaws.com:9098"
+      schema_registry_url: "http://datahub-gms:8080/schema-registry/api/"
+      producer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        sasl.oauthbearer.method: "default"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb"
 ```
 
 ### Limitations of `PROTOBUF` schema types implementation
