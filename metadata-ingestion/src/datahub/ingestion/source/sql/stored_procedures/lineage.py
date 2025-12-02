@@ -23,7 +23,18 @@ def parse_procedure_code(
     raise_: bool = False,
     procedure_name: Optional[str] = None,
 ) -> Optional[DataJobInputOutputClass]:
-    statements = list(split_statements(code))
+    # Don't split if code starts with CREATE PROCEDURE - treat the entire procedure as one unit
+    # The fallback parser inside sqlglot_lineage will handle splitting if needed
+    code_upper = code.strip().upper()
+    if code_upper.startswith("CREATE PROCEDURE") or code_upper.startswith(
+        "CREATE OR REPLACE PROCEDURE"
+    ):
+        logger.info(
+            f"[SPLIT-SKIP] Detected CREATE PROCEDURE, passing entire code to parser ({len(code)} chars)"
+        )
+        statements = [code]
+    else:
+        statements = list(split_statements(code))
 
     aggregator = SqlParsingAggregator(
         platform=schema_resolver.platform,
