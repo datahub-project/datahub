@@ -3,10 +3,10 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from cached_property import cached_property
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
