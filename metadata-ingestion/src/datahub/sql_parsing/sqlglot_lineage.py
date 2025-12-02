@@ -1448,8 +1448,28 @@ def _parse_stored_procedure_fallback(
         "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements"
     )
 
+    # Strip CREATE PROCEDURE wrapper if present
+    # The sql might be the full CREATE PROCEDURE statement, which split_statements
+    # treats as a single statement. We need to extract just the body.
+    sql_to_parse = sql
+    sql_upper = sql.upper()
+    if "CREATE PROCEDURE" in sql_upper or "CREATE OR REPLACE PROCEDURE" in sql_upper:
+        # Try to extract the body between AS and the final END
+        # Pattern: CREATE PROCEDURE ... AS <body>
+        import re
+
+        # Find the AS keyword that follows CREATE PROCEDURE
+        as_match = re.search(r"\bAS\s+", sql, re.IGNORECASE | re.DOTALL)
+        if as_match:
+            # Extract everything after AS
+            body_start = as_match.end()
+            sql_to_parse = sql[body_start:]
+            logger.debug(
+                f"Stripped CREATE PROCEDURE wrapper, parsing body only ({len(sql_to_parse)} chars)"
+            )
+
     # Split into individual statements
-    statements = list(split_statements(sql))
+    statements = list(split_statements(sql_to_parse))
 
     # Collect results from all parseable statements
     all_in_tables: Set[Urn] = set()
