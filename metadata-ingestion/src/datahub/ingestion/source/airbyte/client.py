@@ -15,8 +15,56 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
 )
+from datahub.ingestion.source.airbyte.models import (
+    AirbyteConnectionPartial,
+    AirbyteDestinationPartial,
+    AirbyteSourcePartial,
+    AirbyteWorkspacePartial,
+)
+
+"""
+Exception Handling Strategy:
+
+The client layer (this module) raises custom exceptions for all API errors:
+- AirbyteApiError: For HTTP errors, connection failures, JSON parsing errors
+- AirbyteAuthenticationError: For OAuth token refresh failures (Cloud only)
+
+The source layer (source.py) catches these exceptions and:
+- Logs them as warnings/errors with context
+- Reports them as failures via the reporting API
+- Continues processing other entities (non-fatal)
+
+This allows the ingestion to continue even when individual API calls fail,
+while still providing visibility into the errors that occurred.
+
+API Response Validation:
+
+- Client methods return Dict[str, Any] (raw API responses)
+- Source layer validates responses using Pydantic models via model_validate()
+- This keeps the client layer thin and the validation logic centralized
+"""
 
 logger = logging.getLogger(__name__)
+
+# HTTP Header Constants
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_FORM_URLENCODED = "application/x-www-form-urlencoded"
+
+
+class AirbyteApiError(Exception):
+    """Raised when Airbyte API request fails.
+
+    This exception is raised for HTTP errors, connection errors, or any other
+    issues encountered while communicating with the Airbyte API.
+    """
+
+    pass
+
+
+class AirbyteAuthenticationError(AirbyteApiError):
+    """Raised when authentication with Airbyte API fails."""
+
+    pass
 
 
 class StreamConfigDict(TypedDict):
@@ -84,7 +132,7 @@ class AirbyteBaseClient(ABC):
         """
         session = requests.Session()
 
-        session.headers.update({"Content-Type": "application/json"})
+        session.headers.update({"Content-Type": CONTENT_TYPE_JSON})
 
         if self.config.extra_headers:
             session.headers.update(self.config.extra_headers)
@@ -133,40 +181,27 @@ class AirbyteBaseClient(ABC):
     def _make_request(
         self,
         endpoint: str,
-        method: str = "GET",
-        data: Optional[dict] = None,
-        params: Optional[dict] = None,
-    ) -> dict:
-        """
-        Make a request to the Airbyte API with retry handling
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Make a GET request to the Airbyte API with automatic retry handling.
 
         Args:
-            endpoint: API endpoint
-            method: HTTP method
-            data: Request payload
-            params: URL parameters
+            endpoint: API endpoint (e.g., "/workspaces")
+            params: URL query parameters
 
         Returns:
-            Response as a dictionary
+            Parsed JSON response
 
         Raises:
-            Exception: If the request fails after retries
+            AirbyteApiError: For HTTP errors, connection failures, or JSON parsing errors
         """
         url = self._get_full_url(endpoint)
-        logger.debug(f"Making {method} request to {url}")
+        logger.debug(f"Making GET request to {url}")
 
         try:
-            if method == "GET":
-                response = self.session.get(
-                    url, params=params, timeout=self.config.request_timeout
-                )
-            elif method == "POST":
-                response = self.session.post(
-                    url, json=data, params=params, timeout=self.config.request_timeout
-                )
-            else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
-
+            response = self.session.get(
+                url, params=params, timeout=self.config.request_timeout
+            )
             response.raise_for_status()
             return response.json()
         except requests.HTTPError as e:
@@ -178,17 +213,15 @@ class AirbyteBaseClient(ABC):
                 error_message += f" - {e.response.text}"
 
             logger.error(error_message)
-            raise Exception(error_message) from e
+            raise AirbyteApiError(error_message) from e
         except requests.RequestException as e:
             error_message = f"Error connecting to Airbyte API: {str(e)}"
             logger.error(error_message)
-            raise Exception(error_message) from e
+            raise AirbyteApiError(error_message) from e
 
     def _paginate_results(
         self,
         endpoint: str,
-        method: str = "GET",
-        data: Optional[dict] = None,
         params: Optional[dict] = None,
         result_key: str = "data",
         page_size: Optional[int] = None,
@@ -196,13 +229,10 @@ class AirbyteBaseClient(ABC):
         next_page_token_key: str = "next",
         offset_param: str = "offset",
     ) -> Iterator[dict]:
-        """
-        Handle pagination for API endpoints that return paginated results
+        """Handle pagination for API endpoints that return paginated results.
 
         Args:
             endpoint: API endpoint
-            method: HTTP method
-            data: Request payload
             params: URL query parameters
             result_key: Key in the response that contains the results
             page_size: Number of items per page
@@ -227,7 +257,7 @@ class AirbyteBaseClient(ABC):
             if offset > 0:
                 params[offset_param] = offset
 
-            response = self._make_request(endpoint, method, data, params)
+            response = self._make_request(endpoint, params=params)
 
             items = response.get(result_key, [])
             if isinstance(items, list):
@@ -296,31 +326,30 @@ class AirbyteBaseClient(ABC):
         """
         pass
 
-    def list_workspaces(self, pattern: Optional[AllowDenyPattern] = None) -> List[dict]:
-        """
-        List all workspaces in Airbyte with pagination and filtering
+    def list_workspaces(
+        self, pattern: Optional[AllowDenyPattern] = None
+    ) -> List[AirbyteWorkspacePartial]:
+        """List all workspaces in Airbyte with pagination and filtering.
 
         Args:
             pattern: AllowDenyPattern to filter workspaces by name
 
         Returns:
-            List of workspaces
+            List of validated workspace models
         """
         self._check_auth_before_request()
-        workspaces = list(
-            self._paginate_results(
-                endpoint="/workspaces", method="GET", result_key="data"
-            )
+        workspaces_data = list(
+            self._paginate_results(endpoint="/workspaces", result_key="data")
         )
 
         if pattern:
-            workspaces = self._apply_pattern(workspaces, pattern)
+            workspaces_data = self._apply_pattern(workspaces_data, pattern)
 
-        return workspaces
+        return [AirbyteWorkspacePartial.model_validate(w) for w in workspaces_data]
 
     def list_connections(
         self, workspace_id: str, pattern: Optional[AllowDenyPattern] = None
-    ) -> List[dict]:
+    ) -> List[AirbyteConnectionPartial]:
         """
         List all connections in a workspace with filtering
 
@@ -335,7 +364,7 @@ class AirbyteBaseClient(ABC):
         params = {"workspaceId": workspace_id}
         connections = list(
             self._paginate_results(
-                endpoint="/connections", method="GET", params=params, result_key="data"
+                endpoint="/connections", params=params, result_key="data"
             )
         )
 
@@ -347,7 +376,7 @@ class AirbyteBaseClient(ABC):
         if pattern:
             active_connections = self._apply_pattern(active_connections, pattern)
 
-        return active_connections
+        return [AirbyteConnectionPartial.model_validate(c) for c in active_connections]
 
     def list_jobs(
         self,
@@ -356,7 +385,7 @@ class AirbyteBaseClient(ABC):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         limit: int = 100,
-    ) -> List[dict]:
+    ) -> List[Dict[str, Any]]:
         """
         List jobs for a connection
 
@@ -387,25 +416,25 @@ class AirbyteBaseClient(ABC):
         if end_date:
             params["updatedAtEnd"] = end_date
 
-        response = self._make_request("/jobs", method="GET", params=params)
+        response = self._make_request("/jobs", params=params)
         return response.get("jobs", [])
 
-    def get_source(self, source_id: str) -> dict:
-        """
-        Get source details
+    def get_source(self, source_id: str) -> AirbyteSourcePartial:
+        """Get source details.
 
         Args:
             source_id: Source ID
 
         Returns:
-            Source details
+            Validated source model
         """
         self._check_auth_before_request()
-        return self._make_request(f"/sources/{source_id}", method="GET")
+        source_data = self._make_request(f"/sources/{source_id}")
+        return AirbyteSourcePartial.model_validate(source_data)
 
     def list_sources(
         self, workspace_id: str, pattern: Optional[AllowDenyPattern] = None
-    ) -> List[dict]:
+    ) -> List[AirbyteSourcePartial]:
         """
         List all sources in a workspace with filtering
 
@@ -419,33 +448,33 @@ class AirbyteBaseClient(ABC):
         self._check_auth_before_request()
 
         params = {"workspaceId": workspace_id}
-        sources = list(
+        sources_data = list(
             self._paginate_results(
-                endpoint="/sources", method="GET", params=params, result_key="data"
+                endpoint="/sources", params=params, result_key="data"
             )
         )
 
         if pattern:
-            sources = self._apply_pattern(sources, pattern)
+            sources_data = self._apply_pattern(sources_data, pattern)
 
-        return sources
+        return [AirbyteSourcePartial.model_validate(s) for s in sources_data]
 
-    def get_destination(self, destination_id: str) -> dict:
-        """
-        Get destination details
+    def get_destination(self, destination_id: str) -> AirbyteDestinationPartial:
+        """Get destination details.
 
         Args:
             destination_id: Destination ID
 
         Returns:
-            Destination details
+            Validated destination model
         """
         self._check_auth_before_request()
-        return self._make_request(f"/destinations/{destination_id}", method="GET")
+        dest_data = self._make_request(f"/destinations/{destination_id}")
+        return AirbyteDestinationPartial.model_validate(dest_data)
 
     def list_destinations(
         self, workspace_id: str, pattern: Optional[AllowDenyPattern] = None
-    ) -> List[dict]:
+    ) -> List[AirbyteDestinationPartial]:
         """
         List all destinations in a workspace with filtering
 
@@ -459,31 +488,28 @@ class AirbyteBaseClient(ABC):
         self._check_auth_before_request()
 
         params = {"workspaceId": workspace_id}
-        destinations = list(
+        destinations_data = list(
             self._paginate_results(
-                endpoint="/destinations", method="GET", params=params, result_key="data"
+                endpoint="/destinations", params=params, result_key="data"
             )
         )
 
         if pattern:
-            destinations = self._apply_pattern(destinations, pattern)
+            destinations_data = self._apply_pattern(destinations_data, pattern)
 
-        return destinations
+        return [AirbyteDestinationPartial.model_validate(d) for d in destinations_data]
 
-    def get_connection(self, connection_id: str) -> Dict[str, Any]:
-        """
-        Get connection details including sync catalog
+    def get_connection(self, connection_id: str) -> AirbyteConnectionPartial:
+        """Get connection details including sync catalog.
 
         Args:
             connection_id: Connection ID
 
         Returns:
-            Connection details including sync catalog
+            Validated connection model
         """
         self._check_auth_before_request()
-        connection_data = self._make_request(
-            f"/connections/{connection_id}", method="GET"
-        )
+        connection_data = self._make_request(f"/connections/{connection_id}")
 
         # Airbyte 1.x public API returns 'configurations.streams' instead of 'syncCatalog.streams'
         # Transform to the format expected by DataHub connector for backward compatibility
@@ -502,7 +528,7 @@ class AirbyteBaseClient(ABC):
                     configurations["streams"], stream_property_fields
                 )
 
-        return connection_data
+        return AirbyteConnectionPartial.model_validate(connection_data)
 
     def _fetch_stream_property_fields(
         self, source_id: Optional[str]
@@ -669,7 +695,7 @@ class AirbyteBaseClient(ABC):
 
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
-    ) -> List[dict]:
+    ) -> List[Dict[str, Any]]:
         """
         List streams available in Airbyte with detailed schema information.
         Can be filtered by source_id or destination_id.
@@ -702,7 +728,7 @@ class AirbyteBaseClient(ABC):
         if query_params:
             endpoint = f"{endpoint}?{'&'.join(query_params)}"
 
-        response = self._make_request(endpoint, method="GET")
+        response = self._make_request(endpoint)
         return response if isinstance(response, list) else response.get("streams", [])
 
     def get_job(self, job_id: str) -> Dict[str, Any]:
@@ -716,9 +742,9 @@ class AirbyteBaseClient(ABC):
             Job details including bytesCommitted, recordsCommitted, streamStatuses, etc.
         """
         self._check_auth_before_request()
-        return self._make_request(f"/jobs/{job_id}", method="GET")
+        return self._make_request(f"/jobs/{job_id}")
 
-    def list_tags(self, workspace_id: str) -> List[dict]:
+    def list_tags(self, workspace_id: str) -> List[Dict[str, Any]]:
         """
         List all available tags in Airbyte
 
@@ -726,9 +752,7 @@ class AirbyteBaseClient(ABC):
             List of tags for the given workspace_id
         """
         self._check_auth_before_request()
-        response = self._make_request(
-            f"/tags?workspaceIds={workspace_id}", method="GET"
-        )
+        response = self._make_request(f"/tags?workspaceIds={workspace_id}")
         return response.get("tags", [])
 
 
@@ -854,7 +878,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
             response = requests.post(
                 self.TOKEN_URL,
                 data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                headers={"Content-Type": CONTENT_TYPE_FORM_URLENCODED},
                 timeout=self.config.request_timeout,
                 verify=self.session.verify,
             )
@@ -901,25 +925,25 @@ class AirbyteCloudClient(AirbyteBaseClient):
         """
         self._check_token_expiry()
 
-    def list_workspaces(self, pattern: Optional[AllowDenyPattern] = None) -> List[dict]:
-        """
-        List all workspaces in Airbyte Cloud
-        For Cloud, we only return the configured workspace
+    def list_workspaces(
+        self, pattern: Optional[AllowDenyPattern] = None
+    ) -> List[AirbyteWorkspacePartial]:
+        """List all workspaces in Airbyte Cloud.
+
+        For Cloud, we only return the configured workspace.
 
         Returns:
-            List of workspaces containing the configured workspace
+            List of validated workspace models
         """
         self._check_auth_before_request()
         try:
-            workspace = self._make_request(
-                f"/workspaces/{self.workspace_id}", method="GET"
-            )
-            workspaces = [workspace] if workspace else []
+            workspace_data = self._make_request(f"/workspaces/{self.workspace_id}")
+            workspaces_data = [workspace_data] if workspace_data else []
 
             if pattern:
-                workspaces = self._apply_pattern(workspaces, pattern)
+                workspaces_data = self._apply_pattern(workspaces_data, pattern)
 
-            return workspaces
+            return [AirbyteWorkspacePartial.model_validate(w) for w in workspaces_data]
         except requests.HTTPError as e:
             if e.response.status_code == 404:
                 logger.info(f"Workspace {self.workspace_id} not found")

@@ -9,7 +9,11 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
 )
-from datahub.ingestion.source.airbyte.models import AirbyteTestResult
+from datahub.ingestion.source.airbyte.models import (
+    AirbyteConnectionPartial,
+    AirbyteTestResult,
+    AirbyteWorkspacePartial,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +120,6 @@ def _test_connections(
         )
 
         if not connections:
-            # Not having connections is not an error, just return None for the connection
             return AirbyteTestResult(success=True)
 
         return AirbyteTestResult(success=True, data=connections[0])
@@ -218,49 +221,44 @@ def test_connection(config: AirbyteClientConfig) -> Optional[str]:
         # Create the appropriate client
         client = create_airbyte_client(config)
 
-        # Test listing workspaces
         workspace_result = _test_workspaces(client, config)
         if not workspace_result.success:
             return workspace_result.error_message
 
-        # Check if workspace is None (should never happen but avoids type error)
         if workspace_result.data is None:
             return "Unexpected error: workspace data is missing"
 
-        workspace_id = workspace_result.data.get("workspaceId")
-        if not workspace_id:
-            return "No workspace ID found in the first workspace"
+        if not isinstance(workspace_result.data, AirbyteWorkspacePartial):
+            return f"Unexpected workspace data type: {type(workspace_result.data)}"
 
+        workspace_id = workspace_result.data.workspace_id
         logger.info(f"Testing connection using workspace: {workspace_id}")
 
-        # Test listing connections
         connection_result = _test_connections(client, workspace_id)
         if not connection_result.success:
             return connection_result.error_message
 
-        # If we have a connection, test its details
         if connection_result.data is not None:
-            connection_id = connection_result.data.get("connectionId")
+            if not isinstance(connection_result.data, AirbyteConnectionPartial):
+                return (
+                    f"Unexpected connection data type: {type(connection_result.data)}"
+                )
 
-            if connection_id:
-                # Test getting source details
-                source_id = connection_result.data.get("sourceId")
-                if source_id:
-                    source_result = _test_source(client, source_id)
-                    if not source_result.success:
-                        return source_result.error_message
+            connection_id = connection_result.data.connection_id
 
-                # Test getting destination details
-                dest_id = connection_result.data.get("destinationId")
-                if dest_id:
-                    dest_result = _test_destination(client, dest_id)
-                    if not dest_result.success:
-                        return dest_result.error_message
+            source_id = connection_result.data.source_id
+            source_result = _test_source(client, source_id)
+            if not source_result.success:
+                return source_result.error_message
 
-                # Test getting jobs
-                jobs_result = _test_jobs(client, connection_id)
-                if not jobs_result.success:
-                    return jobs_result.error_message
+            dest_id = connection_result.data.destination_id
+            dest_result = _test_destination(client, dest_id)
+            if not dest_result.success:
+                return dest_result.error_message
+
+            jobs_result = _test_jobs(client, connection_id)
+            if not jobs_result.success:
+                return jobs_result.error_message
 
         logger.info(f"Successfully connected to Airbyte {config.deployment_type} API")
         return None

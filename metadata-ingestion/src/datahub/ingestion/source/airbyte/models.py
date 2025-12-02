@@ -423,4 +423,11 @@ class AirbyteTestResult:
 
     success: bool
     error_message: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    data: Optional[
+        Union[
+            "AirbyteWorkspacePartial",
+            "AirbyteConnectionPartial",
+            "AirbyteSourcePartial",
+            "AirbyteDestinationPartial",
+        ]
+    ] = None

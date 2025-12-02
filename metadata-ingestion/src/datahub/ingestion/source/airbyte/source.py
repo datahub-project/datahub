@@ -38,7 +38,6 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteSourceConfig,
 )
 from datahub.ingestion.source.airbyte.models import (
-    AirbyteConnectionPartial,
     AirbyteDatasetMapping,
     AirbyteDatasetUrns,
     AirbyteDestinationPartial,
@@ -47,7 +46,6 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteSourcePartial,
     AirbyteStreamDetails,
     AirbyteTagInfo,
-    AirbyteWorkspacePartial,
     DataFlowResult,
     DataJobResult,
     ValidatedPipelineIds,
@@ -277,12 +275,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
     def _get_pipelines(self) -> Iterable[AirbytePipelineInfo]:
         """Fetch pipeline information from Airbyte, validating at the boundary."""
-        for workspace_dict in self.client.list_workspaces(
+        for workspace in self.client.list_workspaces(
             pattern=self.source_config.workspace_pattern
         ):
             try:
-                workspace = AirbyteWorkspacePartial.model_validate(workspace_dict)
-
                 if not workspace.workspace_id:
                     self.report.warning(
                         title="Invalid Workspace",
@@ -293,15 +289,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
                 logger.info(f"Processing workspace {workspace.workspace_id}")
 
-                for connection_dict in self.client.list_connections(
+                for connection in self.client.list_connections(
                     workspace.workspace_id,
                     pattern=self.source_config.connection_pattern,
                 ):
                     try:
-                        connection = AirbyteConnectionPartial.model_validate(
-                            connection_dict
-                        )
-
                         if (
                             not connection.connection_id
                             or not connection.source_id
@@ -318,24 +310,15 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
                         # Fetch full connection details including syncCatalog
                         # list_connections() may return summaries without full syncCatalog
-                        full_connection_dict = self.client.get_connection(
+                        connection = self.client.get_connection(
                             connection.connection_id
                         )
-                        connection = AirbyteConnectionPartial.model_validate(
-                            full_connection_dict
-                        )
 
-                        source_dict = self.client.get_source(connection.source_id)
-                        destination_dict = self.client.get_destination(
+                        source = self.client.get_source(connection.source_id)
+                        destination = self.client.get_destination(
                             connection.destination_id
                         )
 
-                        source = AirbyteSourcePartial.model_validate(source_dict)
-                        destination = AirbyteDestinationPartial.model_validate(
-                            destination_dict
-                        )
-
-                        # Apply source pattern filter
                         if (
                             source.name
                             and not self.source_config.source_pattern.allowed(
@@ -347,7 +330,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             )
                             continue
 
-                        # Apply destination pattern filter
                         if (
                             destination.name
                             and not self.source_config.destination_pattern.allowed(
@@ -366,14 +348,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             destination=destination,
                         )
                     except Exception as e:
-                        conn_id = connection_dict.get("connectionId", "unknown")
+                        conn_id = (
+                            connection.connection_id
+                            if hasattr(connection, "connection_id")
+                            else "unknown"
+                        )
                         self.report.report_failure(
                             message="Failed to process connection",
                             context=f"connection-{conn_id}",
                             exc=e,
                         )
             except Exception as e:
-                workspace_id = workspace_dict.get("workspaceId", "unknown")
+                workspace_id = (
+                    workspace.workspace_id
+                    if hasattr(workspace, "workspace_id")
+                    else "unknown"
+                )
                 self.report.report_failure(
                     message="Failed to process workspace",
                     context=f"workspace-{workspace_id}",

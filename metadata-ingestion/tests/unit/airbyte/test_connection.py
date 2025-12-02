@@ -9,6 +9,12 @@ from datahub.ingestion.source.airbyte.config import (
 from datahub.ingestion.source.airbyte.connection import (
     test_connection as airbyte_test_connection,
 )
+from datahub.ingestion.source.airbyte.models import (
+    AirbyteConnectionPartial,
+    AirbyteDestinationPartial,
+    AirbyteSourcePartial,
+    AirbyteWorkspacePartial,
+)
 
 
 class TestAirbyteConnection:
@@ -26,17 +32,21 @@ class TestAirbyteConnection:
         ) as mock_create_client:
             mock_client = Mock()
             mock_client.list_workspaces.return_value = [
-                {"workspaceId": "test-workspace", "name": "Test"}
+                AirbyteWorkspacePartial(workspace_id="test-workspace", name="Test")
             ]
             mock_client.list_connections.return_value = [
-                {
-                    "connectionId": "test-conn",
-                    "sourceId": "test-source",
-                    "destinationId": "test-dest",
-                }
+                AirbyteConnectionPartial(
+                    connection_id="test-conn",
+                    source_id="test-source",
+                    destination_id="test-dest",
+                )
             ]
-            mock_client.get_source.return_value = {"sourceId": "test-source"}
-            mock_client.get_destination.return_value = {"destinationId": "test-dest"}
+            mock_client.get_source.return_value = AirbyteSourcePartial(
+                source_id="test-source"
+            )
+            mock_client.get_destination.return_value = AirbyteDestinationPartial(
+                destination_id="test-dest"
+            )
             mock_client.list_jobs.return_value = []
             mock_create_client.return_value = mock_client
 
@@ -134,17 +144,21 @@ class TestAirbyteConnection:
         ) as mock_create_client:
             mock_client = Mock()
             mock_client.list_workspaces.return_value = [
-                {"workspaceId": "test-workspace"}
+                AirbyteWorkspacePartial(workspace_id="test-workspace")
             ]
             mock_client.list_connections.return_value = [
-                {
-                    "connectionId": "test-conn",
-                    "sourceId": "test-source",
-                    "destinationId": "test-dest",
-                }
+                AirbyteConnectionPartial(
+                    connection_id="test-conn",
+                    source_id="test-source",
+                    destination_id="test-dest",
+                )
             ]
-            mock_client.get_source.return_value = {"sourceId": "test-source"}
-            mock_client.get_destination.return_value = {"destinationId": "test-dest"}
+            mock_client.get_source.return_value = AirbyteSourcePartial(
+                source_id="test-source"
+            )
+            mock_client.get_destination.return_value = AirbyteDestinationPartial(
+                destination_id="test-dest"
+            )
             mock_client.list_jobs.return_value = [{"id": "job1", "status": "succeeded"}]
             mock_create_client.return_value = mock_client
 
@@ -164,7 +178,7 @@ class TestAirbyteConnection:
         ) as mock_create_client:
             mock_client = Mock()
             mock_client.list_workspaces.return_value = [
-                {"workspaceId": "test-workspace"}
+                AirbyteWorkspacePartial(workspace_id="test-workspace")
             ]
             mock_client.list_connections.return_value = "invalid"
             mock_create_client.return_value = mock_client
@@ -186,14 +200,14 @@ class TestAirbyteConnection:
         ) as mock_create_client:
             mock_client = Mock()
             mock_client.list_workspaces.return_value = [
-                {"workspaceId": "test-workspace"}
+                AirbyteWorkspacePartial(workspace_id="test-workspace")
             ]
             mock_client.list_connections.return_value = [
-                {
-                    "connectionId": "test-conn",
-                    "sourceId": "test-source",
-                    "destinationId": "test-dest",
-                }
+                AirbyteConnectionPartial(
+                    connection_id="test-conn",
+                    source_id="test-source",
+                    destination_id="test-dest",
+                )
             ]
             mock_client.get_source.side_effect = Exception("Source not found")
             mock_create_client.return_value = mock_client
@@ -215,16 +229,18 @@ class TestAirbyteConnection:
         ) as mock_create_client:
             mock_client = Mock()
             mock_client.list_workspaces.return_value = [
-                {"workspaceId": "test-workspace"}
+                AirbyteWorkspacePartial(workspace_id="test-workspace")
             ]
             mock_client.list_connections.return_value = [
-                {
-                    "connectionId": "test-conn",
-                    "sourceId": "test-source",
-                    "destinationId": "test-dest",
-                }
+                AirbyteConnectionPartial(
+                    connection_id="test-conn",
+                    source_id="test-source",
+                    destination_id="test-dest",
+                )
             ]
-            mock_client.get_source.return_value = {"sourceId": "test-source"}
+            mock_client.get_source.return_value = AirbyteSourcePartial(
+                source_id="test-source"
+            )
             mock_client.get_destination.side_effect = Exception("Dest not found")
             mock_create_client.return_value = mock_client
 
@@ -245,17 +261,21 @@ class TestAirbyteConnection:
         ) as mock_create_client:
             mock_client = Mock()
             mock_client.list_workspaces.return_value = [
-                {"workspaceId": "test-workspace"}
+                AirbyteWorkspacePartial(workspace_id="test-workspace")
             ]
             mock_client.list_connections.return_value = [
-                {
-                    "connectionId": "test-conn",
-                    "sourceId": "test-source",
-                    "destinationId": "test-dest",
-                }
+                AirbyteConnectionPartial(
+                    connection_id="test-conn",
+                    source_id="test-source",
+                    destination_id="test-dest",
+                )
             ]
-            mock_client.get_source.return_value = {"sourceId": "test-source"}
-            mock_client.get_destination.return_value = {"destinationId": "test-dest"}
+            mock_client.get_source.return_value = AirbyteSourcePartial(
+                source_id="test-source"
+            )
+            mock_client.get_destination.return_value = AirbyteDestinationPartial(
+                destination_id="test-dest"
+            )
             mock_client.list_jobs.side_effect = Exception("Jobs failed")
             mock_create_client.return_value = mock_client
 
