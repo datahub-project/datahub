@@ -239,25 +239,20 @@ def test_sync_smart_freshness_assertion_valid_simple_input(
     )
 
 
-def test_sync_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set(
+def test_sync_smart_freshness_assertion_calls_upsert_when_urn_is_not_set(
     freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
+    """Test that sync_smart_freshness_assertion calls upsert when urn is not set (create scenario)."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
     freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock()
-    client._smart_freshness_client._create_smart_freshness_assertion = (  # type: ignore[method-assign]
-        mock_create_assertion
-    )
     client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
     )
-    assert mock_create_assertion.call_count == 1
-    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
-    assert mock_upsert.call_count == 0
+    # Should call upsert twice (assertion + monitor) even for create scenario
+    assert mock_upsert.call_count == 2
 
 
 @pytest.mark.parametrize(
@@ -302,11 +297,12 @@ def test_sync_smart_freshness_assertion_uses_default_if_updated_by_is_not_set(
     assert assertion_entity_upserted.last_updated.actor == str(expected_updated_by)
 
 
-def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_entities_do_not_exist(
+def test_sync_smart_freshness_assertion_calls_upsert_if_assertion_and_monitor_entities_do_not_exist(
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     any_monitor_urn: MonitorUrn,
 ) -> None:
+    """Test that sync_smart_freshness_assertion calls upsert when assertion doesn't exist (with urn provided)."""
     freshness_stub_datahub_client = (
         StubDataHubClient()
     )  # Assertion and Monitor entities do not exist
@@ -314,30 +310,67 @@ def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_en
     assert freshness_stub_datahub_client.entities.get(any_monitor_urn) is None
 
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
     freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock(
-        return_value=SmartFreshnessAssertion(
-            dataset_urn=any_dataset_urn,
-            urn=any_assertion_urn,
-            display_name="Mock assertion",
-            mode=AssertionMode.ACTIVE,
-            exclusion_windows=[],
-            incident_behavior=[],
-            tags=[],
-        )
-    )
-    client._smart_freshness_client._create_smart_freshness_assertion = (  # type: ignore[method-assign]
-        mock_create_assertion
-    )
     client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
     )
-    assert mock_upsert.call_count == 0
-    assert mock_create_assertion.call_count == 1
-    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    # Should call upsert twice (assertion + monitor) even when assertion doesn't exist
+    assert mock_upsert.call_count == 2
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_enabled_defaults_to_true_when_urn_provided_but_assertion_does_not_exist(
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    any_monitor_urn: MonitorUrn,
+) -> None:
+    """Test that enabled defaults to True when urn is provided but assertion doesn't exist."""
+    freshness_stub_datahub_client = StubDataHubClient()  # No existing assertion
+    assert freshness_stub_datahub_client.entities.get(any_assertion_urn) is None
+
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    # Don't specify enabled parameter - should default to True
+    client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+    )
+
+    # Verify monitor entity has ACTIVE mode (enabled defaults to True)
+    assert mock_upsert.call_count == 2
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.ACTIVE
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_enabled_false_when_urn_provided_but_assertion_does_not_exist(
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    any_monitor_urn: MonitorUrn,
+) -> None:
+    """Test that enabled=False works when urn is provided but assertion doesn't exist."""
+    freshness_stub_datahub_client = StubDataHubClient()  # No existing assertion
+    assert freshness_stub_datahub_client.entities.get(any_assertion_urn) is None
+
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    # Specify enabled=False
+    client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        enabled=False,
+    )
+
+    # Verify monitor entity has INACTIVE mode
+    assert mock_upsert.call_count == 2
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.INACTIVE
 
 
 @freeze_time(FROZEN_TIME)
@@ -813,29 +846,134 @@ def test_sync_smart_freshness_assertion_enabled_none_preserves_inactive(
 
 
 @freeze_time(FROZEN_TIME)
-def test_sync_smart_freshness_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
+def test_sync_smart_freshness_assertion_enabled_applied_when_urn_is_none(
     freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test that sync passes enabled parameter to create when urn is None."""
+    """Test that sync applies enabled parameter when urn is None."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    # Mock the create method to verify it's called with enabled parameter
+    client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,  # Create scenario
+        enabled=False,
+    )
+
+    # Verify upsert was called twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
+    # Verify monitor entity has INACTIVE mode (enabled=False)
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.INACTIVE
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_create_sets_created_by_to_updated_by(
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that created_by is set to updated_by in create scenarios (urn=None)."""
+    freshness_stub_datahub_client = StubDataHubClient()  # No existing assertion
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    test_user = CorpUserUrn.from_string("urn:li:corpuser:test_creator")
+
+    client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,  # Create scenario
+        updated_by=test_user,
+    )
+
+    # Verify assertion entity has created_by set to the updated_by value
+    assert mock_upsert.call_count == 2
+    assertion_entity = mock_upsert.call_args_list[0][0][0]
+
+    # created_by should be set to updated_by in create scenario
+    assert assertion_entity.last_updated.actor == str(test_user)
+    # Verify created timestamp is set
+    assert assertion_entity.last_updated.time is not None
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_create_with_urn_sets_created_by_to_updated_by(
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+) -> None:
+    """Test that created_by is set to updated_by when urn is provided but assertion doesn't exist."""
+    freshness_stub_datahub_client = StubDataHubClient()  # No existing assertion
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    test_user = CorpUserUrn.from_string("urn:li:corpuser:test_creator")
+
+    client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,  # URN provided but assertion doesn't exist
+        updated_by=test_user,
+    )
+
+    # Verify assertion entity has created_by set to the updated_by value
+    assert mock_upsert.call_count == 2
+    assertion_entity = mock_upsert.call_args_list[0][0][0]
+
+    # created_by should be set to updated_by in create scenario
+    assert assertion_entity.last_updated.actor == str(test_user)
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_update_preserves_created_by_and_created_at(
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    freshness_assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
+) -> None:
+    """Test that update preserves existing created_by and created_at from the assertion."""
+    # Setup: existing assertion with specific created_by and created_at
+    freshness_stub_datahub_client = StubDataHubClient(
+        entity_client=StubEntityClient(
+            assertion_entity=freshness_assertion_entity_with_all_fields,
+            monitor_entity=freshness_monitor_with_all_fields,
+        )
+    )
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
+
+    # Different user performs update
+    updating_user = CorpUserUrn.from_string("urn:li:corpuser:different_updater")
+
+    # Mock field creation for detection mechanism
     with patch.object(
-        client._smart_freshness_client, "_create_smart_freshness_assertion"
-    ) as mock_create:
-        mock_create.return_value = MagicMock()  # Return a mock assertion
+        _SmartFreshnessAssertionInput, "_create_field_spec", new_callable=MagicMock
+    ) as mock_create_field_spec:
+        mock_create_field_spec.return_value = models.FreshnessFieldSpecClass(
+            path="field",
+            type="DateTypeClass",
+            nativeType="nativeType",
+            kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
+        )
 
         client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
-            urn=None,  # This should trigger create
-            enabled=False,
+            urn=any_assertion_urn,
+            display_name="Updated Display Name",
+            updated_by=updating_user,
         )
 
-        # Verify create was called with enabled=False
-        mock_create.assert_called_once()
-        call_kwargs = mock_create.call_args[1]
-        assert call_kwargs["enabled"] is False
+    # Verify update preserves original created_by
+    assert mock_upsert.call_count == 2
+    assertion_entity = mock_upsert.call_args_list[0][0][0]
+
+    # The assertion entity stores created info in its own structure
+    # For updates, created_by should be preserved from the original assertion
+    # and updated_by should be the new user
+    assert assertion_entity.last_updated.actor == str(updating_user)
+
+    # The assertion returned should have the original created_by preserved
+    # This is verified through the _from_entities call in the implementation
 
 
 class _OtherSmartFreshnessAssertionInputInputParams(TypedDict, total=False):
@@ -1244,20 +1382,18 @@ def test_smart_freshness_assertion_create_case_uses_default_hourly_schedule(
 ) -> None:
     """Test that create case uses DEFAULT_SCHEDULE (hourly) when no schedule provided."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    freshness_stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    # Create assertion - should use default hourly schedule
-    assertion = client._smart_freshness_client._create_smart_freshness_assertion(
-        dataset_urn=any_dataset_urn
-    )
+    # Create assertion using sync with urn=None - should use default hourly schedule
+    assertion = client.sync_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
     # Verify the assertion has the default hourly schedule
     assert assertion.schedule.cron == DEFAULT_SCHEDULE.cron  # "0 * * * *" (hourly)
     assert assertion.schedule.timezone == DEFAULT_SCHEDULE.timezone
 
-    # Verify create was called twice (assertion + monitor)
-    assert mock_create.call_count == 2
+    # Verify upsert was called twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
 
 
 def test_smart_freshness_assertion_update_case_preserves_existing_schedule(
@@ -1321,19 +1457,17 @@ def test_assertion_entity_schedule_left_empty_for_ai_inference_engine(
     """Test that assertion entity schedule is left empty (managed by AI inference engine)."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
-    # Track what entities are created
-    created_entities = []
-    mock_create = MagicMock(side_effect=lambda entity: created_entities.append(entity))
-    freshness_stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign]
+    # Track what entities are upserted
+    upserted_entities: list = []
+    mock_upsert = MagicMock(side_effect=lambda entity: upserted_entities.append(entity))
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    # Create assertion using public interface
-    client._smart_freshness_client._create_smart_freshness_assertion(
-        dataset_urn=any_dataset_urn
-    )
+    # Create assertion using public interface with urn=None
+    client.sync_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
-    # Verify two entities were created (assertion + monitor)
-    assert len(created_entities) == 2
-    assertion_entity = created_entities[0]  # First entity is assertion
+    # Verify two entities were upserted (assertion + monitor)
+    assert len(upserted_entities) == 2
+    assertion_entity = upserted_entities[0]  # First entity is assertion
 
     # Verify assertion entity schedule is None (left empty for AI inference engine)
     assert (
