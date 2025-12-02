@@ -5,28 +5,28 @@
     },
     "query_fingerprint": null,
     "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_customer_data,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,currentdata.dbo.relatedtable,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.customer_data,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,currentdata.dbo.documentid,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,currentdata.dbo.relatedtable,PROD)"
     ],
     "column_lineage": [
         {
             "downstream": {
-                "table": null,
-                "column": "@errormessage = error_message()",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,currentdata.dbo.relatedtable,PROD)",
+                "column": "lastmodified",
                 "column_type": {
                     "type": {
-                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                     }
                 },
-                "native_column_type": "BIT"
+                "native_column_type": "DATETIME2"
             },
             "upstreams": [],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "@ErrorMessage = ERROR_MESSAGE() AS [_col_0]"
+                "column_logic": "GETDATE() AS [lastmodified]"
             }
         }
     ],

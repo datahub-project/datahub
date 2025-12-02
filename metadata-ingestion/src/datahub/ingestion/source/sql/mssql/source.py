@@ -1024,13 +1024,12 @@ class SQLServerSource(SQLAlchemySource):
 
         # This is done at the end so that we will have access to tables
         # from all databases in schema_resolver and discovered_tables
-        logger.info(
-            f"[START] Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
-        )
-        for i, procedure in enumerate(self.stored_procedures, 1):
+        if self.stored_procedures:
             logger.info(
-                f"[PROC] Processing procedure {i}/{len(self.stored_procedures)}: {procedure.full_name}"
+                f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
             )
+
+        for procedure in self.stored_procedures:
             with self.report.report_exc(
                 message="Failed to parse stored procedure lineage",
                 context=procedure.full_name,
@@ -1048,26 +1047,18 @@ class SQLServerSource(SQLAlchemySource):
                     )
                 ):
                     workunit_count += 1
-                    logger.info(
-                        f"[OUT] Yielding workunit #{workunit_count} for {procedure.name}: "
-                        f"id={workunit.id}"
-                    )
                     yield workunit
 
                 if workunit_count == 0:
-                    logger.info(
-                        f"[WARN] No workunits generated for {procedure.name} "
-                        f"(lineage may have returned None or empty)"
+                    logger.warning(
+                        f"No lineage extracted for stored procedure: {procedure.name}"
                     )
 
     def is_temp_table(self, name: str) -> bool:
-        logger.debug(f"[CHECK] Is temp table: '{name}'")
-
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            logger.debug("   -> TRUE (matched temp table pattern)")
             return True
 
         try:
@@ -1077,7 +1068,6 @@ class SQLServerSource(SQLAlchemySource):
             db_name = parts[-3]
 
             if table_name.startswith("#"):
-                logger.debug("   -> TRUE (starts with #)")
                 return True
 
             # This is also a temp table if
@@ -1091,24 +1081,15 @@ class SQLServerSource(SQLAlchemySource):
                 and self.config.table_pattern.allowed(name)
             ):
                 if standardized_name not in self.discovered_datasets:
-                    logger.debug(
-                        f"   -> TRUE (not in discovered_datasets, "
-                        f"standardized as: '{standardized_name}')"
-                    )
                     return True
                 else:
-                    logger.debug(
-                        f"   -> FALSE (found in discovered_datasets as: '{standardized_name}')"
-                    )
                     return False
             else:
-                logger.debug("   -> FALSE (filtered by dataset patterns)")
                 return False
 
         except Exception as e:
             logger.warning(f"Error parsing table name {name}: {e}")
 
-        logger.debug("   -> FALSE (default)")
         return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:

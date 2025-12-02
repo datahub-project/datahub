@@ -1,0 +1,124 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_metrics,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)",
+                "column": "metricid",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_metrics,PROD)",
+                    "column": "metricid"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_metrics].[metricid] AS [metricid]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)",
+                "column": "value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_metrics,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[source_metrics].[value] AS [value]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)",
+                "column": "getdate()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "DATETIME2"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "GETDATE() AS [_col_2]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errormessage = error_message()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorMessage = ERROR_MESSAGE() AS [_col_0]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errorseverity = error_severity()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorSeverity = ERROR_SEVERITY() AS [_col_1]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errorstate = error_state()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorState = ERROR_STATE() AS [_col_2]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 3 statements via fallback)"
+    }
+}

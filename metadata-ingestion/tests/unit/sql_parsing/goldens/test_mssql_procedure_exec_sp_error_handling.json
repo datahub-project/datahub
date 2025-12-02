@@ -5,13 +5,46 @@
     },
     "query_fingerprint": null,
     "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_financial_metrics,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.orders,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.financial_metrics,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.orders,PROD)"
     ],
     "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.orders,PROD)",
+                "column": "status",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "'processed' AS [status]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.orders,PROD)",
+                "column": "processeddate",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "DATETIME2"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "GETDATE() AS [processeddate]"
+            }
+        },
         {
             "downstream": {
                 "table": null,

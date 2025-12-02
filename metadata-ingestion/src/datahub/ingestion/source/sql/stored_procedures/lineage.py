@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
@@ -13,6 +13,56 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 logger = logging.getLogger(__name__)
 
 
+def _is_qualified_table_urn(urn: str, platform_instance: Optional[str] = None) -> bool:
+    """Check if a table URN represents a fully qualified table name.
+
+    A qualified table name should have at least 3 parts: database.schema.table.
+    This helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
+
+    Args:
+        urn: Dataset URN
+        platform_instance: Platform instance to strip from the name if present
+
+    Returns:
+        True if the table name is fully qualified, False otherwise
+    """
+    # Extract name from URN: urn:li:dataset:(urn:li:dataPlatform:PLATFORM,NAME,ENV)
+    parts = urn.split(",")
+    if len(parts) < 2:
+        return False
+
+    name = parts[1]
+
+    # Strip platform_instance prefix if present
+    if platform_instance and name.startswith(f"{platform_instance}."):
+        name = name[len(platform_instance) + 1 :]
+
+    # Check if name has at least 3 parts (database.schema.table)
+    name_parts = name.split(".")
+    return len(name_parts) >= 3
+
+
+def _filter_qualified_table_urns(
+    table_urns: List[str], platform_instance: Optional[str] = None
+) -> List[str]:
+    """Filter a list of table URNs to include only qualified tables.
+
+    This removes unqualified aliases that don't represent real tables.
+    Specifically handles TSQL UPDATE aliases like "UPDATE dst FROM table dst"
+    where 'dst' is an alias, not a real table.
+
+    Args:
+        table_urns: List of table URNs
+        platform_instance: Platform instance to consider when parsing names
+
+    Returns:
+        List of URNs for qualified tables only
+    """
+    return [
+        urn for urn in table_urns if _is_qualified_table_urn(urn, platform_instance)
+    ]
+
+
 def parse_procedure_code(
     *,
     schema_resolver: SchemaResolver,
@@ -24,11 +74,6 @@ def parse_procedure_code(
     procedure_name: Optional[str] = None,
 ) -> Optional[DataJobInputOutputClass]:
     statements = list(split_statements(code))
-    proc_label = f" for {procedure_name}" if procedure_name else ""
-    logger.debug(
-        f"[SPLIT] Procedure{proc_label} into {len(statements)} statements "
-        f"(db={default_db}, schema={default_schema})"
-    )
 
     aggregator = SqlParsingAggregator(
         platform=schema_resolver.platform,
@@ -53,13 +98,6 @@ def parse_procedure_code(
             )
         )
 
-    logger.debug(
-        f"[STATS] Parsing{proc_label}: "
-        f"total={aggregator.report.num_observed_queries}, "
-        f"failed={aggregator.report.num_observed_queries_failed}, "
-        f"success={aggregator.report.num_observed_queries - aggregator.report.num_observed_queries_failed}"
-    )
-
     if aggregator.report.num_observed_queries_failed and raise_:
         logger.info(aggregator.report.as_string())
         raise ValueError(
@@ -67,39 +105,41 @@ def parse_procedure_code(
         )
 
     mcps = list(aggregator.gen_metadata())
-    logger.debug(f"[GEN]{proc_label} Generated {len(mcps)} MCP(s) from aggregator")
 
     result = to_datajob_input_output(
         mcps=mcps,
         ignore_extra_mcps=True,
     )
 
-    if result:
-        logger.debug(
-            f"[OK] to_datajob_input_output{proc_label} SUCCESS: "
-            f"inputs={len(result.inputDatasets)}, "
-            f"outputs={len(result.outputDatasets)}"
+    # Filter out unqualified table URNs (e.g., TSQL UPDATE aliases like 'dst')
+    # This prevents invalid URNs from causing the sink to reject the entire aspect
+    # Only apply this filtering for MSSQL, which uses 3-part naming (database.schema.table)
+    # Other platforms like Oracle use 2-part naming (schema.table)
+    if result and schema_resolver.platform == "mssql":
+        platform_instance = schema_resolver.platform_instance
+        original_input_count = len(result.inputDatasets)
+        original_output_count = len(result.outputDatasets)
+
+        result.inputDatasets = _filter_qualified_table_urns(
+            result.inputDatasets, platform_instance
         )
-        # Log actual table URNs for debugging
-        if result.inputDatasets:
-            logger.debug(f"   Input dataset URNs{proc_label}:")
-            for urn in result.inputDatasets:
-                logger.debug(f"     - {urn}")
-        if result.outputDatasets:
-            logger.debug(f"   Output dataset URNs{proc_label}:")
-            for urn in result.outputDatasets:
-                logger.debug(f"     - {urn}")
-    else:
-        logger.debug(
-            f"[FAIL] to_datajob_input_output{proc_label} returned None "
-            "(likely all tables filtered as temp)"
+        result.outputDatasets = _filter_qualified_table_urns(
+            result.outputDatasets, platform_instance
         )
-        # Try to understand why it returned None
-        if len(mcps) == 0:
-            logger.debug(f"   Reason{proc_label}: No MCPs generated by aggregator")
-        else:
+
+        # Log if any tables were filtered out
+        if (
+            len(result.inputDatasets) < original_input_count
+            or len(result.outputDatasets) < original_output_count
+        ):
             logger.debug(
-                f"   Reason{proc_label}: Generated {len(mcps)} MCP(s) but all tables were filtered out"
+                f"Filtered unqualified tables for {procedure_name or 'procedure'}: "
+                f"inputs {original_input_count} -> {len(result.inputDatasets)}, "
+                f"outputs {original_output_count} -> {len(result.outputDatasets)}"
             )
+
+        # If all tables were filtered out, return None
+        if not result.inputDatasets and not result.outputDatasets:
+            return None
 
     return result

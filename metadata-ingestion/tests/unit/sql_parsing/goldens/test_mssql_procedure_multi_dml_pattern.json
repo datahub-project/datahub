@@ -5,13 +5,13 @@
     },
     "query_fingerprint": null,
     "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_dim_product,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)"
     ],
     "out_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)"
     ],
     "column_lineage": [
         {
@@ -23,7 +23,7 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_dim_product,PROD)",
                     "column": "product_name"
                 }
             ],
@@ -41,7 +41,7 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_dim_product,PROD)",
                     "column": "category"
                 }
             ],
@@ -69,14 +69,14 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)",
                 "column": "product_key",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_dim_product,PROD)",
                     "column": "product_key"
                 }
             ],
@@ -87,14 +87,14 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)",
                 "column": "product_name",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_dim_product,PROD)",
                     "column": "product_name"
                 }
             ],
@@ -105,14 +105,14 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)",
                 "column": "category",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_dim_product,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_dim_product,PROD)",
                     "column": "category"
                 }
             ],
@@ -123,7 +123,7 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,datawarehouse.dbo.dim_product,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)",
                 "column": "getdate()",
                 "column_type": {
                     "type": {

@@ -207,12 +207,6 @@ def generate_procedure_lineage(
     raise_: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     logger = logging.getLogger(__name__)
-    logger.info(
-        f"[ENTRY] Generating lineage for procedure: {procedure.name}, "
-        f"URN: {procedure_job_urn}, "
-        f"has_definition: {bool(procedure.procedure_definition)}, "
-        f"language: {procedure.language}"
-    )
 
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
@@ -225,36 +219,15 @@ def generate_procedure_lineage(
             procedure_name=procedure.name,
         )
 
-        logger.info(
-            f"[RESULT] Parse result for {procedure.name}: "
-            f"{'SUCCESS' if datajob_input_output else 'RETURNED NONE'}"
-            + (
-                f" (inputs={len(datajob_input_output.inputDatasets)}, "
-                f"outputs={len(datajob_input_output.outputDatasets)})"
-                if datajob_input_output
-                else ""
-            )
-        )
-
         if datajob_input_output:
-            logger = logging.getLogger(__name__)
-            logger.info(
-                f"[YIELD] Yielding dataJobInputOutput for {procedure.name}: "
-                f"inputs={len(datajob_input_output.inputDatasets)}, "
-                f"outputs={len(datajob_input_output.outputDatasets)}"
-            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=procedure_job_urn,
                 aspect=datajob_input_output,
             )
         else:
-            # Log full SQL when lineage extraction fails
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"Failed to extract lineage for stored procedure: {procedure.name}. "
-                f"URN: {procedure_job_urn}. "
-                f"SQL definition length: {len(procedure.procedure_definition)} chars. "
-                f"Full SQL:\n{procedure.procedure_definition}"
+                f"URN: {procedure_job_urn}."
             )
 
 

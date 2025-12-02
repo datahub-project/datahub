@@ -50,7 +50,7 @@ def test_mssql_procedure_with_try_catch_multiple_dml() -> None:
     """Test stored procedure with TRY/CATCH containing multiple DML statements."""
     assert_sql_result(
         """
-CREATE PROCEDURE dbo.UpdateMetrics
+CREATE PROCEDURE dbo.ProcessMetrics
 @IsSnapshot VARCHAR(5) = 'NO'
 AS
 BEGIN
@@ -59,29 +59,29 @@ BEGIN
     BEGIN TRY
         -- Delete records marked for deletion
         DELETE dst
-        FROM Production.dbo.metrics dst
-        INNER JOIN Staging.dbo.staging_metrics src
+        FROM TargetDB.dbo.metrics dst
+        INNER JOIN SourceDB.dbo.staging_metrics src
           ON dst.metric_id = src.metric_id
-        WHERE  src.record_action = 'DELETE';
+        WHERE  src.action_type = 'DELETE';
 
         -- Update existing records
         UPDATE dst
            SET  metric_date = src.metric_date,
                 metric_value = src.metric_value
-        FROM Production.dbo.metrics dst
-        INNER JOIN Staging.dbo.staging_metrics src
+        FROM TargetDB.dbo.metrics dst
+        INNER JOIN SourceDB.dbo.staging_metrics src
           ON dst.metric_id = src.metric_id
-         WHERE  src.record_action IS NULL;
+         WHERE  src.action_type IS NULL;
 
         -- Insert new records
-        INSERT INTO Production.dbo.metrics
+        INSERT INTO TargetDB.dbo.metrics
             (metric_id, metric_date, metric_value)
         SELECT
             src.metric_id,
             src.metric_date,
             src.metric_value
-        FROM Staging.dbo.staging_metrics src
-        LEFT JOIN Production.dbo.metrics dst
+        FROM SourceDB.dbo.staging_metrics src
+        LEFT JOIN TargetDB.dbo.metrics dst
           ON dst.metric_id = src.metric_id
         WHERE dst.metric_id IS NULL;
 
@@ -523,7 +523,7 @@ def test_mssql_procedure_update_with_alias_pattern() -> None:
     """
     assert_sql_result(
         """
-CREATE PROCEDURE dbo.UpdateMetricsFromStaging
+CREATE PROCEDURE dbo.UpdateFromStaging
 @IsSnapshot VARCHAR(5) = 'NO'
 AS
 BEGIN
@@ -535,10 +535,10 @@ BEGIN
         SET metric_value = src.metric_value,
             metric_date = src.metric_date,
             last_updated = GETDATE()
-        FROM Production.dbo.metrics dst
-        INNER JOIN Staging.dbo.staging_metrics src
+        FROM TargetDB.dbo.metrics dst
+        INNER JOIN SourceDB.dbo.staging_metrics src
           ON dst.metric_id = src.metric_id
-        WHERE src.record_action IS NULL;
+        WHERE src.action_type IS NULL;
 
     END TRY
     BEGIN CATCH
@@ -566,11 +566,11 @@ BEGIN
     BEGIN TRY
         -- Delete records marked for deletion using MSSQL alias syntax
         DELETE dst
-        FROM Production.dbo.customer_data dst
-        INNER JOIN Staging.dbo.staging_customer_data src WITH (TABLOCK)
+        FROM TargetDB.dbo.customer_data dst
+        INNER JOIN SourceDB.dbo.source_customer_data src WITH (TABLOCK)
           ON src.customer_id = dst.customer_id
          AND src.effective_date = dst.effective_date
-        WHERE src.record_action = 'DELETE';
+        WHERE src.action_type = 'DELETE';
 
     END TRY
     BEGIN CATCH
@@ -603,8 +603,8 @@ BEGIN
             return_month_4 = CASE WHEN src.update_map & 8 = 8 THEN NULL ELSE dst.return_month_4 END,
             return_month_5 = CASE WHEN src.update_map & 16 = 16 THEN NULL ELSE dst.return_month_5 END,
             return_month_6 = CASE WHEN src.update_map & 32 = 32 THEN NULL ELSE dst.return_month_6 END
-        FROM Analytics.dbo.monthly_returns dst
-        INNER JOIN Staging.dbo.staging_returns src
+        FROM TargetDB.dbo.monthly_returns dst
+        INNER JOIN SourceDB.dbo.source_returns src
           ON dst.asset_id = src.asset_id
          AND dst.period_id = src.period_id;
     END TRY
@@ -635,34 +635,34 @@ BEGIN
     BEGIN TRY
         -- Delete obsolete records
         DELETE dst
-        FROM DataWarehouse.dbo.dim_product dst
-        INNER JOIN Staging.dbo.staging_dim_product src
+        FROM TargetDB.dbo.dim_product dst
+        INNER JOIN SourceDB.dbo.source_dim_product src
           ON dst.product_key = src.product_key
-        WHERE src.record_action = 'DELETE';
+        WHERE src.action_type = 'DELETE';
 
         -- Update changed records
         UPDATE dst
         SET product_name = src.product_name,
             category = src.category,
             last_modified = GETDATE()
-        FROM DataWarehouse.dbo.dim_product dst
-        INNER JOIN Staging.dbo.staging_dim_product src
+        FROM TargetDB.dbo.dim_product dst
+        INNER JOIN SourceDB.dbo.source_dim_product src
           ON dst.product_key = src.product_key
-        WHERE src.record_action = 'UPDATE';
+        WHERE src.action_type = 'UPDATE';
 
         -- Insert new records
-        INSERT INTO DataWarehouse.dbo.dim_product
+        INSERT INTO TargetDB.dbo.dim_product
             (product_key, product_name, category, last_modified)
         SELECT
             src.product_key,
             src.product_name,
             src.category,
             GETDATE()
-        FROM Staging.dbo.staging_dim_product src
-        LEFT JOIN DataWarehouse.dbo.dim_product dst
+        FROM SourceDB.dbo.source_dim_product src
+        LEFT JOIN TargetDB.dbo.dim_product dst
           ON dst.product_key = src.product_key
         WHERE dst.product_key IS NULL
-          AND src.record_action = 'INSERT';
+          AND src.action_type = 'INSERT';
 
     END TRY
     BEGIN CATCH
@@ -693,8 +693,8 @@ BEGIN
     BEGIN TRY
         -- Delete records not in current snapshot
         DELETE dst
-        FROM TimeSeries.dbo.financial_metrics dst
-        LEFT JOIN Staging.dbo.staging_financial_metrics src WITH (TABLOCK)
+        FROM TargetDB.dbo.financial_metrics dst
+        LEFT JOIN SourceDB.dbo.source_financial_metrics src WITH (TABLOCK)
           ON src.metric_id = dst.metric_id
          AND src.snapshot_date = dst.snapshot_date
         WHERE src.snapshot_date IS NULL
@@ -712,4 +712,510 @@ END
 """,
         dialect="mssql",
         expected_file=RESOURCE_DIR / "test_mssql_procedure_snapshot_cleanup.json",
+    )
+
+
+# Tests for specific error cases from test-user.log
+
+
+def test_mssql_procedure_with_inline_comments() -> None:
+    """Test stored procedure with inline SQL comments.
+
+    From test-user.log: 'ParseError: No expression was parsed from "--insert"'
+    Comments should be handled gracefully and not parsed as statements.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.AddDocumentId
+    @p_DocumentId INT,
+    @p_ColId INT,
+    @p_Status VARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        --insert into DocumentId table
+        INSERT INTO CurrentData.dbo.DocumentId
+            (DocumentId, ColId, Status, CreatedOn)
+        VALUES
+            (@p_DocumentId, @p_ColId, @p_Status, GETDATE());
+
+        -- Update related records
+        UPDATE CurrentData.dbo.RelatedTable
+        SET LastModified = GETDATE()
+        WHERE DocumentId = @p_DocumentId;
+
+    END TRY
+    BEGIN CATCH
+        PRINT ERROR_MESSAGE();
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_inline_comments.json",
+    )
+
+
+def test_mssql_procedure_update_same_table_twice() -> None:
+    """Test UPDATE pattern where same table appears in both UPDATE and FROM clauses.
+
+    From test-user.log: 'OptimizeError: Alias already used: fundleveloperation'
+    This is a common MSSQL pattern: UPDATE table SET ... FROM table INNER JOIN ...
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.UpdateFundHomePage
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        UPDATE dbo.FundLevelOperation
+        SET HomePage = o.HomePage
+        FROM dbo.FundLevelOperation
+        INNER JOIN (
+            SELECT a.FundId, c.HomePage
+            FROM DataIndex.dbo.vw_FundId a
+            INNER JOIN DataIndex.dbo.vw_FundCompany b
+              ON a.FundId = b.FundId AND a.HedgeFund = 0 AND b.CompanyType = 15
+            LEFT JOIN CurrentData.dbo.CompanyOperationXOI c
+              ON b.CompanyId = c.CompanyId
+        ) o ON dbo.FundLevelOperation.FundId = o.FundId;
+
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR
+        / "test_mssql_procedure_update_same_table_twice.json",
+    )
+
+
+def test_mssql_procedure_error_variable_assignments() -> None:
+    """Test stored procedure with variable assignments from ERROR_* functions.
+
+    From test-user.log: SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY()
+    caused 'Invalid expression / Unexpected token' errors.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.SafeUpdateWithErrorHandling
+AS
+BEGIN
+    BEGIN TRY
+        UPDATE CurrentData.dbo.Metrics
+        SET ProcessedDate = GETDATE()
+        WHERE Status = 'pending';
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        DECLARE @ErrorSeverity INT;
+        DECLARE @ErrorNumber INT;
+        DECLARE @ErrorState INT;
+        DECLARE @ErrorLine INT;
+        DECLARE @ErrorProcedure NVARCHAR(200);
+
+        SELECT @ErrorMessage = ERROR_MESSAGE(),
+               @ErrorSeverity = ERROR_SEVERITY(),
+               @ErrorNumber = ERROR_NUMBER(),
+               @ErrorState = ERROR_STATE(),
+               @ErrorLine = ERROR_LINE(),
+               @ErrorProcedure = ERROR_PROCEDURE();
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR
+        / "test_mssql_procedure_error_variable_assignments.json",
+    )
+
+
+def test_mssql_procedure_raiserror_statement() -> None:
+    """Test stored procedure with RAISERROR statement in CATCH block.
+
+    From test-user.log: Complex RAISERROR with multiple parameters was appearing
+    in lineage extraction attempts.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.ProcessDataWithLogging
+AS
+BEGIN
+    BEGIN TRY
+        INSERT INTO TargetDB.dbo.fact_table (MetricId, Value, ProcessedDate)
+        SELECT MetricId, Value, GETDATE()
+        FROM SourceDB.dbo.source_metrics
+        WHERE Status = 'ready';
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        DECLARE @ErrorSeverity INT;
+        DECLARE @ErrorState INT;
+
+        SELECT @ErrorMessage = ERROR_MESSAGE(),
+               @ErrorSeverity = ERROR_SEVERITY(),
+               @ErrorState = ERROR_STATE();
+
+        -- Use RAISERROR inside the CATCH block to return error
+        RAISERROR (@ErrorMessage,  -- Message text
+                   @ErrorSeverity, -- Severity
+                   @ErrorState     -- State
+                  );
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_raiserror_statement.json",
+    )
+
+
+def test_mssql_procedure_complex_multiline_comments() -> None:
+    """Test stored procedure with both single-line and multi-line comments.
+
+    Ensures comment handling works correctly with various comment styles.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.ComplexCommentHandling
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        /* Multi-line comment
+           describing the insert operation
+           across multiple lines */
+        INSERT INTO CurrentData.dbo.AuditLog (EventType, EventDate)
+        VALUES ('ProcessStart', GETDATE());
+
+        -- Single line comment before update
+        UPDATE CurrentData.dbo.ProcessStatus
+        SET Status = 'running',
+            StartTime = GETDATE()
+        WHERE ProcessId = 1;
+        -- Another single line comment after
+
+        /* Inline */ SELECT * FROM CurrentData.dbo.ProcessStatus /* comment */ WHERE ProcessId = 1;
+
+    END TRY
+    BEGIN CATCH
+        -- Error handling comment
+        PRINT ERROR_MESSAGE();
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_complex_comments.json",
+    )
+
+
+def test_mssql_procedure_exec_sp_with_error_handling() -> None:
+    """Test stored procedure that executes another stored procedure in CATCH block.
+
+    From test-user.log: EXEC master.dbo.sp_LogError with multiple parameters
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.ProcessWithErrorLogging
+AS
+BEGIN
+    BEGIN TRY
+        UPDATE TargetDB.dbo.orders
+        SET Status = 'processed',
+            ProcessedDate = GETDATE()
+        FROM TargetDB.dbo.orders
+        WHERE Status = 'pending';
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ErrorNumber INT;
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        DECLARE @ErrorLogId INT;
+
+        SELECT @ErrorNumber = ERROR_NUMBER(),
+               @ErrorMessage = ERROR_MESSAGE();
+
+        EXEC master.dbo.sp_LogError
+            @ErrorNumber,
+            @ErrorMessage,
+            @ErrorLogId OUTPUT;
+
+        RAISERROR (@ErrorMessage, 16, 1);
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_exec_sp_error_handling.json",
+    )
+
+
+def test_mssql_procedure_set_nocount_off_with_return() -> None:
+    """Test stored procedure with SET NOCOUNT OFF and RETURN statement.
+
+    From test-user.log: 'Can only generate column-level lineage for select-like
+    inner statements, not <class 'sqlglot.expressions.Set'>'
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.QuickInsert
+    @DocumentId INT,
+    @Title VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        INSERT INTO CurrentData.dbo.Documents (DocumentId, Title, CreatedOn)
+        VALUES (@DocumentId, @Title, GETDATE());
+
+    END TRY
+    BEGIN CATCH
+        PRINT ERROR_MESSAGE();
+        SET NOCOUNT OFF;
+        RETURN -1;
+    END CATCH
+
+    SET NOCOUNT OFF;
+    RETURN 0;
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_nocount_return.json",
+    )
+
+
+# Tests for failed cases from test2.log
+
+
+def test_mssql_procedure_with_for_xml_path_and_stuff() -> None:
+    """Test stored procedure with FOR XML PATH and STUFF function.
+
+    From test2.log: MDS_getFundManagerHistory failed with SELECT using
+    STUFF((SELECT ... FOR XML PATH(''), TYPE).value(...)) pattern.
+    Also uses @@ERROR and table-valued function.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.MDS_getFundManagerHistory
+(@p_SecIdList VARCHAR(4000))
+AS
+BEGIN
+    DECLARE @ErrorMessage NVARCHAR(2000);
+    DECLARE @ErrorSeverity INT;
+    DECLARE @ErrorState INT;
+    DECLARE @ErrorLine INT;
+    DECLARE @ErrorProcedure NVARCHAR(255);
+    DECLARE @ErrorNumber INT;
+    DECLARE @ErrorLogId VARCHAR(255);
+    DECLARE @ErrorLogDBName VARCHAR(100);
+
+    SET @ErrorLogDBName = DB_NAME();
+    SET NOCOUNT ON;
+    SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+    BEGIN TRY
+        SELECT
+            FundId as UniqueId,
+            STUFF(
+                (SELECT '|' + ManagerHistory
+                 FROM DataIndex.dbo.xv_FundManagerHistory e2
+                 WHERE e2.FundId = e1.FundId
+                 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'),
+                 1, 1, '') as ManagerHistory
+        FROM DataIndex.dbo.xv_FundManagerHistory e1
+        INNER JOIN DataIndex.dbo.tf_IdListLong(',', @p_SecIdList) t0 ON t0.Id = e1.FundId
+        GROUP BY FundId;
+
+        SET NOCOUNT OFF;
+        RETURN @@ERROR;
+    END TRY
+    BEGIN CATCH
+        SELECT @ErrorMessage = ERROR_MESSAGE(),
+               @ErrorSeverity = ERROR_SEVERITY(),
+               @ErrorNumber = ERROR_NUMBER(),
+               @ErrorState = ERROR_STATE(),
+               @ErrorLine = ERROR_LINE(),
+               @ErrorProcedure = ERROR_PROCEDURE();
+
+        EXEC master.dbo.sp_LogError @ErrorNumber, @ErrorMessage, @ErrorLogId,
+             @ErrorProcedure, @ErrorLogDBName, @ErrorLine;
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState, @ErrorLine, @ErrorProcedure);
+        RETURN;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_for_xml_path_stuff.json",
+    )
+
+
+def test_mssql_procedure_with_table_variable() -> None:
+    """Test stored procedure with table variable declaration.
+
+    From test2.log: GetSecurityDetailBySecIds failed with DECLARE @SecId TABLE
+    and SELECT with CASE expression and function in FROM clause.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.GetSecurityDetailBySecIds
+    @p_SecIdList VARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @ErrorMessage NVARCHAR(2000);
+    DECLARE @ErrorSeverity INT;
+    DECLARE @ErrorState INT;
+    DECLARE @ErrorLine INT;
+    DECLARE @ErrorProcedure NVARCHAR(255);
+    DECLARE @ErrorNumber INT;
+    DECLARE @ErrorLogId VARCHAR(255);
+    DECLARE @ErrorLogDBName VARCHAR(100);
+
+    SET @ErrorLogDBName = DB_NAME();
+    SET NOCOUNT ON;
+
+    DECLARE @SecId TABLE (SecId VARCHAR(10) NOT NULL);
+
+    BEGIN TRY
+        SELECT si.SecId, TradingSymbol, Name,
+            (CASE
+                WHEN SecurityType = 'FO' THEN 'Open End'
+                WHEN SecurityType = 'FV' THEN 'Insurance/Life Product'
+                WHEN SecurityType = 'FC' THEN 'Closed End'
+                WHEN SecurityType = 'FE' THEN 'ETF'
+                WHEN SecurityType = 'ST' THEN 'Stock'
+                WHEN SecurityType = 'XI' THEN 'Index'
+                WHEN SecurityType = 'SA' THEN 'Separate Account'
+                ELSE SecurityType
+            END) AS SecurityType
+        FROM CurrentData.dbo.ParseSecIdListToTableByOrder(@p_SecIdList) sls
+        LEFT JOIN DataIndex.dbo.vw_SecurityId si WITH(NOLOCK) ON si.SecId = sls.SecId
+        ORDER BY sls.AutoId ASC;
+
+        SET NOCOUNT OFF;
+        RETURN;
+    END TRY
+    BEGIN CATCH
+        SELECT @ErrorMessage = ERROR_MESSAGE(),
+               @ErrorSeverity = ERROR_SEVERITY(),
+               @ErrorNumber = ERROR_NUMBER(),
+               @ErrorState = ERROR_STATE(),
+               @ErrorLine = ERROR_LINE(),
+               @ErrorProcedure = ERROR_PROCEDURE();
+
+        EXEC master.dbo.sp_LogError @ErrorNumber, @ErrorMessage, @ErrorLogId,
+             @ErrorProcedure, @ErrorLogDBName, @ErrorLine;
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState, @ErrorLine, @ErrorProcedure);
+        SET NOCOUNT OFF;
+        RETURN;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_table_variable.json",
+    )
+
+
+def test_mssql_procedure_with_set_rowcount() -> None:
+    """Test stored procedure with SET ROWCOUNT statements.
+
+    From test2.log: findBondMasterByName_V3 failed with SET ROWCOUNT @variable
+    and SET ROWCOUNT 0 statements.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.findBondMasterByName_V3
+    @p_NameLike VARCHAR(75),
+    @p_ResultLimit INT = 5001
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @ErrorMessage NVARCHAR(2000);
+    DECLARE @ErrorSeverity INT;
+    DECLARE @ErrorState INT;
+    DECLARE @ErrorLine INT;
+    DECLARE @ErrorProcedure NVARCHAR(255);
+    DECLARE @ErrorNumber INT;
+    DECLARE @ErrorLogId VARCHAR(255);
+    DECLARE @ErrorLogDBName VARCHAR(100);
+
+    SET @ErrorLogDBName = DB_NAME();
+
+    BEGIN TRY
+        SET ROWCOUNT @p_ResultLimit;
+
+        SELECT LTRIM(RTRIM(BondId)) AS CUSIP,
+               Name AS StandardName,
+               CountryId,
+               CurrencyId,
+               MaturityDate
+        FROM dbo.vw_BondMasterId WITH(NOLOCK, INDEX(ix_BondMasterId_Name))
+        WHERE Name LIKE @p_NameLike
+        ORDER BY StandardName;
+
+        SET ROWCOUNT 0;
+
+        SET NOCOUNT OFF;
+        RETURN;
+    END TRY
+    BEGIN CATCH
+        SELECT @ErrorMessage = ERROR_MESSAGE(),
+               @ErrorSeverity = ERROR_SEVERITY(),
+               @ErrorNumber = ERROR_NUMBER(),
+               @ErrorState = ERROR_STATE(),
+               @ErrorLine = ERROR_LINE(),
+               @ErrorProcedure = ERROR_PROCEDURE();
+
+        EXEC master.dbo.sp_LogError @ErrorNumber, @ErrorMessage, @ErrorLogId,
+             @ErrorProcedure, @ErrorLogDBName, @ErrorLine;
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState, @ErrorLine, @ErrorProcedure);
+        RETURN;
+    END CATCH
+END
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_set_rowcount.json",
+    )
+
+
+@pytest.mark.xfail(
+    reason="Procedures without explicit BEGIN/END are not handled correctly by split_statements - "
+    "the entire procedure is treated as one CREATE PROCEDURE statement and gets skipped",
+    strict=True,
+)
+def test_mssql_procedure_simple_without_begin_end() -> None:
+    """Test simple stored procedure without explicit BEGIN/END around body.
+
+    From test2.log: getManagerInformationBySecId failed with
+    'could not extract any lineage from 1 statements'.
+    This is a simple SELECT with JOINs but no TRY/CATCH or explicit BEGIN/END.
+    """
+    assert_sql_result(
+        """
+CREATE PROCEDURE dbo.getManagerInformationBySecId (
+    @p_SecId CHAR(10))
+AS
+    SELECT b.PersonId AS ManagerId,
+           c.GivenName + ' ' + c.FamilyName AS ManagerName,
+           b.StartDate,
+           b.EndDate
+    FROM DataIndex.dbo.vw_FundShareClassId a WITH (NOLOCK)
+    INNER JOIN DataIndex.dbo.xv_FundManager b WITH (NOLOCK) ON a.FundId = b.FundId
+    INNER JOIN DataIndex.dbo.vw_PersonId c WITH (NOLOCK) ON b.PersonId = c.PersonId
+    WHERE FundShareClassId = @p_SecId AND b.EndDate IS NULL
+    ORDER BY b.PersonId
+""",
+        dialect="mssql",
+        expected_file=RESOURCE_DIR / "test_mssql_procedure_simple_no_begin_end.json",
     )

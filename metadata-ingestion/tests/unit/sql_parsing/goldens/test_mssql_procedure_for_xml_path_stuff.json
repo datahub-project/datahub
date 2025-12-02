@@ -1,0 +1,147 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.tf_idlistlong,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.xv_fundmanagerhistory,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "uniqueid",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[fundid] AS [uniqueid]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "managerhistory",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "STUFF(MAX([_u_0].[_col_0]).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS [managerhistory]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errormessage = error_message()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorMessage = ERROR_MESSAGE() AS [_col_0]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errorseverity = error_severity()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorSeverity = ERROR_SEVERITY() AS [_col_1]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errornumber = error_number()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorNumber = ERROR_NUMBER() AS [_col_2]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errorstate = error_state()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorState = ERROR_STATE() AS [_col_3]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errorline = error_line()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorLine = ERROR_LINE() AS [_col_4]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "@errorprocedure = error_procedure()",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BIT"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "@ErrorProcedure = ERROR_PROCEDURE() AS [_col_5]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 2 statements via fallback)"
+    }
+}

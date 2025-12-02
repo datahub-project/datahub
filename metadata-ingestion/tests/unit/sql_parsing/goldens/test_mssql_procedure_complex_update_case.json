@@ -5,9 +5,9 @@
     },
     "query_fingerprint": null,
     "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)"
     ],
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)"
@@ -22,12 +22,12 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
-                    "column": "return_month_1"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+                    "column": "update_map"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
-                    "column": "update_map"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)",
+                    "column": "return_month_1"
                 }
             ],
             "logic": {
@@ -44,12 +44,12 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
-                    "column": "return_month_2"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+                    "column": "update_map"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
-                    "column": "update_map"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)",
+                    "column": "return_month_2"
                 }
             ],
             "logic": {
@@ -66,12 +66,12 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
-                    "column": "return_month_3"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+                    "column": "update_map"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
-                    "column": "update_map"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)",
+                    "column": "return_month_3"
                 }
             ],
             "logic": {
@@ -88,12 +88,12 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
-                    "column": "return_month_4"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+                    "column": "update_map"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
-                    "column": "update_map"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)",
+                    "column": "return_month_4"
                 }
             ],
             "logic": {
@@ -110,12 +110,12 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
-                    "column": "return_month_5"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+                    "column": "update_map"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
-                    "column": "update_map"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)",
+                    "column": "return_month_5"
                 }
             ],
             "logic": {
@@ -132,12 +132,12 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,analytics.dbo.monthly_returns,PROD)",
-                    "column": "return_month_6"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.source_returns,PROD)",
+                    "column": "update_map"
                 },
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_returns,PROD)",
-                    "column": "update_map"
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.monthly_returns,PROD)",
+                    "column": "return_month_6"
                 }
             ],
             "logic": {

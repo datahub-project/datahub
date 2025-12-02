@@ -6,12 +6,12 @@
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.staging_metrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.metrics,PROD)"
     ],
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.metrics,PROD)"
     ],
     "column_lineage": [
         {
@@ -23,7 +23,7 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.staging_metrics,PROD)",
                     "column": "metric_date"
                 }
             ],
@@ -41,7 +41,7 @@
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.staging_metrics,PROD)",
                     "column": "metric_value"
                 }
             ],
@@ -52,14 +52,14 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.metrics,PROD)",
                 "column": "metric_id",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.staging_metrics,PROD)",
                     "column": "metric_id"
                 }
             ],
@@ -70,14 +70,14 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.metrics,PROD)",
                 "column": "metric_date",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.staging_metrics,PROD)",
                     "column": "metric_date"
                 }
             ],
@@ -88,14 +88,14 @@
         },
         {
             "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,production.dbo.metrics,PROD)",
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.metrics,PROD)",
                 "column": "metric_value",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,staging.dbo.staging_metrics,PROD)",
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,sourcedb.dbo.staging_metrics,PROD)",
                     "column": "metric_value"
                 }
             ],
