@@ -59,6 +59,11 @@ def parse_procedure_code(
             )
         )
 
+    logger.info(
+        f"[AGGREGATOR] Processed {aggregator.report.num_observed_queries} queries, "
+        f"{aggregator.report.num_observed_queries_failed} failed"
+    )
+
     if aggregator.report.num_observed_queries_failed and raise_:
         logger.info(aggregator.report.as_string())
         raise ValueError(
@@ -66,8 +71,20 @@ def parse_procedure_code(
         )
 
     mcps = list(aggregator.gen_metadata())
+    logger.info(f"[AGGREGATOR-MCPS] Generated {len(mcps)} MCPs")
 
-    return to_datajob_input_output(
+    result = to_datajob_input_output(
         mcps=mcps,
         ignore_extra_mcps=True,
     )
+
+    if result:
+        logger.info(
+            f"[DATAJOB-OUTPUT] Created DataJobInputOutput with "
+            f"{len(result.inputDatasets or [])} inputs, "
+            f"{len(result.outputDatasets or [])} outputs"
+        )
+    else:
+        logger.warning("[DATAJOB-OUTPUT] to_datajob_input_output returned None")
+
+    return result
