@@ -118,6 +118,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
+          "systemUpdate.*.limit",
+          "systemUpdate.*.delayMs",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
@@ -461,6 +463,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedUploadUrlExpirationSeconds",
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
+          "datahub.readOnly",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
@@ -499,6 +502,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
           "featureFlags.showIngestionPageRedesign",
+          "featureFlags.ingestionOnboardingRedesignV1",
           "featureFlags.showIntroducePage",
           "featureFlags.showLineageExpandMore",
           "featureFlags.showManageStructuredProperties",

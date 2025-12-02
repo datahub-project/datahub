@@ -158,7 +158,11 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
-  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent");
+  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+  CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
+  MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
+  EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent");
 
   private final String type;
 

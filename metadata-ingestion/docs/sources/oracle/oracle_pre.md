@@ -17,8 +17,71 @@ The following table contains a brief description of what each data dictionary vi
 | `ALL_CONSTRAINTS` or `DBA_CONSTRAINTS`             | Get constraint definitions on tables                  |
 | `ALL_CONS_COLUMNS` or `DBA_CONS_COLUMNS`           | Get list of columns that are specified in constraints |
 | `ALL_USERS` or `DBA_USERS`                         | Get all schema names                                  |
+| `ALL_OBJECTS` or `DBA_OBJECTS`                     | Get stored procedures, functions, and packages        |
+| `ALL_SOURCE` or `DBA_SOURCE`                       | Get source code for stored procedures and functions   |
+| `ALL_ARGUMENTS` or `DBA_ARGUMENTS`                 | Get arguments for stored procedures and functions     |
+| `ALL_DEPENDENCIES` or `DBA_DEPENDENCIES`           | Get dependency information for database objects       |
+| `ALL_MVIEWS` or `DBA_MVIEWS`                       | Get materialized views and their definitions          |
 
 #### Data Dictionary Views accessible information and required privileges
 
 - `ALL_` views display all the information accessible to the user used for ingestion, including information from the user's schema as well as information from objects in other schemas, if the user has access to those objects by way of grants of privileges or roles.
 - `DBA_` views display all relevant information in the entire database. They can be queried only by users with the `SYSDBA` system privilege or `SELECT ANY DICTIONARY` privilege, or `SELECT_CATALOG_ROLE` role, or by users with direct privileges granted to them.
+
+#### Required Permissions
+
+The following permissions are required based on features used:
+
+**Basic Metadata (Tables & Views)**
+
+```sql
+-- Using data_dictionary_mode: ALL (default)
+GRANT SELECT ON ALL_TABLES TO datahub_user;
+GRANT SELECT ON ALL_TAB_COLS TO datahub_user;
+GRANT SELECT ON ALL_TAB_COMMENTS TO datahub_user;
+GRANT SELECT ON ALL_COL_COMMENTS TO datahub_user;
+GRANT SELECT ON ALL_VIEWS TO datahub_user;
+GRANT SELECT ON ALL_CONSTRAINTS TO datahub_user;
+GRANT SELECT ON ALL_CONS_COLUMNS TO datahub_user;
+
+-- Using data_dictionary_mode: DBA (elevated permissions)
+GRANT SELECT ON DBA_TABLES TO datahub_user;
+GRANT SELECT ON DBA_TAB_COLS TO datahub_user;
+GRANT SELECT ON DBA_TAB_COMMENTS TO datahub_user;
+GRANT SELECT ON DBA_COL_COMMENTS TO datahub_user;
+GRANT SELECT ON DBA_VIEWS TO datahub_user;
+GRANT SELECT ON DBA_CONSTRAINTS TO datahub_user;
+GRANT SELECT ON DBA_CONS_COLUMNS TO datahub_user;
+```
+
+**Stored Procedures (enabled by default)**
+
+```sql
+-- For ALL mode
+GRANT SELECT ON ALL_OBJECTS TO datahub_user;
+GRANT SELECT ON ALL_SOURCE TO datahub_user;
+GRANT SELECT ON ALL_ARGUMENTS TO datahub_user;
+GRANT SELECT ON ALL_DEPENDENCIES TO datahub_user;
+
+-- For DBA mode
+GRANT SELECT ON DBA_OBJECTS TO datahub_user;
+GRANT SELECT ON DBA_SOURCE TO datahub_user;
+GRANT SELECT ON DBA_ARGUMENTS TO datahub_user;
+GRANT SELECT ON DBA_DEPENDENCIES TO datahub_user;
+```
+
+**Materialized Views (enabled by default)**
+
+```sql
+-- For ALL mode
+GRANT SELECT ON ALL_MVIEWS TO datahub_user;
+
+-- For DBA mode
+GRANT SELECT ON DBA_MVIEWS TO datahub_user;
+```
+
+**Database Name Resolution**
+
+```sql
+GRANT SELECT ON V_$DATABASE TO datahub_user;
+```
