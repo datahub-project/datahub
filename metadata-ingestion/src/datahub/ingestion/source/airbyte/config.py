@@ -154,17 +154,13 @@ class PlatformMappingConfig(ConfigModel):
         if not platform_name:
             return self.default
 
-        # Normalize the platform name
         normalized_name = platform_name.lower().replace(" ", "_").replace("-", "_")
 
-        # Check if we have a mapping for this platform
         if normalized_name in self.mappings:
             return self.mappings[normalized_name]
 
-        # Return the default mapping
         return self.default
 
-    # Enable setting arbitrary platform mappings
     def __getitem__(self, key: str) -> PlatformInstanceConfig:
         return self.get_dataset_mapping(key)
 
@@ -176,19 +172,16 @@ class PlatformMappingConfig(ConfigModel):
 class AirbyteClientConfig(ConfigModel):
     """Base Airbyte Client Configuration"""
 
-    # Deployment type to differentiate between Open Source and Cloud
     deployment_type: AirbyteDeploymentType = Field(
         default=AirbyteDeploymentType.OPEN_SOURCE,
         description="Type of Airbyte deployment ('oss' or 'cloud')",
     )
 
-    # Connection settings
     host_port: Optional[str] = Field(
         default=None,
         description="Airbyte API host and port (e.g., http://localhost:8000) - required for OSS deployment",
     )
 
-    # Authentication settings - Basic Auth
     username: Optional[str] = Field(
         default=None,
         description="Username for basic authentication (OSS deployment)",
@@ -198,13 +191,11 @@ class AirbyteClientConfig(ConfigModel):
         description="Password for basic authentication (OSS deployment)",
     )
 
-    # Authentication settings - API Key (for OSS)
     api_key: Optional[SecretStr] = Field(
         default=None,
         description="API key or Personal Access Token for authentication (OSS deployment)",
     )
 
-    # Authentication settings - OAuth2 (for cloud)
     oauth2_client_id: Optional[str] = Field(
         default=None,
         description="OAuth2 client ID (cloud deployment)",
@@ -218,7 +209,6 @@ class AirbyteClientConfig(ConfigModel):
         description="OAuth2 refresh token (cloud deployment)",
     )
 
-    # SSL verification settings
     verify_ssl: bool = Field(
         default=True,
         description="Whether to verify SSL certificates",
@@ -228,7 +218,6 @@ class AirbyteClientConfig(ConfigModel):
         description="Path to CA certificate file (.pem) for SSL verification",
     )
 
-    # Request configuration
     extra_headers: Optional[Dict[str, str]] = Field(
         default=None,
         description="Additional HTTP headers to send with each request",
@@ -246,13 +235,11 @@ class AirbyteClientConfig(ConfigModel):
         description="Backoff factor for retries (wait time is {factor} * (2 ^ retry_number))",
     )
 
-    # Pagination
     page_size: int = Field(
         default=20,
         description="Number of items to fetch per page in API requests",
     )
 
-    # Cloud specific configuration
     cloud_workspace_id: Optional[str] = Field(
         default=None,
         description="Workspace ID for Airbyte Cloud (required for cloud deployment)",
@@ -311,7 +298,6 @@ class AirbyteSourceConfig(
         description="Regex patterns to filter destinations. Use the pattern format as in other DataHub sources.",
     )
 
-    # Source type mapping for platform names
     source_type_mapping: Dict[str, str] = Field(
         default_factory=dict,
         description="Mapping from Airbyte sourceType/destinationType to DataHub platform names. "
@@ -320,7 +306,6 @@ class AirbyteSourceConfig(
         "If not specified, the sourceType/destinationType from Airbyte is sanitized and used directly.",
     )
 
-    # Per-source and per-destination platform instance mapping
     sources_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default_factory=dict,
         description="A mapping from Airbyte source ID to its platform/instance/env/database details. "
@@ -334,7 +319,6 @@ class AirbyteSourceConfig(
         "Use this to override platform details for specific destinations.",
     )
 
-    # Jobs and status configuration
     include_statuses: bool = Field(
         default=True,
         description="Whether to ingest run statuses",
@@ -352,7 +336,6 @@ class AirbyteSourceConfig(
         description="Maximum number of job statuses to retrieve per connection",
     )
 
-    # Owner extraction pattern
     extract_owners: bool = Field(
         default=False,
         description="Extract owners from connection names",
@@ -362,19 +345,16 @@ class AirbyteSourceConfig(
         description="Regex pattern with a capture group to extract owner from connection name",
     )
 
-    # Tags extraction
     extract_tags: bool = Field(
         default=False,
         description="Extract tags from Airbyte metadata",
     )
 
-    # Platform mapping
     platform_mapping: PlatformMappingConfig = Field(
         default_factory=PlatformMappingConfig,
         description="Platform mapping configuration for controlling dataset URN components",
     )
 
-    # Workspace name as platform instance
     use_workspace_name_as_platform_instance: bool = Field(
         default=False,
         description="Use the workspace name as the platform instance in URNs. If enabled, this will override any platform_instance set in config.",

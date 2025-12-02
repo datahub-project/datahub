@@ -12,7 +12,6 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
     AirbyteDatasetMapping,
     AirbyteDestinationPartial,
-    AirbyteInputOutputDatasets,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
     AirbyteStream,
@@ -79,7 +78,6 @@ def source(config, mock_ctx, mock_client):
         mock_create_client.return_value = mock_client
         source = AirbyteSource(config, mock_ctx)
 
-        # Add the methods directly to the instance
         source._get_source_platform = MagicMock(return_value="postgres")
         source._get_destination_platform = MagicMock(return_value="postgres")
         source._get_source_type_from_definition = MagicMock(return_value="postgres")
@@ -98,7 +96,6 @@ def test_map_dataset_urn_components(source):
     # We need to reset the default configuration to ensure platform_instance is None
     source.source_config.platform_mapping.default.platform_instance = None
 
-    # Test with platform_instance=None in config
     result = source._map_dataset_urn_components(
         platform_name="postgres",
         schema_name="public",
@@ -110,11 +107,9 @@ def test_map_dataset_urn_components(source):
     assert result.name == "public.customers"
     assert result.platform_instance is None
 
-    # Now set platform_instance to a value to test with it
     source.source_config.platform_instance = "test-instance"
     source.source_config.platform_mapping.default.platform_instance = "test-instance"
 
-    # Test with default platform instance
     result = source._map_dataset_urn_components(
         platform_name="postgres",
         schema_name="public",
@@ -127,102 +122,9 @@ def test_map_dataset_urn_components(source):
     assert result.platform_instance == "test-instance"
 
 
-def test_get_input_output_datasets(source):
-    """Test the _get_input_output_datasets method."""
-    # Create a mock pipeline info
-    workspace = AirbyteWorkspacePartial(
-        workspace_id="workspace-1", name="Test Workspace"
-    )
-    connection = AirbyteConnectionPartial(
-        connection_id="connection-1",
-        name="Test Connection",
-        source_id="source-1",
-        destination_id="destination-1",
-        status="active",
-    )
-    source_obj = AirbyteSourcePartial(
-        source_id="source-1",
-        name="Test Source",
-        source_definition_id="source-def-1",
-        workspace_id="workspace-1",
-        configuration={
-            "host": "localhost",
-            "port": 5432,
-            "database": "source_db",
-            "schema": "public",
-        },
-    )
-    destination = AirbyteDestinationPartial(
-        destination_id="destination-1",
-        name="Test Destination",
-        destination_definition_id="dest-def-1",
-        workspace_id="workspace-1",
-        configuration={
-            "host": "localhost",
-            "port": 5432,
-            "database": "dest_db",
-            "schema": "public",
-        },
-    )
-    pipeline_info = AirbytePipelineInfo(
-        workspace=workspace,
-        connection=connection,
-        source=source_obj,
-        destination=destination,
-    )
-
-    # Skip all the internal logic by directly mocking the method
-    # This is a more stable approach than relying on internal implementation details
-    original_method = source._get_input_output_datasets
-
-    # Create expected outputs
-    expected_input_urns = [
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)",
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,TEST)",
-    ]
-
-    expected_output_urns = [
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)",
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,TEST)",
-    ]
-
-    # Replace the method with our mock
-    source._get_input_output_datasets = MagicMock(
-        return_value=AirbyteInputOutputDatasets(
-            input_urns=expected_input_urns, output_urns=expected_output_urns
-        )
-    )
-
-    try:
-        # Call the method
-        result = source._get_input_output_datasets(
-            pipeline_info=pipeline_info,
-            source_platform="postgres",
-            destination_platform="postgres",
-        )
-
-        # Verify the results
-        assert len(result.input_urns) == 2
-        assert len(result.output_urns) == 2
-
-        # Check that the URNs match our expected values
-        assert sorted(result.input_urns) == sorted(expected_input_urns)
-        assert sorted(result.output_urns) == sorted(expected_output_urns)
-
-        # Verify our mock was called with the expected arguments
-        source._get_input_output_datasets.assert_called_once_with(
-            pipeline_info=pipeline_info,
-            source_platform="postgres",
-            destination_platform="postgres",
-        )
-    finally:
-        # Restore the original method
-        source._get_input_output_datasets = original_method
-
-
 def test_create_dataset_urns(source):
     """Test the _create_dataset_urns method."""
-    # Create a mock pipeline info
+
     workspace = AirbyteWorkspacePartial(
         workspaceId="workspace-1",
         name="Test Workspace",
@@ -275,14 +177,12 @@ def test_create_dataset_urns(source):
         destination=destination,
     )
 
-    # Create a mock stream
     stream = AirbyteStreamDetails(
         stream_name="customers",
         namespace="source_schema",
         property_fields=["id", "name", "email"],
     )
 
-    # Mock the _map_dataset_urn_components to return exactly what we want
     source_mapping = AirbyteDatasetMapping(
         platform="postgres",
         name="source_db.source_schema.customers",
@@ -314,128 +214,21 @@ def test_create_dataset_urns(source):
             "datahub.emitter.mce_builder.make_dataset_urn_with_platform_instance"
         ) as mock_make_urn,
     ):
-        # Configure make_dataset_urn_with_platform_instance to return our expected URNs
         mock_make_urn.side_effect = [expected_source_urn, expected_dest_urn]
 
-        # Execute the method
         result = source._create_dataset_urns(
             pipeline_info=pipeline_info,
             stream=stream,
             platform_instance=None,
         )
 
-        # Verify the results
         assert result.source_urn == expected_source_urn
         assert result.destination_urn == expected_dest_urn
 
 
-@pytest.mark.parametrize(
-    "source_type,expected_platform",
-    [
-        ("postgres", "postgres"),
-        ("postgresql", "postgres"),
-        ("mysql", "mysql"),
-        ("mssql", "mssql"),
-        ("oracle", "oracle"),
-        ("redshift", "redshift"),
-        ("snowflake", "snowflake"),
-        ("bigquery", "bigquery"),
-        ("unknown-source", "unknown-source"),
-    ],
-)
-def test_get_source_platform(source, source_type, expected_platform):
-    """Test platform detection for source."""
-    source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType=source_type,
-        sourceDefinitionId="source-def-1",
-        workspaceId="workspace-1",
-        source_id="source-1",
-        source_type=source_type,
-        source_definition_id="source-def-1",
-        workspace_id="workspace-1",
-        configuration={},
-    )
-
-    # Create a new patch to return the desired source type
-    with patch.object(
-        source,
-        "_get_source_type_from_definition",
-        return_value=source_type,
-    ):
-        # Instead of assigning to a method, create a new mock function and patch it
-        def mock_get_platform(src):
-            platform = src.source_type
-            # Handle the special case where postgresql should map to postgres
-            if platform == "postgresql":
-                return "postgres"
-            return platform
-
-        # Patch the method with our mock function
-        with patch.object(
-            source, "_get_source_platform", side_effect=mock_get_platform
-        ):
-            result = source._get_source_platform(source_obj)  # type: ignore
-            assert result == expected_platform
-
-
-@pytest.mark.parametrize(
-    "dest_type,expected_platform",
-    [
-        ("postgres", "postgres"),
-        ("postgresql", "postgres"),
-        ("mysql", "mysql"),
-        ("mssql", "mssql"),
-        ("oracle", "oracle"),
-        ("redshift", "redshift"),
-        ("snowflake", "snowflake"),
-        ("bigquery", "bigquery"),
-        ("unknown-destination", "unknown-destination"),
-    ],
-)
-def test_get_destination_platform(source, dest_type, expected_platform):
-    """Test platform detection for destination."""
-    destination = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Destination",
-        destinationType=dest_type,
-        destinationDefinitionId="dest-def-1",
-        workspaceId="workspace-1",
-        destination_id="dest-1",
-        destination_type=dest_type,
-        destination_definition_id="dest-def-1",
-        workspace_id="workspace-1",
-        configuration={},
-    )
-
-    # Create a new patch to return the desired destination type
-    with patch.object(
-        source,
-        "_get_destination_type_from_definition",
-        return_value=dest_type,
-    ):
-        # Instead of assigning to a method, create a new mock function and patch it
-        def mock_get_platform(dest):
-            platform = dest.destination_type
-            # Handle the special case where postgresql should map to postgres
-            if platform == "postgresql":
-                return "postgres"
-            return platform
-
-        # Patch the method with our mock function
-        with patch.object(
-            source,
-            "_get_destination_platform",
-            side_effect=mock_get_platform,
-        ):
-            result = source._get_destination_platform(destination)  # type: ignore
-            assert result == expected_platform
-
-
 def test_fetch_streams_for_source(source, mock_client):
     """Test the _fetch_streams_for_source method."""
-    # Create a mock pipeline info
+
     workspace = AirbyteWorkspacePartial(
         workspaceId="workspace-1",
         name="Test Workspace",
@@ -472,10 +265,8 @@ def test_fetch_streams_for_source(source, mock_client):
         configuration={},
     )
 
-    # Create a mock sync_catalog with two streams
     sync_catalog = AirbyteSyncCatalog()
 
-    # Create mock stream schema fields
     customer_stream_details = AirbyteStreamDetails(
         stream_name="customers",
         namespace="public",
@@ -488,7 +279,6 @@ def test_fetch_streams_for_source(source, mock_client):
         property_fields=["id", "customer_id", "order_date", "total"],
     )
 
-    # Create AirbyteStream objects for the configs
     customer_stream = AirbyteStream(
         name="customers",
         namespace="public",
@@ -508,7 +298,6 @@ def test_fetch_streams_for_source(source, mock_client):
         },
     )
 
-    # Create the stream configurations
     customers_config = AirbyteStreamConfig(
         stream=customer_stream,
         config={"selected": True},
@@ -519,11 +308,9 @@ def test_fetch_streams_for_source(source, mock_client):
         config={"selected": True},
     )
 
-    # Add the streams to the catalog
     sync_catalog.streams = [customers_config, orders_config]
     connection.sync_catalog = sync_catalog
 
-    # Create pipeline info
     pipeline_info = AirbytePipelineInfo(
         workspace=workspace,
         connection=connection,
@@ -534,7 +321,6 @@ def test_fetch_streams_for_source(source, mock_client):
     # Mock the client list_streams to return an empty list so we use the fallback
     mock_client.list_streams.return_value = []
 
-    # Create expected results
     customer_stream_details = AirbyteStreamDetails(
         stream_name="customers",
         namespace="public",
@@ -557,10 +343,8 @@ def test_fetch_streams_for_source(source, mock_client):
             customer_stream_details if "customers" in str(x) else order_stream_details
         )
 
-        # Execute the method
         streams = source._fetch_streams_for_source(pipeline_info)
 
-        # Verify the results
         assert len(streams) == 2
         assert streams[0].stream_name == "customers"
         assert streams[0].namespace == "public"

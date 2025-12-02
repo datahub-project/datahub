@@ -17,11 +17,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteSyncCatalog,
     AirbyteWorkspacePartial,
 )
-from datahub.ingestion.source.airbyte.source import (
-    AirbyteSource,
-    _map_source_type_to_platform,
-    _sanitize_platform_name,
-)
+from datahub.ingestion.source.airbyte.source import AirbyteSource
 
 
 @pytest.fixture
@@ -33,112 +29,6 @@ def mock_ctx():
     ctx.pipeline_config = MagicMock()
     ctx.run_id = "test-run-id"
     return ctx
-
-
-class TestSanitizePlatformName:
-    """Tests for _sanitize_platform_name function."""
-
-    def test_sanitize_with_spaces(self):
-        """Test sanitizing platform name with spaces."""
-        assert _sanitize_platform_name("Google BigQuery") == "google-bigquery"
-
-    def test_sanitize_already_lowercase(self):
-        """Test sanitizing already lowercase name."""
-        assert _sanitize_platform_name("postgres") == "postgres"
-
-    def test_sanitize_mixed_case(self):
-        """Test sanitizing mixed case name."""
-        assert _sanitize_platform_name("PostgreSQL") == "postgresql"
-
-
-class TestMapSourceTypeToPlatform:
-    """Tests for _map_source_type_to_platform function."""
-
-    def test_user_configured_mapping(self):
-        """Test user-configured mapping takes precedence."""
-        source_type_mapping = {"custom-db": "my-platform"}
-        result = _map_source_type_to_platform("custom-db", source_type_mapping)
-        assert result == "my-platform"
-
-    def test_known_source_type_mapping(self):
-        """Test known source type mapping."""
-        result = _map_source_type_to_platform("postgresql", {})
-        assert result == "postgres"
-
-    def test_fallback_sanitization(self):
-        """Test fallback to sanitization for unknown types."""
-        result = _map_source_type_to_platform("Unknown Database", {})
-        assert result == "unknown-database"
-
-
-class TestGetPlatformMethods:
-    """Tests for _get_platform_for_source and _get_platform_for_destination."""
-
-    @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-    def test_get_platform_for_source_with_override(self, mock_create_client, mock_ctx):
-        """Test getting platform for source with per-source override."""
-        from datahub.ingestion.source.airbyte.config import PlatformDetail
-
-        config = AirbyteSourceConfig(
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-            sources_to_platform_instance={
-                "source-123": PlatformDetail(
-                    platform="custom-platform",
-                    platform_instance="custom-instance",
-                    env="DEV",
-                )
-            },
-        )
-        mock_create_client.return_value = MagicMock()
-        source = AirbyteSource(config, mock_ctx)
-
-        airbyte_source = AirbyteSourcePartial(
-            source_id="source-123", name="Test Source", source_type="postgres"
-        )
-
-        platform, platform_instance, env = source._get_platform_for_source(
-            airbyte_source
-        )
-
-        assert platform == "custom-platform"
-        assert platform_instance == "custom-instance"
-        assert env == "DEV"
-
-    @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-    def test_get_platform_for_destination_with_override(
-        self, mock_create_client, mock_ctx
-    ):
-        """Test getting platform for destination with per-destination override."""
-        from datahub.ingestion.source.airbyte.config import PlatformDetail
-
-        config = AirbyteSourceConfig(
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-            destinations_to_platform_instance={
-                "dest-123": PlatformDetail(
-                    platform="snowflake",
-                    platform_instance="prod-cluster",
-                    env="PROD",
-                )
-            },
-        )
-        mock_create_client.return_value = MagicMock()
-        source = AirbyteSource(config, mock_ctx)
-
-        airbyte_dest = AirbyteDestinationPartial(
-            destination_id="dest-123",
-            name="Test Destination",
-            destination_type="snowflake",
-        )
-
-        platform, platform_instance, env = source._get_platform_for_destination(
-            airbyte_dest
-        )
-
-        assert platform == "snowflake"
-        assert platform_instance == "prod-cluster"
-        assert env == "PROD"
 
 
 class TestValidatePipelineIds:

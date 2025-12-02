@@ -28,17 +28,15 @@ def mock_ctx():
 
 def test_source_type_mapping():
     """Test source type to platform mapping with known types."""
-    # Test known mappings
+
     assert _map_source_type_to_platform("postgres", {}) == "postgres"
     assert _map_source_type_to_platform("postgresql", {}) == "postgres"
     assert _map_source_type_to_platform("mysql", {}) == "mysql"
     assert _map_source_type_to_platform("MySQL", {}) == "mysql"  # Case insensitive
 
-    # Test user override
     user_mapping = {"PostgreSQL": "my-postgres"}
     assert _map_source_type_to_platform("PostgreSQL", user_mapping) == "my-postgres"
 
-    # Test unknown type (should be sanitized)
     assert _map_source_type_to_platform("Custom Database", {}) == "custom-database"
 
 
@@ -72,14 +70,12 @@ def test_per_source_platform_override(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Create mock source
     from datahub.ingestion.source.airbyte.models import AirbyteSourcePartial
 
     mock_source = AirbyteSourcePartial.model_validate(
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "PostgreSQL"}
     )
 
-    # Get platform details
     platform, platform_instance, env = source._get_platform_for_source(mock_source)
 
     assert platform == "postgres"
@@ -104,7 +100,6 @@ def test_per_destination_platform_override(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Create mock destination
     from datahub.ingestion.source.airbyte.models import AirbyteDestinationPartial
 
     mock_dest = AirbyteDestinationPartial.model_validate(
@@ -115,7 +110,6 @@ def test_per_destination_platform_override(mock_create_client, mock_ctx):
         }
     )
 
-    # Get platform details
     platform, platform_instance, env = source._get_platform_for_destination(mock_dest)
 
     assert platform == "snowflake"
@@ -136,14 +130,12 @@ def test_source_type_mapping_config(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Create mock source with custom type
     from datahub.ingestion.source.airbyte.models import AirbyteSourcePartial
 
     mock_source = AirbyteSourcePartial.model_validate(
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "Custom DB"}
     )
 
-    # Get platform - should use user mapping
     platform, _, _ = source._get_platform_for_source(mock_source)
     assert platform == "custom-platform"
 
@@ -160,14 +152,12 @@ def test_platform_detail_defaults(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Create mock source without override
     from datahub.ingestion.source.airbyte.models import AirbyteSourcePartial
 
     mock_source = AirbyteSourcePartial.model_validate(
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "postgres"}
     )
 
-    # Get platform details - should use sourceType
     platform, platform_instance, env = source._get_platform_for_source(mock_source)
 
     assert platform == "postgres"  # From sourceType

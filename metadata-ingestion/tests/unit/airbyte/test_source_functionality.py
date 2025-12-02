@@ -79,7 +79,6 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Mock client responses
     workspace_dict = {
         "workspaceId": "workspace-1",
         "name": "Test Workspace",
@@ -108,7 +107,6 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
         "connectionConfiguration": {"host": "localhost", "port": 5432},
     }
 
-    # Set up mock behaviors
     mock_client.list_workspaces.return_value = [workspace_dict]
     mock_client.list_connections.return_value = [connection_dict]
     mock_client.get_connection.return_value = connection_dict  # Full connection details
@@ -124,7 +122,6 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
     assert pipelines[0].source.source_id == "source-1"
     assert pipelines[0].destination.destination_id == "destination-1"
 
-    # Verify client method calls
     mock_client.list_workspaces.assert_called_once()
     mock_client.list_connections.assert_called_once_with(
         "workspace-1", pattern=AllowDenyPattern.allow_all()
@@ -147,7 +144,6 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Mock client responses
     workspace_dict = {
         "workspaceId": "workspace-1",
         "name": "Test Workspace",
@@ -176,7 +172,6 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
         "connectionConfiguration": {"host": "localhost", "port": 5432},
     }
 
-    # Set up mock behaviors
     mock_client.list_workspaces.return_value = [workspace_dict]
     mock_client.list_connections.return_value = [connection_dict]
     mock_client.get_connection.return_value = connection_dict  # Full connection details
@@ -187,13 +182,11 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
 
     assert len(pipelines) == 1
 
-    # Test with source filter that doesn't match
     config.source_pattern = AllowDenyPattern(allow=["Different Source"])
     source = AirbyteSource(config, mock_ctx)
     pipelines = list(source._get_pipelines())
     assert len(pipelines) == 0
 
-    # Test with destination filter that doesn't match
     config.source_pattern = AllowDenyPattern(allow=["Test Source"])
     config.destination_pattern = AllowDenyPattern(allow=["Different Destination"])
     source = AirbyteSource(config, mock_ctx)
@@ -228,7 +221,6 @@ def test_get_workunits(
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Mock pipeline info
     workspace = AirbyteWorkspacePartial(
         workspace_id="workspace-1", name="Test Workspace"
     )
@@ -262,7 +254,6 @@ def test_get_workunits(
     with patch.object(
         source, "_get_pipelines", return_value=[pipeline_info]
     ) as mock_get_pipelines:
-        # Set up mocks for all the "create_*_workunits" methods
         mock_create_dataflow.return_value = ["dataflow_workunit"]
         mock_create_datajob.return_value = ["datajob_workunit"]
         mock_create_lineage.return_value = ["lineage_workunit"]
@@ -274,7 +265,6 @@ def test_get_workunits(
         mock_create_datajob.assert_called_once_with(pipeline_info)
         mock_create_lineage.assert_called_once_with(pipeline_info)
 
-        # Verify all the workunits are combined
         assert len(workunits) == 3
         assert workunits == [
             "dataflow_workunit",
@@ -294,7 +284,6 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Mock client to raise exceptions
     mock_client.list_workspaces.return_value = [
         {"workspaceId": "workspace-1", "name": "Test Workspace"}
     ]
@@ -305,7 +294,6 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
     assert len(pipelines) == 0
     assert len(source.report.failures) == 1
 
-    # Test error with source retrieval - create a new source instance to avoid stale state
     source = AirbyteSource(config, mock_ctx)
     mock_client.list_connections.side_effect = None
     mock_client.list_connections.return_value = [

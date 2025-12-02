@@ -59,7 +59,6 @@ def source(config, mock_ctx, mock_client):
         mock_create_client.return_value = mock_client
         source = AirbyteSource(config, mock_ctx)
 
-        # Add the methods directly to the instance
         source._get_source_platform = MagicMock(return_value="postgres")  # type: ignore[attr-defined]
         source._get_destination_platform = MagicMock(return_value="postgres")  # type: ignore[attr-defined]
         source._get_source_type_from_definition = MagicMock(  # type: ignore[attr-defined]
@@ -204,7 +203,6 @@ def test_create_stream_datajob(source, pipeline_info, stream):
     )
     tags = ["test-tag-1", "test-tag-2"]
 
-    # Create a dataflow URN
     dataflow_urn = DataFlowUrn(
         orchestrator="airbyte",
         flow_id="connection-1",
@@ -316,7 +314,7 @@ def test_create_lineage_workunits(source, pipeline_info, stream):
 
 def test_create_lineage_workunits_with_disabled_pipeline(source, pipeline_info):
     """Test the _create_lineage_workunits method with a disabled pipeline."""
-    # Modify connection to be inactive
+
     pipeline_info.connection.status = "inactive"
 
     with (
