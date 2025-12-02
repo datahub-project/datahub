@@ -1282,7 +1282,14 @@ class SqlParsingAggregator(Closeable):
         self, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_lineage:
+            logger.info(
+                "[GEN-LINEAGE] Skipping lineage generation (generate_lineage=False)"
+            )
             return
+
+        logger.info(
+            f"[GEN-LINEAGE] Starting lineage MCP generation, lineage_map has {len(self._lineage_map)} downstream URNs"
+        )
 
         # Process all views and inject them into the lineage map.
         # The parsing of view definitions is deferred until this point
@@ -1293,6 +1300,9 @@ class SqlParsingAggregator(Closeable):
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
+            logger.info(
+                f"[GEN-LINEAGE] Generating lineage for downstream: {downstream_urn}"
+            )
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )

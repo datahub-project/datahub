@@ -51,6 +51,10 @@ def parse_procedure_code(
     )
 
     for query in statements:
+        logger.info(
+            f"[AGGREGATOR-ADD] Adding query to aggregator: {len(query)} chars, "
+            f"starts with: {query[:100] if len(query) > 100 else query}"
+        )
         aggregator.add_observed_query(
             observed=ObservedQuery(
                 default_db=default_db,

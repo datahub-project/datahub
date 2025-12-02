@@ -1552,6 +1552,10 @@ def _parse_stored_procedure_fallback(
     # Build aggregated result
     # Use UNKNOWN instead of CREATE_OTHER so the aggregator treats it as a mutation query
     # and generates lineage MCPs. CREATE_OTHER is treated as DDL and doesn't generate lineage.
+    logger.info(
+        f"[FALLBACK-RESULT] Returning SqlParsingResult: query_type=UNKNOWN, "
+        f"{len(all_in_tables)} in_tables, {len(all_out_tables)} out_tables"
+    )
     return SqlParsingResult(
         query_type=QueryType.UNKNOWN,
         query_type_props={"kind": "PROCEDURE"},
