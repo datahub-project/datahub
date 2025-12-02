@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Form, Select, Tag, Typography, message } from 'antd';
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -12,6 +12,7 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -25,7 +26,7 @@ import { getModalDomContainer } from '@src/utils/focus';
 import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
-import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '@graphql/ownership.generated';
+import { useProposeOwnersMutation } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
@@ -131,14 +132,8 @@ export const EditOwnersModal = ({
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const [proposeOwnersMutation] = useProposeOwnersMutation();
-    const { data: ownershipTypesData, loading: ownershipTypesLoading } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-    const ownershipTypes = useMemo(() => {
-        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    }, [ownershipTypesData]);
+
+    const { ownershipTypes, loading: ownershipTypesLoading } = useOwnershipTypes();
 
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
         defaultValuesToSelectedOwners(defaultValues || []),

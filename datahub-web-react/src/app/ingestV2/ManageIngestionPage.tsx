@@ -11,6 +11,7 @@ import {
     REMOTE_EXECUTORS_CREATE_SOURCE_ID,
     RemoteExecutorPoolsList,
 } from '@app/ingestV2/executor_saas/RemoteExecutorPoolsList';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
@@ -23,6 +24,7 @@ import { NoPageFound } from '@app/shared/NoPageFound';
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -87,6 +89,7 @@ export const ManageIngestionPage = () => {
     const canViewPools = canManagePools || canViewIngestionPage;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
+    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -209,9 +212,13 @@ export const ManageIngestionPage = () => {
 
     const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
-    const handleCreateSource = () => {
-        setShowCreateSourceModal(true);
-    };
+    const handleCreateSource = useCallback(() => {
+        if (showIngestionOnboardingRedesignV1) {
+            history.push(PageRoutes.INGESTION_CREATE);
+        } else {
+            setShowCreateSourceModal(true);
+        }
+    }, [showIngestionOnboardingRedesignV1, history]);
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
