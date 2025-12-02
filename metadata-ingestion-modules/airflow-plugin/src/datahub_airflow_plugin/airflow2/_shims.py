@@ -7,9 +7,16 @@ from typing import List
 
 from airflow.models.baseoperator import BaseOperator
 
-# Operator type alias - these always exist in Airflow 2.5.0+ (plugin's minimum version)
+# Operator type alias - try airflow.models.operator.Operator first (Airflow 2.5-2.9)
+# Fall back to BaseOperator for Airflow 2.10+ (transitioning to Airflow 3.x)
 from airflow.models.mappedoperator import MappedOperator
-from airflow.models.operator import Operator
+
+try:
+    from airflow.models.operator import Operator
+except ImportError:
+    # Airflow 2.10+ removed airflow.models.operator.Operator
+    # Use BaseOperator as the Operator type alias instead
+    Operator = BaseOperator  # type: ignore[misc]
 
 # ExternalTaskSensor import
 try:

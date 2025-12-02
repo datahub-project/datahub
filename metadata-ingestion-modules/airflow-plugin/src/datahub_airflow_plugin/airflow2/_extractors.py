@@ -85,6 +85,7 @@ class ExtractorManager(OLExtractorManager):
         self._extract_bigquery_insert_job_operator = (
             extract_bigquery_insert_job_operator
         )
+        self._extract_teradata_operator = extract_teradata_operator
 
         # Legacy OpenLineage has task_to_extractor attribute, OpenLineage Provider doesn't
         # Register custom extractors only for Legacy OpenLineage (Provider has its own)
