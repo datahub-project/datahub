@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { LinkFormData } from '@app/entityV2/shared/components/links/types';
+import { getGeneralizedLinkFormDataFromFormData } from '@app/entityV2/shared/components/links/utils';
 
 import { useAddLinkMutation, useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';
@@ -23,17 +25,18 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
         }
     }, [selectedLink, selectedLink?.settings?.showInAssetPreview]);
 
-    const handleDeleteLink = async () => {
-        if (!selectedLink) {
+    const handleDeleteLink = async (link?: InstitutionalMemoryMetadata | null) => {
+        const linkToDelete = link ?? selectedLink;
+        if (!linkToDelete) {
             return;
         }
         try {
             await removeLinkMutation({
                 variables: {
                     input: {
-                        linkUrl: selectedLink.url,
-                        label: selectedLink.label || selectedLink.description,
-                        resourceUrn: selectedLink.associatedUrn || entityUrn,
+                        linkUrl: linkToDelete.url,
+                        label: linkToDelete.label || linkToDelete.description,
+                        resourceUrn: linkToDelete.associatedUrn || entityUrn,
                     },
                 },
             });
@@ -53,13 +56,14 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
         refetch?.();
     };
 
-    const handleAddLink = async (formValues) => {
+    const handleAddLink = async (formValues: LinkFormData) => {
         try {
+            const generalizedFormValues = getGeneralizedLinkFormDataFromFormData(formValues);
             await addLinkMutation({
                 variables: {
                     input: {
-                        linkUrl: formValues.url,
-                        label: formValues.label,
+                        linkUrl: generalizedFormValues.url,
+                        label: generalizedFormValues.label,
                         resourceUrn: mutationUrn,
                         settings: { showInAssetPreview },
                     },
@@ -81,17 +85,18 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
         }
     };
 
-    const handleUpdateLink = async (formData) => {
+    const handleUpdateLink = async (formData: LinkFormData) => {
         if (!selectedLink) return;
         try {
+            const generalizedFormValues = getGeneralizedLinkFormDataFromFormData(formData);
             await updateLinkMutation({
                 variables: {
                     input: {
                         currentLabel: selectedLink.label || selectedLink.description,
                         currentUrl: selectedLink.url,
                         resourceUrn: selectedLink.associatedUrn || entityUrn,
-                        label: formData.label,
-                        linkUrl: formData.url,
+                        label: generalizedFormValues.label,
+                        linkUrl: generalizedFormValues.url,
                         settings: { showInAssetPreview },
                     },
                 },
