@@ -82,39 +82,39 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace_dict = {
-        "workspaceId": "workspace-1",
-        "name": "Test Workspace",
-    }
-    connection_dict = {
-        "connectionId": "connection-1",
-        "name": "Test Connection",
-        "sourceId": "source-1",
-        "destinationId": "destination-1",
-        "status": "active",
-    }
-    source_dict = {
-        "sourceId": "source-1",
-        "name": "Test Source",
-        "sourceType": "postgres",
-        "sourceDefinitionId": "source-def-1",
-        "workspaceId": "workspace-1",
-        "connectionConfiguration": {"host": "localhost", "port": 5432},
-    }
-    destination_dict = {
-        "destinationId": "destination-1",
-        "name": "Test Destination",
-        "destinationType": "postgres",
-        "destinationDefinitionId": "dest-def-1",
-        "workspaceId": "workspace-1",
-        "connectionConfiguration": {"host": "localhost", "port": 5432},
-    }
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-1",
+        name="Test Workspace",
+    )
+    connection = AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+    )
+    source_model = AirbyteSourcePartial(
+        source_id="source-1",
+        name="Test Source",
+        source_type="postgres",
+        source_definition_id="source-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="destination-1",
+        name="Test Destination",
+        destination_type="postgres",
+        destination_definition_id="dest-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
 
-    mock_client.list_workspaces.return_value = [workspace_dict]
-    mock_client.list_connections.return_value = [connection_dict]
-    mock_client.get_connection.return_value = connection_dict  # Full connection details
-    mock_client.get_source.return_value = source_dict
-    mock_client.get_destination.return_value = destination_dict
+    mock_client.list_workspaces.return_value = [workspace]
+    mock_client.list_connections.return_value = [connection]
+    mock_client.get_connection.return_value = connection
+    mock_client.get_source.return_value = source_model
+    mock_client.get_destination.return_value = destination
 
     pipelines = list(source._get_pipelines())
 
@@ -147,39 +147,39 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace_dict = {
-        "workspaceId": "workspace-1",
-        "name": "Test Workspace",
-    }
-    connection_dict = {
-        "connectionId": "connection-1",
-        "name": "Test Connection",
-        "sourceId": "source-1",
-        "destinationId": "destination-1",
-        "status": "active",
-    }
-    source_dict = {
-        "sourceId": "source-1",
-        "name": "Test Source",
-        "sourceType": "postgres",
-        "sourceDefinitionId": "source-def-1",
-        "workspaceId": "workspace-1",
-        "connectionConfiguration": {"host": "localhost", "port": 5432},
-    }
-    destination_dict = {
-        "destinationId": "destination-1",
-        "name": "Test Destination",
-        "destinationType": "postgres",
-        "destinationDefinitionId": "dest-def-1",
-        "workspaceId": "workspace-1",
-        "connectionConfiguration": {"host": "localhost", "port": 5432},
-    }
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-1",
+        name="Test Workspace",
+    )
+    connection = AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+    )
+    source_model = AirbyteSourcePartial(
+        source_id="source-1",
+        name="Test Source",
+        source_type="postgres",
+        source_definition_id="source-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="destination-1",
+        name="Test Destination",
+        destination_type="postgres",
+        destination_definition_id="dest-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
 
-    mock_client.list_workspaces.return_value = [workspace_dict]
-    mock_client.list_connections.return_value = [connection_dict]
-    mock_client.get_connection.return_value = connection_dict  # Full connection details
-    mock_client.get_source.return_value = source_dict
-    mock_client.get_destination.return_value = destination_dict
+    mock_client.list_workspaces.return_value = [workspace]
+    mock_client.list_connections.return_value = [connection]
+    mock_client.get_connection.return_value = connection
+    mock_client.get_source.return_value = source_model
+    mock_client.get_destination.return_value = destination
 
     pipelines = list(source._get_pipelines())
 

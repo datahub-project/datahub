@@ -310,7 +310,7 @@ class TestGetWorkunits:
         """Test get_workunits handles invalid workspace gracefully."""
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
-            {"workspaceId": "", "name": "Invalid Workspace"}  # Empty workspace ID
+            AirbyteWorkspacePartial(workspace_id="", name="Invalid Workspace")
         ]
         mock_create_client.return_value = mock_client
 
@@ -329,14 +329,14 @@ class TestGetWorkunits:
         """Test get_workunits handles invalid connection gracefully."""
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
-            {"workspaceId": "workspace-123", "name": "Test Workspace"}
+            AirbyteWorkspacePartial(workspace_id="workspace-123", name="Test Workspace")
         ]
         mock_client.list_connections.return_value = [
-            {
-                "connectionId": "",  # Empty connection ID
-                "sourceId": "source-123",
-                "destinationId": "dest-123",
-            }
+            AirbyteConnectionPartial(
+                connection_id="",
+                source_id="source-123",
+                destination_id="dest-123",
+            )
         ]
         mock_create_client.return_value = mock_client
 
@@ -348,9 +348,7 @@ class TestGetWorkunits:
 
         workunits = list(source.get_workunits())
 
-        # Invalid connection is skipped (logged as warning), no workunits generated
         assert isinstance(workunits, list)
-        # Report should have warnings about invalid connection
         assert source.report.warnings
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
@@ -360,7 +358,7 @@ class TestGetWorkunits:
         """Test get_workunits handles processing exceptions."""
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
-            {"workspaceId": "workspace-123", "name": "Test Workspace"}
+            AirbyteWorkspacePartial(workspace_id="workspace-123", name="Test Workspace")
         ]
         mock_client.list_connections.side_effect = Exception("API error")
         mock_create_client.return_value = mock_client
@@ -373,8 +371,6 @@ class TestGetWorkunits:
 
         workunits = list(source.get_workunits())
 
-        # Exception in list_connections means workspace is reported as failed
-        # No workunits are generated
         assert isinstance(workunits, list)
 
 

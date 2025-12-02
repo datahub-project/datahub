@@ -112,11 +112,11 @@ class TestAirbyteOSSClient:
         workspaces = client.list_workspaces()
 
         assert len(workspaces) == 2
-        assert workspaces[0].get("workspaceId") == "workspace-id-1"
-        assert workspaces[0].get("name") == "Workspace 1"
+        assert workspaces[0].workspace_id == "workspace-id-1"
+        assert workspaces[0].name == "Workspace 1"
 
         mock_paginate_results.assert_called_once_with(
-            endpoint="/workspaces", method="GET", result_key="data"
+            endpoint="/workspaces", result_key="data"
         )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
@@ -143,11 +143,11 @@ class TestAirbyteOSSClient:
         workspaces = client.list_workspaces(pattern)
 
         assert len(workspaces) == 1
-        assert workspaces[0].get("workspaceId") == "workspace-id-1"
-        assert workspaces[0].get("name") == "Test Workspace"
+        assert workspaces[0].workspace_id == "workspace-id-1"
+        assert workspaces[0].name == "Test Workspace"
 
         mock_paginate_results.assert_called_once_with(
-            endpoint="/workspaces", method="GET", result_key="data"
+            endpoint="/workspaces", result_key="data"
         )
         mock_apply_pattern.assert_called_once()
 
@@ -170,11 +170,10 @@ class TestAirbyteOSSClient:
         client = AirbyteOSSClient(config)
         connections = client.list_connections("workspace-id-1")
         assert len(connections) == 1
-        assert connections[0].get("connectionId") == "connection-id-1"
-        assert connections[0].get("name") == "Connection 1"
+        assert connections[0].connection_id == "connection-id-1"
+        assert connections[0].name == "Connection 1"
         mock_paginate_results.assert_called_once_with(
             endpoint="/connections",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -283,10 +282,10 @@ class TestAirbyteOpenSourceClient:
         ]
         workspaces = client.list_workspaces()
         assert len(workspaces) == 1
-        assert workspaces[0].get("workspaceId") == "workspace-id-1"
-        assert workspaces[0].get("name") == "Default Workspace"
+        assert workspaces[0].workspace_id == "workspace-id-1"
+        assert workspaces[0].name == "Default Workspace"
         mock_paginate_results.assert_called_once_with(
-            endpoint="/workspaces", method="GET", result_key="data"
+            endpoint="/workspaces", result_key="data"
         )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
@@ -312,11 +311,10 @@ class TestAirbyteOpenSourceClient:
         ]
         sources = client.list_sources("workspace-id-1")
         assert len(sources) == 1
-        assert sources[0].get("sourceId") == "source-id-1"
-        assert sources[0].get("name") == "PostgreSQL Source"
+        assert sources[0].source_id == "source-id-1"
+        assert sources[0].name == "PostgreSQL Source"
         mock_paginate_results.assert_called_once_with(
             endpoint="/sources",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -344,11 +342,10 @@ class TestAirbyteOpenSourceClient:
         ]
         destinations = client.list_destinations("workspace-id-1")
         assert len(destinations) == 1
-        assert destinations[0].get("destinationId") == "dest-id-1"
-        assert destinations[0].get("name") == "PostgreSQL Destination"
+        assert destinations[0].destination_id == "dest-id-1"
+        assert destinations[0].name == "PostgreSQL Destination"
         mock_paginate_results.assert_called_once_with(
             endpoint="/destinations",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -393,11 +390,10 @@ class TestAirbyteOpenSourceClient:
         ]
         connections = client.list_connections("workspace-id-1")
         assert len(connections) == 1
-        assert connections[0].get("connectionId") == "conn-id-1"
-        assert connections[0].get("name") == "Postgres to Snowflake"
+        assert connections[0].connection_id == "conn-id-1"
+        assert connections[0].name == "Postgres to Snowflake"
         mock_paginate_results.assert_called_once_with(
             endpoint="/connections",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -508,12 +504,11 @@ class TestAirbyteCloudClient:
         client.access_token = "test-token"  # Set the access token directly
         sources = client.list_sources(workspace_id="workspace-id-1")
         assert len(sources) == 1
-        assert sources[0].get("sourceId") == "source-id-1"
-        assert sources[0].get("name") == "Source 1"
+        assert sources[0].source_id == "source-id-1"
+        assert sources[0].name == "Source 1"
 
         mock_paginate_results.assert_called_once_with(
             endpoint="/sources",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -548,12 +543,11 @@ class TestAirbyteCloudClient:
         client.access_token = "test-token"  # Set the access token directly
         destinations = client.list_destinations(workspace_id="workspace-id-1")
         assert len(destinations) == 1
-        assert destinations[0].get("destinationId") == "destination-id-1"
-        assert destinations[0].get("name") == "Destination 1"
+        assert destinations[0].destination_id == "destination-id-1"
+        assert destinations[0].name == "Destination 1"
 
         mock_paginate_results.assert_called_once_with(
             endpoint="/destinations",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -589,12 +583,11 @@ class TestAirbyteCloudClient:
         client.access_token = "test-token"  # Set the access token directly
         connections = client.list_connections(workspace_id="workspace-id-1")
         assert len(connections) == 1
-        assert connections[0].get("connectionId") == "connection-id-1"
-        assert connections[0].get("name") == "Connection 1"
+        assert connections[0].connection_id == "connection-id-1"
+        assert connections[0].name == "Connection 1"
 
         mock_paginate_results.assert_called_once_with(
             endpoint="/connections",
-            method="GET",
             params={"workspaceId": "workspace-id-1"},
             result_key="data",
         )
@@ -631,13 +624,12 @@ class TestAirbyteCloudClient:
 
         # Verify response - cloud only returns the configured workspace
         assert len(workspaces) == 1
-        assert workspaces[0].get("workspaceId") == "workspace-id-1"
-        assert workspaces[0].get("name") == "Workspace 1"
-        assert workspaces[0].get("slug") == "workspace-1"
+        assert workspaces[0].workspace_id == "workspace-id-1"
+        assert workspaces[0].name == "Workspace 1"
 
         # Verify the correct endpoint was used with the workspace ID
         mock_make_request.assert_called_once_with(
-            f"/workspaces/{config.cloud_workspace_id}", method="GET"
+            f"/workspaces/{config.cloud_workspace_id}"
         )
 
 
@@ -837,7 +829,7 @@ class TestClientErrorHandling:
         client = AirbyteOSSClient(config)
 
         with pytest.raises(Exception) as exc_info:
-            client._make_request("/test", method="GET")
+            client._make_request("/test")
 
         assert "Connection refused" in str(exc_info.value)
 
@@ -853,7 +845,7 @@ class TestClientErrorHandling:
         client = AirbyteOSSClient(config)
 
         with pytest.raises(Exception) as exc_info:
-            client._make_request("/test", method="GET")
+            client._make_request("/test")
 
         assert "Request timed out" in str(exc_info.value)
 
@@ -937,6 +929,7 @@ class TestGetConnection:
         mock_make_request.return_value = {
             "connectionId": "conn-123",
             "sourceId": "source-123",
+            "destinationId": "dest-123",
             "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
         }
         mock_fetch_fields.return_value = {}
@@ -951,7 +944,7 @@ class TestGetConnection:
 
         result = client.get_connection("conn-123")
 
-        assert "syncCatalog" in result
+        assert result.sync_catalog is not None
         mock_fetch_fields.assert_called_once_with("source-123")
         mock_build_sync.assert_called_once()
 
@@ -960,7 +953,9 @@ class TestGetConnection:
         """Test get_connection when syncCatalog already exists."""
         mock_make_request.return_value = {
             "connectionId": "conn-123",
-            "syncCatalog": {"streams": [{"name": "users"}]},
+            "sourceId": "source-123",
+            "destinationId": "dest-123",
+            "syncCatalog": {"streams": [{"stream": {"name": "users"}, "config": {}}]},
         }
 
         config = AirbyteClientConfig(
@@ -971,7 +966,8 @@ class TestGetConnection:
 
         result = client.get_connection("conn-123")
 
-        assert result["syncCatalog"]["streams"][0]["name"] == "users"
+        assert result.sync_catalog is not None
+        assert result.sync_catalog.streams[0].stream.name == "users"
 
 
 class TestClientSSLAndHeaders:
@@ -1085,8 +1081,8 @@ class TestClientGetMethods:
         client = AirbyteOSSClient(config)
         result = client.get_source("source-123")
 
-        assert result["sourceId"] == "source-123"
-        mock_make_request.assert_called_once_with("/sources/source-123", method="GET")
+        assert result.source_id == "source-123"
+        mock_make_request.assert_called_once_with("/sources/source-123")
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_destination(self, mock_make_request):
@@ -1104,10 +1100,8 @@ class TestClientGetMethods:
         client = AirbyteOSSClient(config)
         result = client.get_destination("dest-123")
 
-        assert result["destinationId"] == "dest-123"
-        mock_make_request.assert_called_once_with(
-            "/destinations/dest-123", method="GET"
-        )
+        assert result.destination_id == "dest-123"
+        mock_make_request.assert_called_once_with("/destinations/dest-123")
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_job(self, mock_make_request):
