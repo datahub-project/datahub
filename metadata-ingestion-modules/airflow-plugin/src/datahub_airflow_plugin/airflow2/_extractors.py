@@ -74,6 +74,7 @@ class ExtractorManager(OLExtractorManager):
         patch_snowflake_schema: bool = True,
         extract_athena_operator: bool = True,
         extract_bigquery_insert_job_operator: bool = True,
+        extract_teradata_operator: bool = True,
     ):
         super().__init__()
 
@@ -112,6 +113,11 @@ class ExtractorManager(OLExtractorManager):
             if self._extract_bigquery_insert_job_operator:
                 self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (  # type: ignore[attr-defined]
                     BigQueryInsertJobOperatorExtractor
+                )
+
+            if self._extract_teradata_operator:
+                self.task_to_extractor.extractors["TeradataOperator"] = (
+                    TeradataOperatorExtractor
                 )
 
         self._graph: Optional["DataHubGraph"] = None
@@ -426,3 +432,30 @@ def _snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:
     )
     # TODO: Should we try a fallback of:
     # execute_query_on_hook(self.hook, "SELECT current_schema();")[0][0]
+
+    # execute_query_on_hook(self.hook, "SELECT current_schema();")
+
+
+class TeradataOperatorExtractor(BaseExtractor):
+    """Extractor for Teradata SQL operations.
+
+    Extracts lineage from TeradataOperator tasks by parsing the SQL queries
+    and understanding Teradata's two-tier database.table naming convention.
+    """
+
+    def extract(self) -> Optional[ExtractResult]:
+        from airflow.providers.teradata.operators.teradata import TeradataOperator
+
+        operator: "TeradataOperator" = self.operator
+        sql = operator.sql
+        if not sql:
+            self.log.warning("No query found in TeradataOperator")
+            return None
+
+        return _parse_sql_into_task_metadata(
+            self,
+            sql,
+            platform="teradata",
+            default_database=None,
+            default_schema=None,
+        )

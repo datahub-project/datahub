@@ -296,6 +296,7 @@ class DataHubListener:
             patch_snowflake_schema=self.config.patch_snowflake_schema,
             extract_athena_operator=self.config.extract_athena_operator,
             extract_bigquery_insert_job_operator=self.config.extract_bigquery_insert_job_operator,
+            extract_teradata_operator=self.config.extract_teradata_operator,
         )
 
         # This "inherits" from types.ModuleType to avoid issues with Airflow's listener plugin loader.

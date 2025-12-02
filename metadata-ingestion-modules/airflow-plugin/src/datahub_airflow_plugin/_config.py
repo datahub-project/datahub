@@ -75,6 +75,9 @@ class DatahubLineageConfig(ConfigModel):
     # Only applies to Legacy OpenLineage (OpenLineage Provider has its own)
     extract_bigquery_insert_job_operator: bool
 
+    # If true (default) use DataHub's custom TeradataOperator
+    extract_teradata_operator: bool
+
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool
