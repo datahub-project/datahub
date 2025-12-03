@@ -10,6 +10,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
@@ -17,6 +18,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -53,6 +55,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
 import org.opensearch.action.search.DeletePitRequest;
@@ -1447,6 +1450,20 @@ public class ESUtils {
           new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
       CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
       return response.getId();
+    } catch (OpenSearchStatusException ose) {
+      if (TOO_MANY_REQUESTS.equals(ose.status())) {
+        APIThrottleException throttleException =
+            new APIThrottleException(
+                TimeValue.parseTimeValue(keepAlive, "keepAlive").millis(),
+                "Too many point in times created, retry after keep alive has expired.");
+        try {
+          throttleException.initCause(ose);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+          // Do nothing, can't fill in cause
+        }
+        throw throttleException;
+      }
+      throw ose;
     } catch (IOException e) {
       log.warn("Failed to generate PointInTime Identifier:", e);
       throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
