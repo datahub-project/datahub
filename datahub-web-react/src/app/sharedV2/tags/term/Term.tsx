@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -50,6 +50,7 @@ export default function Term(props: Props) {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const previewContext = { propagationDetails: { context: props.context, attribution: term.attribution } };
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     if (readOnly) {
         return (
@@ -62,14 +63,18 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip entity={term.term} width={250} previewContext={previewContext}>
+        <HoverEntityTooltip canOpen={!isDeleteModalOpen} entity={term.term} width={250} previewContext={previewContext}>
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}
                 $showOneAndCount={showOneAndCount}
                 {...linkProps}
             >
-                <TermContent {...props} />
+                <TermContent
+                    {...props}
+                    onOpenModal={() => setIsDeleteModalOpen(true)}
+                    onCloseModal={() => setIsDeleteModalOpen(false)}
+                />
             </TermLink>
         </HoverEntityTooltip>
     );

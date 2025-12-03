@@ -446,11 +446,9 @@ export const EditOwnersModal = ({
                     onCancel={onModalClose}
                     keyboard
                     buttons={[
-                        { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: onModalClose, type: 'button' },
+                        { text: 'Cancel', variant: 'text', onClick: onModalClose },
                         {
                             text: 'Propose',
-                            key: 'Propose',
-                            type: 'button',
                             variant: 'outline',
                             onClick: handlePropose,
                             disabled: !canPropose || !selectedOwners?.length,
@@ -458,8 +456,6 @@ export const EditOwnersModal = ({
                         },
                         {
                             text: 'Add',
-                            key: 'Add',
-                            type: 'button',
                             variant: 'filled',
                             onClick: onOk,
                             disabled: !canEdit || selectedOwners.length === 0,

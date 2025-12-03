@@ -32,13 +32,6 @@ const OptionalWrapper = styled.span`
     font-weight: normal;
 `;
 
-const ButtonContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    gap: 16px;
-`;
-
 interface Props {
     entityType: EntityType;
     onClose: () => void;
@@ -202,35 +195,29 @@ function CreateGlossaryEntityModal(props: Props) {
                             ? 'Glossary'
                             : entityRegistry.getEntityName(entityType)
                     }`}
-                    visible
+                    buttons={[
+                        {
+                            text: 'Cancel',
+                            variant: 'text',
+                            onClick: onClose,
+                        },
+                        {
+                            text: 'Propose',
+                            variant: 'outline',
+                            onClick: handlePropose,
+                            disabled:
+                                createButtonDisabled ||
+                                !(entityType === EntityType.GlossaryTerm ? canProposeCreateTerm : canProposeCreateNode),
+                        },
+                        {
+                            text: 'Create',
+                            onClick: createGlossaryEntity,
+                            variant: 'filled',
+                            disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                            buttonDataTestId: 'glossary-entity-modal-create-button',
+                        },
+                    ]}
                     onCancel={onClose}
-                    footer={
-                        <ButtonContainer>
-                            <Button color="gray" type="button" onClick={onClose} variant="text">
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="outline"
-                                type="button"
-                                onClick={handlePropose}
-                                disabled={
-                                    createButtonDisabled ||
-                                    !(entityType === EntityType.GlossaryTerm
-                                        ? canProposeCreateTerm
-                                        : canProposeCreateNode)
-                                }
-                            >
-                                Propose
-                            </Button>
-                            <Button
-                                data-testid="glossary-entity-modal-create-button"
-                                onClick={createGlossaryEntity}
-                                disabled={createButtonDisabled || !canCreateGlossaryEntity}
-                            >
-                                Create
-                            </Button>
-                        </ButtonContainer>
-                    }
                 >
                     <Form
                         form={form}

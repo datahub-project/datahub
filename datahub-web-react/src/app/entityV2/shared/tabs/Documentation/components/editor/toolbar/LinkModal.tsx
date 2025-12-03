@@ -1,10 +1,9 @@
+import { Modal } from '@components';
 import { FromToProps } from '@remirror/core-types';
 import { getMarkRange } from '@remirror/core-utils';
 import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
 import { Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-
-import { Modal } from '@components/components/Modal';
 
 type LinkModalProps = {
     visible: boolean;
@@ -62,16 +61,16 @@ export const LinkModal = (props: LinkModalProps) => {
     return (
         <Modal
             title="Add Link"
+            okText="Save"
             onCancel={handleClose}
-            open={visible}
             buttons={[
                 {
-                    text: 'Save',
+                    text: 'Link',
                     variant: 'filled',
                     onClick: handleOk,
                 },
             ]}
-            zIndex={1200}
+            open={visible}
         >
             <Form
                 form={form}
