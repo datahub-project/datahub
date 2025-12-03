@@ -5,10 +5,11 @@ import uuid
 from textwrap import dedent
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+import pydantic
 import sqlalchemy
 import trino
 from packaging import version
-from pydantic.fields import Field
+from pydantic import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Engine
@@ -289,6 +290,15 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         return f"{self.database}.{schema}.{table}"
 
+    @pydantic.model_validator(mode="after")
+    def validate_column_lineage_requires_connector_lineage(self) -> "TrinoConfig":
+        if self.include_column_lineage and not self.ingest_lineage_to_connectors:
+            raise ValueError(
+                "include_column_lineage requires ingest_lineage_to_connectors to be enabled. "
+                "Either set ingest_lineage_to_connectors=True or set include_column_lineage=False."
+            )
+        return self
+
 
 @platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
@@ -374,6 +384,66 @@ class TrinoSource(SQLAlchemySource):
             logging.warning(f"Connector database missing for Catalog '{catalog_name}'.")
         return None
 
+    def _get_schema_metadata_for_lineage(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        is_view: bool = False,
+    ) -> Optional[SchemaMetadata]:
+        """
+        Helper method to fetch schema metadata for column-level lineage generation.
+
+        This method is called when include_column_lineage is enabled to get the schema
+        information needed to create fine-grained lineage. It may add latency to ingestion
+        as it makes additional database calls.
+
+        Args:
+            dataset_name: Full dataset name
+            inspector: SQLAlchemy inspector
+            schema: Schema name
+            table: Table or view name
+            is_view: Whether this is a view (excludes partition keys)
+
+        Returns:
+            SchemaMetadata if successful, None if an error occurs
+        """
+        try:
+            columns = self._get_columns(dataset_name, inspector, schema, table)
+            pk_constraints = inspector.get_pk_constraint(table, schema)
+
+            extra_tags = self.get_extra_tags(inspector, schema, table)
+
+            # For tables, include partition information; for views, skip it
+            partitions = (
+                None if is_view else self.get_partitions(inspector, schema, table)
+            )
+
+            schema_fields = self.get_schema_fields(
+                dataset_name,
+                columns,
+                inspector,
+                pk_constraints,
+                tags=extra_tags,
+                partition_keys=partitions,
+            )
+
+            return get_schema_metadata(
+                self.report,
+                dataset_name,
+                self.platform,
+                columns,
+                pk_constraints,
+                canonical_schema=schema_fields,
+            )
+        except Exception as e:
+            logging.warning(
+                f"Failed to fetch schema metadata for column lineage on {dataset_name}: {e}. "
+                "Skipping column-level lineage for this dataset."
+            )
+            return None
+
     def gen_siblings_workunit(
         self,
         dataset_urn: str,
@@ -403,7 +473,25 @@ class TrinoSource(SQLAlchemySource):
         schema_metadata: Optional[SchemaMetadata] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate dataset to source connector lineage workunit with optional column-level lineage
+        Generate dataset to source connector lineage workunit with optional column-level lineage.
+
+        This creates lineage between a Trino dataset and its corresponding upstream connector dataset
+        (e.g., Trino's hive_catalog.schema1.users → Hive's schema1.users).
+
+        Column-level lineage uses a 1:1 name-based mapping approach, which is accurate because:
+
+        For TABLES:
+        - Trino tables are direct mappings to upstream connector tables
+        - The schema in Trino matches the upstream source exactly
+        - Column names and types are preserved as-is from the connector
+
+        For VIEWS:
+        - Trino views that exist in the connector (e.g., Hive views) have matching schemas
+        - The view definition resides in the connector, so Trino exposes the same columns
+
+        Note: This is separate from view-to-table lineage, which is handled by the base
+        SQLAlchemySource class via SQL parsing of view definitions (include_view_lineage config).
+        That mechanism correctly handles transformations, aliases, and joins within Trino views.
         """
         fine_grained_lineages: Optional[List[FineGrainedLineage]] = None
 
@@ -416,7 +504,7 @@ class TrinoSource(SQLAlchemySource):
             fine_grained_lineages = []
             for field in schema_metadata.fields:
                 # Create 1:1 column mapping between Trino and upstream source
-                # Assumes column names match between Trino view/table and upstream source
+                # This assumes column names match between Trino table/view and upstream source
                 fine_grained_lineages.append(
                     FineGrainedLineage(
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -466,25 +554,8 @@ class TrinoSource(SQLAlchemySource):
                 # Get schema metadata for column-level lineage
                 schema_metadata = None
                 if self.config.include_column_lineage:
-                    columns = self._get_columns(dataset_name, inspector, schema, table)
-                    pk_constraints = inspector.get_pk_constraint(table, schema)
-                    partitions = self.get_partitions(inspector, schema, table)
-                    extra_tags = self.get_extra_tags(inspector, schema, table)
-                    schema_fields = self.get_schema_fields(
-                        dataset_name,
-                        columns,
-                        inspector,
-                        pk_constraints,
-                        tags=extra_tags,
-                        partition_keys=partitions,
-                    )
-                    schema_metadata = get_schema_metadata(
-                        self.report,
-                        dataset_name,
-                        self.platform,
-                        columns,
-                        pk_constraints,
-                        canonical_schema=schema_fields,
+                    schema_metadata = self._get_schema_metadata_for_lineage(
+                        dataset_name, inspector, schema, table, is_view=False
                     )
 
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
@@ -517,23 +588,8 @@ class TrinoSource(SQLAlchemySource):
                 # Get schema metadata for column-level lineage
                 schema_metadata = None
                 if self.config.include_column_lineage:
-                    columns = self._get_columns(dataset_name, inspector, schema, view)
-                    pk_constraints = inspector.get_pk_constraint(view, schema)
-                    extra_tags = self.get_extra_tags(inspector, schema, view)
-                    schema_fields = self.get_schema_fields(
-                        dataset_name,
-                        columns,
-                        inspector,
-                        pk_constraints,
-                        tags=extra_tags,
-                    )
-                    schema_metadata = get_schema_metadata(
-                        self.report,
-                        dataset_name,
-                        self.platform,
-                        columns,
-                        pk_constraints,
-                        canonical_schema=schema_fields,
+                    schema_metadata = self._get_schema_metadata_for_lineage(
+                        dataset_name, inspector, schema, view, is_view=True
                     )
 
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
