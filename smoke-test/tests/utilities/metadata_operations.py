@@ -5,9 +5,21 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from datahub.cli.cli_utils import get_entity as get_entity_cli
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+
+def get_entity(
+    auth_session,
+    urn: str,
+) -> Dict[str, Any]:
+    return get_entity_cli(
+        session=auth_session,
+        gms_host=auth_session.gms_url(),
+        urn=urn,
+    )
 
 
 def add_tag(
@@ -256,6 +268,68 @@ def list_ingestion_sources_with_filter(
     variables: Dict[str, Any] = {"input": {"start": start, "count": count}}
     if filters:
         variables["input"]["filters"] = filters
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["listIngestionSources"]
+
+
+@with_test_retry()
+def list_scheduled_ingestion_sources(
+    auth_session,
+    start: int = 0,
+    count: int = 100,
+) -> Dict[str, Any]:
+    """List ingestion sources with schedules and execution history.
+
+    This helper fetches ingestion sources that have cron schedules along with:
+    - Schedule configuration (cron interval and timezone)
+    - All execution history (up to 1000 executions)
+    - Source metadata (URN, name, type)
+
+    Args:
+        auth_session: The authenticated session
+        start: Starting offset for pagination
+        count: Number of sources to retrieve
+
+    Returns:
+        Dictionary containing:
+        - total: Total count of scheduled ingestion sources
+        - ingestionSources: List of sources with schedules and executions
+    """
+    query = """
+        query listIngestionSources($input: ListIngestionSourcesInput!) {
+            listIngestionSources(input: $input) {
+                total
+                ingestionSources {
+                    urn
+                    name
+                    type
+                    schedule {
+                        interval
+                        timezone
+                    }
+                    executions(start: 0, count: 1000) {
+                        executionRequests {
+                            urn
+                            input {
+                                requestedAt
+                                source {
+                                    type
+                                }
+                            }
+                            result {
+                                status
+                                startTimeMs
+                                durationMs
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+
+    variables: Dict[str, Any] = {"input": {"start": start, "count": count}}
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["listIngestionSources"]
