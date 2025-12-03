@@ -2,8 +2,7 @@ import dataclasses
 import logging
 from typing import Optional
 
-import pydantic
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -26,12 +25,14 @@ class Constant:
     """
 
     ORCHESTRATOR = "hightouch"
+    # Threshold for warning about excessive sync run ingestion
+    MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
 
 
 class HightouchAPIConfig(ConfigModel):
     """Configuration for connecting to the Hightouch API"""
 
-    api_key: str = Field(description="Hightouch API key for authentication")
+    api_key: SecretStr = Field(description="Hightouch API key for authentication")
     base_url: str = Field(
         default="https://api.hightouch.com/api/v1",
         description="Hightouch API base URL",
@@ -44,23 +45,23 @@ class HightouchAPIConfig(ConfigModel):
 class PlatformDetail(ConfigModel):
     """Platform details for source/destination mapping"""
 
-    platform: Optional[str] = pydantic.Field(
+    platform: Optional[str] = Field(
         default=None,
         description="Override the platform type detection.",
     )
-    platform_instance: Optional[str] = pydantic.Field(
+    platform_instance: Optional[str] = Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
-    env: str = pydantic.Field(
+    env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that all assets produced by DataHub platform ingestion source belong to",
     )
-    database: Optional[str] = pydantic.Field(
+    database: Optional[str] = Field(
         default=None,
         description="The database that all assets produced belong to.",
     )
-    include_schema_in_urn: bool = pydantic.Field(
+    include_schema_in_urn: bool = Field(
         default=True,
         description="Include schema in the dataset URN.",
     )
@@ -79,6 +80,9 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     filtered_syncs: LossyList[str] = dataclasses.field(default_factory=LossyList)
     filtered_models: LossyList[str] = dataclasses.field(default_factory=LossyList)
     api_calls_count: int = 0
+    sql_parsing_attempts: int = 0
+    sql_parsing_successes: int = 0
+    sql_parsing_failures: int = 0
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -111,11 +115,9 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
 class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Configuration for Hightouch source"""
 
-    model_config = pydantic.ConfigDict(protected_namespaces=())
+    model_config = ConfigDict(protected_namespaces=())
 
-    api_config: HightouchAPIConfig = pydantic.Field(
-        description="Hightouch API configuration"
-    )
+    api_config: HightouchAPIConfig = Field(description="Hightouch API configuration")
 
     sync_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -156,19 +158,24 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "This extracts field mappings from sync configurations and creates column-to-column lineage.",
     )
 
-    # Mapping configurations
-    sources_to_platform_instance: dict[str, PlatformDetail] = pydantic.Field(
+    parse_model_sql: bool = Field(
+        default=True,
+        description="Whether to parse raw SQL from models to extract upstream table lineage. "
+        "When enabled, SQL queries in models are parsed to identify source tables and create lineage.",
+    )
+
+    sources_to_platform_instance: dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping from source id to its platform/instance/env/database details.",
     )
 
-    destinations_to_platform_instance: dict[str, PlatformDetail] = pydantic.Field(
+    destinations_to_platform_instance: dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
     # Configuration for stateful ingestion
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Hightouch Stateful Ingestion Config."
     )
 
@@ -177,8 +184,10 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
     def validate_max_sync_runs(cls, v: int) -> int:
         if v < 0:
             raise ValueError("max_sync_runs_per_sync must be non-negative")
-        if v > 100:
+        if v > Constant.MAX_SYNC_RUNS_WARNING_THRESHOLD:
             logger.warning(
-                f"max_sync_runs_per_sync is set to {v}, which is quite high. This may result in many API calls."
+                f"max_sync_runs_per_sync is set to {v}, which is quite high. "
+                f"This may result in many API calls and slower ingestion. "
+                f"Consider using a value below {Constant.MAX_SYNC_RUNS_WARNING_THRESHOLD}."
             )
         return v

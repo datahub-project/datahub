@@ -1,22 +1,12 @@
-"""Hightouch Reverse ETL Source for DataHub
-
-This connector extracts metadata from Hightouch, including:
-- Sources (databases/warehouses)
-- Models (SQL queries)
-- Syncs (data pipelines)
-- Destinations (target systems)
-- Sync Runs (execution history)
-"""
-
 import logging
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -38,33 +28,38 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceReport,
     PlatformDetail,
 )
-from datahub.ingestion.source.hightouch.data_classes import (
+from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
+from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchModel,
+    HightouchSourceConnection,
     HightouchSync,
     HightouchSyncRun,
     HightouchUser,
 )
-from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.hightouch import data_classes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +95,12 @@ KNOWN_SOURCE_PLATFORM_MAPPING = {
     # Cloud Storage
     "s3": "s3",
     "gcs": "gcs",
-    "azure_blob": "azure-blob-storage",
-    "azure_blob_storage": "azure-blob-storage",
-    "azure_storage": "azure-blob-storage",
-    "adls": "adls",
-    "azure_data_lake": "adls",
-    "azure_data_lake_storage": "adls",
+    "azure_blob": "abs",
+    "azure_blob_storage": "abs",
+    "azure_storage": "abs",
+    "adls": "abs",
+    "azure_data_lake": "abs",
+    "azure_data_lake_storage": "abs",
     # SaaS & Other
     "salesforce": "salesforce",
     "google_sheets": "google-sheets",
@@ -216,12 +211,12 @@ class HightouchSource(StatefulIngestionSourceBase):
         self.report = HightouchSourceReport()
         self.api_client = HightouchAPIClient(self.config.api_config)
 
-        self._sources_cache: Dict[str, "data_classes.HightouchSource"] = {}
+        self._sources_cache: Dict[str, HightouchSourceConnection] = {}
         self._models_cache: Dict[str, HightouchModel] = {}
         self._destinations_cache: Dict[str, HightouchDestination] = {}
         self._users_cache: Dict[str, HightouchUser] = {}
 
-    def _get_source(self, source_id: str) -> Optional["data_classes.HightouchSource"]:
+    def _get_source(self, source_id: str) -> Optional[HightouchSourceConnection]:
         if source_id not in self._sources_cache:
             self.report.report_api_call()
             source = self.api_client.get_source_by_id(source_id)
@@ -254,7 +249,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         return self._users_cache.get(user_id)
 
     def _get_platform_for_source(
-        self, source: "data_classes.HightouchSource"
+        self, source: HightouchSourceConnection
     ) -> PlatformDetail:
         """Get platform details for a source with fallback logic"""
         source_details = self.config.sources_to_platform_instance.get(
@@ -311,8 +306,80 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         return destination_details
 
+    def _parse_model_sql_lineage(
+        self,
+        model: HightouchModel,
+        source: HightouchSourceConnection,
+    ) -> Optional[UpstreamLineageClass]:
+        """Parse SQL from model to extract upstream table lineage."""
+        if not model.raw_sql:
+            return None
+
+        self.report.sql_parsing_attempts += 1
+
+        source_platform = self._get_platform_for_source(source)
+        if not source_platform.platform:
+            logger.debug(
+                f"Skipping SQL parsing for model {model.id}: unknown source platform"
+            )
+            return None
+
+        try:
+            sql_result: SqlParsingResult = create_lineage_sql_parsed_result(
+                query=model.raw_sql,
+                default_db=source_platform.database,
+                platform=source_platform.platform,
+                platform_instance=source_platform.platform_instance,
+                env=source_platform.env,
+                graph=None,
+                schema_aware=False,
+            )
+
+            if sql_result.debug_info.error:
+                logger.debug(
+                    f"Failed to parse SQL for model {model.id}: {sql_result.debug_info.error}"
+                )
+                self.report.sql_parsing_failures += 1
+                self.report.warning(
+                    title="SQL parsing failed for model",
+                    message=f"Could not extract table lineage from model '{model.name}'",
+                    context=f"model_id: {model.id}, error: {sql_result.debug_info.error}",
+                )
+                return None
+
+            if not sql_result.in_tables:
+                logger.debug(f"No upstream tables found for model {model.id}")
+                self.report.sql_parsing_successes += 1
+                return None
+
+            upstreams = []
+            for table_urn in sql_result.in_tables:
+                upstreams.append(
+                    UpstreamClass(
+                        dataset=str(table_urn),
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                )
+
+            self.report.sql_parsing_successes += 1
+            logger.info(
+                f"Extracted {len(upstreams)} upstream tables for model {model.id}"
+            )
+            return UpstreamLineageClass(upstreams=upstreams)
+
+        except Exception as e:
+            logger.debug(f"Error parsing SQL for model {model.id}: {e}")
+            self.report.sql_parsing_failures += 1
+            self.report.warning(
+                title="SQL parsing error",
+                message=f"Unexpected error while parsing SQL for model '{model.name}'",
+                context=f"model_id: {model.id}",
+                exc=e,
+            )
+            return None
+
     def _generate_model_dataset(
-        self, model: HightouchModel, source: Optional["data_classes.HightouchSource"]
+        self, model: HightouchModel, source: Optional[HightouchSourceConnection]
     ) -> Dataset:
         custom_properties = {
             "model_id": model.id,
@@ -332,8 +399,6 @@ class HightouchSource(StatefulIngestionSourceBase):
             for key, value in model.tags.items():
                 custom_properties[f"tag_{key}"] = value
 
-        # TODO: SQL parsing for raw_sql models to extract upstream table dependencies
-
         dataset = Dataset(
             name=model.slug,
             platform=HIGHTOUCH_PLATFORM,
@@ -348,6 +413,16 @@ class HightouchSource(StatefulIngestionSourceBase):
 
         dataset.set_custom_properties(custom_properties)
 
+        if (
+            self.config.parse_model_sql
+            and model.raw_sql
+            and model.query_type == "raw_sql"
+            and source
+        ):
+            upstream_lineage = self._parse_model_sql_lineage(model, source)
+            if upstream_lineage:
+                dataset.set_upstreams(upstream_lineage)
+
         return dataset
 
     def _generate_dataflow_from_sync(self, sync: HightouchSync) -> DataFlow:
@@ -360,7 +435,6 @@ class HightouchSource(StatefulIngestionSourceBase):
         )
 
     def _generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:  # noqa: C901
-        """Generate a DataJob entity from a Hightouch sync"""
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=Constant.ORCHESTRATOR,
             flow_id=sync.id,
@@ -368,21 +442,11 @@ class HightouchSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
         )
 
-        # Extract ownership if available
-        # Note: Hightouch API doesn't expose created_by on syncs directly
-        # This would need to be added when the API supports it
-        owners = None
-        # if hasattr(sync, 'created_by_user_id') and sync.created_by_user_id:
-        #     user = self._get_user(sync.created_by_user_id)
-        #     if user and user.email:
-        #         owners = [CorpUserUrn(user.email)]
-
         datajob = DataJob(
             name=sync.id,
             flow_urn=dataflow_urn,
             platform_instance=self.config.platform_instance,
             display_name=sync.slug,
-            owners=owners,
         )
 
         model = self._get_model(sync.model_id)
@@ -459,16 +523,16 @@ class HightouchSource(StatefulIngestionSourceBase):
                 for mapping in field_mappings:
                     if inlet_urn and outlet_urn:
                         fine_grained_lineages.append(
-                            FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            FineGrainedLineageClass(
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                                 upstreams=[
-                                    builder.make_schema_field_urn(
+                                    make_schema_field_urn(
                                         str(inlet_urn), mapping.source_field
                                     )
                                 ],
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                                 downstreams=[
-                                    builder.make_schema_field_urn(
+                                    make_schema_field_urn(
                                         str(outlet_urn), mapping.destination_field
                                     )
                                 ],

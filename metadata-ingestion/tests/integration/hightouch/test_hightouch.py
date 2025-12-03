@@ -7,10 +7,10 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.hightouch.data_classes import (
+from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchModel,
-    HightouchSource,
+    HightouchSourceConnection,
     HightouchSync,
     HightouchSyncRun,
 )
@@ -23,7 +23,7 @@ def get_mock_api_responses():
     """Return mock API responses for testing."""
     return {
         "sources": [
-            HightouchSource(
+            HightouchSourceConnection(
                 id="source_1",
                 name="Production Snowflake",
                 slug="prod-snowflake",
@@ -231,7 +231,7 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
             return mock_responses["sync_runs"].get(sync_id, [])[:limit]
 
         def mock_extract_field_mappings(sync):
-            from datahub.ingestion.source.hightouch.data_classes import FieldMapping
+            from datahub.ingestion.source.hightouch.models import FieldMapping
 
             config = sync.configuration
             field_mappings = []

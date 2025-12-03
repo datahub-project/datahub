@@ -1,4 +1,4 @@
-"""Pydantic models for Hightouch API entities"""
+"""Hightouch API entities"""
 
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -16,7 +16,7 @@ class _HightouchBaseModel(BaseModel):
     )
 
 
-class HightouchSource(_HightouchBaseModel):
+class HightouchSourceConnection(_HightouchBaseModel):
     """Represents a Hightouch Source (database/warehouse connection)"""
 
     id: str
@@ -44,6 +44,8 @@ class HightouchModel(_HightouchBaseModel):
     description: Optional[str] = None
     is_schema: bool = Field(default=False, alias="isSchema")
     tags: Optional[Dict[str, str]] = None
+    raw_sql: Optional[str] = Field(default=None, alias="rawSql")
+    query_schema: Optional[str] = Field(default=None, alias="querySchema")
 
 
 class HightouchDestination(_HightouchBaseModel):

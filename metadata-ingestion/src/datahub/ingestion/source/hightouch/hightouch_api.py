@@ -9,11 +9,11 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
-from datahub.ingestion.source.hightouch.data_classes import (
+from datahub.ingestion.source.hightouch.models import (
     FieldMapping,
     HightouchDestination,
     HightouchModel,
-    HightouchSource,
+    HightouchSourceConnection,
     HightouchSync,
     HightouchSyncRun,
     HightouchUser,
@@ -30,10 +30,8 @@ class HightouchAPIClient:
         self.session = self._create_session()
 
     def _create_session(self) -> requests.Session:
-        """Create a requests session with retry logic"""
         session = requests.Session()
 
-        # Configure retries
         retry_strategy = Retry(
             total=3,
             backoff_factor=1,
@@ -44,10 +42,9 @@ class HightouchAPIClient:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
 
-        # Set headers
         session.headers.update(
             {
-                "Authorization": f"Bearer {self.config.api_key}",
+                "Authorization": f"Bearer {self.config.api_key.get_secret_value()}",
                 "Content-Type": "application/json",
             }
         )
@@ -57,7 +54,6 @@ class HightouchAPIClient:
     def _make_request(
         self, method: str, endpoint: str, **kwargs: Any
     ) -> Dict[str, Any]:
-        """Make a request to the Hightouch API"""
         url = f"{self.config.base_url}/{endpoint}"
 
         try:
@@ -70,15 +66,13 @@ class HightouchAPIClient:
             logger.error(f"Error making request to {url}: {e}")
             raise
 
-    def get_sources(self) -> List[HightouchSource]:
-        """Get all sources from Hightouch"""
+    def get_sources(self) -> List[HightouchSourceConnection]:
         response = self._make_request("GET", "sources")
         sources = []
 
         for source_data in response.get("data", []):
             try:
-                # Pydantic automatically handles field aliases and type conversion
-                source = HightouchSource.model_validate(source_data)
+                source = HightouchSourceConnection.model_validate(source_data)
                 sources.append(source)
             except ValidationError as e:
                 logger.warning(f"Failed to parse source: {e}, data: {source_data}")
@@ -86,20 +80,15 @@ class HightouchAPIClient:
 
         return sources
 
-    def get_source_by_id(self, source_id: str) -> Optional[HightouchSource]:
-        """Get a specific source by ID"""
+    def get_source_by_id(self, source_id: str) -> Optional[HightouchSourceConnection]:
         try:
             response = self._make_request("GET", f"sources/{source_id}")
-            return HightouchSource.model_validate(response)
+            return HightouchSourceConnection.model_validate(response)
         except ValidationError as e:
             logger.warning(f"Failed to parse source {source_id}: {e}")
             return None
-        except Exception as e:
-            logger.warning(f"Failed to get source {source_id}: {e}")
-            return None
 
     def get_models(self) -> List[HightouchModel]:
-        """Get all models from Hightouch"""
         response = self._make_request("GET", "models")
         models = []
 
@@ -114,19 +103,14 @@ class HightouchAPIClient:
         return models
 
     def get_model_by_id(self, model_id: str) -> Optional[HightouchModel]:
-        """Get a specific model by ID"""
         try:
             response = self._make_request("GET", f"models/{model_id}")
             return HightouchModel.model_validate(response)
         except ValidationError as e:
             logger.warning(f"Failed to parse model {model_id}: {e}")
             return None
-        except Exception as e:
-            logger.warning(f"Failed to get model {model_id}: {e}")
-            return None
 
     def get_destinations(self) -> List[HightouchDestination]:
-        """Get all destinations from Hightouch"""
         response = self._make_request("GET", "destinations")
         destinations = []
 
@@ -143,19 +127,14 @@ class HightouchAPIClient:
     def get_destination_by_id(
         self, destination_id: str
     ) -> Optional[HightouchDestination]:
-        """Get a specific destination by ID"""
         try:
             response = self._make_request("GET", f"destinations/{destination_id}")
             return HightouchDestination.model_validate(response)
         except ValidationError as e:
             logger.warning(f"Failed to parse destination {destination_id}: {e}")
             return None
-        except Exception as e:
-            logger.warning(f"Failed to get destination {destination_id}: {e}")
-            return None
 
     def get_syncs(self) -> List[HightouchSync]:
-        """Get all syncs from Hightouch"""
         response = self._make_request("GET", "syncs")
         syncs = []
 
@@ -170,19 +149,14 @@ class HightouchAPIClient:
         return syncs
 
     def get_sync_by_id(self, sync_id: str) -> Optional[HightouchSync]:
-        """Get a specific sync by ID"""
         try:
             response = self._make_request("GET", f"syncs/{sync_id}")
             return HightouchSync.model_validate(response)
         except ValidationError as e:
             logger.warning(f"Failed to parse sync {sync_id}: {e}")
             return None
-        except Exception as e:
-            logger.warning(f"Failed to get sync {sync_id}: {e}")
-            return None
 
     def get_sync_runs(self, sync_id: str, limit: int = 10) -> List[HightouchSyncRun]:
-        """Get sync runs for a specific sync"""
         response = self._make_request(
             "GET", f"syncs/{sync_id}/runs", params={"limit": limit}
         )
@@ -199,54 +173,90 @@ class HightouchAPIClient:
         return runs
 
     def get_user_by_id(self, user_id: str) -> Optional[HightouchUser]:
-        """Get a specific user by ID"""
         try:
             response = self._make_request("GET", f"users/{user_id}")
             return HightouchUser.model_validate(response)
         except ValidationError as e:
             logger.warning(f"Failed to parse user {user_id}: {e}")
             return None
-        except Exception as e:
-            logger.warning(f"Failed to get user {user_id}: {e}")
-            return None
 
     def extract_field_mappings(self, sync: HightouchSync) -> List[FieldMapping]:
-        """Extract field mappings from sync configuration"""
-        field_mappings = []
+        """Extract field mappings from sync configuration.
 
-        # Check different configuration formats
-        # Hightouch stores field mappings in various formats depending on destination type
-        # Defensive: handle missing configuration gracefully
+        Handles multiple configuration formats used by different destination types.
+        """
+        field_mappings: List[FieldMapping] = []
         config = sync.configuration if sync.configuration else {}
 
-        # Format 1: Direct field_mappings array
+        if not config:
+            return field_mappings
         if "fieldMappings" in config or "field_mappings" in config:
             mappings = config.get("fieldMappings", config.get("field_mappings", []))
-            for mapping in mappings:
-                if isinstance(mapping, dict):
-                    source = mapping.get("sourceField") or mapping.get("source_field")
-                    dest = mapping.get("destinationField") or mapping.get(
-                        "destination_field"
-                    )
-                    is_pk = mapping.get(
-                        "isPrimaryKey", mapping.get("is_primary_key", False)
-                    )
 
-                    if source and dest:
-                        field_mappings.append(
-                            FieldMapping(
-                                source_field=source,
-                                destination_field=dest,
-                                is_primary_key=is_pk,
-                            )
-                        )
+            if not isinstance(mappings, list):
+                logger.warning(
+                    f"Sync {sync.id}: Expected fieldMappings to be a list, got {type(mappings).__name__}"
+                )
+                return field_mappings
 
-        # Format 2: Column mappings object
+            for i, mapping in enumerate(mappings):
+                if not isinstance(mapping, dict):
+                    logger.warning(
+                        f"Sync {sync.id}: Skipping non-dict field mapping at index {i}: {type(mapping).__name__}"
+                    )
+                    continue
+
+                source = mapping.get("sourceField") or mapping.get("source_field")
+                dest = mapping.get("destinationField") or mapping.get(
+                    "destination_field"
+                )
+                is_pk = mapping.get(
+                    "isPrimaryKey", mapping.get("is_primary_key", False)
+                )
+
+                if not source or not dest:
+                    logger.debug(
+                        f"Sync {sync.id}: Skipping incomplete field mapping at index {i} "
+                        f"(source={source}, dest={dest})"
+                    )
+                    continue
+
+                if not isinstance(source, str) or not isinstance(dest, str):
+                    logger.warning(
+                        f"Sync {sync.id}: Field names must be strings, got source={type(source).__name__}, "
+                        f"dest={type(dest).__name__}. Converting to strings."
+                    )
+                    source = str(source)
+                    dest = str(dest)
+
+                field_mappings.append(
+                    FieldMapping(
+                        source_field=source,
+                        destination_field=dest,
+                        is_primary_key=bool(is_pk),
+                    )
+                )
+
         elif "columnMappings" in config or "column_mappings" in config:
             mappings_dict = config.get(
                 "columnMappings", config.get("column_mappings", {})
             )
+
+            if not isinstance(mappings_dict, dict):
+                logger.warning(
+                    f"Sync {sync.id}: Expected columnMappings to be a dict, got {type(mappings_dict).__name__}"
+                )
+                return field_mappings
+
             for dest_field, source_field in mappings_dict.items():
+                if not isinstance(dest_field, str) or not isinstance(
+                    source_field, (str, int, float)
+                ):
+                    logger.warning(
+                        f"Sync {sync.id}: Invalid column mapping types: {dest_field}={source_field}. "
+                        f"Expected strings. Converting to strings."
+                    )
+
                 field_mappings.append(
                     FieldMapping(
                         source_field=str(source_field),
@@ -255,20 +265,46 @@ class HightouchAPIClient:
                     )
                 )
 
-        # Format 3: Columns array with to/from
         elif "columns" in config:
-            for column in config.get("columns", []):
-                if isinstance(column, dict):
-                    source = column.get("from") or column.get("source")
-                    dest = column.get("to") or column.get("destination")
+            columns = config.get("columns", [])
 
-                    if source and dest:
-                        field_mappings.append(
-                            FieldMapping(
-                                source_field=source,
-                                destination_field=dest,
-                                is_primary_key=column.get("isPrimaryKey", False),
-                            )
-                        )
+            if not isinstance(columns, list):
+                logger.warning(
+                    f"Sync {sync.id}: Expected columns to be a list, got {type(columns).__name__}"
+                )
+                return field_mappings
+
+            for i, column in enumerate(columns):
+                if not isinstance(column, dict):
+                    logger.warning(
+                        f"Sync {sync.id}: Skipping non-dict column at index {i}: {type(column).__name__}"
+                    )
+                    continue
+
+                source = column.get("from") or column.get("source")
+                dest = column.get("to") or column.get("destination")
+
+                if not source or not dest:
+                    logger.debug(
+                        f"Sync {sync.id}: Skipping incomplete column mapping at index {i} "
+                        f"(source={source}, dest={dest})"
+                    )
+                    continue
+
+                if not isinstance(source, str) or not isinstance(dest, str):
+                    logger.warning(
+                        f"Sync {sync.id}: Column names must be strings, got source={type(source).__name__}, "
+                        f"dest={type(dest).__name__}. Converting to strings."
+                    )
+                    source = str(source)
+                    dest = str(dest)
+
+                field_mappings.append(
+                    FieldMapping(
+                        source_field=source,
+                        destination_field=dest,
+                        is_primary_key=column.get("isPrimaryKey", False),
+                    )
+                )
 
         return field_mappings

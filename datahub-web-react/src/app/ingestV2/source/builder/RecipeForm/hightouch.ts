@@ -1,3 +1,10 @@
+/**
+ * Hightouch Recipe Form Fields (V2 Ingestion UI)
+ *
+ * Note: This file is intentionally duplicated in both V1 (ingest) and V2 (ingestV2) folders
+ * to maintain backward compatibility during the UI transition period. Any changes should be
+ * applied to both files until V1 is fully deprecated.
+ */
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const HIGHTOUCH_API_KEY: RecipeField = {
