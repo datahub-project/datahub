@@ -1,8 +1,11 @@
+import logging
 from typing import Any, Dict
 
 import pytest
 
 from tests.utils import execute_graphql, with_test_retry
+
+logger = logging.getLogger(__name__)
 
 
 @with_test_retry()
@@ -18,7 +21,7 @@ def _ensure_more_views(
 
     # Assert that there are more views now.
     after_count = res_data["data"][query_name]["total"]
-    print(f"after_count is {after_count}")
+    logger.info(f"after_count is {after_count}")
     assert after_count == before_count + 1
     return after_count
 
@@ -36,7 +39,7 @@ def _ensure_less_views(
 
     # Assert that there are fewer views now.
     after_count = res_data["data"][query_name]["total"]
-    print(f"after_count is {after_count}")
+    logger.info(f"after_count is {after_count}")
     assert after_count == before_count - 1
 
 

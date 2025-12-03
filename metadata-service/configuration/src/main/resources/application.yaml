@@ -748,6 +748,21 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_CLL_LIMIT:0}
+  chartInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_CLL_LIMIT:0}
+  mlModel:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_CLL_LIMIT:0}
+  mlModelGroup:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_CLL_LIMIT:0}
   dashboardInfo:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
@@ -861,6 +876,7 @@ featureFlags:
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  ingestionOnboardingRedesignV1: ${INGESTION_ONBOARDING_REDESIGN_V1:false} # If turned on, show the redesigned ingestion onboarding experience
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page

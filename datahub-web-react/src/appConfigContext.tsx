@@ -85,6 +85,7 @@ export const DEFAULT_APP_CONFIG = {
         showManageTags: false,
         showIntroducePage: false,
         showIngestionPageRedesign: false,
+        ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
         showDefaultExternalLinks: true,
         showStatsTabRedesign: false,

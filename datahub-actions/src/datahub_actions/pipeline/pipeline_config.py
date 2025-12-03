@@ -45,7 +45,7 @@ class FilterConfig(ConfigModel):
 
 class ActionConfig(ConfigModel):
     type: str
-    config: Optional[dict]
+    config: Optional[Dict[str, Any]] = None
 
 
 class PipelineOptions(BaseModel):
