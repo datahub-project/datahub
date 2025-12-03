@@ -43,7 +43,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,7 +111,7 @@ public class DomainUtils {
 
     // If domain-based authorization is not enabled, use standard authorization
     if (!isDomainBasedAuthorizationEnabled(authorizer)) {
-      
+
       return AuthUtil.isAuthorizedEntityUrns(
           context.getOperationContext(), operation, List.of(entityUrn));
     }
@@ -141,8 +140,7 @@ public class DomainUtils {
     EntitySpec entitySpec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
 
     return AuthUtil.isAuthorized(
-            context.getOperationContext(), privilegeGroup, entitySpec, domainSpecs);
-
+        context.getOperationContext(), privilegeGroup, entitySpec, domainSpecs);
   }
 
   public static void setDomainForResources(

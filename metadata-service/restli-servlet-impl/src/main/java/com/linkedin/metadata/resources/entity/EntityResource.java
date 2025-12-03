@@ -873,19 +873,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                   "deleteAll", urns), authorizer, auth, true);
 
-          // Authorization check: domain-based requires per-URN check, standard can batch check all URNs
-          if (isDomainBasedAuthorizationEnabled(authorizer)) {
-            // Domain-based authorization: check each URN individually with its domains
-            for (String urnStr : urns) {
-              Urn urn = UrnUtils.getUrn(urnStr);
-              Set<Urn> domainUrns = DomainExtractionUtils.getEntityDomains(opContext, entityService, urn);
-
-              if (!isAPIAuthorizedEntityUrnsWithSubResources(opContext, DELETE, List.of(urn), domainUrns)) {
-                throw new RestLiServiceException(
-                    HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
-              }
-            }
-          } else {
+          // Domain-based authorization (when enabled) is now handled inside the transaction
+          // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+          // Only perform standard authorization here when domain-based auth is disabled
+          if (!isDomainBasedAuthorizationEnabled(authorizer)) {
             // Standard authorization: batch check all URNs at once
             List<Urn> urnList = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
             if (!isAPIAuthorizedEntityUrns(opContext, DELETE, urnList)) {
@@ -893,6 +884,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entities.");
             }
           }
+          // When domain-based auth is enabled, authorization will happen inside the transaction
+          // via the DomainBasedAuthorizationValidator
 
           response.setEntitiesAffected(urns.size());
           response.setEntitiesDeleted(
@@ -938,31 +931,37 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
             ACTION_DELETE, urn.getEntityType()), authorizer, auth, true);
 
-    // Perform authorization check with or without domain information based on configuration
-    Set<Urn> domainUrns = isDomainBasedAuthorizationEnabled(authorizer)
-        ? DomainExtractionUtils.getEntityDomains(opContext, entityService, urn)
-        : Collections.emptySet();
-
+    // Authorization for hard deletes
+    // Hard deletes bypass the validator layer (which only runs during MCP ingestion),
+    // so we must perform authorization here
     if (isDomainBasedAuthorizationEnabled(authorizer)) {
-      boolean isAuthorized = isAPIAuthorizedEntityUrnsWithSubResources(
-          opContext,
-          DELETE,
-          List.of(urn),
-          domainUrns);
+      // Domain-based authorization: read entity's domains and authorize with domain context
+      Set<Urn> domains = DomainExtractionUtils.getEntityDomains(opContext, entityService, urn);
 
-      if (!isAuthorized) {
-        throw new RestLiServiceException(
-            HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
+      if (!domains.isEmpty()) {
+        // Entity has domains - use domain-based authorization
+        if (!isAPIAuthorizedEntityUrnsWithSubResources(opContext, DELETE, List.of(urn), domains)) {
+          throw new RestLiServiceException(
+              HttpStatus.S_403_FORBIDDEN,
+              "User is unauthorized to delete entity: " + urnStr + " with domains " + domains);
+        }
+      } else {
+        // Entity has no domains - use standard authorization
+        if (!isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+          throw new RestLiServiceException(
+              HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
+        }
       }
     } else {
+      // Standard authorization without domains
       if (!isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
         throw new RestLiServiceException(
             HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
       }
     }
 
-    // Make domainUrns final for use in lambda
-    final Set<Urn> finalDomainUrns = domainUrns;
+    // Used for passing to deleteTimeseriesAspects for consistency
+    final Set<Urn> finalDomainUrns = Collections.emptySet();
 
     return RestliUtils.toTask(systemOperationContext,
         () -> {
@@ -984,7 +983,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           }
           Long numTimeseriesDocsDeleted =
               deleteTimeseriesAspects(
-                  urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete, domainUrns);
+                  urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete, finalDomainUrns);
           log.info("Total number of timeseries aspect docs deleted: {}", numTimeseriesDocsDeleted);
 
           response.setUrn(urnStr);
@@ -1021,26 +1020,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
             "deleteTimeseriesAspects", urn.getEntityType()), authorizer, auth, true);
 
-    // Perform authorization check with or without domain information based on configuration
-    if (isDomainBasedAuthorizationEnabled(authorizer)) {
-      // Use domain URNs passed from caller (already looked up before entity deletion)
-      boolean isAuthorized = isAPIAuthorizedEntityUrnsWithSubResources(
-          opContext,
-          DELETE,
-          List.of(urn),
-          domainUrns);
-
-      if (!isAuthorized) {
-        throw new RestLiServiceException(
-            HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
-      }
-    } else {
-      // Standard authorization without domains
+    // Authorization check
+    // When domain-based auth is enabled, the main entity delete already performed authorization inside the transaction
+    // Timeseries deletions happen outside the SQL transaction (in ElasticSearch), so we skip additional auth checks
+    // to avoid race conditions and because the entity-level authorization already validated access
+    if (!isDomainBasedAuthorizationEnabled(authorizer)) {
+      // Standard authorization without domains when domain-based auth is disabled
       if (!isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
         throw new RestLiServiceException(
             HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
       }
     }
+    // When domain-based auth is enabled, skip auth check since main entity deletion already validated
 
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();

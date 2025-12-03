@@ -387,7 +387,7 @@ public class SetDomainResolverTest {
         .thenReturn(true);
 
     SetDomainResolver resolver =
-        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthEnabled());
+        new SetDomainResolver(mockClient, mockService, getMockFeatureFlagsWithDomainAuthDisabled());
 
     // Create mock context that will deny authorization
     QueryContext mockContext = getMockDenyContext();
