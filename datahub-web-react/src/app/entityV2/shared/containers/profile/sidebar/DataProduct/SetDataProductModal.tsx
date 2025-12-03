@@ -1,6 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Empty, Select, message } from 'antd';
-import Modal from 'antd/lib/modal/Modal';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -14,9 +13,8 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, Text } from '@src/alchemy-components';
+import { Modal, Text } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -200,16 +198,20 @@ export default function SetDataProductModal({
             open
             onCancel={onModalClose}
             getContainer={getModalDomContainer}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" color="gray" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
-                        Save
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onModalClose,
+                },
+                {
+                    text: 'Save',
+                    variant: 'filled',
+                    disabled: !selectedDataProduct,
+                    onClick: onOk,
+                    id: 'setDataProductButton',
+                },
+            ]}
         >
             <Select
                 autoFocus
