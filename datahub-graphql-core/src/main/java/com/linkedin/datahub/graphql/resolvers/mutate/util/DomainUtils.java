@@ -112,23 +112,16 @@ public class DomainUtils {
 
     // If domain-based authorization is not enabled, use standard authorization
     if (!isDomainBasedAuthorizationEnabled(authorizer)) {
-      log.debug("Domain-based authorization is disabled. Using standard authorization.");
+      
       return AuthUtil.isAuthorizedEntityUrns(
           context.getOperationContext(), operation, List.of(entityUrn));
     }
 
     // If no domains specified, use standard authorization (not domain-based)
     if (domainUrns.isEmpty()) {
-      log.debug("No domains specified. Using standard authorization.");
       return AuthUtil.isAuthorizedEntityUrns(
           context.getOperationContext(), operation, List.of(entityUrn));
     }
-
-    log.info(
-        "Domain-based authorization is ENABLED. Checking {} operation for entity {} with {} domains.",
-        operation,
-        entityUrn,
-        domainUrns.size());
 
     // Convert domain URNs to EntitySpecs for use as subresources
     Set<EntitySpec> domainSpecs =
@@ -147,22 +140,9 @@ public class DomainUtils {
     // Create entity spec for the target entity
     EntitySpec entitySpec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
 
-    // Check authorization with domains as subresources
-    // This mirrors AuthorizationUtils.isAuthorizedForTags pattern (line 506-507)
-    boolean authorized =
-        AuthUtil.isAuthorized(
+    return AuthUtil.isAuthorized(
             context.getOperationContext(), privilegeGroup, entitySpec, domainSpecs);
 
-    if (!authorized) {
-      log.warn(
-          "User {} is NOT authorized for {} operation on entity {} with domains: {}",
-          context.getActorUrn(),
-          operation,
-          entityUrn,
-          domainUrns);
-    }
-
-    return authorized;
   }
 
   public static void setDomainForResources(

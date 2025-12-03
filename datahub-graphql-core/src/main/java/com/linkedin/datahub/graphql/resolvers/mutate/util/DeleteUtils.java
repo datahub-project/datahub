@@ -34,13 +34,12 @@ public class DeleteUtils {
       @Nonnull EntityService<?> entityService) {
 
     if (isDomainBasedAuthorizationEnabled(context.getAuthorizer())) {
-      // Use metadata-io utility to get entity domains
+    
       Set<Urn> domainUrns = DomainExtractionUtils.getEntityDomains(
           context.getOperationContext(), entityService, entityUrn);
       
       // If entity has domains, use domain-aware authorization, if domain Urns is empty, fall back to standard authorization
       if (!domainUrns.isEmpty()) {
-        log.debug("Domain-based authorization enabled for DELETE. Checking domains: {}", domainUrns);
         return DomainUtils.isAuthorizedWithDomains(context, DELETE, entityUrn, domainUrns);
       }
     }

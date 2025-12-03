@@ -153,14 +153,13 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
       Set<Urn> subResources = new HashSet<>(tagDifference);
 
       // Only collect domain information if domain-based authorization is enabled
-      // WARNING: Domain reads here are outside transaction - see class-level security warning
       if (domainBasedAuthorizationEnabled) {
         Set<Urn> domainUrns =
             getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
         subResources.addAll(domainUrns);
       }
 
-      if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+      if (!subResources.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
           session,
           ApiOperation.fromChangeType(item.getChangeType()),
           List.of(item.getUrn()),
@@ -349,18 +348,6 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
   /**
    * Get the domain URNs for an entity to include as subResources in authorization checks.
-   *
-   * WARNING: This method is called from validateProposed() which runs OUTSIDE of a database
-   * transaction. The aspectRetriever.getLatestAspectObject() call is subject to:
-   * - Caching (may return stale data)
-   * - Race conditions (domains could change between read and transaction commit)
-   *
-   * This creates a TOCTOU (time-of-check time-of-use) vulnerability that could lead to
-   * privilege escalation. See class-level documentation for details and proper fix.
-   *
-   * <p>The PolicyEngine is designed to handle heterogeneous subResources and has special logic to
-   * extract domain information from the entire subResource collection when evaluating DOMAIN field
-   * criteria.
    */
   private Set<Urn> getEntityDomains(Urn entityUrn, AspectRetriever aspectRetriever) {
     try {
