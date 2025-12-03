@@ -124,7 +124,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_region="auto",
             ),
             env=self.config.env,
-            convert_urns_to_lowercase=self.source_config.convert_urns_to_lowercase,
+            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes
