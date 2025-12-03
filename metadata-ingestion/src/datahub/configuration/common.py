@@ -387,10 +387,12 @@ class AllowDenyPattern(ConfigModel):
 
     @functools_cached_property
     def _compiled_allow(self) -> "List[re.Pattern]":
+        """Evaluating compiled allow patterns is 1000x faster and this is in the hot path, so we cache them here for the life of this object."""
         return [re.compile(pattern, self.regex_flags) for pattern in self.allow]
 
     @functools_cached_property
     def _compiled_deny(self) -> "List[re.Pattern]":
+        """Evaluating compiled deny patterns is 1000x faster and this is in the hot path, so we cache them here for the life of this object."""
         return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
 
     @classmethod
