@@ -27,9 +27,11 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.sql.hive.exceptions import (
+    InvalidDatasetIdentifierError,
+)
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
-    HiveStorageLineageConfig,
     HiveStorageLineageConfigMixin,
 )
 from datahub.ingestion.source.sql.sql_common import (
@@ -145,15 +147,6 @@ class HiveMetastore(BasicSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         default=False,
         description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
     )
-
-    def get_storage_lineage_config(self) -> HiveStorageLineageConfig:
-        """Convert base config parameters to HiveStorageLineageConfig"""
-        return HiveStorageLineageConfig(
-            emit_storage_lineage=self.emit_storage_lineage,
-            hive_storage_lineage_direction=self.hive_storage_lineage_direction,
-            include_column_lineage=self.include_column_lineage,
-            storage_platform_instance=self.storage_platform_instance,
-        )
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
@@ -371,7 +364,7 @@ class HiveMetastoreSource(SQLAlchemySource):
             else DatasetSubTypes.TABLE.lower()
         )
         self.storage_lineage = HiveStorageLineage(
-            config=config.get_storage_lineage_config(),
+            config=config,
             env=config.env,
             convert_urns_to_lowercase=config.convert_urns_to_lowercase,
         )
@@ -384,14 +377,16 @@ class HiveMetastoreSource(SQLAlchemySource):
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         if not dataset_identifier or not dataset_identifier.strip():
-            raise ValueError("dataset_identifier cannot be empty")
+            raise InvalidDatasetIdentifierError("dataset_identifier cannot be empty")
 
         parts = dataset_identifier.split(".")
 
         # Filter out empty parts (e.g., from ".." in identifier)
         parts = [p for p in parts if p]
         if not parts:
-            raise ValueError(f"Invalid dataset identifier: {dataset_identifier}")
+            raise InvalidDatasetIdentifierError(
+                f"Invalid dataset identifier: {dataset_identifier}"
+            )
 
         if self.config.include_catalog_name_in_ids:
             if len(parts) >= 3:
@@ -895,8 +890,11 @@ class HiveMetastoreSource(SQLAlchemySource):
                     default_db, default_schema = self.get_db_schema(
                         dataset.dataset_name
                     )
-                except ValueError:
-                    logger.warning(f"Invalid view identifier: {dataset.dataset_name}")
+                except InvalidDatasetIdentifierError as e:
+                    logger.warning(
+                        f"Invalid view identifier '{dataset.dataset_name}': {e}"
+                    )
+                    continue
 
                 self.aggregator.add_view_definition(
                     view_urn=dataset_urn,

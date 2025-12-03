@@ -83,51 +83,45 @@ class StoragePathParser:
         Returns:
             Tuple of (StoragePlatform, normalized_path) if valid, None if invalid
         """
+        if location.startswith("/"):
+            return StoragePlatform.LOCAL, location
 
-        try:
-            if location.startswith("/"):
-                return StoragePlatform.LOCAL, location
+        parsed = urlparse(location)
+        scheme = parsed.scheme.lower()
 
-            parsed = urlparse(location)
-            scheme = parsed.scheme.lower()
-
-            if not scheme:
-                return None
-
-            platform = STORAGE_SCHEME_MAPPING.get(scheme)
-            if not platform:
-                return None
-
-            if platform == StoragePlatform.S3:
-                path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
-
-            elif platform == StoragePlatform.AZURE:
-                if scheme in ("abfs", "abfss", "wasbs"):
-                    container = parsed.netloc.split("@")[0]
-                    path = f"{container}/{parsed.path.lstrip('/')}"
-                else:
-                    path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
-
-            elif platform == StoragePlatform.GCS:
-                path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
-
-            elif platform == StoragePlatform.DBFS:
-                path = "/" + parsed.path.lstrip("/")
-
-            elif platform == StoragePlatform.LOCAL or platform == StoragePlatform.HDFS:
-                path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
-
-            else:
-                return None
-
-            path = path.rstrip("/")
-            path = re.sub(r"/+", "/", path)
-
-            return platform, path
-
-        except Exception as exp:
-            logger.warning(f"Failed to parse storage location {location}: {exp}")
+        if not scheme:
             return None
+
+        platform = STORAGE_SCHEME_MAPPING.get(scheme)
+        if not platform:
+            return None
+
+        if platform == StoragePlatform.S3:
+            path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
+
+        elif platform == StoragePlatform.AZURE:
+            if scheme in ("abfs", "abfss", "wasbs"):
+                container = parsed.netloc.split("@")[0]
+                path = f"{container}/{parsed.path.lstrip('/')}"
+            else:
+                path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
+
+        elif platform == StoragePlatform.GCS:
+            path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
+
+        elif platform == StoragePlatform.DBFS:
+            path = "/" + parsed.path.lstrip("/")
+
+        elif platform == StoragePlatform.LOCAL or platform == StoragePlatform.HDFS:
+            path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
+
+        else:
+            return None
+
+        path = path.rstrip("/")
+        path = re.sub(r"/+", "/", path)
+
+        return platform, path
 
     @staticmethod
     def get_platform_name(platform: StoragePlatform) -> str:
@@ -145,7 +139,7 @@ class StoragePathParser:
 
 
 class HiveStorageLineageConfigMixin(ConfigModel):
-    """Shared configuration fields for Hive storage lineage"""
+    """Configuration for Hive storage lineage"""
 
     emit_storage_lineage: bool = Field(
         default=False,
@@ -167,27 +161,6 @@ class HiveStorageLineageConfigMixin(ConfigModel):
         default=None,
         description="Platform instance for the storage system (e.g., 'my-s3-instance'). "
         "Used when generating URNs for storage datasets.",
-    )
-
-
-class HiveStorageLineageConfig(ConfigModel):
-    """Configuration for Hive storage lineage"""
-
-    emit_storage_lineage: bool = Field(
-        default=False,
-        description="Whether to emit storage-to-Hive lineage",
-    )
-    hive_storage_lineage_direction: LineageDirection = Field(
-        default=LineageDirection.UPSTREAM,
-        description="Direction of storage lineage: 'upstream' or 'downstream'",
-    )
-    include_column_lineage: bool = Field(
-        default=True,
-        description="Whether to include column-level lineage",
-    )
-    storage_platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance for the storage system",
     )
 
 
@@ -214,7 +187,7 @@ class HiveStorageLineage:
 
     def __init__(
         self,
-        config: HiveStorageLineageConfig,
+        config: HiveStorageLineageConfigMixin,
         env: str,
         convert_urns_to_lowercase: bool = False,
     ):

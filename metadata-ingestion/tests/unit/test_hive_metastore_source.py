@@ -3,11 +3,14 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
 from datahub.ingestion.source.sql.hive.hive_metastore_source import (
     HiveMetastore,
     HiveMetastoreSource,
 )
-from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineageConfig
+from datahub.ingestion.source.sql.hive.storage_lineage import (
+    HiveStorageLineageConfigMixin,
+)
 
 
 def test_hive_metastore_configuration_basic():
@@ -47,12 +50,8 @@ def test_hive_metastore_storage_lineage_config():
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod-cluster"
 
-    storage_config = config.get_storage_lineage_config()
-    assert isinstance(storage_config, HiveStorageLineageConfig)
-    assert storage_config.emit_storage_lineage is True
-    assert storage_config.hive_storage_lineage_direction == "downstream"
-    assert storage_config.include_column_lineage is False
-    assert storage_config.storage_platform_instance == "prod-cluster"
+    # Config inherits from HiveStorageLineageConfigMixin, so it has all storage lineage fields
+    assert isinstance(config, HiveStorageLineageConfigMixin)
 
 
 def test_hive_metastore_storage_lineage_direction_validation():
@@ -122,8 +121,8 @@ def test_hive_metastore_source_with_storage_lineage_disabled(mock_client):
 
 
 def test_storage_lineage_config_upstream_direction():
-    """Test HiveStorageLineageConfig with upstream direction"""
-    config = HiveStorageLineageConfig(
+    """Test HiveStorageLineageConfigMixin with upstream direction"""
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction="upstream",
         include_column_lineage=True,
@@ -136,8 +135,8 @@ def test_storage_lineage_config_upstream_direction():
 
 
 def test_storage_lineage_config_downstream_direction():
-    """Test HiveStorageLineageConfig with downstream direction"""
-    config = HiveStorageLineageConfig(
+    """Test HiveStorageLineageConfigMixin with downstream direction"""
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction="downstream",
         include_column_lineage=False,
@@ -151,9 +150,9 @@ def test_storage_lineage_config_downstream_direction():
 
 
 def test_storage_lineage_config_invalid_direction():
-    """Test that HiveStorageLineageConfig raises ValueError for invalid direction"""
+    """Test that HiveStorageLineageConfigMixin raises ValueError for invalid direction"""
     with pytest.raises(ValueError) as exc_info:
-        HiveStorageLineageConfig(
+        HiveStorageLineageConfigMixin(
             emit_storage_lineage=True,
             hive_storage_lineage_direction="sideways",
             include_column_lineage=True,
@@ -167,14 +166,14 @@ def test_storage_lineage_config_enum_values():
     """Test that direction uses enum values"""
     from datahub.ingestion.source.sql.hive.storage_lineage import LineageDirection
 
-    config1 = HiveStorageLineageConfig(
+    config1 = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.UPSTREAM,
         include_column_lineage=True,
         storage_platform_instance=None,
     )
 
-    config2 = HiveStorageLineageConfig(
+    config2 = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.DOWNSTREAM,
         include_column_lineage=True,
@@ -272,8 +271,8 @@ def test_hive_metastore_all_storage_platforms():
         }
         config = HiveMetastore.model_validate(config_dict)
 
-        storage_config = config.get_storage_lineage_config()
-        assert storage_config.storage_platform_instance == f"{platform}-prod"
+        # Config inherits from HiveStorageLineageConfigMixin
+        assert config.storage_platform_instance == f"{platform}-prod"
 
 
 def test_hive_metastore_view_lineage_config_default():
@@ -399,7 +398,7 @@ def test_get_db_schema_empty_identifier_raises_error(mock_client):
 
     source = HiveMetastoreSource(config, ctx)
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InvalidDatasetIdentifierError) as exc_info:
         source.get_db_schema("")
 
     assert "cannot be empty" in str(exc_info.value)
@@ -419,7 +418,7 @@ def test_get_db_schema_whitespace_only_raises_error(mock_client):
 
     source = HiveMetastoreSource(config, ctx)
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InvalidDatasetIdentifierError) as exc_info:
         source.get_db_schema("   ")
 
     assert "cannot be empty" in str(exc_info.value)
@@ -439,7 +438,7 @@ def test_get_db_schema_double_dots_raises_error(mock_client):
 
     source = HiveMetastoreSource(config, ctx)
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InvalidDatasetIdentifierError) as exc_info:
         source.get_db_schema("..")
 
     assert "Invalid dataset identifier" in str(exc_info.value)
@@ -617,6 +616,6 @@ def test_hive_metastore_storage_lineage_config_from_mixin():
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod-s3"
 
-    storage_config = config.get_storage_lineage_config()
-    assert storage_config.emit_storage_lineage is True
-    assert storage_config.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM
+    # Config inherits from HiveStorageLineageConfigMixin
+    assert config.emit_storage_lineage is True
+    assert config.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM

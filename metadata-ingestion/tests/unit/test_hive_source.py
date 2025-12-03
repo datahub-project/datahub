@@ -3,7 +3,9 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.hive.hive_source import HiveConfig, HiveSource
-from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineageConfig
+from datahub.ingestion.source.sql.hive.storage_lineage import (
+    HiveStorageLineageConfigMixin,
+)
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
 
@@ -119,11 +121,8 @@ def test_hive_source_storage_lineage_config_enabled():
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod-hdfs"
 
-    storage_config = config.get_storage_lineage_config()
-    assert isinstance(storage_config, HiveStorageLineageConfig)
-    assert storage_config.emit_storage_lineage is True
-    assert storage_config.hive_storage_lineage_direction == "downstream"
-    assert storage_config.include_column_lineage is False
+    # Config inherits from HiveStorageLineageConfigMixin
+    assert isinstance(config, HiveStorageLineageConfigMixin)
 
 
 def test_hive_source_storage_lineage_direction_validation():
@@ -261,5 +260,5 @@ def test_hive_source_all_storage_platforms():
         }
         config = HiveConfig.model_validate(config_dict)
 
-        storage_config = config.get_storage_lineage_config()
-        assert storage_config.storage_platform_instance == f"{platform}-prod"
+        # Config inherits from HiveStorageLineageConfigMixin
+        assert config.storage_platform_instance == f"{platform}-prod"

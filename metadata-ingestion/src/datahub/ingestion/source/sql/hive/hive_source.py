@@ -25,9 +25,9 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
-    HiveStorageLineageConfig,
     HiveStorageLineageConfigMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
@@ -149,15 +149,6 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
     def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
-    def get_storage_lineage_config(self) -> HiveStorageLineageConfig:
-        """Convert base config parameters to HiveStorageLineageConfig"""
-        return HiveStorageLineageConfig(
-            emit_storage_lineage=self.emit_storage_lineage,
-            hive_storage_lineage_direction=self.hive_storage_lineage_direction,
-            include_column_lineage=self.include_column_lineage,
-            storage_platform_instance=self.storage_platform_instance,
-        )
-
 
 @platform_name("Hive")
 @config_class(HiveConfig)
@@ -196,7 +187,7 @@ class HiveSource(TwoTierSQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "hive")
         self.storage_lineage = HiveStorageLineage(
-            config=config.get_storage_lineage_config(),
+            config=config,
             env=config.env,
             convert_urns_to_lowercase=config.convert_urns_to_lowercase,
         )
@@ -337,8 +328,9 @@ class HiveSource(TwoTierSQLAlchemySource):
             default_schema = None
             try:
                 default_db, default_schema = self.get_db_schema(dataset_name)
-            except ValueError:
-                logger.warning(f"Invalid view identifier: {dataset_name}")
+            except InvalidDatasetIdentifierError as e:
+                logger.warning(f"Invalid view identifier '{dataset_name}': {e}")
+                return
 
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,

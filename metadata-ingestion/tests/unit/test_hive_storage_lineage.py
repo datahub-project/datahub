@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
-    HiveStorageLineageConfig,
+    HiveStorageLineageConfigMixin,
     HiveStorageSourceReport,
     LineageDirection,
     StoragePathParser,
@@ -85,7 +85,7 @@ def test_get_platform_name():
 
 def test_hive_storage_lineage_config_defaults():
     """Test default configuration values"""
-    config = HiveStorageLineageConfig()
+    config = HiveStorageLineageConfigMixin()
 
     assert config.emit_storage_lineage is False
     assert config.hive_storage_lineage_direction == LineageDirection.UPSTREAM
@@ -95,7 +95,7 @@ def test_hive_storage_lineage_config_defaults():
 
 def test_hive_storage_lineage_config_custom():
     """Test custom configuration"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.DOWNSTREAM,
         include_column_lineage=False,
@@ -128,7 +128,7 @@ def test_hive_storage_source_report():
 
 def test_hive_storage_lineage_disabled():
     """Test that no lineage is emitted when disabled"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=False)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=False)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     table = {"StorageDescriptor": {"Location": "s3://bucket/path"}}
@@ -139,7 +139,7 @@ def test_hive_storage_lineage_disabled():
 
 def test_hive_storage_lineage_no_location():
     """Test that no lineage is emitted when table has no location"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     table: Dict[str, Any] = {"StorageDescriptor": {}}
@@ -150,7 +150,7 @@ def test_hive_storage_lineage_no_location():
 
 def test_hive_storage_lineage_invalid_location():
     """Test that invalid storage location is tracked as failed"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     table = {"StorageDescriptor": {"Location": "invalid://bad-scheme/path"}}
@@ -162,7 +162,7 @@ def test_hive_storage_lineage_invalid_location():
 
 def test_hive_storage_lineage_upstream_direction():
     """Test upstream lineage generation (storage -> hive)"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.UPSTREAM,
         include_column_lineage=False,
@@ -183,7 +183,7 @@ def test_hive_storage_lineage_upstream_direction():
 
 def test_hive_storage_lineage_downstream_direction():
     """Test downstream lineage generation (hive -> storage)"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.DOWNSTREAM,
         include_column_lineage=False,
@@ -202,7 +202,7 @@ def test_hive_storage_lineage_downstream_direction():
 
 def test_hive_storage_lineage_with_column_lineage():
     """Test column-level lineage generation"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.UPSTREAM,
         include_column_lineage=True,
@@ -245,7 +245,7 @@ def test_hive_storage_lineage_with_column_lineage():
 
 def test_hive_storage_lineage_lowercase_urns():
     """Test URN lowercasing"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         storage_platform_instance="PROD-CLUSTER",
     )
@@ -262,7 +262,7 @@ def test_hive_storage_lineage_lowercase_urns():
 
 def test_hive_storage_lineage_platform_instance():
     """Test platform instance in storage URNs"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True, storage_platform_instance="my-s3-prod"
     )
     lineage = HiveStorageLineage(config=config, env="PROD")
@@ -277,7 +277,7 @@ def test_hive_storage_lineage_platform_instance():
 
 def test_make_storage_dataset_urn_success():
     """Test successful storage URN creation"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     result = lineage._make_storage_dataset_urn("s3://bucket/path/data")
@@ -290,7 +290,7 @@ def test_make_storage_dataset_urn_success():
 
 def test_make_storage_dataset_urn_invalid():
     """Test invalid storage location returns None"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     result = lineage._make_storage_dataset_urn("invalid://bad")
@@ -299,7 +299,7 @@ def test_make_storage_dataset_urn_invalid():
 
 def test_storage_lineage_all_platforms():
     """Test lineage generation for all storage platforms"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     test_locations = [
@@ -321,7 +321,7 @@ def test_storage_lineage_all_platforms():
 
 def test_get_storage_schema():
     """Test storage schema generation"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     table_schema = SchemaMetadataClass(
@@ -348,7 +348,7 @@ def test_get_storage_schema():
 
 def test_get_storage_schema_no_table_schema():
     """Test storage schema returns None when no table schema provided"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     storage_schema = lineage._get_storage_schema("s3://bucket/data", None)
@@ -357,7 +357,7 @@ def test_get_storage_schema_no_table_schema():
 
 def test_get_storage_schema_invalid_location():
     """Test storage schema returns None for invalid location"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     table_schema = SchemaMetadataClass(
@@ -375,7 +375,7 @@ def test_get_storage_schema_invalid_location():
 
 def test_fine_grained_lineage_upstream():
     """Test column lineage generation in upstream direction"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.UPSTREAM,
         include_column_lineage=True,
@@ -438,7 +438,7 @@ def test_fine_grained_lineage_upstream():
 
 def test_fine_grained_lineage_downstream():
     """Test column lineage generation in downstream direction"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.DOWNSTREAM,
         include_column_lineage=True,
@@ -489,7 +489,7 @@ def test_fine_grained_lineage_downstream():
 
 def test_fine_grained_lineage_disabled():
     """Test no column lineage when disabled"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True, include_column_lineage=False
     )
     lineage = HiveStorageLineage(config=config, env="PROD")
@@ -538,7 +538,7 @@ def test_fine_grained_lineage_disabled():
 
 def test_fine_grained_lineage_partial_match():
     """Test column lineage with only some matching fields"""
-    config = HiveStorageLineageConfig(
+    config = HiveStorageLineageConfigMixin(
         emit_storage_lineage=True,
         hive_storage_lineage_direction=LineageDirection.UPSTREAM,
         include_column_lineage=True,
@@ -604,7 +604,7 @@ def test_fine_grained_lineage_partial_match():
 
 def test_storage_dataset_mcp_generation():
     """Test storage dataset MCP generation includes all aspects"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     schema = SchemaMetadataClass(
@@ -637,7 +637,7 @@ def test_storage_dataset_mcp_generation():
 
 def test_storage_dataset_mcp_without_schema():
     """Test storage dataset MCP generation without schema"""
-    config = HiveStorageLineageConfig(emit_storage_lineage=True)
+    config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
     result = list(lineage.get_storage_dataset_mcp(storage_location="s3://bucket/path"))
