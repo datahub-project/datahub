@@ -668,7 +668,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                     domain_registry=self.domain_registry,
                 )
 
-            if properties.get("table_location"):
+            if self.config.emit_storage_lineage and properties.get("table_location"):
                 table_dict = {
                     "StorageDescriptor": {"Location": properties["table_location"]}
                 }
