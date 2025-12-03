@@ -2186,10 +2186,17 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
+            "Stored Procedure",
             "View"
           ],
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -2218,8 +2225,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
           "subtype_modifier": [
+            "Stored Procedure",
             "View"
           ],
           "supported": true
