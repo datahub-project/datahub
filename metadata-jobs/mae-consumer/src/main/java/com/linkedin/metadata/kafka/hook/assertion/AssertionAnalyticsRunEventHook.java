@@ -33,7 +33,6 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -158,12 +157,19 @@ public class AssertionAnalyticsRunEventHook implements MetadataChangeLogHook {
 
     try {
       // Simply fetch the entity one time, and then populate all the context.
+      // Only fetch the aspects we actually need for analytics context.
       final EntityResponse entityResponse =
           this.entityClient.getV2(
               systemOperationContext,
               asserteeUrn.getEntityType(),
               asserteeUrn,
-              Collections.emptySet());
+              ImmutableSet.of(
+                  DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                  CONTAINER_ASPECT_NAME,
+                  GLOBAL_TAGS_ASPECT_NAME,
+                  GLOSSARY_TERMS_ASPECT_NAME,
+                  DOMAINS_ASPECT_NAME,
+                  OWNERSHIP_ASPECT_NAME));
 
       if (entityResponse != null && entityResponse.hasAspects()) {
         final EnvelopedAspectMap aspectMap = entityResponse.getAspects();

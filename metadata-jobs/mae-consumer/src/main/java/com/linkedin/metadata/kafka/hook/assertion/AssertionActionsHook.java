@@ -44,12 +44,14 @@ import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.*;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -233,12 +235,16 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
 
   private void applyAssertionActions(
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
-    final AssertionInfo info = assertionService.getAssertionInfo(systemOpContext, assertionUrn);
+    // Batch fetch both AssertionInfo and AssertionActions in a single request
+    final Pair<AssertionInfo, AssertionActions> infoAndActions =
+        assertionService.getAssertionInfoAndActions(systemOpContext, assertionUrn);
+    final AssertionInfo info = infoAndActions.getFirst();
+
     if (info != null) {
       if (AssertionResultType.SUCCESS.equals(runEvent.getResult().getType())) {
-        applyAssertionSuccessActions(assertionUrn, runEvent, info);
+        applyAssertionSuccessActions(assertionUrn, runEvent, info, infoAndActions.getSecond());
       } else if (AssertionResultType.FAILURE.equals(runEvent.getResult().getType())) {
-        applyAssertionFailureActions(assertionUrn, runEvent, info);
+        applyAssertionFailureActions(assertionUrn, runEvent, info, infoAndActions.getSecond());
       }
     } else {
       log.warn(
@@ -250,12 +256,10 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private void applyAssertionSuccessActions(
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionInfo info) {
-    // 1. Fetch the assertion info to retrieve any actions
-    final AssertionActions actions =
-        assertionService.getAssertionActions(systemOpContext, assertionUrn);
-
-    // 2. Ensure that assertion exists & has actions
+      @Nonnull final AssertionInfo info,
+      @Nullable final AssertionActions actions) {
+    // Actions were already fetched in the batched call, use them directly
+    // Ensure that assertion exists & has actions
     if (actions != null && actions.hasOnSuccess()) {
       actions
           .getOnSuccess()
@@ -266,17 +270,15 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private void applyAssertionFailureActions(
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionInfo info) {
+      @Nonnull final AssertionInfo info,
+      @Nullable final AssertionActions actions) {
     // 1. For assertion failures, always attempt to produce a monitor anomaly event if
     // assertion is inferred.
     if (isInferredAssertion(info)) {
       produceMonitorAnomalyEvent(assertionUrn, runEvent);
     }
 
-    // 2. Fetch the assertion info to retrieve any actions
-    final AssertionActions actions =
-        assertionService.getAssertionActions(systemOpContext, assertionUrn);
-
+    // 2. Actions were already fetched in the batched call, use them directly
     // 3. Ensure that assertion exists & has actions
     if (actions != null && actions.hasOnFailure()) {
       actions

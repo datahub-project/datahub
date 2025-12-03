@@ -33,10 +33,12 @@ import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -209,10 +211,15 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         return;
       }
 
-      // 3. For each urn, resolve the entity assertions aspect and add to failing or passing
-      // assertions.
+      // 3. Batch fetch AssertionsSummary for all entities (works efficiently even with 1 entity)
+      final Map<Urn, AssertionsSummary> summariesMap =
+          assertionService.batchGetAssertionsSummary(
+              systemOperationContext, new java.util.HashSet<>(assertionEntities));
+
       for (Urn entityUrn : assertionEntities) {
-        addAssertionToSummary(entityUrn, assertionUrn, assertionInfo, runEvent);
+        // Batch method guarantees all input URNs are in the result map (with null if not found)
+        final AssertionsSummary summary = summariesMap.get(entityUrn);
+        addAssertionToSummary(entityUrn, assertionUrn, assertionInfo, runEvent, summary);
       }
     } else {
       log.warn(
@@ -240,8 +247,37 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         monitorInfo.getAssertionMonitor().getAssertions().stream()
             .map(AssertionEvaluationSpec::getAssertion)
             .toList();
+
+    if (assertionUrns.isEmpty()) {
+      return;
+    }
+
+    // Batch fetch AssertionInfo for all assertions in a single request
+    final Map<Urn, AssertionInfo> assertionInfoMap =
+        assertionService.batchGetAssertionInfo(
+            systemOperationContext, new java.util.HashSet<>(assertionUrns));
+
+    // Process each assertion with its pre-fetched info
     for (Urn assertionUrn : assertionUrns) {
-      removeAssertionFromSummary(assertionUrn);
+      final AssertionInfo assertionInfo = assertionInfoMap.get(assertionUrn);
+      if (assertionInfo != null) {
+        final List<Urn> assertionEntities = extractAssertionEntities(assertionInfo);
+        if (assertionEntities.size() > 0) {
+          for (Urn entityUrn : assertionEntities) {
+            removeAssertionFromSummary(assertionUrn, entityUrn);
+          }
+        } else {
+          log.warn(
+              String.format(
+                  "Failed to find entities associated with assertion with urn %s. Skipping updating run summaries...",
+                  assertionUrn));
+        }
+      } else {
+        log.warn(
+            String.format(
+                "Failed to find assertionInfo aspect for assertion with urn %s. Skipping updating assertion summary for related assertions!",
+                assertionUrn));
+      }
     }
   }
 
@@ -297,13 +333,29 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionInfo info,
       @Nonnull final AssertionRunEvent event) {
-    // 1. Fetch the latest assertion summary for the entity
-    AssertionsSummary summary = getAssertionsSummary(entityUrn);
+    addAssertionToSummary(entityUrn, assertionUrn, info, event, null);
+  }
+
+  /**
+   * Adds an assertion to the AssertionSummary aspect for a related entity. This is used to search
+   * for entity by active and resolved assertions.
+   *
+   * @param summary if provided, uses this summary instead of fetching; if null, fetches it
+   */
+  private void addAssertionToSummary(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionInfo info,
+      @Nonnull final AssertionRunEvent event,
+      @Nullable final AssertionsSummary summary) {
+    // 1. Fetch the latest assertion summary for the entity (if not provided)
+    AssertionsSummary assertionsSummary =
+        summary != null ? summary : getAssertionsSummary(entityUrn);
     AssertionResult result = event.getResult();
     AssertionSummaryDetails details = buildAssertionSummaryDetails(assertionUrn, info, event);
 
     // 2. Make sure we're not overwriting more recent run events on the summary
-    if (checkShouldIgnoreAddingRunEventToSummary(assertionUrn, summary, event)) {
+    if (checkShouldIgnoreAddingRunEventToSummary(assertionUrn, assertionsSummary, event)) {
       log.warn("Ignored adding run event to summary for assertion with urn {}", assertionUrn);
       return;
     }
