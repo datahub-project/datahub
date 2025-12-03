@@ -36,7 +36,10 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
 `;
 
 const IconWrapper = styled.div`
-    padding-right: 8px;
+    padding: 0px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const LinkButton = styled(Link)<{ $includePadding: boolean }>`
@@ -126,7 +129,7 @@ export const EntityLink = ({
                 }}
             />
         ) : (
-            <IconWrapper>{entityRegistry.getIcon(entity.type as EntityType, 16, IconStyleType.ACCENT)}</IconWrapper>
+            <IconWrapper>{entityRegistry.getIcon(entity.type as EntityType, 18, IconStyleType.ACCENT)}</IconWrapper>
         );
     };
 
