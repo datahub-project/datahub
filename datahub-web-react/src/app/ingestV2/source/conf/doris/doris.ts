@@ -1,6 +1,6 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
 
-import mysqlLogo from '@images/mysqllogo-2.png';
+import dorisLogo from '@images/dorislogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -29,7 +29,7 @@ const dorisConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Apache Doris',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/doris/',
-    logoUrl: mysqlLogo,
+    logoUrl: dorisLogo,
 };
 
 export default dorisConfig;

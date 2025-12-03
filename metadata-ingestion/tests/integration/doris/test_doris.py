@@ -55,32 +55,55 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             subprocess.run("docker logs testdoris-fe 2>&1 | tail -50", shell=True)
             raise
 
-        # Give BE extra time to register with FE and be fully ready
-        be_wait = 120 if os.getenv("CI") == "true" else 60
-        print(
-            f"Waiting {be_wait}s for BE to register with FE and cluster to stabilize..."
-        )
-        time.sleep(be_wait)
+        # Wait for BE to register with FE by polling SHOW BACKENDS
+        max_wait = 120 if os.getenv("CI") == "true" else 60
+        print("Waiting for BE to register with FE...")
+        be_ready = False
+        for i in range(max_wait):
+            check_be_cmd = f"docker exec testdoris-fe mysql -h 127.0.0.1 -P {DORIS_PORT} -u root -e 'SHOW BACKENDS' 2>/dev/null"
+            result = subprocess.run(
+                check_be_cmd, shell=True, capture_output=True, text=True
+            )
+            if (
+                result.returncode == 0
+                and "Alive" in result.stdout
+                and "true" in result.stdout
+            ):
+                print(f"BE is registered and alive (took {i + 1}s)")
+                be_ready = True
+                break
+            time.sleep(1)
+
+        if not be_ready:
+            print(
+                f"WARNING: BE registration not confirmed after {max_wait}s, proceeding anyway"
+            )
+
+        # Give a few extra seconds for cluster to fully stabilize
+        time.sleep(5)
 
         # Run setup script to create database and tables
         setup_sql = test_resources_dir / "setup" / "setup.sql"
         setup_cmd = f"docker exec -i testdoris-fe mysql -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
 
         # Retry setup a few times as BE might still be registering
+        setup_success = False
         for attempt in range(5):
             result = subprocess.run(
                 setup_cmd, shell=True, capture_output=True, text=True
             )
             if result.returncode == 0:
                 print("Setup script executed successfully")
+                setup_success = True
                 break
             print(f"Setup attempt {attempt + 1}/5 failed: {result.stderr}")
             if attempt < 4:
                 time.sleep(15)
-        else:
-            print("WARNING: Setup script failed after 5 attempts")
-            # Print BE logs for debugging
+
+        if not setup_success:
+            print("ERROR: Setup script failed after 5 attempts")
             subprocess.run("docker logs testdoris-be 2>&1 | tail -30", shell=True)
+            raise Exception("Failed to execute Doris setup script after 5 attempts")
 
         yield docker_services
 
