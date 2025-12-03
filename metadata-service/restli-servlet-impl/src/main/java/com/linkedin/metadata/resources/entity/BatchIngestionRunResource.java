@@ -1,4 +1,4 @@
-is anpackage com.linkedin.metadata.resources.entity;
+package com.linkedin.metadata.resources.entity;
 
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
