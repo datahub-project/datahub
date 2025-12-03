@@ -5,7 +5,10 @@ import os
 import sys
 import textwrap
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from datahub.ingestion.recording.recorder import IngestionRecorder
 
 import click
 import click_spinner
@@ -103,6 +106,28 @@ def ingest() -> None:
     default=False,
     help="If enabled, mute intermediate progress ingestion reports",
 )
+@click.option(
+    "--record",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Enable recording of ingestion run for debugging. "
+    "Requires recording config in recipe or --record-password.",
+)
+@click.option(
+    "--record-password",
+    type=str,
+    default=None,
+    help="Password for encrypting the recording archive. "
+    "Can also be set via DATAHUB_RECORDING_PASSWORD env var.",
+)
+@click.option(
+    "--no-s3-upload",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Disable S3 upload of recording (for testing).",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -112,6 +137,7 @@ def ingest() -> None:
         "no_default_report",
         "no_spinner",
         "no_progress",
+        "record",
     ]
 )
 @upgrade.check_upgrade
@@ -126,6 +152,9 @@ def run(
     no_default_report: bool,
     no_spinner: bool,
     no_progress: bool,
+    record: bool,
+    record_password: Optional[str],
+    no_s3_upload: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -172,17 +201,30 @@ def run(
         # The default is "datahub" reporting. The extra flag will disable it.
         report_to = None
 
-    # logger.debug(f"Using config: {pipeline_config}")
-    pipeline = Pipeline.create(
-        pipeline_config,
-        dry_run=dry_run,
-        preview_mode=preview,
-        preview_workunits=preview_workunits,
-        report_to=report_to,
-        no_progress=no_progress,
-        raw_config=raw_pipeline_config,
-    )
-    ret = run_pipeline_to_completion(pipeline)
+    # Helper function to create and run the pipeline
+    def create_and_run_pipeline() -> int:
+        pipeline = Pipeline.create(
+            pipeline_config,
+            dry_run=dry_run,
+            preview_mode=preview,
+            preview_workunits=preview_workunits,
+            report_to=report_to,
+            no_progress=no_progress,
+            raw_config=raw_pipeline_config,
+        )
+        return run_pipeline_to_completion(pipeline)
+
+    # Handle recording if enabled
+    # IMPORTANT: Pipeline.create() must happen INSIDE the recording context
+    # so that SDK initialization (including auth) is captured by VCR.
+    if record:
+        recorder = _setup_recording(
+            pipeline_config, record_password, no_s3_upload, raw_pipeline_config
+        )
+        with recorder:
+            ret = create_and_run_pipeline()
+    else:
+        ret = create_and_run_pipeline()
 
     if ret:
         sys.exit(ret)
@@ -307,6 +349,75 @@ def deploy(
         f"✅ Successfully wrote data ingestion source metadata for recipe {variables['input']['name']}:"
     )
     click.echo(response)
+
+
+def _setup_recording(
+    pipeline_config: dict,
+    record_password: Optional[str],
+    no_s3_upload: bool,
+    raw_config: dict,
+) -> "IngestionRecorder":
+    """Setup recording for the ingestion run."""
+    from datahub.ingestion.recording.config import (
+        check_recording_dependencies,
+        get_recording_password_from_env,
+    )
+    from datahub.ingestion.recording.recorder import IngestionRecorder
+
+    # Check dependencies first
+    check_recording_dependencies()
+
+    # Get password from args, recipe config, or environment
+    password = record_password or get_recording_password_from_env()
+
+    # Check if recording config is in recipe
+    recording_config = pipeline_config.get("recording", {})
+    if recording_config.get("password"):
+        password = recording_config["password"]
+
+    if not password:
+        click.secho(
+            "Error: Recording password required. Provide via --record-password, "
+            "DATAHUB_RECORDING_PASSWORD env var, or recipe recording.password.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
+    # Determine S3 upload setting
+    s3_upload = not no_s3_upload
+    if recording_config.get("s3_upload") is False:
+        s3_upload = False
+
+    # Get run_id from pipeline config or generate one
+    run_id = pipeline_config.get("run_id")
+    if not run_id:
+        from datahub.ingestion.run.pipeline_config import _generate_run_id
+
+        # Generate a run_id if not provided
+        run_id = _generate_run_id(
+            pipeline_config.get("source", {}).get("type", "unknown")
+        )
+
+    # Get source and sink types for metadata
+    source_type = pipeline_config.get("source", {}).get("type")
+    sink_type = pipeline_config.get("sink", {}).get("type", "datahub-rest")
+
+    # Output path from config (optional)
+    output_path = recording_config.get("output_path")
+
+    logger.info(f"Recording enabled for run_id: {run_id}")
+    logger.info(f"S3 upload: {'enabled' if s3_upload else 'disabled'}")
+
+    return IngestionRecorder(
+        run_id=run_id,
+        password=password,
+        recipe=raw_config,
+        output_path=output_path,
+        s3_upload=s3_upload,
+        source_type=source_type,
+        sink_type=sink_type,
+    )
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> int:
@@ -676,3 +787,133 @@ def rollback(
         except OSError as e:
             logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")
+
+
+@ingest.command()
+@click.argument("archive_path", type=str)
+@click.option(
+    "--password",
+    type=str,
+    required=False,
+    help="Password for decrypting the recording archive. "
+    "Can also be set via DATAHUB_RECORDING_PASSWORD env var.",
+)
+@click.option(
+    "--live-sink",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, emit to real GMS server instead of using recorded responses.",
+)
+@click.option(
+    "--server",
+    type=str,
+    default=None,
+    help="GMS server URL when using --live-sink. Defaults to value in recorded recipe.",
+)
+@click.option(
+    "--report-to",
+    type=str,
+    default=None,
+    help="Path to write the report file.",
+)
+@click.option(
+    "--no-spinner",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Turn off spinner",
+)
+@telemetry.with_telemetry(capture_kwargs=["live_sink"])
+@upgrade.check_upgrade
+def replay(
+    archive_path: str,
+    password: Optional[str],
+    live_sink: bool,
+    server: Optional[str],
+    report_to: Optional[str],
+    no_spinner: bool,
+) -> None:
+    """
+    Replay a recorded ingestion run for debugging.
+
+    ARCHIVE_PATH can be a local file path or an S3 URL (s3://bucket/path/to/recording.zip).
+
+    This command runs an ingestion using recorded HTTP and database responses,
+    allowing offline debugging without network access.
+
+    Examples:
+        # Replay from local file
+        datahub ingest replay ./recording.zip --password secret
+
+        # Replay from S3
+        datahub ingest replay s3://bucket/recordings/run-id.zip --password secret
+
+        # Replay with live sink (emit to real GMS)
+        datahub ingest replay ./recording.zip --password secret --live-sink
+    """
+    from datahub.ingestion.recording.config import (
+        check_recording_dependencies,
+        get_recording_password_from_env,
+    )
+    from datahub.ingestion.recording.replay import IngestionReplayer
+
+    # Check dependencies
+    try:
+        check_recording_dependencies()
+    except ImportError as e:
+        click.secho(str(e), fg="red", err=True)
+        sys.exit(1)
+
+    # Get password
+    password = password or get_recording_password_from_env()
+    if not password:
+        click.secho(
+            "Error: Password required. Provide via --password or "
+            "DATAHUB_RECORDING_PASSWORD env var.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
+    logger.info("DataHub CLI version: %s", nice_version_name())
+    logger.info(f"Replaying recording from: {archive_path}")
+    logger.info(f"Mode: {'live sink' if live_sink else 'air-gapped'}")
+
+    with IngestionReplayer(
+        archive_path=archive_path,
+        password=password,
+        live_sink=live_sink,
+        gms_server=server,
+    ) as replayer:
+        recipe = replayer.get_recipe()
+        logger.info(f"Loaded recording: run_id={replayer.run_id}")
+
+        # Create and run pipeline
+        pipeline = Pipeline.create(recipe)
+
+        logger.info("Starting replay...")
+        with click_spinner.spinner(disable=no_spinner):
+            try:
+                pipeline.run()
+            except Exception as e:
+                logger.info(
+                    f"Source ({pipeline.source_type}) report:\n"
+                    f"{pipeline.source.get_report().as_string()}"
+                )
+                logger.info(
+                    f"Sink ({pipeline.sink_type}) report:\n"
+                    f"{pipeline.sink.get_report().as_string()}"
+                )
+                raise e
+            else:
+                logger.info("Replay complete")
+                pipeline.log_ingestion_stats()
+                ret = pipeline.pretty_print_summary()
+
+                if report_to:
+                    with open(report_to, "w") as f:
+                        f.write(pipeline.source.get_report().as_string())
+
+                if ret:
+                    sys.exit(ret)

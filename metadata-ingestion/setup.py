@@ -616,6 +616,15 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
+    # Debug/utility plugins
+    "debug-recording": {
+        # VCR.py for HTTP recording/replay - industry standard
+        # Requires vcrpy 7.x with urllib3 2.x for compatibility
+        "vcrpy>=7.0.0",
+        "urllib3>=2.0.0",
+        # AES-256 encrypted zip files
+        "pyzipper>=0.3.6",
+    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -635,6 +644,8 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # Debug recording is an optional debugging tool.
+    "debug-recording",
 }
 
 mypy_stubs = {

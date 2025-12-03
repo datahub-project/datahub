@@ -1,0 +1,439 @@
+"""HTTP recording and replay using VCR.py."""
+
+import logging
+import threading
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, Callable, Iterator, Optional
+
+logger = logging.getLogger(__name__)
+
+# Global lock for serializing HTTP requests during recording
+# This is necessary because VCR has a race condition when recording
+# concurrent requests - only one thread's request gets recorded properly
+_recording_lock = threading.RLock()
+_recording_active = False
+
+
+def _patch_requests_for_thread_safety() -> Callable[[], None]:
+    """Patch requests.Session.request to serialize calls during recording.
+
+    VCR has a race condition when multiple threads make concurrent HTTP requests:
+    only some requests get recorded properly. This patch ensures all requests
+    are serialized during recording to capture everything.
+
+    Also patches vendored requests libraries used by some connectors (e.g., Snowflake)
+    since VCR only patches the standard requests library.
+
+    Returns:
+        A function to restore the original behavior.
+    """
+    import requests
+
+    originals: list[tuple[Any, str, Any]] = []
+
+    def create_thread_safe_wrapper(original: Any) -> Any:
+        def thread_safe_request(self: Any, *args: Any, **kwargs: Any) -> Any:
+            global _recording_active
+            if _recording_active:
+                with _recording_lock:
+                    return original(self, *args, **kwargs)
+            else:
+                return original(self, *args, **kwargs)
+
+        return thread_safe_request
+
+    # Patch standard requests library
+    original_request = requests.Session.request
+    requests.Session.request = create_thread_safe_wrapper(original_request)  # type: ignore[method-assign]
+    originals.append((requests.Session, "request", original_request))
+
+    # Patch Snowflake's vendored requests if available
+    try:
+        from snowflake.connector.vendored.requests import sessions as sf_sessions
+
+        sf_original = sf_sessions.Session.request
+        sf_sessions.Session.request = create_thread_safe_wrapper(sf_original)  # type: ignore[method-assign]
+        originals.append((sf_sessions.Session, "request", sf_original))
+        logger.debug("Patched Snowflake vendored requests for thread-safe recording")
+    except ImportError:
+        pass  # Snowflake connector not installed
+
+    def restore() -> None:
+        for cls, attr, original in originals:
+            setattr(cls, attr, original)
+
+    return restore
+
+
+class HTTPRecorder:
+    """Records and replays HTTP traffic using VCR.py.
+
+    VCR.py automatically intercepts all requests made via the `requests` library
+    and stores them in a cassette file. During replay, it serves the recorded
+    responses without making actual network calls.
+
+    This captures:
+    - External API calls (PowerBI, Superset, Snowflake REST, etc.)
+    - GMS/DataHub API calls (sink emissions, stateful ingestion checks)
+    """
+
+    def __init__(self, cassette_path: Path) -> None:
+        """Initialize HTTP recorder.
+
+        Args:
+            cassette_path: Path where the VCR cassette will be stored.
+        """
+        from datahub.ingestion.recording.config import check_recording_dependencies
+
+        check_recording_dependencies()
+
+        import vcr
+
+        self.cassette_path = cassette_path
+        self._request_count = 0
+
+        def _log_request(request: Any) -> Any:
+            """Log each request as it's being recorded."""
+            self._request_count += 1
+            logger.debug(
+                f"[VCR] Recording request #{self._request_count}: "
+                f"{request.method} {request.uri}"
+            )
+            return request
+
+        self.vcr = vcr.VCR(
+            # Use YAML serializer to handle binary data (Arrow, gRPC, etc.)
+            # JSON serializer fails on binary responses from Databricks, BigQuery, etc.
+            serializer="yaml",
+            record_mode="new_episodes",
+            # Match on these attributes to identify unique requests
+            match_on=["uri", "method", "body"],
+            # Filter out sensitive headers from recordings
+            filter_headers=[
+                "Authorization",
+                "X-DataHub-Auth",
+                "Cookie",
+                "Set-Cookie",
+            ],
+            # Decode compressed responses for readability
+            decode_compressed_response=True,
+            # Log each request as it's recorded
+            before_record_request=_log_request,
+        )
+        self._cassette: Optional[Any] = None
+
+    @contextmanager
+    def recording(self) -> Iterator["HTTPRecorder"]:
+        """Context manager for recording HTTP traffic.
+
+        This method ensures thread-safe recording by serializing all HTTP requests.
+        VCR has a race condition when recording concurrent requests, which can cause
+        some requests to be missed. The thread-safe patch ensures all requests are
+        captured properly.
+
+        Usage:
+            recorder = HTTPRecorder(Path("cassette.json"))
+            with recorder.recording():
+                # All HTTP calls are recorded
+                requests.get("https://api.example.com/data")
+        """
+        global _recording_active
+
+        logger.info(f"Starting HTTP recording to {self.cassette_path}")
+        logger.info(
+            "Thread-safe recording enabled: HTTP requests will be serialized "
+            "to ensure all are captured. This may impact performance but "
+            "guarantees complete recordings."
+        )
+
+        # Ensure parent directory exists
+        self.cassette_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Patch requests for thread-safe recording
+        restore_patch = _patch_requests_for_thread_safety()
+        _recording_active = True
+
+        try:
+            with self.vcr.use_cassette(
+                str(self.cassette_path),
+                record_mode="new_episodes",
+            ) as cassette:
+                self._cassette = cassette
+                try:
+                    yield self
+                finally:
+                    self._cassette = None
+                    # Log detailed recording stats
+                    logger.info(
+                        f"HTTP recording complete. "
+                        f"Recorded {len(cassette)} request(s) to {self.cassette_path}"
+                    )
+        finally:
+            # Always restore original behavior
+            _recording_active = False
+            restore_patch()
+            logger.debug("Thread-safe HTTP recording patch removed")
+
+    @contextmanager
+    def replaying(self) -> Iterator["HTTPRecorder"]:
+        """Context manager for replaying HTTP traffic.
+
+        In replay mode, VCR serves recorded responses and raises an error
+        if an unrecorded request is made. This ensures true air-gapped operation.
+
+        Matching strategy:
+        - Authentication requests (login endpoints): Match on URI and method only,
+          ignoring body differences (credentials differ between record/replay)
+        - Data requests: Match on URI, method, AND body to ensure correct
+          responses for queries with different parameters
+
+        Usage:
+            recorder = HTTPRecorder(Path("cassette.json"))
+            with recorder.replaying():
+                # All HTTP calls are served from recordings
+                response = requests.get("https://api.example.com/data")
+        """
+        if not self.cassette_path.exists():
+            raise FileNotFoundError(
+                f"HTTP cassette not found: {self.cassette_path}. "
+                "Cannot replay without a recorded cassette."
+            )
+
+        logger.info(f"Starting HTTP replay from {self.cassette_path}")
+
+        import vcr
+
+        # Authentication endpoints that should match without body comparison
+        # These contain credentials that differ between recording (real) and replay (dummy)
+        AUTH_ENDPOINTS = [
+            "/login",
+            "/oauth",
+            "/token",
+            "/auth",
+        ]
+
+        def is_auth_request(request: Any) -> bool:
+            """Check if request is an authentication request."""
+            uri = request.uri.lower()
+            return any(endpoint in uri for endpoint in AUTH_ENDPOINTS)
+
+        def normalize_json_body(body: Any) -> Any:
+            """Normalize JSON body for comparison.
+
+            Handles:
+            - Comma-separated ID lists in filters (order-independent)
+            - Sort keys for consistent comparison
+            """
+            import json
+
+            if not body:
+                return body
+
+            try:
+                if isinstance(body, bytes):
+                    body = body.decode("utf-8")
+                data = json.loads(body)
+
+                # Normalize filters with comma-separated IDs
+                if isinstance(data, dict) and "filters" in data:
+                    filters = data["filters"]
+                    for key, value in filters.items():
+                        if isinstance(value, str) and "," in value:
+                            # Sort comma-separated values for consistent comparison
+                            values = sorted(value.split(","))
+                            filters[key] = ",".join(values)
+
+                return json.dumps(data, sort_keys=True)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                return body
+
+        def custom_body_matcher(r1: Any, r2: Any) -> bool:
+            """Custom body matcher with special handling for auth and JSON bodies."""
+            # For auth requests, don't compare body (credentials differ)
+            if is_auth_request(r1):
+                return True
+
+            # Normalize and compare JSON bodies
+            body1 = normalize_json_body(r1.body)
+            body2 = normalize_json_body(r2.body)
+            return body1 == body2
+
+        # Create VCR with custom matchers
+        replay_vcr = vcr.VCR(
+            # Use YAML serializer to match recording format (handles binary data)
+            serializer="yaml",
+            record_mode="none",
+            decode_compressed_response=True,
+        )
+
+        # Register custom body matcher
+        replay_vcr.register_matcher("custom_body", custom_body_matcher)
+
+        with replay_vcr.use_cassette(
+            str(self.cassette_path),
+            record_mode="none",  # Don't record, only replay
+            # Match on URI, method, and custom body matcher
+            # Custom body matcher skips body comparison for auth requests
+            match_on=["uri", "method", "custom_body"],
+            # Allow requests to be matched in any order and multiple times
+            # This is necessary because sources may make parallel requests
+            # and the order can differ between recording and replay
+            allow_playback_repeats=True,
+        ) as cassette:
+            self._cassette = cassette
+            try:
+                yield self
+            finally:
+                self._cassette = None
+                logger.info("HTTP replay complete")
+
+    @property
+    def request_count(self) -> int:
+        """Number of requests recorded/replayed in current session."""
+        if self._cassette is not None:
+            return len(self._cassette)
+        return 0
+
+
+class HTTPReplayerForLiveSink:
+    """HTTP replayer that allows specific hosts to make real requests.
+
+    Used when replaying with --live-sink flag, where we want to:
+    - Replay source HTTP calls from recordings
+    - Allow real HTTP calls to the GMS server for sink operations
+    """
+
+    def __init__(
+        self,
+        cassette_path: Path,
+        live_hosts: list[str],
+    ) -> None:
+        """Initialize HTTP replayer with live sink support.
+
+        Args:
+            cassette_path: Path to the VCR cassette file.
+            live_hosts: List of hostnames that should make real requests
+                       (e.g., ["localhost:8080", "datahub.example.com"]).
+        """
+        from datahub.ingestion.recording.config import check_recording_dependencies
+
+        check_recording_dependencies()
+
+        import vcr
+
+        self.cassette_path = cassette_path
+        self.live_hosts = live_hosts
+
+        # Authentication endpoints that should match without body comparison
+        AUTH_ENDPOINTS = [
+            "/login",
+            "/oauth",
+            "/token",
+            "/auth",
+        ]
+
+        def is_auth_request(request: Any) -> bool:
+            """Check if request is an authentication request."""
+            uri = request.uri.lower()
+            return any(endpoint in uri for endpoint in AUTH_ENDPOINTS)
+
+        def normalize_json_body(body: Any) -> Any:
+            """Normalize JSON body for comparison."""
+            import json
+
+            if not body:
+                return body
+
+            try:
+                if isinstance(body, bytes):
+                    body = body.decode("utf-8")
+                data = json.loads(body)
+
+                # Normalize filters with comma-separated IDs
+                if isinstance(data, dict) and "filters" in data:
+                    filters = data["filters"]
+                    for key, value in filters.items():
+                        if isinstance(value, str) and "," in value:
+                            values = sorted(value.split(","))
+                            filters[key] = ",".join(values)
+
+                return json.dumps(data, sort_keys=True)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                return body
+
+        # Custom matcher that allows live hosts to bypass recording
+        # and handles auth vs data request body matching
+        def custom_matcher(r1: Any, r2: Any) -> bool:
+            """Match requests with special handling for live hosts and auth."""
+            from urllib.parse import urlparse
+
+            parsed = urlparse(r1.uri)
+            host = parsed.netloc
+
+            # If this is a live host, don't match (allow real request)
+            for live_host in live_hosts:
+                if live_host in host:
+                    return False
+
+            # URI and method must always match
+            if r1.uri != r2.uri or r1.method != r2.method:
+                return False
+
+            # For auth requests, don't compare body (credentials differ)
+            if is_auth_request(r1):
+                return True
+
+            # Normalize and compare JSON bodies
+            body1 = normalize_json_body(r1.body)
+            body2 = normalize_json_body(r2.body)
+            return body1 == body2
+
+        self.vcr = vcr.VCR(
+            # Use YAML serializer to match recording format (handles binary data)
+            serializer="yaml",
+            record_mode="none",
+            before_record_request=self._filter_live_hosts,
+        )
+        self.vcr.register_matcher("custom", custom_matcher)
+        self._cassette: Optional[Any] = None
+
+    def _filter_live_hosts(self, request: Any) -> Optional[Any]:
+        """Filter out requests to live hosts from being recorded."""
+        from urllib.parse import urlparse
+
+        parsed = urlparse(request.uri)
+        host = parsed.netloc
+
+        for live_host in self.live_hosts:
+            if live_host in host:
+                return None  # Don't record this request
+
+        return request
+
+    @contextmanager
+    def replaying(self) -> Iterator["HTTPReplayerForLiveSink"]:
+        """Context manager for replaying with live sink support."""
+        if not self.cassette_path.exists():
+            raise FileNotFoundError(
+                f"HTTP cassette not found: {self.cassette_path}. "
+                "Cannot replay without a recorded cassette."
+            )
+
+        logger.info(
+            f"Starting HTTP replay from {self.cassette_path} "
+            f"with live hosts: {self.live_hosts}"
+        )
+
+        with self.vcr.use_cassette(
+            str(self.cassette_path),
+            record_mode="new_episodes",  # Allow new requests to live hosts
+            match_on=["custom"],  # Use custom matcher for body handling
+            allow_playback_repeats=True,
+        ) as cassette:
+            self._cassette = cassette
+            try:
+                yield self
+            finally:
+                self._cassette = None
+                logger.info("HTTP replay with live sink complete")
