@@ -84,7 +84,7 @@ export default function ExecutionsTable({
         setExecutionInfoToCancel(undefined);
     }, [handleCancelExecution, executionInfoToCancel]);
 
-    const hadleViewDetails = useCallback(
+    const handleViewDetails = useCallback(
         (urn: string) => {
             if (showIngestionOnboardingRedesignV1) {
                 history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn), {
@@ -126,7 +126,7 @@ export default function ExecutionsTable({
         {
             title: 'Status',
             key: 'status',
-            render: (record) => <StatusColumn status={record.status} onClick={() => hadleViewDetails(record.urn)} />,
+            render: (record) => <StatusColumn status={record.status} onClick={() => handleViewDetails(record.urn)} />,
             width: '15%',
         },
         {
@@ -135,7 +135,7 @@ export default function ExecutionsTable({
             render: (record) => (
                 <ActionsColumn
                     record={record}
-                    hadleViewDetails={hadleViewDetails}
+                    handleViewDetails={handleViewDetails}
                     handleRollback={() => setRunIdOfRollbackConfirmation(record.id)}
                     handleCancel={() => {
                         if (record.sourceUrn) {
@@ -157,7 +157,7 @@ export default function ExecutionsTable({
                 data={tableData}
                 isScrollable
                 isLoading={loading}
-                onRowClick={(record) => hadleViewDetails(record.urn)}
+                onRowClick={(record) => handleViewDetails(record.urn)}
                 footer={
                     isLastPage ? (
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
