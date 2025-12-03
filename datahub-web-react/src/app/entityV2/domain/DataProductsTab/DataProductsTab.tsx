@@ -112,6 +112,8 @@ export default function DataProductsTab() {
                     type="text"
                     onClick={() => setIsCreateModalVisible(true)}
                     data-testid="create-data-product-button"
+                    $hasBorder={false}
+                    $hasHover={true}
                 >
                     <PlusOutlined /> New Data Product
                 </StyledButton>
