@@ -12,16 +12,12 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
-import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -49,32 +45,19 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          // Check authorization based on feature flag
-          if (_featureFlags.isDomainBasedAuthorizationEnabled()) {
-            // New domain-based authorization approach
-            // Get existing domains from the entity using metadata-io utility
-            Set<Urn> existingDomains =
-                DomainExtractionUtils.getEntityDomains(
-                    context.getOperationContext(), _entityService, entityUrn);
-
-            // Combine existing domains with the new domain being set
-            Set<Urn> allDomains = new HashSet<>(existingDomains);
-            allDomains.add(domainUrn);
-
-            // Check domain-based authorization
-            if (!DomainUtils.isAuthorizedWithDomains(
-                context, ApiOperation.UPDATE, entityUrn, allDomains)) {
-              throw new AuthorizationException(
-                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
-          } else {
-            // Legacy authorization approach
+          // Domain-based authorization (when enabled) is now handled inside the transaction
+          // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+          // Only perform standard authorization here when domain-based auth is disabled
+          if (!_featureFlags.isDomainBasedAuthorizationEnabled()) {
+            // Legacy authorization approach when domain-based auth is disabled
             if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
                 context, entityUrn, _entityClient)) {
               throw new AuthorizationException(
                   "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
           }
+          // When domain-based auth is enabled, authorization will happen inside the transaction
+          // via the DomainBasedAuthorizationValidator
 
           validateSetDomainInput(
               context.getOperationContext(), entityUrn, domainUrn, _entityService);

@@ -11,14 +11,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,18 +31,18 @@ public class DeleteUtils {
       @Nonnull EntityClient entityClient,
       @Nonnull EntityService<?> entityService) {
 
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    // Only perform standard authorization here when domain-based auth is disabled
     if (isDomainBasedAuthorizationEnabled(context.getAuthorizer())) {
-    
-      Set<Urn> domainUrns = DomainExtractionUtils.getEntityDomains(
-          context.getOperationContext(), entityService, entityUrn);
-      
-      // If entity has domains, use domain-aware authorization, if domain Urns is empty, fall back to standard authorization
-      if (!domainUrns.isEmpty()) {
-        return DomainUtils.isAuthorizedWithDomains(context, DELETE, entityUrn, domainUrns);
-      }
+      // When domain-based auth is enabled, skip pre-transaction authorization
+      // The validator will handle it inside the transaction
+      // For now, return true to let the request proceed to the validator
+      // If unauthorized, the validator will throw an exception
+      return true;
     }
-    
-    // Fall back to standard authorization
+
+    // Fall back to standard authorization when domain-based auth is disabled
     return AuthUtil.isAuthorizedEntityUrns(
         context.getOperationContext(), DELETE, List.of(entityUrn));
   }

@@ -331,38 +331,20 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     }
                     
                     // Only perform authorization if there are MCPs that require it
-                    if (!mcpsToAuthorize.isEmpty()) {
-                        // Extract domains WITHIN transaction if domain-based authorization is enabled
-                        // This prevents race conditions where domains could change between auth check and update
-                        final Map<Urn, Set<Urn>> entityDomains;
-                        if (isDomainBasedAuthorizationEnabled(_authorizer)) {
-                            log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.",
-                                mcpsToAuthorize.size());
-                            entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
-                                opContext, _entityService, mcpsToAuthorize);
-                            
-                            // Validate all domains exist
-                            Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
-                            if (!DomainExtractionUtils.validateDomainsExist(opContext, _entityService, allDomains)) {
-                                throw new RestLiServiceException(
-                                    HttpStatus.S_400_BAD_REQUEST,
-                                    "One or more domains do not exist. Cannot create entity with non-existent domain.");
-                            }
-                        } else {
-                            log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.",
-                                mcpsToAuthorize.size());
-                            entityDomains = null;
-                        }
-
-                        // Authorize all MCPs with unified method (handles both domain-based and standard auth)
+                    // Note: Domain-based authorization (when enabled) is now handled inside the transaction
+                    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+                    if (!mcpsToAuthorize.isEmpty() && !isDomainBasedAuthorizationEnabled(_authorizer)) {
+                        // Standard authorization (without domains) for when domain-based auth is disabled
+                        log.info("Using standard authorization (domain-based auth disabled) for {} proposals.",
+                            mcpsToAuthorize.size());
                         List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
-                            opContext, ENTITY, opContext.getEntityRegistry(), mcpsToAuthorize, entityDomains);
-                        
+                            opContext, ENTITY, opContext.getEntityRegistry(), mcpsToAuthorize, null);
+
                         // Check for authorization failures
                         List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
                             .filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
                             .collect(Collectors.toList());
-                        
+
                         if (!failures.isEmpty()) {
                             String errorMessages = failures.stream()
                                 .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))

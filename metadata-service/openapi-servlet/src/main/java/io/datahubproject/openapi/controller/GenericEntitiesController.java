@@ -514,11 +514,37 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Check domain-based authorization if feature flag is enabled
+    // Authorization for hard deletes
+    // Hard deletes bypass the validator layer (which only runs during MCP ingestion),
+    // so we must perform authorization here
     if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      checkDomainAuthorizationForEntity(opContext, urn, authentication.getActor().toUrnStr());
+      // Domain-based authorization: read entity's domains and authorize with domain context
+      Set<Urn> domains = DomainExtractionUtils.getEntityDomains(opContext, entityService, urn);
+
+      if (!domains.isEmpty()) {
+        // Entity has domains - use domain-based authorization
+        if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+            opContext, DELETE, List.of(urn), domains)) {
+          throw new UnauthorizedException(
+              authentication.getActor().toUrnStr()
+                  + " is unauthorized to "
+                  + DELETE
+                  + " entities with domains "
+                  + domains
+                  + ".");
+        }
+      } else {
+        // Entity has no domains - use standard authorization
+        if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+          throw new UnauthorizedException(
+              authentication.getActor().toUrnStr()
+                  + " is unauthorized to "
+                  + DELETE
+                  + " entities.");
+        }
+      }
     } else {
-      // Fall back to entity URN authorization when domain auth is disabled
+      // Standard entity URN authorization when domain auth is disabled
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
         throw new UnauthorizedException(
             authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
@@ -578,41 +604,27 @@ public abstract class GenericEntitiesController<
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
 
-    // Extract domains if domain-based authorization is enabled
-    final Map<Urn, Set<Urn>> entityDomains;
-    if (isDomainBasedAuthorizationEnabled(authorizationChain)) {
-      log.info("Domain-based authorization is ENABLED. Collecting domain information for {} proposals.", mcps.size());
-      entityDomains = DomainExtractionUtils.extractEntityDomainsForAuthorization(
-          opContext, entityService, mcps);
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    // Only perform standard authorization here when domain-based auth is disabled
+    if (!isDomainBasedAuthorizationEnabled(authorizationChain)) {
+      log.info("Using standard authorization (domain-based auth disabled) for {} proposals.", mcps.size());
+      // Authorize all MCPs with standard authorization (no domains)
+      List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
+          opContext, ENTITY, entityRegistry, mcps, null);
 
-      if (entityDomains.size() > 0) {
-        // Validate all domains exist
-        Set<Urn> allDomains = DomainExtractionUtils.collectAllDomains(entityDomains);
-        if (!DomainExtractionUtils.validateDomainsExist(opContext, entityService, allDomains)) {
-          throw new UnauthorizedException(
-              "One or more domains do not exist. Cannot create entity with non-existent domain.");
-        }
+      // Check for authorization failures
+      List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
+          .filter(p -> p.getSecond() != 200)
+          .collect(Collectors.toList());
+
+      if (!failures.isEmpty()) {
+        String errorMessages = failures.stream()
+            .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+            .collect(Collectors.joining(", "));
+        throw new UnauthorizedException(
+            "User " + authentication.getActor().toUrnStr() + " is unauthorized to modify entities: " + errorMessages);
       }
-    } else {
-      log.info("Domain-based authorization is DISABLED. Using standard authorization for all {} proposals.", mcps.size());
-      entityDomains = null;
-    }
-
-    // Authorize all MCPs with unified method (handles both domain-based and standard auth)
-    List<Pair<MetadataChangeProposal, Integer>> authResults = isAPIAuthorizedMCPsWithDomains(
-        opContext, ENTITY, entityRegistry, mcps, entityDomains);
-    
-    // Check for authorization failures
-    List<Pair<MetadataChangeProposal, Integer>> failures = authResults.stream()
-        .filter(p -> p.getSecond() != 200)
-        .collect(Collectors.toList());
-    
-    if (!failures.isEmpty()) {
-      String errorMessages = failures.stream()
-          .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
-          .collect(Collectors.joining(", "));
-      throw new UnauthorizedException(
-          "User " + authentication.getActor().toUrnStr() + " is unauthorized to modify entities: " + errorMessages);
     }
 
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
@@ -713,13 +725,11 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Check domain-based authorization if feature flag is enabled
-    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      checkDomainBasedAuthorizationForSingleEntity(
-          opContext, urn, aspectName, jsonAspect, CREATE,
-          authentication.getActor().toUrnStr());
-    } else {
-      // Fall back to entity URN authorization when domain auth is disabled
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    // Only perform standard authorization here when domain-based auth is disabled
+    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard entity URN authorization when domain auth is disabled
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
         throw new UnauthorizedException(
             authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
@@ -797,12 +807,11 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Check domain-based authorization if feature flag is enabled
-    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      checkDomainBasedAuthorizationForSingleEntity(
-          opContext, urn, aspectName, patch, UPDATE, actor.toUrnStr());
-    } else {
-      // Fall back to entity URN authorization when domain auth is disabled
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    // Only perform standard authorization here when domain-based auth is disabled
+    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
+      // Standard entity URN authorization when domain auth is disabled
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
         throw new UnauthorizedException(
             actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");

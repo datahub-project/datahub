@@ -78,7 +78,7 @@ public class RollbackService {
     }
 
     List<AspectRowSummary> aspectRowsToDelete = rollbackTargetAspects(runId, hardDelete);
-    if (!isAuthorized(opContext, aspectRowsToDelete)) {
+    if (!isAuthorized(opContext, aspectRowsToDelete, authorizer)) {
       throw new AuthenticationException("User is NOT unauthorized to delete entities.");
     }
 
@@ -301,8 +301,18 @@ public class RollbackService {
   }
 
   private boolean isAuthorized(
-      @Nonnull OperationContext opContext, @Nonnull List<AspectRowSummary> rowSummaries) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<AspectRowSummary> rowSummaries,
+      Authorizer authorizer) {
 
+    // Domain-based authorization (when enabled) is handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit (called by deleteAspectWithoutMCL)
+    // Skip pre-transaction authorization check to avoid reading domains outside transaction
+    // Note: We cannot check if domain-based auth is enabled in this module due to dependency constraints,
+    // so we always perform standard authorization. If domain-based auth is enabled, the validator
+    // will perform an additional check inside the transaction.
+
+    // Standard authorization
     return AuthUtil.isAPIAuthorizedEntityUrns(
         opContext,
         DELETE,
