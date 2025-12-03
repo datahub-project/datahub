@@ -16,20 +16,49 @@ source:
     
     # Optional -- A mapping of trino catalog to its connector details like connector database, env and platform instance.
     # This configuration is used to ingest lineage of datasets to connectors. Use catalog name as key.
+    # See docs/sources/trino/trino_pre.md for list of all supported connectors and tier classification.
     # catalog_to_connector_details:
-    #   catalog_name:
-    #     connector_database: db_name
-    #     connector_platform: connector_platform_name
-    #     platform_instance: cloud_instance
-    #     env: DEV
+    #   # Example: Two-tier connector (Hive, MySQL, MongoDB, etc.)
+    #   hive_catalog:
+    #     connector_platform: hive
+    #     platform_instance: prod_hive  # Optional
+    #     env: PROD  # Optional
+    #   
+    #   # Example: Three-tier connector (PostgreSQL, Snowflake, Oracle, etc.)
+    #   # Note: connector_database is REQUIRED for three-tier connectors
+    #   postgres_catalog:
+    #     connector_database: my_database  # Required for 3-tier
+    #     connector_platform: postgresql
+    #     platform_instance: prod_postgres  # Optional
+    #     env: PROD  # Optional
     
-    # Optional -- Whether to ingest lineage to upstream connectors (default: true)
+    # Optional -- Whether to ingest dataset-level lineage to upstream connectors (default: true)
     # ingest_lineage_to_connectors: true
     
     # Optional -- Whether to ingest column-level lineage to upstream connectors (default: true)
     # Requires ingest_lineage_to_connectors to be enabled.
-    # This creates 1:1 column mappings between Trino tables/views and their upstream source tables.
+    # 
+    # IMPORTANT - Performance Impact:
+    # - Makes 2x database queries (1 extra per table/view for column metadata)
+    # - For 1000 tables, adds ~2-5 minutes to ingestion time
+    # - Consider disabling for large deployments (1000+ tables) or setting to false during initial testing
+    #
+    # How it works:
+    # - Creates 1:1 column mappings between Trino columns and upstream connector columns
+    # - Assumes column names match between Trino and upstream (which is correct for Trino's architecture)
+    # - Does NOT handle complex transformations in Trino-specific views (use include_view_lineage for that)
+    #
+    # Limitations:
+    # - 1:1 name-based mapping (column names must match between Trino and upstream)
+    # - Additional latency per table/view
+    # - See docs/sources/trino/trino_pre.md for full details on supported connectors and limitations
+    # 
     # include_column_lineage: true
+    
+    # Optional -- Whether to use incremental lineage (default: false)
+    # When enabled, emits lineage as incremental to existing lineage in DataHub.
+    # When disabled, re-states all lineage on each run.
+    # incremental_lineage: false
 
 sink:
   # sink configs

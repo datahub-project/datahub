@@ -437,7 +437,7 @@ class TrinoSource(SQLAlchemySource):
                 pk_constraints,
                 canonical_schema=schema_fields,
             )
-        except Exception as e:
+        except (sqlalchemy.exc.SQLAlchemyError, KeyError, AttributeError) as e:
             logging.warning(
                 f"Failed to fetch schema metadata for column lineage on {dataset_name}: {e}. "
                 "Skipping column-level lineage for this dataset."
