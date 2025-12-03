@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.versioning.validation;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -71,7 +73,9 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     return validatePropertiesUpserts(
         changeMCPs.stream()
             .filter(changeMCP -> VERSION_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName()))

@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -27,10 +28,15 @@ public class DeleteUtils {
   private DeleteUtils() {}
 
   public static boolean isAuthorizedToDeleteEntity(
-      @Nonnull QueryContext context, @Nonnull Urn entityUrn, @Nonnull EntityClient entityClient) {
+      @Nonnull QueryContext context,
+      @Nonnull Urn entityUrn,
+      @Nonnull EntityClient entityClient,
+      @Nonnull EntityService<?> entityService) {
 
     if (isDomainBasedAuthorizationEnabled(context.getAuthorizer())) {
-      Set<Urn> domainUrns = DomainUtils.getEntityDomains(context, entityClient, entityUrn);
+      // Use metadata-io utility to get entity domains
+      Set<Urn> domainUrns = DomainExtractionUtils.getEntityDomains(
+          context.getOperationContext(), entityService, entityUrn);
       
       // If entity has domains, use domain-aware authorization, if domain Urns is empty, fall back to standard authorization
       if (!domainUrns.isEmpty()) {

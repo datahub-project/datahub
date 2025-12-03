@@ -60,12 +60,15 @@ public abstract class AspectPayloadValidator extends PluginSpec {
    * @return whether the aspect proposal is valid
    */
   public final Stream<AspectValidationException> validatePreCommit(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     return validatePreCommitAspects(
         changeMCPs.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getUrn(), i.getAspectName()))
             .collect(Collectors.toList()),
-        retrieverContext);
+        retrieverContext,
+        session);
   }
 
   protected abstract Stream<AspectValidationException> validateProposedAspects(
@@ -89,5 +92,7 @@ public abstract class AspectPayloadValidator extends PluginSpec {
   }
 
   protected abstract Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext);
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session);
 }
