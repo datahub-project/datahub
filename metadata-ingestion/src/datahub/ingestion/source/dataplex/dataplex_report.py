@@ -32,7 +32,6 @@ class DataplexReport(StaleEntityRemovalSourceReport):
     num_entry_groups_ingested: int = 0
     num_entries_ingested: int = 0
 
-    num_sibling_relationships_created: int = 0
     num_lineage_relationships_created: int = 0
     num_lineage_entries_scanned: int = 0
     num_lineage_entries_failed: int = 0
@@ -92,10 +91,6 @@ class DataplexReport(StaleEntityRemovalSourceReport):
         """Report that an entry was scanned."""
         self.num_entries_scanned += 1
         self.num_entries_ingested += 1
-
-    def report_sibling_relationship_created(self) -> None:
-        """Report that a sibling relationship was created."""
-        self.num_sibling_relationships_created += 1
 
     def report_lineage_relationship_created(self) -> None:
         """Report that a lineage relationship was created."""

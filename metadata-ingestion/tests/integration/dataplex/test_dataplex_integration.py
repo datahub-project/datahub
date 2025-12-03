@@ -22,12 +22,8 @@ def dataplex_recipe(mcp_output_path: str) -> Dict[str, Any]:
             "config": {
                 "project_ids": ["test-project"],
                 "location": "us-central1",
-                "include_lakes": True,
-                "include_zones": True,
-                "include_assets": True,
                 "include_entities": True,
                 "include_lineage": False,  # Disable lineage for simpler test
-                "create_sibling_relationships": False,
             },
         },
         "sink": {"type": "file", "config": {"filename": mcp_output_path}},

@@ -546,7 +546,7 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Maps Projects, Lakes, and Zones to hierarchical Containers",
+          "description": "Links BigQuery entities to BigQuery dataset containers. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
           "subtype_modifier": null,
           "supported": true
         },

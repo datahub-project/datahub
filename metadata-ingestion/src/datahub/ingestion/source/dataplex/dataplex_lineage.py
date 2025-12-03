@@ -97,7 +97,6 @@ class DataplexLineageExtractor:
         self.lineage_client = lineage_client
         self.dataplex_client = dataplex_client
         self.redundant_run_skip_handler = redundant_run_skip_handler
-        self.platform = "dataplex"
 
         # Cache for lineage information
         # Key: entity_id (Dataplex entity identifier)
@@ -381,7 +380,7 @@ class DataplexLineageExtractor:
             return None
 
     def get_lineage_for_table(
-        self, entity_id: str, dataset_urn: str
+        self, entity_id: str, dataset_urn: str, platform: str
     ) -> Optional[UpstreamLineageClass]:
         """
         Build UpstreamLineageClass for a specific entity.
@@ -389,6 +388,7 @@ class DataplexLineageExtractor:
         Args:
             entity_id: Entity ID
             dataset_urn: DataHub URN for the dataset
+            platform: Source platform for the entity (bigquery, gcs, etc.)
 
         Returns:
             UpstreamLineageClass object or None if no lineage exists
@@ -400,11 +400,28 @@ class DataplexLineageExtractor:
 
         for lineage_edge in self.lineage_map[entity_id]:
             # Generate URN for the upstream entity
-            # Extract project_id from entity_id (format: project_id.entity_name)
+            # Extract project_id from entity_id (format: project_id.dataset_id.entity_name)
             if "." in lineage_edge.entity_id:
-                project_id, dataset_id, entity_name = lineage_edge.entity_id.split(
-                    ".", 2
-                )
+                parts = lineage_edge.entity_id.split(".", 2)
+                if len(parts) == 3:
+                    project_id, dataset_id, entity_name = parts
+                elif len(parts) == 2:
+                    # GCS format might be bucket.path or just bucket
+                    dataset_id, entity_name = parts
+                    project_id = (
+                        self.config.project_ids[0]
+                        if self.config.project_ids
+                        else "unknown"
+                    )
+                else:
+                    # Fallback if format is unexpected
+                    project_id = (
+                        self.config.project_ids[0]
+                        if self.config.project_ids
+                        else "unknown"
+                    )
+                    dataset_id = "unknown"
+                    entity_name = lineage_edge.entity_id
             else:
                 # Fallback if format is different
                 project_id = (
@@ -413,10 +430,12 @@ class DataplexLineageExtractor:
                 dataset_id = "unknown"
                 entity_name = lineage_edge.entity_id
 
+            # Use the same platform as the downstream entity
+            # This assumes lineage is typically within the same platform
             upstream_urn = make_entity_dataset_urn(
                 project_id=project_id,
                 entity_id=entity_name,
-                platform=self.platform,
+                platform=platform,
                 env=self.config.env,
                 dataset_id=dataset_id,
             )
@@ -431,6 +450,8 @@ class DataplexLineageExtractor:
                 ),
             )
             upstream_list.append(upstream_class)
+            # Report the lineage relationship
+            self.report.report_lineage_relationship_created()
 
         if not upstream_list:
             return None
@@ -441,6 +462,7 @@ class DataplexLineageExtractor:
         self,
         entity_id: str,
         dataset_urn: str,
+        platform: str,
         upstream_lineage: Optional[UpstreamLineageClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -449,13 +471,16 @@ class DataplexLineageExtractor:
         Args:
             entity_id: Entity ID
             dataset_urn: DataHub URN for the dataset
+            platform: Source platform (bigquery, gcs, etc.)
             upstream_lineage: Optional pre-built UpstreamLineageClass
 
         Yields:
             MetadataWorkUnit objects containing lineage information
         """
         if upstream_lineage is None:
-            upstream_lineage = self.get_lineage_for_table(entity_id, dataset_urn)
+            upstream_lineage = self.get_lineage_for_table(
+                entity_id, dataset_urn, platform
+            )
 
         if upstream_lineage is None:
             return
@@ -504,13 +529,15 @@ class DataplexLineageExtractor:
                 dataset_urn = make_entity_dataset_urn(
                     project_id=project_id,
                     entity_id=entity.entity_id,
-                    platform=self.platform,
+                    platform=entity.source_platform,
                     env=self.config.env,
                     dataset_id=entity.dataset_id,
                 )
 
                 try:
-                    yield from self.gen_lineage(entity.entity_id, dataset_urn)
+                    yield from self.gen_lineage(
+                        entity.entity_id, dataset_urn, entity.source_platform
+                    )
                 except Exception as e:
                     self.report.num_lineage_entries_failed += 1
                     self.report.report_warning(
@@ -548,13 +575,15 @@ class DataplexLineageExtractor:
                     dataset_urn = make_entity_dataset_urn(
                         project_id=project_id,
                         entity_id=entity.entity_id,
-                        platform=self.platform,
+                        platform=entity.source_platform,
                         env=self.config.env,
                         dataset_id=entity.dataset_id,
                     )
 
                     try:
-                        yield from self.gen_lineage(entity.entity_id, dataset_urn)
+                        yield from self.gen_lineage(
+                            entity.entity_id, dataset_urn, entity.source_platform
+                        )
                     except Exception as e:
                         self.report.num_lineage_entries_failed += 1
                         self.report.report_warning(

@@ -82,40 +82,60 @@ Default GCP Role for lineage: [roles/datalineage.viewer](https://docs.cloud.goog
 
 ### Integration Details
 
-The Dataplex connector extracts metadata from Google Dataplex, including Projects, Lakes, Zones, Assets, and Entities in a given project and location.
+The Dataplex connector extracts metadata from Google Dataplex entities (discovered tables and filesets) in a given project and location. **Entities are ingested using their source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
 
 #### Concept Mapping
 
 This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 
-| Dataplex Concept | DataHub Concept                                                                      | Notes                                                                                                 |
-| :--------------- | :----------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| Project          | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/) | GCP Project containing Dataplex resources                                                             |
-| Lake             | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/) | Data lake container (sub-container of Project)                                                        |
-| Zone             | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/) | Zone container under a Lake (RAW or CURATED type)                                                     |
-| Asset            | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container/) | Asset container representing a BigQuery dataset or GCS bucket (sub-container of Zone)                 |
-| Entity           | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)      | Discovered table or fileset (linked to Asset container). Schema metadata is extracted when available. |
+| Dataplex Concept | DataHub Concept                                                                 | Notes                                                                                                                                                                  |
+| :--------------- | :------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entity           | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset) | Discovered table or fileset. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.                           |
+| Lake/Zone/Asset  | Custom Properties                                                               | Dataplex hierarchy information (lake, zone, asset, zone type) is preserved as **custom properties** on datasets for traceability without creating separate containers. |
 
-#### Hierarchy
+#### Platform Alignment
 
-The connector creates a hierarchical container structure:
+The connector generates datasets that align with native source connectors:
 
-```
-Project (Container)
-└── Lake (Container)
-    └── Zone (Container)
-        └── Asset (Container)
-            └── Entity (Dataset)
-```
+**BigQuery Entities:**
 
-#### Sibling Relationships
+- **URN Format**: `urn:li:dataset:(urn:li:dataPlatform:bigquery,{project}.{dataset}.{table},PROD)`
+- **Container**: Linked to BigQuery dataset containers (same as BigQuery connector)
+- **Platform**: `bigquery`
 
-When `create_sibling_relationships` is enabled, the connector creates bidirectional sibling relationships between entities ingested by the Dataplex connector and the same entities ingested by their respective source platform connectors (e.g., BigQuery connector, GCS connector). This allows you to:
+**GCS Entities:**
 
-- Navigate between the Dataplex view and the source platform view of the same data
-- See the same physical table/object from both the Dataplex catalog perspective and the source system perspective
-- Control which entity is considered primary using `dataplex_is_primary_sibling` config
-- By default, the source platform entity (BigQuery/GCS) is marked as primary
+- **URN Format**: `urn:li:dataset:(urn:li:dataPlatform:gcs,{bucket}/{path},PROD)`
+- **Container**: No container (same as GCS connector)
+- **Platform**: `gcs`
+
+This alignment ensures:
+
+- **Consistency**: Dataplex-discovered entities appear alongside native BigQuery/GCS entities in the same container hierarchy
+- **No Duplication**: If you run both Dataplex and BigQuery/GCS connectors, entities discovered by both will merge (same URN)
+- **Unified Navigation**: Users see a single view of BigQuery datasets or GCS buckets, regardless of discovery method
+
+#### Dataplex Context Preservation
+
+Dataplex-specific metadata is preserved as custom properties on each dataset:
+
+| Custom Property      | Description                                      | Example Value       |
+| :------------------- | :----------------------------------------------- | :------------------ |
+| `dataplex_ingested`  | Indicates this entity was discovered by Dataplex | `"true"`            |
+| `dataplex_lake`      | Dataplex lake ID                                 | `"my-data-lake"`    |
+| `dataplex_zone`      | Dataplex zone ID                                 | `"raw-zone"`        |
+| `dataplex_entity_id` | Dataplex entity ID                               | `"customer_table"`  |
+| `dataplex_zone_type` | Zone type (RAW or CURATED)                       | `"RAW"`             |
+| `data_path`          | GCS path for the entity                          | `"gs://bucket/..."` |
+| `system`             | Storage system (BIGQUERY, CLOUD_STORAGE)         | `"BIGQUERY"`        |
+| `format`             | Data format (PARQUET, AVRO, etc.)                | `"PARQUET"`         |
+
+These properties allow you to:
+
+- Identify which assets were discovered through Dataplex
+- Understand the Dataplex organizational structure (lakes, zones)
+- Filter or search for Dataplex-managed entities
+- Trace entities back to their Dataplex catalog origin
 
 #### Lineage
 

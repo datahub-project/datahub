@@ -20,7 +20,7 @@ from google.cloud.datacatalog.lineage_v1 import LineageClient
 from google.oauth2 import service_account
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -37,20 +37,22 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntityDataTuple,
     extract_entity_metadata,
-    make_asset_container_key,
     make_audit_stamp,
+    make_bigquery_dataset_container_key,
     make_entity_dataset_urn,
-    make_lake_container_key,
-    make_sibling_dataset_urn,
-    make_zone_container_key,
     map_dataplex_field_to_datahub,
 )
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_container,
+    gen_schema_container,
+)
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -60,7 +62,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
@@ -83,7 +84,7 @@ logger = logging.getLogger(__name__)
 @support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.CONTAINERS,
-    "Maps Projects, Lakes, and Zones to hierarchical Containers",
+    "Links BigQuery entities to BigQuery dataset containers. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
@@ -159,11 +160,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self.asset_metadata = {}
         self.zone_metadata = {}  # Store zone types for adding to entity custom properties
 
+        # Track BigQuery containers to create (project_id -> set of dataset_ids)
+        self.bq_containers: dict[str, set[str]] = {}
+
         # Thread safety locks for parallel processing
         self._report_lock = Lock()
         self._asset_metadata_lock = Lock()
         self._entity_data_lock = Lock()
         self._zone_metadata_lock = Lock()
+        self._bq_containers_lock = Lock()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -226,339 +231,30 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._process_project(project_id)
 
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """Process all Dataplex resources for a single project."""
-        yield from self._gen_project_workunits(project_id)
+        """Process all Dataplex resources for a single project.
 
-        if self.config.include_lakes:
-            yield from auto_workunit(self._get_lakes_mcps(project_id))
+        This uses a two-pass approach to minimize memory usage:
+        1. First pass: Stream through entities to discover which containers are needed (tracking only)
+        2. Emit containers (lightweight)
+        3. Second pass: Re-stream through entities to emit full metadata
 
-        if self.config.include_zones:
-            yield from auto_workunit(self._get_zones_mcps(project_id))
-
-        if self.config.include_assets:
-            yield from auto_workunit(self._get_assets_mcps(project_id))
-
+        The container tracking (self.bq_containers) is populated during the first pass
+        via _process_zone_entities, which is called by _get_entities_mcps.
+        """
         if self.config.include_entities:
+            # First pass: Stream entities to discover containers (consume but don't yield)
+            for _ in self._get_entities_mcps(project_id):
+                pass  # Container tracking happens in _process_zone_entities
+
+            # Emit BigQuery containers BEFORE entities (so entities can reference them)
+            yield from self._gen_bigquery_containers(project_id)
+
+            # Second pass: Stream entities again to emit full metadata
             yield from auto_workunit(self._get_entities_mcps(project_id))
 
-        # if self.config.extract_entry_groups:
-        #     yield from auto_workunit(self._get_entry_groups_mcps(project_id))
-
-        # if self.config.extract_entries:
-        #     yield from auto_workunit(self._get_entries_mcps(project_id))
-
-        # Extract lineage for entities (after entities have been processed)
+        # Extract lineage for entities (after entities and containers have been processed)
         if self.config.include_lineage and self.lineage_extractor:
             yield from self._get_lineage_workunits(project_id)
-
-    def _gen_project_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for GCP Project as a Container."""
-        project_container_key = ProjectIdKey(
-            project_id=project_id,
-            platform=self.platform,
-            env=self.config.env,
-        )
-
-        yield from gen_containers(
-            container_key=project_container_key,
-            name=project_id,
-            description=f"Google Cloud Project: {project_id}",
-            sub_types=["GCP Project"],
-            extra_properties={
-                "location": self.config.location,
-            },
-        )
-
-    def _get_lakes_mcps(
-        self, project_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch lakes from Dataplex and generate corresponding MCPs as Containers."""
-        parent = f"projects/{project_id}/locations/{self.config.location}"
-
-        try:
-            with self.report.dataplex_api_timer:
-                request = dataplex_v1.ListLakesRequest(parent=parent)
-                lakes = self.dataplex_client.list_lakes(request=request)
-
-            for lake in lakes:
-                lake_id = lake.name.split("/")[-1]
-
-                if not self.config.filter_config.lake_pattern.allowed(lake_id):
-                    logger.debug(f"Lake {lake_id} filtered out by pattern")
-                    self.report.report_lake_scanned(lake_id, filtered=True)
-                    continue
-
-                self.report.report_lake_scanned(lake_id)
-                logger.info(f"Processing lake: {lake_id} in project: {project_id}")
-
-                # Create lake container key
-                lake_container_key = make_lake_container_key(
-                    project_id=project_id,
-                    lake_id=lake_id,
-                    platform=self.platform,
-                    env=self.config.env,
-                )
-
-                # Create parent project container key
-                project_container_key = ProjectIdKey(
-                    project_id=project_id,
-                    platform=self.platform,
-                    env=self.config.env,
-                )
-
-                # Convert timestamps to milliseconds
-                created_ts = (
-                    int(lake.create_time.timestamp() * 1000)
-                    if lake.create_time
-                    else None
-                )
-                modified_ts = (
-                    int(lake.update_time.timestamp() * 1000)
-                    if lake.update_time
-                    else None
-                )
-
-                yield from gen_containers(
-                    container_key=lake_container_key,
-                    name=lake.display_name or lake_id,
-                    description=lake.description or "",
-                    sub_types=["Dataplex Lake"],
-                    parent_container_key=project_container_key,
-                    created=created_ts,
-                    last_modified=modified_ts,
-                )
-
-        except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title="Failed to list lakes",
-                message=f"Error listing lakes in project {project_id}",
-                exc=e,
-            )
-
-    def _get_zones_mcps(
-        self, project_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch zones from Dataplex and generate corresponding MCPs as Sub-containers."""
-        parent = f"projects/{project_id}/locations/{self.config.location}"
-
-        try:
-            with self.report.dataplex_api_timer:
-                request = dataplex_v1.ListLakesRequest(parent=parent)
-                lakes = self.dataplex_client.list_lakes(request=request)
-
-            for lake in lakes:
-                lake_id = lake.name.split("/")[-1]
-
-                if not self.config.filter_config.lake_pattern.allowed(lake_id):
-                    continue
-
-                zones_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}"
-                zones_request = dataplex_v1.ListZonesRequest(parent=zones_parent)
-
-                try:
-                    zones = self.dataplex_client.list_zones(request=zones_request)
-
-                    for zone in zones:
-                        zone_id = zone.name.split("/")[-1]
-
-                        if not self.config.filter_config.zone_pattern.allowed(zone_id):
-                            logger.debug(f"Zone {zone_id} filtered out by pattern")
-                            self.report.report_zone_scanned(zone_id, filtered=True)
-                            continue
-
-                        self.report.report_zone_scanned(zone_id)
-                        logger.info(
-                            f"Processing zone: {zone_id} in lake: {lake_id}, project: {project_id}"
-                        )
-
-                        # Create zone container key
-                        zone_container_key = make_zone_container_key(
-                            project_id=project_id,
-                            lake_id=lake_id,
-                            zone_id=zone_id,
-                            platform=self.platform,
-                            env=self.config.env,
-                        )
-
-                        # Create parent lake container key
-                        lake_container_key = make_lake_container_key(
-                            project_id=project_id,
-                            lake_id=lake_id,
-                            platform=self.platform,
-                            env=self.config.env,
-                        )
-
-                        zone_type_tag = (
-                            "Raw Data Zone"
-                            if zone.type_.name == "RAW"
-                            else "Curated Data Zone"
-                        )
-
-                        # Store zone type for later use in entity custom properties
-                        # Key format: {project_id}.{lake_id}.{zone_id}
-                        zone_key = f"{project_id}.{lake_id}.{zone_id}"
-                        self.zone_metadata[zone_key] = (
-                            zone.type_.name
-                        )  # "RAW" or "CURATED"
-
-                        # Convert timestamps to milliseconds
-                        created_ts = (
-                            int(zone.create_time.timestamp() * 1000)
-                            if zone.create_time
-                            else None
-                        )
-                        modified_ts = (
-                            int(zone.update_time.timestamp() * 1000)
-                            if zone.update_time
-                            else None
-                        )
-
-                        yield from gen_containers(
-                            container_key=zone_container_key,
-                            name=zone.display_name or zone_id,
-                            description=zone.description or "",
-                            sub_types=["Dataplex Zone", zone_type_tag],
-                            parent_container_key=lake_container_key,
-                            created=created_ts,
-                            last_modified=modified_ts,
-                        )
-
-                except exceptions.GoogleAPICallError as e:
-                    self.report.report_failure(
-                        title=f"Failed to list zones in lake {lake_id}",
-                        message=f"Error listing zones in project {project_id}",
-                        exc=e,
-                    )
-
-        except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title="Failed to list lakes for zones",
-                message=f"Error listing lakes in project {project_id}",
-                exc=e,
-            )
-
-    def _get_assets_mcps(
-        self, project_id: str
-    ) -> Iterable[MetadataChangeProposalWrapper]:
-        """Fetch assets from Dataplex and generate corresponding MCPs as Asset Containers."""
-        parent = f"projects/{project_id}/locations/{self.config.location}"
-        try:
-            with self.report.dataplex_api_timer:
-                lakes_request = dataplex_v1.ListLakesRequest(parent=parent)
-                lakes = self.dataplex_client.list_lakes(request=lakes_request)
-
-            for lake in lakes:
-                lake_id = lake.name.split("/")[-1]
-
-                if not self.config.filter_config.lake_pattern.allowed(lake_id):
-                    continue
-
-                zones_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}"
-                zones_request = dataplex_v1.ListZonesRequest(parent=zones_parent)
-
-                try:
-                    zones = self.dataplex_client.list_zones(request=zones_request)
-
-                    for zone in zones:
-                        zone_id = zone.name.split("/")[-1]
-
-                        if not self.config.filter_config.zone_pattern.allowed(zone_id):
-                            continue
-
-                        # List assets in this zone
-                        assets_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}/zones/{zone_id}"
-                        assets_request = dataplex_v1.ListAssetsRequest(
-                            parent=assets_parent
-                        )
-
-                        try:
-                            assets = self.dataplex_client.list_assets(
-                                request=assets_request
-                            )
-
-                            for asset in assets:
-                                logger.info(
-                                    f"Processing asset: {asset.display_name} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
-                                )
-                                asset_id = asset.display_name
-
-                                if not self.config.filter_config.asset_pattern.allowed(
-                                    asset_id
-                                ):
-                                    logger.debug(
-                                        f"Asset {asset_id} filtered out by pattern"
-                                    )
-                                    self.report.report_asset_scanned(
-                                        asset_id, filtered=True
-                                    )
-                                    continue
-
-                                self.report.report_asset_scanned(asset_id)
-                                logger.info(
-                                    f"Processing asset: {asset_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
-                                )
-
-                                # Create zone container key
-                                zone_container_key = make_zone_container_key(
-                                    project_id=project_id,
-                                    lake_id=lake_id,
-                                    zone_id=zone_id,
-                                    platform=self.platform,
-                                    env=self.config.env,
-                                )
-
-                                # Create asset container key (child of zone)
-                                asset_container_key = make_asset_container_key(
-                                    project_id=project_id,
-                                    lake_id=lake_id,
-                                    zone_id=zone_id,
-                                    asset_id=asset_id,
-                                    platform=self.platform,
-                                    env=self.config.env,
-                                )
-
-                                # Convert timestamps to milliseconds
-                                created_ts = (
-                                    int(asset.create_time.timestamp() * 1000)
-                                    if asset.create_time
-                                    else None
-                                )
-                                modified_ts = (
-                                    int(asset.update_time.timestamp() * 1000)
-                                    if asset.update_time
-                                    else None
-                                )
-
-                                yield from gen_containers(
-                                    container_key=asset_container_key,
-                                    name=asset_id,
-                                    description=asset.description or "",
-                                    sub_types=["Dataplex Asset"],
-                                    parent_container_key=zone_container_key,
-                                    created=created_ts,
-                                    last_modified=modified_ts,
-                                )
-
-                        except exceptions.GoogleAPICallError as e:
-                            self.report.report_failure(
-                                title=f"Failed to list assets in zone {zone_id}",
-                                message=f"Error listing assets in project {project_id}, lake {lake_id}, zone {zone_id}",
-                                exc=e,
-                            )
-
-                except exceptions.GoogleAPICallError as e:
-                    self.report.report_failure(
-                        title=f"Failed to list zones in lake {lake_id}",
-                        message=f"Error listing zones for asset extraction in project {project_id}",
-                        exc=e,
-                    )
-
-        except exceptions.GoogleAPICallError as e:
-            self.report.report_failure(
-                title="Failed to list lakes for asset extraction",
-                message=f"Error listing lakes in project {project_id}",
-                exc=e,
-            )
 
     def _process_zone_entities(
         self, project_id: str, lake_id: str, zone_id: str
@@ -642,33 +338,35 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     entity_full = entity
 
-                # Generate dataset URN with dataplex platform
+                # Generate dataset URN with source platform (bigquery, gcs, etc.)
                 dataset_urn = make_entity_dataset_urn(
                     entity_id,
                     project_id,
                     self.config.env,
                     dataset_id=dataset_id,
-                    platform="dataplex",
+                    platform=source_platform,
                 )
 
                 # Extract schema metadata
                 schema_metadata = self._extract_schema_metadata(
-                    entity_full, dataset_urn
+                    entity_full, dataset_urn, source_platform
                 )
 
-                # Build dataset properties
+                # Build dataset properties with Dataplex origin tracking
                 custom_properties = {
-                    "lake": lake_id,
-                    "zone": zone_id,
-                    "entity_id": entity_id,
-                    "source_platform": source_platform,
+                    "dataplex_ingested": "true",
+                    "dataplex_lake": lake_id,
+                    "dataplex_zone": zone_id,
+                    "dataplex_entity_id": entity_id,
                 }
 
                 # Add zone type from metadata
                 zone_key = f"{project_id}.{lake_id}.{zone_id}"
                 with self._zone_metadata_lock:
                     if zone_key in self.zone_metadata:
-                        custom_properties["zone_type"] = self.zone_metadata[zone_key]
+                        custom_properties["dataplex_zone_type"] = self.zone_metadata[
+                            zone_key
+                        ]
 
                 if entity_full.data_path:
                     custom_properties["data_path"] = entity_full.data_path
@@ -689,11 +387,10 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         lastModified=make_audit_stamp(entity_full.update_time),
                     ),
                     DataPlatformInstanceClass(
-                        platform=str(DataPlatformUrn(self.platform))
+                        platform=str(DataPlatformUrn(source_platform))
                     ),
                     SubTypesClass(
                         typeNames=[
-                            "Dataplex Entity",
                             entity_full.type_.name,
                         ]
                     ),
@@ -703,34 +400,28 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 if schema_metadata:
                     aspects.append(schema_metadata)
 
-                asset_container_key = make_asset_container_key(
-                    project_id=project_id,
-                    lake_id=lake_id,
-                    zone_id=zone_id,
-                    asset_id=entity.asset,
-                    platform=self.platform,
-                    env=self.config.env,
-                )
-                asset_container_urn = asset_container_key.as_urn()
-                aspects.append(ContainerClass(container=asset_container_urn))
+                # Link to source platform container (only for BigQuery)
+                if source_platform == "bigquery":
+                    # Track this BigQuery dataset for container creation
+                    with self._bq_containers_lock:
+                        if project_id not in self.bq_containers:
+                            self.bq_containers[project_id] = set()
+                        self.bq_containers[project_id].add(dataset_id)
+
+                    bq_dataset_container_key = make_bigquery_dataset_container_key(
+                        project_id=project_id,
+                        dataset_id=dataset_id,
+                        platform=source_platform,
+                        env=self.config.env,
+                    )
+                    container_urn = bq_dataset_container_key.as_urn()
+                    aspects.append(ContainerClass(container=container_urn))
+                # For GCS and other platforms, no container is added
 
                 yield from MetadataChangeProposalWrapper.construct_many(
                     entityUrn=dataset_urn,
                     aspects=aspects,
                 )
-
-                # Create sibling relationship if enabled and source platform is different
-                if (
-                    self.config.create_sibling_relationships
-                    and source_platform != "dataplex"
-                ):
-                    yield from self._gen_sibling_workunits(
-                        dataset_urn,
-                        entity_id,
-                        project_id,
-                        source_platform,
-                        dataset_id,
-                    )
 
         except exceptions.GoogleAPICallError as e:
             with self._report_lock:
@@ -775,6 +466,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
                         if not self.config.filter_config.zone_pattern.allowed(zone_id):
                             continue
+
+                        # Store zone type for later use in entity custom properties
+                        zone_key = f"{project_id}.{lake_id}.{zone_id}"
+                        with self._zone_metadata_lock:
+                            self.zone_metadata[zone_key] = zone.type_.name
 
                         # Add this zone to the list for parallel processing
                         zones_to_process.append((project_id, lake_id, zone_id))
@@ -826,7 +522,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         yield
 
     def _extract_schema_metadata(
-        self, entity: dataplex_v1.Entity, dataset_urn: str
+        self, entity: dataplex_v1.Entity, dataset_urn: str, platform: str
     ) -> Optional[SchemaMetadataClass]:
         """Extract schema metadata from Dataplex entity."""
         if not entity.schema or not entity.schema.fields:
@@ -870,59 +566,81 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         return SchemaMetadataClass(
             schemaName=entity.id,
-            platform=str(DataPlatformUrn(self.platform)),
+            platform=str(DataPlatformUrn(platform)),
             version=0,
             hash="",
             platformSchema=OtherSchemaClass(rawSchema=""),
             fields=fields,
         )
 
-    def _gen_sibling_workunits(
-        self,
-        dataplex_dataset_urn: str,
-        entity_id: str,
-        project_id: str,
-        source_platform: str,
-        dataset_id: str,
+    def _gen_bigquery_project_container(
+        self, project_id: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Generate sibling workunits linking Dataplex entity to source platform entity.
-
-        This creates bidirectional sibling relationships based on the dataplex_is_primary_sibling config:
-        - When dataplex_is_primary_sibling=False (default):
-          - Dataplex entity (primary=False) -> Source platform entity
-          - Source platform entity (primary=True) -> Dataplex entity
-        - When dataplex_is_primary_sibling=True:
-          - Dataplex entity (primary=True) -> Source platform entity
-          - Source platform entity (primary=False) -> Dataplex entity
-
-        By default, the source platform entity is marked as primary since it's the canonical representation.
-        """
-        # Create sibling dataset URN for the source platform (e.g., bigquery://project.entity)
-        source_dataset_urn = make_sibling_dataset_urn(
-            entity_id, project_id, source_platform, self.config.env, dataset_id
+        """Generate BigQuery project container entity."""
+        database_container_key = ProjectIdKey(
+            project_id=project_id,
+            platform="bigquery",
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
-        # Dataplex entity sibling aspect
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataplex_dataset_urn,
-            aspect=Siblings(
-                primary=self.config.dataplex_is_primary_sibling,
-                siblings=[source_dataset_urn],
-            ),
-        ).as_workunit()
+        yield from gen_database_container(
+            database=project_id,
+            database_container_key=database_container_key,
+            sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
+            name=project_id,
+            qualified_name=project_id,
+        )
 
-        # Source entity sibling aspect (inverse of Dataplex primary setting)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=source_dataset_urn,
-            aspect=Siblings(
-                primary=not self.config.dataplex_is_primary_sibling,
-                siblings=[dataplex_dataset_urn],
-            ),
-        ).as_workunit(is_primary_source=False)
+    def _gen_bigquery_dataset_container(
+        self, project_id: str, dataset_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate BigQuery dataset container entity."""
+        # Create keys for project and dataset containers
+        database_container_key: ContainerKey = ProjectIdKey(
+            project_id=project_id,
+            platform="bigquery",
+            env=self.config.env,
+            backcompat_env_as_instance=True,
+        )
 
-        # Track that we created a sibling relationship
-        with self._report_lock:
-            self.report.report_sibling_relationship_created()
+        schema_container_key = make_bigquery_dataset_container_key(
+            project_id=project_id,
+            dataset_id=dataset_id,
+            platform="bigquery",
+            env=self.config.env,
+        )
+
+        yield from gen_schema_container(
+            database=project_id,
+            schema=dataset_id,
+            qualified_name=f"{project_id}.{dataset_id}",
+            sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
+            schema_container_key=schema_container_key,
+            database_container_key=database_container_key,
+        )
+
+    def _gen_bigquery_containers(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate BigQuery container entities for a project.
+
+        Creates project container and dataset containers for all datasets
+        discovered from Dataplex entities.
+        """
+        datasets = self.bq_containers.get(project_id, set())
+        if not datasets:
+            return
+
+        logger.info(
+            f"Creating BigQuery containers for project {project_id}: {len(datasets)} datasets"
+        )
+
+        # Emit project container first
+        yield from self._gen_bigquery_project_container(project_id)
+
+        # Emit dataset containers
+        for dataset_id in sorted(datasets):  # Sort for deterministic order
+            yield from self._gen_bigquery_dataset_container(project_id, dataset_id)
 
     def _get_lineage_workunits(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """

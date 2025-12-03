@@ -72,21 +72,6 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    include_lakes: bool = Field(
-        default=True,
-        description="Whether to include Lake metadata as Containers.",
-    )
-
-    include_zones: bool = Field(
-        default=True,
-        description="Whether to include Zone metadata as Containers.",
-    )
-
-    include_assets: bool = Field(
-        default=True,
-        description="Whether to include Asset metadata as Containers.",
-    )
-
     include_entities: bool = Field(
         default=True,
         description="Whether to include Entity metadata (discovered tables/filesets) as Datasets.",
@@ -115,19 +100,6 @@ class DataplexConfig(
         "Lower values reduce memory usage but may increase processing time. "
         "Set to -1 to disable batching (process all entities at once). "
         "Recommended: 1000 for large deployments, -1 for small deployments. Default: 1000.",
-    )
-
-    create_sibling_relationships: bool = Field(
-        default=True,
-        description="Whether to create sibling relationships between Dataplex entities and native platform datasets (BigQuery/GCS).",
-    )
-
-    dataplex_is_primary_sibling: bool = Field(
-        default=False,
-        description="Controls sibling relationship primary designation between Dataplex entities and source platform entities. "
-        "When False (default), source platform entities (BigQuery/GCS) are primary and Dataplex entities are secondary. "
-        "When True, Dataplex entities are primary and source platform entities are secondary. "
-        "Default is False since source platforms are typically the canonical data source.",
     )
 
     max_workers: int = Field(

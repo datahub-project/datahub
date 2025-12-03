@@ -8,26 +8,33 @@ This directory contains the DataHub connector for Google Dataplex.
 
 ## Implementation Overview
 
-This connector extracts metadata from Google Dataplex and maps it to DataHub's metadata model.
+This connector extracts metadata from Google Dataplex entities (discovered tables/filesets) and maps them to DataHub datasets using **source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
 
 ### Architecture
 
-The connector follows the pattern established by the `vertexai` and `bigquery_v2` sources:
+The connector follows the pattern established by the `bigquery_v2` source:
 
-- Uses Google Cloud client libraries (`google-cloud-dataplex`)
+- Uses Google Cloud client libraries (`google-cloud-dataplex`, `google-cloud-datacatalog-lineage`)
 - Supports both service account credentials and Application Default Credentials
-- Implements hierarchical container relationships
-- Supports schema metadata extraction and sibling relationships
+- **Generates datasets with source platform URNs** (no Dataplex-specific containers)
+- Links BigQuery entities to BigQuery dataset containers for consistent navigation
+- Preserves Dataplex context (lake, zone, asset) as custom properties
+- Supports parallel zone processing with `ThreadedIteratorExecutor`
 
 ### Entity Mapping
 
-| Dataplex Resource | DataHub Entity Type | Container Hierarchy Level |
-| ----------------- | ------------------- | ------------------------- |
-| Project           | Container           | Level 1 (root)            |
-| Lake              | Container           | Level 2                   |
-| Zone              | Container           | Level 3                   |
-| Asset             | Container           | Level 4                   |
-| Entity            | Dataset             | Leaf node                 |
+| Dataplex Resource | DataHub Entity Type | URN Platform | Container                           |
+| ----------------- | ------------------- | ------------ | ----------------------------------- |
+| Entity (BigQuery) | Dataset             | `bigquery`   | BigQuery dataset container          |
+| Entity (GCS)      | Dataset             | `gcs`        | None (matches GCS connector)        |
+| Lake/Zone/Asset   | N/A                 | N/A          | Preserved as custom properties only |
+
+**Key Design Decision**: Dataplex entities use their source platform URNs instead of "dataplex" platform URNs. This ensures:
+
+- Entities discovered by Dataplex appear in the same containers as entities from native BigQuery/GCS connectors
+- No duplication when running multiple connectors (same URN = same entity)
+- Consistent user experience regardless of discovery method
+- Dataplex context is preserved via custom properties for traceability
 
 ### Key Components
 
@@ -41,9 +48,9 @@ The connector follows the pattern established by the `vertexai` and `bigquery_v2
 
 The connector implements the following DataHub capabilities:
 
-- `CONTAINERS`: Hierarchical container extraction for Projects, Lakes, Zones, and Assets
 - `SCHEMA_METADATA`: Schema information from discovered entities
-- `LINEAGE_COARSE`: Lineage extraction via Dataplex Lineage API (when enabled)
+- `LINEAGE_COARSE`: Table-level lineage extraction via Dataplex Lineage API (when enabled)
+- **Platform Alignment**: Entities use source platform URNs (BigQuery, GCS) and containers
 
 ## Development Setup
 
@@ -94,30 +101,45 @@ dataplex/
 
 ## Implementation Notes
 
-### Container Key Hierarchy
-
-The connector uses custom `ContainerKey` classes to represent the hierarchical structure:
-
-```python
-ProjectIdKey                    # Base container for GCP project
-└── DataplexLakeKey            # Lake within project
-    └── DataplexZoneKey        # Zone within lake
-        └── DataplexAssetKey   # Asset within zone
-```
-
 ### URN Generation
 
-- **Dataplex Entities**: `urn:li:dataset:(urn:li:dataPlatform:dataplex,{project_id}.{entity_id},{env})`
-- **Source Platform Entities**: `urn:li:dataset:(urn:li:dataPlatform:{platform},{project_id}.{entity_id},{env})`
-- **Containers**: Generated using `gen_containers()` with hierarchical relationships
+Entities are generated using **source platform URNs** for consistency with native connectors:
 
-### Sibling Relationship Logic
+- **BigQuery Entities**: `urn:li:dataset:(urn:li:dataPlatform:bigquery,{project}.{dataset}.{table},PROD)`
+- **GCS Entities**: `urn:li:dataset:(urn:li:dataPlatform:gcs,{bucket}/{path},PROD)`
 
-When `create_sibling_relationships=True`:
+The connector uses `make_dataset_urn_with_platform_instance()` with the source platform determined by querying the Dataplex asset.
 
-- Dataplex entity determines its source platform (BigQuery/GCS) by querying the asset
-- Creates bidirectional sibling links between Dataplex and source platform URNs
-- Primary sibling designation controlled by `dataplex_is_primary_sibling` config
+### Container Linking
+
+- **BigQuery entities**: Linked to BigQuery dataset containers using `BigQueryDatasetKey`
+- **GCS entities**: No container (matches GCS connector behavior)
+- **Implementation**: Self-contained `make_bigquery_dataset_container_key()` helper in `dataplex_helpers.py`
+
+### Custom Properties
+
+Dataplex context is preserved on each dataset via custom properties:
+
+```python
+custom_properties = {
+    "dataplex_ingested": "true",
+    "dataplex_lake": lake_id,
+    "dataplex_zone": zone_id,
+    "dataplex_entity_id": entity_id,
+    "dataplex_zone_type": zone.type_.name,
+    "data_path": entity.data_path,
+    "system": entity.system.name,
+    "format": entity.format.format_.name,
+}
+```
+
+### Parallel Processing
+
+Entity extraction is parallelized at the zone level using `ThreadedIteratorExecutor`:
+
+- Configurable via `max_workers` config option (default: 10)
+- Each zone's entities are processed by a worker thread
+- Thread-safe locks protect shared data structures (asset metadata, zone metadata, entity tracking)
 
 ### Lineage Extraction
 
