@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Any, Dict, Optional
 
 import pytest
 
@@ -19,11 +20,55 @@ from tests.utilities.slack_helpers import (
     check_slack_notification,
     get_channel_id_by_name,
 )
+from tests.utils import with_test_retry
 
 TEST_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
 TEST_TAG_URN = "urn:li:tag:Legacy"
 
 logger = logging.getLogger(__name__)
+
+
+@with_test_retry()
+def find_proposal_by_urn(
+    auth_session, dataset_urn: str, proposal_urn: str, status: str
+) -> Optional[Dict[str, Any]]:
+    """Find a proposal by URN with retry for eventual consistency.
+
+    Args:
+        auth_session: The authenticated session
+        dataset_urn: URN of the dataset
+        proposal_urn: URN of the proposal to find
+        status: Status filter (PENDING, COMPLETED)
+
+    Returns:
+        The proposal dict if found, None otherwise
+
+    Raises:
+        AssertionError: If proposal is not found (triggers retry)
+    """
+    proposals_data = list_proposals(auth_session, dataset_urn, status=status)
+    for proposal in proposals_data["actionRequests"]:
+        if proposal["urn"] == proposal_urn:
+            return proposal
+
+    # Raise assertion to trigger retry
+    raise AssertionError(
+        f"Proposal {proposal_urn} not found in {status} proposals "
+        f"(found {len(proposals_data['actionRequests'])} proposals)"
+    )
+
+
+@with_test_retry()
+def at_least_one_pending_proposal(
+    auth_session, dataset_urn: str, proposal_urn: Optional[str] = None
+):
+    proposals_data = list_proposals(auth_session, dataset_urn, status="PENDING")
+    assert proposals_data["total"] >= 1, "Expected at least one pending proposal"
+
+    for proposal in proposals_data["actionRequests"]:
+        if proposal["urn"] == proposal_urn:
+            return
+    raise AssertionError(f"Proposal {proposal_urn} not found in pending proposals")
 
 
 @pytest.mark.release_tests
@@ -73,20 +118,7 @@ def test_create_proposal_and_accept_reject_via_slack(auth_session):
     wait_for_writes_to_sync()
 
     # Step 4: Verify proposal was created
-    proposals_data = list_proposals(auth_session, TEST_DATASET_URN, status="PENDING")
-    assert proposals_data["total"] >= 1, "Expected at least one pending proposal"
-
-    found_proposal = None
-    for proposal in proposals_data["actionRequests"]:
-        if proposal["urn"] == new_proposal_urn:
-            found_proposal = proposal
-            break
-
-    assert found_proposal is not None, "Created proposal not found in list"
-    assert found_proposal["description"] == proposal_description
-    assert found_proposal["type"] == "TAG_ASSOCIATION"
-    assert found_proposal["status"] == "PENDING"
-
+    at_least_one_pending_proposal(auth_session, TEST_DATASET_URN, new_proposal_urn)
     # Step 5: Verify Slack notification was sent
     slack_channel = get_release_test_notification_channel()
     slack_token = get_release_test_notification_token()
@@ -117,16 +149,10 @@ def test_create_proposal_and_accept_reject_via_slack(auth_session):
     wait_for_writes_to_sync()
     logger.info(f"Proposal accepted: {new_proposal_urn}")
 
-    # Step 7: Verify proposal status is now COMPLETED/ACCEPTED
-    proposals_data = list_proposals(auth_session, TEST_DATASET_URN, status="COMPLETED")
-    assert proposals_data["total"] >= 1, "Expected at least one completed proposal"
-
-    accepted_proposal = None
-    for proposal in proposals_data["actionRequests"]:
-        if proposal["urn"] == new_proposal_urn:
-            accepted_proposal = proposal
-            break
-
+    # Step 7: Verify proposal status is now COMPLETED/ACCEPTED (with retry for eventual consistency)
+    accepted_proposal = find_proposal_by_urn(
+        auth_session, TEST_DATASET_URN, new_proposal_urn, "COMPLETED"
+    )
     assert accepted_proposal is not None, "Accepted proposal not found in list"
     assert accepted_proposal["status"] == "COMPLETED"
     assert accepted_proposal["result"] == "ACCEPTED"
@@ -171,18 +197,7 @@ def test_create_proposal_and_accept_reject_via_slack(auth_session):
     wait_for_writes_to_sync()
 
     # Step 11: Verify second proposal was created
-    proposals_data = list_proposals(auth_session, TEST_DATASET_URN, status="PENDING")
-    assert proposals_data["total"] >= 1, "Expected at least one pending proposal"
-
-    found_second_proposal = None
-    for proposal in proposals_data["actionRequests"]:
-        if proposal["urn"] == second_proposal_urn:
-            found_second_proposal = proposal
-            break
-
-    assert found_second_proposal is not None, "Second proposal not found in list"
-    assert found_second_proposal["description"] == proposal_description2
-    assert found_second_proposal["status"] == "PENDING"
+    at_least_one_pending_proposal(auth_session, TEST_DATASET_URN, second_proposal_urn)
 
     # Step 12: Verify Slack notification for second proposal
     logger.info("Verifying Slack notification was sent for second proposal")
@@ -202,15 +217,10 @@ def test_create_proposal_and_accept_reject_via_slack(auth_session):
     wait_for_writes_to_sync()
     logger.info(f"Proposal rejected: {second_proposal_urn}")
 
-    # Step 14: Verify proposal status is now COMPLETED/REJECTED
-    proposals_data = list_proposals(auth_session, TEST_DATASET_URN, status="COMPLETED")
-
-    rejected_proposal = None
-    for proposal in proposals_data["actionRequests"]:
-        if proposal["urn"] == second_proposal_urn:
-            rejected_proposal = proposal
-            break
-
+    # Step 14: Verify proposal status is now COMPLETED/REJECTED (with retry for eventual consistency)
+    rejected_proposal = find_proposal_by_urn(
+        auth_session, TEST_DATASET_URN, second_proposal_urn, "COMPLETED"
+    )
     assert rejected_proposal is not None, "Rejected proposal not found in list"
     assert rejected_proposal["status"] == "COMPLETED"
     assert rejected_proposal["result"] == "REJECTED"

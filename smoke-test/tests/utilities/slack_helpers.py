@@ -3,6 +3,7 @@ import logging
 from slack_sdk import WebClient
 from slack_sdk.web import SlackResponse
 
+from tests.utilities.env_vars import get_slack_clock_skew_buffer_seconds
 from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
@@ -226,49 +227,48 @@ def check_slack_notification(
     Raises:
         AssertionError: If the notification is not found or doesn't contain expected text
     """
+    clock_skew_buffer = get_slack_clock_skew_buffer_seconds()
+    search_from_timestamp = str(int(timestamp_seconds) - clock_skew_buffer)
 
-    def _check():
-        messages = get_recent_messages(
-            token, channel_id, limit=limit, oldest=timestamp_seconds
+    messages = get_recent_messages(
+        token, channel_id, limit=limit, oldest=search_from_timestamp
+    )
+    logger.info(f"Retrieved {len(messages)} messages from Slack channel")
+
+    found_message = None
+    for message in messages:
+        message_text = message.get("text", "")
+        if incident_title in message_text:
+            logger.info(f"Found notification message: {message_text}")
+            found_message = message
+            break
+
+    assert found_message is not None, (
+        f"Slack notification not found for incident '{incident_title}'"
+    )
+
+    if expected_text:
+        message_text = found_message.get("text", "")
+        text_found = expected_text in message_text
+
+        if not text_found:
+            blocks = found_message.get("blocks", [])
+            text_found = _find_text_in_blocks(blocks, expected_text)
+
+        if not text_found:
+            attachments = found_message.get("attachments", [])
+            for attachment in attachments:
+                attachment_blocks = attachment.get("blocks", [])
+                if _find_text_in_blocks(attachment_blocks, expected_text):
+                    text_found = True
+                    break
+
+        assert text_found, (
+            f"Expected text '{expected_text}' not found in message text or blocks. "
+            f"Message text: {message_text}, "
+            f"Blocks: {found_message.get('blocks', [])}, "
+            f"Attachments: {found_message.get('attachments', [])}"
         )
-        logger.info(f"Retrieved {len(messages)} messages from Slack channel")
+        logger.info(f"Verified message contains expected text: '{expected_text}'")
 
-        found_message = None
-        for message in messages:
-            message_text = message.get("text", "")
-            if incident_title in message_text:
-                logger.info(f"Found notification message: {message_text}")
-                found_message = message
-                break
-
-        assert found_message is not None, (
-            f"Slack notification not found for incident '{incident_title}'"
-        )
-
-        if expected_text:
-            message_text = found_message.get("text", "")
-            text_found = expected_text in message_text
-
-            if not text_found:
-                blocks = found_message.get("blocks", [])
-                text_found = _find_text_in_blocks(blocks, expected_text)
-
-            if not text_found:
-                attachments = found_message.get("attachments", [])
-                for attachment in attachments:
-                    attachment_blocks = attachment.get("blocks", [])
-                    if _find_text_in_blocks(attachment_blocks, expected_text):
-                        text_found = True
-                        break
-
-            assert text_found, (
-                f"Expected text '{expected_text}' not found in message text or blocks. "
-                f"Message text: {message_text}, "
-                f"Blocks: {found_message.get('blocks', [])}, "
-                f"Attachments: {found_message.get('attachments', [])}"
-            )
-            logger.info(f"Verified message contains expected text: '{expected_text}'")
-
-        return found_message
-
-    return _check()
+    return found_message

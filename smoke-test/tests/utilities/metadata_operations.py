@@ -2,6 +2,7 @@
 # ABOUTME: Reduces boilerplate GraphQL code in smoke tests.
 
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from tests.utils import execute_graphql, with_test_retry
@@ -1200,3 +1201,128 @@ def get_dataset_deprecation(auth_session, dataset_urn: str) -> Optional[Dict[str
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["dataset"]["deprecation"]
+
+
+def create_ingestion_execution_request(auth_session, ingestion_source_urn: str) -> str:
+    """Submit execution request for an ingestion source.
+
+    Returns: execution request URN
+    """
+    query = """
+        mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequestInput!) {
+            createIngestionExecutionRequest(input: $input)
+        }
+    """
+    variables: Dict[str, Any] = {"input": {"ingestionSourceUrn": ingestion_source_urn}}
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["createIngestionExecutionRequest"]
+
+
+def get_execution_request_status(
+    auth_session, execution_request_urn: str
+) -> Optional[Dict[str, Any]]:
+    """Get execution request result.
+
+    Returns: None if not completed yet, or dict with:
+        - status: "SUCCESS", "FAILURE", "CANCELLED", "DUPLICATE", "ABORTED"
+        - startTimeMs: timestamp
+        - durationMs: duration in milliseconds
+    """
+    # Terminal statuses that indicate execution is complete
+    TERMINAL_STATUSES = {"SUCCESS", "FAILURE", "CANCELLED", "DUPLICATE", "ABORTED"}
+
+    query = """
+        query executionRequest($urn: String!) {
+            executionRequest(urn: $urn) {
+                result {
+                    status
+                    startTimeMs
+                    durationMs
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": execution_request_urn}
+    res_data = execute_graphql(auth_session, query, variables)
+    result = res_data["data"]["executionRequest"]["result"]
+
+    # Only return result if status is terminal, otherwise return None to continue polling
+    if result and result.get("status") in TERMINAL_STATUSES:
+        return result
+    return None
+
+
+def poll_execution_requests(
+    auth_session,
+    execution_tracking: Dict[str, Dict[str, str]],
+    timeout_minutes: int,
+    poll_interval_seconds: int = 5,
+) -> Dict[str, Dict[str, Any]]:
+    """Poll multiple execution requests until all complete or timeout.
+
+    Args:
+        auth_session: Authenticated session
+        execution_tracking: Dict mapping source_name to {
+            "source_urn": str,
+            "execution_urn": str
+        }
+        timeout_minutes: Maximum time to wait
+        poll_interval_seconds: Seconds between polls
+
+    Returns: Dict mapping source_name to {
+        "source_urn": str,
+        "execution_urn": str,
+        "status": str,  # "SUCCESS", "FAILURE", "TIMEOUT", etc.
+        "startTimeMs": int,
+        "durationMs": int
+    }
+    """
+    timeout_seconds = timeout_minutes * 60
+    start_time = time.time()
+    results = {}
+
+    pending = set(execution_tracking.keys())
+
+    while pending and (time.time() - start_time) < timeout_seconds:
+        elapsed_minutes = (time.time() - start_time) / 60
+        logger.info(
+            f"Polling {len(pending)} pending executions "
+            f"({elapsed_minutes:.1f}/{timeout_minutes} min elapsed)"
+        )
+
+        for source_name in list(pending):
+            tracking_info = execution_tracking[source_name]
+            execution_urn = tracking_info["execution_urn"]
+
+            result = get_execution_request_status(auth_session, execution_urn)
+
+            if result is not None:
+                status = result["status"]
+                logger.info(f"Source '{source_name}' completed with status: {status}")
+
+                results[source_name] = {
+                    "source_urn": tracking_info["source_urn"],
+                    "execution_urn": execution_urn,
+                    "status": status,
+                    "startTimeMs": result.get("startTimeMs"),
+                    "durationMs": result.get("durationMs"),
+                }
+                pending.remove(source_name)
+
+        if pending:
+            time.sleep(poll_interval_seconds)
+
+    for source_name in pending:
+        tracking_info = execution_tracking[source_name]
+        logger.warning(
+            f"Source '{source_name}' timed out after {timeout_minutes} minutes"
+        )
+        results[source_name] = {
+            "source_urn": tracking_info["source_urn"],
+            "execution_urn": tracking_info["execution_urn"],
+            "status": "TIMEOUT",
+            "startTimeMs": None,
+            "durationMs": None,
+        }
+
+    return results
