@@ -33,6 +33,7 @@ class ChatMessageRequest(BaseModel):
     text: str
     conversation_urn: str
     user_urn: str
+    agent_name: str | None = None
 
 
 def get_system_client() -> DataHubClient:
@@ -196,6 +197,7 @@ def send_streaming_message(
                 text=request.text,
                 user_urn=request.user_urn,
                 conversation_urn=request.conversation_urn,
+                agent_name=request.agent_name,
             ):
                 sse_data = event_to_sse(event)
 

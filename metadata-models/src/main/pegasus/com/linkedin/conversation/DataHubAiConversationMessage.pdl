@@ -26,7 +26,12 @@ record DataHubAiConversationMessage {
      actor: DataHubAiConversationActor 
 
      /**
-      * The contents of the message. 
+      * The contents of the message.
       */
-     content: DataHubAiConversationMessageContent  
+     content: DataHubAiConversationMessageContent
+
+     /**
+      * The name of the agent that generated this message (if applicable).
+      */
+     agentName: optional string
 }

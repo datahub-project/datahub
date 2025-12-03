@@ -59,6 +59,7 @@ public class DataHubAiConversationController {
   public static class ChatRequest {
     private String conversationUrn;
     private String text;
+    private String agentName;
   }
 
   /**
@@ -133,6 +134,7 @@ public class DataHubAiConversationController {
                     .sendStreamingMessage(
                         request.getConversationUrn(),
                         request.getText(),
+                        request.getAgentName(),
                         authentication, // Forward user's authentication to integrations service
                         (sseEvent) -> {
                           try {

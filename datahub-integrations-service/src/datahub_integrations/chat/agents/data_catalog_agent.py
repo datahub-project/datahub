@@ -59,7 +59,7 @@ def _is_respond_to_user_result(message: Message) -> TypeGuard[ToolResult]:
     )
 
 
-def _create_response_formatter(
+def create_response_formatter(
     chat_type: ChatType,
     client: DataHubClient,
 ) -> Callable[[Message, AgentRunner], NextMessage]:
@@ -129,7 +129,7 @@ def _create_response_formatter(
     return formatter
 
 
-def _data_catalog_completion_check(message: Message) -> bool:
+def data_catalog_completion_check(message: Message) -> bool:
     """
     Check if DataCatalog Explorer agent should stop generating.
 
@@ -233,8 +233,8 @@ def create_data_catalog_explorer_agent(
         temperature=0.5,
         max_tokens=4096,
         agent_name="DataCatalog Explorer",
-        response_formatter=_create_response_formatter(chat_type, client),
-        completion_check=_data_catalog_completion_check,
+        response_formatter=create_response_formatter(chat_type, client),
+        completion_check=data_catalog_completion_check,
     )
 
     # Create the agent runner

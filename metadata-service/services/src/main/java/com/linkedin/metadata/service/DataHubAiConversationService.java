@@ -227,7 +227,8 @@ public class DataHubAiConversationService {
       @Nonnull Urn actorUrn,
       @Nonnull DataHubAiConversationActorType actorType,
       @Nonnull DataHubAiConversationMessageType messageType,
-      @Nonnull String messageText)
+      @Nonnull String messageText,
+      @Nullable String agentName)
       throws Exception {
 
     // Get existing conversation
@@ -251,6 +252,11 @@ public class DataHubAiConversationService {
     final DataHubAiConversationMessageContent content = new DataHubAiConversationMessageContent();
     content.setText(messageText);
     message.setContent(content);
+
+    // Set agent name if provided
+    if (agentName != null) {
+      message.setAgentName(agentName);
+    }
 
     // Add message to conversation
     if (!conversationInfo.hasMessages()) {

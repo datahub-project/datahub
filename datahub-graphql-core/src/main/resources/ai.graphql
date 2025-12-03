@@ -155,6 +155,11 @@ type DataHubAiConversationMessage {
   Content of the message
   """
   content: DataHubAiConversationMessageContent!
+
+  """
+  Name of the agent that generated this message (if applicable)
+  """
+  agentName: String
 }
 
 """

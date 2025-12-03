@@ -251,7 +251,7 @@ def test_send_message_loads_existing_session(
             )
 
             # Should load the existing session
-            mock_load.assert_called_once_with(urn)
+            mock_load.assert_called_once_with(urn, "DataCatalogExplorer")
 
             # Check conversation_urn is set correctly in events
             assert all(e.conversation_urn == urn for e in events)

@@ -21,7 +21,10 @@ from loguru import logger
 
 from datahub_integrations.chat.agent import AgentRunner
 from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
-from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
+from datahub_integrations.chat.agents import (
+    create_data_catalog_explorer_agent,
+    create_ingestion_troubleshooting_agent,
+)
 from datahub_integrations.chat.chat_history import ChatHistory
 from datahub_integrations.chat.datahub_ai_conversation_client import (
     DataHubAiConversationClient,
@@ -79,6 +82,7 @@ class AgentFactory(Protocol):
 # Agent factory mapping
 AGENT_FACTORIES: Dict[str, AgentFactory] = {
     "DataCatalogExplorer": create_data_catalog_explorer_agent,
+    "IngestionTroubleshooter": create_ingestion_troubleshooting_agent,
     # Future agents can be added here
 }
 
@@ -187,6 +191,7 @@ class ChatSessionManager:
         text: str,
         user_urn: str,
         conversation_urn: str,
+        agent_name: str | None = None,
     ) -> Iterator[ChatMessageEvent]:
         """
         Send a message and stream progress updates.
@@ -198,7 +203,9 @@ class ChatSessionManager:
         The caller (e.g., chat_api) wraps these for SSE.
         """
         # Load existing session
-        agent = self.load_session(conversation_urn)
+        # Use agent_name as agent_type if provided, otherwise default to DataCatalogExplorer
+        agent_type = agent_name if agent_name else "DataCatalogExplorer"
+        agent = self.load_session(conversation_urn, agent_type)
 
         # Queue for progress updates (None signals completion)
         progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
@@ -257,6 +264,7 @@ class ChatSessionManager:
                         message_type=DataHubAiConversationMessageTypeClass.THINKING,  # type: ignore[arg-type]
                         text=update.text,
                         timestamp=timestamp,
+                        agent_name=agent_type,
                     )
             sent_update_count = len(updates)
 
@@ -328,6 +336,7 @@ class ChatSessionManager:
                     message_type=DataHubAiConversationMessageTypeClass.TEXT,  # type: ignore[arg-type]
                     text=next_message.text,
                     timestamp=ai_message_timestamp,
+                    agent_name=agent_type,
                 )
 
             yield ChatMessageEvent(

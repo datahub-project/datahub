@@ -6,10 +6,10 @@ import pytest
 
 from datahub_integrations.chat.agent import AgentError, AgentRunner
 from datahub_integrations.chat.agents.data_catalog_agent import (
-    _create_response_formatter,
-    _data_catalog_completion_check,
     _is_respond_to_user_result,
     create_data_catalog_explorer_agent,
+    create_response_formatter,
+    data_catalog_completion_check,
 )
 from datahub_integrations.chat.agents.data_catalog_tools import _respond_to_user_tool
 from datahub_integrations.chat.chat_history import (
@@ -62,7 +62,7 @@ class TestIsRespondToUserResult:
 
 
 class TestDataCatalogCompletionCheck:
-    """Tests for _data_catalog_completion_check function."""
+    """Tests for data_catalog_completion_check function."""
 
     def test_returns_true_for_respond_to_user_result(self) -> None:
         """Should return True when respond_to_user tool was called."""
@@ -75,12 +75,12 @@ class TestDataCatalogCompletionCheck:
             tool_request=tool_request,
             result={"text": "Done", "suggestions": []},
         )
-        assert _data_catalog_completion_check(message) is True
+        assert data_catalog_completion_check(message) is True
 
     def test_returns_true_for_assistant_message(self) -> None:
         """Should return True for direct AssistantMessage (fallback case)."""
         message = AssistantMessage(text="Here's my response")
-        assert _data_catalog_completion_check(message) is True
+        assert data_catalog_completion_check(message) is True
 
     def test_returns_false_for_other_tool_result(self) -> None:
         """Should return False for ToolResult from non-respond_to_user tool."""
@@ -93,16 +93,16 @@ class TestDataCatalogCompletionCheck:
             tool_request=tool_request,
             result={"entities": []},
         )
-        assert _data_catalog_completion_check(message) is False
+        assert data_catalog_completion_check(message) is False
 
     def test_returns_false_for_human_message(self) -> None:
         """Should return False for HumanMessage."""
         message = HumanMessage(text="User question")
-        assert _data_catalog_completion_check(message) is False
+        assert data_catalog_completion_check(message) is False
 
 
 class TestCreateResponseFormatter:
-    """Tests for _create_response_formatter closure factory."""
+    """Tests for create_response_formatter closure factory."""
 
     @pytest.fixture
     def mock_client(self) -> Mock:
@@ -124,8 +124,8 @@ class TestCreateResponseFormatter:
     ) -> None:
         """Formatter closure should capture chat_type at creation time."""
         # Create formatters with different chat types
-        ui_formatter = _create_response_formatter(ChatType.DATAHUB_UI, mock_client)
-        slack_formatter = _create_response_formatter(ChatType.SLACK, mock_client)
+        ui_formatter = create_response_formatter(ChatType.DATAHUB_UI, mock_client)
+        slack_formatter = create_response_formatter(ChatType.SLACK, mock_client)
 
         # Create an AssistantMessage
         message = AssistantMessage(text="Hello **world**")
@@ -146,7 +146,7 @@ class TestCreateResponseFormatter:
         self, mock_client: Mock, mock_agent: Mock
     ) -> None:
         """Formatter should capture frontend_base_url for link fixing."""
-        formatter = _create_response_formatter(ChatType.DEFAULT, mock_client)
+        formatter = create_response_formatter(ChatType.DEFAULT, mock_client)
 
         # Create a message with a DataHub entity reference
         message = AssistantMessage(text="See urn:li:dataset:test for details")
@@ -162,7 +162,7 @@ class TestCreateResponseFormatter:
         self, mock_client: Mock, mock_agent: Mock
     ) -> None:
         """Should extract text and suggestions from respond_to_user ToolResult."""
-        formatter = _create_response_formatter(ChatType.DEFAULT, mock_client)
+        formatter = create_response_formatter(ChatType.DEFAULT, mock_client)
 
         tool_request = ToolCallRequest(
             tool_use_id="test-id",
@@ -184,7 +184,7 @@ class TestCreateResponseFormatter:
         self, mock_client: Mock, mock_agent: Mock
     ) -> None:
         """Should handle direct AssistantMessage with empty suggestions."""
-        formatter = _create_response_formatter(ChatType.DEFAULT, mock_client)
+        formatter = create_response_formatter(ChatType.DEFAULT, mock_client)
 
         message = AssistantMessage(text="Direct response from LLM")
 
@@ -198,7 +198,7 @@ class TestCreateResponseFormatter:
         self, mock_client: Mock, mock_agent: Mock
     ) -> None:
         """Should raise AgentError for unexpected message types."""
-        formatter = _create_response_formatter(ChatType.DEFAULT, mock_client)
+        formatter = create_response_formatter(ChatType.DEFAULT, mock_client)
 
         # HumanMessage is unexpected as a final response
         message = HumanMessage(text="User text")
@@ -210,7 +210,7 @@ class TestCreateResponseFormatter:
         self, mock_client: Mock, mock_agent: Mock
     ) -> None:
         """Should raise AgentError for ToolResult from other tools."""
-        formatter = _create_response_formatter(ChatType.DEFAULT, mock_client)
+        formatter = create_response_formatter(ChatType.DEFAULT, mock_client)
 
         tool_request = ToolCallRequest(
             tool_use_id="test-id",
@@ -352,7 +352,7 @@ class TestCreateDataCatalogExplorerAgent:
         agent = create_data_catalog_explorer_agent(mock_client, tools=[])
 
         assert agent.config.completion_check is not None
-        assert agent.config.completion_check == _data_catalog_completion_check
+        assert agent.config.completion_check == data_catalog_completion_check
 
     @patch(
         "datahub_integrations.chat.agents.data_catalog_agent.is_smart_search_enabled"

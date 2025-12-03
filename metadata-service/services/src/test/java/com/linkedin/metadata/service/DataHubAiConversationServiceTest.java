@@ -188,7 +188,8 @@ public class DataHubAiConversationServiceTest {
             TEST_USER_URN,
             DataHubAiConversationActorType.USER,
             DataHubAiConversationMessageType.TEXT,
-            "Hello, World!");
+            "Hello, World!",
+            null); // agentName is null for user messages
 
     // Verify the conversation was updated
     Assert.assertNotNull(updatedInfo);
@@ -219,7 +220,8 @@ public class DataHubAiConversationServiceTest {
                 TEST_USER_URN,
                 DataHubAiConversationActorType.USER,
                 DataHubAiConversationMessageType.TEXT,
-                "Hello, World!"));
+                "Hello, World!",
+                null)); // agentName is null for user messages
   }
 
   @Test

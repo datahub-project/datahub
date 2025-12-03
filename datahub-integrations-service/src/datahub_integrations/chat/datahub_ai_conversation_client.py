@@ -67,6 +67,7 @@ query GetDataHubAiConversation($urn: String!) {
             content {
                 text
             }
+            agentName
         }
     }
 }
@@ -305,6 +306,7 @@ class DataHubAiConversationClient:
         message_type: DataHubAiConversationMessageTypeClass,
         text: str,
         timestamp: int,
+        agent_name: str | None = None,
     ) -> None:
         """
         Save a message to the conversation aspect.
@@ -381,6 +383,10 @@ class DataHubAiConversationClient:
                     "text": text,
                 },
             }
+
+            # Add agent name if provided
+            if agent_name is not None:
+                new_message_dict["agentName"] = agent_name
 
             # Append new message to existing messages
             aspect_dict["messages"] = existing_messages_dicts + [new_message_dict]
