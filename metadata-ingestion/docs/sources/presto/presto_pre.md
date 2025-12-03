@@ -72,7 +72,7 @@ source:
 
 **For complete details**, see:
 
-- [Hive Metastore Connector Documentation](../hive-metastore/hive-metastore_pre.md)
+- [Hive Metastore Connector Documentation](../hive-metastore)
 
 ### Required Permissions
 
