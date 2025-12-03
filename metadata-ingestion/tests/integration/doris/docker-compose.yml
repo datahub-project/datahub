@@ -7,9 +7,10 @@ services:
     container_name: "testdoris-fe"
     hostname: fe
     environment:
-      # Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions
-      # These flags disable container metrics detection which causes NullPointerException
-      - JAVA_OPTS=-XX:-UseContainerSupport -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap
+      # Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
+      # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
+      # This fixes: NullPointerException: Cannot invoke "jdk.internal.platform.CgroupInfo.getMountPoint()"
+      - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
     ports:
       - 58030:8030  # FE web UI
       - 59030:9030  # MySQL protocol port
@@ -25,8 +26,9 @@ services:
     container_name: "testdoris-be"
     hostname: be
     environment:
-      # Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions
-      - JAVA_OPTS=-XX:-UseContainerSupport -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap
+      # Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
+      # JAVA_TOOL_OPTIONS is read directly by the JVM, bypassing all wrapper scripts
+      - JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport
     ports:
       - 58040:8040  # BE web UI
       - 59050:9050  # BE heartbeat port

@@ -29,18 +29,8 @@ export BE_ADDR="${BE_IP}:9050"
 
 echo "Starting Doris BE with FE_SERVERS=${FE_SERVERS} BE_ADDR=${BE_ADDR}"
 
-# Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
-# Doris's entry_point.sh ignores JAVA_OPTS, so we inject directly into be.conf
-BE_CONF="/opt/apache-doris/be/conf/be.conf"
-if [ -f "$BE_CONF" ]; then
-    # Add our JVM flags to the config file if not already present
-    if ! grep -q "XX:-UseContainerSupport" "$BE_CONF" 2>/dev/null; then
-        echo "Injecting cgroup v2 workaround into be.conf"
-        echo "JAVA_OPTS = \"-XX:-UseContainerSupport -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap\"" >> "$BE_CONF"
-    fi
-else
-    echo "WARNING: be.conf not found at $BE_CONF"
-fi
+# Note: JAVA_TOOL_OPTIONS is set in docker-compose.yml as a workaround for
+# Java 17 cgroup v2 incompatibility in GitHub Actions CI
 
 # Call the original Doris entrypoint
 exec bash entry_point.sh
