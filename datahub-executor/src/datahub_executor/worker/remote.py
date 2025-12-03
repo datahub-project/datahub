@@ -21,6 +21,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION,
 )
 from datahub_executor.worker.celery_sqs.app import (
+    _resolver,
     assertion_request,
     ingestion_request,
     monitor_training_request,
@@ -34,6 +35,13 @@ logger = logging.getLogger(__name__)
 def apply_remote_assertion_request(
     execution_request: ExecutionRequest, executor_id: str
 ) -> Any:
+    """
+    Apply a remote assertion request by submitting it to Celery.
+
+    Thread-safe: Calls update_celery_credentials() with the shared _resolver instance.
+    The resolver methods are protected by locks, so concurrent calls from multiple
+    Celery tasks are safe.
+    """
     if executor_id == CLI_EXECUTOR_ID:
         return
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
@@ -42,7 +50,8 @@ def apply_remote_assertion_request(
         )
 
         # before we try to send a task over celery, we make sure we have valid SQS creds
-        if not update_celery_credentials(app, False, executor_id):
+        # Thread-safe: update_celery_credentials() uses thread-safe resolver methods
+        if not update_celery_credentials(app, False, executor_id, _resolver):
             return execution_request.args["urn"]
 
         message_size = len(execution_request.model_dump_json())
@@ -103,6 +112,13 @@ def add_cloud_logging_configs(
 def apply_remote_monitor_training_request(
     execution_request: ExecutionRequest, executor_id: str
 ) -> Any:
+    """
+    Apply a remote monitor training request by submitting it to Celery.
+
+    Thread-safe: Calls update_celery_credentials() with the shared _resolver instance.
+    The resolver methods are protected by locks, so concurrent calls from multiple
+    Celery tasks are safe.
+    """
     if executor_id == CLI_EXECUTOR_ID:
         return
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
@@ -111,7 +127,8 @@ def apply_remote_monitor_training_request(
         )
 
         # before we try to send a task over celery, we make sure we have valid SQS creds
-        if not update_celery_credentials(app, False, executor_id):
+        # Thread-safe: update_celery_credentials() uses thread-safe resolver methods
+        if not update_celery_credentials(app, False, executor_id, _resolver):
             return execution_request.args["urn"]
 
         message_size = len(execution_request.model_dump_json())
@@ -166,6 +183,13 @@ def truncate_remote_ingestion_request(
 def apply_remote_ingestion_request(
     event: MetadataChangeLogClass, executor_id: str, graph: DataHubGraph
 ) -> Any:
+    """
+    Apply a remote ingestion request by submitting it to Celery.
+
+    Thread-safe: Calls update_celery_credentials() with the shared _resolver instance.
+    The resolver methods are protected by locks, so concurrent calls from multiple
+    Celery tasks are safe.
+    """
     if executor_id == CLI_EXECUTOR_ID:
         return
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
@@ -182,7 +206,8 @@ def apply_remote_ingestion_request(
         )
 
         # before we try to send a task over celery, we make sure we have valid SQS creds
-        if not update_celery_credentials(app, False, executor_id):
+        # Thread-safe: update_celery_credentials() uses thread-safe resolver methods
+        if not update_celery_credentials(app, False, executor_id, _resolver):
             return event.entityUrn
 
         if event.aspect is None:

@@ -14,9 +14,17 @@ from datahub_executor.config import DATAHUB_EXECUTOR_POOL_ID
 logger = logging.getLogger(__name__)
 
 
-def refresh_external_credentials(queue_id: str) -> Dict[str, str]:
-    executor_config_resolver = ExecutorConfigResolver()
-    _, executor_configs = executor_config_resolver.refresh_executor_configs()
+def refresh_external_credentials(
+    queue_id: str, resolver: ExecutorConfigResolver
+) -> Dict[str, str]:
+    """
+    Refresh external credentials for a given queue ID.
+
+    Thread-safe: Calls resolver.refresh_executor_configs() which is protected by locks
+    in ExecutorConfigResolver. The returned executor_configs is a copy, so iteration
+    is safe even if called concurrently from multiple threads (e.g., multiple SQS sessions).
+    """
+    _, executor_configs = resolver.refresh_executor_configs()
     for executor_config in executor_configs:
         if executor_config.executor_id == queue_id:
             METRIC("WORKER_CREDENTIALS_REFRESH_REQUESTS", pool_name=queue_id).inc()
@@ -40,34 +48,44 @@ def refresh_external_credentials(queue_id: str) -> Dict[str, str]:
     return {}
 
 
-def patched_handle_sts_session(
-    self: Channel, queue: str, q: Dict[str, Any]
-) -> BaseClient:
-    if queue in self._predefined_queue_clients:
-        return self._predefined_queue_clients[queue]
+def _create_patched_handle_sts_session(resolver: ExecutorConfigResolver):
+    """
+    Create a patched handle_sts_session function that captures the resolver in a closure.
 
-    queue_id = queue if queue is not None else DATAHUB_EXECUTOR_POOL_ID
-    metadata = refresh_external_credentials(queue_id)
+    This is needed because the function is patched onto the Channel class, so we need
+    to capture the resolver instance in the closure.
+    """
 
-    credentials = botocore.credentials.RefreshableCredentials.create_from_metadata(
-        metadata=metadata,
-        refresh_using=lambda: refresh_external_credentials(queue_id),
-        method="sts-assume-role",
-    )
+    def patched_handle_sts_session(
+        self: Channel, queue: str, q: Dict[str, Any]
+    ) -> BaseClient:
+        if queue in self._predefined_queue_clients:
+            return self._predefined_queue_clients[queue]
 
-    botocore_session = botocore.session.get_session()
-    botocore_session._credentials = credentials  # type: ignore[attr-defined]
-    botocore_session.set_config_variable("region", metadata.get("region"))
-    session = boto3.session.Session(botocore_session=botocore_session)
+        queue_id = queue if queue is not None else DATAHUB_EXECUTOR_POOL_ID
+        metadata = refresh_external_credentials(queue_id, resolver)
 
-    is_secure = self.is_secure if self.is_secure is not None else True
-    client_kwargs = {"use_ssl": is_secure}
-    if self.endpoint_url is not None:
-        client_kwargs["endpoint_url"] = self.endpoint_url
-    client_config = self.transport_options.get("client-config") or {}
-    config = Config(**client_config)
+        credentials = botocore.credentials.RefreshableCredentials.create_from_metadata(
+            metadata=metadata,
+            refresh_using=lambda: refresh_external_credentials(queue_id, resolver),
+            method="sts-assume-role",
+        )
 
-    client = session.client("sqs", config=config, **client_kwargs)
-    self._predefined_queue_clients[queue] = client
+        botocore_session = botocore.session.get_session()
+        botocore_session._credentials = credentials  # type: ignore[attr-defined]
+        botocore_session.set_config_variable("region", metadata.get("region"))
+        session = boto3.session.Session(botocore_session=botocore_session)
 
-    return client
+        is_secure = self.is_secure if self.is_secure is not None else True
+        client_kwargs = {"use_ssl": is_secure}
+        if self.endpoint_url is not None:
+            client_kwargs["endpoint_url"] = self.endpoint_url
+        client_config = self.transport_options.get("client-config") or {}
+        config = Config(**client_config)
+
+        client = session.client("sqs", config=config, **client_kwargs)
+        self._predefined_queue_clients[queue] = client
+
+        return client
+
+    return patched_handle_sts_session

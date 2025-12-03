@@ -13,6 +13,7 @@ from kombu.transport.SQS import Channel
 
 from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.assertion.helpers import handle_assertions_signal_requests
+from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
 from datahub_executor.common.constants import (
     RUN_ASSERTION_TASK_NAME,
     RUN_MONITOR_TRAINING_TASK_NAME,
@@ -51,13 +52,21 @@ from datahub_executor.config import (
 
 from .config import update_celery_credentials
 from .init import app
-from .kombu_patch import patched_handle_sts_session
+from .kombu_patch import _create_patched_handle_sts_session
 
 logger = logging.getLogger(__name__)
 
-# Kombu credentials patch
-Channel._handle_sts_session = patched_handle_sts_session
-update_celery_credentials(app, True, "")
+# Create module-level resolver instance
+# This resolver is shared across threads via the closure in _create_patched_handle_sts_session.
+# Thread-safety is ensured by locks in ExecutorConfigResolver methods (see _executor_configs_lock
+# and _retry_state_lock). The resolver instance itself is never reassigned.
+_resolver = ExecutorConfigResolver()
+
+# Kombu credentials patch - capture resolver in closure
+# Thread-safe: The closure calls resolver methods which are protected by locks.
+# Multiple threads may call this concurrently (e.g., multiple SQS sessions).
+Channel._handle_sts_session = _create_patched_handle_sts_session(_resolver)
+update_celery_credentials(app, True, "", _resolver)
 
 tp = None
 monitor = None
