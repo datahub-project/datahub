@@ -693,7 +693,6 @@ public class AuthUtil {
    * When domainsByEntity is provided and non-empty, uses domain-aware authorization.
    * Otherwise uses standard authorization without domain context.
    *
-   * This method should be called by REST resources that:
    * 1. Check if domain-based auth is enabled via isDomainBasedAuthorizationEnabled()
    * 2. Extract domains if enabled using helper methods
    * 3. Pass the extracted domains to this method

@@ -66,7 +66,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
 
   private void validateInputUrn(String urnStr, QueryContext context) {
     final Urn urn = UrnUtils.getUrn(urnStr);
-    if (!DeleteUtils.isAuthorizedToDeleteEntity(context, urn, _entityClient)) {
+    if (!DeleteUtils.isAuthorizedToDeleteEntity(context, urn, _entityClient, _entityService)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

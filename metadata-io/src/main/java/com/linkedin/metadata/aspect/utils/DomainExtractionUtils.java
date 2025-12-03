@@ -9,6 +9,8 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.OperationContext;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -21,7 +23,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
 /**
  * Utility class for extracting domain information from entities and MetadataChangeProposals.
  * Used by API resources (OpenAPI, RestLI, GraphQL) to support domain-based authorization.
@@ -80,13 +81,13 @@ public class DomainExtractionUtils {
 
     try {
       // Parse the patch document to extract domain URNs
-      com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-      com.fasterxml.jackson.databind.JsonNode patchNode = mapper.readTree(patchDocument);
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode patchNode = mapper.readTree(patchDocument);
 
       if (patchNode.has("patch") && patchNode.get("patch").isArray()) {
-        for (com.fasterxml.jackson.databind.JsonNode operation : patchNode.get("patch")) {
+        for (JsonNode operation : patchNode.get("patch")) {
           String path = operation.has("path") ? operation.get("path").asText() : null;
-          com.fasterxml.jackson.databind.JsonNode value = operation.has("value") ? operation.get("value") : null;
+          JsonNode value = operation.has("value") ? operation.get("value") : null;
 
           // Check if this operation is modifying domains
           if (path != null && (path.startsWith("/domains") || path.equals("/domains"))) {
@@ -102,7 +103,7 @@ public class DomainExtractionUtils {
                   }
                 }
               } else if (value.isArray()) {
-                for (com.fasterxml.jackson.databind.JsonNode item : value) {
+                for (JsonNode item : value) {
                   if (item.isTextual()) {
                     String urnStr = item.asText();
                     if (urnStr.startsWith("urn:li:domain:")) {

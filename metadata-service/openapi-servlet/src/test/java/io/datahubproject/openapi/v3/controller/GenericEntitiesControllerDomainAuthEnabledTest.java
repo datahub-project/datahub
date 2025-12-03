@@ -57,9 +57,9 @@ import org.testng.annotations.Test;
  * <p>These tests verify domain authorization behavior when the feature flag is enabled:
  *
  * <ul>
- *   <li>✅ Creating entities with domains (authorized scenarios)
- *   <li>✅ Creating entities without domains (should still work)
- *   <li>✅ Batch operations with multiple domains
+ *   <li> Creating entities with domains (authorized scenarios)
+ *   <li> Creating entities without domains (should still work)
+ *   <li> Batch operations with multiple domains
  * </ul>
  *
  * <p><b>Test Scope:</b> These tests focus on the CREATE operations (batch entity creation) which

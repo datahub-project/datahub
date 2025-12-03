@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.utils.DomainExtractionUtils;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -51,9 +52,10 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
           // Check authorization based on feature flag
           if (_featureFlags.isDomainBasedAuthorizationEnabled()) {
             // New domain-based authorization approach
-            // Get existing domains from the entity
+            // Get existing domains from the entity using metadata-io utility
             Set<Urn> existingDomains =
-                DomainUtils.getEntityDomains(context, _entityClient, entityUrn);
+                DomainExtractionUtils.getEntityDomains(
+                    context.getOperationContext(), _entityService, entityUrn);
 
             // Combine existing domains with the new domain being set
             Set<Urn> allDomains = new HashSet<>(existingDomains);

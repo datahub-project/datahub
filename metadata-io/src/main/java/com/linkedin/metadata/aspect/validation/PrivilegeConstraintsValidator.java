@@ -57,6 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
+  
   private boolean domainBasedAuthorizationEnabled = false;
 
   @Override
@@ -152,6 +153,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
       Set<Urn> subResources = new HashSet<>(tagDifference);
 
       // Only collect domain information if domain-based authorization is enabled
+      // WARNING: Domain reads here are outside transaction - see class-level security warning
       if (domainBasedAuthorizationEnabled) {
         Set<Urn> domainUrns =
             getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
@@ -250,6 +252,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
       Set<Urn> subResources = new HashSet<>(tagDifference);
 
       // Only collect domain information if domain-based authorization is enabled
+      // WARNING: Domain reads here are outside transaction - see class-level security warning
       if (domainBasedAuthorizationEnabled) {
         Set<Urn> domainUrns =
             getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
@@ -323,6 +326,7 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
       Set<Urn> subResources = new HashSet<>(tagDifference);
 
       // Only collect domain information if domain-based authorization is enabled
+      // WARNING: Domain reads here are outside transaction - see class-level security warning
       if (domainBasedAuthorizationEnabled) {
         Set<Urn> domainUrns =
             getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
@@ -344,8 +348,15 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
   }
 
   /**
-   * Get the domain URNs for an entity to include as subResources in authorization checks. This
-   * allows policies to filter based on both entity domains AND other subResources like tags.
+   * Get the domain URNs for an entity to include as subResources in authorization checks.
+   *
+   * WARNING: This method is called from validateProposed() which runs OUTSIDE of a database
+   * transaction. The aspectRetriever.getLatestAspectObject() call is subject to:
+   * - Caching (may return stale data)
+   * - Race conditions (domains could change between read and transaction commit)
+   *
+   * This creates a TOCTOU (time-of-check time-of-use) vulnerability that could lead to
+   * privilege escalation. See class-level documentation for details and proper fix.
    *
    * <p>The PolicyEngine is designed to handle heterogeneous subResources and has special logic to
    * extract domain information from the entire subResource collection when evaluating DOMAIN field
@@ -411,7 +422,179 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
+    
+    // Skip if authorization is disabled or no session
+    if (session == null) {
+      return Stream.empty();
+    }
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    
+    for (ChangeMCP item : changeMCPs) {
+      if (item.getSystemMetadata() != null
+          && item.getSystemMetadata().getProperties() != null
+          && UI_SOURCE.equals(item.getSystemMetadata().getProperties().get(APP_SOURCE))) {
+        // Skip UI events, these are handled by LabelUtils
+        continue;
+      }
+      
+      // Only validate aspects this validator handles
+      if (!GLOBAL_TAGS_ASPECT_NAME.equals(item.getAspectName())
+          && !SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName())
+          && !EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName())) {
+        continue;
+      }
+
+      // Extract tag differences based on aspect type
+      Set<Urn> tagDifference = extractTagDifferenceFromChangeMCP(item, retrieverContext.getAspectRetriever());
+      
+      if (tagDifference.isEmpty()) {
+        continue;
+      }
+
+      // Start with tags as subResources
+      Set<Urn> subResources = new HashSet<>(tagDifference);
+
+      // Only add domains if domain-based authorization is enabled
+      // This runs inside transaction, so domain reads are protected from race conditions
+      if (domainBasedAuthorizationEnabled) {
+        Set<Urn> domainUrns = getEntityDomainsFromChangeMCP(item, retrieverContext.getAspectRetriever());
+        subResources.addAll(domainUrns);
+      }
+
+      // Perform authorization check with tags (and optionally domains)
+      if (!subResources.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+          session,
+          ApiOperation.fromChangeType(item.getChangeType()),
+          List.of(item.getUrn()),
+          subResources)) {
+        exceptions.addException(
+            item,
+            "Unauthorized to modify one or more tag Urns: " + tagDifference);
+      }
+    }
+
+    return exceptions.streamAllExceptions();
+  }
+
+  /**
+   * Extract tag differences from a ChangeMCP item.
+   * Works for GlobalTags, SchemaMetadata, and EditableSchemaMetadata aspects.
+   */
+  private Set<Urn> extractTagDifferenceFromChangeMCP(ChangeMCP item, AspectRetriever aspectRetriever) {
+    switch (item.getAspectName()) {
+      case GLOBAL_TAGS_ASPECT_NAME:
+        GlobalTags newGlobalTags = item.getAspect(GlobalTags.class);
+        GlobalTags oldGlobalTags = item.getPreviousSystemAspect() != null
+            ? item.getPreviousSystemAspect().getAspect(GlobalTags.class)
+            : null;
+        return extractTagDifference(newGlobalTags, oldGlobalTags);
+        
+      case SCHEMA_METADATA_ASPECT_NAME:
+        SchemaMetadata newSchema = item.getAspect(SchemaMetadata.class);
+        SchemaMetadata oldSchema = item.getPreviousSystemAspect() != null
+            ? item.getPreviousSystemAspect().getAspect(SchemaMetadata.class)
+            : null;
+        return extractSchemaTagDifference(newSchema, oldSchema);
+        
+      case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
+        EditableSchemaMetadata newEditableSchema = item.getAspect(EditableSchemaMetadata.class);
+        EditableSchemaMetadata oldEditableSchema = item.getPreviousSystemAspect() != null
+            ? item.getPreviousSystemAspect().getAspect(EditableSchemaMetadata.class)
+            : null;
+        return extractEditableSchemaTagDifference(newEditableSchema, oldEditableSchema);
+        
+      default:
+        return Collections.emptySet();
+    }
+  }
+
+  /**
+   * Extract tag differences from SchemaMetadata.
+   */
+  private Set<Urn> extractSchemaTagDifference(SchemaMetadata newSchema, @Nullable SchemaMetadata oldSchema) {
+    if (newSchema == null) {
+      return Collections.emptySet();
+    }
+    
+    final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
+    if (oldSchema != null) {
+      existingTagsMap.putAll(
+          oldSchema.getFields().stream()
+              .collect(
+                  Collectors.toMap(
+                      SchemaField::getFieldPath,
+                      schemaField ->
+                          Optional.ofNullable(schemaField.getGlobalTags())
+                              .orElse(new GlobalTags()))));
+    }
+    
+    return newSchema.getFields().stream()
+        .map(
+            schemaField ->
+                extractTagDifference(
+                    Optional.ofNullable(schemaField.getGlobalTags()).orElse(new GlobalTags()),
+                    existingTagsMap.get(schemaField.getFieldPath())))
+        .flatMap(Set::stream)
+        .collect(Collectors.toSet());
+  }
+
+  /**
+   * Extract tag differences from EditableSchemaMetadata.
+   */
+  private Set<Urn> extractEditableSchemaTagDifference(
+      EditableSchemaMetadata newSchema, @Nullable EditableSchemaMetadata oldSchema) {
+    if (newSchema == null || newSchema.getEditableSchemaFieldInfo() == null) {
+      return Collections.emptySet();
+    }
+    
+    final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
+    if (oldSchema != null && oldSchema.getEditableSchemaFieldInfo() != null) {
+      existingTagsMap.putAll(
+          oldSchema.getEditableSchemaFieldInfo().stream()
+              .collect(
+                  Collectors.toMap(
+                      EditableSchemaFieldInfo::getFieldPath,
+                      schemaField ->
+                          Optional.ofNullable(schemaField.getGlobalTags())
+                              .orElse(new GlobalTags()))));
+    }
+    
+    return newSchema.getEditableSchemaFieldInfo().stream()
+        .map(
+            schemaField ->
+                extractTagDifference(
+                    Optional.ofNullable(schemaField.getGlobalTags()).orElse(new GlobalTags()),
+                    existingTagsMap.get(schemaField.getFieldPath())))
+        .flatMap(Set::stream)
+        .collect(Collectors.toSet());
+  }
+
+  /**
+   * Get domain URNs for an entity from a ChangeMCP.
+   * This version runs inside a transaction and is safe from race conditions.
+   */
+  private Set<Urn> getEntityDomainsFromChangeMCP(ChangeMCP item, AspectRetriever aspectRetriever) {
+    Set<Urn> domainUrns = new HashSet<>();
+    
+    // Get existing domains (transaction-protected read)
+    domainUrns.addAll(getEntityDomains(item.getUrn(), aspectRetriever));
+    
+    // If this change is updating domains, include the new domains too
+    if (DOMAINS_ASPECT_NAME.equals(item.getAspectName())) {
+      try {
+        Domains newDomains = item.getAspect(Domains.class);
+        if (newDomains != null && newDomains.getDomains() != null) {
+          domainUrns.addAll(newDomains.getDomains());
+        }
+      } catch (Exception e) {
+        log.warn("Failed to extract domains from ChangeMCP: {}", e.getMessage());
+      }
+    }
+    
+    return domainUrns;
   }
 }

@@ -84,39 +84,6 @@ public class DomainUtils {
   }
 
   /**
-   * Get existing domains for an entity from the database. Similar to
-   * DomainExtractionUtils.getEntityDomains() but for GraphQL.
-   *
-   * @param context query context
-   * @param entityClient entity client for lookups
-   * @param entityUrn the entity URN to get domains for
-   * @return Set of domain URNs for the entity, or empty set if none found
-   */
-  @Nonnull
-  public static Set<Urn> getEntityDomains(
-      @Nonnull QueryContext context, @Nonnull EntityClient entityClient, @Nonnull Urn entityUrn) {
-    try {
-      EntityResponse response =
-          entityClient.getV2(
-              context.getOperationContext(),
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(DOMAINS_ASPECT_NAME));
-
-      if (response != null && response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
-        Domains domains =
-            new Domains(response.getAspects().get(DOMAINS_ASPECT_NAME).getValue().data());
-        if (domains.getDomains() != null && !domains.getDomains().isEmpty()) {
-          return new HashSet<>(domains.getDomains());
-        }
-      }
-    } catch (Exception e) {
-      log.warn("Error retrieving domains for entity {}: {}", entityUrn, e.getMessage());
-    }
-    return Collections.emptySet();
-  }
-
-  /**
    * Check if the current user is authorized to perform operations on entities with the specified
    * domains. This performs domain-based authorization when enabled, using domains as authorization
    * subresources.

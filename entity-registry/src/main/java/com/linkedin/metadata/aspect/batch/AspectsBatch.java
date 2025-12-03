@@ -129,19 +129,23 @@ public interface AspectsBatch {
     return exceptions;
   }
 
-  default ValidationExceptionCollection validatePreCommit(Collection<ChangeMCP> changeMCPs) {
-    return validatePreCommit(changeMCPs, getRetrieverContext());
+  default ValidationExceptionCollection validatePreCommit(
+      Collection<ChangeMCP> changeMCPs, @Nullable AuthorizationSession session) {
+    return validatePreCommit(changeMCPs, getRetrieverContext(), session);
   }
 
   static ValidationExceptionCollection validatePreCommit(
-      Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     retrieverContext
         .getAspectRetriever()
         .getEntityRegistry()
         .getAllAspectPayloadValidators()
         .stream()
-        .flatMap(validator -> validator.validatePreCommit(changeMCPs, retrieverContext))
+        .flatMap(
+            validator -> validator.validatePreCommit(changeMCPs, retrieverContext, session))
         .forEach(exceptions::addException);
     return exceptions;
   }
