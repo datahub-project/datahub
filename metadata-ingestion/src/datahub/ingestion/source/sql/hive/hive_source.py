@@ -28,6 +28,7 @@ from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
     HiveStorageLineageConfig,
+    HiveStorageLineageConfigMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -136,44 +137,17 @@ HiveDialect.get_view_names = get_view_names_patched
 HiveDialect.get_view_definition = get_view_definition_patched
 
 
-class HiveConfig(TwoTierSQLAlchemyConfig):
+class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
     # defaults
     scheme: HiddenFromDocs[str] = Field(default="hive")
 
     # Overriding as table location lineage is richer implementation here than with include_table_location_lineage
     include_table_location_lineage: HiddenFromDocs[bool] = Field(default=False)
 
-    emit_storage_lineage: bool = Field(
-        default=False,
-        description="Whether to emit storage-to-Hive lineage",
-    )
-    hive_storage_lineage_direction: str = Field(
-        default="upstream",
-        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive",
-    )
-    include_column_lineage: bool = Field(
-        default=True,
-        description="When enabled, column-level lineage will be extracted from storage",
-    )
-    storage_platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance for the storage system",
-    )
-
     @field_validator("host_port", mode="after")
     @classmethod
     def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
-
-    @field_validator("hive_storage_lineage_direction", mode="after")
-    @classmethod
-    def _validate_direction(cls, v: str) -> str:
-        """Validate the lineage direction."""
-        if v.lower() not in ["upstream", "downstream"]:
-            raise ValueError(
-                "storage_lineage_direction must be either upstream or downstream"
-            )
-        return v.lower()
 
     def get_storage_lineage_config(self) -> HiveStorageLineageConfig:
         """Convert base config parameters to HiveStorageLineageConfig"""
@@ -243,26 +217,39 @@ class HiveSource(TwoTierSQLAlchemySource):
             # Get dataset URN and required aspects using workunit methods
             try:
                 dataset_urn = wu.get_urn()
-                dataset_props = wu.get_aspect_of_type(DatasetPropertiesClass)
-                schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-            except Exception as exp:
-                logger.warning(f"Failed to process workunit {wu.id}: {exp}")
+            except (AttributeError, KeyError) as e:
+                logger.debug(f"Workunit {wu.id} does not have a URN: {e}")
                 continue
 
-            # Only proceed if we have the necessary properties
-            if dataset_props and dataset_props.customProperties:
-                table = {
-                    "StorageDescriptor": {
-                        "Location": dataset_props.customProperties.get("Location")
-                    }
-                }
+            try:
+                dataset_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+                schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+            except (AttributeError, KeyError) as e:
+                logger.debug(f"Could not extract aspects from workunit {wu.id}: {e}")
+                continue
 
-                if table.get("StorageDescriptor", {}).get("Location"):
-                    yield from self.storage_lineage.get_lineage_mcp(
-                        dataset_urn=dataset_urn,
-                        table=table,
-                        dataset_schema=schema_metadata,
-                    )
+            # Only proceed if we have the necessary properties for storage lineage
+            if not dataset_props or not dataset_props.customProperties:
+                continue
+
+            location = dataset_props.customProperties.get("Location")
+            if not location:
+                continue
+
+            table = {"StorageDescriptor": {"Location": location}}
+
+            try:
+                yield from self.storage_lineage.get_lineage_mcp(
+                    dataset_urn=dataset_urn,
+                    table=table,
+                    dataset_schema=schema_metadata,
+                )
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to generate storage lineage",
+                    context=dataset_urn,
+                    exc=e,
+                )
 
     def get_schema_names(self, inspector):
         assert isinstance(self.config, HiveConfig)

@@ -30,6 +30,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
     HiveStorageLineageConfig,
+    HiveStorageLineageConfigMixin,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -83,7 +84,7 @@ class ViewDataset:
     view_definition: Optional[str] = None
 
 
-class HiveMetastore(BasicSQLAlchemyConfig):
+class HiveMetastore(BasicSQLAlchemyConfig, HiveStorageLineageConfigMixin):
     views_where_clause_suffix: str = Field(
         default="",
         description="Where clause to specify what Presto views should be ingested.",
@@ -143,23 +144,6 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     simplify_nested_field_paths: bool = Field(
         default=False,
         description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
-    )
-
-    emit_storage_lineage: bool = Field(
-        default=False,
-        description="Whether to emit storage-to-Hive lineage",
-    )
-    hive_storage_lineage_direction: str = Field(
-        default="upstream",
-        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive",
-    )
-    include_column_lineage: bool = Field(
-        default=True,
-        description="When enabled, column-level lineage will be extracted from storage",
-    )
-    storage_platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance for the storage system",
     )
 
     def get_storage_lineage_config(self) -> HiveStorageLineageConfig:
@@ -399,24 +383,28 @@ class HiveMetastoreSource(SQLAlchemySource):
             return super().get_db_name(inspector)
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
-        """Extract database and schema from dataset identifier for view lineage parsing."""
+        if not dataset_identifier or not dataset_identifier.strip():
+            raise ValueError("dataset_identifier cannot be empty")
+
         parts = dataset_identifier.split(".")
 
+        # Filter out empty parts (e.g., from ".." in identifier)
+        parts = [p for p in parts if p]
+        if not parts:
+            raise ValueError(f"Invalid dataset identifier: {dataset_identifier}")
+
         if self.config.include_catalog_name_in_ids:
-            # Format: catalog.schema.table
             if len(parts) >= 3:
                 return parts[0], parts[1]
             elif len(parts) == 2:
                 return None, parts[0]
+            else:
+                return None, parts[0]
         else:
-            # Format: schema.table
             if len(parts) >= 2:
                 return None, parts[0]
-
-        # Fallback
-        return None, dataset_identifier.split(".")[
-            0
-        ] if "." in dataset_identifier else dataset_identifier
+            else:
+                return None, parts[0]
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -537,7 +525,6 @@ class HiveMetastoreSource(SQLAlchemySource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        # In mysql we get tables for all databases and we should filter out the non metastore one
         if (
             "mysql" in self.config.scheme
             and self.config.metastore_db_name
@@ -603,9 +590,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 aspects=[StatusClass(removed=False)],
             )
 
-            # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
-
             self._set_partition_key(columns, schema_fields)
 
             schema_metadata = get_schema_metadata(
@@ -620,7 +605,6 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
-            # add table properties
             properties: Dict[str, str] = properties_cache.get(dataset_name, {})
             properties["table_type"] = str(columns[-1]["table_type"] or "")
             properties["table_location"] = str(columns[-1]["table_location"] or "")
@@ -658,8 +642,6 @@ class HiveMetastoreSource(SQLAlchemySource):
                     for mcp_raw in patch_builder.build()
                 ]
             else:
-                # we add to the MCE to keep compatibility with previous output
-                # if merging is disabled
                 dataset_properties = DatasetPropertiesClass(
                     name=key.table,
                     description=table_description,
@@ -667,7 +649,6 @@ class HiveMetastoreSource(SQLAlchemySource):
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
 
-            # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             yield SqlWorkUnit(id=dataset_name, mce=mce)
 
@@ -689,7 +670,6 @@ class HiveMetastoreSource(SQLAlchemySource):
                     domain_registry=self.domain_registry,
                 )
 
-            # Emit storage lineage if configured
             if properties.get("table_location"):
                 table_dict = {
                     "StorageDescriptor": {"Location": properties["table_location"]}
@@ -812,7 +792,6 @@ class HiveMetastoreSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         assert isinstance(sql_config, HiveMetastore)
 
-        # In mysql we get tables for all databases and we should filter out the non metastore one
         if (
             "mysql" in self.config.scheme
             and self.config.metastore_db_name
@@ -843,7 +822,6 @@ class HiveMetastoreSource(SQLAlchemySource):
                 aspects=[StatusClass(removed=False)],
             )
 
-            # add view schema fields
             schema_fields = self.get_schema_fields(
                 dataset.dataset_name,
                 dataset.columns,
@@ -860,10 +838,7 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
-            # add view properties
-            properties: Dict[str, str] = {
-                "is_view": "True",
-            }
+            properties: Dict[str, str] = {"is_view": "True"}
             dataset_properties = DatasetPropertiesClass(
                 name=dataset.dataset_name.split(".")[-1],
                 description=None,
@@ -871,7 +846,6 @@ class HiveMetastoreSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(dataset_properties)
 
-            # add view properties
             view_properties = ViewPropertiesClass(
                 materialized=False,
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
@@ -883,7 +857,6 @@ class HiveMetastoreSource(SQLAlchemySource):
                 dataset_urn=dataset_urn, inspector=inspector, schema=dataset.schema_name
             )
 
-            # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             yield SqlWorkUnit(id=dataset.dataset_name, mce=mce)
 
@@ -891,13 +864,11 @@ class HiveMetastoreSource(SQLAlchemySource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            # Add views subtype
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=SubTypesClass(typeNames=[self.view_subtype]),
             ).as_workunit()
 
-            # Add views definition
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="SQL",
@@ -917,7 +888,6 @@ class HiveMetastoreSource(SQLAlchemySource):
                     domain_config=self.config.domain,
                 )
 
-            # Extract view lineage if enabled and view definition exists
             if dataset.view_definition and self.config.include_view_lineage:
                 default_db = None
                 default_schema = None
@@ -937,7 +907,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
     def _get_db_filter_where_clause(self) -> str:
         if self.config.metastore_db_name is None:
-            return ""  # read metastore_db_name field discription why
+            return ""
         if self.config.database:
             if "postgresql" in self.config.scheme:
                 return f"AND d.\"NAME\" = '{self.config.database}'"
@@ -952,18 +922,11 @@ class HiveMetastoreSource(SQLAlchemySource):
     def _get_presto_view_column_metadata(
         self, view_original_text: str
     ) -> Tuple[List[Dict], str]:
-        """
-        Get Column Metadata from VIEW_ORIGINAL_TEXT from TBLS table for Presto Views.
-        Columns are sorted the same way as they appear in Presto Create View SQL.
-        :param view_original_text:
-        :return:
-        """
-        # remove encoded Presto View data prefix and suffix
+        """Extract column metadata from base64-encoded Presto view definition."""
         encoded_view_info = view_original_text.split(
             HiveMetastoreSource._PRESTO_VIEW_PREFIX, 1
         )[-1].rsplit(HiveMetastoreSource._PRESTO_VIEW_SUFFIX, 1)[0]
 
-        # view_original_text is b64 encoded:
         decoded_view_info = base64.b64decode(encoded_view_info)
         view_definition = json.loads(decoded_view_info).get("originalSql")
 
@@ -990,7 +953,6 @@ class HiveMetastoreSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
-            # column is actually an sqlalchemy.engine.row.LegacyRow, not a Dict and we cannot make column.get("col_description", "")
             description=(
                 column["col_description"] if "col_description" in column else ""  # noqa: SIM401
             ),

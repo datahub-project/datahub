@@ -136,11 +136,11 @@ def test_hive_source_storage_lineage_direction_validation():
         "hive_storage_lineage_direction": "sideways",
     }
 
-    # HiveConfig validates direction in field validator
     with pytest.raises(ValueError) as exc_info:
         HiveConfig.model_validate(config_dict)
 
-    assert "must be either upstream or downstream" in str(exc_info.value)
+    # Check for key parts of error message (may have single or double quotes)
+    assert "upstream" in str(exc_info.value) and "downstream" in str(exc_info.value)
 
 
 def test_hive_source_initialization_with_storage_lineage():
