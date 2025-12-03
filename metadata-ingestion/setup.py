@@ -393,6 +393,10 @@ databricks = {
 
 mysql = {"pymysql>=1.0.2"}
 
+# MySQL-like databases (MySQL, MariaDB, Doris) share the same dependencies
+# since they all use the MySQL protocol and pymysql driver
+mysql_common = sql_common | mysql | aws_common
+
 sac = {
     "requests",
     "pyodata>=1.11.1",
@@ -544,9 +548,10 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo>=4.8.0", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
-    "mysql": sql_common | mysql | aws_common,
-    # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql | aws_common,
+    # MySQL-like databases all use the MySQL protocol and share dependencies
+    "mysql": mysql_common,
+    "mariadb": mysql_common,  # MariaDB is MySQL-compatible
+    "doris": mysql_common,  # Apache Doris uses MySQL protocol
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -784,6 +789,7 @@ full_test_dev_requirements = {
             "circuit-breaker",
             "clickhouse",
             "delta-lake",
+            "doris",
             "druid",
             "excel",
             "feast",

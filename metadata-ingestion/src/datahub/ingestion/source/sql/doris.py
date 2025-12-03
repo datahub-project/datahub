@@ -1,8 +1,10 @@
+import warnings
 from typing import Any, List
 
 from pydantic.fields import Field
 from sqlalchemy.dialects.mysql import base
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import SAWarning
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
@@ -23,6 +25,18 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
     RecordTypeClass,
+)
+
+# Suppress SQLAlchemy warnings about Doris-specific DDL syntax
+# SQLAlchemy's MySQL dialect doesn't understand Doris-specific CREATE TABLE syntax like:
+# - DUPLICATE KEY(...) / AGGREGATE KEY(...) / UNIQUE KEY(...) - Doris table models
+# - DISTRIBUTED BY HASH(...) BUCKETS N - Doris distribution strategy
+# - PROPERTIES (...) - Doris table properties
+# These warnings are harmless and can be safely ignored
+warnings.filterwarnings(
+    "ignore",
+    message=".*Unknown schema content.*",
+    category=SAWarning,
 )
 
 # Register Doris-specific data types
