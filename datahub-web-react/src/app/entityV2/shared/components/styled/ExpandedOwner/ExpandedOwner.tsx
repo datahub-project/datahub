@@ -1,11 +1,12 @@
-import { Modal, message } from 'antd';
-import React from 'react';
+import { message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -28,6 +29,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
+    const [showRemoveOwnerModal, setShowRemoveOwnerModal] = useState(false);
     const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
@@ -82,19 +84,10 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
         }
         refetch?.();
     };
+
     const onClose = (e) => {
         e.preventDefault();
-        Modal.confirm({
-            title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
-            onOk() {
-                onDelete();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        setShowRemoveOwnerModal(true);
     };
 
     const propagationDetails = { attribution: owner.attribution };
@@ -109,6 +102,13 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     propagationDetails={propagationDetails}
                 />
             </OwnerWrapper>
+            <ConfirmationModal
+                isOpen={showRemoveOwnerModal}
+                handleClose={() => setShowRemoveOwnerModal(false)}
+                handleConfirm={onDelete}
+                modalTitle={`Do you want to remove ${name}?`}
+                modalText={`Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`}
+            />
         </>
     );
 };
