@@ -55,7 +55,8 @@ public class ListUsersResolverTest {
                 any(),
                 Mockito.eq(CORP_USER_ENTITY_NAME),
                 Mockito.eq(""),
-                Mockito.eq(Collections.emptyMap()),
+                Mockito.isNull(),
+                any(),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(searchResult);
@@ -112,7 +113,8 @@ public class ListUsersResolverTest {
                 any(),
                 Mockito.eq(CORP_USER_ENTITY_NAME),
                 Mockito.eq("test query"),
-                Mockito.eq(Collections.emptyMap()),
+                Mockito.isNull(),
+                any(),
                 Mockito.eq(10),
                 Mockito.eq(5)))
         .thenReturn(searchResult);
