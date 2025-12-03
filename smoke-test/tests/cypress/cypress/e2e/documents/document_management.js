@@ -362,7 +362,7 @@ describe("Document Management End-to-End Test", () => {
             .should("be.visible")
             .within(() => {
               // Use the search box to find the parent document by name
-              cy.get('input[placeholder="Search documents..."]')
+              cy.get('input[placeholder="Search context..."]')
                 .should("be.visible")
                 .clear()
                 .type(doc1Title, { delay: 50 });
@@ -379,7 +379,7 @@ describe("Document Management End-to-End Test", () => {
             if (!resultExists) {
               cy.log("No results found on first try, typing again...");
               cy.get('[data-testid="move-document-popover"]').within(() => {
-                cy.get('input[placeholder="Search documents..."]')
+                cy.get('input[placeholder="Search context..."]')
                   .clear()
                   .type(doc1Title, { delay: 50 });
               });
