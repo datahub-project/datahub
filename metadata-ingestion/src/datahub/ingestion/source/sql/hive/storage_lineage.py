@@ -1,6 +1,6 @@
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -14,6 +14,7 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -191,12 +192,12 @@ class HiveStorageLineageConfig(ConfigModel):
 
 
 @dataclass
-class HiveStorageSourceReport:
+class HiveStorageSourceReport(Report):
     """Report for tracking storage lineage statistics"""
 
     storage_locations_scanned: int = 0
-    filtered_locations: List[str] = Field(default_factory=list)
-    failed_locations: List[str] = Field(default_factory=list)
+    filtered_locations: List[str] = field(default_factory=list)
+    failed_locations: List[str] = field(default_factory=list)
 
     def report_location_scanned(self) -> None:
         self.storage_locations_scanned += 1
