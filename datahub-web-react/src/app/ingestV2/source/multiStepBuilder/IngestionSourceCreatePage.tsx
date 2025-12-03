@@ -18,6 +18,7 @@ const STEPS: IngestionSourceFormStep[] = [
         key: 'selectSource',
         content: <SelectSourceStep />,
         hideRightPanel: true,
+        hideBottomPanel: true,
     },
     {
         label: 'Connection Details',
