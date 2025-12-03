@@ -189,7 +189,6 @@ class HiveSource(TwoTierSQLAlchemySource):
         self.storage_lineage = HiveStorageLineage(
             config=config,
             env=config.env,
-            convert_urns_to_lowercase=config.convert_urns_to_lowercase,
         )
 
     @classmethod

@@ -249,9 +249,7 @@ def test_hive_storage_lineage_lowercase_urns():
         emit_storage_lineage=True,
         storage_platform_instance="PROD-CLUSTER",
     )
-    lineage = HiveStorageLineage(
-        config=config, env="PROD", convert_urns_to_lowercase=True
-    )
+    lineage = HiveStorageLineage(config=config, env="PROD")
 
     table = {"StorageDescriptor": {"Location": "S3://BUCKET/PATH"}}
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"

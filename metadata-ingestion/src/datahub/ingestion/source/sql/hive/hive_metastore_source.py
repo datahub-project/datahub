@@ -366,7 +366,6 @@ class HiveMetastoreSource(SQLAlchemySource):
         self.storage_lineage = HiveStorageLineage(
             config=config,
             env=config.env,
-            convert_urns_to_lowercase=config.convert_urns_to_lowercase,
         )
 
     def get_db_name(self, inspector: Inspector) -> str:

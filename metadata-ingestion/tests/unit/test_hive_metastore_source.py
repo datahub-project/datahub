@@ -253,7 +253,6 @@ def test_hive_metastore_source_storage_lineage_integration(mock_client):
     assert source.storage_lineage.config.hive_storage_lineage_direction == "upstream"
     assert source.storage_lineage.config.include_column_lineage is True
     assert source.storage_lineage.env == "PROD"
-    assert source.storage_lineage.convert_urns_to_lowercase is True
 
 
 def test_hive_metastore_all_storage_platforms():
