@@ -3,10 +3,9 @@ import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { DetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { DetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
+import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
@@ -20,9 +19,7 @@ const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
-const RecipeSection = styled(SectionBase)`
-    border-top: 1px solid ${colors.gray[1400]};
-`;
+const RecipeSection = styled(SectionBase)``;
 
 export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
@@ -39,7 +36,9 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
 
     return (
         <RecipeSection>
-            <SectionHeader level={5}>Recipe</SectionHeader>
+            <Heading type="h4" size="lg" weight="bold">
+                Recipe
+            </Heading>
             <SectionSubHeader>
                 <SubHeaderParagraph color="gray" colorLevel={600}>
                     The configurations used for this sync with the data source.

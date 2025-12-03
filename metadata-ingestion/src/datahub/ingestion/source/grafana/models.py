@@ -39,6 +39,29 @@ class DatasourceRef(_GrafanaBaseModel):
     name: Optional[str] = None
 
 
+class QueryInfo(_GrafanaBaseModel):
+    """Represents a query extracted from a Grafana panel."""
+
+    query: str
+    language: str
+
+    @field_validator("query")
+    @classmethod
+    def validate_query_not_empty(cls, v: str) -> str:
+        """Ensure query is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Query cannot be empty or whitespace-only")
+        return v.strip()
+
+    @field_validator("language")
+    @classmethod
+    def validate_language_not_empty(cls, v: str) -> str:
+        """Ensure language is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Language cannot be empty or whitespace-only")
+        return v.strip()
+
+
 class Panel(_GrafanaBaseModel):
     """Represents a Grafana dashboard panel."""
 

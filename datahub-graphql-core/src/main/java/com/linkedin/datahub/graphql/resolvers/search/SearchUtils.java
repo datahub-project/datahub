@@ -92,8 +92,7 @@ public class SearchUtils {
           EntityType.NOTEBOOK,
           EntityType.BUSINESS_ATTRIBUTE,
           EntityType.SCHEMA_FIELD,
-          EntityType.APPLICATION,
-          EntityType.DOCUMENT);
+          EntityType.APPLICATION);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =

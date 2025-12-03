@@ -11,12 +11,14 @@ import { ExecutedByColumn } from '@app/ingestV2/executions/components/columns/Ex
 import RollbackExecutionConfirmation from '@app/ingestV2/executions/components/columns/RollbackExecutionConfirmation';
 import SourceColumn from '@app/ingestV2/executions/components/columns/SourceColumn';
 import { ExecutionCancelInfo, ExecutionRequestRecord } from '@app/ingestV2/executions/types';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
+import { PageRoutes } from '@conf/Global';
 
 import { ExecutionRequest } from '@types';
 
@@ -46,6 +48,7 @@ export default function ExecutionsTable({
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
     const [executionInfoToCancel, setExecutionInfoToCancel] = useState<ExecutionCancelInfo | undefined>();
     const history = useHistory();
+    const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     const tableData: ExecutionRequestRecord[] = executionRequests.map((execution) => ({
         urn: execution.urn,
@@ -81,6 +84,19 @@ export default function ExecutionsTable({
         setExecutionInfoToCancel(undefined);
     }, [handleCancelExecution, executionInfoToCancel]);
 
+    const hadleViewDetails = useCallback(
+        (urn: string) => {
+            if (showIngestionOnboardingRedesignV1) {
+                history.push(PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn), {
+                    fromUrl: tabUrlMap[TabType.RunHistory],
+                });
+            } else {
+                setFocusExecutionUrn(urn);
+            }
+        },
+        [history, setFocusExecutionUrn, showIngestionOnboardingRedesignV1],
+    );
+
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
             title: 'Source',
@@ -110,9 +126,7 @@ export default function ExecutionsTable({
         {
             title: 'Status',
             key: 'status',
-            render: (record) => (
-                <StatusColumn status={record.status} onClick={() => setFocusExecutionUrn(record.urn)} />
-            ),
+            render: (record) => <StatusColumn status={record.status} onClick={() => hadleViewDetails(record.urn)} />,
             width: '15%',
         },
         {
@@ -121,7 +135,7 @@ export default function ExecutionsTable({
             render: (record) => (
                 <ActionsColumn
                     record={record}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
+                    hadleViewDetails={hadleViewDetails}
                     handleRollback={() => setRunIdOfRollbackConfirmation(record.id)}
                     handleCancel={() => {
                         if (record.sourceUrn) {
@@ -143,7 +157,7 @@ export default function ExecutionsTable({
                 data={tableData}
                 isScrollable
                 isLoading={loading}
-                onRowClick={(record) => setFocusExecutionUrn(record.urn)}
+                onRowClick={(record) => hadleViewDetails(record.urn)}
                 footer={
                     isLastPage ? (
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />

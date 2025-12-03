@@ -12,27 +12,27 @@ import { DocumentState } from '@types';
 
 const PopoverContainer = styled.div`
     width: 400px;
-    height: 300px; /* Fixed height to prevent popover jumping */
+    max-height: 300px; /* Fixed height to prevent popover jumping */
     display: flex;
     flex-direction: column;
     background: white;
     border-radius: 8px;
     box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
-    padding: 16px;
 `;
 
 const SearchContainer = styled.div`
-    margin-bottom: 12px;
+    padding: 8px;
 `;
 
 const TreeScrollContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     height: 300px; /* Fixed height to prevent popover jumping */
-    border: 1px solid ${colors.gray[100]};
-    border-radius: 6px;
-    padding: 8px;
-    margin-bottom: 12px;
+
+    padding: 8px 4px;
+
+    border-top: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${colors.gray[100]};
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -90,6 +90,7 @@ const ButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    padding: 8px;
 `;
 
 interface MoveDocumentPopoverProps {
@@ -154,7 +155,7 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
     return (
         <PopoverContainer data-testid="move-document-popover">
             <SearchContainer>
-                <Input label="" placeholder="Search documents..." value={searchQuery} setValue={setSearchQuery} />
+                <Input label="" placeholder="Search context..." value={searchQuery} setValue={setSearchQuery} />
             </SearchContainer>
 
             <TreeScrollContainer>
@@ -163,16 +164,16 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
                     <>
                         {searchLoading && <EmptyState>Searching...</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (
-                            <EmptyState>No documents found</EmptyState>
+                            <EmptyState>No results found</EmptyState>
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
                                 const isSelected = selectedParentUrn === doc.urn;
 
-                                // Build breadcrumb from parentDocuments array
+                                // Build breadcrumb from parentDocuments array if there are parents
                                 // parentDocuments is ordered: [direct parent, parent's parent, ...]
-                                // We want to show: Root > grandparent > parent
-                                let breadcrumb = 'Root';
+                                // We want to show: grandparent > parent
+                                let breadcrumb: string | null = null;
                                 if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                     const parents = [...doc.parentDocuments.documents].reverse(); // Reverse to get root first
                                     breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');
