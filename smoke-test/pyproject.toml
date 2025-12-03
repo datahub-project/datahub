@@ -91,3 +91,9 @@ filterwarnings = [
     # We should not be unexpectedly seeing API tracing warnings.
     "error::datahub.errors.APITracingWarning",
 ]
+# Logging configuration - formats test reports without interfering with CLI tests
+log_level = "INFO"
+log_format = "%(asctime)s - %(name)s - %(funcName)s - %(levelname)s - %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+# Note: log_cli is intentionally NOT configured to avoid interfering with
+# click.testing.CliRunner output capture in CLI command tests
