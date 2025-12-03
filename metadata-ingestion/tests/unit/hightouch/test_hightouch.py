@@ -312,3 +312,272 @@ def test_sync_patterns_filtering(mock_api_client_class, pipeline_context):
     workunits = list(source_instance.get_workunits_internal())
 
     assert len(workunits) >= 0
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_with_valid_query(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test SQL parsing with a valid query extracting upstream tables."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Customer 360",
+        slug="customer-360",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        raw_sql="SELECT * FROM analytics.customers JOIN analytics.orders ON customers.id = orders.customer_id",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+    source_instance._sources_cache = {"1": mock_source}
+
+    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+
+    assert dataset.urn.name == "customer-360"
+    assert source_instance.report.sql_parsing_attempts >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_with_no_upstream_tables(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test SQL parsing with a query that has no upstream tables (e.g., VALUES clause)."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Static Data",
+        slug="static-data",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        raw_sql="SELECT 1 as id, 'test' as name",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+    source_instance._sources_cache = {"1": mock_source}
+
+    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+
+    assert dataset.urn.name == "static-data"
+    assert source_instance.report.sql_parsing_attempts >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_with_invalid_sql(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test SQL parsing with invalid SQL syntax."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Invalid Model",
+        slug="invalid-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        raw_sql="SELECT * FROM WHERE INVALID SYNTAX!!!",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+    source_instance._sources_cache = {"1": mock_source}
+
+    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+
+    assert dataset.urn.name == "invalid-model"
+    assert source_instance.report.sql_parsing_failures >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_with_no_raw_sql(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test SQL parsing when raw_sql is None."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Table Model",
+        slug="table-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="table",
+        raw_sql=None,
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+    source_instance._sources_cache = {"1": mock_source}
+
+    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+
+    assert dataset.urn.name == "table-model"
+    assert source_instance.report.sql_parsing_attempts == 0
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_with_unknown_platform(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test SQL parsing when source platform cannot be determined."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Custom Model",
+        slug="custom-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        raw_sql="SELECT * FROM customers",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+
+    dataset = source_instance._generate_model_dataset(mock_model, None)
+
+    assert dataset.urn.name == "custom-model"
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_with_cte(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    """Test SQL parsing with Common Table Expressions (CTEs)."""
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="CTE Model",
+        slug="cte-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        raw_sql="""
+            WITH active_customers AS (
+                SELECT * FROM analytics.customers WHERE status = 'active'
+            )
+            SELECT * FROM active_customers JOIN analytics.orders USING (customer_id)
+        """,
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(hightouch_config, pipeline_context)
+    source_instance._sources_cache = {"1": mock_source}
+
+    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+
+    assert dataset.urn.name == "cte-model"
+    assert source_instance.report.sql_parsing_attempts >= 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
+    """Test that SQL parsing can be disabled via config."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        parse_model_sql=False,
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    mock_model = HightouchModel(
+        id="10",
+        name="Test Model",
+        slug="test-model",
+        workspace_id="100",
+        source_id="1",
+        query_type="raw_sql",
+        raw_sql="SELECT * FROM analytics.customers",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    mock_source = HightouchSourceConnection(
+        id="1",
+        name="Snowflake Prod",
+        slug="snowflake-prod",
+        type="snowflake",
+        workspace_id="100",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+    source_instance._sources_cache = {"1": mock_source}
+
+    dataset = source_instance._generate_model_dataset(mock_model, mock_source)
+
+    assert dataset.urn.name == "test-model"
+    assert source_instance.report.sql_parsing_attempts == 0
