@@ -54,7 +54,7 @@ buildscript {
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.5.19'
+  ext.logbackClassic = '1.5.21'
   ext.logbackContribVersion = '0.1.5'
   ext.janinoVersion = '3.0.12'
   ext.hadoop3Version = '3.3.6'
