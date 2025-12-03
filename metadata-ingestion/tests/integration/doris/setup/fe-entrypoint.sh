@@ -22,11 +22,17 @@ export FE_ID=1
 
 echo "Starting Doris FE with FE_SERVERS=${FE_SERVERS} FE_ID=${FE_ID}"
 
-# Ensure JAVA_OPTS is exported for the Doris startup script
-# This workaround fixes Java 17 cgroup v2 incompatibility
-if [ -n "$JAVA_OPTS" ]; then
-    echo "Applying JAVA_OPTS: $JAVA_OPTS"
-    export JAVA_OPTS
+# Workaround for Java 17 cgroup v2 incompatibility in GitHub Actions CI
+# Doris's init_fe.sh ignores JAVA_OPTS, so we inject directly into fe.conf
+FE_CONF="/opt/apache-doris/fe/conf/fe.conf"
+if [ -f "$FE_CONF" ]; then
+    # Add our JVM flags to the config file if not already present
+    if ! grep -q "XX:-UseContainerSupport" "$FE_CONF" 2>/dev/null; then
+        echo "Injecting cgroup v2 workaround into fe.conf"
+        echo "JAVA_OPTS = \"-XX:-UseContainerSupport -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap\"" >> "$FE_CONF"
+    fi
+else
+    echo "WARNING: fe.conf not found at $FE_CONF"
 fi
 
 # Call the original Doris entrypoint
