@@ -13,6 +13,7 @@ export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_TOKEN: RecipeField = {
     name: 'token',
     label: 'API Token',
+    helper: 'Service account API token',
     tooltip: (
         <span>
             <TipSection>
@@ -35,6 +36,7 @@ export const DBT_CLOUD_TOKEN: RecipeField = {
 export const DBT_CLOUD_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
+    helper: 'dbt Cloud account ID',
     tooltip: (
         <span>
             <TipSection>The ID of the dbt Cloud account to extract metadata for.</TipSection>
@@ -53,6 +55,7 @@ export const DBT_CLOUD_ACCOUNT_ID: RecipeField = {
 export const DBT_CLOUD_PROJECT_ID: RecipeField = {
     name: 'project_id',
     label: 'Project ID',
+    helper: 'dbt Cloud project ID',
     tooltip: (
         <span>
             <TipSection>The ID of the dbt Cloud project to extract metadata for.</TipSection>
@@ -72,6 +75,7 @@ export const DBT_CLOUD_PROJECT_ID: RecipeField = {
 export const DBT_CLOUD_JOB_ID: RecipeField = {
     name: 'job_id',
     label: 'Job ID',
+    helper: 'dbt Cloud job ID for metadata',
     tooltip: (
         <span>
             <TipSection>
@@ -96,6 +100,7 @@ const includeModelsPath = 'source.config.entities_enabled.models';
 export const INCLUDE_MODELS: RecipeField = {
     name: 'entities_enabled.models',
     label: 'Include Models',
+    helper: 'Include extraction of Models',
     tooltip: 'Whether to include extraction of Models or not.',
     type: FieldType.BOOLEAN,
     fieldPath: includeModelsPath,
@@ -118,6 +123,7 @@ const includeSourcesPath = 'source.config.entities_enabled.sources';
 export const INCLUDE_SOURCES: RecipeField = {
     name: 'entities_enabled.sources',
     label: 'Include Sources',
+    helper: 'Include extraction of Sources',
     tooltip: 'Whether to include extraction of Sources or not.',
     type: FieldType.BOOLEAN,
     fieldPath: includeSourcesPath,
@@ -140,6 +146,7 @@ const includeSeedsPath = 'source.config.entities_enabled.seeds';
 export const INCLUDE_SEEDS: RecipeField = {
     name: 'entities_enabled.seeds',
     label: 'Include Seeds',
+    helper: 'Include extraction of Seeds',
     tooltip: 'Whether to include extraction of Seeds or not.',
     type: FieldType.BOOLEAN,
     fieldPath: includeSeedsPath,
@@ -162,6 +169,7 @@ const includeTestDefinitionsPath = 'source.config.entities_enabled.test_definiti
 export const INCLUDE_TEST_DEFINITIONS: RecipeField = {
     name: 'entities_enabled.test_definitions',
     label: 'Include Test Definitions',
+    helper: 'Include extraction of Test Definitions',
     tooltip: 'Whether to include extraction of Test Definitions or not.',
     type: FieldType.BOOLEAN,
     fieldPath: includeTestDefinitionsPath,
@@ -188,6 +196,7 @@ const includeTestResultsPath = 'source.config.entities_enabled.test_results';
 export const INCLUDE_TEST_RESULTS: RecipeField = {
     name: 'entities_enabled.test_results',
     label: 'Include Test Results',
+    helper: 'Include extraction of Test Results',
     tooltip: 'Whether to include extraction of Test Results or not.',
     type: FieldType.BOOLEAN,
     fieldPath: includeTestResultsPath,
@@ -210,6 +219,7 @@ const nodeAllowFieldPath = 'source.config.node_name_pattern.allow';
 export const NODE_ALLOW: RecipeField = {
     name: 'node_name_pattern.allow',
     label: 'Allow Patterns',
+    helper: 'Include specific dbt Nodes',
     tooltip:
         'Only include specific dbt Nodes (resources) by providing their name, or a Regular Expression (REGEX). If not provided, all Nodes will be included.',
     placeholder: 'model_name',
@@ -224,6 +234,7 @@ const nodeDenyFieldPath = 'source.config.node_name_pattern.deny';
 export const NODE_DENY: RecipeField = {
     name: 'node_name_pattern.deny',
     label: 'Deny Patterns',
+    helper: 'Exclude specific dbt Nodes',
     tooltip:
         'Exclude specific dbt Nodes (Resources) by providing their name, or a Regular Expression (REGEX). If not provided, all Nodes will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'node_name',
@@ -237,6 +248,7 @@ export const NODE_DENY: RecipeField = {
 export const METADATA_ENDPOINT: RecipeField = {
     name: 'metadata_endpoint',
     label: 'Custom Metadata Endpoint URL',
+    helper: 'Custom URL for metadata extraction',
     tooltip:
         'A custom URL used for extracting Metadata. By default, this metadata is extracted from https://metadata.cloud.getdbt.com/graphql. In most cases, users should NOT need to provide this value.',
     placeholder: 'https://metadata.cloud.getdbt.com/graphql',
@@ -249,6 +261,7 @@ const extractOwnersPath = 'source.config.enable_owner_extraction';
 export const EXTRACT_OWNERS: RecipeField = {
     name: 'extract_owners',
     label: 'Extract Owners',
+    helper: 'Extract owners from dbt meta',
     tooltip:
         'Try to extract owners from dbt meta properties. Be careful: This can override Owners added by users of DataHub.',
     type: FieldType.BOOLEAN,
@@ -266,6 +279,7 @@ export const EXTRACT_OWNERS: RecipeField = {
 export const TARGET_PLATFORM: RecipeField = {
     name: 'target_platform',
     label: 'Data Platform (Connection Type)',
+    helper: 'Type of Data Platform dbt connects to',
     tooltip: 'The type of Data Platform that dbt is connected to.',
     placeholder: 'Select a Data Platform Type...',
     type: FieldType.SELECT,
@@ -285,6 +299,7 @@ export const TARGET_PLATFORM: RecipeField = {
 export const TARGET_PLATFORM_INSTANCE: RecipeField = {
     name: 'target_platform_instance',
     label: 'Data Platform Instance',
+    helper: 'DataHub Platform Instance identifier',
     tooltip: (
         <span>
             <TipSection>

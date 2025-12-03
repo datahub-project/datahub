@@ -1,10 +1,16 @@
+import React from "react";
+
 export type StepKey = string;
 
 export interface Step {
     label: string;
+    subTitle?: React.ReactNode;
     key: StepKey;
     content: React.ReactNode;
+    completedByDefault?: boolean;
 }
+
+export type OnNextHandler = () => void;
 
 export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
     state: TState;
@@ -18,6 +24,7 @@ export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
     getCurrentStep: () => TStep | undefined;
 
     canGoToNext: () => boolean;
+    setOnNextHandler: (handler: OnNextHandler | undefined) => void;
     goToNext: () => void;
     canGoToPrevious: () => boolean;
     goToPrevious: () => void;
@@ -26,6 +33,7 @@ export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
     isStepCompleted: (stepKey: StepKey) => boolean;
     isCurrentStepCompleted: () => boolean;
     setCurrentStepCompleted: () => void;
+    setCurrentStepUncompleted: () => void;
 }
 
 export interface MultiStepFormProviderProps<TState> {

@@ -5,13 +5,12 @@ import React, { useCallback, useMemo } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import {
     buildOwnerEntities,
     getIngestionSourceMutationInput,
@@ -23,10 +22,12 @@ import { PageRoutes } from '@conf/Global';
 
 import { useGetIngestionSourceQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
+import { ConnectionDetailsSubTitle } from './steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 
 const STEPS: IngestionSourceFormStep[] = [
     {
         label: 'Connection Details',
+        subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
     },
@@ -58,7 +59,7 @@ export function IngestionSourceUpdatePage() {
     const updateIngestionSource = useUpdateIngestionSource();
 
     const onSubmit = useCallback(
-        async (data: SourceBuilderState | undefined) => {
+        async (data: MultiStepSourceBuilderState | undefined) => {
             if (!data) return undefined;
 
             const shouldRun = true; // TODO:: set a real value
@@ -138,9 +139,10 @@ export function IngestionSourceUpdatePage() {
             steps={STEPS}
             onSubmit={onSubmit}
             onCancel={onCancel}
-            initialState={mapSourceTypeAliases(
-                removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource),
-            )}
+            initialState={{
+                ...mapSourceTypeAliases(removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource)),
+                ...{ isEditing: true, ingestionSource: ingestionSourceData.ingestionSource as IngestionSource },
+            }}
         />
     );
 }

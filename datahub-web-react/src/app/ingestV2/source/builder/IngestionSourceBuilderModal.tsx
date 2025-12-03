@@ -10,10 +10,11 @@ import { CreateScheduleStep } from '@app/ingestV2/source/builder/CreateScheduleS
 import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep';
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 
 import { IngestionSource } from '@types';
+
+import { useIngestionSources } from './useIngestionSources';
 
 const StepsContainer = styled.div`
     margin-right: 20px;
@@ -87,7 +88,7 @@ export const IngestionSourceBuilderModal = ({
         },
     });
 
-    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
+    const { ingestionSources } = useIngestionSources();
 
     const sendAnalyticsStepViewedEvent = useCallback(
         (step: IngestionSourceBuilderStep) => {

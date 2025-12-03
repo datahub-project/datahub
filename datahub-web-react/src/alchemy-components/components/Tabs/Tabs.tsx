@@ -249,6 +249,7 @@ export interface Props {
     scrollToTopOnChange?: boolean;
     maxHeight?: string;
     stickyHeader?: boolean;
+    destroyInactiveTabPane?: boolean;
 }
 
 export function Tabs({
@@ -266,6 +267,7 @@ export function Tabs({
     scrollToTopOnChange = false,
     maxHeight = '100%',
     stickyHeader = false,
+    destroyInactiveTabPane,
 }: Props) {
     const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -323,6 +325,7 @@ export function Tabs({
                     onUrlChange(urlMap[key]);
                 }
             }}
+            destroyInactiveTabPane={destroyInactiveTabPane}
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
             $containerHeight={styleOptions?.containerHeight}
