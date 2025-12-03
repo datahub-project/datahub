@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { ScrollableDetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { ScrollableDetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -12,7 +12,7 @@ import { getExecutionRequestSummaryText, useExecutionLogsDownload } from '@app/i
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Text, Tooltip } from '@src/alchemy-components';
+import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -93,7 +93,9 @@ export const SummaryTab = ({
                 )}
             </SectionBase>
             <SectionBase>
-                <SectionHeader level={5}>Logs</SectionHeader>
+                <Heading type="h4" size="lg" weight="bold">
+                    Logs
+                </Heading>
                 <SectionSubHeader>
                     <SubHeaderParagraph color="gray" colorLevel={600}>
                         View logs that were collected during the sync.
@@ -117,7 +119,9 @@ export const SummaryTab = ({
             </SectionBase>
             {recipe && (
                 <SectionBase>
-                    <SectionHeader level={5}>Recipe</SectionHeader>
+                    <Heading type="h4" size="lg" weight="bold">
+                        Recipe
+                    </Heading>
                     <SectionSubHeader>
                         <SubHeaderParagraph color="gray" colorLevel={600}>
                             The configurations used for this sync with the data source.

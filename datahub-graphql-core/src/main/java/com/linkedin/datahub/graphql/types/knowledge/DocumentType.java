@@ -39,6 +39,7 @@ public class DocumentType
       ImmutableSet.of(
           Constants.DOCUMENT_KEY_ASPECT_NAME,
           Constants.DOCUMENT_INFO_ASPECT_NAME,
+          Constants.DOCUMENT_SETTINGS_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.STATUS_ASPECT_NAME,
           Constants.BROWSE_PATHS_V2_ASPECT_NAME,

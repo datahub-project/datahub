@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import LinkButton from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
 import LinkPreview from '@app/integration/LinkPreview';
@@ -17,7 +17,6 @@ interface Props {
 
 export default function LinksSection({ readOnly }: Props) {
     const { entityData } = useEntityData();
-    const refetch = useRefetch();
 
     const links = useMemo(
         // Do not show links that shown in entity profile's header
@@ -35,7 +34,7 @@ export default function LinksSection({ readOnly }: Props) {
             ))}
             {!readOnly && (
                 <AddLinksWrapper>
-                    <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                    <AddLinkModal buttonProps={{ type: 'text' }} />
                 </AddLinksWrapper>
             )}
         </>

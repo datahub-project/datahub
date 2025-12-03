@@ -5,10 +5,14 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +22,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -26,15 +31,20 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -175,7 +185,7 @@ public class ESUtilsTest {
     """
             .trim();
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.EQUAL, "value1", "value2");
@@ -188,20 +198,17 @@ public class ESUtilsTest {
             mock(OperationContext.class),
             QueryFilterRewriteChain.EMPTY);
     expected =
-        """
-    {
-      "terms" : {
-        "myTestField.keyword" : [
-          "value1",
-          "value2"
-        ],
-        "boost" : 1.0,
-        "_name" : "myTestField"
-      }
-    }
-    """
-            .trim();
-    Assert.assertEquals(result.toString(), expected);
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"myTestField.keyword\" : [\n"
+            + "      \"value1\",\n"
+            + "      \"value2\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"myTestField\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField =
         buildCriterion("myTestField", Condition.EQUAL, "value1", "value2");
@@ -214,20 +221,17 @@ public class ESUtilsTest {
             mock(OperationContext.class),
             QueryFilterRewriteChain.EMPTY);
     expected =
-        """
-    {
-      "terms" : {
-        "myTestField" : [
-          "value1",
-          "value2"
-        ],
-        "boost" : 1.0,
-        "_name" : "myTestField"
-      }
-    }
-    """
-            .trim();
-    Assert.assertEquals(result.toString(), expected);
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"myTestField\" : [\n"
+            + "      \"value1\",\n"
+            + "      \"value2\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"myTestField\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -268,7 +272,7 @@ public class ESUtilsTest {
     """
             .trim();
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.IEQUAL, "value1", "value2");
@@ -314,7 +318,7 @@ public class ESUtilsTest {
     """
             .trim();
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -351,7 +355,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.CONTAIN, "value1", "value2");
@@ -395,7 +399,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -432,7 +436,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.START_WITH, "value1", "value2");
@@ -476,7 +480,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -512,7 +516,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.END_WITH, "value1", "value2");
@@ -556,7 +560,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -586,7 +590,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = buildExistsCriterion("myTestField");
@@ -614,7 +618,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -644,7 +648,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries case for this condition
     final Criterion timeseriesField = buildIsNullCriterion("myTestField");
@@ -672,7 +676,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -717,7 +721,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField =
         buildCriterion(FIELD_TO_EXPAND, Condition.EQUAL, "value1", "value2");
@@ -760,7 +764,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion originCriterion = buildCriterion("origin", Condition.EQUAL, "PROD");
 
@@ -800,7 +804,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(originExpanded.toString(), originExpected);
+    assertEquals(originExpanded.toString(), originExpected);
 
     final Criterion envCriterion = buildCriterion("env", Condition.EQUAL, "PROD");
 
@@ -840,7 +844,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(envExpanded.toString(), envExpected);
+    assertEquals(envExpanded.toString(), envExpected);
 
     final Criterion businessAttributeRefNestedFieldCriterion =
         buildCriterion("businessAttribute", Condition.EQUAL, "urn:li:businessAttribute:value");
@@ -880,7 +884,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(businessAttributeExpanded.toString(), businessAttributeExpected);
+    assertEquals(businessAttributeExpanded.toString(), businessAttributeExpected);
   }
 
   @Test
@@ -904,7 +908,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -929,7 +933,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.under.scores.and.dots_make_a_mess\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -957,7 +961,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1043,7 +1047,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.under.scores.and.dots_make_a_mess\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1073,7 +1077,7 @@ public class ESUtilsTest {
             + "    }\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1101,7 +1105,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = buildExistsCriterion("myTestField");
@@ -1125,7 +1129,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1157,7 +1161,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = buildCriterion("myTestField", Condition.EXISTS);
@@ -1181,7 +1185,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1212,7 +1216,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"testObjectField.numericField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         new Criterion()
@@ -1238,7 +1242,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"testObjectField.numericField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1250,9 +1254,9 @@ public class ESUtilsTest {
             .minimumShouldMatch("1");
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(0, boolQuery.should().size());
-    Assert.assertEquals(1, boolQuery.must().size());
+    assertTrue(changed);
+    assertEquals(0, boolQuery.should().size());
+    assertEquals(1, boolQuery.must().size());
     Assert.assertNull(boolQuery.minimumShouldMatch());
   }
 
@@ -1265,9 +1269,9 @@ public class ESUtilsTest {
             .minimumShouldMatch("1");
 
     boolean changed = ESUtils.optimizePass(boolQuery, false);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(0, boolQuery.should().size());
-    Assert.assertEquals(1, boolQuery.filter().size());
+    assertTrue(changed);
+    assertEquals(0, boolQuery.should().size());
+    assertEquals(1, boolQuery.filter().size());
     Assert.assertNull(boolQuery.minimumShouldMatch());
   }
 
@@ -1280,9 +1284,9 @@ public class ESUtilsTest {
             .minimumShouldMatch("100%");
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(0, boolQuery.should().size());
-    Assert.assertEquals(1, boolQuery.must().size());
+    assertTrue(changed);
+    assertEquals(0, boolQuery.should().size());
+    assertEquals(1, boolQuery.must().size());
   }
 
   @Test
@@ -1296,7 +1300,7 @@ public class ESUtilsTest {
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
     Assert.assertFalse(changed);
-    Assert.assertEquals(2, boolQuery.should().size());
+    assertEquals(2, boolQuery.should().size());
   }
 
   @Test
@@ -1307,7 +1311,7 @@ public class ESUtilsTest {
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
     Assert.assertFalse(changed);
-    Assert.assertEquals(1, boolQuery.should().size());
+    assertEquals(1, boolQuery.should().size());
   }
 
   @Test
@@ -1321,10 +1325,10 @@ public class ESUtilsTest {
     BoolQueryBuilder outerBool = QueryBuilders.boolQuery().filter(innerBool);
 
     boolean changed = ESUtils.optimizePass(outerBool, false);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(2, outerBool.filter().size());
+    assertTrue(changed);
+    assertEquals(2, outerBool.filter().size());
     // Check that the filters are now at the top level
-    Assert.assertTrue(outerBool.filter().stream().allMatch(q -> q instanceof TermQueryBuilder));
+    assertTrue(outerBool.filter().stream().allMatch(q -> q instanceof TermQueryBuilder));
   }
 
   @Test
@@ -1349,10 +1353,10 @@ public class ESUtilsTest {
     } while (changed);
 
     // All filters should now be at the root level
-    Assert.assertEquals(3, rootQuery.filter().size());
-    Assert.assertEquals(0, rootQuery.must().size());
-    Assert.assertEquals(0, rootQuery.should().size());
-    Assert.assertEquals(0, rootQuery.mustNot().size());
+    assertEquals(3, rootQuery.filter().size());
+    assertEquals(0, rootQuery.must().size());
+    assertEquals(0, rootQuery.should().size());
+    assertEquals(0, rootQuery.mustNot().size());
   }
 
   @Test
@@ -1368,8 +1372,8 @@ public class ESUtilsTest {
 
     boolean changed = ESUtils.optimizePass(outerBool, false);
     Assert.assertFalse(changed);
-    Assert.assertEquals(1, outerBool.filter().size());
-    Assert.assertEquals(innerBool, outerBool.filter().get(0));
+    assertEquals(1, outerBool.filter().size());
+    assertEquals(innerBool, outerBool.filter().get(0));
   }
 
   @Test
@@ -1383,12 +1387,12 @@ public class ESUtilsTest {
     BoolQueryBuilder outerBool = QueryBuilders.boolQuery().must(innerBool);
 
     boolean changed = ESUtils.optimizePass(outerBool, true);
-    Assert.assertTrue(changed);
+    assertTrue(changed);
 
     // The inner bool query should have been optimized
     BoolQueryBuilder optimizedInner = (BoolQueryBuilder) outerBool.must().get(0);
-    Assert.assertEquals(0, optimizedInner.should().size());
-    Assert.assertEquals(1, optimizedInner.must().size());
+    assertEquals(0, optimizedInner.should().size());
+    assertEquals(1, optimizedInner.must().size());
   }
 
   @Test
@@ -1402,10 +1406,10 @@ public class ESUtilsTest {
     QueryBuilder result = ESUtils.queryOptimize(boolQuery, true);
 
     // Should be unwrapped to just the term query
-    Assert.assertTrue(result instanceof TermQueryBuilder);
+    assertTrue(result instanceof TermQueryBuilder);
     TermQueryBuilder termQuery = (TermQueryBuilder) result;
-    Assert.assertEquals("field1", termQuery.fieldName());
-    Assert.assertEquals("value1", termQuery.value());
+    assertEquals("field1", termQuery.fieldName());
+    assertEquals("value1", termQuery.value());
   }
 
   @Test
@@ -1417,9 +1421,9 @@ public class ESUtilsTest {
     QueryBuilder result = ESUtils.queryOptimize(boolQuery, false);
 
     // Should be unwrapped to just the term query
-    Assert.assertTrue(result instanceof TermQueryBuilder);
+    assertTrue(result instanceof TermQueryBuilder);
     TermQueryBuilder termQuery = (TermQueryBuilder) result;
-    Assert.assertEquals("field1", termQuery.fieldName());
+    assertEquals("field1", termQuery.fieldName());
   }
 
   @Test
@@ -1431,9 +1435,9 @@ public class ESUtilsTest {
     QueryBuilder result = ESUtils.queryOptimize(boolQuery, false);
 
     // Should remain a bool query
-    Assert.assertTrue(result instanceof BoolQueryBuilder);
+    assertTrue(result instanceof BoolQueryBuilder);
     BoolQueryBuilder resultBool = (BoolQueryBuilder) result;
-    Assert.assertEquals(1, resultBool.mustNot().size());
+    assertEquals(1, resultBool.mustNot().size());
   }
 
   @Test
@@ -1448,7 +1452,7 @@ public class ESUtilsTest {
     // Test that non-bool queries are returned unchanged
     TermQueryBuilder termQuery = QueryBuilders.termQuery("field1", "value1");
     QueryBuilder result = ESUtils.queryOptimize(termQuery, false);
-    Assert.assertEquals(termQuery, result);
+    assertEquals(termQuery, result);
   }
 
   @Test
@@ -1492,7 +1496,7 @@ public class ESUtilsTest {
               !nestedBool.must().isEmpty()
                   || !nestedBool.should().isEmpty()
                   || !nestedBool.mustNot().isEmpty();
-          Assert.assertTrue(
+          assertTrue(
               hasNonFilterClauses || nestedBool.filter().isEmpty(),
               "Nested bool query should not have only filter clauses");
         }
@@ -1507,13 +1511,13 @@ public class ESUtilsTest {
         QueryBuilders.boolQuery()
             .should(QueryBuilders.termQuery("field", "value"))
             .minimumShouldMatch("1");
-    Assert.assertTrue(ESUtils.isOptimizableShould(query1));
+    assertTrue(ESUtils.isOptimizableShould(query1));
 
     BoolQueryBuilder query2 =
         QueryBuilders.boolQuery()
             .should(QueryBuilders.termQuery("field", "value"))
             .minimumShouldMatch("100%");
-    Assert.assertTrue(ESUtils.isOptimizableShould(query2));
+    assertTrue(ESUtils.isOptimizableShould(query2));
 
     BoolQueryBuilder query3 =
         QueryBuilders.boolQuery()
@@ -1534,7 +1538,7 @@ public class ESUtilsTest {
     BoolQueryBuilder flattenable =
         QueryBuilders.boolQuery()
             .filter(QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("field1", "value1")));
-    Assert.assertTrue(ESUtils.canFlattenFilters(flattenable));
+    assertTrue(ESUtils.canFlattenFilters(flattenable));
 
     BoolQueryBuilder notFlattenable =
         QueryBuilders.boolQuery()
@@ -1551,11 +1555,11 @@ public class ESUtilsTest {
     // Test the canUnwrap method
     BoolQueryBuilder singleMust =
         QueryBuilders.boolQuery().must(QueryBuilders.termQuery("field", "value"));
-    Assert.assertTrue(ESUtils.canUnwrap(singleMust));
+    assertTrue(ESUtils.canUnwrap(singleMust));
 
     BoolQueryBuilder singleFilter =
         QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("field", "value"));
-    Assert.assertTrue(ESUtils.canUnwrap(singleFilter));
+    assertTrue(ESUtils.canUnwrap(singleFilter));
 
     BoolQueryBuilder multipleClauses =
         QueryBuilders.boolQuery()
@@ -1622,7 +1626,7 @@ public class ESUtilsTest {
     QueryBuilder optimized = ESUtils.queryOptimize(rootQuery, false);
 
     // Verify the optimization results
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
     // After optimization:
@@ -1631,27 +1635,25 @@ public class ESUtilsTest {
     // 3. Multiple unwrapping steps bring the innermost bool to the root
     // Result: The inner bool query with 3 should clauses is now at the root
 
-    Assert.assertEquals(0, optimizedBool.filter().size(), "Should have no filter clauses");
-    Assert.assertEquals(0, optimizedBool.must().size(), "Should have no must clauses");
-    Assert.assertEquals(3, optimizedBool.should().size(), "Should have 3 should clauses at root");
-    Assert.assertEquals(0, optimizedBool.mustNot().size(), "Should have no mustNot clauses");
-    Assert.assertEquals(
-        "1", optimizedBool.minimumShouldMatch(), "Should have minimumShouldMatch=1");
+    assertEquals(0, optimizedBool.filter().size(), "Should have no filter clauses");
+    assertEquals(0, optimizedBool.must().size(), "Should have no must clauses");
+    assertEquals(3, optimizedBool.should().size(), "Should have 3 should clauses at root");
+    assertEquals(0, optimizedBool.mustNot().size(), "Should have no mustNot clauses");
+    assertEquals("1", optimizedBool.minimumShouldMatch(), "Should have minimumShouldMatch=1");
 
     // Each of the 3 should clauses should be a bool query with 3 filters
     for (QueryBuilder shouldClause : optimizedBool.should()) {
-      Assert.assertTrue(shouldClause instanceof BoolQueryBuilder);
+      assertTrue(shouldClause instanceof BoolQueryBuilder);
       BoolQueryBuilder shouldBool = (BoolQueryBuilder) shouldClause;
-      Assert.assertEquals(
-          3, shouldBool.filter().size(), "Each branch should have 3 filter clauses");
-      Assert.assertEquals(0, shouldBool.must().size());
-      Assert.assertEquals(0, shouldBool.should().size());
-      Assert.assertEquals(0, shouldBool.mustNot().size());
+      assertEquals(3, shouldBool.filter().size(), "Each branch should have 3 filter clauses");
+      assertEquals(0, shouldBool.must().size());
+      assertEquals(0, shouldBool.should().size());
+      assertEquals(0, shouldBool.mustNot().size());
     }
 
     // Verify the actual filters in each branch
     BoolQueryBuilder branch1 = (BoolQueryBuilder) optimizedBool.should().get(0);
-    Assert.assertTrue(
+    assertTrue(
         branch1.filter().stream()
             .anyMatch(
                 f ->
@@ -1659,7 +1661,7 @@ public class ESUtilsTest {
                         && ((TermsQueryBuilder) f).fieldName().equals("source.urn")));
 
     BoolQueryBuilder branch2 = (BoolQueryBuilder) optimizedBool.should().get(1);
-    Assert.assertTrue(
+    assertTrue(
         branch2.filter().stream()
             .anyMatch(
                 f ->
@@ -1667,7 +1669,7 @@ public class ESUtilsTest {
                         && ((TermQueryBuilder) f).value().equals("DataProcessInstanceProduces")));
 
     BoolQueryBuilder branch3 = (BoolQueryBuilder) optimizedBool.should().get(2);
-    Assert.assertTrue(
+    assertTrue(
         branch3.filter().stream()
             .anyMatch(
                 f ->
@@ -1707,14 +1709,14 @@ public class ESUtilsTest {
     // 3. leaf1 and leaf2 flattened
     // Result should be a single bool query with 2 term filters
 
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
-    Assert.assertEquals(2, optimizedBool.filter().size(), "Should have 2 filters at root level");
+    assertEquals(2, optimizedBool.filter().size(), "Should have 2 filters at root level");
 
     // Both filters should be term queries, not bool queries
     for (QueryBuilder filter : optimizedBool.filter()) {
-      Assert.assertTrue(
+      assertTrue(
           filter instanceof TermQueryBuilder,
           "Filters should be term queries after full optimization");
     }
@@ -1739,19 +1741,19 @@ public class ESUtilsTest {
     QueryBuilder optimized = ESUtils.queryOptimize(level1, false);
 
     // All nested bool queries with only filters should be flattened
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
     // Should have 3 filters at the root level
-    Assert.assertEquals(3, optimizedBool.filter().size());
-    Assert.assertEquals(0, optimizedBool.must().size());
-    Assert.assertEquals(0, optimizedBool.should().size());
-    Assert.assertEquals(0, optimizedBool.mustNot().size());
+    assertEquals(3, optimizedBool.filter().size());
+    assertEquals(0, optimizedBool.must().size());
+    assertEquals(0, optimizedBool.should().size());
+    assertEquals(0, optimizedBool.mustNot().size());
 
     // All filters should be non-bool queries
-    Assert.assertTrue(optimizedBool.filter().get(0) instanceof TermsQueryBuilder);
-    Assert.assertTrue(optimizedBool.filter().get(1) instanceof TermQueryBuilder);
-    Assert.assertTrue(optimizedBool.filter().get(2) instanceof TermsQueryBuilder);
+    assertTrue(optimizedBool.filter().get(0) instanceof TermsQueryBuilder);
+    assertTrue(optimizedBool.filter().get(1) instanceof TermQueryBuilder);
+    assertTrue(optimizedBool.filter().get(2) instanceof TermsQueryBuilder);
   }
 
   @Test
@@ -1772,21 +1774,57 @@ public class ESUtilsTest {
     // Optimize
     QueryBuilder optimized = ESUtils.queryOptimize(rootQuery, true);
 
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
     // Should have the must clause preserved
-    Assert.assertEquals(1, optimizedBool.must().size());
+    assertEquals(1, optimizedBool.must().size());
 
     // The should->filter optimization should have occurred
     // And the inner filter should be flattened
-    Assert.assertEquals(1, optimizedBool.filter().size());
+    assertEquals(1, optimizedBool.filter().size());
 
     // The filter should be the term query directly
-    Assert.assertTrue(optimizedBool.filter().get(0) instanceof TermQueryBuilder);
+    assertTrue(optimizedBool.filter().get(0) instanceof TermQueryBuilder);
     TermQueryBuilder filterTerm = (TermQueryBuilder) optimizedBool.filter().get(0);
-    Assert.assertEquals("status", filterTerm.fieldName());
-    Assert.assertEquals("active", filterTerm.value());
+    assertEquals("status", filterTerm.fieldName());
+    assertEquals("active", filterTerm.value());
+  }
+
+  @Test(expectedExceptions = APIThrottleException.class)
+  public void testComputePointInTimeThrottling() throws Exception {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    // Simulate TOO_MANY_REQUESTS response
+    OpenSearchStatusException throttleException =
+        new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
+
+    // Should throw APIThrottleException with appropriate retry duration
+    ESUtils.computePointInTime(null, "5m", mockClient, "test-index");
+  }
+
+  @Test
+  public void testComputePointInTimeThrottlingCauseChain() throws IOException {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    OpenSearchStatusException throttleException =
+        new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
+
+    try {
+      ESUtils.computePointInTime(null, "5m", mockClient, "test-index");
+      fail("Should have thrown APIThrottleException");
+    } catch (APIThrottleException e) {
+      // Verify the cause is set correctly
+      assertEquals(e.getCause(), throttleException);
+      // Verify retry duration matches keepAlive
+      assertTrue(e.getDurationMs() > 0);
+    }
   }
 
   // ===================== buildFilterMap tests =====================

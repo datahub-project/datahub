@@ -1,4 +1,5 @@
-import { Button, Modal, Select, Tag, message } from 'antd';
+import { Modal } from '@components';
+import { Select, Tag, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -181,24 +182,22 @@ function AddRelatedTermsModal(props: Props) {
     return (
         <Modal
             title="Add Related Terms"
-            visible
+            open
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        onClick={addTerms}
-                        disabled={!selectedUrns.length}
-                        data-testid="submit-button"
-                    >
-                        Add
-                    </Button>
-                </>
-            }
-            data-testid="add-related-terms-modal"
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Add',
+                    onClick: addTerms,
+                    variant: 'filled',
+                    disabled: !selectedUrns.length,
+                    buttonDataTestId: 'submit-button',
+                },
+            ]}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <StyledSelect

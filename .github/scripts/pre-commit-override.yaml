@@ -19,3 +19,9 @@ repos:
         language: system
         pass_filenames: false
         files: datahub-web-react/.*\.(js|jsx|ts|tsx)
+      - id: check-gradle-lockfiles
+        name: Check gradle lockfiles are updated
+        entry: python .github/scripts/check_gradle_lockfiles.py
+        language: system
+        files: ^.*build\.gradle(\.kts)?$
+        pass_filenames: false

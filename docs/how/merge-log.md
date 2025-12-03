@@ -1992,3 +1992,192 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **b516aa1f3f5** - docs: Update announcement bar content in docusaurus config (#15371)
   *by Gray Ayer on 2025-11-20*
 
+
+## Upstream Merge Session - 2025-12-02 17:16:09
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-02-171608`
+- **Merge Base**: `fded33c6063d6e29ba4726966c11cc09841021cf`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 58
+- **Strategy**: stacked
+- **Started**: Tue Dec  2 17:16:09 UTC 2025
+
+### Commits Included in This Merge
+- **81321afbd8b** - fix(frontend): add missing contextDocumentsEnabled and manageDocuments fields (#15370)
+  *by Esteban Gutierrez on 2025-11-20*
+
+- **ad1c6c37522** - fix(security): Update jersey-client to 2.46 (#15360)
+  *by Esteban Gutierrez on 2025-11-20*
+
+- **31c2bb6cbfb** - feat(ci): add gradle lockfile validation for version changes (#15372)
+  *by Esteban Gutierrez on 2025-11-20*
+
+- **b016e59fd04** - docs(v1.3.0): update docs for release (#14948)
+  *by RyanHolstien on 2025-11-20*
+
+- **be5ba54b3ce** - fix(spotless): Exclude generated code from spotless (#15104)
+  *by Harsh Verma on 2025-11-20*
+
+- **b516aa1f3f5** - docs: Update announcement bar content in docusaurus config (#15371)
+  *by Gray Ayer on 2025-11-20*
+
+- **d637bf643bd** - fix(ingest): schema pattern for unity catalog before/after (#15350)
+  *by Kevin Karch on 2025-11-21*
+
+- **d56db999365** - fix(test): mock instead of spy (#15246)
+  *by david-leifker on 2025-11-21*
+
+- **d4c56f76dea** - fix(actions): handle additional transient exception types to improve actions robustness (#15378)
+  *by Chakru on 2025-11-22*
+
+- **846cafc0eab** - feat(graphql): add feature flag and CSP headers for GraphiQL endpoint (#15364)
+  *by Deepak Garg on 2025-11-22*
+
+- **9541e41f184** - fix(docs): fix docs version (#15375)
+  *by Deepak Garg on 2025-11-22*
+
+- **0ee7d8c94fd** - fix: allow edited display name in the UI to reflect editableProperties (#15382)
+  *by dgluong-datahub on 2025-11-22*
+
+- **17ca9ddb100** - feat(docs): Introducing UI flows for Context Base V1 (#15279)
+  *by John Joyce on 2025-11-23*
+
+- **6358bbc5ebd** - docs(bigquery): schema resolver strategy (#15164)
+  *by Sergio Gómez Villamor on 2025-11-24*
+
+- **bcabe9f921d** - fix(bigquery): apply case normalization consistently for temp table inference (#15252)
+  *by Sergio Gómez Villamor on 2025-11-24*
+
+- **02490bf2b31** - fix(abs): Prevent crash when validating dict path_specs in ABS source (#15329)
+  *by Sergio Gómez Villamor on 2025-11-24*
+
+- **64b2e07083a** - fix(searchBarV2): fix selecting option by hovering (#15349)
+  *by v-tarasevich-blitz-brain on 2025-11-24*
+
+- **d82ad914b70** - feat(uploadFiles): extend asset links to support file upload (#15225)
+  *by v-tarasevich-blitz-brain on 2025-11-24*
+
+- **511ffb222fb** - feat(datasetModules): add basic implementation of columns module (#15293)
+  *by v-tarasevich-blitz-brain on 2025-11-24*
+
+- **2b48b227f01** - fix(ingestion/grafana): fix fails caused by text panels in ingestion (#15291)
+  *by Jonny Dixon on 2025-11-24*
+
+- **b1d28340708** - fix(datahub-actions): make config in ActionConfig optional (#15393)
+  *by David Haglund on 2025-11-25*
+
+- **5c18425bd67** - fix(ingest/snowflake): Add classification_lib to setup dependencies (#15407)
+  *by Tamas Nemeth on 2025-11-25*
+
+- **c3b0c4bac50** - feat(openapi v3) support sorting customization on missing value handling (#15383)
+  *by Jesse Jia on 2025-11-25*
+
+- **a0fc7082094** - fix(ingestion/grafana): fixing uniqueness bug in grafana connector (#15397)
+  *by Jonny Dixon on 2025-11-25*
+
+- **6e622896bcf** - feat(dataset-summary): create new lineage module for dataset summary page (#15313)
+  *by Purnima Garg on 2025-11-25*
+
+- **eeee0f1dd75** - feat(ingestion): add feature flag for ingestion onboarding (#15376)
+  *by v-tarasevich-blitz-brain on 2025-11-25*
+
+- **14e7af75a55** - feat(ingestion): update ownership ux (#15374)
+  *by v-tarasevich-blitz-brain on 2025-11-25*
+
+- **cd59a87e7e8** - fix(cypress): optimyze summary about section tests (#15332)
+  *by v-tarasevich-blitz-brain on 2025-11-25*
+
+- **bbfdb51df09** - (fix/metadata-ingestion): Update classification docs to mark deprecated (#15380)
+  *by ani-malgari on 2025-11-25*
+
+- **4833bbbd657** - fix(readOnly): fixes read only mode for update queries (#15398)
+  *by RyanHolstien on 2025-11-25*
+
+- **bba23869613** - fix(sdk): DataJob environment defaults to PROD when using flow_urn (#15381) (#15388)
+  *by Dinesh Verma on 2025-11-26*
+
+- **af305dbd99c** - fix(docs): Adding fixes for GraphQL APIs & support hiding from global context (#15399)
+  *by John Joyce on 2025-11-25*
+
+- **f518b759bd9** - fix(ui): fix entity type search filter (#15406)
+  *by Saketh Varma on 2025-11-26*
+
+- **7d82829745b** - fix(ui): Adding chart's last modified data on search index (#15088)
+  *by Saketh Varma on 2025-11-26*
+
+- **fac6c2f0e1f** - feat(ingestion):  create ingestion source skeleton (#15390)
+  *by v-tarasevich-blitz-brain on 2025-11-26*
+
+- **6b8b6aaa085** - fix(ingest/ci): fix docker compose integration test failures (#15424)
+  *by kyungsoo-datahub on 2025-11-26*
+
+- **abd14a6e089** - feat(ingestion/oracle): add support for materialized view, stored procs and usage (#15118)
+  *by Jonny Dixon on 2025-11-27*
+
+- **2d597a73584** - fix(ui): Enable stateful ingestion for sources where we support it (#15422)
+  *by Tamas Nemeth on 2025-11-27*
+
+- **495d908b372** - feat(ingestion): Add OAuth callback support for Kafka producers/sinks (#15420)
+  *by Max Margalith on 2025-11-27*
+
+- **f10441d9be6** - chore(deps): fix (ch.qos.logback : logback-classic) (#15409)
+  *by rahul MALAWADKAR on 2025-11-28*
+
+- **0cef681e490** - fix(log): change to warning (#15440)
+  *by Aseem Bansal on 2025-11-28*
+
+- **14093a35238** - fix(change-events): fix NPE in EditableSchemaMetadataChangeEventGenerator (#13895)
+  *by trialiya on 2025-11-28*
+
+- **ba7842d67a1** - fix(pit): reduce overhead of PIT creation (#15412)
+  *by RyanHolstien on 2025-11-28*
+
+- **9fceb3814fa** - fix(graphql): listUsers resolver incorrect access check (#15448)
+  *by david-leifker on 2025-11-29*
+
+- **312af9d71c9** - feat(context): Various UI improvements for Context Base (Part 1/2)  (#15413)
+  *by John Joyce on 2025-11-30*
+
+- **a6d7f8d6d5f** - feat(openapi)-NPE_v3_relationships_api_fix (#15432)
+  *by aabharti-visa on 2025-12-01*
+
+- **d9fc440c5f5** - chore(deps): fix (org.bouncycastle:bcprov-jdk18on) (#15439)
+  *by rahul MALAWADKAR on 2025-12-01*
+
+- **7af6063bf3e** - fix(csv-enricher): Add HTTP status code checking for remote file fetches (#15454)
+  *by Pedro Silva on 2025-12-01*
+
+- **284f8cc100b** - fix(search): fix name conflicts in search(mlmodel) (#15415)
+  *by Deepak Garg on 2025-12-01*
+
+- **fed7f567b72** - feat(ingest/airflow): add teradata operator support for Airflow plugin (#15418)
+  *by btkcodedev on 2025-12-01*
+
+- **585d03cf550** - fix(ui): Replacing antd Modals to component library (#13801)
+  *by Saketh Varma on 2025-12-01*
+
+- **77f6719479b** - fix(graphql): improve response messages (#15455)
+  *by Aseem Bansal on 2025-12-02*
+
+- **a3ed58dc784** - chore(test): Update test weights from CI runs (2025-11-30) (#15451)
+  *by github-actions[bot] on 2025-12-02*
+
+- **f3d8ad78dfa** - perf(metadata-io, ebean): add deterministic ordering for SELECT ... FOR UPDATE (#15425)
+  *by Raudzis Sebastian on 2025-12-02*
+
+- **d2d5f63d213** - Don't crash when filtering Add assets to domain (#15462)
+  *by Ben Blazke on 2025-12-02*
+
+- **34a1917ea37** - docs(kafka): clarify USE_CONFLUENT_SCHEMA_REGISTRY disables cleanup policy step (#15297)
+  *by Mayur Hadole on 2025-12-02*
+
+- **1696304fb45** - tests(smoke): add proper log format (#15464)
+  *by Aseem Bansal on 2025-12-02*
+
+- **a0397051817** - feat(ui/ingestion): create new page for ingestion run details (#15443)
+  *by Purnima Garg on 2025-12-02*
+

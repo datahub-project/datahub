@@ -1,14 +1,14 @@
-import { Button, Editor, Modal } from '@components';
+import { Editor, Modal } from '@components';
 import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { EditorProps } from '@components/components/Editor/types';
+import { ModalButton } from '@components/components/Modal/Modal';
 
 import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
 import { StyledEditor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -66,6 +66,31 @@ export default function UpdateDescriptionModal({
     const [updatedDesc, setDesc] = useState(description || original || '');
     const [editorKey, setEditorKey] = useState(0);
 
+    const buttons: ModalButton[] = [
+        {
+            text: 'Cancel',
+            variant: 'text',
+            onClick: onClose,
+        },
+        ...(showPropose && onPropose
+            ? [
+                  {
+                      text: 'Propose',
+                      variant: 'outline' as const,
+                      onClick: () => onPropose(updatedDesc),
+                      disabled: updatedDesc === description || !canProposeDescription,
+                  },
+              ]
+            : []),
+        {
+            text: 'Publish',
+            onClick: () => onSubmit(updatedDesc),
+            variant: 'filled',
+            disabled: updatedDesc === description || !canEditDescription,
+            buttonDataTestId: 'description-modal-update-button',
+        },
+    ];
+
     return (
         <Modal
             title={title}
@@ -73,30 +98,7 @@ export default function UpdateDescriptionModal({
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
-            footer={
-                <ModalButtonContainer>
-                    <Button type="button" variant="text" color="gray" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    {showPropose && onPropose && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onPropose(updatedDesc)}
-                            disabled={updatedDesc === description || !canProposeDescription}
-                        >
-                            Propose
-                        </Button>
-                    )}
-                    <Button
-                        onClick={() => onSubmit(updatedDesc)}
-                        disabled={updatedDesc === description || !canEditDescription}
-                        data-testid="description-modal-update-button"
-                    >
-                        Publish
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={buttons}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (

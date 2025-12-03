@@ -19,6 +19,7 @@ import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityC
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { useProposeDomainMutation } from '@src/graphql/domain.generated';
+import { getModalDomContainer } from '@src/utils/focus';
 import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
@@ -286,24 +287,19 @@ export const SetDomainModal = ({
                     buttons={[
                         {
                             text: 'Cancel',
-                            key: 'Cancel',
                             variant: 'text',
                             onClick: onModalClose,
-                            type: 'button',
                             buttonDataTestId: 'cancel-button',
                         },
                         {
                             text: 'Propose',
-                            key: 'Propose',
                             variant: 'outline',
-                            type: 'button',
                             onClick: handlePropose,
                             disabled: !canPropose || !selectedDomain,
                             buttonDataTestId: 'propose-domain-on-entity-button',
                         },
                         {
                             text: 'Save',
-                            key: 'Save',
                             variant: 'filled',
                             onClick: onOk,
                             disabled: !canEdit || selectedDomain === undefined,
@@ -311,6 +307,7 @@ export const SetDomainModal = ({
                             buttonDataTestId: 'submit-button',
                         },
                     ]}
+                    getContainer={getModalDomContainer}
                     dataTestId="set-domain-modal"
                 >
                     <Form component={false}>

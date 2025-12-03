@@ -493,7 +493,7 @@ class UnityCatalogSourceConfig(
 
         return self
 
-    @field_validator("schema_pattern", mode="before")
+    @field_validator("schema_pattern", mode="after")
     @classmethod
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern

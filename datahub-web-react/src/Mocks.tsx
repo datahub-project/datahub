@@ -3993,6 +3993,7 @@ export const mocks = [
                         proposeCreateGlossaryTerm: true,
                         proposeCreateGlossaryNode: true,
                         canViewIngestionPage: true,
+                        manageDocuments: true,
                     },
                 },
             },

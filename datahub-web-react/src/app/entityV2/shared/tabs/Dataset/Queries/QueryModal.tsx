@@ -1,4 +1,4 @@
-import { Modal, Typography, message } from 'antd';
+import { Typography, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,8 +8,7 @@ import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDo
 import { useShouldShowInferDocumentationButton } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
-import { Button, Editor } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Editor, Modal } from '@src/alchemy-components';
 
 import { useUpdateQueryMutation } from '@graphql/query.generated';
 import { EntityType, QueryLanguage } from '@types';
@@ -138,20 +137,21 @@ export default function QueryModal({
 
     return (
         <StyledModal
-            visible
+            open
             width={MODAL_WIDTH}
-            title={null}
+            title="Query"
             closable={false}
-            onCancel={onClose}
+            onCancel={() => onClose?.()}
             bodyStyle={MODAL_BODY_STYLE}
-            data-testid="query-modal"
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={onClose} data-testid="query-modal-close-button">
-                        Close
-                    </Button>
-                </ModalButtonContainer>
-            }
+            dataTestId="query-modal"
+            buttons={[
+                {
+                    text: 'Close',
+                    onClick: onClose || (() => {}),
+                    variant: 'text',
+                    buttonDataTestId: 'query-modal-close-button',
+                },
+            ]}
         >
             <QueryActions>
                 <CopyQuery query={query} showCopyText />

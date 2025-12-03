@@ -78,8 +78,6 @@ configurations {
     }
 }
 
-spotlessJava.dependsOn generateTestDataTemplate
-
 //artifacts {
 //   builtModels(modelArtifact)
 //}

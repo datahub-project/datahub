@@ -613,10 +613,35 @@ export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerT
                     ...owner.info,
                 },
             },
+            attribution: owner.attribution ?? null,
             associatedUrn: urn,
             type: owner.type,
             ownershipType: defaultOwnerType ?? null,
             __typename: 'Owner' as const,
         })) || []
     );
+};
+
+export const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
+    if (source) {
+        let { type } = source;
+        if (type === 'unity-catalog') {
+            type = 'databricks';
+        }
+        return { ...source, type };
+    }
+    return undefined;
+};
+
+export const removeExecutionsFromIngestionSource = (source) => {
+    if (source) {
+        return {
+            name: source.name,
+            type: source.type,
+            schedule: source.schedule,
+            config: source.config,
+            source: source.source,
+        };
+    }
+    return undefined;
 };
