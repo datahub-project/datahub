@@ -108,14 +108,12 @@ class StoragePathParser:
 
             elif platform == StoragePlatform.AZURE:
                 if scheme in AZURE_CONTAINER_SCHEMES:
-                    # For ABFS/WASBS: format is container@account or just container
                     if "@" in parsed.netloc:
                         container = parsed.netloc.split("@")[0]
                     else:
                         container = parsed.netloc
                     path = f"{container}/{parsed.path.lstrip('/')}"
                 else:
-                    # For ADL/ADLS: simple netloc/path format
                     path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
 
             elif platform == StoragePlatform.GCS:
@@ -134,7 +132,7 @@ class StoragePathParser:
             path = re.sub(r"/+", "/", path)
 
             return platform, path
-        except (ValueError, AttributeError, IndexError) as e:
+        except ValueError as e:
             logger.debug(
                 f"Failed to parse storage location '{location}': {e}", exc_info=True
             )
@@ -227,20 +225,17 @@ class HiveStorageLineage:
 
     def _make_storage_dataset_urn(
         self,
-        storage_location: str,
+        platform: StoragePlatform,
+        path: str,
     ) -> Optional[Tuple[str, str]]:
         """
-        Create storage dataset URN from location.
-        Returns tuple of (urn, platform) if successful, None otherwise.
+        Create storage dataset URN from parsed platform and path.
+        Returns tuple of (urn, platform_name) if successful, None otherwise.
         """
-
-        platform_instance = None
-        storage_info = StoragePathParser.parse_storage_location(storage_location)
-        if not storage_info:
-            logger.debug(f"Could not parse storage location: {storage_location}")
+        if not path or not path.strip():
+            logger.warning(f"Empty path provided for platform {platform}")
             return None
 
-        platform, path = storage_info
         platform_name = StoragePathParser.get_platform_name(platform)
         platform_instance = self.config.storage_platform_instance
 
@@ -351,18 +346,16 @@ class HiveStorageLineage:
     ) -> Iterable[MetadataWorkUnit]:
         """Generate MCPs for storage dataset entity"""
 
-        # Use the centralized URN creation logic (handles platform instance lowercasing)
-        urn_info = self._make_storage_dataset_urn(storage_location)
-        if not urn_info:
-            return
-
-        storage_urn, platform_name = urn_info
-
-        # Get platform for schema
         storage_info = StoragePathParser.parse_storage_location(storage_location)
         if not storage_info:
             return
         platform, path = storage_info
+
+        urn_info = self._make_storage_dataset_urn(platform, path)
+        if not urn_info:
+            return
+        storage_urn, platform_name = urn_info
+
         platform_instance = self.config.storage_platform_instance
 
         try:
@@ -424,12 +417,18 @@ class HiveStorageLineage:
         if not storage_location:
             return
 
-        storage_info = self._make_storage_dataset_urn(storage_location)
-        if not storage_info:
+        parsed_info = StoragePathParser.parse_storage_location(storage_location)
+        if not parsed_info:
             self.report.report_location_failed(storage_location)
             return
 
-        storage_urn, storage_platform = storage_info
+        platform, path = parsed_info
+        urn_info = self._make_storage_dataset_urn(platform, path)
+        if not urn_info:
+            self.report.report_location_failed(storage_location)
+            return
+
+        storage_urn, storage_platform = urn_info
         self.report.report_location_scanned()
 
         yield from self.get_storage_dataset_mcp(

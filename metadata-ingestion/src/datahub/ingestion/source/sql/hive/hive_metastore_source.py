@@ -375,7 +375,9 @@ class HiveMetastoreSource(SQLAlchemySource):
             return super().get_db_name(inspector)
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
-        if not dataset_identifier or not dataset_identifier.strip():
+        if dataset_identifier is None:
+            raise InvalidDatasetIdentifierError("dataset_identifier cannot be None")
+        elif not dataset_identifier.strip():
             raise InvalidDatasetIdentifierError("dataset_identifier cannot be empty")
 
         parts = dataset_identifier.split(".")

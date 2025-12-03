@@ -234,7 +234,7 @@ class HiveSource(TwoTierSQLAlchemySource):
                     table=table,
                     dataset_schema=schema_metadata,
                 )
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 self.report.warning(
                     message="Failed to generate storage lineage",
                     context=dataset_urn,

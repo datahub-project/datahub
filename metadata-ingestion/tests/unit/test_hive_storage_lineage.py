@@ -275,10 +275,12 @@ def test_hive_storage_lineage_platform_instance():
 
 def test_make_storage_dataset_urn_success():
     """Test successful storage URN creation"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import StoragePlatform
+
     config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
-    result = lineage._make_storage_dataset_urn("s3://bucket/path/data")
+    result = lineage._make_storage_dataset_urn(StoragePlatform.S3, "bucket/path/data")
 
     assert result is not None
     urn, platform = result
@@ -287,11 +289,14 @@ def test_make_storage_dataset_urn_success():
 
 
 def test_make_storage_dataset_urn_invalid():
-    """Test invalid storage location returns None"""
+    """Test invalid URN parameters returns None"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import StoragePlatform
+
     config = HiveStorageLineageConfigMixin(emit_storage_lineage=True)
     lineage = HiveStorageLineage(config=config, env="PROD")
 
-    result = lineage._make_storage_dataset_urn("invalid://bad")
+    # Test with empty path (should fail validation)
+    result = lineage._make_storage_dataset_urn(StoragePlatform.S3, "")
     assert result is None
 
 
