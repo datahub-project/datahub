@@ -20,7 +20,7 @@ import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetc
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
+import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import {
     addToListIngestionSourcesCache,
     removeFromListIngestionSourcesCache,
@@ -28,6 +28,7 @@ import {
 } from '@app/ingestV2/source/cacheUtils';
 import {
     buildOwnerEntities,
+    getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
     getSortInput,
     mapSourceTypeAliases,
@@ -338,13 +339,6 @@ export const IngestionSourceList = ({
         setFocusSourceUrn(undefined);
     };
 
-    const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
-        if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs
-            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
-            .map((entry) => ({ key: entry.key, value: entry.value }));
-    };
-
     const createOrUpdateIngestionSource = (
         input: UpdateIngestionSourceInput,
         resetState: () => void,
@@ -530,33 +524,7 @@ export const IngestionSourceList = ({
         const existingOwners: Owner[] = focusSource?.ownership?.owners ?? [];
 
         createOrUpdateIngestionSource(
-            {
-                type: recipeBuilderState.type as string,
-                name: recipeBuilderState.name as string,
-                config: {
-                    recipe: recipeBuilderState.config?.recipe as string,
-                    version:
-                        (recipeBuilderState.config?.version?.length &&
-                            (recipeBuilderState.config?.version as string)) ||
-                        undefined,
-                    executorId:
-                        (recipeBuilderState.config?.executorId?.length &&
-                            (recipeBuilderState.config?.executorId as string)) ||
-                        DEFAULT_EXECUTOR_ID,
-                    debugMode: recipeBuilderState.config?.debugMode || false,
-                    extraArgs: formatExtraArgs(recipeBuilderState.config?.extraArgs || []),
-                },
-                schedule: recipeBuilderState.schedule && {
-                    interval: recipeBuilderState.schedule?.interval as string,
-                    timezone: recipeBuilderState.schedule?.timezone as string,
-                },
-                // Preserve source field when editing existing sources (especially system sources)
-                source: focusSource?.source
-                    ? {
-                          type: focusSource.source.type,
-                      }
-                    : undefined,
-            },
+            getIngestionSourceMutationInput(recipeBuilderState, focusSource),
             resetState,
             shouldRun,
             existingOwners,
