@@ -77,3 +77,10 @@ export function wrapDateTimeColumnWithHover(
         </Tooltip>
     );
 }
+
+export function formatDateTime(time?: number) {
+    if (!isPresent(time) || time === 0) {
+        return undefined;
+    }
+    return dayjs(time).format(DEFAULT_DATETIME_FORMAT);
+}
