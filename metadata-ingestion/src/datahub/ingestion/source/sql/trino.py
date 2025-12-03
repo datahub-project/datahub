@@ -266,7 +266,12 @@ TrinoDialect._get_columns = _get_columns
 
 
 class ConnectorDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
-    connector_database: Optional[str] = Field(default=None, description="")
+    connector_database: Optional[str] = Field(
+        default=None,
+        description="Database name for three-tier connectors (e.g., PostgreSQL, Snowflake). "
+        "Required for three-tier connectors, not used for two-tier connectors. "
+        "Example: 'my_database' for PostgreSQL catalog.",
+    )
     connector_platform: Optional[str] = Field(
         default=None,
         description="A connector's actual platform name. If not provided, will take from metadata tables"
