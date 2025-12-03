@@ -242,7 +242,8 @@ class HiveSource(TwoTierSQLAlchemySource):
                 )
 
     def get_schema_names(self, inspector):
-        assert isinstance(self.config, HiveConfig)
+        if not isinstance(self.config, HiveConfig):
+            raise TypeError(f"Expected HiveConfig, got {type(self.config).__name__}")
         # This condition restricts the ingestion to the specified database.
         if self.config.database:
             return [self.config.database]

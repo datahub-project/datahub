@@ -108,9 +108,14 @@ class StoragePathParser:
 
             elif platform == StoragePlatform.AZURE:
                 if scheme in AZURE_CONTAINER_SCHEMES:
-                    container = parsed.netloc.split("@")[0]
+                    # For ABFS/WASBS: format is container@account or just container
+                    if "@" in parsed.netloc:
+                        container = parsed.netloc.split("@")[0]
+                    else:
+                        container = parsed.netloc
                     path = f"{container}/{parsed.path.lstrip('/')}"
                 else:
+                    # For ADL/ADLS: simple netloc/path format
                     path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
 
             elif platform == StoragePlatform.GCS:
@@ -130,7 +135,9 @@ class StoragePathParser:
 
             return platform, path
         except (ValueError, AttributeError, IndexError) as e:
-            logger.debug(f"Failed to parse storage location '{location}': {e}")
+            logger.debug(
+                f"Failed to parse storage location '{location}': {e}", exc_info=True
+            )
             return None
 
     @staticmethod
@@ -247,7 +254,8 @@ class HiveStorageLineage:
             return storage_urn, platform_name
         except (ValueError, TypeError) as exp:
             logger.warning(
-                f"Invalid parameters for storage URN creation - platform: {platform_name}, path: {path}: {exp}"
+                f"Invalid parameters for storage URN creation - platform: {platform_name}, path: {path}: {exp}",
+                exc_info=True,
             )
             return None
 
@@ -396,7 +404,8 @@ class HiveStorageLineage:
 
         except (ValueError, TypeError, AttributeError) as e:
             logger.warning(
-                f"Failed to create storage dataset MCPs for {storage_location}: {e}"
+                f"Failed to create storage dataset MCPs for {storage_location}: {e}",
+                exc_info=True,
             )
             return
 

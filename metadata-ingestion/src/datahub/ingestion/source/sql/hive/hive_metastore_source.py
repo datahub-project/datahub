@@ -432,7 +432,8 @@ class HiveMetastoreSource(SQLAlchemySource):
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        assert isinstance(self.config, HiveMetastore)
+        if not isinstance(self.config, HiveMetastore):
+            raise TypeError(f"Expected HiveMetastore, got {type(self.config).__name__}")
         where_clause_suffix: str = ""
         if (
             self.config.schemas_where_clause_suffix
@@ -526,7 +527,8 @@ class HiveMetastoreSource(SQLAlchemySource):
         ):
             return
 
-        assert isinstance(sql_config, HiveMetastore)
+        if not isinstance(sql_config, HiveMetastore):
+            raise TypeError(f"Expected HiveMetastore, got {type(sql_config).__name__}")
         where_clause_suffix = f"{sql_config.tables_where_clause_suffix} {self._get_db_filter_where_clause()}"
         statement: str = (
             HiveMetastoreSource._TABLES_POSTGRES_SQL_STATEMENT.format(
@@ -784,7 +786,8 @@ class HiveMetastoreSource(SQLAlchemySource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        assert isinstance(sql_config, HiveMetastore)
+        if not isinstance(sql_config, HiveMetastore):
+            raise TypeError(f"Expected HiveMetastore, got {type(sql_config).__name__}")
 
         if (
             "mysql" in self.config.scheme
