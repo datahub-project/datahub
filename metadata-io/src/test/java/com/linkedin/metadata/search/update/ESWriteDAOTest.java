@@ -201,18 +201,14 @@ public class ESWriteDAOTest {
         .deleteIndex(deleteRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
   }
 
-  @Test
+  @Test(expectedExceptions = RuntimeException.class)
   public void testClearWithIOException() throws IOException {
     when(mockSearchClient.getIndex(any(GetIndexRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Test exception"));
-
-    Set<String> deletedIndices = esWriteDAO.clear(opContext);
-
-    // Verify no indices were deleted when exception occurs
-    assertTrue(deletedIndices.isEmpty());
-    // Verify deleteIndex was never called
-    verify(mockSearchClient, never())
-        .deleteIndex(any(DeleteIndexRequest.class), eq(RequestOptions.DEFAULT));
+    // This should now throw RuntimeException (not swallow the error)
+    esWriteDAO.clear(opContext);
+    // We should never reach here - the exception should be propagated
+    fail("Expected RuntimeException to be thrown");
   }
 
   @Test

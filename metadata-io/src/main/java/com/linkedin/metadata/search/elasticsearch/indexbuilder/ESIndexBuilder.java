@@ -1301,12 +1301,14 @@ public class ESIndexBuilder {
    * @throws IOException If the deletion or creation fails
    */
   public void clearIndex(String indexName, ReindexConfig config) throws IOException {
-    // Delete the index (handles both aliases and concrete indices)
     deleteIndex(indexName);
-
-    // Recreate the index with the same mappings and settings
     log.info("Recreating index {} after clearing", indexName);
     createIndex(indexName, config);
+    if (!indexExists(indexName)) {
+      throw new IOException("Index " + indexName + " was not successfully created after clearing!");
+    }
+    refreshIndex(indexName);
+    log.info("Successfully cleared and recreated index {}", indexName);
   }
 
   public static void cleanOrphanedIndices(
