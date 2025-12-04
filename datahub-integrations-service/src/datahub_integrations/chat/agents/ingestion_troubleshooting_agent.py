@@ -55,6 +55,7 @@ def create_ingestion_troubleshooting_agent(
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
     tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    context: Optional[str] = None,
 ) -> AgentRunner:
     """
     Create a Ingestion Troubleshooting agent.
@@ -73,6 +74,7 @@ def create_ingestion_troubleshooting_agent(
         extra_instructions_override: Optional override for extra instructions
         chat_type: Type of chat (UI, Slack, Teams, etc.)
         tools: Optional tools to use (defaults to [mcp])
+        context: Optional natural language context about what the user is working on
 
     Returns:
         Configured AgentRunner instance
@@ -117,7 +119,9 @@ def create_ingestion_troubleshooting_agent(
     # Create agent configuration (internal tools will be added after AgentRunner creation)
     config = AgentConfig(
         model_id=model_config.chat_assistant_ai.model,
-        system_prompt_builder=DataHubSystemPromptBuilder(extra_instructions_override),
+        system_prompt_builder=DataHubSystemPromptBuilder(
+            extra_instructions_override, context
+        ),
         tools=plannable_tools.copy(),  # Will be extended with internal tools
         plannable_tools=plannable_tools,  # Subset for planning (excludes internal)
         context_reducers=None,  # Will use defaults

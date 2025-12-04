@@ -62,6 +62,7 @@ def test_chat_session_manager_loads_history(mock_datahub_client: Mock) -> None:
         instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             Mock(),
+            None,
         )
 
         manager = ChatSessionManager(
@@ -80,6 +81,7 @@ def test_chat_session_manager_with_empty_history(mock_datahub_client: Mock) -> N
         instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             Mock(),
+            None,
         )
         manager = ChatSessionManager(
             system_client=mock_datahub_client, tools_client=mock_datahub_client
@@ -107,6 +109,7 @@ def test_load_session_handles_any_urn() -> None:
         instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             Mock(),
+            None,
         )
         manager = ChatSessionManager(
             system_client=mock_client, tools_client=mock_client
@@ -225,6 +228,7 @@ def test_send_message_loads_existing_session(
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.SLACK,
+            None,
         )
         mock_instance.save_message_to_conversation = Mock()
 
@@ -288,6 +292,7 @@ def test_send_message_yields_progress_updates(mock_datahub_client: Mock) -> None
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         mock_instance.save_message_to_conversation = Mock()
 
@@ -329,6 +334,7 @@ def test_send_message_handles_errors_gracefully(mock_datahub_client: Mock) -> No
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         mock_instance.save_message_to_conversation = Mock()
 
@@ -397,6 +403,7 @@ def test_send_message_avoids_duplicate_progress_updates(
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         mock_instance.save_message_to_conversation = Mock()
 
@@ -437,6 +444,7 @@ def test_send_message_yields_final_assistant_message(
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         mock_instance.save_message_to_conversation = Mock()
 
@@ -516,6 +524,7 @@ def test_load_session_with_different_chat_types(mock_datahub_client: Mock) -> No
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.SLACK,
+            None,
         )
 
         manager = ChatSessionManager(
@@ -529,12 +538,14 @@ def test_load_session_with_different_chat_types(mock_datahub_client: Mock) -> No
             chat_type=ChatType.SLACK,
             history=ChatHistory(messages=[]),
             tools=[mock_mcp],
+            context=None,
         )
 
         # Test with TEAMS type
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.TEAMS,
+            None,
         )
 
         manager.load_session("urn:li:dataHubAiConversation:456")
@@ -545,6 +556,7 @@ def test_load_session_with_different_chat_types(mock_datahub_client: Mock) -> No
             chat_type=ChatType.TEAMS,
             history=ChatHistory(messages=[]),
             tools=[mock_mcp],
+            context=None,
         )
 
 
@@ -734,6 +746,7 @@ def test_send_message_saves_messages(
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         # Need to set up save_message_to_conversation to do nothing (not raise)
         mock_instance.save_message_to_conversation = Mock()
@@ -785,6 +798,7 @@ def test_send_message_saves_thinking_messages(
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         # Mock save_message_to_conversation
         mock_instance.save_message_to_conversation = Mock()
@@ -861,6 +875,7 @@ def test_send_message_stops_saving_on_early_exit(
         mock_instance.load_conversation_with_metadata.return_value = (
             ChatHistory(messages=[]),
             ChatType.DATAHUB_UI,
+            None,
         )
         # Mock save_message_to_conversation
         mock_instance.save_message_to_conversation = Mock()

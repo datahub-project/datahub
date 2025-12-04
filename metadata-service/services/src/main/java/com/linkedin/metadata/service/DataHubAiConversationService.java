@@ -68,6 +68,8 @@ public class DataHubAiConversationService {
    * @param opContext the operation context
    * @param title the conversation title (optional)
    * @param actorUrn the URN of the user creating the conversation
+   * @param originType the origin type of the conversation
+   * @param context the conversation context (optional)
    * @return the URN of the created conversation
    * @throws Exception if creation fails
    */
@@ -76,7 +78,8 @@ public class DataHubAiConversationService {
       @Nonnull OperationContext opContext,
       @Nullable String title,
       @Nonnull Urn actorUrn,
-      @Nonnull DataHubAiConversationOriginType originType)
+      @Nonnull DataHubAiConversationOriginType originType,
+      @Nullable com.linkedin.conversation.DataHubAiConversationContext context)
       throws Exception {
 
     // Generate conversation URN
@@ -105,6 +108,10 @@ public class DataHubAiConversationService {
 
     // Set origin type
     conversationInfo.setOriginType(originType);
+
+    if (context != null) {
+      conversationInfo.setContext(context);
+    }
 
     // Emit the conversation using MetadataChangeProposal
     final MetadataChangeProposal mcp = new MetadataChangeProposal();

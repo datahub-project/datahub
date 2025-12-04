@@ -62,6 +62,7 @@ class AgentFactory(Protocol):
         extra_instructions_override: Optional[str] = None,
         chat_type: ChatType = ChatType.DEFAULT,
         tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+        context: Optional[str] = None,
     ) -> AgentRunner:
         """
         Create a configured AgentRunner instance.
@@ -72,6 +73,7 @@ class AgentFactory(Protocol):
             extra_instructions_override: Optional override for extra instructions
             chat_type: Type of chat context (UI, Slack, Teams, etc.)
             tools: Optional tools to use
+            context: Optional natural language context about the conversation
 
         Returns:
             Configured AgentRunner instance
@@ -161,12 +163,18 @@ class ChatSessionManager:
                 f"Available types: {list(AGENT_FACTORIES.keys())}"
             )
 
-        history, chat_type = self.conversation_manager.load_conversation_with_metadata(
-            conversation_urn
-        )
+        (
+            history,
+            chat_type,
+            context_text,
+        ) = self.conversation_manager.load_conversation_with_metadata(conversation_urn)
         factory = AGENT_FACTORIES[agent_type]
         return factory(
-            client=self.tools_client, chat_type=chat_type, history=history, tools=[mcp]
+            client=self.tools_client,
+            chat_type=chat_type,
+            history=history,
+            tools=[mcp],
+            context=context_text,
         )
 
     def add_user_message(self, agent: AgentRunner, text: str) -> None:

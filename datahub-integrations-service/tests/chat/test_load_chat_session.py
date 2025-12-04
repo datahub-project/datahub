@@ -29,6 +29,7 @@ class TestLoadChatSession:
         mock_conversation_client.load_conversation_with_metadata.return_value = (
             mock_chat_history,
             ChatType.DATAHUB_UI,
+            None,  # context_text
         )
 
         # Mock agent factory
@@ -60,6 +61,7 @@ class TestLoadChatSession:
             chat_type=ChatType.DATAHUB_UI,
             history=mock_chat_history,
             tools=[mock_mcp],
+            context=None,
         )
 
     @patch("datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient")
@@ -79,6 +81,7 @@ class TestLoadChatSession:
         mock_conversation_client.load_conversation_with_metadata.return_value = (
             mock_chat_history,
             ChatType.SLACK,
+            None,  # context_text
         )
 
         # Mock agent factory
@@ -104,6 +107,7 @@ class TestLoadChatSession:
             chat_type=ChatType.SLACK,
             history=mock_chat_history,
             tools=[mock_mcp],
+            context=None,
         )
 
     @patch("datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient")
@@ -123,6 +127,7 @@ class TestLoadChatSession:
         mock_conversation_client.load_conversation_with_metadata.return_value = (
             mock_chat_history,
             ChatType.DEFAULT,
+            None,  # context_text
         )
 
         # Mock agent factory
@@ -148,4 +153,53 @@ class TestLoadChatSession:
             chat_type=ChatType.DEFAULT,
             history=mock_chat_history,
             tools=[mock_mcp],
+            context=None,
+        )
+
+    @patch("datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient")
+    @patch("datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES")
+    @patch("datahub_integrations.chat.chat_session_manager.mcp")
+    def test_load_chat_session_with_context(
+        self, mock_mcp, mock_agent_factories, mock_conversation_client_class
+    ):
+        """Test loading a chat session with conversation context."""
+        # Setup mocks
+        mock_client = Mock()
+        mock_conversation_client = Mock()
+        mock_conversation_client_class.return_value = mock_conversation_client
+
+        # Mock the conversation metadata with context
+        mock_chat_history = ChatHistory()
+        context_text = "You are helping troubleshoot a failed Snowflake ingestion run."
+        mock_conversation_client.load_conversation_with_metadata.return_value = (
+            mock_chat_history,
+            ChatType.DATAHUB_UI,
+            context_text,
+        )
+
+        # Mock agent factory
+        mock_agent = Mock()
+        mock_factory = Mock(return_value=mock_agent)
+        mock_agent_factories.__contains__ = Mock(return_value=True)
+        mock_agent_factories.__getitem__ = Mock(return_value=mock_factory)
+
+        # Test
+        manager = ChatSessionManager(
+            system_client=mock_client, tools_client=mock_client
+        )
+        result = manager.load_session(
+            "urn:li:dataHubAiConversation:context123",
+        )
+
+        # Verify
+        assert result is not None
+        assert result == mock_agent
+
+        # Verify that factory was called with context
+        mock_factory.assert_called_once_with(
+            client=mock_client,
+            chat_type=ChatType.DATAHUB_UI,
+            history=mock_chat_history,
+            tools=[mock_mcp],
+            context=context_text,
         )

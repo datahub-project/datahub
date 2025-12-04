@@ -75,6 +75,11 @@ input CreateDataHubAiConversationInput {
   The origin of the conversation. Defaults to DataHub UI.
   """
   originType: DataHubAiConversationOriginType
+
+  """
+  Optional context about where and how this conversation is being used.
+  """
+  context: DataHubAiConversationContextInput
 }
 
 """
@@ -130,6 +135,11 @@ type DataHubAiConversation {
   The origin type of the conversation
   """
   originType: DataHubAiConversationOriginType!
+
+  """
+  Optional context about where and how this conversation is being used
+  """
+  context: DataHubAiConversationContext
 }
 
 """
@@ -260,4 +270,34 @@ enum DataHubAiConversationOriginType {
   Chat session originated in DataHub UI
   """
   DATAHUB_UI
+}
+
+"""
+Input for conversation context
+"""
+input DataHubAiConversationContextInput {
+  """
+  Natural language context description for the AI agent
+  """
+  text: String!
+
+  """
+  Optional URNs of the entities this conversation is about
+  """
+  entityUrns: [String!]
+}
+
+"""
+Context about where and how a conversation is being used
+"""
+type DataHubAiConversationContext {
+  """
+  Natural language context description for the AI agent
+  """
+  text: String!
+
+  """
+  Optional URNs of the entities this conversation is about
+  """
+  entityUrns: [String!]
 }

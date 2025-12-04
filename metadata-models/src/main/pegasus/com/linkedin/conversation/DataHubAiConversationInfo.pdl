@@ -44,4 +44,11 @@ record DataHubAiConversationInfo {
          */
         DATAHUB_UI
      } = "DATAHUB_UI"
+
+     /**
+      * Optional context about where and how this conversation is being used.
+      * Provides natural language context to help the AI agent understand
+      * what the user is looking at and working on.
+      */
+     context: optional DataHubAiConversationContext
 }
