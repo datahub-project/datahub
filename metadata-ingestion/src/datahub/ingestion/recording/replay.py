@@ -134,6 +134,40 @@ class IngestionReplayer:
         raw_recipe = self._archive.read_recipe(local_archive_path)
         self._recipe = prepare_recipe_for_replay(raw_recipe)
 
+        # Fix sink configuration for replay
+        if not self.live_sink:
+            # Air-gapped mode: Replace sink with a file sink to avoid network connections
+            # This handles cases where:
+            # 1. Original sink was datahub-rest (different server URL now)
+            # 2. Original sink was file with env vars (e.g., $INGESTION_ARTIFACT_DIR)
+            original_sink = self._recipe.get("sink", {})
+            replay_output = f"/tmp/datahub_replay_{self._manifest.run_id}.json"
+
+            logger.info(
+                f"Air-gapped mode: Replacing sink (type={original_sink.get('type')}) "
+                f"with file sink to avoid network/path issues"
+            )
+
+            self._recipe["sink"] = {
+                "type": "file",
+                "config": {"filename": replay_output},
+            }
+            logger.info(f"Replay output will be written to: {replay_output}")
+
+            # Disable stateful ingestion in air-gapped mode
+            # Stateful ingestion requires a graph instance (from GMS connection)
+            # which isn't available without a real datahub-rest sink
+            source_config = self._recipe.get("source", {}).get("config", {})
+            logger.info(
+                "Air-gapped mode: Disabling stateful ingestion (no GMS connection)"
+            )
+            source_config["stateful_ingestion"] = {"enabled": False}
+        elif self.gms_server:
+            # Live sink mode with server override
+            sink_config = self._recipe.get("sink", {}).get("config", {})
+            logger.info(f"Live sink mode: Overriding GMS server to {self.gms_server}")
+            sink_config["server"] = self.gms_server
+
         # Setup HTTP replay
         http_dir = self._extracted_dir / HTTP_DIR
         cassette_path = http_dir / "cassette.yaml"
