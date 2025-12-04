@@ -9,9 +9,9 @@ and inherit from UrnGeneratorBase.
 
 import logging
 from typing import List, Optional
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
-from rdflib import URIRef
+from rdflib import Graph, URIRef
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class UrnGeneratorBase:
         """
         return self.derive_path_from_iri(iri, include_last=True)
 
-    def _preserve_iri_structure(self, parsed) -> str:
+    def _preserve_iri_structure(self, parsed: ParseResult) -> str:
         """
         Extract the path portion from an IRI, removing the scheme.
         This preserves the original IRI structure exactly as it was.
@@ -142,7 +142,7 @@ class UrnGeneratorBase:
 
         raise ValueError(f"IRI must have a valid scheme: {original_iri}")
 
-    def _derive_platform_from_iri(self, parsed) -> str:
+    def _derive_platform_from_iri(self, parsed: ParseResult) -> str:
         """
         Derive platform name from IRI structure.
 
@@ -226,7 +226,7 @@ class UrnGeneratorBase:
         return group_name
 
 
-def extract_name_from_label(graph, uri: URIRef) -> Optional[str]:
+def extract_name_from_label(graph: Graph, uri: URIRef) -> Optional[str]:
     """
     Extract name from RDF labels (separate from URN generation).
 

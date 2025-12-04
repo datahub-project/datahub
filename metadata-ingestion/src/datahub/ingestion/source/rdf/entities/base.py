@@ -46,7 +46,7 @@ class EntityExtractor(ABC, Generic[RDFEntityT]):
 
     @abstractmethod
     def extract(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] = None
+        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
     ) -> Optional[RDFEntityT]:
         """
         Extract an entity from the RDF graph.
@@ -63,7 +63,7 @@ class EntityExtractor(ABC, Generic[RDFEntityT]):
 
     @abstractmethod
     def extract_all(
-        self, graph: Graph, context: Dict[str, Any] = None
+        self, graph: Graph, context: Dict[str, Any] | None = None
     ) -> List[RDFEntityT]:
         """
         Extract all entities of this type from the RDF graph.
@@ -94,7 +94,7 @@ class EntityConverter(ABC, Generic[RDFEntityT, DataHubEntityT]):
 
     @abstractmethod
     def convert(
-        self, rdf_entity: RDFEntityT, context: Dict[str, Any] = None
+        self, rdf_entity: RDFEntityT, context: Dict[str, Any] | None = None
     ) -> Optional[DataHubEntityT]:
         """
         Convert an RDF AST entity to a DataHub AST entity.
@@ -110,7 +110,7 @@ class EntityConverter(ABC, Generic[RDFEntityT, DataHubEntityT]):
 
     @abstractmethod
     def convert_all(
-        self, rdf_entities: List[RDFEntityT], context: Dict[str, Any] = None
+        self, rdf_entities: List[RDFEntityT], context: Dict[str, Any] | None = None
     ) -> List[DataHubEntityT]:
         """
         Convert all RDF AST entities to DataHub AST entities.
@@ -141,7 +141,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
 
     @abstractmethod
     def build_mcps(
-        self, entity: DataHubEntityT, context: Dict[str, Any] = None
+        self, entity: DataHubEntityT, context: Dict[str, Any] | None = None
     ) -> List[Any]:
         """
         Build MCPs for a DataHub AST entity.
@@ -157,7 +157,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
 
     @abstractmethod
     def build_all_mcps(
-        self, entities: List[DataHubEntityT], context: Dict[str, Any] = None
+        self, entities: List[DataHubEntityT], context: Dict[str, Any] | None = None
     ) -> List[Any]:
         """
         Build MCPs for all DataHub AST entities of this type.
@@ -172,7 +172,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
         pass
 
     def build_post_processing_mcps(
-        self, datahub_graph: Any, context: Dict[str, Any] = None
+        self, datahub_graph: Any, context: Dict[str, Any] | None = None
     ) -> List[Any]:
         """
         Optional hook for building MCPs that depend on other entities.
@@ -208,7 +208,7 @@ class EntityProcessor(Generic[RDFEntityT, DataHubEntityT]):
         """Return the entity type name."""
         return self.extractor.entity_type
 
-    def process(self, graph: Graph, context: Dict[str, Any] = None) -> List[Any]:
+    def process(self, graph: Graph, context: Dict[str, Any] | None = None) -> List[Any]:
         """
         Complete pipeline: extract → convert → build MCPs.
 
@@ -242,7 +242,9 @@ class EntityMetadata:
 
     entity_type: str  # Internal type name (e.g., 'glossary_term')
     cli_names: List[str]  # CLI choice names (e.g., ['glossary', 'glossary_terms'])
-    rdf_ast_class: Type  # RDF AST class (e.g., RDFGlossaryTerm)
+    rdf_ast_class: Optional[
+        Type
+    ]  # RDF AST class (e.g., RDFGlossaryTerm), None if not extracted from RDF
     datahub_ast_class: Type  # DataHub AST class (e.g., DataHubGlossaryTerm)
     export_targets: List[str] = field(default_factory=list)  # Supported export targets
     validation_rules: Dict[str, Any] = field(

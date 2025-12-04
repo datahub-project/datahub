@@ -38,7 +38,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return "glossary_term"
 
     def build_mcps(
-        self, term: DataHubGlossaryTerm, context: Dict[str, Any] = None
+        self, term: DataHubGlossaryTerm, context: Dict[str, Any] | None = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for a single glossary term.
@@ -48,7 +48,9 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             context: Optional context with 'parent_node_urn' for hierarchy
         """
         mcps = []
-        parent_node_urn = context.get("parent_node_urn") if context else None
+        parent_node_urn: str | None = None
+        if context:
+            parent_node_urn = context.get("parent_node_urn")  # type: ignore[assignment]
 
         try:
             # Create term info MCP
@@ -61,7 +63,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return mcps
 
     def build_all_mcps(
-        self, terms: List[DataHubGlossaryTerm], context: Dict[str, Any] = None
+        self, terms: List[DataHubGlossaryTerm], context: Dict[str, Any] | None = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for glossary terms.
@@ -124,7 +126,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return mcps
 
     def build_relationship_mcps(
-        self, relationships, context: Dict[str, Any] = None
+        self, relationships, context: Dict[str, Any] | None = None
     ) -> List[MetadataChangeProposalWrapper]:
         # Lazy import to avoid circular dependency
         from datahub.ingestion.source.rdf.entities.relationship.ast import (
@@ -148,7 +150,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
         # Aggregate relationships by source term
         # Only track broader relationships for isRelatedTerms
-        broader_terms_map = {}  # child_urn -> [broader_term_urns]
+        broader_terms_map: Dict[str, List[str]] = {}  # child_urn -> [broader_term_urns]
 
         for relationship in relationships:
             if relationship.relationship_type == RelationshipType.BROADER:
@@ -185,7 +187,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return mcps
 
     def _create_term_info_mcp(
-        self, term: DataHubGlossaryTerm, parent_node_urn: str = None
+        self, term: DataHubGlossaryTerm, parent_node_urn: str | None = None
     ) -> MetadataChangeProposalWrapper:
         """Create the GlossaryTermInfo MCP."""
         term_info = GlossaryTermInfoClass(
@@ -202,7 +204,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
     @staticmethod
     def create_glossary_node_mcp(
-        node_urn: str, node_name: str, parent_urn: str = None
+        node_urn: str, node_name: str, parent_urn: str | None = None
     ) -> MetadataChangeProposalWrapper:
         """Create MCP for a glossary node."""
         node_info = GlossaryNodeInfoClass(
@@ -217,7 +219,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         )
 
     def build_post_processing_mcps(
-        self, datahub_graph: Any, context: Dict[str, Any] = None
+        self, datahub_graph: Any, context: Dict[str, Any] | None = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for glossary nodes and terms from domain hierarchy.

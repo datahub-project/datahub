@@ -39,7 +39,7 @@ class EntityPipeline:
         all_mcps = pipeline.process_all(graph)
     """
 
-    def __init__(self, registry: EntityRegistry = None):
+    def __init__(self, registry: EntityRegistry | None = None):
         """
         Initialize the pipeline.
 
@@ -49,7 +49,7 @@ class EntityPipeline:
         self.registry = registry or create_default_registry()
 
     def process_entity_type(
-        self, graph: Graph, entity_type: str, context: Dict[str, Any] = None
+        self, graph: Graph, entity_type: str, context: Dict[str, Any] | None = None
     ) -> List[Any]:
         """
         Process a specific entity type through the full pipeline.
@@ -69,7 +69,9 @@ class EntityPipeline:
 
         return processor.process(graph, context or {})
 
-    def process_all(self, graph: Graph, context: Dict[str, Any] = None) -> List[Any]:
+    def process_all(
+        self, graph: Graph, context: Dict[str, Any] | None = None
+    ) -> List[Any]:
         """
         Process all registered entity types through the pipeline.
 
@@ -91,7 +93,7 @@ class EntityPipeline:
         return all_mcps
 
     def extract_entity_type(
-        self, graph: Graph, entity_type: str, context: Dict[str, Any] = None
+        self, graph: Graph, entity_type: str, context: Dict[str, Any] | None = None
     ) -> List[Any]:
         """
         Extract entities of a specific type (Stage 1 only).
@@ -136,7 +138,7 @@ class EntityPipeline:
         self,
         datahub_entities: List[Any],
         entity_type: str,
-        context: Dict[str, Any] = None,
+        context: Dict[str, Any] | None = None,
     ) -> List[Any]:
         """
         Build MCPs from DataHub AST entities (Stage 3 only).
@@ -157,7 +159,7 @@ class EntityPipeline:
         return mcp_builder.build_all_mcps(datahub_entities, context or {})
 
     def build_relationship_mcps(
-        self, graph: Graph, context: Dict[str, Any] = None
+        self, graph: Graph, context: Dict[str, Any] | None = None
     ) -> List[Any]:
         """
         Build relationship MCPs specifically for glossary terms.
@@ -180,6 +182,11 @@ class EntityPipeline:
         if not all([extractor, converter, mcp_builder]):
             logger.warning("Glossary term processor not fully registered")
             return []
+
+        # Type narrowing - mypy doesn't understand all() check
+        assert extractor is not None
+        assert converter is not None
+        assert mcp_builder is not None
 
         # Extract terms
         rdf_terms = extractor.extract_all(graph, context or {})

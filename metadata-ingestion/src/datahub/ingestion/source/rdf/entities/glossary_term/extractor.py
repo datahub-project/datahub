@@ -77,7 +77,7 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
         return False
 
     def extract(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] = None
+        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
     ) -> Optional[RDFGlossaryTerm]:
         """
         Extract a single glossary term from the RDF graph.
@@ -135,7 +135,7 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
             return None
 
     def extract_all(
-        self, graph: Graph, context: Dict[str, Any] = None
+        self, graph: Graph, context: Dict[str, Any] | None = None
     ) -> List[RDFGlossaryTerm]:
         """Extract all glossary terms from the RDF graph."""
         terms = []
@@ -222,7 +222,7 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
 
         return None
 
-    def _extract_relationships(self, graph: Graph, uri: URIRef):
+    def _extract_relationships(self, graph: Graph, uri: URIRef) -> List[Any]:
         # Lazy import to avoid circular dependency
         from datahub.ingestion.source.rdf.entities.relationship.ast import (
             RDFRelationship,
@@ -257,7 +257,7 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
         return relationships
 
     def _extract_custom_properties(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] = None
+        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
     ) -> Dict[str, Any]:
         """Extract custom properties, including dialect-specific ones."""
         properties = {}

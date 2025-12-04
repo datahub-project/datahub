@@ -68,7 +68,7 @@ class FolderSource(SourceInterface):
         self,
         folder_path: str,
         recursive: bool = True,
-        file_extensions: List[str] = None,
+        file_extensions: List[str] | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.recursive = recursive

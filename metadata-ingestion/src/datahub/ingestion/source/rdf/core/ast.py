@@ -116,6 +116,13 @@ class DataHubGraph:
     Note: Converted from @dataclass to regular class to support dynamic fields.
     """
 
+    # Explicit type annotations for known entity fields (dynamically created but typed for mypy)
+    glossary_terms: List[Any]
+    relationships: List[Any]
+    domains: List[Any]
+    owner_groups: List[DataHubOwnerGroup]
+    metadata: Dict[str, Any]
+
     def __init__(self):
         # Initialize entity fields dynamically from registry
         from datahub.ingestion.source.rdf.entities.registry import (

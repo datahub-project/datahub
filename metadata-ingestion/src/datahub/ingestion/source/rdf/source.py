@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional
+from typing import Any, Dict, Iterable
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -68,7 +68,7 @@ class RDFSource(StatefulIngestionSourceBase):
         config = RDFSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> list[Optional]:
+    def get_workunit_processors(self) -> list[Any]:
         return [
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx

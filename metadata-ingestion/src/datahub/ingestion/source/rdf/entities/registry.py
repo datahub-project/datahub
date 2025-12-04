@@ -180,8 +180,8 @@ class EntityRegistry:
         """
         # Build dependency graph
         entity_types = list(self._metadata.keys())
-        dependency_graph = {}
-        in_degree = {}
+        dependency_graph: Dict[str, List[str]] = {}
+        in_degree: Dict[str, int] = {}
 
         # Initialize
         for entity_type in entity_types:
@@ -314,6 +314,7 @@ def _register_entity_module(registry: EntityRegistry, entity_type: str, module) 
         )
 
     # Validate metadata entity_type matches
+    assert metadata is not None  # Already validated above
     if metadata.entity_type != entity_type:
         raise ValueError(
             f"Entity module '{entity_type}' has ENTITY_METADATA.entity_type='{metadata.entity_type}'. "
@@ -384,7 +385,10 @@ def create_default_registry() -> EntityRegistry:
     import sys
 
     entities_package = sys.modules[__name__].__package__
+    assert entities_package is not None
     entities_module = sys.modules[entities_package]
+    assert entities_module is not None and hasattr(entities_module, "__path__")
+    assert entities_module.__path__ is not None
 
     # Scan entities directory for subdirectories (entity modules)
     entity_modules_found = []

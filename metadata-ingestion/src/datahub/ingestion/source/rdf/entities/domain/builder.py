@@ -32,7 +32,7 @@ class DomainBuilder:
     Domains with glossary terms in their hierarchy are created.
     """
 
-    def __init__(self, urn_generator: DomainUrnGenerator = None):
+    def __init__(self, urn_generator: DomainUrnGenerator | None = None):
         """
         Initialize the builder.
 
@@ -44,7 +44,7 @@ class DomainBuilder:
     def build_domains(
         self,
         glossary_terms: List["DataHubGlossaryTerm"],
-        context: Dict[str, Any] = None,
+        context: Dict[str, Any] | None = None,
     ) -> List[DataHubDomain]:
         """
         Build domain hierarchy from glossary terms.
@@ -57,8 +57,12 @@ class DomainBuilder:
             List of DataHub domains with hierarchy
         """
         # Collect all unique path prefixes
-        path_to_domain = {}  # path_tuple -> DataHubDomain
-        path_to_terms = {}  # path_tuple -> [terms]
+        path_to_domain: Dict[
+            Tuple[str, ...], DataHubDomain
+        ] = {}  # path_tuple -> DataHubDomain
+        path_to_terms: Dict[
+            Tuple[str, ...], List[DataHubGlossaryTerm]
+        ] = {}  # path_tuple -> [terms]
 
         # Process glossary terms
         for term in glossary_terms:
@@ -104,7 +108,10 @@ class DomainBuilder:
 
     def _create_domain(self, path: Tuple[str, ...]) -> DataHubDomain:
         """Create a domain from a path tuple."""
-        domain_urn = self.urn_generator.generate_domain_urn(path)
+        domain_urn_str = self.urn_generator.generate_domain_urn(path)
+        from datahub.utilities.urns.domain_urn import DomainUrn
+
+        domain_urn = DomainUrn.from_string(domain_urn_str)
 
         return DataHubDomain(
             urn=domain_urn,

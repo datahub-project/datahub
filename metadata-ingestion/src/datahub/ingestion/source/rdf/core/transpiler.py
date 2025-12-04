@@ -73,6 +73,6 @@ class RDFToDataHubTranspiler:
         return self.facade.get_datahub_graph(
             rdf_graph,
             environment=self.environment,
-            export_only=self.export_only,
-            skip_export=self.skip_export,
+            export_only=self.export_only or [],
+            skip_export=self.skip_export or [],
         )

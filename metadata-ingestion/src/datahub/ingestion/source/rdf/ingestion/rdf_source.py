@@ -18,7 +18,7 @@ Example recipe:
 """
 
 import logging
-from typing import Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from pydantic import Field, field_validator
 
@@ -255,7 +255,7 @@ class RDFSource(Source):
             logger.error(f"RDF ingestion failed: {e}", exc_info=True)
             self.report.report_failure(f"Ingestion failed: {e}")
 
-    def _create_source(self):
+    def _create_source(self) -> Any:
         """Create RDF source from configuration."""
         from pathlib import Path
 
@@ -263,7 +263,8 @@ class RDFSource(Source):
 
         # Check if it's a server URL
         if source_path.startswith(("http://", "https://")):
-            return SourceFactory.create_server_source(source_path, self.config.format)
+            format_str = self.config.format or "turtle"
+            return SourceFactory.create_server_source(source_path, format_str)
 
         # Check if it's a folder
         path = Path(source_path)
@@ -276,25 +277,26 @@ class RDFSource(Source):
 
         # Check if it's a single file
         if path.is_file():
-            return SourceFactory.create_file_source(source_path, self.config.format)
+            format_str = self.config.format or "turtle"
+            return SourceFactory.create_file_source(source_path, format_str)
 
         # Check if it's comma-separated files
         if "," in source_path:
             files = [f.strip() for f in source_path.split(",")]
-            return SourceFactory.create_multi_file_source(files, self.config.format)
+            format_str = self.config.format or "turtle"
+            return SourceFactory.create_multi_file_source(files, format_str)
 
         # Try glob pattern
         import glob
 
         matching_files = glob.glob(source_path)
         if matching_files:
+            format_str = self.config.format or "turtle"
             if len(matching_files) == 1:
-                return SourceFactory.create_file_source(
-                    matching_files[0], self.config.format
-                )
+                return SourceFactory.create_file_source(matching_files[0], format_str)
             else:
                 return SourceFactory.create_multi_file_source(
-                    matching_files, self.config.format
+                    matching_files, format_str
                 )
 
         raise ValueError(f"Source not found: {source_path}")

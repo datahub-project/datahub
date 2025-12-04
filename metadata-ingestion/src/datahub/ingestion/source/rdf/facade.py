@@ -13,7 +13,7 @@ Usage:
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from rdflib import Graph
 
@@ -92,10 +92,10 @@ class RDFFacade:
         self,
         graph: Graph,
         environment: str = "PROD",
-        export_only: List[str] = None,
-        skip_export: List[str] = None,
+        export_only: List[str] | None = None,
+        skip_export: List[str] | None = None,
         create_assertions: bool = False,
-        assertion_types: Dict[str, bool] = None,
+        assertion_types: Dict[str, bool] | None = None,
     ) -> ProcessingResult:
         """
         Process an RDF graph and return structured results.
@@ -127,10 +127,10 @@ class RDFFacade:
         self,
         graph: Graph,
         environment: str,
-        export_only: List[str] = None,
-        skip_export: List[str] = None,
+        export_only: List[str] | None = None,
+        skip_export: List[str] | None = None,
         create_assertions: bool = False,
-        assertion_types: Dict[str, bool] = None,
+        assertion_types: Dict[str, bool] | None = None,
     ) -> ProcessingResult:
         """Process using the new modular entity-based implementation."""
         from datahub.ingestion.source.rdf.entities.domain.builder import DomainBuilder
@@ -171,40 +171,43 @@ class RDFFacade:
             extractor = registry.get_extractor(entity_type)
             converter = registry.get_converter(entity_type)
 
-            rdf_terms = extractor.extract_all(graph, context)
-            datahub_terms = converter.convert_all(rdf_terms, context)
+            if extractor and converter:
+                rdf_terms = extractor.extract_all(graph, context)
+                datahub_terms = converter.convert_all(rdf_terms, context)
 
-            for term in datahub_terms:
-                result.glossary_terms.append(
-                    ProcessedGlossaryTerm(
-                        urn=term.urn,
-                        name=term.name,
-                        definition=term.definition,
-                        source=term.source,
-                        custom_properties=term.custom_properties or {},
-                        path_segments=tuple(term.path_segments)
-                        if term.path_segments
-                        else (),
-                        relationships=term.relationships or {},
-                    )
-                )
-
-            # Collect relationships from terms
-            from datahub.ingestion.source.rdf.entities.glossary_term.converter import (
-                GlossaryTermConverter,
-            )
-
-            if isinstance(converter, GlossaryTermConverter):
-                relationships = converter.collect_relationships(rdf_terms, context)
-                for rel in relationships:
-                    result.relationships.append(
-                        ProcessedRelationship(
-                            source_urn=str(rel.source_urn),
-                            target_urn=str(rel.target_urn),
-                            relationship_type=rel.relationship_type,
-                            properties=rel.properties or {},
+                for term in datahub_terms:
+                    result.glossary_terms.append(
+                        ProcessedGlossaryTerm(
+                            urn=term.urn,
+                            name=term.name,
+                            definition=term.definition,
+                            source=term.source,
+                            custom_properties=term.custom_properties or {},
+                            path_segments=tuple(term.path_segments)
+                            if term.path_segments
+                            else (),
+                            relationships=term.relationships or {},
                         )
                     )
+
+                # Collect relationships from terms
+                from datahub.ingestion.source.rdf.entities.glossary_term.converter import (
+                    GlossaryTermConverter,
+                )
+
+                if isinstance(converter, GlossaryTermConverter):
+                    relationships = converter.collect_relationships(rdf_terms, context)
+                    for rel in relationships:
+                        result.relationships.append(
+                            ProcessedRelationship(
+                                source_urn=str(rel.source_urn),
+                                target_urn=str(rel.target_urn),
+                                relationship_type=rel.relationship_type,
+                                properties=rel.properties or {},
+                            )
+                        )
+            else:
+                logger.warning(f"Extractor or converter not found for {entity_type}")
 
         # Build domains using DomainBuilder (creates its own URN generator)
         domain_builder = DomainBuilder()
@@ -235,7 +238,7 @@ class RDFFacade:
 
         return result
 
-    def _convert_datahub_ast_to_result(self, datahub_ast) -> ProcessingResult:
+    def _convert_datahub_ast_to_result(self, datahub_ast: Any) -> ProcessingResult:
         """Convert DataHub AST to ProcessingResult."""
         result = ProcessingResult()
 
@@ -278,7 +281,7 @@ class RDFFacade:
 
         return result
 
-    def _convert_domain(self, domain) -> ProcessedDomain:
+    def _convert_domain(self, domain: Any) -> ProcessedDomain:
         """Convert a DataHub domain to ProcessedDomain."""
         processed_terms = []
         for term in domain.glossary_terms:
@@ -344,13 +347,20 @@ class RDFFacade:
     ) -> List[ProcessedDomain]:
         """Build domain hierarchy from terms."""
         # Group entities by path
-        domains_map = {}
+        domains_map: Dict[Tuple[str, ...], ProcessedDomain] = {}
 
         for term in terms:
             if term.path_segments:
+                # Convert path_segments to tuple for use as dict key
+                path_segments_tuple = (
+                    tuple(term.path_segments)
+                    if isinstance(term.path_segments, list)
+                    else term.path_segments
+                )
+
                 # Build all parent paths
-                for i in range(1, len(term.path_segments)):
-                    path = term.path_segments[:i]
+                for i in range(1, len(path_segments_tuple)):
+                    path = path_segments_tuple[:i]
                     if path not in domains_map:
                         domains_map[path] = ProcessedDomain(
                             urn=f"urn:li:domain:{'/'.join(path)}",
@@ -360,11 +370,10 @@ class RDFFacade:
                             if len(path) > 1
                             else None,
                             glossary_terms=[],
-                            datasets=[],
                         )
 
                 # Add term to its domain
-                term_path = term.path_segments[:-1]  # Exclude term name
+                term_path = path_segments_tuple[:-1]  # Exclude term name
                 if term_path and term_path in domains_map:
                     domains_map[term_path].glossary_terms.append(term)
 
@@ -374,10 +383,10 @@ class RDFFacade:
         self,
         graph: Graph,
         environment: str = "PROD",
-        export_only: List[str] = None,
-        skip_export: List[str] = None,
+        export_only: List[str] | None = None,
+        skip_export: List[str] | None = None,
         create_assertions: bool = False,
-        assertion_types: Dict[str, bool] = None,
+        assertion_types: Dict[str, bool] | None = None,
     ):
         """
         Get the DataHub AST (DataHubGraph) from an RDF graph.
@@ -438,9 +447,12 @@ class RDFFacade:
             extractor = registry.get_extractor(entity_type)
             converter = registry.get_converter(entity_type)
 
-            rdf_terms = extractor.extract_all(graph, context)
-            datahub_terms = converter.convert_all(rdf_terms, context)
-            datahub_graph.glossary_terms = datahub_terms
+            if extractor and converter:
+                rdf_terms = extractor.extract_all(graph, context)
+                datahub_terms = converter.convert_all(rdf_terms, context)
+                datahub_graph.glossary_terms = datahub_terms
+            else:
+                logger.warning(f"Extractor or converter not found for {entity_type}")
 
             # Collect relationships
             from datahub.ingestion.source.rdf.entities.glossary_term.converter import (

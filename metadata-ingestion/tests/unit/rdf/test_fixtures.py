@@ -192,11 +192,11 @@ class TempFileManager:
 
     # MockDataHubClient removed - CLI-only, not used by ingestion source
 
-    def set_emit_success(self, success: bool):
+    def set_emit_success(self, success: bool) -> None:
         """Set whether MCP emission should succeed."""
         self.emit_success = success
 
-    def set_emit_error(self, error: Exception):
+    def set_emit_error(self, error: Exception) -> None:
         """Set error to raise during MCP emission."""
         self.emit_error = error
 

@@ -33,7 +33,7 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
     - Relationship conversion
     """
 
-    def __init__(self, urn_generator: GlossaryTermUrnGenerator = None):
+    def __init__(self, urn_generator: GlossaryTermUrnGenerator | None = None):
         """
         Initialize the converter.
 
@@ -47,7 +47,7 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
         return "glossary_term"
 
     def convert(
-        self, rdf_term: RDFGlossaryTerm, context: Dict[str, Any] = None
+        self, rdf_term: RDFGlossaryTerm, context: Dict[str, Any] | None = None
     ) -> Optional[DataHubGlossaryTerm]:
         """
         Convert an RDF glossary term to DataHub format.
@@ -66,7 +66,7 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
             relationships = self._convert_relationships(rdf_term.relationships)
 
             # Parse IRI path into segments for domain hierarchy (as tuple for consistency)
-            path_segments = tuple(
+            path_segments = list(
                 self.urn_generator.derive_path_from_iri(rdf_term.uri, include_last=True)
             )
 
@@ -105,7 +105,7 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
             return None
 
     def convert_all(
-        self, rdf_terms: List[RDFGlossaryTerm], context: Dict[str, Any] = None
+        self, rdf_terms: List[RDFGlossaryTerm], context: Dict[str, Any] | None = None
     ) -> List[DataHubGlossaryTerm]:
         """Convert all RDF glossary terms to DataHub format."""
         datahub_terms = []
@@ -120,8 +120,8 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
         return datahub_terms
 
     def collect_relationships(
-        self, rdf_terms: List[RDFGlossaryTerm], context: Dict[str, Any] = None
-    ):
+        self, rdf_terms: List[RDFGlossaryTerm], context: Dict[str, Any] | None = None
+    ) -> Dict[str, List[str]]:
         # Lazy import to avoid circular dependency
         from datahub.ingestion.source.rdf.entities.relationship.ast import (
             DataHubRelationship,
@@ -171,7 +171,9 @@ class GlossaryTermConverter(EntityConverter[RDFGlossaryTerm, DataHubGlossaryTerm
 
         return all_relationships
 
-    def _convert_relationships(self, rdf_relationships) -> Dict[str, List[str]]:
+    def _convert_relationships(
+        self, rdf_relationships: List[Any]
+    ) -> Dict[str, List[str]]:
         """
         Convert RDF relationships to DataHub dictionary format.
 

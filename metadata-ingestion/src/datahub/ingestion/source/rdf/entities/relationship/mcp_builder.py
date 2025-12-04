@@ -32,7 +32,7 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
         return "relationship"
 
     def build_mcps(
-        self, relationship: DataHubRelationship, context: Dict[str, Any] = None
+        self, relationship: DataHubRelationship, context: Dict[str, Any] | None = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for a single relationship.
@@ -41,7 +41,9 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
         return []  # Individual relationships are aggregated
 
     def build_all_mcps(
-        self, relationships: List[DataHubRelationship], context: Dict[str, Any] = None
+        self,
+        relationships: List[DataHubRelationship],
+        context: Dict[str, Any] | None = None,
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for all relationships.
@@ -54,7 +56,7 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
         mcps = []
 
         # Aggregate broader relationships by child term
-        broader_terms_map = {}  # child_urn -> [broader_term_urns]
+        broader_terms_map: Dict[str, List[str]] = {}  # child_urn -> [broader_term_urns]
 
         for rel in relationships:
             if rel.relationship_type == RelationshipType.BROADER:

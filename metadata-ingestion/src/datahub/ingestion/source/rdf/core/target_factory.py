@@ -22,7 +22,7 @@ class TargetInterface(ABC):
 
     @abstractmethod
     def execute(
-        self, datahub_ast: DataHubGraph, rdf_graph: Graph = None
+        self, datahub_ast: DataHubGraph, rdf_graph: Graph | None = None
     ) -> Dict[str, Any]:
         """Execute the target with the DataHub AST."""
         pass
