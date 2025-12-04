@@ -41,8 +41,8 @@ class RecordingConfig(ConfigModel):
     output_path: Optional[Path] = Field(
         default=None,
         description="Local path to save the recording archive. "
-        "Required when s3_upload=false. Optional when s3_upload=true "
-        "(will keep a local copy in addition to S3 upload).",
+        "If not provided, uses INGESTION_ARTIFACT_DIR env var or temp directory. "
+        "When s3_upload=true, optionally keeps a local copy in addition to S3 upload.",
     )
 
     @model_validator(mode="after")
@@ -50,8 +50,8 @@ class RecordingConfig(ConfigModel):
         """Validate recording configuration requirements."""
         if self.enabled and not self.password:
             raise ValueError("password is required when recording is enabled")
-        if self.enabled and not self.s3_upload and not self.output_path:
-            raise ValueError("output_path is required when s3_upload is disabled")
+        # Note: output_path is optional even when s3_upload=false
+        # The recorder will use INGESTION_ARTIFACT_DIR env var or temp directory as fallback
         return self
 
 

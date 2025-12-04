@@ -5,6 +5,7 @@ import os
 import sys
 import textwrap
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -418,7 +419,8 @@ def _setup_recording(
     sink_type = pipeline_config.get("sink", {}).get("type", "datahub-rest")
 
     # Output path from config (optional)
-    output_path = recording_config.get("output_path")
+    output_path_str = recording_config.get("output_path")
+    output_path = Path(output_path_str) if output_path_str else None
 
     logger.info(f"Recording enabled for run_id: {run_id}")
     logger.info(f"S3 upload: {'enabled' if s3_upload else 'disabled'}")
