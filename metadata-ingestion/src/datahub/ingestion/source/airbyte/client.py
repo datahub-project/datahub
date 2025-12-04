@@ -50,6 +50,12 @@ logger = logging.getLogger(__name__)
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_FORM_URLENCODED = "application/x-www-form-urlencoded"
 
+# OAuth Token Constants
+DEFAULT_TOKEN_EXPIRY_SECONDS = 3600  # 1 hour default from OAuth providers
+TOKEN_REFRESH_BUFFER_SECONDS = (
+    600  # Refresh 10 minutes before expiry to avoid race conditions
+)
+
 
 class AirbyteApiError(Exception):
     """Raised when Airbyte API request fails.
@@ -109,27 +115,14 @@ class JsonSchemaDict(TypedDict, total=False):
 
 
 class AirbyteBaseClient(ABC):
-    """
-    Abstract base client for interacting with the Airbyte API
-    """
+    """Abstract base client for interacting with the Airbyte API."""
 
     def __init__(self, config: AirbyteClientConfig):
-        """
-        Initialize the Airbyte base client
-
-        Args:
-            config: Client configuration
-        """
         self.config = config
         self.session = self._create_session()
 
     def _create_session(self) -> requests.Session:
-        """
-        Create and configure a requests Session with retry logic
-
-        Returns:
-            Configured requests Session
-        """
+        """Create and configure requests Session with retry logic."""
         session = requests.Session()
 
         session.headers.update({"Content-Type": CONTENT_TYPE_JSON})
@@ -229,20 +222,7 @@ class AirbyteBaseClient(ABC):
         next_page_token_key: str = "next",
         offset_param: str = "offset",
     ) -> Iterator[dict]:
-        """Handle pagination for API endpoints that return paginated results.
-
-        Args:
-            endpoint: API endpoint
-            params: URL query parameters
-            result_key: Key in the response that contains the results
-            page_size: Number of items per page
-            limit: Maximum number of items to return (None for all)
-            next_page_token_key: Key in the response that contains the next page token
-            offset_param: Parameter name for offset-based pagination
-
-        Returns:
-            Iterator of result items
-        """
+        """Handle pagination for API endpoints."""
         if not page_size:
             page_size = self.config.page_size
 
@@ -308,35 +288,18 @@ class AirbyteBaseClient(ABC):
 
     @abstractmethod
     def _get_full_url(self, endpoint: str) -> str:
-        """
-        Get the full URL for the API endpoint
-
-        Args:
-            endpoint: API endpoint
-
-        Returns:
-            Full URL for the API endpoint
-        """
+        """Get full URL for API endpoint."""
         pass
 
     @abstractmethod
     def _check_auth_before_request(self) -> None:
-        """
-        Check and refresh authentication if needed before making a request
-        """
+        """Check and refresh authentication before request."""
         pass
 
     def list_workspaces(
         self, pattern: Optional[AllowDenyPattern] = None
     ) -> List[AirbyteWorkspacePartial]:
-        """List all workspaces in Airbyte with pagination and filtering.
-
-        Args:
-            pattern: AllowDenyPattern to filter workspaces by name
-
-        Returns:
-            List of validated workspace models
-        """
+        """List all workspaces with optional filtering."""
         self._check_auth_before_request()
         workspaces_data = list(
             self._paginate_results(endpoint="/workspaces", result_key="data")
@@ -350,16 +313,7 @@ class AirbyteBaseClient(ABC):
     def list_connections(
         self, workspace_id: str, pattern: Optional[AllowDenyPattern] = None
     ) -> List[AirbyteConnectionPartial]:
-        """
-        List all connections in a workspace with filtering
-
-        Args:
-            workspace_id: Workspace ID
-            pattern: AllowDenyPattern to filter connections by name
-
-        Returns:
-            List of connections
-        """
+        """List connections in workspace with optional filtering."""
         self._check_auth_before_request()
         params = {"workspaceId": workspace_id}
         connections = list(
@@ -820,10 +774,6 @@ class AirbyteCloudClient(AirbyteBaseClient):
     Client for interacting with the Airbyte Cloud API
     """
 
-    # Constants for Airbyte Cloud
-    CLOUD_BASE_URL = "https://api.airbyte.com/v1"
-    TOKEN_URL = "https://auth.airbyte.com/oauth/token"
-
     def __init__(self, config: AirbyteClientConfig):
         """
         Initialize the Airbyte Cloud client
@@ -838,7 +788,13 @@ class AirbyteCloudClient(AirbyteBaseClient):
         if not self.workspace_id:
             raise ValueError("Workspace ID is required for Airbyte Cloud")
 
-        self.base_url = self.CLOUD_BASE_URL
+        # Use configurable URLs from config
+        self.base_url = config.cloud_api_url
+        self.token_url = config.cloud_oauth_token_url
+
+        # OAuth tokens are stored in memory and refreshed automatically.
+        # For multi-hour ingestion jobs, tokens are refreshed before each API request
+        # via _check_auth_before_request() which checks token expiry with a 10-min buffer.
         self._setup_oauth_authentication()
 
     def _setup_oauth_authentication(self) -> None:
@@ -876,7 +832,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
 
         try:
             response = requests.post(
-                self.TOKEN_URL,
+                self.token_url,
                 data=data,
                 headers={"Content-Type": CONTENT_TYPE_FORM_URLENCODED},
                 timeout=self.config.request_timeout,
@@ -886,9 +842,9 @@ class AirbyteCloudClient(AirbyteBaseClient):
 
             token_data = response.json()
             self.access_token = token_data.get("access_token")
-            self.token_expiry = (
-                time.time() + token_data.get("expires_in", 3600) - 300
-            )  # 5 min buffer
+            expires_in = token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
+            # Store the actual expiry time (buffer applied when checking)
+            self.token_expiry = time.time() + expires_in
 
             # Update session headers with the new token
             self.session.headers.update(
@@ -900,11 +856,58 @@ class AirbyteCloudClient(AirbyteBaseClient):
             logger.error(f"Failed to refresh OAuth2 token: {str(e)}")
             raise
 
+    def _make_request(self, endpoint: str, params: Optional[dict] = None) -> Any:
+        """Override to add OAuth token retry logic for 401/403 responses."""
+        url = self._get_full_url(endpoint)
+        logger.debug(f"Making GET request to {url}")
+
+        try:
+            response = self.session.get(
+                url, params=params, timeout=self.config.request_timeout
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as e:
+            # Handle server-side token invalidation (401/403) with one retry
+            if e.response.status_code in (401, 403):
+                logger.warning(
+                    f"Received {e.response.status_code}, attempting token refresh"
+                )
+                try:
+                    # Refresh token and retry
+                    logger.info("Refreshing token after server invalidation")
+                    self._refresh_oauth_token()
+
+                    response = self.session.get(
+                        url, params=params, timeout=self.config.request_timeout
+                    )
+                    response.raise_for_status()
+                    return response.json()
+                except Exception:
+                    logger.error(
+                        "Token refresh failed, authentication error is terminal"
+                    )
+
+            # Fall through to raise original error
+            error_message = f"Airbyte API request failed: {e.response.status_code}"
+            try:
+                error_details = e.response.json()
+                error_message += f" - {error_details.get('message', e.response.text)}"
+            except (ValueError, KeyError):
+                error_message += f" - {e.response.text}"
+
+            logger.error(error_message)
+            raise AirbyteApiError(error_message) from e
+        except requests.RequestException as e:
+            error_message = f"Error connecting to Airbyte API: {str(e)}"
+            logger.error(error_message)
+            raise AirbyteApiError(error_message) from e
+
     def _check_token_expiry(self) -> None:
-        """
-        Check if the token is about to expire and refresh if necessary
-        """
-        if hasattr(self, "token_expiry") and time.time() >= self.token_expiry:
+        """Check token expiry with 10-minute buffer to avoid race conditions."""
+        if hasattr(self, "token_expiry") and time.time() >= (
+            self.token_expiry - TOKEN_REFRESH_BUFFER_SECONDS
+        ):
             self._refresh_oauth_token()
 
     def _get_full_url(self, endpoint: str) -> str:

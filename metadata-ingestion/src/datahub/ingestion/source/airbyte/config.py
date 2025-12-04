@@ -27,6 +27,10 @@ class AirbyteDeploymentType(StrEnum):
     CLOUD = "cloud"
 
 
+# Default Airbyte Cloud URLs
+DEFAULT_CLOUD_API_URL = "https://api.airbyte.com/v1"
+DEFAULT_CLOUD_OAUTH_TOKEN_URL = "https://auth.airbyte.com/oauth/token"
+
 # Known source type to DataHub platform mapping
 KNOWN_SOURCE_TYPE_MAPPING = {
     # Relational Databases
@@ -243,6 +247,15 @@ class AirbyteClientConfig(ConfigModel):
     cloud_workspace_id: Optional[str] = Field(
         default=None,
         description="Workspace ID for Airbyte Cloud (required for cloud deployment)",
+    )
+
+    cloud_api_url: str = Field(
+        default=DEFAULT_CLOUD_API_URL,
+        description="Base URL for Airbyte Cloud API (defaults to production URL)",
+    )
+    cloud_oauth_token_url: str = Field(
+        default=DEFAULT_CLOUD_OAUTH_TOKEN_URL,
+        description="OAuth token URL for Airbyte Cloud (defaults to production URL)",
     )
 
     @model_validator(mode="after")
