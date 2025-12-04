@@ -16,13 +16,11 @@ RDF is a lightweight RDF ontology ingestion system for DataHub. This documentati
 **Complete technical specification** - Precise mappings, algorithms, and implementation details:
 
 - **Glossary Terms** (Section 3): SKOS concepts, relationships, constraints, IRI-to-URN conversion
-- **Datasets** (Section 4): DCAT datasets, schema fields, platform integration
-- **Platform Definitions** (Section 5): Platform service definitions and naming conventions
-- **Lineage** (Section 6): PROV-O lineage processing with activities and relationships
-- **Custom Properties** (Section 7): Structured property definitions and value assignments
-- **Domain Ownership** (Section 8): Ownership groups and domain assignment
-- **Technical Implementation** (Section 9): URN generation, constraint extraction, modular architecture, auto-discovery
-- **DataHub Integration** (Section 10): Entity mappings, assertion creation, platform integration
+- **Technical Implementation** (Section 4): URN generation, constraint extraction, modular architecture, auto-discovery
+- **DataHub Integration** (Section 5): Entity mappings and integration
+- **Validation and Error Handling** (Section 6): RDF validation, constraint validation, error handling
+- **Common Patterns** (Section 7): Common RDF patterns for glossary terms
+- **References** (Section 8): Standards and vocabulary references
 
 **Purpose**: Precise technical specifications that ensure functionality isn't lost during refactoring.
 
@@ -33,28 +31,6 @@ RDF is a lightweight RDF ontology ingestion system for DataHub. This documentati
 
 ## Key Concepts
 
-### Platform Mapping
-
-**Preferred Method: `dcat:accessService`**
-
-```turtle
-ex:CustomerDatabase a void:Dataset ;
-    dcterms:title "Customer Database" ;
-    dcat:accessService <http://postgres.example.com> .
-```
-
-**Platform Extraction:**
-
-- `http://postgres.example.com` → `postgres` (extracted from hostname)
-- `"postgresql"` → `postgresql` (literal value used as-is)
-
-**Benefits:**
-
-- Standards compliant (W3C DCAT)
-- Semantic clarity (represents access service)
-- Tool integration (works with DCAT validators)
-- Future proof (established semantic web standard)
-
 ### Entity Identification Logic
 
 **Glossary Terms** are identified by:
@@ -62,27 +38,6 @@ ex:CustomerDatabase a void:Dataset ;
 - Having labels (`rdfs:label` OR `skos:prefLabel` ≥3 chars)
 - Being typed as: `owl:Class`, `owl:NamedIndividual`, `skos:Concept`, or custom class instances
 - Excluding: `owl:Ontology` declarations
-
-**Datasets** are identified by:
-
-- Having appropriate RDF type: `void:Dataset`, `dcterms:Dataset`, `schema:Dataset`, `dh:Dataset`
-- Having basic metadata (name/title via priority mapping)
-- Platform identification via `dcat:accessService` (preferred) or `schema:provider`
-
-**Lineage Activities** are identified by:
-
-- Being typed as `prov:Activity`
-- Having upstream (`prov:used`) and downstream (`prov:generated`) relationships
-- Having temporal information (`prov:startedAtTime`, `prov:endedAtTime`)
-- Having user attribution (`prov:wasAssociatedWith`)
-
-**Lineage Relationships** are identified by:
-
-- `prov:used` - upstream data dependencies
-- `prov:generated` - downstream data products
-- `prov:wasDerivedFrom` - direct data derivations
-- `prov:wasGeneratedBy` - activity-to-entity relationships
-- `prov:wasInfluencedBy` - downstream influences
 
 ### Glossary Mapping
 
@@ -92,34 +47,12 @@ RDF glossaries are mapped to DataHub's glossary system through:
 - **Nodes**: Container hierarchies for organizing terms (`skos:ConceptScheme`, `skos:Collection`)
 - **Relationships**: Hierarchical (`skos:broader`), associative (`skos:related`), and external reference links
 
-### Dataset Mapping
-
-RDF datasets are mapped to DataHub's dataset system through:
-
-- **Datasets**: Data entities with metadata and connections
-- **Schema Fields**: Field definitions with types, constraints, and glossary associations
-- **Platforms**: Data platform integration (SPARQL, databases, files)
-- **Lineage Activities**: Data processing jobs with temporal and attribution information
-- **Lineage Relationships**: Complete data flow mapping via PROV-O standard
-
 ### Property Mapping Priority
 
 **Term Properties:**
 
 1. Name: `skos:prefLabel` → `rdfs:label`
 2. Definition: `skos:definition` → `rdfs:comment`
-
-**Dataset Properties:**
-
-1. Name: `dcterms:title` → `schema:name` → `rdfs:label` → custom `hasName`
-2. Description: `dcterms:description` → `schema:description` → `rdfs:comment` → custom `hasDescription`
-3. Identifier: `dcterms:identifier` → `dh:hasURN` → custom `hasIdentifier`
-
-**Field Properties:**
-
-1. Name: `dh:hasName` → `rdfs:label` → custom `hasName`
-2. Type: `dh:hasDataType` → custom `hasDataType`
-3. Description: `rdfs:comment` → custom `hasDescription`
 
 ### IRI-to-URN Transformation
 
@@ -144,162 +77,6 @@ RDF IRIs are transformed to DataHub URNs using:
 2. Comprehensive `skos:definition`
 3. Logical `skos:broader` relationships
 4. Consistent terminology across concepts
-
-### Dataset Documentation
-
-1. Use clear, descriptive `dcterms:title`
-2. Include comprehensive `dcterms:description`
-3. Specify proper `dcterms:creator` and `dcterms:publisher`
-4. Include creation and modification timestamps
-
-### Lineage Documentation
-
-1. Document all data dependencies with `prov:used`
-2. Specify data generation with `prov:wasGeneratedBy`
-3. Include user attribution with `prov:wasAssociatedWith`
-4. Use proper timestamps for lineage events
-5. Define activities with clear descriptions and temporal bounds
-6. Map field-level dependencies for detailed lineage tracking
-
-### Lineage Processing
-
-RDF provides comprehensive lineage processing through PROV-O (Provenance Ontology):
-
-**Activity Processing:**
-
-- Extracts `prov:Activity` entities as DataHub data jobs
-- Captures temporal information (`prov:startedAtTime`, `prov:endedAtTime`)
-- Includes user attribution (`prov:wasAssociatedWith`)
-- Generates hierarchical URNs for activities
-
-**Relationship Processing:**
-
-- Maps `prov:used` to upstream data dependencies
-- Maps `prov:generated` to downstream data products
-- Processes `prov:wasDerivedFrom` for direct derivations
-- Handles `prov:wasGeneratedBy` for activity-to-entity links
-- Supports `prov:wasInfluencedBy` for downstream influences
-
-**Field-Level Lineage:**
-
-- Captures field-to-field mappings between datasets
-- Tracks data transformations at the column level
-- Identifies unauthorized data flows and inconsistencies
-- Supports complex ETL process documentation
-
-## Data Governance Demonstration: Authorized vs Unauthorized Flows
-
-RDF includes a comprehensive demonstration of how unauthorized data flows create inconsistencies between regulatory reports that should contain matching values.
-
-### The Problem: Regulatory Report Inconsistencies
-
-**Authorized Flow (FR Y-9C Report):**
-
-```
-Loan Trading → Aggregation Job → Finance Job → Risk Job → FR Y-9C Report
-     ↓              ↓            ↓         ↓           ↓
-  Multiple      Consolidated   Finance   Risk       Authorized
-  Systems      Loan Data     Balances  Metrics    Regulatory
-                                           ↓           ↓
-                                    Validated    Same Line Items
-                                    References   Same Values
-```
-
-**Unauthorized Flow (FFIEC 031 Report):**
-
-```
-Account Data → Performance Copy → FFIEC 031 Report
-     ↓              ↓                   ↓
-  Reference    Finance Copy        Different
-  Data         (Unauthorized)       Line Items
-                                          ↓
-                                   Different Values
-```
-
-### Realistic Processing Jobs
-
-The demonstration models actual enterprise data processing:
-
-**Multi-Input ETL Jobs:**
-
-- **Loan Aggregation**: 2+ inputs → Consolidated dataset (Daily Spark job)
-- **Finance Processing**: 3+ inputs → Portfolio balances (Daily SQL job)
-- **Risk Calculations**: 3+ inputs → Risk metrics (Daily Python/R job)
-- **Regulatory Reporting**: Multiple inputs → FR Y-9C report (Monthly SAS job)
-
-**Unauthorized Activities:**
-
-- **Performance Copy**: Creates stale data copy (Unauthorized Pentaho job)
-- **Alternative Reporting**: Uses unauthorized data sources (High-risk SAS job)
-
-### Provenance-Ontology (PROV-O) Standards for Governance
-
-**Rich Activity Metadata (W3C Standard):**
-
-```turtle
-<http://datahub.com/lineage/fr_y9c_reporting_job> a prov:RegulatoryActivity ;
-    rdfs:label "FR Y-9C Regulatory Reporting Job" ;
-    rdfs:comment "Monthly regulatory reporting job generating Federal Reserve Y-9C Call Report" ;
-    prov:startedAtTime "2024-01-15T06:00:00Z"^^xsd:dateTime ;
-    prov:wasAssociatedWith <http://org/teams/regulatory-reporting> ;
-    dcterms:creator <http://org/teams/regulatory-reporting> ;
-    prov:hasPrimarySource "regulatory-compliance" .
-```
-
-**Unauthorized Activity Markers (PROV-O Invalidation):**
-
-```turtle
-<http://datahub.com/lineage/ffiec_031_reporting_job> a prov:RegulatoryActivity ;
-    rdfs:label "FFIEC 031 Reporting Job (UNAUTHORIZED INPUTS)" ;
-    rdfs:comment "CRITICAL WARNING: FFIEC 031 report accidentally uses Finance performance copy" ;
-    prov:invalidatedBy <http://gov/detection/data-inconsistency> ;
-    dcterms:description "WARNING: Uses unauthorized Finance performance copy - FED VALIDATION RISK HIGH" ;
-    dcterms:isReferencedBy <http://gov/compliance/regulatory-violations> .
-```
-
-### Expected Inconsistencies
-
-| Line Item               | FR Y-9C (Authorized)  | FFIEC 031 (Unauthorized)    | Impact                       |
-| ----------------------- | --------------------- | --------------------------- | ---------------------------- |
-| Total Loan Count        | 15,423 (consolidated) | 12,891 (stale copy)         | ❌ Regulatory mismatch       |
-| Commercial Loans        | $2.3B (current)       | $1.8B (outdated)            | ❌ Capital calculation error |
-| Account Classifications | Validated (latest)    | Outdated (performance copy) | ❌ Audit findings            |
-
-### Business Value
-
-This demonstration showcases:
-
-1. **Realistic Processing**: Models actual multi-input ETL jobs with scheduling and technology
-2. **Clear Business Impact**: Shows how authorization violations create regulatory inconsistencies
-3. **Governance Integration**: Demonstrates DataHub's data governance capabilities
-4. **Risk Management**: Highlights critical data integrity issues that affect compliance
-5. **Audit Trail**: Provides complete provenance tracking for regulatory examinations
-
-**DataHub Visualization**: Creates compelling lineage graphs showing authorized (green) vs unauthorized (red) data flows, making governance issues immediately visible to stakeholders.
-
-**Example Usage**: Run `python -m rdf.scripts.datahub_rdf --source examples/bcbs239/` to see the full demonstration in DataHub.
-
-### Standard RDF Properties vs DataHub Extensions
-
-The lineage schema demonstrates **cross-platform compatibility** by using only W3C-standard predicates instead of proprietary DataHub ontology:
-
-| **DataHub Property**        | **Standard RDF Predicate**       | **Purpose**               |
-| --------------------------- | -------------------------------- | ------------------------- |
-| `dh:hasBusinessProcess`     | `prov:hasPrimarySource`          | Business context          |
-| `dh:hasActivityType`        | `rdfs:subClassOf prov:Activity`  | Activity classification   |
-| `dh:hasTransformationType`  | `prov:used` patterns             | Transformation indicators |
-| `dh:hasSchedule`            | `prov:startedAtTime/endedAtTime` | Temporal context          |
-| `dh:hasOwner`               | `prov:wasAssociatedWith`         | Team/user attribution     |
-| `dh:hasTechnology`          | `dcterms:creator` + comments     | Technology context        |
-| `dh:hasAuthorizationStatus` | `prov:invalidatedBy`             | Governance markers        |
-
-**Benefits of Standard RDF Approach:**
-
-- ✅ **Cross-platform compatibility** - Works with any RDF-compliant system
-- ✅ **W3C standardized** - Uses PROV-O (Provenance) and Dublin Core predicates
-- ✅ **Better interoperability** - Semantic web compliant
-- ✅ **Future-proof** - Not dependent on proprietary ontologies
-- ✅ **Pure lineage modeling** - Focus on provenance rather than implementation details
 
 ## Technical Implementation
 
@@ -360,7 +137,7 @@ Guide for migrating from legacy SKOS approach to modern SHACL approach for datas
 Historical and proposal documents are archived in `docs/archive/`:
 
 - `RDF_GLOSSARY_MAPPING.md` - Consolidated into main specification
-- `RDF_DATASET_MAPPING.md` - Consolidated into main specification
+- `RDF_DATASET_MAPPING.md` - Dataset mapping (removed for MVP, available in full-features branch)
 - `TRANSPILER_ARCHITECTURE.md` - Consolidated into main specification
 - Other historical/proposal documents
 

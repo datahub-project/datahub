@@ -55,23 +55,11 @@ class DataHubIngestionTarget(TargetInterface):
             # Get registry for entity MCP builders
             registry = create_default_registry()
 
-            # Log what entities are in the graph
+            # Log what entities are in the graph (MVP only)
             logger.info("Processing DataHub AST with:")
             logger.info(f"  - {len(datahub_graph.glossary_terms)} glossary terms")
-            logger.info(f"  - {len(datahub_graph.datasets)} datasets")
-            logger.info(
-                f"  - {len(datahub_graph.structured_properties)} structured properties"
-            )
-            logger.info(
-                f"  - {len(getattr(datahub_graph, 'structured_property_values', []))} structured property value assignments"
-            )
-            logger.info(f"  - {len(datahub_graph.data_products)} data products")
             logger.info(f"  - {len(datahub_graph.domains)} domains")
-            logger.info(
-                f"  - {len(getattr(datahub_graph, 'lineage_relationships', []))} lineage relationships"
-            )
             logger.info(f"  - {len(datahub_graph.relationships)} relationships")
-            logger.info(f"  - {len(datahub_graph.assertions)} assertions")
 
             # Generate MCPs for each entity type
             mcps = []
@@ -82,9 +70,13 @@ class DataHubIngestionTarget(TargetInterface):
             # Non-registered entities (lineage activities) are handled separately.
             entity_types_by_order = registry.get_entity_types_by_processing_order()
 
-            # Build context with full graph and report for post-processing hooks
+            # Build context with full graph, report, and registry for post-processing hooks
             # Defined outside loop so it's available for deferred post-processing hooks
-            build_context = {"datahub_graph": datahub_graph, "report": self.report}
+            build_context = {
+                "datahub_graph": datahub_graph,
+                "report": self.report,
+                "registry": registry,
+            }
 
             for entity_type in entity_types_by_order:
                 mcp_builder = registry.get_mcp_builder(entity_type)
@@ -185,36 +177,7 @@ class DataHubIngestionTarget(TargetInterface):
                             exc_info=True,
                         )
 
-            # Special case: Lineage Activities (DataJobs) - per specification Section 6
-            if (
-                hasattr(datahub_graph, "lineage_activities")
-                and datahub_graph.lineage_activities
-            ):
-                logger.info(
-                    f"Processing {len(datahub_graph.lineage_activities)} lineage activities (DataJobs)"
-                )
-                from datahub.ingestion.source.rdf.entities.lineage.mcp_builder import (
-                    LineageMCPBuilder,
-                )
-
-                for activity in datahub_graph.lineage_activities:
-                    try:
-                        logger.debug(
-                            f"Creating MCP for DataJob: {activity.name} ({activity.urn})"
-                        )
-                        mcp = LineageMCPBuilder.create_datajob_mcp(activity)
-                        mcps.append(mcp)
-                        self.report.report_entity_emitted()
-                        logger.debug(
-                            f"Successfully created DataJob MCP for {activity.name}"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to create MCP for DataJob {activity.urn}: {e}"
-                        )
-
-            # Note: Assertions are processed via the registry pattern above
-            # This section is kept for any special assertion handling if needed
+            # Note: Assertions, datasets, and lineage are not part of MVP
 
             # Deferred: Domain owner groups and ownership
             # These must be created AFTER domains are processed

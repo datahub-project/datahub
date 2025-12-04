@@ -221,21 +221,9 @@ class EntityRegistry:
             entity_types_with_order.sort(key=lambda x: (x[1], x[0]))
             return [entity_type for entity_type, _ in entity_types_with_order]
 
-        # Priority order for root nodes (entities with no dependencies)
-        # structured_property should come first, then domain
-        priority_order = ["structured_property", "domain"]
-
-        def sort_key(entity_type: str) -> tuple:
-            """Sort key: priority first, then alphabetical."""
-            try:
-                priority = priority_order.index(entity_type)
-            except ValueError:
-                priority = len(priority_order)
-            return (priority, entity_type)
-
         while queue:
-            # Sort queue: priority entities first, then alphabetical
-            queue.sort(key=sort_key)
+            # Sort queue alphabetically for deterministic ordering
+            queue.sort()
             entity_type = queue.pop(0)
             result.append(entity_type)
 

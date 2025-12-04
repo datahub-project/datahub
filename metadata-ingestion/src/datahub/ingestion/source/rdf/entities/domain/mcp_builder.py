@@ -26,7 +26,7 @@ class DomainMCPBuilder(EntityMCPBuilder[DataHubDomain]):
     Creates MCPs for domains.
 
     Creates DomainProperties MCP for each domain.
-    Only creates MCPs for domains with datasets in their hierarchy.
+    Creates MCPs for domains with glossary terms in their hierarchy.
     """
 
     @property
@@ -39,8 +39,8 @@ class DomainMCPBuilder(EntityMCPBuilder[DataHubDomain]):
         """Build MCPs for a single domain."""
         mcps = []
 
-        # Skip domains without datasets
-        if not self._domain_has_datasets(domain):
+        # Skip domains without glossary terms
+        if not self._domain_has_glossary_terms(domain):
             return mcps
 
         try:
@@ -88,13 +88,13 @@ class DomainMCPBuilder(EntityMCPBuilder[DataHubDomain]):
             entityUrn=str(domain.urn), aspect=properties
         )
 
-    def _domain_has_datasets(self, domain: DataHubDomain) -> bool:
-        """Check if domain or any subdomain has datasets."""
-        if domain.datasets:
+    def _domain_has_glossary_terms(self, domain: DataHubDomain) -> bool:
+        """Check if domain or any subdomain has glossary terms."""
+        if domain.glossary_terms:
             return True
 
         for subdomain in domain.subdomains:
-            if self._domain_has_datasets(subdomain):
+            if self._domain_has_glossary_terms(subdomain):
                 return True
 
         return False

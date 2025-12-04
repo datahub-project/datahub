@@ -44,20 +44,6 @@ class ProcessedSchemaField:
 
 
 @dataclass
-class ProcessedDataset:
-    """Processed dataset result."""
-
-    urn: str
-    name: str
-    description: Optional[str] = None
-    platform: Optional[str] = None
-    environment: str = "PROD"
-    custom_properties: Dict[str, Any] = field(default_factory=dict)
-    path_segments: tuple = field(default_factory=tuple)
-    schema_fields: List[ProcessedSchemaField] = field(default_factory=list)
-
-
-@dataclass
 class ProcessedDomain:
     """Processed domain result."""
 
@@ -66,7 +52,6 @@ class ProcessedDomain:
     path_segments: tuple
     parent_domain_urn: Optional[str] = None
     glossary_terms: List[ProcessedGlossaryTerm] = field(default_factory=list)
-    datasets: List[ProcessedDataset] = field(default_factory=list)
     subdomains: List["ProcessedDomain"] = field(default_factory=list)
 
 
@@ -85,7 +70,6 @@ class ProcessingResult:
     """Complete processing result from the facade."""
 
     glossary_terms: List[ProcessedGlossaryTerm] = field(default_factory=list)
-    datasets: List[ProcessedDataset] = field(default_factory=list)
     domains: List[ProcessedDomain] = field(default_factory=list)
     relationships: List[ProcessedRelationship] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -222,69 +206,10 @@ class RDFFacade:
                         )
                     )
 
-        # Extract and convert datasets
-        if should_process_cli_name("dataset") or should_process_cli_name("datasets"):
-            entity_type = (
-                get_entity_type("dataset") or get_entity_type("datasets") or "dataset"
-            )
-            extractor = registry.get_extractor(entity_type)
-            converter = registry.get_converter(entity_type)
-
-            rdf_datasets = extractor.extract_all(graph, context)
-            datahub_datasets = converter.convert_all(rdf_datasets, context)
-
-            for dataset in datahub_datasets:
-                # Convert schema fields - handle both SchemaFieldClass (DataHub SDK) and our internal types
-                processed_fields = []
-                if dataset.schema_fields:
-                    for field_obj in dataset.schema_fields:
-                        # SchemaFieldClass uses fieldPath, nativeDataType, etc.
-                        # Our internal types use name, field_type, etc.
-                        if hasattr(field_obj, "fieldPath"):
-                            # DataHub SDK SchemaFieldClass
-                            processed_fields.append(
-                                ProcessedSchemaField(
-                                    name=field_obj.fieldPath,
-                                    field_type=self._map_native_type_to_generic(
-                                        field_obj.nativeDataType
-                                    ),
-                                    description=field_obj.description,
-                                    nullable=field_obj.nullable
-                                    if hasattr(field_obj, "nullable")
-                                    else True,
-                                )
-                            )
-                        else:
-                            # Our internal RDFSchemaField type
-                            processed_fields.append(
-                                ProcessedSchemaField(
-                                    name=field_obj.name,
-                                    field_type=field_obj.field_type,
-                                    description=field_obj.description,
-                                    nullable=field_obj.nullable,
-                                )
-                            )
-
-                result.datasets.append(
-                    ProcessedDataset(
-                        urn=str(dataset.urn),
-                        name=dataset.name,
-                        description=dataset.description,
-                        platform=dataset.platform,
-                        environment=dataset.environment,
-                        custom_properties=dataset.custom_properties or {},
-                        path_segments=tuple(dataset.path_segments)
-                        if dataset.path_segments
-                        else (),
-                        schema_fields=processed_fields,
-                    )
-                )
-
         # Build domains using DomainBuilder (creates its own URN generator)
         domain_builder = DomainBuilder()
 
-        # Convert ProcessedGlossaryTerm/ProcessedDataset to DataHub types for domain builder
-        from datahub.ingestion.source.rdf.entities.dataset.ast import DataHubDataset
+        # Convert ProcessedGlossaryTerm to DataHub types for domain builder
         from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
             DataHubGlossaryTerm,
         )
@@ -303,24 +228,7 @@ class RDFFacade:
                 )
             )
 
-        dh_datasets = []
-        for d in result.datasets:
-            dh_datasets.append(
-                DataHubDataset(
-                    urn=d.urn,
-                    name=d.name,
-                    description=d.description,
-                    platform=d.platform,
-                    environment=d.environment,
-                    schema_fields=[],
-                    structured_properties=[],
-                    custom_properties=d.custom_properties,
-                    path_segments=list(d.path_segments),
-                    field_glossary_relationships={},
-                )
-            )
-
-        datahub_domains = domain_builder.build_domains(dh_terms, dh_datasets, context)
+        datahub_domains = domain_builder.build_domains(dh_terms, context)
 
         for domain in datahub_domains:
             result.domains.append(self._convert_domain(domain))
@@ -344,22 +252,6 @@ class RDFFacade:
                     if term.path_segments
                     else (),
                     relationships=term.relationships or {},
-                )
-            )
-
-        # Convert datasets
-        for dataset in datahub_ast.datasets:
-            result.datasets.append(
-                ProcessedDataset(
-                    urn=str(dataset.urn),
-                    name=dataset.name,
-                    description=dataset.description,
-                    platform=dataset.platform,
-                    environment=dataset.environment,
-                    custom_properties=dataset.custom_properties or {},
-                    path_segments=tuple(dataset.path_segments)
-                    if dataset.path_segments
-                    else (),
                 )
             )
 
@@ -404,22 +296,6 @@ class RDFFacade:
                 )
             )
 
-        processed_datasets = []
-        for dataset in domain.datasets:
-            processed_datasets.append(
-                ProcessedDataset(
-                    urn=str(dataset.urn),
-                    name=dataset.name,
-                    description=dataset.description,
-                    platform=dataset.platform,
-                    environment=dataset.environment,
-                    custom_properties=dataset.custom_properties or {},
-                    path_segments=tuple(dataset.path_segments)
-                    if dataset.path_segments
-                    else (),
-                )
-            )
-
         processed_subdomains = []
         for subdomain in domain.subdomains:
             processed_subdomains.append(self._convert_domain(subdomain))
@@ -432,7 +308,6 @@ class RDFFacade:
             if domain.parent_domain_urn
             else None,
             glossary_terms=processed_terms,
-            datasets=processed_datasets,
             subdomains=processed_subdomains,
         )
 
@@ -465,9 +340,9 @@ class RDFFacade:
         return "string"
 
     def _build_domains_from_terms(
-        self, terms: List[ProcessedGlossaryTerm], datasets: List[ProcessedDataset]
+        self, terms: List[ProcessedGlossaryTerm]
     ) -> List[ProcessedDomain]:
-        """Build domain hierarchy from terms and datasets."""
+        """Build domain hierarchy from terms."""
         # Group entities by path
         domains_map = {}
 
@@ -584,98 +459,10 @@ class RDFFacade:
                         )
                     )
 
-        # Extract and convert datasets
-        if should_process_cli_name("dataset") or should_process_cli_name("datasets"):
-            entity_type = (
-                get_entity_type("dataset") or get_entity_type("datasets") or "dataset"
-            )
-            extractor = registry.get_extractor(entity_type)
-            converter = registry.get_converter(entity_type)
-
-            rdf_datasets = extractor.extract_all(graph, context)
-            datahub_datasets = converter.convert_all(rdf_datasets, context)
-            datahub_graph.datasets = datahub_datasets
-
-        # Extract and convert lineage
-        if should_process_cli_name("lineage"):
-            entity_type = get_entity_type("lineage") or "lineage"
-            extractor = registry.get_extractor(entity_type)
-            converter = registry.get_converter(entity_type)
-
-            rdf_lineage = extractor.extract_all(graph, context)
-            datahub_lineage = converter.convert_all(rdf_lineage, context)
-            datahub_graph.lineage_relationships = datahub_lineage
-
-            # Extract activities
-            rdf_activities = extractor.extract_activities(graph, context)
-            datahub_activities = converter.convert_activities(rdf_activities, context)
-            datahub_graph.lineage_activities = datahub_activities
-
-        # Extract and convert data products
-        if should_process_cli_name("data_products") or should_process_cli_name(
-            "data_product"
-        ):
-            entity_type = (
-                get_entity_type("data_product")
-                or get_entity_type("data_products")
-                or "data_product"
-            )
-            extractor = registry.get_extractor(entity_type)
-            converter = registry.get_converter(entity_type)
-
-            rdf_products = extractor.extract_all(graph, context)
-            datahub_products = converter.convert_all(rdf_products, context)
-            datahub_graph.data_products = datahub_products
-
-        # Extract and convert structured properties
-        if (
-            should_process_cli_name("structured_properties")
-            or should_process_cli_name("structured_property")
-            or should_process_cli_name("properties")
-        ):
-            entity_type = (
-                get_entity_type("structured_property")
-                or get_entity_type("structured_properties")
-                or get_entity_type("properties")
-                or "structured_property"
-            )
-            extractor = registry.get_extractor(entity_type)
-            converter = registry.get_converter(entity_type)
-
-            rdf_props = extractor.extract_all(graph, context)
-            datahub_props = converter.convert_all(rdf_props, context)
-            datahub_graph.structured_properties = datahub_props
-
-            # Also extract property value assignments
-            from datahub.ingestion.source.rdf.entities.structured_property.extractor import (
-                StructuredPropertyExtractor,
-            )
-
-            if isinstance(extractor, StructuredPropertyExtractor):
-                rdf_values = extractor.extract_values(graph, context)
-                datahub_values = converter.convert_values(rdf_values, context)
-                datahub_graph.structured_property_values = datahub_values
-
-        # Extract and convert assertions
-        if should_process_cli_name("assertions") or should_process_cli_name(
-            "assertion"
-        ):
-            entity_type = (
-                get_entity_type("assertion")
-                or get_entity_type("assertions")
-                or "assertion"
-            )
-            extractor = registry.get_extractor(entity_type)
-            converter = registry.get_converter(entity_type)
-
-            rdf_assertions = extractor.extract_all(graph, context)
-            datahub_assertions = converter.convert_all(rdf_assertions, context)
-            datahub_graph.assertions = datahub_assertions
-
         # Build domains (DomainBuilder creates its own URN generator)
         domain_builder = DomainBuilder()
         datahub_graph.domains = domain_builder.build_domains(
-            datahub_graph.glossary_terms, datahub_graph.datasets, context
+            datahub_graph.glossary_terms, context
         )
 
         return datahub_graph

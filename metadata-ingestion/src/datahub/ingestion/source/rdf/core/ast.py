@@ -27,8 +27,8 @@ class RDFOwnership:
 
     owner_uri: str
     owner_type: str  # Owner type string (supports custom types defined in DataHub UI, e.g., "BUSINESS_OWNER", "CUSTOM_TYPE")
-    entity_uri: str  # The entity being owned (domain, dataset, etc.)
-    entity_type: str  # "domain", "dataset", "data_product", etc.
+    entity_uri: str  # The entity being owned (domain, etc.)
+    entity_type: str  # "domain", etc.
     owner_label: Optional[str] = None
     owner_description: Optional[str] = None
     owner_department: Optional[str] = None
@@ -51,8 +51,7 @@ class RDFGraph:
     Internal AST representation of the complete RDF graph.
 
     Entity fields are dynamically initialized from registered entity types.
-    Special fields (owner_groups, ownership, metadata) and sub-component fields
-    (structured_property_values, lineage_activities, cross_field_constraints) are always present.
+    Special fields (owner_groups, ownership, metadata) are always present.
     """
 
     def __init__(self):
@@ -112,8 +111,7 @@ class DataHubGraph:
     Internal AST representation of the complete DataHub graph.
 
     Entity fields are dynamically initialized from registered entity types.
-    Special fields (owner_groups, metadata) and sub-component fields
-    (structured_property_values, lineage_activities, cross_field_constraints) are always present.
+    Special fields (owner_groups, metadata) are always present.
 
     Note: Converted from @dataclass to regular class to support dynamic fields.
     """
@@ -173,13 +171,6 @@ class DataHubGraph:
                 summary[field_name] = len(getattr(self, field_name))
 
         # Include special sub-component fields (not entity types)
-        sub_component_fields = [
-            "lineage_activities",
-            "structured_property_values",
-            "cross_field_constraints",
-        ]
-        for field_name in sub_component_fields:
-            if hasattr(self, field_name):
-                summary[field_name] = len(getattr(self, field_name))
+        # None for MVP - removed dataset/lineage/assertion/structured_property support
 
         return summary

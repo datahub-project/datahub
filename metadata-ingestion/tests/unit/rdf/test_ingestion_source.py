@@ -46,10 +46,10 @@ def test_config_model_with_export_only():
     config = RDFSourceConfig(
         source="examples/bcbs239/",
         environment="PROD",
-        export_only=["glossary", "datasets"],
+        export_only=["glossary"],
     )
 
-    assert config.export_only == ["glossary", "datasets"]
+    assert config.export_only == ["glossary"]
 
 
 def test_config_model_with_dialect():
@@ -122,7 +122,7 @@ def test_config_parse_from_dict():
     config_dict = {
         "source": "examples/bcbs239/",
         "environment": "PROD",
-        "export_only": ["glossary", "datasets"],
+        "export_only": ["glossary"],
         "recursive": True,
     }
 
@@ -130,7 +130,7 @@ def test_config_parse_from_dict():
 
     assert config.source == "examples/bcbs239/"
     assert config.environment == "PROD"
-    assert config.export_only == ["glossary", "datasets"]
+    assert config.export_only == ["glossary"]
     assert config.recursive is True
 
 
@@ -435,15 +435,13 @@ def test_create_transpiler_with_export_only():
         RDFSourceConfig,
     )
 
-    config = RDFSourceConfig(
-        source="examples/bcbs239/", export_only=["glossary", "datasets"]
-    )
+    config = RDFSourceConfig(source="examples/bcbs239/", export_only=["glossary"])
     ctx = PipelineContext(run_id="test-run")
     source = RDFSource(config, ctx)
 
     transpiler = source._create_transpiler()
     assert transpiler is not None
-    assert transpiler.export_only == ["glossary", "datasets"]
+    assert transpiler.export_only == ["glossary"]
 
 
 def test_create_transpiler_with_skip_export():
@@ -454,15 +452,13 @@ def test_create_transpiler_with_skip_export():
         RDFSourceConfig,
     )
 
-    config = RDFSourceConfig(
-        source="examples/bcbs239/", skip_export=["ownership", "properties"]
-    )
+    config = RDFSourceConfig(source="examples/bcbs239/", skip_export=["ownership"])
     ctx = PipelineContext(run_id="test-run")
     source = RDFSource(config, ctx)
 
     transpiler = source._create_transpiler()
     assert transpiler is not None
-    assert transpiler.skip_export == ["ownership", "properties"]
+    assert transpiler.skip_export == ["ownership"]
 
 
 # ============================================================================
@@ -565,9 +561,6 @@ def test_datahub_ingestion_target_send_with_empty_graph():
 def test_datahub_ingestion_target_send_with_mock_entities():
     """Test DataHubIngestionTarget.send() with mock entities."""
     from datahub.ingestion.source.rdf.core.ast import DataHubGraph
-    from datahub.ingestion.source.rdf.entities.dataset.ast import (
-        DataHubDataset,
-    )
     from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
         DataHubGlossaryTerm,
     )
@@ -577,7 +570,6 @@ def test_datahub_ingestion_target_send_with_mock_entities():
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
         RDFSourceReport,
     )
-    from datahub.utilities.urns.dataset_urn import DatasetUrn
 
     report = RDFSourceReport()
     target = DataHubIngestionTarget(report)
@@ -597,24 +589,13 @@ def test_datahub_ingestion_target_send_with_mock_entities():
     # Add empty domains list (terms not in domains)
     graph.domains = []
 
-    # Add mock dataset
-    mock_dataset = Mock(spec=DataHubDataset)
-    mock_dataset.urn = DatasetUrn.from_string(
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.test_table,PROD)"
-    )
-    mock_dataset.name = "test_table"
-    mock_dataset.description = "Test dataset"
-    mock_dataset.custom_properties = {}
-    mock_dataset.schema_fields = []
-    graph.datasets = [mock_dataset]
-
     # MCPFactory is now used, so no need to mock DataHubClient
     result = target.send(graph)
 
     assert result["success"] is True
-    assert result["workunits_generated"] >= 2  # At least 2 (term + dataset)
-    assert result["entities_emitted"] >= 2
-    assert len(target.workunits) >= 2
+    assert result["workunits_generated"] >= 1  # At least 1 (term)
+    assert result["entities_emitted"] >= 1
+    assert len(target.workunits) >= 1
 
 
 def test_datahub_ingestion_target_send_with_mcp_error():
@@ -662,27 +643,16 @@ def test_datahub_ingestion_target_send_with_mcp_error():
         assert result["entities_emitted"] == 0
 
 
-def test_datahub_ingestion_target_send_all_entity_types():
-    """Test DataHubIngestionTarget.send() processes all entity types."""
+def test_datahub_ingestion_target_send_with_mvp_entity_types():
+    """Test DataHubIngestionTarget.send() with MVP entity types."""
     from datahub.ingestion.source.rdf.core.ast import DataHubGraph
-    from datahub.ingestion.source.rdf.entities.data_product.ast import (
-        DataHubDataProduct,
-    )
-    from datahub.ingestion.source.rdf.entities.dataset.ast import (
-        DataHubDataset,
-    )
     from datahub.ingestion.source.rdf.entities.domain.ast import DataHubDomain
     from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
         DataHubGlossaryTerm,
     )
-    from datahub.ingestion.source.rdf.entities.lineage.ast import (
-        DataHubLineageRelationship,
-    )
     from datahub.ingestion.source.rdf.entities.relationship.ast import (
         DataHubRelationship,
-    )
-    from datahub.ingestion.source.rdf.entities.structured_property.ast import (
-        DataHubStructuredProperty,
+        RelationshipType,
     )
     from datahub.ingestion.source.rdf.ingestion.datahub_ingestion_target import (
         DataHubIngestionTarget,
@@ -690,14 +660,12 @@ def test_datahub_ingestion_target_send_all_entity_types():
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
         RDFSourceReport,
     )
-    from datahub.utilities.urns.dataset_urn import DatasetUrn
     from datahub.utilities.urns.domain_urn import DomainUrn
-    from datahub.utilities.urns.structured_properties_urn import StructuredPropertyUrn
 
     report = RDFSourceReport()
     target = DataHubIngestionTarget(report)
 
-    # Create graph with all entity types
+    # Create graph with MVP entity types
     graph = DataHubGraph()
 
     # Create mock glossary term
@@ -709,127 +677,71 @@ def test_datahub_ingestion_target_send_all_entity_types():
     mock_term.custom_properties = {}
     graph.glossary_terms = [mock_term]
 
-    # Create mock dataset
-    mock_dataset = Mock(spec=DataHubDataset)
-    mock_dataset.urn = DatasetUrn.from_string(
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.test_table,PROD)"
-    )
-    mock_dataset.name = "test_table"
-    mock_dataset.description = "Test dataset"
-    mock_dataset.custom_properties = {}
-    mock_dataset.schema_fields = []
-    graph.datasets = [mock_dataset]
-
-    # Create mock structured property
-    mock_prop = Mock(spec=DataHubStructuredProperty)
-    mock_prop.urn = StructuredPropertyUrn.from_string("urn:li:structuredProperty:prop1")
-    mock_prop.name = "prop1"
-    mock_prop.description = "Test property"
-    mock_prop.value_type = "urn:li:dataType:datahub.string"
-    mock_prop.cardinality = "SINGLE"
-    mock_prop.entity_types = []
-    mock_prop.allowed_values = []
-    graph.structured_properties = [mock_prop]
-
-    # Create mock data product
-    mock_product = Mock(spec=DataHubDataProduct)
-    mock_product.urn = "urn:li:dataProduct:product1"
-    mock_product.name = "product1"
-    mock_product.description = "Test product"
-    mock_product.domain = None
-    mock_product.owner = None
-    mock_product.assets = []
-    mock_product.properties = {}
-    graph.data_products = [mock_product]
-
-    # Create mock domain with proper attributes
+    # Create mock domain with glossary terms
     mock_domain = Mock(spec=DataHubDomain)
     mock_domain.urn = DomainUrn.from_string("urn:li:domain:domain1")
     mock_domain.name = "domain1"
     mock_domain.path_segments = ["domain1"]
     mock_domain.parent_domain_urn = None
-    mock_domain.glossary_terms = []  # Empty - terms will be processed separately
-    mock_domain.datasets = []
+    mock_domain.glossary_terms = [mock_term]  # Domain has glossary terms
     mock_domain.subdomains = []
     graph.domains = [mock_domain]
 
-    # Use lineage_relationships (actual attribute) and add lineage alias if needed
-    mock_lineage = Mock(spec=DataHubLineageRelationship)
-    mock_lineage.source_urn = "urn:li:dataset:source"
-    mock_lineage.target_urn = "urn:li:dataset:target"
-    mock_lineage.lineage_type = Mock()
-    mock_lineage.lineage_type.value = "used"
-    graph.lineage_relationships = [mock_lineage]
-    # Add lineage attribute for compatibility (code references datahub_graph.lineage)
-    if not hasattr(graph, "lineage"):
-        graph.lineage = graph.lineage_relationships
-
     # Create mock relationship
-    from datahub.ingestion.source.rdf.entities.relationship.ast import (
-        RelationshipType,
-    )
-
     mock_relationship = Mock(spec=DataHubRelationship)
     mock_relationship.source_urn = "urn:li:glossaryTerm:term1"
     mock_relationship.target_urn = "urn:li:glossaryTerm:term2"
-    mock_relationship.relationship_type = RelationshipType.RELATED
+    mock_relationship.relationship_type = RelationshipType.BROADER
     graph.relationships = [mock_relationship]
 
     # MCPFactory is now used, so no need to mock DataHubClient
     result = target.send(graph)
 
-    # Should process all entity types (glossary_nodes may or may not be processed)
-    # Note: Data products without a domain are skipped (domain is required)
-    # Note: Empty domains (no datasets in hierarchy) are filtered out
-    # Note: RELATED relationship type is not supported, so relationship MCP not created
+    # Should process MVP entity types
     assert result["success"] is True
-    assert (
-        result["workunits_generated"] >= 5
-    )  # At least 5 (data product skipped, empty domain filtered, unsupported relationship type)
-    assert result["entities_emitted"] >= 5  # Updated to match workunits_generated
+    assert result["workunits_generated"] >= 1  # At least glossary term
+    assert result["entities_emitted"] >= 1
 
 
-def test_datahub_ingestion_target_domain_with_datasets():
-    """Test DataHubIngestionTarget.send() processes domains with datasets."""
+def test_datahub_ingestion_target_domain_with_glossary_terms():
+    """Test DataHubIngestionTarget.send() processes domains with glossary terms."""
     from datahub.ingestion.source.rdf.core.ast import DataHubGraph
-    from datahub.ingestion.source.rdf.entities.dataset.ast import (
-        DataHubDataset,
-    )
     from datahub.ingestion.source.rdf.entities.domain.ast import DataHubDomain
+    from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
+        DataHubGlossaryTerm,
+    )
     from datahub.ingestion.source.rdf.ingestion.datahub_ingestion_target import (
         DataHubIngestionTarget,
     )
     from datahub.ingestion.source.rdf.ingestion.rdf_source import (
         RDFSourceReport,
     )
-    from datahub.utilities.urns.dataset_urn import DatasetUrn
     from datahub.utilities.urns.domain_urn import DomainUrn
 
     report = RDFSourceReport()
     target = DataHubIngestionTarget(report)
 
-    # Create graph with domain that has datasets
+    # Create graph with domain that has glossary terms
     graph = DataHubGraph()
 
-    # Create mock dataset
-    mock_dataset = Mock(spec=DataHubDataset)
-    mock_dataset.urn = DatasetUrn.from_string(
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.test_table,PROD)"
-    )
-    mock_dataset.name = "test_table"
-    mock_dataset.description = "Test dataset"
-    mock_dataset.custom_properties = {}
-    mock_dataset.schema_fields = []
-    graph.datasets = [mock_dataset]
+    # Create mock glossary term
+    mock_term = Mock(spec=DataHubGlossaryTerm)
+    mock_term.urn = "urn:li:glossaryTerm:test"
+    mock_term.name = "test_term"
+    mock_term.definition = "Test term"
+    mock_term.source = None
+    mock_term.custom_properties = {}
+    graph.glossary_terms = [mock_term]
 
-    # Create mock domain WITH datasets (this exercises the domain MCP creation path)
+    # Create mock domain WITH glossary terms (this exercises the domain MCP creation path)
     mock_domain = Mock(spec=DataHubDomain)
     mock_domain.urn = DomainUrn.from_string("urn:li:domain:test_domain")
     mock_domain.name = "test_domain"
     mock_domain.path_segments = ["test_domain"]
     mock_domain.parent_domain_urn = None
-    mock_domain.glossary_terms = []
-    mock_domain.datasets = [mock_dataset]  # Domain has datasets - should create MCPs
+    mock_domain.glossary_terms = [
+        mock_term
+    ]  # Domain has glossary terms - should create MCPs
     mock_domain.subdomains = []
     mock_domain.description = "Test domain"
     mock_domain.owners = []  # No owners
@@ -837,10 +749,10 @@ def test_datahub_ingestion_target_domain_with_datasets():
 
     result = target.send(graph)
 
-    # Should successfully process domain with datasets
+    # Should successfully process domain with glossary terms
     assert result["success"] is True
-    assert result["workunits_generated"] >= 2  # At least dataset + domain
-    assert result["entities_emitted"] >= 2
+    assert result["workunits_generated"] >= 1  # At least domain
+    assert result["entities_emitted"] >= 1
 
 
 # ============================================================================
@@ -892,10 +804,10 @@ def test_config_model_skip_export():
     config = RDFSourceConfig(
         source="examples/bcbs239/",
         environment="PROD",
-        skip_export=["ownership", "properties"],
+        skip_export=["ownership"],
     )
 
-    assert config.skip_export == ["ownership", "properties"]
+    assert config.skip_export == ["ownership"]
 
 
 def test_config_model_invalid_skip_export_type():
@@ -942,7 +854,7 @@ def test_config_model_all_optional_parameters():
         filter={"namespace": "http://example.com/"},
         environment="DEV",
         dialect="generic",
-        export_only=["glossary", "datasets"],
+        export_only=["glossary"],
     )
 
     assert config.format == "turtle"
@@ -952,7 +864,7 @@ def test_config_model_all_optional_parameters():
     assert config.filter == {"namespace": "http://example.com/"}
     assert config.environment == "DEV"
     assert config.dialect == "generic"
-    assert config.export_only == ["glossary", "datasets"]
+    assert config.export_only == ["glossary"]
 
 
 if __name__ == "__main__":

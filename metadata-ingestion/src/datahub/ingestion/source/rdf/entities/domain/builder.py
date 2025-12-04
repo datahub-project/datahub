@@ -1,7 +1,7 @@
 """
 Domain Builder
 
-Builds domain hierarchy from glossary terms and datasets.
+Builds domain hierarchy from glossary terms.
 Domains are derived from IRI path segments, not extracted directly from RDF.
 """
 
@@ -15,7 +15,6 @@ from datahub.ingestion.source.rdf.entities.domain.urn_generator import (
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from datahub.ingestion.source.rdf.entities.dataset.ast import DataHubDataset
     from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
         DataHubGlossaryTerm,
     )
@@ -27,10 +26,10 @@ class DomainBuilder:
     """
     Builds domain hierarchy from entities.
 
-    Domains are constructed from the path_segments of glossary terms
-    and datasets. The hierarchy is created automatically.
+    Domains are constructed from the path_segments of glossary terms.
+    The hierarchy is created automatically.
 
-    Only domains with datasets in their hierarchy are created.
+    Domains with glossary terms in their hierarchy are created.
     """
 
     def __init__(self, urn_generator: DomainUrnGenerator = None):
@@ -45,15 +44,13 @@ class DomainBuilder:
     def build_domains(
         self,
         glossary_terms: List["DataHubGlossaryTerm"],
-        datasets: List["DataHubDataset"],
         context: Dict[str, Any] = None,
     ) -> List[DataHubDomain]:
         """
-        Build domain hierarchy from terms and datasets.
+        Build domain hierarchy from glossary terms.
 
         Args:
             glossary_terms: List of DataHub glossary terms
-            datasets: List of DataHub datasets
             context: Optional context
 
         Returns:
@@ -62,7 +59,6 @@ class DomainBuilder:
         # Collect all unique path prefixes
         path_to_domain = {}  # path_tuple -> DataHubDomain
         path_to_terms = {}  # path_tuple -> [terms]
-        path_to_datasets = {}  # path_tuple -> [datasets]
 
         # Process glossary terms
         for term in glossary_terms:
@@ -74,26 +70,10 @@ class DomainBuilder:
                     if parent_path not in path_to_domain:
                         path_to_domain[parent_path] = self._create_domain(parent_path)
                         path_to_terms[parent_path] = []
-                        path_to_datasets[parent_path] = []
 
                     # Add term to its immediate parent domain
                     if i == len(path) - 1:
                         path_to_terms[parent_path].append(term)
-
-        # Process datasets
-        for dataset in datasets:
-            if dataset.path_segments:
-                path = tuple(dataset.path_segments)
-                for i in range(1, len(path)):
-                    parent_path = path[:i]
-                    if parent_path not in path_to_domain:
-                        path_to_domain[parent_path] = self._create_domain(parent_path)
-                        path_to_terms[parent_path] = []
-                        path_to_datasets[parent_path] = []
-
-                    # Add dataset to its immediate parent domain
-                    if i == len(path) - 1:
-                        path_to_datasets[parent_path].append(dataset)
 
         # Build domain hierarchy
         domains = []
@@ -104,9 +84,8 @@ class DomainBuilder:
                 if parent_path in path_to_domain:
                     domain.parent_domain_urn = path_to_domain[parent_path].urn
 
-            # Add terms and datasets
+            # Add terms
             domain.glossary_terms = path_to_terms.get(path, [])
-            domain.datasets = path_to_datasets.get(path, [])
 
             # Add subdomains
             domain.subdomains = [
@@ -117,7 +96,7 @@ class DomainBuilder:
 
             domains.append(domain)
 
-        # Filter out empty domains (no datasets or glossary terms)
+        # Filter out empty domains (no glossary terms)
         domains = self._filter_empty_domains(domains)
 
         logger.info(f"Built {len(domains)} domains")
@@ -133,14 +112,13 @@ class DomainBuilder:
             path_segments=list(path),
             parent_domain_urn=None,
             glossary_terms=[],
-            datasets=[],
             subdomains=[],
         )
 
     def _filter_empty_domains(
         self, domains: List[DataHubDomain]
     ) -> List[DataHubDomain]:
-        """Filter to only include domains with content (datasets OR glossary terms)."""
+        """Filter to only include domains with content (glossary terms)."""
         # Build lookup by URN
         domains_by_urn = {str(d.urn): d for d in domains}
 
@@ -162,9 +140,9 @@ class DomainBuilder:
     def _domain_has_content(
         self, domain: DataHubDomain, domains_by_urn: Dict[str, DataHubDomain]
     ) -> bool:
-        """Check if domain or any subdomain has content (datasets or terms)."""
+        """Check if domain or any subdomain has content (glossary terms)."""
         # Direct content
-        if domain.datasets or domain.glossary_terms:
+        if domain.glossary_terms:
             return True
 
         # Check subdomains recursively

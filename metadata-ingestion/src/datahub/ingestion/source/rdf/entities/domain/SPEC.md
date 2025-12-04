@@ -6,7 +6,7 @@ This document specifies how DataHub domains are constructed from entity IRI path
 
 ## Overview
 
-Domains are **not extracted from RDF graphs**. Instead, they are **constructed** from the IRI path segments of glossary terms and datasets. Domains provide hierarchical organization for business entities.
+Domains are **not extracted from RDF graphs**. Instead, they are **constructed** from the IRI path segments of glossary terms. Domains provide hierarchical organization for business entities.
 
 **Important**: Domains are **not registered entities** (no `ENTITY_METADATA`). They are built by the `DomainBuilder` class from existing entities.
 
@@ -55,25 +55,22 @@ bank.com (root)
 
 ## Domain Creation Rules
 
-### Only Domains with Datasets
+### Domains with Glossary Terms
 
-**Critical Rule**: Only domains that have **datasets** in their hierarchy are created.
+**Rule**: Domains that have **glossary terms** in their hierarchy are created.
 
-- Domains with **only glossary terms** are **NOT created**
-- Domains must have at least one dataset to be created
-- This ensures domains represent actual data assets, not just conceptual groupings
+- Domains are created when they contain glossary terms
+- Domains provide hierarchical organization for business vocabulary
 
 ### Entity Assignment
 
 Entities are assigned to their **immediate parent domain** (leaf domain):
 
 - **Glossary Terms**: Assigned to the domain corresponding to their parent path
-- **Datasets**: Assigned to the domain corresponding to their parent path
 
 **Example**:
 
 - Term: `https://bank.com/finance/accounts/customer_id` → Assigned to `accounts` domain
-- Dataset: `https://bank.com/finance/accounts/account_master` → Assigned to `accounts` domain
 
 ## URN Generation
 
@@ -106,7 +103,6 @@ Path segments are represented as tuples:
 - **Parent Domain URN**: Reference to parent domain (if not root)
 - **Description**: Can be set from domain metadata if available
 - **Glossary Terms**: List of terms assigned to this domain
-- **Datasets**: List of datasets assigned to this domain
 
 ## DataHub Integration
 
@@ -116,8 +112,7 @@ Domains are created via DataHub MCPs:
 
 1. **Domain Properties MCP**: Creates the domain entity with name, description
 2. **Domain Hierarchy MCP**: Establishes parent-child relationships
-3. **Domain-Dataset Association MCP**: Links datasets to domains
-4. **Domain Ownership MCP**: Assigns ownership if specified
+3. **Domain Ownership MCP**: Assigns ownership if specified
 
 ### Domain Ownership
 
@@ -131,7 +126,6 @@ Domains can have ownership assigned:
 **Input Entities**:
 
 - Term: `https://bank.com/finance/accounts/customer_id`
-- Dataset: `https://bank.com/finance/accounts/account_master`
 
 **Domains Created**:
 
@@ -141,7 +135,6 @@ DataHubDomain(
     name="accounts",
     parent_domain_urn="urn:li:domain:(bank.com,finance)",
     glossary_terms=[...],  # customer_id term
-    datasets=[...]          # account_master dataset
 )
 
 DataHubDomain(
@@ -149,7 +142,6 @@ DataHubDomain(
     name="finance",
     parent_domain_urn="urn:li:domain:(bank.com)",
     glossary_terms=[],
-    datasets=[]
 )
 
 DataHubDomain(
@@ -157,19 +149,17 @@ DataHubDomain(
     name="bank.com",
     parent_domain_urn=None,  # Root domain
     glossary_terms=[],
-    datasets=[]
 )
 ```
 
 ## Limitations
 
 1. **No RDF Extraction**: Domains are not extracted from RDF - they are constructed
-2. **Dataset Requirement**: Domains without datasets are not created
+2. **Glossary Term Requirement**: Domains without glossary terms are not created
 3. **Path-Based Only**: Domain structure is derived solely from IRI paths
 4. **No Explicit Domain Definitions**: RDF does not contain explicit domain definitions - they are inferred
 
 ## Relationship to Other Entities
 
-- **Glossary Terms**: Provide path segments for domain construction
-- **Datasets**: Provide path segments and determine which domains are created
+- **Glossary Terms**: Provide path segments for domain construction and determine which domains are created
 - **Ownership**: Can be assigned to domains via ownership properties

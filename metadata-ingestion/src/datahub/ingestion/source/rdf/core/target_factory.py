@@ -10,7 +10,7 @@ import datetime
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from rdflib import Graph
 from rdflib.namespace import DCAT, DCTERMS, RDF, RDFS, VOID
@@ -19,12 +19,8 @@ from datahub.ingestion.source.rdf.core.ast import DataHubGraph, RDFOwnership
 
 # DataHub imports removed - all DataHub operations now go through DataHubClient
 from datahub.ingestion.source.rdf.core.datahub_client import DataHubClient
-from datahub.ingestion.source.rdf.entities.dataset.ast import DataHubDataset
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
     DataHubGlossaryTerm,
-)
-from datahub.ingestion.source.rdf.entities.structured_property.ast import (
-    DataHubStructuredProperty,
 )
 
 logger = logging.getLogger(__name__)
@@ -214,45 +210,7 @@ class PrettyPrintTarget(TargetInterface):
     def _format_pretty_output(self, datahub_ast: DataHubGraph) -> str:  # noqa: C901
         """Format DataHub AST as pretty printed output."""
         output = []
-        output.append("=" * 80)
-        output.append("DATASETS")
-        output.append("=" * 80)
-
-        if not datahub_ast.datasets:
-            output.append("No datasets found.")
-        else:
-            for i, dataset in enumerate(datahub_ast.datasets, 1):
-                output.append(f"\n{i}. Dataset: {dataset.name}")
-                output.append(f"   URN: {dataset.urn}")
-                output.append(f"   Platform: {dataset.platform}")
-                output.append(f"   Environment: {dataset.environment}")
-                if dataset.description:
-                    output.append(f"   Description: {dataset.description}")
-                if dataset.path_segments and len(dataset.path_segments) > 1:
-                    parent_path = tuple(dataset.path_segments[:-1])
-                    assigned_domain_urn = self.domain_urn_generator.generate_domain_urn(
-                        parent_path
-                    )
-                    output.append(f"   Assigned Domain: {assigned_domain_urn}")
-                if dataset.custom_properties:
-                    output.append(f"   Custom Properties: {dataset.custom_properties}")
-                if dataset.schema_fields:
-                    output.append(
-                        f"   Schema Fields: {len(dataset.schema_fields)} fields"
-                    )
-                    for field in dataset.schema_fields:
-                        # Schema fields are now SchemaFieldClass objects
-                        field_name = field.fieldPath
-                        if not field_name:
-                            raise ValueError(
-                                f"Schema field name required for dataset: {dataset.name}"
-                            )
-                        if not hasattr(field.type, "type") or not field.type.type:
-                            raise ValueError(
-                                f"Schema field type required for field '{field_name}' in dataset: {dataset.name}"
-                            )
-                        field_type = field.type.type.__class__.__name__
-                        output.append(f"     - {field_name}: {field_type}")
+        # Dataset export removed for MVP
 
         output.append("\n" + "=" * 80)
         output.append("DOMAINS")
@@ -467,18 +425,12 @@ class FileTarget(TargetInterface):
         }
 
         try:
-            # Write datasets
-            datasets_data = [self._dataset_to_dict(d) for d in datahub_ast.datasets]
+            # Write glossary terms (datasets removed for MVP)
             with open(self.output_file, "w") as f:
                 json.dump(
                     {
-                        "datasets": datasets_data,
                         "glossary_terms": [
                             self._term_to_dict(t) for t in datahub_ast.glossary_terms
-                        ],
-                        "structured_properties": [
-                            self._property_to_dict(p)
-                            for p in datahub_ast.structured_properties
                         ],
                         "summary": datahub_ast.get_summary(),
                     },
@@ -499,19 +451,7 @@ class FileTarget(TargetInterface):
             results["error"] = str(e)
             return results
 
-    def _dataset_to_dict(self, dataset: DataHubDataset) -> Dict[str, Any]:
-        """Convert dataset to dictionary."""
-        return {
-            "urn": dataset.urn,
-            "name": dataset.name,
-            "description": dataset.description,
-            "platform": dataset.platform,
-            "environment": dataset.environment,
-            "properties": dataset.properties,
-            "schema_fields": dataset.schema_fields,
-            "structured_properties": dataset.structured_properties,
-            "custom_properties": dataset.custom_properties,
-        }
+    # Dataset export removed for MVP
 
     def _term_to_dict(self, term: DataHubGlossaryTerm) -> Dict[str, Any]:
         """Convert glossary term to dictionary."""
@@ -524,590 +464,14 @@ class FileTarget(TargetInterface):
             "custom_properties": term.custom_properties,
         }
 
-    def _property_to_dict(self, prop: DataHubStructuredProperty) -> Dict[str, Any]:
-        """Convert structured property to dictionary."""
-        return {
-            "name": prop.name,
-            "description": prop.description,
-            "value_type": prop.value_type,
-            "allowed_values": prop.allowed_values,
-            "entity_types": prop.entity_types,
-            "cardinality": prop.cardinality,
-            "properties": prop.properties,
-        }
+    # Structured property export removed for MVP
 
     def get_target_info(self) -> dict:
         """Get file target information."""
         return {"type": "file", "output_file": self.output_file, "format": self.format}
 
 
-class DDLTarget(TargetInterface):
-    """Target that exports datasets as DDL (Data Definition Language) statements."""
-
-    def __init__(self, output_file: str, dialect: str = "postgresql"):
-        """
-        Initialize DDL target.
-
-        Args:
-            output_file: Path to output DDL file
-            dialect: SQL dialect (postgresql, mysql, sqlite, sqlserver, oracle)
-        """
-        self.output_file = output_file
-        self.dialect = dialect.lower()
-        self._validate_dialect()
-
-    def _validate_dialect(self):
-        """Validate that the dialect is supported."""
-        supported_dialects = ["postgresql", "mysql", "sqlite", "sqlserver", "oracle"]
-        if self.dialect not in supported_dialects:
-            raise ValueError(
-                f"Unsupported dialect: {self.dialect}. Supported: {supported_dialects}"
-            )
-
-    def execute(
-        self, datahub_ast: DataHubGraph, rdf_graph: Graph = None
-    ) -> Dict[str, Any]:
-        """Execute DDL target."""
-        try:
-            logger.info(f"Executing DDL target: {self.output_file}")
-            results = self._execute_ddl_export(datahub_ast)
-            logger.info(f"DDL target execution completed: {self.output_file}")
-            return {
-                "success": True,
-                "target_type": "ddl",
-                "output_file": self.output_file,
-                "dialect": self.dialect,
-                "results": results,
-            }
-        except Exception as e:
-            logger.error(f"DDL target execution failed: {e}")
-            return {"success": False, "target_type": "ddl", "error": str(e)}
-
-    def _execute_ddl_export(self, datahub_ast: DataHubGraph) -> Dict[str, Any]:
-        """Execute DDL export operations."""
-        logger.info(f"Executing DDL export to {self.output_file}")
-
-        # Auto-detect dialect from datasets if not explicitly set
-        detected_dialect = self._detect_dialect_from_datasets(datahub_ast.datasets)
-        if detected_dialect and detected_dialect != self.dialect:
-            logger.info(
-                f"Auto-detected dialect '{detected_dialect}' from dataset platforms, overriding '{self.dialect}'"
-            )
-            self.dialect = detected_dialect
-
-        results = {
-            "strategy": "ddl_export",
-            "success": True,
-            "files_created": [],
-            "output_file": self.output_file,
-            "dialect": self.dialect,
-            "tables_created": 0,
-            "summary": datahub_ast.get_summary(),
-        }
-
-        try:
-            # Generate DDL for all datasets
-            ddl_statements = []
-
-            # Add header comment
-            summary = datahub_ast.get_summary()
-            dataset_count = summary.get("datasets", 0)
-            ddl_statements.append("-- DDL Generated by RDF-Lite")
-            ddl_statements.append(f"-- Dialect: {self.dialect.upper()}")
-            ddl_statements.append(f"-- Generated from {dataset_count} datasets")
-            ddl_statements.append("")
-
-            # Generate DDL for each dataset
-            vanilla_datasets = []
-            skipped_datasets = []
-            for dataset in datahub_ast.datasets:
-                if dataset.schema_fields:
-                    if dataset.platform:
-                        # Use detected dialect for datasets with platforms
-                        table_ddl = self._generate_table_ddl(dataset)
-                    else:
-                        # Use vanilla DDL for datasets without platforms
-                        table_ddl = self._generate_vanilla_table_ddl(dataset)
-                        vanilla_datasets.append(dataset.name)
-
-                    if table_ddl:
-                        ddl_statements.extend(table_ddl)
-                        ddl_statements.append("")  # Add blank line between tables
-                        results["tables_created"] += 1
-                else:
-                    # Skip datasets without schema fields
-                    skipped_datasets.append(f"{dataset.name} (no schema fields)")
-
-            # Add information about vanilla and skipped datasets
-            if vanilla_datasets:
-                ddl_statements.append(
-                    "-- Datasets exported with vanilla DDL (no platform specified):"
-                )
-                for vanilla in vanilla_datasets:
-                    ddl_statements.append(f"--   - {vanilla}")
-                ddl_statements.append("")
-
-            if skipped_datasets:
-                ddl_statements.append("-- Skipped datasets (no schema fields):")
-                for skipped in skipped_datasets:
-                    ddl_statements.append(f"--   - {skipped}")
-                ddl_statements.append("")
-
-            # Write DDL to file
-            with open(self.output_file, "w") as f:
-                f.write("\n".join(ddl_statements))
-
-            results["files_created"].append(self.output_file)
-
-            logger.info(
-                f"DDL export complete: {len(results['files_created'])} files created, {results['tables_created']} tables"
-            )
-            return results
-
-        except Exception as e:
-            logger.error(f"DDL export failed: {e}")
-            results["success"] = False
-            results["error"] = str(e)
-            return results
-
-    def _generate_table_ddl(self, dataset: DataHubDataset) -> List[str]:
-        """Generate DDL statements for a single dataset."""
-        ddl_statements = []
-
-        # Extract table name from dataset name (clean it for SQL)
-        table_name = self._clean_identifier(dataset.name)
-
-        # Add table comment
-        if dataset.description:
-            ddl_statements.append(f"-- Table: {table_name}")
-            ddl_statements.append(f"-- Description: {dataset.description}")
-
-        # Start CREATE TABLE statement
-        create_statement = f"CREATE TABLE {table_name} ("
-        ddl_statements.append(create_statement)
-
-        # Add columns
-        column_definitions = []
-        for i, field in enumerate(dataset.schema_fields):
-            column_def = self._generate_column_definition(
-                field, i == len(dataset.schema_fields) - 1
-            )
-            column_definitions.append(column_def)
-
-        ddl_statements.extend(column_definitions)
-
-        # Close CREATE TABLE statement
-        ddl_statements.append(");")
-
-        # Add table comment if supported by dialect
-        if dataset.description and self.dialect in ["postgresql", "mysql"]:
-            comment = dataset.description.replace("'", "''")
-            if self.dialect == "postgresql":
-                ddl_statements.append(f"COMMENT ON TABLE {table_name} IS '{comment}';")
-            elif self.dialect == "mysql":
-                ddl_statements.append(
-                    f"ALTER TABLE {table_name} COMMENT = '{comment}';"
-                )
-
-        return ddl_statements
-
-    def _generate_vanilla_table_ddl(self, dataset: DataHubDataset) -> List[str]:
-        """Generate vanilla DDL statements for a dataset without platform information."""
-        ddl_statements = []
-
-        # Extract table name from dataset name (clean it for SQL)
-        table_name = self._clean_identifier(dataset.name)
-
-        # Add table comment
-        if dataset.description:
-            ddl_statements.append(f"-- Table: {table_name}")
-            ddl_statements.append(f"-- Description: {dataset.description}")
-            ddl_statements.append("-- Note: Vanilla DDL (no platform specified)")
-
-        # Start CREATE TABLE statement
-        create_statement = f"CREATE TABLE {table_name} ("
-        ddl_statements.append(create_statement)
-
-        # Add columns
-        column_definitions = []
-        for i, field in enumerate(dataset.schema_fields):
-            column_def = self._generate_vanilla_column_definition(
-                field, i == len(dataset.schema_fields) - 1
-            )
-            column_definitions.append(column_def)
-
-        ddl_statements.extend(column_definitions)
-
-        # Close CREATE TABLE statement
-        ddl_statements.append(");")
-
-        return ddl_statements
-
-    def _generate_vanilla_column_definition(self, field, is_last: bool) -> str:
-        """Generate vanilla column definition using standard SQL types."""
-        # Extract field name
-        field_name = field.fieldPath if hasattr(field, "fieldPath") else str(field)
-        field_name = self._clean_identifier(field_name)
-
-        # Use vanilla SQL types (most compatible)
-        field_type = self._map_datahub_type_to_vanilla_sql(field)
-
-        # Extract nullable information
-        nullable = True  # Default to nullable
-        if hasattr(field, "nullable") and field.nullable is not None:
-            nullable = field.nullable
-
-        # Build column definition
-        column_def = f"    {field_name} {field_type}"
-
-        # Add NOT NULL constraint if needed
-        if not nullable:
-            column_def += " NOT NULL"
-
-        # Add comma if not last column
-        if not is_last:
-            column_def += ","
-
-        return column_def
-
-    def _map_datahub_type_to_vanilla_sql(self, field) -> str:
-        """Map DataHub field type to vanilla SQL type (most compatible)."""
-        # Extract the actual type from DataHub field
-        field_type = "VARCHAR(255)"  # Default fallback
-
-        if hasattr(field, "type") and field.type:
-            # DataHub types are typically URNs like "urn:li:dataType:datahub.string"
-            type_urn = str(field.type)
-
-            # Map common DataHub types to vanilla SQL types
-            if "string" in type_urn.lower():
-                field_type = "VARCHAR(255)"
-            elif "int" in type_urn.lower() or "integer" in type_urn.lower():
-                field_type = "INTEGER"
-            elif "float" in type_urn.lower() or "double" in type_urn.lower():
-                field_type = "REAL"
-            elif "boolean" in type_urn.lower() or "bool" in type_urn.lower():
-                field_type = "BOOLEAN"
-            elif "date" in type_urn.lower():
-                field_type = "DATE"
-            elif "timestamp" in type_urn.lower() or "datetime" in type_urn.lower():
-                field_type = "TIMESTAMP"
-            elif "decimal" in type_urn.lower() or "numeric" in type_urn.lower():
-                field_type = "DECIMAL(10,2)"
-
-        return field_type
-
-    def _generate_column_definition(self, field, is_last: bool) -> str:
-        """Generate column definition for a schema field."""
-        # Extract field name
-        field_name = field.fieldPath if hasattr(field, "fieldPath") else str(field)
-        field_name = self._clean_identifier(field_name)
-
-        # Extract field type
-        field_type = self._map_datahub_type_to_sql(field)
-
-        # Extract nullable information
-        nullable = True  # Default to nullable
-        if hasattr(field, "nullable") and field.nullable is not None:
-            nullable = field.nullable
-
-        # Build column definition
-        column_def = f"    {field_name} {field_type}"
-
-        # Add NOT NULL constraint if needed
-        if not nullable:
-            column_def += " NOT NULL"
-
-        # Add comma if not last column
-        if not is_last:
-            column_def += ","
-
-        return column_def
-
-    def _map_datahub_type_to_sql(self, field) -> str:
-        """Map DataHub field type to SQL type based on dialect."""
-        # Extract the actual type from DataHub field
-        field_type = "VARCHAR(255)"  # Default fallback
-
-        if hasattr(field, "type") and field.type:
-            # DataHub types are typically URNs like "urn:li:dataType:datahub.string"
-            type_urn = str(field.type)
-
-            # Map common DataHub types to SQL types
-            if "string" in type_urn.lower():
-                field_type = self._get_string_type()
-            elif "int" in type_urn.lower() or "integer" in type_urn.lower():
-                field_type = self._get_integer_type()
-            elif "float" in type_urn.lower() or "double" in type_urn.lower():
-                field_type = self._get_float_type()
-            elif "boolean" in type_urn.lower() or "bool" in type_urn.lower():
-                field_type = self._get_boolean_type()
-            elif "date" in type_urn.lower():
-                field_type = self._get_date_type()
-            elif "timestamp" in type_urn.lower() or "datetime" in type_urn.lower():
-                field_type = self._get_timestamp_type()
-            elif "decimal" in type_urn.lower() or "numeric" in type_urn.lower():
-                field_type = self._get_decimal_type()
-
-        return field_type
-
-    def _get_string_type(self) -> str:
-        """Get string type for current dialect."""
-        type_map = {
-            "postgresql": "VARCHAR(255)",
-            "mysql": "VARCHAR(255)",
-            "sqlite": "TEXT",
-            "sqlserver": "NVARCHAR(255)",
-            "oracle": "VARCHAR2(255)",
-        }
-        return type_map.get(self.dialect, "VARCHAR(255)")
-
-    def _get_integer_type(self) -> str:
-        """Get integer type for current dialect."""
-        type_map = {
-            "postgresql": "INTEGER",
-            "mysql": "INT",
-            "sqlite": "INTEGER",
-            "sqlserver": "INT",
-            "oracle": "NUMBER(10)",
-        }
-        return type_map.get(self.dialect, "INTEGER")
-
-    def _get_float_type(self) -> str:
-        """Get float type for current dialect."""
-        type_map = {
-            "postgresql": "REAL",
-            "mysql": "FLOAT",
-            "sqlite": "REAL",
-            "sqlserver": "FLOAT",
-            "oracle": "BINARY_FLOAT",
-        }
-        return type_map.get(self.dialect, "REAL")
-
-    def _get_boolean_type(self) -> str:
-        """Get boolean type for current dialect."""
-        type_map = {
-            "postgresql": "BOOLEAN",
-            "mysql": "BOOLEAN",
-            "sqlite": "INTEGER",  # SQLite doesn't have native boolean
-            "sqlserver": "BIT",
-            "oracle": "NUMBER(1)",
-        }
-        return type_map.get(self.dialect, "BOOLEAN")
-
-    def _get_date_type(self) -> str:
-        """Get date type for current dialect."""
-        type_map = {
-            "postgresql": "DATE",
-            "mysql": "DATE",
-            "sqlite": "TEXT",  # SQLite stores dates as text
-            "sqlserver": "DATE",
-            "oracle": "DATE",
-        }
-        return type_map.get(self.dialect, "DATE")
-
-    def _get_timestamp_type(self) -> str:
-        """Get timestamp type for current dialect."""
-        type_map = {
-            "postgresql": "TIMESTAMP",
-            "mysql": "TIMESTAMP",
-            "sqlite": "TEXT",  # SQLite stores timestamps as text
-            "sqlserver": "DATETIME2",
-            "oracle": "TIMESTAMP",
-        }
-        return type_map.get(self.dialect, "TIMESTAMP")
-
-    def _get_decimal_type(self) -> str:
-        """Get decimal type for current dialect."""
-        type_map = {
-            "postgresql": "DECIMAL(10,2)",
-            "mysql": "DECIMAL(10,2)",
-            "sqlite": "REAL",
-            "sqlserver": "DECIMAL(10,2)",
-            "oracle": "NUMBER(10,2)",
-        }
-        return type_map.get(self.dialect, "DECIMAL(10,2)")
-
-    def _clean_identifier(self, identifier: str) -> str:
-        """Clean identifier for SQL compatibility."""
-        # Remove or replace invalid characters
-        cleaned = identifier.replace(" ", "_").replace("-", "_").replace(".", "_")
-
-        # Remove special characters except underscores
-        import re
-
-        cleaned = re.sub(r"[^a-zA-Z0-9_]", "", cleaned)
-
-        # Ensure it starts with letter or underscore
-        if cleaned and not cleaned[0].isalpha() and cleaned[0] != "_":
-            cleaned = f"_{cleaned}"
-
-        # Handle reserved words by adding prefix
-        reserved_words = {
-            "postgresql": [
-                "select",
-                "from",
-                "where",
-                "insert",
-                "update",
-                "delete",
-                "create",
-                "drop",
-                "alter",
-                "table",
-                "index",
-                "view",
-            ],
-            "mysql": [
-                "select",
-                "from",
-                "where",
-                "insert",
-                "update",
-                "delete",
-                "create",
-                "drop",
-                "alter",
-                "table",
-                "index",
-                "view",
-            ],
-            "sqlite": [
-                "select",
-                "from",
-                "where",
-                "insert",
-                "update",
-                "delete",
-                "create",
-                "drop",
-                "alter",
-                "table",
-                "index",
-                "view",
-            ],
-            "sqlserver": [
-                "select",
-                "from",
-                "where",
-                "insert",
-                "update",
-                "delete",
-                "create",
-                "drop",
-                "alter",
-                "table",
-                "index",
-                "view",
-            ],
-            "oracle": [
-                "select",
-                "from",
-                "where",
-                "insert",
-                "update",
-                "delete",
-                "create",
-                "drop",
-                "alter",
-                "table",
-                "index",
-                "view",
-            ],
-        }
-
-        dialect_reserved = reserved_words.get(
-            self.dialect, reserved_words["postgresql"]
-        )
-        if cleaned.lower() in dialect_reserved:
-            cleaned = f"{cleaned}_tbl"
-
-        return cleaned
-
-    def _detect_dialect_from_datasets(
-        self, datasets: List[DataHubDataset]
-    ) -> Optional[str]:
-        """Detect SQL dialect from dataset platforms."""
-        if not datasets:
-            return None
-
-        # Platform to dialect mapping
-        platform_dialect_map = {
-            # Traditional databases
-            "postgres": "postgresql",
-            "postgresql": "postgresql",
-            "mysql": "mysql",
-            "oracle": "oracle",
-            "mssql": "sqlserver",
-            "sqlserver": "sqlserver",
-            "sqlite": "sqlite",
-            "sybase": "sqlserver",  # Sybase uses SQL Server-compatible syntax
-            # Cloud data warehouses (use PostgreSQL-compatible syntax)
-            "snowflake": "postgresql",  # Snowflake uses PostgreSQL-compatible SQL
-            "bigquery": "postgresql",  # BigQuery uses standard SQL (closer to PostgreSQL)
-            "redshift": "postgresql",  # Redshift uses PostgreSQL-compatible SQL
-            "teradata": "postgresql",  # Teradata SQL is closer to PostgreSQL
-            # Regulatory reporting platforms
-            "axiom": "sqlserver",  # Axiom uses Sybase/SQL Server-compatible syntax
-            # Big data platforms
-            "hive": "postgresql",  # Hive SQL is closer to PostgreSQL
-            "spark": "postgresql",  # Spark SQL is closer to PostgreSQL
-            # Streaming platforms (not applicable for DDL, but included for completeness)
-            "kafka": "postgresql",  # Kafka doesn't generate DDL, but if it did, use PostgreSQL
-        }
-
-        # Collect platforms from all datasets
-        platforms = set()
-        for dataset in datasets:
-            if dataset.platform:
-                platform_name = dataset.platform.lower()
-                platforms.add(platform_name)
-
-        if not platforms:
-            logger.debug("No platforms found in datasets for dialect detection")
-            return None
-
-        # Find the most common dialect among platforms
-        dialect_counts = {}
-        for platform in platforms:
-            # Extract platform name from various formats
-            platform_clean = platform.lower()
-
-            # Handle DataHub URN format: urn:li:dataPlatform:platform_name
-            if platform_clean.startswith("urn:li:dataplatform:"):
-                platform_clean = platform_clean.replace("urn:li:dataplatform:", "")
-
-            # Handle platform names that might include paths or prefixes
-            if "/" in platform_clean:
-                platform_clean = platform_clean.split("/")[-1]
-            if ":" in platform_clean:
-                platform_clean = platform_clean.split(":")[-1]
-
-            # Map to dialect
-            dialect = platform_dialect_map.get(platform_clean)
-            if dialect:
-                dialect_counts[dialect] = dialect_counts.get(dialect, 0) + 1
-                logger.debug(f"Platform '{platform}' -> dialect '{dialect}'")
-            else:
-                logger.debug(
-                    f"Unknown platform '{platform}', skipping dialect detection"
-                )
-
-        if not dialect_counts:
-            logger.debug("No recognized platforms found for dialect detection")
-            return None
-
-        # Return the most common dialect
-        most_common_dialect = max(dialect_counts.items(), key=lambda x: x[1])[0]
-        logger.info(
-            f"Detected dialect '{most_common_dialect}' from platforms: {list(platforms)}"
-        )
-
-        return most_common_dialect
-
-    def get_target_info(self) -> dict:
-        """Get DDL target information."""
-        return {"type": "ddl", "output_file": self.output_file, "dialect": self.dialect}
+# DDLTarget removed for MVP - dataset export not supported
 
 
 class OwnershipExportTarget(TargetInterface):
@@ -1363,9 +727,11 @@ class TargetFactory:
         return FileTarget(output_file, format)
 
     @staticmethod
-    def create_ddl_target(output_file: str, dialect: str = "postgresql") -> DDLTarget:
-        """Create a DDL target."""
-        return DDLTarget(output_file, dialect)
+    def create_ddl_target(output_file: str, dialect: str = "postgresql"):
+        """Create a DDL target - not supported in MVP (dataset export removed)."""
+        raise ValueError(
+            "DDL export is not supported in MVP. Dataset export has been removed."
+        )
 
     @staticmethod
     def create_ownership_export_target(
@@ -1398,11 +764,9 @@ class TargetFactory:
             return TargetFactory.create_file_target(output_file, format_type)
 
         elif target_type == "ddl":
-            output_file = kwargs.get("output_file")
-            if not output_file:
-                raise ValueError("output_file required for DDL target")
-            dialect = kwargs.get("dialect", "postgresql")
-            return TargetFactory.create_ddl_target(output_file, dialect)
+            raise ValueError(
+                "DDL export is not supported in MVP. Dataset export has been removed."
+            )
 
         else:
             raise ValueError(f"Unknown target type: {target_type}")

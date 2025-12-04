@@ -136,11 +136,10 @@ def create_target_from_args(args):
             args.ownership_output, format_type
         )
     elif args.ddl_output:
-        # DDL export mode
-        dialect = (
-            args.ddl_dialect or "postgresql"
-        )  # Default fallback if auto-detection fails
-        return TargetFactory.create_ddl_target(args.ddl_output, dialect)
+        # DDL export mode - not supported in MVP
+        raise ValueError(
+            "DDL export is not supported in MVP. Dataset export has been removed."
+        )
     elif args.output_file:
         return TargetFactory.create_file_target(args.output_file, args.output_format)
     elif args.dry_run:

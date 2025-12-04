@@ -13,6 +13,9 @@ Supports:
 """
 
 from datahub.ingestion.source.rdf.entities.base import EntityMetadata
+from datahub.ingestion.source.rdf.entities.domain import (
+    ENTITY_TYPE as DOMAIN_ENTITY_TYPE,
+)
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
     DataHubGlossaryTerm,
     RDFGlossaryTerm,
@@ -36,7 +39,9 @@ ENTITY_METADATA = EntityMetadata(
     rdf_ast_class=RDFGlossaryTerm,
     datahub_ast_class=DataHubGlossaryTerm,
     export_targets=["pretty_print", "file", "datahub"],
-    dependencies=[],  # No dependencies - glossary terms are independent entities
+    dependencies=[
+        DOMAIN_ENTITY_TYPE,
+    ],  # Depends on domain - ensures domains are processed before glossary terms
 )
 
 __all__ = [

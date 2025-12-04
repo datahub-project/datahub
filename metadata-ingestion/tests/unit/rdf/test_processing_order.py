@@ -94,15 +94,8 @@ class TestDependencyBasedOrdering(unittest.TestCase):
         self.assertLess(ordered.index("a"), ordered.index("c"))
 
     def test_priority_ordering_for_root_nodes(self):
-        """Test that structured_property and domain have priority when both have no dependencies."""
+        """Test that domain has priority when it has no dependencies."""
         # Create a scenario where dependencies are used (to trigger priority ordering)
-        metadata_sp = EntityMetadata(
-            entity_type="structured_property",
-            cli_names=["sp"],
-            rdf_ast_class=MagicMock(),
-            datahub_ast_class=MagicMock(),
-            dependencies=[],
-        )
         metadata_domain = EntityMetadata(
             entity_type="domain",
             cli_names=["domain"],
@@ -120,28 +113,18 @@ class TestDependencyBasedOrdering(unittest.TestCase):
             ],  # Add a dependency to trigger dependency-based sorting
         )
 
-        self.registry.register_metadata("structured_property", metadata_sp)
         self.registry.register_metadata("domain", metadata_domain)
         self.registry.register_metadata("other", metadata_other)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        # structured_property and domain should come before other (priority ordering)
-        # The exact order between them may vary, but both should be in first two positions
-        self.assertIn("structured_property", ordered[:2])
-        self.assertIn("domain", ordered[:2])
+        # domain should come before other (priority ordering)
+        self.assertIn("domain", ordered[:1])
         # other should come after domain (it depends on domain)
         self.assertLess(ordered.index("domain"), ordered.index("other"))
 
     def test_real_world_dependencies(self):
-        """Test the actual dependency structure used in production."""
-        # Register entities in the order they appear in production
-        metadata_sp = EntityMetadata(
-            entity_type="structured_property",
-            cli_names=["sp"],
-            rdf_ast_class=MagicMock(),
-            datahub_ast_class=MagicMock(),
-            dependencies=[],
-        )
+        """Test the actual dependency structure used in MVP production."""
+        # Register MVP entities
         metadata_domain = EntityMetadata(
             entity_type="domain",
             cli_names=["domain"],
@@ -156,13 +139,6 @@ class TestDependencyBasedOrdering(unittest.TestCase):
             datahub_ast_class=MagicMock(),
             dependencies=["domain"],
         )
-        metadata_dataset = EntityMetadata(
-            entity_type="dataset",
-            cli_names=["dataset"],
-            rdf_ast_class=MagicMock(),
-            datahub_ast_class=MagicMock(),
-            dependencies=["domain"],
-        )
         metadata_relationship = EntityMetadata(
             entity_type="relationship",
             cli_names=["relationship"],
@@ -170,38 +146,23 @@ class TestDependencyBasedOrdering(unittest.TestCase):
             datahub_ast_class=MagicMock(),
             dependencies=["glossary_term"],
         )
-        metadata_lineage = EntityMetadata(
-            entity_type="lineage",
-            cli_names=["lineage"],
-            rdf_ast_class=MagicMock(),
-            datahub_ast_class=MagicMock(),
-            dependencies=["dataset"],
-        )
 
-        self.registry.register_metadata("structured_property", metadata_sp)
         self.registry.register_metadata("domain", metadata_domain)
         self.registry.register_metadata("glossary_term", metadata_glossary)
-        self.registry.register_metadata("dataset", metadata_dataset)
         self.registry.register_metadata("relationship", metadata_relationship)
-        self.registry.register_metadata("lineage", metadata_lineage)
 
         ordered = self.registry.get_entity_types_by_processing_order()
 
-        # Verify root nodes come first
-        self.assertIn("structured_property", ordered[:2])
-        self.assertIn("domain", ordered[:2])
+        # Verify root node comes first
+        self.assertIn("domain", ordered[:1])
 
         # Verify dependencies are satisfied
         domain_idx = ordered.index("domain")
         glossary_idx = ordered.index("glossary_term")
-        dataset_idx = ordered.index("dataset")
         relationship_idx = ordered.index("relationship")
-        lineage_idx = ordered.index("lineage")
 
         self.assertLess(domain_idx, glossary_idx)
-        self.assertLess(domain_idx, dataset_idx)
         self.assertLess(glossary_idx, relationship_idx)
-        self.assertLess(dataset_idx, lineage_idx)
 
     def test_missing_dependency_handling(self):
         """Test that missing dependencies are handled gracefully."""
@@ -338,20 +299,20 @@ class TestDependencyBasedOrdering(unittest.TestCase):
             datahub_ast_class=MagicMock(),
             dependencies=[],
         )
-        metadata_dataset = EntityMetadata(
-            entity_type="dataset",
-            cli_names=["dataset"],
+        metadata_glossary = EntityMetadata(
+            entity_type="glossary_term",
+            cli_names=["glossary"],
             rdf_ast_class=MagicMock(),
             datahub_ast_class=MagicMock(),
             dependencies=[DOMAIN_ENTITY_TYPE],  # Using constant
         )
 
         self.registry.register_metadata("domain", metadata_domain)
-        self.registry.register_metadata("dataset", metadata_dataset)
+        self.registry.register_metadata("glossary_term", metadata_glossary)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        # Domain should come before dataset
-        self.assertLess(ordered.index("domain"), ordered.index("dataset"))
+        # Domain should come before glossary_term (which depends on it)
+        self.assertLess(ordered.index("domain"), ordered.index("glossary_term"))
 
 
 class TestProcessingOrderBackwardCompatibility(unittest.TestCase):

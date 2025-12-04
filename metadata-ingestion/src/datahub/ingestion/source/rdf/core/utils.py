@@ -9,9 +9,7 @@ def entity_type_to_field_name(entity_type: str) -> str:
 
     Examples:
         'glossary_term' -> 'glossary_terms'
-        'dataset' -> 'datasets'
-        'lineage' -> 'lineage_relationships' (special case)
-        'structured_property' -> 'structured_properties'
+        'relationship' -> 'relationships'
 
     Args:
         entity_type: The entity type name
@@ -19,10 +17,6 @@ def entity_type_to_field_name(entity_type: str) -> str:
     Returns:
         Field name (typically plural form)
     """
-    # Special cases
-    if entity_type == "lineage":
-        return "lineage_relationships"
-
     # Default: pluralize (add 's' if not already plural)
     if entity_type.endswith("s"):
         return entity_type

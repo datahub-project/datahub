@@ -15,11 +15,9 @@ from datahub.ingestion.source.rdf.core.target_factory import (
     DataHubTarget,
     SimpleReport,
 )
-from datahub.ingestion.source.rdf.entities.dataset.ast import DataHubDataset
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
     DataHubGlossaryTerm,
 )
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class TestDataHubTargetConsolidation(unittest.TestCase):
@@ -99,35 +97,7 @@ class TestDataHubTargetConsolidation(unittest.TestCase):
             # If no work units, that's also valid (empty graph handling)
             self.assertEqual(result["results"]["entities_emitted"], 0)
 
-    def test_datahub_target_execute_with_dataset(self):
-        """Test DataHubTarget.execute() with dataset."""
-        graph = DataHubGraph()
-        dataset = DataHubDataset(
-            urn=DatasetUrn.from_string(
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.test_table,PROD)"
-            ),
-            name="test_table",
-            description="Test dataset",
-            platform="urn:li:dataPlatform:postgres",
-            environment="PROD",
-            schema_fields=[],
-            custom_properties={},
-        )
-        graph.datasets = [dataset]
-        graph.domains = []
-
-        result = self.target.execute(graph)
-
-        self.assertTrue(result["success"])
-        # Should have generated work units
-        workunits = self.target.ingestion_target.get_workunits()
-        if len(workunits) > 0:
-            # Should have emitted MCPs for the dataset
-            self.assertGreater(self.mock_client._emit_mcp.call_count, 0)
-            self.assertGreater(result["results"]["entities_emitted"], 0)
-        else:
-            # If no work units, that's also valid
-            self.assertEqual(result["results"]["entities_emitted"], 0)
+    # test_datahub_target_execute_with_dataset removed - dataset extraction not supported in MVP
 
     def test_datahub_target_execute_handles_ingestion_failure(self):
         """Test DataHubTarget.execute() handles ingestion target failure."""
@@ -282,20 +252,6 @@ class TestDataHubTargetIntegration(unittest.TestCase):
             custom_properties={},
         )
         graph.glossary_terms = [term]
-
-        # Add dataset
-        dataset = DataHubDataset(
-            urn=DatasetUrn.from_string(
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.test_table,PROD)"
-            ),
-            name="test_table",
-            description="Test dataset",
-            platform="urn:li:dataPlatform:postgres",
-            environment="PROD",
-            schema_fields=[],
-            custom_properties={},
-        )
-        graph.datasets = [dataset]
         graph.domains = []
 
         result = self.target.execute(graph)

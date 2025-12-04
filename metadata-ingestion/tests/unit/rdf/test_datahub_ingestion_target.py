@@ -21,12 +21,11 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
 
     def test_processing_order_respected(self):
         """Test that entities are processed in the correct order."""
-        # Create a mock graph with entities
+        # Create a mock graph with MVP entities
         graph = DataHubGraph()
-        graph.structured_properties = []
         graph.glossary_terms = []
-        graph.datasets = []
-        graph.lineage_relationships = []
+        graph.domains = []
+        graph.relationships = []
 
         # Mock the registry to return entities in a specific order
         with patch(
@@ -35,12 +34,11 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
             registry = MagicMock()
             mock_registry.return_value = registry
 
-            # Set up processing order
+            # Set up processing order for MVP
             registry.get_entity_types_by_processing_order.return_value = [
-                "structured_property",
+                "domain",
                 "glossary_term",
-                "dataset",
-                "lineage",
+                "relationship",
             ]
 
             # Mock MCP builders
@@ -63,9 +61,7 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
         """Test that post-processing hooks are called after standard processing."""
         graph = DataHubGraph()
         # Add at least one entity so processing happens
-        graph.structured_properties = []
-        graph.glossary_terms = []
-        graph.datasets = [MagicMock()]
+        graph.glossary_terms = [MagicMock()]
         graph.domains = []
 
         with patch(
@@ -74,7 +70,9 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
             registry = MagicMock()
             mock_registry.return_value = registry
 
-            registry.get_entity_types_by_processing_order.return_value = ["dataset"]
+            registry.get_entity_types_by_processing_order.return_value = [
+                "glossary_term"
+            ]
 
             # Create a mock builder with post-processing hook
             post_processing_mcps = [MagicMock()]
@@ -98,8 +96,7 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
         """Test that context with graph and report is passed to builders."""
         graph = DataHubGraph()
         # Add at least one entity so processing happens
-        graph.structured_properties = [MagicMock()]
-        graph.glossary_terms = []
+        graph.glossary_terms = [MagicMock()]
 
         with patch(
             "datahub.ingestion.source.rdf.ingestion.datahub_ingestion_target.create_default_registry"
@@ -108,7 +105,7 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
             mock_registry.return_value = registry
 
             registry.get_entity_types_by_processing_order.return_value = [
-                "structured_property"
+                "glossary_term"
             ]
 
             builder = MagicMock()
@@ -147,9 +144,10 @@ class TestDataHubIngestionTargetModularity(unittest.TestCase):
             entity_type_to_field_name,
         )
 
-        # Verify the utility function works
-        self.assertEqual(entity_type_to_field_name("dataset"), "datasets")
-        self.assertEqual(entity_type_to_field_name("lineage"), "lineage_relationships")
+        # Verify the utility function works for MVP entities
+        self.assertEqual(entity_type_to_field_name("glossary_term"), "glossary_terms")
+        self.assertEqual(entity_type_to_field_name("domain"), "domains")
+        self.assertEqual(entity_type_to_field_name("relationship"), "relationships")
 
 
 if __name__ == "__main__":

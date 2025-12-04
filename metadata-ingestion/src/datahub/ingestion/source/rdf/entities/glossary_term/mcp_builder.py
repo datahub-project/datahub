@@ -63,14 +63,64 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
     def build_all_mcps(
         self, terms: List[DataHubGlossaryTerm], context: Dict[str, Any] = None
     ) -> List[MetadataChangeProposalWrapper]:
-        """Build MCPs for all glossary terms."""
+        """
+        Build MCPs for glossary terms.
+
+        Terms that are in dependent entities (entities this entity depends on)
+        are skipped here and will be created in post-processing after their
+        parent entities are created. Only terms NOT in dependent entities are
+        created here (without parent nodes).
+        """
         mcps = []
+        datahub_graph = context.get("datahub_graph") if context else None
 
+        # Collect terms that are in dependent entities (these will be handled in post-processing)
+        # Use dependency metadata to determine which entity types to check
+        terms_in_dependent_entities = set()
+        dependent_entity_types = []
+
+        # Get metadata for glossary_term to find its dependencies
+        from datahub.ingestion.source.rdf.entities.glossary_term import ENTITY_METADATA
+
+        if ENTITY_METADATA.dependencies:
+            dependent_entity_types = ENTITY_METADATA.dependencies
+
+        # Check each dependent entity type for terms
+        if datahub_graph and dependent_entity_types:
+            # Import the helper function to convert entity types to field names
+            from datahub.ingestion.source.rdf.core.utils import (
+                entity_type_to_field_name,
+            )
+
+            for dep_entity_type in dependent_entity_types:
+                # Get the field name for this entity type (pluralized)
+                field_name = entity_type_to_field_name(dep_entity_type)
+
+                if hasattr(datahub_graph, field_name):
+                    dependent_entities = getattr(datahub_graph, field_name, [])
+                    for entity in dependent_entities:
+                        # Check if this entity type has a glossary_terms attribute
+                        if hasattr(entity, "glossary_terms"):
+                            for term in entity.glossary_terms:
+                                terms_in_dependent_entities.add(term.urn)
+
+        # Only create MCPs for terms NOT in dependent entities
+        # Terms in dependent entities will be created in post-processing with correct parent nodes
         for term in terms:
-            term_mcps = self.build_mcps(term, context)
-            mcps.extend(term_mcps)
+            if term.urn not in terms_in_dependent_entities:
+                term_mcps = self.build_mcps(term, context)
+                mcps.extend(term_mcps)
 
-        logger.info(f"Built {len(mcps)} MCPs for {len(terms)} glossary terms")
+        skipped_count = len(terms) - len(mcps)
+        if skipped_count > 0:
+            logger.debug(
+                f"Skipped {skipped_count} terms that are in dependent entities {dependent_entity_types} "
+                f"(will be created in post-processing)"
+            )
+        logger.info(
+            f"Built {len(mcps)} MCPs for {len(terms) - skipped_count} glossary terms "
+            f"(skipped {skipped_count} in dependent entities)"
+        )
         return mcps
 
     def build_relationship_mcps(
@@ -170,17 +220,17 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         self, datahub_graph: Any, context: Dict[str, Any] = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Build MCPs for glossary nodes from domain hierarchy and terms not in domains.
+        Build MCPs for glossary nodes from domain hierarchy.
 
-        This handles the special case where glossary nodes are created from domain
-        structure, and terms are associated with those nodes.
+        Reconstructs domain hierarchy from term path_segments and creates
+        glossary nodes dynamically. Terms are assigned to their parent glossary nodes.
 
         Args:
             datahub_graph: The complete DataHubGraph AST
             context: Optional context (should include 'report' for entity counting)
 
         Returns:
-            List of MCPs for glossary nodes and terms from domains
+            List of MCPs for glossary nodes and terms
         """
         from datahub.ingestion.source.rdf.entities.glossary_term.urn_generator import (
             GlossaryTermUrnGenerator,

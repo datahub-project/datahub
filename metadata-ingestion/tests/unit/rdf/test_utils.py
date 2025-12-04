@@ -12,16 +12,15 @@ class TestUtils(unittest.TestCase):
 
     def test_entity_type_to_field_name_basic(self):
         """Test basic entity type to field name conversion."""
-        self.assertEqual(entity_type_to_field_name("dataset"), "datasets")
         self.assertEqual(entity_type_to_field_name("glossary_term"), "glossary_terms")
-        self.assertEqual(
-            entity_type_to_field_name("structured_property"), "structured_properties"
-        )
+        self.assertEqual(entity_type_to_field_name("domain"), "domains")
+        self.assertEqual(entity_type_to_field_name("relationship"), "relationships")
 
     def test_entity_type_to_field_name_already_plural(self):
         """Test entity types that are already plural."""
-        self.assertEqual(entity_type_to_field_name("datasets"), "datasets")
-        self.assertEqual(entity_type_to_field_name("terms"), "terms")
+        self.assertEqual(entity_type_to_field_name("glossary_terms"), "glossary_terms")
+        self.assertEqual(entity_type_to_field_name("domains"), "domains")
+        self.assertEqual(entity_type_to_field_name("relationships"), "relationships")
 
     def test_entity_type_to_field_name_ends_with_y(self):
         """Test entity types ending with 'y' (should become 'ies')."""
@@ -29,8 +28,9 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(entity_type_to_field_name("property"), "properties")
 
     def test_entity_type_to_field_name_lineage_special_case(self):
-        """Test special case for 'lineage' entity type."""
-        self.assertEqual(entity_type_to_field_name("lineage"), "lineage_relationships")
+        """Test that 'lineage' entity type is no longer supported (removed for MVP)."""
+        # Lineage special case removed - should now just pluralize normally
+        self.assertEqual(entity_type_to_field_name("lineage"), "lineages")
 
     def test_entity_type_to_field_name_edge_cases(self):
         """Test edge cases."""
