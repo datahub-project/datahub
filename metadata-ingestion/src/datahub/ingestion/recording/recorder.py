@@ -209,9 +209,26 @@ class IngestionRecorder:
 
         # Determine output path
         if self.output_path:
+            # Explicit output path provided
             archive_path = self.output_path
+        elif not self.s3_upload:
+            # No S3 upload - save to INGESTION_ARTIFACT_DIR if set, otherwise temp
+            import os
+
+            artifact_dir = os.getenv("INGESTION_ARTIFACT_DIR")
+            if artifact_dir:
+                # Save to artifact directory with descriptive filename
+                artifact_path = Path(artifact_dir)
+                artifact_path.mkdir(parents=True, exist_ok=True)
+                archive_path = artifact_path / f"recording-{self.run_id}.zip"
+                logger.info(
+                    f"Saving recording to INGESTION_ARTIFACT_DIR: {archive_path}"
+                )
+            else:
+                # No artifact dir, use temp file
+                archive_path = Path(tempfile.mktemp(suffix=".zip"))
         else:
-            # Use a temp file that we'll delete after S3 upload
+            # S3 upload enabled - use temp file that we'll delete after upload
             archive_path = Path(tempfile.mktemp(suffix=".zip"))
 
         # Create manifest with exception info if present

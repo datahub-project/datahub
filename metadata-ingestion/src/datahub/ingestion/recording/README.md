@@ -112,10 +112,11 @@ recording:
 
 ### Environment Variables
 
-| Variable                     | Description                                      |
-| ---------------------------- | ------------------------------------------------ |
-| `DATAHUB_RECORDING_PASSWORD` | Default password for recording encryption        |
-| `ADMIN_PASSWORD`             | Fallback password (used in managed environments) |
+| Variable                     | Description                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `DATAHUB_RECORDING_PASSWORD` | Default password for recording encryption                                                                    |
+| `ADMIN_PASSWORD`             | Fallback password (used in managed environments)                                                             |
+| `INGESTION_ARTIFACT_DIR`     | Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to temp directory. |
 
 ### CLI Options
 
@@ -126,6 +127,12 @@ datahub ingest run -c recipe.yaml \
     --record                    # Enable recording
     --record-password <pwd>     # Encryption password
     --no-s3-upload              # Disable S3 upload
+    --no-secret-redaction       # Keep real credentials (for local debugging)
+
+# Or save to specific directory
+export INGESTION_ARTIFACT_DIR=/path/to/recordings
+datahub ingest run -c recipe.yaml --record --record-password <pwd> --no-s3-upload
+# Recording saved as: /path/to/recordings/recording-{run_id}.zip
 ```
 
 **Replay:**
