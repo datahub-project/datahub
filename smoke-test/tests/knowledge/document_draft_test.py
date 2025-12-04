@@ -10,10 +10,13 @@ Validates end-to-end functionality of:
 Tests are idempotent and use unique IDs for created documents.
 """
 
+import logging
 import time
 import uuid
 
 import pytest
+
+logger = logging.getLogger(__name__)
 
 
 def execute_graphql(auth_session, query: str, variables: dict | None = None) -> dict:
@@ -119,7 +122,9 @@ def test_create_document_draft(auth_session):
 
     # The drafts field requires a separate batch loader and may return None if not implemented
     if published_doc["drafts"] is None:
-        print("WARNING: drafts field is None (batch loader may not be implemented yet)")
+        logger.info(
+            "WARNING: drafts field is None (batch loader may not be implemented yet)"
+        )
     else:
         assert len(published_doc["drafts"]) >= 1, (
             f"Expected at least 1 draft, got {len(published_doc['drafts'])}"
@@ -311,7 +316,7 @@ def test_search_excludes_drafts_by_default(auth_session):
 
     # Search can fail if index is not ready
     if "errors" in search_res_no_drafts or search_res_no_drafts is None:
-        print(
+        logger.info(
             f"WARNING: Search failed (index may not be ready): {search_res_no_drafts}"
         )
         # Cleanup
