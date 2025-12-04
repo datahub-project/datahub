@@ -2,8 +2,7 @@
 """
 Unit tests for MCPFactory.
 
-Tests the shared MCP creation factory that eliminates duplication
-between DataHubTarget and DataHubIngestionTarget.
+Tests the shared MCP creation factory used by DataHubIngestionTarget.
 """
 
 import unittest

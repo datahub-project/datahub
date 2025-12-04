@@ -8,7 +8,7 @@ This package contains the core functionality for:
 - Domain utilities
 """
 
-from datahub.ingestion.source.rdf.core.datahub_client import DataHubClient
+# DataHubClient removed - CLI-only, not used by ingestion source
 from datahub.ingestion.source.rdf.core.orchestrator import Orchestrator
 from datahub.ingestion.source.rdf.core.query_factory import (
     CustomQuery,
@@ -29,7 +29,6 @@ from datahub.ingestion.source.rdf.core.source_factory import (
     SourceInterface,
 )
 from datahub.ingestion.source.rdf.core.target_factory import (
-    DataHubTarget,
     FileTarget,
     PrettyPrintTarget,
     TargetFactory,
@@ -42,7 +41,6 @@ from datahub.ingestion.source.rdf.core.urn_generator import (
 )
 
 __all__ = [
-    "DataHubClient",
     "RDFToDataHubTranspiler",
     "UrnGeneratorBase",
     "extract_name_from_label",
@@ -61,7 +59,6 @@ __all__ = [
     "CustomQuery",
     "TargetFactory",
     "TargetInterface",
-    "DataHubTarget",
     "PrettyPrintTarget",
     "FileTarget",
     "Orchestrator",

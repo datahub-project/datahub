@@ -10,14 +10,7 @@ RDF ontology ingestion system for DataHub.
 
 ## Usage
 
-```python
-from src.rdf.core import OntologyToDataHub
-from src.rdf.core.datahub_client import DataHubClient
-
-client = DataHubClient("http://localhost:8080", "token")
-converter = OntologyToDataHub(client)
-results = converter.process_ontology_graph(graph)
-```
+RDF is used as a DataHub ingestion source plugin. See the main [README.md](README.md) for usage examples.
 
 ## RDF Mapping
 

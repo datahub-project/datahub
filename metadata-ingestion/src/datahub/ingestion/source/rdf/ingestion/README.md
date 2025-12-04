@@ -16,7 +16,7 @@ RDF Files → RDFSource → MetadataWorkUnits → DataHub
 
    - Defines all configuration parameters
    - Validates input values
-   - Mirrors CLI parameters for consistency
+   - Provides configuration for RDF source
 
 2. **RDFSource** - Main source class
 
@@ -53,7 +53,7 @@ RDF Files → RDFSource → MetadataWorkUnits → DataHub
 4. **MCP Generation** - `DataHubIngestionTarget`:
 
    - Receives DataHub AST from transpiler
-   - Reuses `DataHubClient` MCP generation methods
+   - Generates MCPs directly from entity MCP builders
    - Wraps MCPs in `MetadataWorkUnit` objects
    - Returns work units to source
 
@@ -159,21 +159,13 @@ The `DataHubIngestionTarget` class bridges the RDF core (which expects a `Target
 3. Avoid duplicating MCP generation logic
 4. Keep the ingestion source thin and focused
 
-### Why Reuse DataHubClient for MCP Generation?
+### MCP Generation
 
-Instead of duplicating MCP generation logic, we reuse the `DataHubClient._create_*_mcp()` methods. This ensures:
+MCPs are generated directly by entity MCP builders, ensuring: 2. Single source of truth for MCP generation 3. Easier maintenance (fix once, works everywhere)
 
-1. Consistency between CLI and ingestion source
-2. Single source of truth for MCP generation
-3. Easier maintenance (fix once, works everywhere)
+### Configuration Parameters
 
-### Why Mirror CLI Parameters?
-
-The configuration parameters match the CLI to provide a consistent user experience. Users can:
-
-1. Start with CLI for quick testing
-2. Convert to recipes for production
-3. Use the same parameters in both interfaces
+The configuration parameters provide: 2. Convert to recipes for production 3. Use the same parameters in both interfaces
 
 ## Future Enhancements
 
@@ -190,6 +182,6 @@ Potential improvements for future development:
 
 - `src/rdf/core/orchestrator.py` - Pipeline orchestrator
 - `src/rdf/core/transpiler.py` - 3-phase transpiler
-- `src/rdf/core/datahub_client.py` - MCP generation logic
+- `src/rdf/entities/*/mcp_builder.py` - Entity-specific MCP builders
 - `examples/RECIPES.md` - Recipe documentation
 - `CLAUDE.md` - Overall architecture documentation

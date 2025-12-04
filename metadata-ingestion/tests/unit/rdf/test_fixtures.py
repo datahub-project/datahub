@@ -190,22 +190,7 @@ class TempFileManager:
             except OSError:
                 pass
 
-
-class MockDataHubClient:
-    """Mock DataHub client for testing."""
-
-    def __init__(self):
-        self.emitted_mcps = []
-        self.emit_success = True
-        self.emit_error = None
-
-    def _emit_mcp(self, mcp):
-        """Mock MCP emission."""
-        if self.emit_error:
-            raise self.emit_error
-
-        self.emitted_mcps.append(mcp)
-        return self.emit_success
+    # MockDataHubClient removed - CLI-only, not used by ingestion source
 
     def set_emit_success(self, success: bool):
         """Set whether MCP emission should succeed."""

@@ -17,29 +17,12 @@ from rdflib.namespace import DCAT, DCTERMS, RDF, RDFS, VOID
 
 from datahub.ingestion.source.rdf.core.ast import DataHubGraph, RDFOwnership
 
-# DataHub imports removed - all DataHub operations now go through DataHubClient
-from datahub.ingestion.source.rdf.core.datahub_client import DataHubClient
+# DataHubClient removed - CLI-only, not used by ingestion source
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
     DataHubGlossaryTerm,
 )
 
 logger = logging.getLogger(__name__)
-
-
-class SimpleReport:
-    """Simple report class for DataHubTarget that tracks basic statistics."""
-
-    def __init__(self):
-        self.num_entities_emitted = 0
-        self.num_workunits_produced = 0
-
-    def report_entity_emitted(self):
-        """Report that an entity was emitted."""
-        self.num_entities_emitted += 1
-
-    def report_workunit_produced(self):
-        """Report that a work unit was produced."""
-        self.num_workunits_produced += 1
 
 
 class TargetInterface(ABC):
@@ -56,108 +39,6 @@ class TargetInterface(ABC):
     def get_target_info(self) -> dict:
         """Get information about this target."""
         pass
-
-
-class DataHubTarget(TargetInterface):
-    """Target that sends data to DataHub using the ingestion target internally."""
-
-    def __init__(self, datahub_client: DataHubClient, rdf_graph: Graph = None):
-        self.datahub_client = datahub_client
-        self.rdf_graph = rdf_graph
-        self.report = SimpleReport()
-        # Lazy import to avoid circular dependency
-        self._ingestion_target = None
-
-    @property
-    def ingestion_target(self):
-        """Lazy load ingestion target to avoid circular imports."""
-        if self._ingestion_target is None:
-            from datahub.ingestion.source.rdf.ingestion.datahub_ingestion_target import (
-                DataHubIngestionTarget,
-            )
-
-            self._ingestion_target = DataHubIngestionTarget(self.report)
-        return self._ingestion_target
-
-    def execute(
-        self, datahub_ast: DataHubGraph, rdf_graph: Graph = None
-    ) -> Dict[str, Any]:
-        """Execute DataHub target by generating work units and emitting them."""
-        try:
-            logger.info("Executing DataHub target...")
-
-            # Store RDF graph if provided
-            if rdf_graph:
-                self.rdf_graph = rdf_graph
-
-            # Generate work units using ingestion target
-            ingestion_results = self.ingestion_target.execute(datahub_ast, rdf_graph)
-
-            if not ingestion_results.get("success"):
-                return {
-                    "success": False,
-                    "target_type": "datahub",
-                    "error": ingestion_results.get("error", "Unknown error"),
-                }
-
-            # Emit all work units via DataHubClient
-            workunits = self.ingestion_target.get_workunits()
-            logger.info(f"Emitting {len(workunits)} work units to DataHub...")
-
-            errors = []
-            entities_emitted = 0
-
-            for workunit in workunits:
-                try:
-                    # Extract MCP from work unit and emit it
-                    # MetadataWorkUnit stores MCP in metadata attribute
-                    mcp = None
-                    if hasattr(workunit, "mcp") and workunit.mcp:
-                        mcp = workunit.mcp
-                    elif hasattr(workunit, "metadata") and workunit.metadata:
-                        # MetadataWorkUnit may store MCP as metadata
-                        from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
-                        if isinstance(workunit.metadata, MetadataChangeProposalWrapper):
-                            mcp = workunit.metadata
-                        elif hasattr(workunit.metadata, "mcp"):
-                            mcp = workunit.metadata.mcp
-
-                    if mcp:
-                        self.datahub_client._emit_mcp(mcp)
-                        entities_emitted += 1
-                except Exception as e:
-                    error_msg = f"Failed to emit work unit {workunit.id}: {e}"
-                    logger.error(error_msg)
-                    errors.append(error_msg)
-
-            logger.info(
-                f"✅ DataHub execution completed: {entities_emitted} entities emitted"
-            )
-
-            return {
-                "success": True,
-                "target_type": "datahub",
-                "results": {
-                    "strategy": "live_datahub",
-                    "workunits_generated": len(workunits),
-                    "entities_emitted": entities_emitted,
-                    "errors": errors,
-                },
-            }
-        except Exception as e:
-            logger.error(f"DataHub target execution failed: {e}")
-            return {"success": False, "target_type": "datahub", "error": str(e)}
-
-    def get_target_info(self) -> dict:
-        """Get DataHub target information."""
-        return {
-            "type": "datahub",
-            "server": self.datahub_client.datahub_gms if self.datahub_client else None,
-            "has_token": self.datahub_client.api_token is not None
-            if self.datahub_client
-            else False,
-        }
 
 
 class PrettyPrintTarget(TargetInterface):
@@ -710,13 +591,6 @@ class TargetFactory:
     """Factory for creating output targets."""
 
     @staticmethod
-    def create_datahub_target(
-        datahub_client: DataHubClient, rdf_graph: Graph = None
-    ) -> DataHubTarget:
-        """Create a DataHub target."""
-        return DataHubTarget(datahub_client, rdf_graph)
-
-    @staticmethod
     def create_pretty_print_target(urn_generator=None) -> PrettyPrintTarget:
         """Create a pretty print target."""
         return PrettyPrintTarget(urn_generator)
@@ -743,14 +617,7 @@ class TargetFactory:
     @staticmethod
     def create_target_from_config(target_type: str, **kwargs) -> TargetInterface:
         """Create a target from configuration."""
-        if target_type == "datahub":
-            datahub_client = kwargs.get("datahub_client")
-            rdf_graph = kwargs.get("rdf_graph")
-            if not datahub_client:
-                raise ValueError("datahub_client required for DataHub target")
-            return TargetFactory.create_datahub_target(datahub_client, rdf_graph)
-
-        elif target_type == "pretty_print":
+        if target_type == "pretty_print":
             urn_generator = kwargs.get("urn_generator")
             return TargetFactory.create_pretty_print_target(urn_generator)
 
