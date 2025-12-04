@@ -180,7 +180,9 @@ export default defineConfig(async ({ mode }) => {
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
-                exclude: [],
+                exclude: [
+                    '**/*.d.ts', // TypeScript declaration files contain no executable code
+                ],
             },
         },
         resolve: {
