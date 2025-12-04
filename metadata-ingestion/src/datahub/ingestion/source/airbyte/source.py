@@ -131,7 +131,9 @@ def _validate_urn_component(component: str, component_name: str) -> str:
 
     # Check for spaces (common issue)
     if " " in component.strip():
-        logger.warning(f"URN component '{component_name}' contains spaces: {component}")
+        logger.warning(
+            "URN component '%s' contains spaces: %s", component_name, component
+        )
 
     return component.strip()
 
@@ -162,12 +164,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self.client = create_airbyte_client(config)
         self.report = StaleEntityRemovalSourceReport()
 
-        # Log configuration information
-        logger.info(
-            f"Initialized Airbyte source with deployment type: {config.deployment_type}"
+        logger.debug(
+            "Initialized Airbyte source with deployment type: %s",
+            config.deployment_type,
         )
         if config.platform_instance:
-            logger.info(f"Using platform instance: {config.platform_instance}")
+            logger.debug("Using platform instance: %s", config.platform_instance)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AirbyteSource":
@@ -303,7 +305,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     )
                     continue
 
-                logger.debug(f"Processing workspace {workspace.workspace_id}")
+                logger.debug("Processing workspace %s", workspace.workspace_id)
 
                 for connection in self.client.list_connections(
                     workspace.workspace_id,
@@ -370,21 +372,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         logger.error("Authentication failed. Stopping ingestion.")
                         raise
                     except Exception as e:
-                        conn_id = (
-                            connection.connection_id
-                            if hasattr(connection, "connection_id")
-                            else "unknown"
-                        )
-                        conn_name = (
-                            connection.name
-                            if hasattr(connection, "name")
-                            else "unknown"
-                        )
-                        ws_id = (
-                            workspace.workspace_id
-                            if hasattr(workspace, "workspace_id")
-                            else "unknown"
-                        )
+                        conn_id = getattr(connection, "connection_id", "unknown")
+                        conn_name = getattr(connection, "name", "unknown")
+                        ws_id = getattr(workspace, "workspace_id", "unknown")
                         self.report.report_failure(
                             message="Failed to process connection",
                             context=f"workspace-{ws_id}/connection-{conn_id}/{conn_name}",
@@ -395,11 +385,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 logger.error("Authentication failed. Stopping ingestion.")
                 raise
             except Exception as e:
-                workspace_id = (
-                    workspace.workspace_id
-                    if hasattr(workspace, "workspace_id")
-                    else "unknown"
-                )
+                workspace_id = getattr(workspace, "workspace_id", "unknown")
                 self.report.report_failure(
                     message="Failed to process workspace",
                     context=f"workspace-{workspace_id}",
@@ -916,13 +902,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 }
                 streams.append(AirbyteStreamDetails.model_validate(stream_details))
 
-        logger.debug(f"Using {len(streams)} streams from connection sync catalog")
+        logger.debug("Using %d streams from connection sync catalog", len(streams))
         return streams
 
     def _fetch_tags_for_workspace(self, workspace_id: str) -> List[AirbyteTagInfo]:
         try:
             tags_list = self.client.list_tags(workspace_id)
-            logger.debug(f"Retrieved {len(tags_list)} tags from Airbyte")
+            logger.debug("Retrieved %d tags from Airbyte", len(tags_list))
             return [AirbyteTagInfo.model_validate(tag) for tag in tags_list]
         except Exception as e:
             self.report.warning(
@@ -1158,7 +1144,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         # Add tags to datasets
         # Also marked as non-primary since Airbyte is not authoritative for these datasets
         if tags:
-            logger.debug(f"Adding {len(tags)} tags to source and destination datasets")
+            logger.debug("Adding %d tags to source and destination datasets", len(tags))
             for dataset_urn in [source_urn, destination_urn]:
                 global_tags = GlobalTagsClass(
                     tags=[TagAssociationClass(tag=tag) for tag in tags]
@@ -1309,7 +1295,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             platform_instance=dest_platform_instance,
         )
 
-        logger.debug(f"Created lineage from {source_urn} to {destination_urn}")
+        logger.debug("Created lineage from %s to %s", source_urn, destination_urn)
 
         return AirbyteDatasetUrns(
             source_urn=source_urn, destination_urn=destination_urn
@@ -1333,7 +1319,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_name = pipeline_info.source.name or ""
         destination_name = pipeline_info.destination.name or ""
 
-        logger.debug(f"Creating lineage for connection: {connection_id}")
+        logger.debug("Creating lineage for connection: %s", connection_id)
 
         if not source_name or not destination_name:
             self.report.warning(
@@ -1407,16 +1393,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
             except Exception as e:
                 # Get connection name for better context
-                conn_name = (
-                    pipeline_info.connection.name
-                    if hasattr(pipeline_info.connection, "name")
-                    else "unknown"
-                )
-                ws_id = (
-                    pipeline_info.workspace.workspace_id
-                    if hasattr(pipeline_info.workspace, "workspace_id")
-                    else "unknown"
-                )
+                conn_name = getattr(pipeline_info.connection, "name", "unknown")
+                ws_id = getattr(pipeline_info.workspace, "workspace_id", "unknown")
                 self.report.report_failure(
                     message="Failed to process stream",
                     context=f"workspace-{ws_id}/connection-{connection_id}/{conn_name}/stream-{stream.stream_name}",

@@ -27,18 +27,18 @@ def _log_authentication_info(config: AirbyteClientConfig) -> None:
     """
     if config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
         if config.api_key:
-            logger.info("Using API key/token for authentication")
+            logger.debug("Using API key/token for authentication")
         elif config.username:
-            logger.info("Using basic authentication with username and password")
+            logger.debug("Using basic authentication with username and password")
         else:
-            logger.info(
+            logger.debug(
                 "No authentication credentials provided for Open Source deployment"
             )
     else:  # Cloud deployment
         if config.oauth2_client_id and config.oauth2_refresh_token:
-            logger.info("Using OAuth2 authentication for Airbyte Cloud")
+            logger.debug("Using OAuth2 authentication for Airbyte Cloud")
         else:
-            logger.info("OAuth2 credentials incomplete for Airbyte Cloud")
+            logger.debug("OAuth2 credentials incomplete for Airbyte Cloud")
 
 
 def _log_ssl_settings(config: AirbyteClientConfig) -> None:
@@ -51,7 +51,7 @@ def _log_ssl_settings(config: AirbyteClientConfig) -> None:
     if not config.verify_ssl:
         logger.warning("SSL certificate verification is disabled")
     elif config.ssl_ca_cert:
-        logger.info(f"Using custom CA certificate: {config.ssl_ca_cert}")
+        logger.debug("Using custom CA certificate: %s", config.ssl_ca_cert)
 
 
 def _test_workspaces(
@@ -115,8 +115,8 @@ def _test_connections(
                 error_message="Unable to retrieve connections from Airbyte API: expected a list response",
             )
 
-        logger.info(
-            f"Successfully retrieved {len(connections)} connections from workspace {workspace_id}"
+        logger.debug(
+            "Retrieved %d connections from workspace %s", len(connections), workspace_id
         )
 
         if not connections:
@@ -143,7 +143,7 @@ def _test_source(client: AirbyteBaseClient, source_id: str) -> AirbyteTestResult
     """
     try:
         client.get_source(source_id)
-        logger.info(f"Successfully retrieved source {source_id}")
+        logger.info("Successfully retrieved source %s", source_id)
         return AirbyteTestResult(success=True)
     except Exception as e:
         return AirbyteTestResult(
@@ -167,7 +167,7 @@ def _test_destination(
     """
     try:
         client.get_destination(destination_id)
-        logger.info(f"Successfully retrieved destination {destination_id}")
+        logger.info("Successfully retrieved destination %s", destination_id)
         return AirbyteTestResult(success=True)
     except Exception as e:
         return AirbyteTestResult(
@@ -190,7 +190,7 @@ def _test_jobs(client: AirbyteBaseClient, connection_id: str) -> AirbyteTestResu
     try:
         jobs = client.list_jobs(connection_id, limit=5)
         logger.info(
-            f"Successfully retrieved {len(jobs)} jobs for connection {connection_id}"
+            "Successfully retrieved %d jobs for connection %s", len(jobs), connection_id
         )
         return AirbyteTestResult(success=True)
     except Exception as e:
@@ -212,7 +212,7 @@ def test_connection(config: AirbyteClientConfig) -> Optional[str]:
         Optional[str]: None if successful, or an error message if connection fails
     """
     try:
-        logger.info(f"Testing connection to Airbyte {config.deployment_type} API")
+        logger.info("Testing connection to Airbyte %s API", config.deployment_type)
 
         # Log configuration information
         _log_authentication_info(config)
@@ -232,7 +232,7 @@ def test_connection(config: AirbyteClientConfig) -> Optional[str]:
             return f"Unexpected workspace data type: {type(workspace_result.data)}"
 
         workspace_id = workspace_result.data.workspace_id
-        logger.info(f"Testing connection using workspace: {workspace_id}")
+        logger.info("Testing connection using workspace: %s", workspace_id)
 
         connection_result = _test_connections(client, workspace_id)
         if not connection_result.success:
@@ -260,7 +260,7 @@ def test_connection(config: AirbyteClientConfig) -> Optional[str]:
             if not jobs_result.success:
                 return jobs_result.error_message
 
-        logger.info(f"Successfully connected to Airbyte {config.deployment_type} API")
+        logger.info("Successfully connected to Airbyte %s API", config.deployment_type)
         return None
     except Exception as e:
         error_message = (
