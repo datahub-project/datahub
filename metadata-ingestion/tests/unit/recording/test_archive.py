@@ -177,10 +177,13 @@ class TestArchiveManifest:
             run_id="test-run-123",
             source_type="snowflake",
             sink_type="datahub-rest",
-            datahub_version="0.13.0",
+            datahub_cli_version="0.13.0",
+            python_version="3.10.15",
         )
         assert manifest.run_id == "test-run-123"
         assert manifest.source_type == "snowflake"
+        assert manifest.datahub_cli_version == "0.13.0"
+        assert manifest.python_version == "3.10.15"
         assert manifest.created_at is not None
 
     def test_manifest_to_dict(self) -> None:
@@ -201,7 +204,8 @@ class TestArchiveManifest:
             "run_id": "test-123",
             "source_type": "postgres",
             "sink_type": "datahub-rest",
-            "datahub_version": "0.13.0",
+            "datahub_cli_version": "0.13.0",
+            "python_version": "3.10.15",
             "created_at": "2024-01-01T00:00:00Z",
             "checksums": {"file1.json": "abc123"},
             "format_version": "1.0.0",
@@ -209,6 +213,8 @@ class TestArchiveManifest:
         manifest = ArchiveManifest.from_dict(data)
         assert manifest.run_id == "test-123"
         assert manifest.source_type == "postgres"
+        assert manifest.datahub_cli_version == "0.13.0"
+        assert manifest.python_version == "3.10.15"
         assert manifest.checksums == {"file1.json": "abc123"}
 
 

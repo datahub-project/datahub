@@ -158,7 +158,8 @@ recording-{run_id}.zip (AES-256 encrypted, LZMA compressed)
   "run_id": "looker-2024-12-03-10_30_00-abc123",
   "source_type": "looker",
   "sink_type": "datahub-rest",
-  "datahub_version": "0.14.0",
+  "datahub_cli_version": "0.14.0",
+  "python_version": "3.10.15",
   "created_at": "2024-12-03T10:35:00Z",
   "recording_start_time": "2024-12-03T10:30:00Z",
   "files": ["http/cassette.yaml", "db/queries.jsonl"],
@@ -168,6 +169,10 @@ recording-{run_id}.zip (AES-256 encrypted, LZMA compressed)
 }
 ```
 
+- `source_type`: The type of source connector (e.g., snowflake, looker, bigquery)
+- `sink_type`: The type of sink (e.g., datahub-rest, file)
+- `datahub_cli_version`: The DataHub CLI version used for recording
+- `python_version`: The Python version used for recording (e.g., "3.10.15")
 - `recording_start_time`: When recording began (informational)
 - `has_exception`: Whether the recording captured an exception
 - `exception_info`: Stack trace and details if an exception occurred

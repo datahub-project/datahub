@@ -229,7 +229,8 @@ class ArchiveManifest:
         run_id: str,
         source_type: Optional[str] = None,
         sink_type: Optional[str] = None,
-        datahub_version: Optional[str] = None,
+        datahub_cli_version: Optional[str] = None,
+        python_version: Optional[str] = None,
         created_at: Optional[str] = None,
         checksums: Optional[Dict[str, str]] = None,
         format_version: str = ARCHIVE_FORMAT_VERSION,
@@ -239,7 +240,8 @@ class ArchiveManifest:
         self.run_id = run_id
         self.source_type = source_type
         self.sink_type = sink_type
-        self.datahub_version = datahub_version
+        self.datahub_cli_version = datahub_cli_version
+        self.python_version = python_version
         self.created_at = created_at or datetime.now(timezone.utc).isoformat()
         self.checksums = checksums or {}
         self.format_version = format_version
@@ -261,7 +263,8 @@ class ArchiveManifest:
             "run_id": self.run_id,
             "source_type": self.source_type,
             "sink_type": self.sink_type,
-            "datahub_version": self.datahub_version,
+            "datahub_cli_version": self.datahub_cli_version,
+            "python_version": self.python_version,
             "created_at": self.created_at,
             "checksums": self.checksums,
             "recording_start_time": self.recording_start_time,
@@ -278,7 +281,8 @@ class ArchiveManifest:
             run_id=data["run_id"],
             source_type=data.get("source_type"),
             sink_type=data.get("sink_type"),
-            datahub_version=data.get("datahub_version"),
+            datahub_cli_version=data.get("datahub_cli_version"),
+            python_version=data.get("python_version"),
             created_at=data.get("created_at"),
             checksums=data.get("checksums", {}),
             format_version=data.get("format_version", ARCHIVE_FORMAT_VERSION),
@@ -476,7 +480,8 @@ def get_archive_info(archive_path: Path, password: str) -> Dict[str, Any]:
         "run_id": manifest.run_id,
         "source_type": manifest.source_type,
         "sink_type": manifest.sink_type,
-        "datahub_version": manifest.datahub_version,
+        "datahub_cli_version": manifest.datahub_cli_version,
+        "python_version": manifest.python_version,
         "created_at": manifest.created_at,
         "recording_start_time": manifest.recording_start_time,
         "file_count": len(manifest.checksums),

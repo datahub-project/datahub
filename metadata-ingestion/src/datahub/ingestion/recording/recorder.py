@@ -219,7 +219,8 @@ class IngestionRecorder:
             run_id=self.run_id,
             source_type=self.source_type,
             sink_type=self.sink_type,
-            datahub_version=self._get_datahub_version(),
+            datahub_cli_version=self._get_cli_version(),
+            python_version=self._get_python_version(),
             exception_info=exception_info,
             recording_start_time=self._recording_start_time,
         )
@@ -337,12 +338,22 @@ class IngestionRecorder:
             )
 
     @staticmethod
-    def _get_datahub_version() -> Optional[str]:
-        """Get the DataHub version."""
+    def _get_cli_version() -> Optional[str]:
+        """Get the DataHub CLI version (user-friendly)."""
         try:
-            import datahub
+            from datahub._version import nice_version_name
 
-            return datahub.__version__
+            return nice_version_name()
+        except Exception:
+            return None
+
+    @staticmethod
+    def _get_python_version() -> Optional[str]:
+        """Get the Python version."""
+        try:
+            import sys
+
+            return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
         except Exception:
             return None
 
