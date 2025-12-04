@@ -301,7 +301,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with base extras (network enabled, can install more at runtime)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
-  uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs]'
+  uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs,rdf]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
@@ -355,7 +355,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 # Install metadata-ingestion with SLIM extras (no PySpark, network enabled for flexibility)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
-  uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
+  uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim,rdf]'
 
 # Install datahub-actions with all extras
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
