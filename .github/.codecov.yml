@@ -54,6 +54,9 @@ flag_management:
     - name: acryl-cloud
       paths:
         - "metadata-ingestion-modules/acryl-cloud/**"
+    - name: metadata-integration
+      paths:
+        - "metadata-integration/**"
 coverage:
   status:
     project: false
