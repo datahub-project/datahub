@@ -274,6 +274,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumer.stopOnDeserializationError",
           "kafka.consumerPool.initialSize",
           "kafka.consumerPool.maxSize",
+          "kafka.consumerPool.validationTimeoutSeconds",
+          "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.compressionType",
