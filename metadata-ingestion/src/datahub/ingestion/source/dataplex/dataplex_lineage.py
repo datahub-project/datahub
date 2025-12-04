@@ -201,12 +201,12 @@ class DataplexLineageExtractor:
         Raises:
             Exception: If the lineage API call fails
         """
-        logger.info(f"Searching upstream lineage for FQN: {fully_qualified_name}")
+        logger.debug(f"Searching upstream lineage for FQN: {fully_qualified_name}")
         target = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, target=target)
         # Convert pager to list - this automatically handles pagination
         results = list(self.lineage_client.search_links(request=request))
-        logger.info(
+        logger.debug(
             f"Found {len(results)} upstream lineage link(s) for {fully_qualified_name}"
         )
         return results
@@ -245,12 +245,12 @@ class DataplexLineageExtractor:
         Raises:
             Exception: If the lineage API call fails
         """
-        logger.info(f"Searching downstream lineage for FQN: {fully_qualified_name}")
+        logger.debug(f"Searching downstream lineage for FQN: {fully_qualified_name}")
         source = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, source=source)
         # Convert pager to list - this automatically handles pagination
         results = list(self.lineage_client.search_links(request=request))
-        logger.info(
+        logger.debug(
             f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
         )
         return results
@@ -526,13 +526,26 @@ class DataplexLineageExtractor:
             self.build_lineage_map(project_id, entity_list)
 
             for entity in entity_list:
-                dataset_urn = make_entity_dataset_urn(
-                    project_id=project_id,
-                    entity_id=entity.entity_id,
-                    platform=entity.source_platform,
-                    env=self.config.env,
-                    dataset_id=entity.dataset_id,
-                )
+                # Construct dataset URN based on whether this is from Entries API or Entities API
+                if entity.is_entry:
+                    # For entries, use simple naming (just entity_id)
+                    import datahub.emitter.mce_builder as builder
+
+                    dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                        platform=entity.source_platform,
+                        name=entity.entity_id,
+                        platform_instance=None,
+                        env=self.config.env,
+                    )
+                else:
+                    # For entities, use hierarchical naming (project.dataset.entity)
+                    dataset_urn = make_entity_dataset_urn(
+                        project_id=project_id,
+                        entity_id=entity.entity_id,
+                        platform=entity.source_platform,
+                        env=self.config.env,
+                        dataset_id=entity.dataset_id,
+                    )
 
                 try:
                     yield from self.gen_lineage(
@@ -572,13 +585,26 @@ class DataplexLineageExtractor:
 
                 # Generate workunits for entities in this batch
                 for entity in batch:
-                    dataset_urn = make_entity_dataset_urn(
-                        project_id=project_id,
-                        entity_id=entity.entity_id,
-                        platform=entity.source_platform,
-                        env=self.config.env,
-                        dataset_id=entity.dataset_id,
-                    )
+                    # Construct dataset URN based on whether this is from Entries API or Entities API
+                    if entity.is_entry:
+                        # For entries, use simple naming (just entity_id)
+                        import datahub.emitter.mce_builder as builder
+
+                        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                            platform=entity.source_platform,
+                            name=entity.entity_id,
+                            platform_instance=None,
+                            env=self.config.env,
+                        )
+                    else:
+                        # For entities, use hierarchical naming (project.dataset.entity)
+                        dataset_urn = make_entity_dataset_urn(
+                            project_id=project_id,
+                            entity_id=entity.entity_id,
+                            platform=entity.source_platform,
+                            env=self.config.env,
+                            dataset_id=entity.dataset_id,
+                        )
 
                     try:
                         yield from self.gen_lineage(

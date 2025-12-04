@@ -29,6 +29,7 @@ class EntityDataTuple:
     asset_id: str
     source_platform: str
     dataset_id: str
+    is_entry: bool = False  # True if from Entries API (use simple naming), False if from Entities API (use hierarchical naming)
 
 
 def make_bigquery_dataset_container_key(

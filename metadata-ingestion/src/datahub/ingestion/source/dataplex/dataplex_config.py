@@ -72,20 +72,18 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    include_entities: bool = Field(
+    include_entries: bool = Field(
         default=True,
-        description="Whether to include Entity metadata (discovered tables/filesets) as Datasets.",
+        description="Whether to extract Entries from Universal Catalog. "
+        "This is the primary source of metadata and is always processed first.",
     )
 
-    # extract_entry_groups: bool = Field(
-    #     default=False,
-    #     description="Whether to extract Entry Groups from Universal Catalog. (Phase 2 feature)",
-    # )
-
-    # extract_entries: bool = Field(
-    #     default=False,
-    #     description="Whether to extract Entries from Universal Catalog. (Phase 2 feature)",
-    # )
+    include_entities: bool = Field(
+        default=False,
+        description="Whether to include Entity metadata from Lakes/Zones (discovered tables/filesets) as Datasets. "
+        "This is optional and complements the Entries API data. "
+        "When both include_entries and include_entities are enabled, entities already found in Entries API will be skipped to avoid duplicates.",
+    )
 
     include_lineage: bool = Field(
         default=True,
