@@ -1265,41 +1265,63 @@ class SQLServerSource(SQLAlchemySource):
         try:
             parts = name.split(".")
             table_name = parts[-1]
-            schema_name = parts[-2]
-            db_name = parts[-3]
 
             if table_name.startswith("#"):
                 logger.debug(f"[IS-TEMP] {name} starts with #")
                 return True
 
-            # This is also a temp table if
-            #   1. this name would be allowed by the dataset patterns, and
-            #   2. we have a list of discovered tables, and
-            #   3. it's not in the discovered tables list
-            standardized_name = self.standardize_identifier_case(name)
-            if (
-                self.config.database_pattern.allowed(db_name)
-                and self.config.schema_pattern.allowed(schema_name)
-                and self.config.table_pattern.allowed(name)
-            ):
-                if standardized_name not in self.discovered_datasets:
-                    logger.info(
-                        f"[IS-TEMP] {name} treated as temp: passes patterns but not in discovered_datasets "
-                        f"(standardized: {standardized_name})"
-                    )
-                    return True
-                else:
+            # Check if the table exists in schema_resolver
+            # If we have schema information for it, it's a real table (not an alias)
+            # Only check schema_resolver if aggregator is initialized (not in unit tests)
+            if hasattr(self, "aggregator") and self.aggregator is not None:
+                from datahub.emitter.mce_builder import (
+                    make_dataset_urn_with_platform_instance,
+                )
+
+                schema_resolver = self.get_schema_resolver()
+
+                urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
+
+                if schema_resolver.has_urn(urn):
                     logger.debug(
-                        f"[IS-TEMP] {name} is NOT temp: found in discovered_datasets"
+                        f"[IS-TEMP] {name} is NOT temp: found in schema_resolver"
                     )
                     return False
-            else:
-                return False
+
+            # If not in schema_resolver, check if it matches our patterns
+            # and check against discovered_datasets as fallback
+            if len(parts) >= 3:
+                schema_name = parts[-2]
+                db_name = parts[-3]
+
+                if (
+                    self.config.database_pattern.allowed(db_name)
+                    and self.config.schema_pattern.allowed(schema_name)
+                    and self.config.table_pattern.allowed(name)
+                ):
+                    standardized_name = self.standardize_identifier_case(name)
+                    if standardized_name not in self.discovered_datasets:
+                        logger.info(
+                            f"[IS-TEMP] {name} treated as temp: not in schema_resolver and not in discovered_datasets "
+                            f"(standardized: {standardized_name})"
+                        )
+                        return True
+                    else:
+                        logger.debug(
+                            f"[IS-TEMP] {name} is NOT temp: found in discovered_datasets"
+                        )
+                        return False
+
+            return False
 
         except Exception as e:
             logger.warning(f"Error parsing table name {name}: {e}")
-
-        return False
+            return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (
