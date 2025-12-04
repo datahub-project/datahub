@@ -1049,7 +1049,70 @@ class SQLServerSource(SQLAlchemySource):
         name_parts = name.split(".")
         return len(name_parts) >= 3
 
-    def _filter_procedure_lineage(
+    def _filter_upstream_aliases(self, upstream_urns: List[str]) -> List[str]:
+        """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
+
+        TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
+        both 'dst' (alias) and 'table' (real table). These aliases appear as upstream
+        references but aren't real tables.
+
+        Uses the existing is_temp_table() method to identify aliases:
+        - Tables in schema_resolver: Real tables (keep)
+        - Tables in discovered_datasets: Real tables (keep)
+        - Undiscovered tables: Likely aliases (filter)
+
+        Args:
+            upstream_urns: List of upstream dataset URNs
+
+        Returns:
+            Filtered list with only real tables
+        """
+        from datahub.metadata._urns.urn_defs import DatasetUrn
+
+        if not upstream_urns:
+            return []
+
+        logger.info(
+            f"[FILTER-UPSTREAM] Starting alias filtering for {len(upstream_urns)} upstream URNs"
+        )
+
+        filtered = []
+        filtered_aliases = []
+        kept_tables = []
+
+        for urn in upstream_urns:
+            try:
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_name = dataset_urn.name
+
+                # Reuse existing is_temp_table() logic
+                if self.is_temp_table(table_name):
+                    filtered_aliases.append(table_name)
+                    logger.info(f"[FILTER-UPSTREAM] Filtering alias: {table_name}")
+                else:
+                    filtered.append(urn)
+                    kept_tables.append(table_name)
+                    logger.debug(f"[FILTER-UPSTREAM] Keeping real table: {table_name}")
+            except Exception as e:
+                logger.warning(f"[FILTER-UPSTREAM] Error parsing URN {urn}: {e}")
+                filtered.append(urn)  # Conservative: keep it
+
+        # Summary logging
+        if filtered_aliases:
+            logger.info(
+                f"[FILTER-UPSTREAM] Summary: Filtered {len(filtered_aliases)} alias(es), "
+                f"kept {len(kept_tables)} real table(s)"
+            )
+            logger.info(f"[FILTER-UPSTREAM]   Filtered aliases: {filtered_aliases}")
+            logger.info(f"[FILTER-UPSTREAM]   Kept tables: {kept_tables}")
+        else:
+            logger.info(
+                f"[FILTER-UPSTREAM] No aliases filtered, all {len(upstream_urns)} tables are real"
+            )
+
+        return filtered
+
+    def _filter_procedure_lineage(  # noqa: C901
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
         procedure_name: Optional[str] = None,
@@ -1126,14 +1189,27 @@ class SQLServerSource(SQLAlchemySource):
                 filtered_outputs = []
 
                 if aspect.inputDatasets:
+                    # First filter unqualified tables
                     for urn in aspect.inputDatasets:
                         if not self._is_qualified_table_urn(urn, platform_instance):
                             filtered_inputs.append(urn)
-                    aspect.inputDatasets = [
+                    qualified_inputs = [
                         urn
                         for urn in aspect.inputDatasets
                         if self._is_qualified_table_urn(urn, platform_instance)
                     ]
+
+                    # Log phase 1 filtering results
+                    if filtered_inputs:
+                        logger.info(
+                            f"[FILTER-PHASE1] Filtered {len(filtered_inputs)} unqualified table(s), "
+                            f"proceeding with {len(qualified_inputs)} qualified table(s) for alias filtering"
+                        )
+
+                    # Then filter upstream aliases using is_temp_table()
+                    aspect.inputDatasets = self._filter_upstream_aliases(
+                        qualified_inputs
+                    )
 
                 if aspect.outputDatasets:
                     for urn in aspect.outputDatasets:
