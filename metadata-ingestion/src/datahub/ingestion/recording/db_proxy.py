@@ -13,13 +13,88 @@ import functools
 import hashlib
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
+
+# Regex patterns for normalizing dynamic values in SQL queries
+# These patterns match timestamp literals and functions that generate dynamic values
+_TIMESTAMP_PATTERNS = [
+    # Snowflake: to_timestamp_ltz(1764720000000, 3) -> to_timestamp_ltz(?, ?)
+    (
+        r"to_timestamp(?:_ltz|_ntz|_tz)?\s*\(\s*[\d]+\s*(?:,\s*[\d]+\s*)?\)",
+        "to_timestamp(?)",
+    ),
+    # Snowflake: DATEADD(day, -30, CURRENT_TIMESTAMP()) or similar
+    (r"DATEADD\s*\(\s*\w+\s*,\s*-?\d+\s*,\s*[^)]+\)", "DATEADD(?)"),
+    # Generic timestamp literals: '2024-12-03 10:30:00' or '2024-12-03T10:30:00Z'
+    (
+        r"'\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?'",
+        "'?TIMESTAMP?'",
+    ),
+    # Date literals: '2024-12-03'
+    (r"'\d{4}-\d{2}-\d{2}'", "'?DATE?'"),
+    # Unix timestamps (13-digit milliseconds or 10-digit seconds)
+    (r"\b\d{13}\b", "?EPOCH_MS?"),
+    (r"\b\d{10}\b(?!\d)", "?EPOCH_S?"),
+    # CURRENT_TIMESTAMP(), NOW(), GETDATE() with offsets
+    (
+        r"(?:CURRENT_TIMESTAMP|NOW|GETDATE|SYSDATE)\s*\(\s*\)\s*(?:-\s*INTERVAL\s+'[^']+'\s*)?",
+        "?CURRENT_TIME?",
+    ),
+]
+
+# Compile patterns for efficiency
+_COMPILED_TIMESTAMP_PATTERNS = [
+    (re.compile(p, re.IGNORECASE), r) for p, r in _TIMESTAMP_PATTERNS
+]
+
+
+def normalize_query_for_matching(query: str) -> str:
+    """Normalize a SQL query by replacing dynamic values with placeholders.
+
+    This enables matching queries that differ only in timestamps, date ranges,
+    or other dynamic values that change between recording and replay.
+
+    Args:
+        query: The SQL query string to normalize.
+
+    Returns:
+        Normalized query string with dynamic values replaced by placeholders.
+    """
+    normalized = query
+
+    # Apply all timestamp/dynamic value patterns
+    for pattern, replacement in _COMPILED_TIMESTAMP_PATTERNS:
+        normalized = pattern.sub(replacement, normalized)
+
+    # Normalize whitespace (collapse multiple spaces, trim)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    return normalized
+
+
+def compute_query_similarity(query1: str, query2: str) -> float:
+    """Compute similarity ratio between two queries.
+
+    Uses normalized forms for comparison to handle dynamic value differences.
+
+    Args:
+        query1: First query string.
+        query2: Second query string.
+
+    Returns:
+        Similarity ratio between 0.0 and 1.0.
+    """
+    norm1 = normalize_query_for_matching(query1)
+    norm2 = normalize_query_for_matching(query2)
+    return SequenceMatcher(None, norm1, norm2).ratio()
 
 
 def _serialize_value(value: Any) -> Any:
@@ -163,8 +238,26 @@ class QueryRecording:
         return params
 
     def get_key(self) -> str:
-        """Generate a unique key for this query based on query text and parameters."""
+        """Generate a unique key for this query based on query text and parameters.
+
+        Uses exact query text for precise matching.
+        """
         key_parts = [self.query]
+        if self.parameters:
+            key_parts.append(
+                json.dumps(self._serialize_params(self.parameters), sort_keys=True)
+            )
+        key_string = "|".join(key_parts)
+        return hashlib.sha256(key_string.encode()).hexdigest()[:16]
+
+    def get_normalized_key(self) -> str:
+        """Generate a key based on normalized query text.
+
+        This key is used for fuzzy matching when exact match fails.
+        Dynamic values like timestamps are replaced with placeholders.
+        """
+        normalized = normalize_query_for_matching(self.query)
+        key_parts = [normalized]
         if self.parameters:
             key_parts.append(
                 json.dumps(self._serialize_params(self.parameters), sort_keys=True)
@@ -178,7 +271,15 @@ class QueryRecorder:
 
     This class stores query recordings and provides lookup during replay.
     It supports JSONL format for streaming writes.
+
+    Query matching strategy (in order):
+    1. Exact match - hash of exact query text
+    2. Normalized match - hash of query with timestamps/dynamic values normalized
+    3. Fuzzy match - similarity-based matching for queries above threshold
     """
+
+    # Minimum similarity ratio for fuzzy matching (0.0 to 1.0)
+    FUZZY_MATCH_THRESHOLD = 0.85
 
     def __init__(self, recording_path: Path) -> None:
         """Initialize query recorder.
@@ -187,7 +288,12 @@ class QueryRecorder:
             recording_path: Path to the JSONL file for storing recordings.
         """
         self.recording_path = recording_path
+        # Primary index: exact key -> recording
         self._recordings: Dict[str, QueryRecording] = {}
+        # Secondary index: normalized key -> list of recordings
+        self._normalized_recordings: Dict[str, List[QueryRecording]] = {}
+        # All recordings for fuzzy matching
+        self._all_recordings: List[QueryRecording] = []
         self._file_handle: Optional[Any] = None
 
     def start_recording(self) -> None:
@@ -217,7 +323,10 @@ class QueryRecorder:
             self._file_handle.flush()
 
     def load_recordings(self) -> None:
-        """Load recordings from file for replay."""
+        """Load recordings from file for replay.
+
+        Builds both exact and normalized indexes for efficient lookup.
+        """
         if not self.recording_path.exists():
             raise FileNotFoundError(
                 f"DB recordings not found: {self.recording_path}. "
@@ -225,21 +334,130 @@ class QueryRecorder:
             )
 
         self._recordings.clear()
+        self._normalized_recordings.clear()
+        self._all_recordings.clear()
+
         with open(self.recording_path, "r") as f:
             for line in f:
                 if line.strip():
                     recording = QueryRecording.from_dict(json.loads(line))
-                    self._recordings[recording.get_key()] = recording
 
-        logger.info(f"Loaded {len(self._recordings)} DB query recording(s)")
+                    # Store in exact key index
+                    exact_key = recording.get_key()
+                    self._recordings[exact_key] = recording
+
+                    # Store in normalized key index
+                    normalized_key = recording.get_normalized_key()
+                    if normalized_key not in self._normalized_recordings:
+                        self._normalized_recordings[normalized_key] = []
+                    self._normalized_recordings[normalized_key].append(recording)
+
+                    # Store for fuzzy matching
+                    self._all_recordings.append(recording)
+
+        logger.info(
+            f"Loaded {len(self._recordings)} DB query recording(s) "
+            f"({len(self._normalized_recordings)} normalized patterns)"
+        )
 
     def get_recording(
         self, query: str, parameters: Optional[Any] = None
     ) -> Optional[QueryRecording]:
-        """Look up a recorded query result."""
+        """Look up a recorded query result using multi-level matching.
+
+        Matching strategy (in order of preference):
+        1. Exact match - fastest, most reliable
+        2. Normalized match - handles dynamic timestamps
+        3. Fuzzy match - handles minor query variations
+
+        Args:
+            query: The SQL query to look up.
+            parameters: Optional query parameters.
+
+        Returns:
+            The matching QueryRecording, or None if not found.
+        """
         temp_recording = QueryRecording(query=query, parameters=parameters)
-        key = temp_recording.get_key()
-        return self._recordings.get(key)
+
+        # Strategy 1: Exact match
+        exact_key = temp_recording.get_key()
+        if exact_key in self._recordings:
+            logger.debug(f"Exact match found for query: {query[:80]}...")
+            return self._recordings[exact_key]
+
+        # Strategy 2: Normalized match
+        normalized_key = temp_recording.get_normalized_key()
+        if normalized_key in self._normalized_recordings:
+            matches = self._normalized_recordings[normalized_key]
+            if matches:
+                logger.debug(
+                    f"Normalized match found for query: {query[:80]}... "
+                    f"({len(matches)} candidate(s))"
+                )
+                # Return first match (could be enhanced to pick best match)
+                return matches[0]
+
+        # Strategy 3: Fuzzy match (more expensive, use as fallback)
+        best_match = self._fuzzy_match(query, parameters)
+        if best_match:
+            return best_match
+
+        return None
+
+    def _fuzzy_match(
+        self, query: str, parameters: Optional[Any] = None
+    ) -> Optional[QueryRecording]:
+        """Find a recording using fuzzy string matching.
+
+        This is a fallback for when exact and normalized matching fail.
+        Uses normalized query forms for comparison.
+
+        Args:
+            query: The SQL query to match.
+            parameters: Optional query parameters.
+
+        Returns:
+            Best matching recording above threshold, or None.
+        """
+        if not self._all_recordings:
+            return None
+
+        best_match: Optional[QueryRecording] = None
+        best_similarity = 0.0
+
+        # Normalize the query we're looking for
+        normalized_query = normalize_query_for_matching(query)
+
+        for recording in self._all_recordings:
+            # Skip if parameters don't match (when both have parameters)
+            if parameters is not None and recording.parameters is not None:
+                if parameters != recording.parameters:
+                    continue
+
+            # Compute similarity using normalized forms
+            normalized_recorded = normalize_query_for_matching(recording.query)
+            similarity = SequenceMatcher(
+                None, normalized_query, normalized_recorded
+            ).ratio()
+
+            if similarity > best_similarity:
+                best_similarity = similarity
+                best_match = recording
+
+        if best_similarity >= self.FUZZY_MATCH_THRESHOLD:
+            logger.info(
+                f"Fuzzy match found (similarity: {best_similarity:.2%}) "
+                f"for query: {query[:80]}..."
+            )
+            return best_match
+
+        if best_match and best_similarity > 0.5:
+            logger.debug(
+                f"Best fuzzy match below threshold (similarity: {best_similarity:.2%}) "
+                f"for query: {query[:80]}..."
+            )
+
+        return None
 
 
 class CursorProxy:
