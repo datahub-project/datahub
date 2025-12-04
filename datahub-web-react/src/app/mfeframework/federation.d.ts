@@ -1,7 +1,3 @@
-declare module '*/*' {
-    export function mount(e1: HTMLElement, props?: Record<string, any>): () => void;
-}
-
 /* eslint-disable @typescript-eslint/naming-convention */
 declare module 'virtual:__federation__' {
     interface IRemoteConfig {

@@ -103,7 +103,9 @@ export function useMFEConfigFromBackend(): MFESchema | null {
                 if (!response.ok) throw new Error(`Failed to fetch YAML: ${response.statusText}`);
                 const yamlText = await response.text();
 
-                console.log('[MFE Loader] Fetched YAML: ', yamlText);
+                if (import.meta.env.DEV) {
+                    console.log('[MFE Loader] Fetched YAML: ', yamlText);
+                }
                 const parsedConfig = loadMFEConfigFromYAML(yamlText);
                 setConfig(parsedConfig);
             } catch (e) {
