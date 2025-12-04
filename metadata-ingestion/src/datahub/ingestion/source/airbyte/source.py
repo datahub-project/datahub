@@ -30,6 +30,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.airbyte.client import (
+    AirbyteAuthenticationError,
     AirbyteBaseClient,
     create_airbyte_client,
 )
@@ -77,33 +78,31 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
+# Mapping from Airbyte job status to DataHub InstanceRunResult
+AIRBYTE_JOB_STATUS_MAP = {
+    "succeeded": InstanceRunResult.SUCCESS,
+    "completed": InstanceRunResult.SUCCESS,
+    "success": InstanceRunResult.SUCCESS,
+    "failed": InstanceRunResult.FAILURE,
+    "failure": InstanceRunResult.FAILURE,
+    "error": InstanceRunResult.FAILURE,
+    "cancelled": InstanceRunResult.SKIPPED,
+    "canceled": InstanceRunResult.SKIPPED,
+    "running": InstanceRunResult.UP_FOR_RETRY,
+    "incomplete": InstanceRunResult.UP_FOR_RETRY,
+    "pending": InstanceRunResult.UP_FOR_RETRY,
+}
+
 
 def _sanitize_platform_name(platform_name: str) -> str:
-    """Sanitize platform name for use in URNs by replacing spaces and special characters.
-
-    Args:
-        platform_name: Raw platform name that may contain spaces
-
-    Returns:
-        Sanitized platform name suitable for URNs (lowercase, spaces replaced with hyphens)
-    """
-    # Replace spaces with hyphens and convert to lowercase for consistency
+    """Sanitize platform name for URNs (lowercase, spaces to hyphens)."""
     return platform_name.lower().replace(" ", "-")
 
 
 def _map_source_type_to_platform(
     source_type: str, source_type_mapping: Dict[str, str]
 ) -> str:
-    """Map Airbyte source type to DataHub platform name.
-
-    Args:
-        source_type: Airbyte sourceType or destinationType
-        source_type_mapping: User-configured mapping from source types to platform names
-
-    Returns:
-        Mapped platform name, or sanitized source_type if no mapping exists
-    """
-
+    """Map Airbyte source type to DataHub platform name."""
     # Check if user provided an explicit mapping
     if source_type in source_type_mapping:
         return source_type_mapping[source_type]
@@ -117,18 +116,24 @@ def _map_source_type_to_platform(
     return _sanitize_platform_name(source_type)
 
 
-def _get_platform_from_source_type(source_type: str) -> str:
-    """Get platform from Airbyte source type with built-in mappings.
+def _validate_urn_component(component: str, component_name: str) -> str:
+    """Validate URN component for empty values and invalid characters."""
+    if not component or not component.strip():
+        raise ValueError(f"{component_name} cannot be empty")
 
-    This is a simpler version without user overrides, used for fallback scenarios.
-    """
-    from datahub.ingestion.source.airbyte.config import KNOWN_SOURCE_TYPE_MAPPING
+    # Check for problematic characters
+    invalid_chars = [",", "(", ")"]
+    for char in invalid_chars:
+        if char in component:
+            logger.warning(
+                f"URN component '{component_name}' contains invalid character '{char}': {component}"
+            )
 
-    source_type_lower = source_type.lower()
-    if source_type_lower in KNOWN_SOURCE_TYPE_MAPPING:
-        return KNOWN_SOURCE_TYPE_MAPPING[source_type_lower]
+    # Check for spaces (common issue)
+    if " " in component.strip():
+        logger.warning(f"URN component '{component_name}' contains spaces: {component}")
 
-    return _sanitize_platform_name(source_type)
+    return component.strip()
 
 
 @platform_name("Airbyte")
@@ -172,11 +177,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _get_platform_for_source(
         self, source: AirbyteSourcePartial
     ) -> tuple[str, Optional[str], Optional[str]]:
-        """Get platform, platform_instance, and env for a source.
-
-        Returns:
-            Tuple of (platform, platform_instance, env)
-        """
+        """Return (platform, platform_instance, env) for source."""
         from datahub.ingestion.source.airbyte.config import PlatformDetail
 
         # Check if there's a per-source override
@@ -192,10 +193,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 source.source_type, self.source_config.source_type_mapping
             )
         elif source.name:
+            self.report.warning(
+                title="Platform Detection Fallback",
+                message=f"Source {source.source_id} missing source_type, using name as fallback",
+                context=f"source_id={source.source_id}, source_name={source.name}",
+            )
             platform = _map_source_type_to_platform(
                 source.name, self.source_config.source_type_mapping
             )
         else:
+            self.report.warning(
+                title="Platform Detection Failed",
+                message=f"Source {source.source_id} missing both source_type and name",
+                context=f"source_id={source.source_id}",
+            )
             platform = ""
 
         platform_instance = source_details.platform_instance
@@ -206,11 +217,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _get_platform_for_destination(
         self, destination: AirbyteDestinationPartial
     ) -> tuple[str, Optional[str], Optional[str]]:
-        """Get platform, platform_instance, and env for a destination.
-
-        Returns:
-            Tuple of (platform, platform_instance, env)
-        """
+        """Return (platform, platform_instance, env) for destination."""
         from datahub.ingestion.source.airbyte.config import PlatformDetail
 
         # Check if there's a per-destination override
@@ -226,10 +233,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 destination.destination_type, self.source_config.source_type_mapping
             )
         elif destination.name:
+            self.report.warning(
+                title="Platform Detection Fallback",
+                message=f"Destination {destination.destination_id} missing destination_type, using name as fallback",
+                context=f"destination_id={destination.destination_id}, destination_name={destination.name}",
+            )
             platform = _map_source_type_to_platform(
                 destination.name, self.source_config.source_type_mapping
             )
         else:
+            self.report.warning(
+                title="Platform Detection Failed",
+                message=f"Destination {destination.destination_id} missing both destination_type and name",
+                context=f"destination_id={destination.destination_id}",
+            )
             platform = ""
 
         platform_instance = dest_details.platform_instance
@@ -274,7 +291,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         ]
 
     def _get_pipelines(self) -> Iterable[AirbytePipelineInfo]:
-        """Fetch pipeline information from Airbyte, validating at the boundary."""
         for workspace in self.client.list_workspaces(
             pattern=self.source_config.workspace_pattern
         ):
@@ -287,7 +303,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     )
                     continue
 
-                logger.info(f"Processing workspace {workspace.workspace_id}")
+                logger.debug(f"Processing workspace {workspace.workspace_id}")
 
                 for connection in self.client.list_connections(
                     workspace.workspace_id,
@@ -306,7 +322,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             )
                             continue
 
-                        logger.info(f"Processing connection {connection.connection_id}")
+                        logger.debug(
+                            f"Processing connection {connection.connection_id}"
+                        )
 
                         # Fetch full connection details including syncCatalog
                         # list_connections() may return summaries without full syncCatalog
@@ -325,7 +343,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                                 source.name
                             )
                         ):
-                            logger.info(
+                            logger.debug(
                                 f"Skipping source {source.name} due to source pattern filter"
                             )
                             continue
@@ -336,7 +354,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                                 destination.name
                             )
                         ):
-                            logger.info(
+                            logger.debug(
                                 f"Skipping destination {destination.name} due to destination pattern filter"
                             )
                             continue
@@ -347,17 +365,35 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             source=source,
                             destination=destination,
                         )
+                    except AirbyteAuthenticationError:
+                        # Auth errors should fail fast - don't continue processing
+                        logger.error("Authentication failed. Stopping ingestion.")
+                        raise
                     except Exception as e:
                         conn_id = (
                             connection.connection_id
                             if hasattr(connection, "connection_id")
                             else "unknown"
                         )
+                        conn_name = (
+                            connection.name
+                            if hasattr(connection, "name")
+                            else "unknown"
+                        )
+                        ws_id = (
+                            workspace.workspace_id
+                            if hasattr(workspace, "workspace_id")
+                            else "unknown"
+                        )
                         self.report.report_failure(
                             message="Failed to process connection",
-                            context=f"connection-{conn_id}",
+                            context=f"workspace-{ws_id}/connection-{conn_id}/{conn_name}",
                             exc=e,
                         )
+            except AirbyteAuthenticationError:
+                # Auth errors should fail fast - don't continue processing
+                logger.error("Authentication failed. Stopping ingestion.")
+                raise
             except Exception as e:
                 workspace_id = (
                     workspace.workspace_id
@@ -392,10 +428,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _create_dataflow_workunits(
         self, pipeline_info: AirbytePipelineInfo
     ) -> Iterable[MetadataWorkUnit]:
-        """Create dataflow workunits for a workspace.
-
-        Note: pipeline_info is validated in _get_pipelines, so workspace_id is guaranteed to exist.
-        """
         workspace = pipeline_info.workspace
         workspace_id = workspace.workspace_id
         workspace_name = workspace.name or "Unnamed Workspace"
@@ -690,24 +722,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 limit=self.source_config.job_statuses_limit,
             )
 
-            logger.info(
+            logger.debug(
                 f"Found {len(jobs)} jobs for connection {connection_id} and stream {stream_name}"
             )
-
-            # Define a mapping from Airbyte status to DataHub InstanceRunResult
-            status_result_map = {
-                "succeeded": InstanceRunResult.SUCCESS,
-                "completed": InstanceRunResult.SUCCESS,
-                "success": InstanceRunResult.SUCCESS,
-                "failed": InstanceRunResult.FAILURE,
-                "failure": InstanceRunResult.FAILURE,
-                "error": InstanceRunResult.FAILURE,
-                "cancelled": InstanceRunResult.SKIPPED,
-                "canceled": InstanceRunResult.SKIPPED,
-                "running": InstanceRunResult.SUCCESS,
-                "incomplete": InstanceRunResult.SUCCESS,
-                "pending": InstanceRunResult.SUCCESS,
-            }
 
             # Process each job
             for job in jobs:
@@ -731,7 +748,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         attempt_status = attempt.get("status", "").lower()
 
                         # Map status to result
-                        result = status_result_map.get(
+                        result = AIRBYTE_JOB_STATUS_MAP.get(
                             attempt_status, InstanceRunResult.FAILURE
                         )
 
@@ -837,14 +854,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
         # Extract streams from connection sync catalog
         streams = []
         if not pipeline_info.connection.sync_catalog:
-            logger.warning(
-                f"Connection {pipeline_info.connection.connection_id} has no sync_catalog"
+            self.report.warning(
+                title="Missing Sync Catalog",
+                message=f"Connection {pipeline_info.connection.connection_id} has no sync_catalog",
+                context=f"connection_id={pipeline_info.connection.connection_id}, connection_name={pipeline_info.connection.name}",
             )
             return []
 
         if not pipeline_info.connection.sync_catalog.streams:
-            logger.warning(
-                f"Connection {pipeline_info.connection.connection_id} sync_catalog has no streams"
+            self.report.warning(
+                title="Empty Sync Catalog",
+                message=f"Connection {pipeline_info.connection.connection_id} sync_catalog has no streams",
+                context=f"connection_id={pipeline_info.connection.connection_id}, connection_name={pipeline_info.connection.name}",
             )
             return []
 
@@ -895,30 +916,14 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 }
                 streams.append(AirbyteStreamDetails.model_validate(stream_details))
 
-        logger.info(f"Using {len(streams)} streams from connection sync catalog")
+        logger.debug(f"Using {len(streams)} streams from connection sync catalog")
         return streams
 
     def _fetch_tags_for_workspace(self, workspace_id: str) -> List[AirbyteTagInfo]:
-        """Fetch tags from Airbyte API for a workspace.
-
-        Args:
-            workspace_id: ID of the workspace
-
-        Returns:
-            List of tag information
-        """
         try:
             tags_list = self.client.list_tags(workspace_id)
-            logger.info(f"Retrieved {len(tags_list)} tags from Airbyte")
-            return [
-                AirbyteTagInfo(
-                    name=tag.get("name", ""),
-                    id=tag.get("id"),
-                    resourceId=tag.get("resourceId"),
-                    resourceType=tag.get("resourceType"),
-                )
-                for tag in tags_list
-            ]
+            logger.debug(f"Retrieved {len(tags_list)} tags from Airbyte")
+            return [AirbyteTagInfo.model_validate(tag) for tag in tags_list]
         except Exception as e:
             self.report.warning(
                 title="Tag Retrieval Failed",
@@ -931,17 +936,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _extract_connection_tags(
         self, pipeline_info: AirbytePipelineInfo, airbyte_tags: List[AirbyteTagInfo]
     ) -> List[str]:
-        """Extract tags for a connection.
-
-        Note: pipeline_info is validated in _get_pipelines, so connection_id is guaranteed to exist.
-
-        Args:
-            pipeline_info: Pipeline information
-            airbyte_tags: Tags from Airbyte API
-
-        Returns:
-            List of tag URNs
-        """
+        """Extract tag URNs for a connection."""
         tags: List[str] = []
         connection_id = pipeline_info.connection.connection_id
 
@@ -955,10 +950,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _create_connection_dataflow(
         self, pipeline_info: AirbytePipelineInfo, tags: List[str]
     ) -> DataFlowResult:
-        """Create connection DataFlow entity and return its URN and work units.
-
-        Note: pipeline_info is validated in _get_pipelines, so all required IDs exist.
-        """
         connection = pipeline_info.connection
         source = pipeline_info.source
         destination = pipeline_info.destination
@@ -1032,11 +1023,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         destination_urn: str,
         tags: List[str],
     ) -> DataJobResult:
-        """Create DataJob for a stream and return its URN and work units.
-
-        Note: pipeline_info is validated in _get_pipelines, so all required IDs exist.
-        Fine-grained lineages are attached to the DataJob's InputOutput aspect, not to the dataset.
-        """
+        """Create DataJob for stream with column-level lineage on InputOutput aspect."""
         work_units: List[MetadataWorkUnit] = []
         connection = pipeline_info.connection
         source = pipeline_info.source
@@ -1075,7 +1062,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_level_lineage:
             property_fields = stream.get_column_names()
             if property_fields:
-                logger.info(
+                logger.debug(
                     f"Processing column-level lineage for {len(property_fields)} columns on DataJob"
                 )
                 for column_name in property_fields:
@@ -1132,21 +1119,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         stream: AirbyteStreamDetails,
         tags: List[str],
     ) -> Iterable[MetadataWorkUnit]:
-        """Create lineage between source and destination datasets.
-
-        This emits both dataset-level lineage (upstreams) and column-level lineage
-        (fineGrainedLineages) on the dataset's UpstreamLineage aspect, following the
-        same pattern as DBT and other DataHub sources.
-
-        Note: Column-level lineage is ALSO attached to the DataJob's DataJobInputOutput
-        aspect. This dual emission ensures lineage is visible both at the dataset level
-        and at the job level.
-
-        The UpstreamLineage aspect is marked as non-primary (is_primary_source=False)
-        because Airbyte is not the authoritative source for these datasets. This ensures
-        lineage is only added if the datasets already exist from their respective source
-        connectors (postgres, mysql, etc.).
-        """
+        """Emit dataset lineage with column-level mappings. Marked as non-primary source."""
         work_units = []
 
         # Build fine-grained (column-level) lineages if enabled
@@ -1185,7 +1158,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         # Add tags to datasets
         # Also marked as non-primary since Airbyte is not authoritative for these datasets
         if tags:
-            logger.info(f"Adding {len(tags)} tags to source and destination datasets")
+            logger.debug(f"Adding {len(tags)} tags to source and destination datasets")
             for dataset_urn in [source_urn, destination_urn]:
                 global_tags = GlobalTagsClass(
                     tags=[TagAssociationClass(tag=tag) for tag in tags]
@@ -1204,10 +1177,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         stream: AirbyteStreamDetails,
         platform_instance: Optional[str],
     ) -> AirbyteDatasetUrns:
-        """Create source and destination URNs for a stream.
-
-        Note: pipeline_info is validated in _get_pipelines, so source and destination exist.
-        """
         source = pipeline_info.source
         destination = pipeline_info.destination
 
@@ -1233,8 +1202,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if not schema_name and source_schema:
             schema_name = source_schema
 
-        # SOURCE DATASET URN CREATION
-        # Map the source dataset components
+        # Map source dataset components
         source_mapping = self._map_dataset_urn_components(
             source_platform, schema_name, table_name
         )
@@ -1271,15 +1239,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     source_mapped_name = f"{schema_name}.{source_mapped_name}"
                 # else: just use the mapped name as-is (already contains table name)
 
+        # Validate URN components before creating URN
+        validated_source_platform = _validate_urn_component(
+            source_mapping.platform, "source_platform"
+        )
+        validated_source_name = _validate_urn_component(
+            source_mapped_name, "source_dataset_name"
+        )
+
         source_urn = make_dataset_urn_with_platform_instance(
-            platform=source_mapping.platform,
-            name=source_mapped_name,
+            platform=validated_source_platform,
+            name=validated_source_name,
             env=source_env_final,
             platform_instance=source_platform_instance,
         )
 
-        # DESTINATION DATASET URN CREATION
-        # For destination, use the destination schema if specified
+        # Use destination schema if specified
         dest_namespace = destination_schema if destination_schema else schema_name
 
         # Map the destination dataset components
@@ -1319,14 +1294,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     dest_mapped_name = f"{dest_namespace}.{dest_mapped_name}"
                 # else: just use the mapped name as-is (already contains table name)
 
+        # Validate destination URN components before creating URN
+        validated_dest_platform = _validate_urn_component(
+            dest_mapping.platform, "destination_platform"
+        )
+        validated_dest_name = _validate_urn_component(
+            dest_mapped_name, "destination_dataset_name"
+        )
+
         destination_urn = make_dataset_urn_with_platform_instance(
-            platform=dest_mapping.platform,
-            name=dest_mapped_name,
+            platform=validated_dest_platform,
+            name=validated_dest_name,
             env=dest_env_final,
             platform_instance=dest_platform_instance,
         )
 
-        logger.info(f"Created lineage from {source_urn} to {destination_urn}")
+        logger.debug(f"Created lineage from {source_urn} to {destination_urn}")
 
         return AirbyteDatasetUrns(
             source_urn=source_urn, destination_urn=destination_urn
@@ -1350,7 +1333,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_name = pipeline_info.source.name or ""
         destination_name = pipeline_info.destination.name or ""
 
-        logger.info(f"Creating lineage for connection: {connection_id}")
+        logger.debug(f"Creating lineage for connection: {connection_id}")
 
         if not source_name or not destination_name:
             self.report.warning(
@@ -1423,9 +1406,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 yield from lineage_workunits
 
             except Exception as e:
+                # Get connection name for better context
+                conn_name = (
+                    pipeline_info.connection.name
+                    if hasattr(pipeline_info.connection, "name")
+                    else "unknown"
+                )
+                ws_id = (
+                    pipeline_info.workspace.workspace_id
+                    if hasattr(pipeline_info.workspace, "workspace_id")
+                    else "unknown"
+                )
                 self.report.report_failure(
                     message="Failed to process stream",
-                    context=f"stream-{connection_id}-{stream.stream_name}",
+                    context=f"workspace-{ws_id}/connection-{connection_id}/{conn_name}/stream-{stream.stream_name}",
                     exc=e,
                 )
 
