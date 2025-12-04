@@ -328,66 +328,6 @@ def test_create_source_with_custom_extensions(tmp_path):
 
 
 # ============================================================================
-# Tests for _create_query() method
-# ============================================================================
-
-
-def test_create_query_with_sparql():
-    """Test _create_query() with SPARQL query."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
-        RDFSource,
-        RDFSourceConfig,
-    )
-
-    sparql_query = "SELECT ?s ?p ?o WHERE { ?s ?p ?o }"
-    config = RDFSourceConfig(source="examples/bcbs239/", sparql=sparql_query)
-    ctx = PipelineContext(run_id="test-run")
-    source = RDFSource(config, ctx)
-
-    query = source._create_query()
-    assert query is not None
-    assert hasattr(query, "execute")
-    assert hasattr(query, "get_query_info")
-
-
-def test_create_query_with_filter():
-    """Test _create_query() with filter criteria."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
-        RDFSource,
-        RDFSourceConfig,
-    )
-
-    filter_criteria = {"namespace": "http://example.com/"}
-    config = RDFSourceConfig(source="examples/bcbs239/", filter=filter_criteria)
-    ctx = PipelineContext(run_id="test-run")
-    source = RDFSource(config, ctx)
-
-    query = source._create_query()
-    assert query is not None
-    assert hasattr(query, "execute")
-
-
-def test_create_query_pass_through():
-    """Test _create_query() creates pass-through query when no query specified."""
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.rdf.ingestion.rdf_source import (
-        RDFSource,
-        RDFSourceConfig,
-    )
-
-    config = RDFSourceConfig(source="examples/bcbs239/")
-    ctx = PipelineContext(run_id="test-run")
-    source = RDFSource(config, ctx)
-
-    query = source._create_query()
-    assert query is not None
-    assert hasattr(query, "execute")
-    assert hasattr(query, "get_query_info")
-
-
-# ============================================================================
 # Tests for _create_transpiler() method
 # ============================================================================
 
@@ -852,8 +792,6 @@ def test_config_model_all_optional_parameters():
         format="turtle",
         extensions=[".ttl", ".rdf"],
         recursive=False,
-        sparql="SELECT ?s WHERE { ?s ?p ?o }",
-        filter={"namespace": "http://example.com/"},
         environment="DEV",
         dialect="generic",
         export_only=["glossary"],
@@ -862,8 +800,6 @@ def test_config_model_all_optional_parameters():
     assert config.format == "turtle"
     assert config.extensions == [".ttl", ".rdf"]
     assert config.recursive is False
-    assert config.sparql == "SELECT ?s WHERE { ?s ?p ?o }"
-    assert config.filter == {"namespace": "http://example.com/"}
     assert config.environment == "DEV"
     assert config.dialect == "generic"
     assert config.export_only == ["glossary"]

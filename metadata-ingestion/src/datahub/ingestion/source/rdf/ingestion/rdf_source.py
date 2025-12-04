@@ -18,7 +18,7 @@ Example recipe:
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
 from pydantic import Field, field_validator
 
@@ -34,7 +34,6 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.rdf.core import (
     Orchestrator,
-    QueryFactory,
     RDFToDataHubTranspiler,
     SourceFactory,
 )
@@ -68,14 +67,6 @@ class RDFSourceConfig(ConfigModel):
     )
     recursive: bool = Field(
         default=True, description="Enable recursive folder processing (default: true)"
-    )
-
-    # Query Options
-    sparql: Optional[str] = Field(
-        default=None, description="Optional SPARQL query to execute on the RDF graph"
-    )
-    filter: Optional[Dict[str, str]] = Field(
-        default=None, description="Optional filter criteria as key-value pairs"
     )
 
     # DataHub Options
@@ -228,9 +219,6 @@ class RDFSource(Source):
             # Create RDF source
             source = self._create_source()
 
-            # Create query
-            query = self._create_query()
-
             # Create target (collects work units)
             target = DataHubIngestionTarget(self.report)
 
@@ -238,7 +226,7 @@ class RDFSource(Source):
             transpiler = self._create_transpiler()
 
             # Create orchestrator
-            orchestrator = Orchestrator(source, query, target, transpiler)
+            orchestrator = Orchestrator(source, target, transpiler)
 
             # Execute pipeline
             logger.info("Executing RDF pipeline")
@@ -310,17 +298,6 @@ class RDFSource(Source):
                 )
 
         raise ValueError(f"Source not found: {source_path}")
-
-    def _create_query(self):
-        """Create query from configuration."""
-        if self.config.sparql:
-            return QueryFactory.create_sparql_query(
-                self.config.sparql, "Custom SPARQL Query"
-            )
-        elif self.config.filter:
-            return QueryFactory.create_filter_query(self.config.filter, "Filter Query")
-        else:
-            return QueryFactory.create_pass_through_query("Pass-through Query")
 
     def _create_transpiler(self):
         """Create transpiler from configuration."""

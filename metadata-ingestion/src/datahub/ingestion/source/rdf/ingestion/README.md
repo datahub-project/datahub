@@ -44,7 +44,6 @@ RDF Files → RDFSource → MetadataWorkUnits → DataHub
 3. **Work Unit Generation** - `get_workunits()` is called:
 
    - Creates RDF source (file, folder, URL) using `SourceFactory`
-   - Creates query strategy using `QueryFactory`
    - Creates `DataHubIngestionTarget` to collect work units
    - Creates transpiler with configuration
    - Executes orchestrator pipeline
@@ -83,8 +82,6 @@ See `RDFSourceConfig` class for all available parameters. Key parameters:
 - `dialect` - RDF dialect (default, fibo, generic) - auto-detected if not specified
 - `export_only` - Export only specified entity types
 - `skip_export` - Skip specified entity types
-- `sparql` - Optional SPARQL query to execute
-- `filter` - Optional filter criteria
 
 ## Example Recipe
 
@@ -96,8 +93,6 @@ source:
     environment: PROD
     export_only:
       - glossary
-      - datasets
-      - lineage
 
 sink:
   type: datahub-rest

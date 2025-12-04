@@ -3,7 +3,7 @@
 Orchestrator Pipeline
 
 This module provides the main orchestrator that runs the pipeline:
-1. Query Source
+1. Load RDF Source
 2. Transpile to DataHub AST
 3. Send to Target
 
@@ -13,7 +13,6 @@ All components are injected via dependency injection.
 import logging
 from typing import Any, Dict
 
-from datahub.ingestion.source.rdf.core.query_factory import QueryInterface
 from datahub.ingestion.source.rdf.core.source_factory import SourceInterface
 from datahub.ingestion.source.rdf.core.target_factory import TargetInterface
 from datahub.ingestion.source.rdf.core.transpiler import RDFToDataHubTranspiler
@@ -27,7 +26,6 @@ class Orchestrator:
 
     This orchestrator uses dependency injection to compose:
     - Source: Where to get RDF data from
-    - Query: How to query/filter the RDF data
     - Target: Where to send the results
     - Transpiler: How to convert RDF to DataHub AST
     """
@@ -35,7 +33,6 @@ class Orchestrator:
     def __init__(
         self,
         source: SourceInterface,
-        query: QueryInterface,
         target: TargetInterface,
         transpiler: RDFToDataHubTranspiler,
     ):
@@ -44,18 +41,15 @@ class Orchestrator:
 
         Args:
             source: RDF source (file, folder, server, etc.)
-            query: Query to execute against the source
-            target: Output target (DataHub, pretty print, file, etc.)
+            target: Output target (DataHub ingestion target)
             transpiler: Transpiler (required, no default)
         """
         self.source = source
-        self.query = query
         self.target = target
         self.transpiler = transpiler
 
         logger.debug("Orchestrator initialized with dependency injection")
         logger.debug(f"Source: {source.get_source_info()}")
-        logger.debug(f"Query: {query.get_query_info()}")
         logger.debug(f"Target: {target.get_target_info()}")
 
     def execute(self) -> Dict[str, Any]:
@@ -68,19 +62,14 @@ class Orchestrator:
         try:
             logger.debug("Starting orchestrator pipeline execution")
 
-            # Step 1: Query Source
-            logger.debug("Step 1: Querying source...")
+            # Step 1: Load Source
+            logger.debug("Step 1: Loading source...")
             source_graph = self.source.get_graph()
             logger.debug(f"Source loaded: {len(source_graph)} triples")
 
-            # Step 2: Execute Query
-            logger.debug("Step 2: Executing query...")
-            query_result_graph = self.query.execute(source_graph)
-            logger.debug(f"Query executed: {len(query_result_graph)} triples in result")
-
-            # Step 3: Transpile to DataHub AST
-            logger.debug("Step 3: Transpiling to DataHub AST...")
-            datahub_ast = self.transpiler.get_datahub_ast(query_result_graph)
+            # Step 2: Transpile to DataHub AST
+            logger.debug("Step 2: Transpiling to DataHub AST...")
+            datahub_ast = self.transpiler.get_datahub_ast(source_graph)
             # Use get_summary() for dynamic entity counts
             summary = datahub_ast.get_summary()
             summary_str = ", ".join(
@@ -88,9 +77,9 @@ class Orchestrator:
             )
             logger.debug(f"DataHub AST created: {summary_str}")
 
-            # Step 4: Send to Target
-            logger.debug("Step 4: Sending to target...")
-            target_results = self.target.execute(datahub_ast, query_result_graph)
+            # Step 3: Send to Target
+            logger.debug("Step 3: Sending to target...")
+            target_results = self.target.execute(datahub_ast, source_graph)
             logger.debug(
                 f"Target execution completed: {target_results.get('success', False)}"
             )
@@ -100,12 +89,10 @@ class Orchestrator:
                 "success": target_results.get("success", False),
                 "pipeline": {
                     "source": self.source.get_source_info(),
-                    "query": self.query.get_query_info(),
                     "target": self.target.get_target_info(),
                 },
                 "execution": {
                     "source_triples": len(source_graph),
-                    "query_result_triples": len(query_result_graph),
                     "datahub_ast": datahub_ast.get_summary(),  # Dynamic summary from registry
                 },
                 "target_results": target_results,
@@ -125,7 +112,6 @@ class Orchestrator:
                 "error": str(e),
                 "pipeline": {
                     "source": self.source.get_source_info(),
-                    "query": self.query.get_query_info(),
                     "target": self.target.get_target_info(),
                 },
             }
@@ -143,7 +129,6 @@ class Orchestrator:
             validation_results = {
                 "valid": True,
                 "source": self.source.get_source_info(),
-                "query": self.query.get_query_info(),
                 "target": self.target.get_target_info(),
                 "transpiler": {"environment": self.transpiler.environment},
             }
@@ -157,16 +142,6 @@ class Orchestrator:
             except Exception as e:
                 validation_results["valid"] = False
                 validation_results["source_error"] = str(e)
-
-            # Validate query
-            try:
-                query_info = self.query.get_query_info()
-                if not query_info:
-                    validation_results["valid"] = False
-                    validation_results["query_error"] = "Query info unavailable"
-            except Exception as e:
-                validation_results["valid"] = False
-                validation_results["query_error"] = str(e)
 
             # Validate target
             try:
@@ -193,7 +168,6 @@ class Orchestrator:
         """Get information about the current pipeline configuration."""
         return {
             "source": self.source.get_source_info(),
-            "query": self.query.get_query_info(),
             "target": self.target.get_target_info(),
             "transpiler": {"environment": self.transpiler.environment},
         }
