@@ -1,6 +1,8 @@
 package auth.sso.oidc.custom;
 
 import auth.sso.oidc.OidcConfigs;
+import auth.sso.oidc.PrivateKeyJwtUtils;
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
@@ -11,6 +13,7 @@ import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretPost;
+import com.nimbusds.oauth2.sdk.auth.PrivateKeyJWT;
 import com.nimbusds.oauth2.sdk.auth.Secret;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
@@ -23,6 +26,8 @@ import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -48,6 +53,7 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
       Arrays.asList(
           ClientAuthenticationMethod.CLIENT_SECRET_POST,
           ClientAuthenticationMethod.CLIENT_SECRET_BASIC,
+          ClientAuthenticationMethod.PRIVATE_KEY_JWT,
           ClientAuthenticationMethod.NONE);
 
   private final ClientAuthentication clientAuthentication;
@@ -107,6 +113,10 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
     } else if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(chosenMethod)) {
       final Secret secret = new Secret(configuration.getSecret());
       clientAuthentication = new ClientSecretBasic(clientID, secret);
+    } else if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(chosenMethod)) {
+      clientAuthentication =
+          createPrivateKeyJwtAuthentication(
+              clientID, providerMetadata.getTokenEndpointURI(), oidcConfigs);
     } else if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
       clientAuthentication = null; // No client authentication in none mode
     } else {
@@ -150,6 +160,53 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
       throw new TechnicalException(
           "None of the Token endpoint provider metadata authentication methods are supported: "
               + metadataMethods);
+    }
+  }
+
+  /**
+   * Creates a PrivateKeyJWT client authentication for certificate-based SSO.
+   *
+   * @param clientID The OIDC client ID
+   * @param tokenEndpoint The token endpoint URI from provider metadata
+   * @param oidcConfigs The OIDC configuration containing key file paths
+   * @return A PrivateKeyJWT client authentication instance
+   * @throws TechnicalException if key loading or JWT creation fails
+   */
+  private ClientAuthentication createPrivateKeyJwtAuthentication(
+      ClientID clientID, URI tokenEndpoint, OidcConfigs oidcConfigs) {
+    try {
+      String privateKeyPath =
+          oidcConfigs
+              .getPrivateKeyFilePath()
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "privateKeyFilePath is required for private_key_jwt authentication"));
+
+      PrivateKey privateKey =
+          PrivateKeyJwtUtils.loadPrivateKey(
+              privateKeyPath, oidcConfigs.getPrivateKeyPassword().orElse(null));
+
+      String publicKeyPath =
+          oidcConfigs
+              .getPublicKeyFilePath()
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "publicKeyFilePath is required for private_key_jwt authentication"));
+
+      X509Certificate certificate = PrivateKeyJwtUtils.loadCertificate(publicKeyPath);
+      String keyId = PrivateKeyJwtUtils.computeThumbprint(certificate);
+
+      JWSAlgorithm algorithm = JWSAlgorithm.parse(oidcConfigs.getPrivateKeyJwtAlgorithm());
+
+      logger.info(
+          "Creating PrivateKeyJWT authentication with algorithm: {}, keyId: {}", algorithm, keyId);
+
+      return new PrivateKeyJWT(clientID, tokenEndpoint, algorithm, privateKey, keyId, null);
+    } catch (Exception e) {
+      throw new TechnicalException(
+          "Failed to create PrivateKeyJWT client authentication: " + e.getMessage(), e);
     }
   }
 
