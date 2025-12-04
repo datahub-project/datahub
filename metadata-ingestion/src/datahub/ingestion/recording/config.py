@@ -1,15 +1,11 @@
 """Recording configuration models."""
 
 import os
-from pathlib import Path
 from typing import Optional
 
 from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration.common import ConfigModel
-
-# Fixed S3 prefix for all recordings - enables automation to find them
-S3_RECORDING_PREFIX = "dh-ingestion-debug-recordings"
 
 # Marker used to replace secrets in stored recipes
 REPLAY_DUMMY_MARKER = "__REPLAY_DUMMY__"
@@ -19,7 +15,13 @@ REPLAY_DUMMY_VALUE = "replay-mode-no-secret-needed"
 
 
 class RecordingConfig(ConfigModel):
-    """Configuration for recording ingestion runs."""
+    """Configuration for recording ingestion runs.
+
+    Output path resolution order:
+    1. If output_path is provided, use it (local path or S3 URL when s3_upload=true)
+    2. If not provided, use INGESTION_ARTIFACT_DIR env var
+    3. Fallback to temp directory
+    """
 
     enabled: bool = Field(
         default=False,
@@ -33,16 +35,16 @@ class RecordingConfig(ConfigModel):
     )
 
     s3_upload: bool = Field(
-        default=True,
-        description="Upload recording to S3 after completion. "
-        "Set to false for local testing.",
+        default=False,
+        description="Upload recording directly to S3. When enabled, output_path must be "
+        "an S3 URL (s3://bucket/path). Default is local storage.",
     )
 
-    output_path: Optional[Path] = Field(
+    output_path: Optional[str] = Field(
         default=None,
-        description="Local path to save the recording archive. "
-        "If not provided, uses INGESTION_ARTIFACT_DIR env var or temp directory. "
-        "When s3_upload=true, optionally keeps a local copy in addition to S3 upload.",
+        description="Path to save the recording archive. Can be a local path or S3 URL "
+        "(s3://bucket/path) when s3_upload=true. If not provided, uses "
+        "INGESTION_ARTIFACT_DIR env var or temp directory.",
     )
 
     @model_validator(mode="after")
@@ -50,8 +52,16 @@ class RecordingConfig(ConfigModel):
         """Validate recording configuration requirements."""
         if self.enabled and not self.password:
             raise ValueError("password is required when recording is enabled")
-        # Note: output_path is optional even when s3_upload=false
-        # The recorder will use INGESTION_ARTIFACT_DIR env var or temp directory as fallback
+        if self.enabled and self.s3_upload and not self.output_path:
+            raise ValueError(
+                "output_path is required when s3_upload is enabled "
+                "(must be an S3 URL like s3://bucket/path)"
+            )
+        if self.enabled and self.s3_upload and self.output_path:
+            if not self.output_path.startswith("s3://"):
+                raise ValueError(
+                    "output_path must be an S3 URL (s3://bucket/path) when s3_upload is enabled"
+                )
         return self
 
 

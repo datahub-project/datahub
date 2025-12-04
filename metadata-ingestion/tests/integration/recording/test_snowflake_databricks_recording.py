@@ -84,7 +84,7 @@ class TestSnowflakeRecording:
                 run_id="test-snowflake-recording",
                 password="test-password",
                 recipe=test_recipe,
-                output_path=recording_path,
+                output_path=str(recording_path),
                 s3_upload=False,
             )
 
@@ -195,7 +195,7 @@ class TestDatabricksRecording:
                 run_id="test-databricks-recording",
                 password="test-password",
                 recipe=test_recipe,
-                output_path=recording_path,
+                output_path=str(recording_path),
                 s3_upload=False,
             )
 

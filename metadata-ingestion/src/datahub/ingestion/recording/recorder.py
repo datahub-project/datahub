@@ -29,7 +29,6 @@ from datahub.ingestion.recording.archive import (
     RecordingArchive,
 )
 from datahub.ingestion.recording.config import (
-    S3_RECORDING_PREFIX,
     RecordingConfig,
     check_recording_dependencies,
 )
@@ -59,8 +58,8 @@ class IngestionRecorder:
         password: str,
         recipe: Dict[str, Any],
         config: Optional[RecordingConfig] = None,
-        output_path: Optional[Path] = None,
-        s3_upload: bool = True,
+        output_path: Optional[str] = None,
+        s3_upload: bool = False,
         source_type: Optional[str] = None,
         sink_type: Optional[str] = None,
         redact_secrets: bool = True,
@@ -72,8 +71,9 @@ class IngestionRecorder:
             password: Password for encrypting the archive.
             recipe: The ingestion recipe dictionary.
             config: Recording configuration (overrides other args if provided).
-            output_path: Local path to save the archive (optional with S3 upload).
-            s3_upload: Whether to upload to S3 after recording.
+            output_path: Path to save the archive. Can be local path or S3 URL
+                        (s3://bucket/path) when s3_upload=True.
+            s3_upload: Upload directly to S3. When True, output_path must be S3 URL.
             source_type: Source type (for manifest metadata).
             sink_type: Sink type (for manifest metadata).
             redact_secrets: Whether to redact secrets in the stored recipe (default: True).
@@ -207,17 +207,20 @@ class IngestionRecorder:
             logger.warning("No temp directory, skipping archive creation")
             return
 
-        # Determine output path
-        if self.output_path:
-            # Explicit output path provided
-            archive_path = self.output_path
-        elif not self.s3_upload:
-            # No S3 upload - save to INGESTION_ARTIFACT_DIR if set, otherwise temp
+        # Determine local archive path
+        # S3 upload uses temp file that gets uploaded then cleaned up
+        if self.s3_upload:
+            # S3 upload - create temp archive, upload to output_path (S3 URL)
+            archive_path = Path(tempfile.mktemp(suffix=".zip"))
+        elif self.output_path:
+            # Explicit local output path provided - takes precedence
+            archive_path = Path(self.output_path)
+        else:
+            # Check INGESTION_ARTIFACT_DIR env var, fallback to temp
             import os
 
             artifact_dir = os.getenv("INGESTION_ARTIFACT_DIR")
             if artifact_dir:
-                # Save to artifact directory with descriptive filename
                 artifact_path = Path(artifact_dir)
                 artifact_path.mkdir(parents=True, exist_ok=True)
                 archive_path = artifact_path / f"recording-{self.run_id}.zip"
@@ -225,11 +228,7 @@ class IngestionRecorder:
                     f"Saving recording to INGESTION_ARTIFACT_DIR: {archive_path}"
                 )
             else:
-                # No artifact dir, use temp file
                 archive_path = Path(tempfile.mktemp(suffix=".zip"))
-        else:
-            # S3 upload enabled - use temp file that we'll delete after upload
-            archive_path = Path(tempfile.mktemp(suffix=".zip"))
 
         # Create manifest with exception info if present
         manifest = ArchiveManifest(
@@ -265,27 +264,29 @@ class IngestionRecorder:
             try:
                 self._upload_to_s3()
             finally:
-                # Clean up temp archive if we didn't want a local copy
-                if not self.output_path and self._archive_path.exists():
+                # Clean up temp archive after S3 upload
+                if self._archive_path and self._archive_path.exists():
                     self._archive_path.unlink()
         else:
-            logger.info("S3 upload disabled, archive saved locally only")
+            logger.info(f"Recording saved to: {self._archive_path}")
 
     def _upload_to_s3(self) -> None:
-        """Upload archive to S3."""
-        if not self._archive_path:
+        """Upload archive to S3 URL specified in output_path."""
+        if not self._archive_path or not self.output_path:
             return
 
         try:
-            s3_key = f"{S3_RECORDING_PREFIX}/{self.run_id}.zip"
-            bucket = self._get_s3_bucket()
-
-            if not bucket:
-                logger.warning(
-                    "No S3 bucket configured for recordings. "
-                    "Set DATAHUB_S3_RECORDINGS_BUCKET or configure server S3 settings."
-                )
+            # Parse S3 URL from output_path (s3://bucket/key)
+            s3_url = self.output_path
+            if not s3_url.startswith("s3://"):
+                logger.error(f"Invalid S3 URL: {s3_url}")
                 return
+
+            # Parse bucket and key from s3://bucket/key
+            path_without_scheme = s3_url[5:]  # Remove "s3://"
+            parts = path_without_scheme.split("/", 1)
+            bucket = parts[0]
+            key = parts[1] if len(parts) > 1 else f"recording-{self.run_id}.zip"
 
             import boto3
 
@@ -293,17 +294,14 @@ class IngestionRecorder:
             s3_client.upload_file(
                 str(self._archive_path),
                 bucket,
-                s3_key,
+                key,
             )
 
-            s3_url = f"s3://{bucket}/{s3_key}"
             logger.info(f"Recording uploaded to {s3_url}")
 
         except Exception as e:
             logger.error(f"Failed to upload recording to S3: {e}")
             # Don't raise - S3 upload failure shouldn't fail the ingestion
-            if self.output_path:
-                logger.info(f"Recording available locally at: {self.output_path}")
 
     def _get_s3_bucket(self) -> Optional[str]:
         """Get S3 bucket for recordings.

@@ -5,7 +5,6 @@ import os
 import sys
 import textwrap
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -399,9 +398,9 @@ def _setup_recording(
         )
         sys.exit(1)
 
-    # Determine S3 upload setting
-    s3_upload = not no_s3_upload
-    if recording_config.get("s3_upload") is False:
+    # Determine S3 upload setting (defaults to False, recipe config takes precedence)
+    s3_upload = recording_config.get("s3_upload", False)
+    if no_s3_upload:
         s3_upload = False
 
     # Get run_id from pipeline config or generate one
@@ -418,9 +417,8 @@ def _setup_recording(
     source_type = pipeline_config.get("source", {}).get("type")
     sink_type = pipeline_config.get("sink", {}).get("type", "datahub-rest")
 
-    # Output path from config (optional)
-    output_path_str = recording_config.get("output_path")
-    output_path = Path(output_path_str) if output_path_str else None
+    # Output path from config (optional, string - can be local path or S3 URL)
+    output_path = recording_config.get("output_path")
 
     logger.info(f"Recording enabled for run_id: {run_id}")
     logger.info(f"S3 upload: {'enabled' if s3_upload else 'disabled'}")
