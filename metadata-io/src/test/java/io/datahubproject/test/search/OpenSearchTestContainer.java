@@ -38,7 +38,16 @@ public class OpenSearchTestContainer implements SearchTestContainer {
     checkContainerEngine(OS_CONTAINER.getDockerClient());
     OS_CONTAINER
         .withEnv("OPENSEARCH_JAVA_OPTS", OPENSEARCH_JAVA_OPTS)
-        .withEnv("DISABLE_SECURITY_PLUGIN", "true")
+        .withEnv(
+            "plugins.security.disabled",
+            "false") // Keep security plugin enabled for testing role creation
+        .withEnv("plugins.security.ssl.http.enabled", "false")
+        .withEnv("plugins.security.ssl.transport.enabled", "false")
+        .withEnv("DISABLE_INSTALL_DEMO_CONFIG", "true")
+        .withEnv("plugins.security.allow_unsafe_democertificates", "true")
+        .withEnv("plugins.security.authcz.admin_dn", "")
+        .withEnv("plugins.security.authcz.rest_impersonation_user", "*")
+        .withEnv("plugins.security.restapi.roles_enabled", "[\"all_access\"]")
         .withStartupTimeout(STARTUP_TIMEOUT);
   }
 
