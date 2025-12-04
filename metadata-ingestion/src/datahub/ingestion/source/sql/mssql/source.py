@@ -1085,6 +1085,13 @@ class SQLServerSource(SQLAlchemySource):
                 dataset_urn = DatasetUrn.from_string(urn)
                 table_name = dataset_urn.name
 
+                # Strip platform_instance prefix if present
+                # (dataset_urn.name includes platform_instance, but discovered_datasets doesn't)
+                if self.config.platform_instance and table_name.startswith(
+                    f"{self.config.platform_instance}."
+                ):
+                    table_name = table_name[len(self.config.platform_instance) + 1 :]
+
                 # Reuse existing is_temp_table() logic
                 if self.is_temp_table(table_name):
                     filtered_aliases.append(table_name)
