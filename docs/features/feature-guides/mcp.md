@@ -103,7 +103,7 @@ There are two [transports types](https://modelcontextprotocol.io/docs/concepts/t
 
 To connect to the MCP server, you'll need the following:
 
-- **Node.js 18+** - Required for AI tools that use the `npx` command (for example Claude Desktop)
+**Node.js 18+** - Required for AI tools that use the `npx` command (for example Claude Desktop)
   
    ```bash
   # Check if Node.js is installed
