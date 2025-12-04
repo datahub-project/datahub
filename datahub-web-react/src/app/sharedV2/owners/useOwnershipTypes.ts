@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { ListOwnershipTypesInput } from '@types';
+import { ListOwnershipTypesInput, OwnershipTypeEntity } from '@types';
 
 export function useOwnershipTypes(input?: ListOwnershipTypesInput) {
     const { data, loading, refetch, error } = useListOwnershipTypesQuery({
@@ -12,7 +12,7 @@ export function useOwnershipTypes(input?: ListOwnershipTypesInput) {
 
     const ownershipTypes = useMemo(() => data?.listOwnershipTypes?.ownershipTypes || [], [data]);
 
-    const defaultOwnershipType = useMemo(
+    const defaultOwnershipType: OwnershipTypeEntity | undefined = useMemo(
         () => (ownershipTypes.length > 0 ? ownershipTypes[0] : undefined),
         [ownershipTypes],
     );
