@@ -108,7 +108,7 @@ describe('mfeConfigLoader', () => {
                     label: 'Missing ID and navIcon',
                     path: '/missing-id',
                     remoteEntry: 'remoteEntry.js',
-                    module: 'MissingIdModule',
+                    module: 'MissingIdModule/mount',
                     flags: { enabled: true, showInNav: false },
                 },
             ],
@@ -123,6 +123,36 @@ describe('mfeConfigLoader', () => {
             expect.arrayContaining([
                 expect.stringContaining('Missing required field: id'),
                 expect.stringContaining('Missing required field: navIcon'),
+            ]),
+        );
+        consoleErrorSpy.mockRestore();
+    });
+
+    it('loadMFEConfigFromYAML filters out entries with invalid module pattern', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mockYamlLoad({
+            subNavigationMode: false,
+            microFrontends: [
+                {
+                    id: 'myId',
+                    label: 'myLabel',
+                    path: '/my-path',
+                    remoteEntry: 'remoteEntry.js',
+                    module: 'invalidmodule', // missing '/' separator
+                    flags: { enabled: true, showInNav: false },
+                    navIcon: 'Gear',
+                },
+            ],
+        });
+        const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
+        const result = loadMFEConfigFromYAML('irrelevant');
+        // Invalid entry should be filtered out
+        expect(result.microFrontends.length).toBe(0);
+        // Error should be logged for invalid module pattern
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[MFE Loader] Invalid config for entry'),
+            expect.arrayContaining([
+                expect.stringContaining('module must be a string with pattern "moduleName/functionName"'),
             ]),
         );
         consoleErrorSpy.mockRestore();

@@ -15,6 +15,7 @@ export interface MFEConfig {
     label: string;
     path: string;
     remoteEntry: string;
+    // Must look like 'myRemoteModule/mount' which is exposed remote followed by exposed mount function inside it
     module: string;
     flags: MFEFlags;
     navIcon: string;
@@ -47,7 +48,8 @@ export function validateMFEConfig(config: any): MFEConfig | null {
     if (typeof config.path !== 'string' || !config.path.startsWith('/'))
         errors.push('[MFE Loader] path must be a string starting with "/"');
     if (typeof config.remoteEntry !== 'string') errors.push('[MFE Loader] remoteEntry must be a string');
-    if (typeof config.module !== 'string') errors.push('[MFE Loader] module must be a string');
+    if (typeof config.module !== 'string' || !config.module.includes('/'))
+        errors.push('[MFE Loader] module must be a string with pattern "moduleName/functionName"');
     if (typeof config.flags !== 'object' || config.flags === null) errors.push('[MFE Loader] flags must be an object');
     if (config.flags) {
         if (typeof config.flags.enabled !== 'boolean') errors.push('[MFE Loader] flags.enabled must be boolean');
