@@ -203,7 +203,7 @@ public interface HasStructuredProperties<T extends Entity & HasStructuredPropert
    * @throws IllegalArgumentException if the URN format is invalid
    */
   @Nonnull
-  private static Urn makeStructuredPropertyUrn(@Nonnull String propertyUrn) {
+  static Urn makeStructuredPropertyUrn(@Nonnull String propertyUrn) {
     String fullUrn =
         propertyUrn.startsWith("urn:li:structuredProperty:")
             ? propertyUrn
