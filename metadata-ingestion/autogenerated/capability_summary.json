@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-04T01:23:52.127468+00:00",
+  "generated_at": "2025-12-04T01:23:33.998019+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2670,6 +2670,13 @@
       "classname": "datahub.ingestion.source.rdf.ingestion.rdf_source.RDFSource",
       "platform_id": "rdf",
       "platform_name": "RDF",
+      "support_status": "INCUBATING"
+    },
+    "rdf-lite": {
+      "capabilities": [],
+      "classname": "rdf_lite.ingestion.rdf_source.RDFLiteSource",
+      "platform_id": "rdf-lite",
+      "platform_name": "RDF Lite",
       "support_status": "INCUBATING"
     },
     "redash": {
