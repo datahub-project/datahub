@@ -1,10 +1,13 @@
 import json
+import logging
 from typing import Any, Dict
 
 import pytest
 
 from tests.utilities.metadata_operations import list_ingestion_sources_with_filter
 from tests.utils import execute_graphql, with_test_retry
+
+logger = logging.getLogger(__name__)
 
 
 def _get_ingestionSources(auth_session):
@@ -81,7 +84,7 @@ def _ensure_ingestion_source_present(
         }"""
     variables: Dict[str, Any] = {"urn": ingestion_source_urn}
     res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
+    logger.info(res_data)
 
     assert res_data["data"]["ingestionSource"] is not None
 
@@ -175,7 +178,7 @@ def test_create_list_get_remove_secret(auth_session):
     variables = {"input": {"secrets": ["SMOKE_TEST"]}}
     res_data = execute_graphql(auth_session, query, variables)
 
-    print(res_data)
+    logger.info(res_data)
     assert res_data["data"]["getSecretValues"] is not None
 
     secret_values = res_data["data"]["getSecretValues"]
@@ -266,7 +269,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
         }"""
     variables = {"urn": ingestion_source_urn}
     res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
+    logger.info(res_data)
     assert res_data["data"]["deleteIngestionSource"] is not None
 
     # Ensure the ingestion source has been removed.
