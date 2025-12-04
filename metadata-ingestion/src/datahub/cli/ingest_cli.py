@@ -223,10 +223,13 @@ def run(
         )
         return run_pipeline_to_completion(pipeline)
 
-    # Handle recording if enabled
+    # Handle recording if enabled (via --record flag or recording.enabled in recipe)
     # IMPORTANT: Pipeline.create() must happen INSIDE the recording context
     # so that SDK initialization (including auth) is captured by VCR.
-    if record:
+    recording_enabled = record or pipeline_config.get("recording", {}).get(
+        "enabled", False
+    )
+    if recording_enabled:
         recorder = _setup_recording(
             pipeline_config,
             record_password,
@@ -373,6 +376,7 @@ def _setup_recording(
 ) -> "IngestionRecorder":
     """Setup recording for the ingestion run."""
     from datahub.ingestion.recording.config import (
+        RecordingConfig,
         check_recording_dependencies,
         get_recording_password_from_env,
     )
@@ -381,15 +385,30 @@ def _setup_recording(
     # Check dependencies first
     check_recording_dependencies()
 
-    # Get password from args, recipe config, or environment
+    # Build recording config from recipe, with CLI overrides
+    recording_config_dict = pipeline_config.get("recording", {}).copy()
+
+    # CLI password takes precedence, then env var, then recipe
     password = record_password or get_recording_password_from_env()
+    if password:
+        recording_config_dict["password"] = password
 
-    # Check if recording config is in recipe
-    recording_config = pipeline_config.get("recording", {})
-    if recording_config.get("password"):
-        password = recording_config["password"]
+    # CLI --no-s3-upload flag overrides recipe
+    if no_s3_upload:
+        recording_config_dict["s3_upload"] = False
 
-    if not password:
+    # Ensure enabled is set (we're here because recording should be enabled)
+    recording_config_dict["enabled"] = True
+
+    # Validate config using pydantic model
+    try:
+        recording_config = RecordingConfig.model_validate(recording_config_dict)
+    except Exception as e:
+        click.secho(f"Error in recording configuration: {e}", fg="red", err=True)
+        sys.exit(1)
+
+    # Get password as string for recorder
+    if not recording_config.password:
         click.secho(
             "Error: Recording password required. Provide via --record-password, "
             "DATAHUB_RECORDING_PASSWORD env var, or recipe recording.password.",
@@ -397,18 +416,13 @@ def _setup_recording(
             err=True,
         )
         sys.exit(1)
-
-    # Determine S3 upload setting (defaults to False, recipe config takes precedence)
-    s3_upload = recording_config.get("s3_upload", False)
-    if no_s3_upload:
-        s3_upload = False
+    password_str = recording_config.password.get_secret_value()
 
     # Get run_id from pipeline config or generate one
     run_id = pipeline_config.get("run_id")
     if not run_id:
         from datahub.ingestion.run.pipeline_config import _generate_run_id
 
-        # Generate a run_id if not provided
         run_id = _generate_run_id(
             pipeline_config.get("source", {}).get("type", "unknown")
         )
@@ -417,11 +431,10 @@ def _setup_recording(
     source_type = pipeline_config.get("source", {}).get("type")
     sink_type = pipeline_config.get("sink", {}).get("type", "datahub-rest")
 
-    # Output path from config (optional, string - can be local path or S3 URL)
-    output_path = recording_config.get("output_path")
-
     logger.info(f"Recording enabled for run_id: {run_id}")
-    logger.info(f"S3 upload: {'enabled' if s3_upload else 'disabled'}")
+    logger.info(f"S3 upload: {'enabled' if recording_config.s3_upload else 'disabled'}")
+    if recording_config.output_path:
+        logger.info(f"Output path: {recording_config.output_path}")
     if no_secret_redaction:
         logger.warning(
             "Secret redaction is DISABLED - recording will contain actual secrets. "
@@ -430,11 +443,11 @@ def _setup_recording(
 
     return IngestionRecorder(
         run_id=run_id,
-        password=password,
+        password=password_str,
         redact_secrets=not no_secret_redaction,
         recipe=raw_config,
-        output_path=output_path,
-        s3_upload=s3_upload,
+        output_path=recording_config.output_path,
+        s3_upload=recording_config.s3_upload,
         source_type=source_type,
         sink_type=sink_type,
     )
