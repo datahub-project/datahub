@@ -239,9 +239,31 @@ class ModulePatcher:
 
         def wrapped_connect(*args: Any, **kwargs: Any) -> Any:
             if is_replay:
-                # In replay mode, return mock connection
+                # In replay mode, always return mock connection (even for SQLAlchemy)
                 logger.debug("Returning replay connection (no real DB connection)")
                 return ReplayConnection(recorder)
+
+            # Check if this connection is being created for SQLAlchemy
+            # SQLAlchemy needs special handling via event listeners during recording
+            import inspect
+
+            frame = inspect.currentframe()
+            try:
+                # Walk up the call stack to see if SQLAlchemy is calling us
+                for _ in range(10):  # Check up to 10 frames
+                    frame = frame.f_back  # type: ignore
+                    if frame is None:
+                        break
+                    if "sqlalchemy" in str(frame.f_globals.get("__name__", "")):
+                        # SQLAlchemy is creating this connection - don't wrap it
+                        # SQLAlchemy event listeners will handle recording
+                        logger.debug(
+                            "SQLAlchemy detected - skipping connection proxy, "
+                            "using event listeners only"
+                        )
+                        return original_connect(*args, **kwargs)
+            finally:
+                del frame
 
             # In recording mode, wrap the real connection
             try:
@@ -295,18 +317,19 @@ class ModulePatcher:
 
         return wrapped_connect
 
-    def _create_engine_wrapper(
+    def _create_engine_wrapper(  # noqa: C901
         self, original_create_engine: Callable[..., Any]
     ) -> Callable[..., Any]:
         """Create a wrapper for SQLAlchemy create_engine.
 
         This is more complex because SQLAlchemy engines have their own
-        connection pooling and cursor management.
+        connection pooling and cursor management. The complexity is inherent
+        to properly handling SQLAlchemy's event system for recording/replay.
         """
         recorder = self.recorder
         is_replay = self.is_replay
 
-        def wrapped_create_engine(*args: Any, **kwargs: Any) -> Any:
+        def wrapped_create_engine(*args: Any, **kwargs: Any) -> Any:  # noqa: C901
             if is_replay:
                 # For SQLAlchemy replay, we still create an engine but
                 # intercept at the connection level using events
@@ -316,26 +339,16 @@ class ModulePatcher:
             # Create the real engine
             engine = original_create_engine(*args, **kwargs)
 
-            # Register event listeners for connection interception
+            # Register event listeners for query recording/replay
             try:
                 from sqlalchemy import event
 
-                def on_connect(dbapi_connection: Any, connection_record: Any) -> None:
-                    """Intercept raw DBAPI connections."""
-                    if is_replay:
-                        # Replace with replay connection
-                        connection_record.info["recording_proxy"] = ReplayConnection(
-                            recorder
-                        )
-                    else:
-                        # Wrap with recording proxy
-                        connection_record.info["recording_proxy"] = ConnectionProxy(
-                            connection=dbapi_connection,
-                            recorder=recorder,
-                            is_replay=False,
-                        )
+                from datahub.ingestion.recording.db_proxy import QueryRecording
 
-                def before_execute(
+                # Store cursors and their query info for deferred result capture
+                _cursor_queries: Dict[Any, Dict[str, Any]] = {}
+
+                def before_cursor_execute(
                     conn: Any,
                     cursor: Any,
                     statement: str,
@@ -343,13 +356,308 @@ class ModulePatcher:
                     context: Any,
                     executemany: bool,
                 ) -> None:
-                    """Record query before execution."""
-                    if not is_replay:
+                    """Store query info and wrap cursor fetch methods to capture results."""
+                    if is_replay:
+                        # During replay, intercept queries and serve from recordings
+                        if not hasattr(cursor, "_replay_wrapped"):
+                            # Wrap execute to intercept and serve from recordings
+                            original_execute = cursor.execute
+
+                            def replay_execute(
+                                query: str, *args: Any, **kwargs: Any
+                            ) -> Any:
+                                """Intercept execute to serve from recordings."""
+                                # Get recording
+                                recording = recorder.get_recording(
+                                    query, kwargs.get("parameters")
+                                )
+                                if recording is None:
+                                    # Check for common SQLAlchemy init queries
+                                    query_lower = query.lower().strip()
+                                    if (
+                                        "select current_database(), current_schema()"
+                                        in query_lower
+                                    ):
+                                        logger.debug(
+                                            "Mocking SQLAlchemy init query: current_database/schema"
+                                        )
+                                        cursor.description = [
+                                            (
+                                                "CURRENT_DATABASE()",
+                                                2,
+                                                None,
+                                                16777216,
+                                                None,
+                                                None,
+                                                True,
+                                            ),
+                                            (
+                                                "CURRENT_SCHEMA()",
+                                                2,
+                                                None,
+                                                16777216,
+                                                None,
+                                                None,
+                                                True,
+                                            ),
+                                        ]
+                                        cursor._mock_results = [
+                                            {
+                                                "CURRENT_DATABASE()": None,
+                                                "CURRENT_SCHEMA()": None,
+                                            }
+                                        ]
+                                    elif "select 1" in query_lower:
+                                        cursor.description = [
+                                            ("1", 4, None, None, None, None, True)
+                                        ]
+                                        cursor._mock_results = [{"1": 1}]
+                                    else:
+                                        raise RuntimeError(
+                                            f"Query not found in recordings: {query[:200]}..."
+                                        )
+                                else:
+                                    # Set up cursor to return recorded results
+                                    cursor.description = recording.description
+                                    cursor._mock_results = recording.results
+
+                                cursor._mock_index = 0
+                                return original_execute(query, *args, **kwargs)
+
+                            cursor.execute = replay_execute
+
+                            # Wrap fetch methods to serve from mock results
+                            original_fetchall = cursor.fetchall
+                            original_fetchone = cursor.fetchone
+
+                            def replay_fetchall(*args: Any, **kwargs: Any) -> Any:
+                                if hasattr(cursor, "_mock_results"):
+                                    results = cursor._mock_results
+                                    cursor._mock_results = []  # Consume
+                                    return results
+                                return original_fetchall(*args, **kwargs)
+
+                            def replay_fetchone(*args: Any, **kwargs: Any) -> Any:
+                                if (
+                                    hasattr(cursor, "_mock_results")
+                                    and cursor._mock_results
+                                ):
+                                    return cursor._mock_results.pop(0)
+                                return original_fetchone(*args, **kwargs)
+
+                            cursor.fetchall = replay_fetchall
+                            cursor.fetchone = replay_fetchone
+                            cursor._replay_wrapped = True
+                    else:
+                        # Store query info for this cursor
+                        query_info = {
+                            "query": statement,
+                            "parameters": parameters or {},
+                            "description": None,
+                            "results": None,
+                            "captured": False,
+                        }
+                        _cursor_queries[id(cursor)] = query_info
+
+                        # Wrap fetch methods to capture results and serve cached results
+                        if not hasattr(cursor, "_recording_wrapped"):
+                            original_fetchall = cursor.fetchall
+                            original_fetchone = cursor.fetchone
+
+                            # Cache for results that were pre-fetched in after_cursor_execute
+                            cursor._recording_cache = None
+                            cursor._recording_cache_consumed = False
+
+                            def wrapped_fetchall(*args: Any, **kwargs: Any) -> Any:
+                                """Intercept fetchall to capture or serve cached results."""
+                                # If we have cached results, serve those
+                                if (
+                                    cursor._recording_cache is not None
+                                    and not cursor._recording_cache_consumed
+                                ):
+                                    cursor._recording_cache_consumed = True
+                                    return cursor._recording_cache
+
+                                # Otherwise fetch from real cursor
+                                fetched = original_fetchall(*args, **kwargs)
+
+                                # Capture for recording
+                                if not query_info["captured"]:
+                                    query_info["description"] = cursor.description
+                                    query_info["results"] = fetched
+                                    query_info["captured"] = True
+
+                                return fetched
+
+                            def wrapped_fetchone(*args: Any, **kwargs: Any) -> Any:
+                                """Intercept fetchone."""
+                                # If we have cached results, serve from cache
+                                if (
+                                    cursor._recording_cache is not None
+                                    and not cursor._recording_cache_consumed
+                                ):
+                                    if cursor._recording_cache:
+                                        result = cursor._recording_cache.pop(0)
+                                        if not cursor._recording_cache:
+                                            cursor._recording_cache_consumed = True
+                                        return result
+                                    else:
+                                        cursor._recording_cache_consumed = True
+                                        return None
+
+                                # Otherwise fetch from real cursor
+                                result = original_fetchone(*args, **kwargs)
+                                if not query_info["captured"] and result is not None:
+                                    query_info["description"] = cursor.description
+                                return result
+
+                            cursor.fetchall = wrapped_fetchall
+                            cursor.fetchone = wrapped_fetchone
+                            cursor._recording_wrapped = True
+
                         logger.debug(f"Recording query: {statement[:100]}...")
 
+                def after_cursor_execute(
+                    conn: Any,
+                    cursor: Any,
+                    statement: str,
+                    parameters: Any,
+                    context: Any,
+                    executemany: bool,
+                ) -> None:
+                    """Record query and results (captured by wrapped fetch methods)."""
+                    if not is_replay:
+                        try:
+                            query_info = _cursor_queries.get(id(cursor), {})
+
+                            results: List[Dict[str, Any]] = []
+                            description = (
+                                query_info.get("description") or cursor.description
+                            )
+                            error = None
+
+                            # Get results captured by wrapped fetch methods
+                            captured_results = query_info.get("results")
+
+                            if captured_results is not None:
+                                # Results were captured by fetchall wrapper
+                                if description:
+                                    col_names = (
+                                        [d[0] for d in description]
+                                        if description
+                                        else []
+                                    )
+                                    if col_names and captured_results:
+                                        if isinstance(
+                                            captured_results[0], (tuple, list)
+                                        ):
+                                            results = [
+                                                dict(zip(col_names, row))
+                                                for row in captured_results
+                                            ]
+                                        elif isinstance(captured_results[0], dict):
+                                            results = captured_results
+                                        else:
+                                            results = [
+                                                {"value": row}
+                                                for row in captured_results
+                                            ]
+                                    else:
+                                        results = [
+                                            {"row": list(row)}
+                                            for row in captured_results
+                                        ]
+                                else:
+                                    results = (
+                                        captured_results
+                                        if isinstance(captured_results, list)
+                                        else []
+                                    )
+                            else:
+                                # Results weren't captured by fetch wrapper yet
+                                # Try to fetch immediately if cursor has results available
+                                if description and hasattr(cursor, "fetchall"):
+                                    try:
+                                        # Try to fetch all results now
+                                        # This works if results haven't been consumed yet
+                                        fetched = cursor.fetchall()
+                                        if fetched:
+                                            col_names = (
+                                                [d[0] for d in description]
+                                                if description
+                                                else []
+                                            )
+                                            if col_names:
+                                                if isinstance(
+                                                    fetched[0], (tuple, list)
+                                                ):
+                                                    results = [
+                                                        dict(zip(col_names, row))
+                                                        for row in fetched
+                                                    ]
+                                                elif isinstance(fetched[0], dict):
+                                                    results = fetched
+                                                else:
+                                                    results = [
+                                                        {"value": row}
+                                                        for row in fetched
+                                                    ]
+                                            else:
+                                                results = [
+                                                    {"row": list(row)}
+                                                    for row in fetched
+                                                ]
+
+                                            # Store for recording
+                                            query_info["results"] = fetched
+                                            query_info["captured"] = True
+
+                                            # Cache results so wrapped fetch methods can serve them
+                                            if hasattr(cursor, "_recording_cache"):
+                                                cursor._recording_cache = fetched
+                                                cursor._recording_cache_consumed = False
+                                    except Exception as fetch_err:
+                                        # Results already consumed or not available
+                                        # Wrapped fetch methods will capture them if called later
+                                        logger.debug(
+                                            f"Could not pre-fetch results: {fetch_err}. "
+                                            f"Will rely on fetch wrapper."
+                                        )
+
+                                # Get description if not set
+                                if not description:
+                                    try:
+                                        description = cursor.description
+                                        query_info["description"] = description
+                                    except Exception:
+                                        pass
+
+                            # Create recording
+                            recording = QueryRecording(
+                                query=statement,
+                                parameters=parameters or {},
+                                results=results,
+                                row_count=len(results),
+                                description=description,
+                                error=error,
+                            )
+                            recorder.record(recording)
+
+                            # Clean up
+                            _cursor_queries.pop(id(cursor), None)
+
+                            logger.debug(
+                                f"Recorded SQLAlchemy query: {statement[:60]}... "
+                                f"({len(results)} rows)"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to record SQLAlchemy query: {e}")
+                            # Clean up on error
+                            _cursor_queries.pop(id(cursor), None)
+
                 # Use event.listen() instead of decorator for proper typing
-                event.listen(engine, "connect", on_connect)
-                event.listen(engine, "before_cursor_execute", before_execute)
+                event.listen(engine, "before_cursor_execute", before_cursor_execute)
+                event.listen(engine, "after_cursor_execute", after_cursor_execute)
 
             except Exception as e:
                 logger.warning(f"Failed to register SQLAlchemy events: {e}")

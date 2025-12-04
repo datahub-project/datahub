@@ -242,6 +242,69 @@ class QueryRecorder:
         return self._recordings.get(key)
 
 
+class CaseInsensitiveRow:
+    """A Row-like object that supports case-insensitive key access.
+
+    This mimics SQLAlchemy's Row object behavior:
+    - Supports both index-based and name-based access
+    - Supports iteration (yields values only, not keys)
+    - Case-insensitive key lookup
+    """
+
+    def __init__(self, data: Dict[str, Any]) -> None:
+        # Store original data preserving key order
+        self._data = data
+        # Create lowercase key mapping
+        self._lower_keys: Dict[str, str] = {}
+        for key in data:
+            self._lower_keys[key.lower()] = key
+
+    def __getitem__(self, key: Any) -> Any:
+        """Support both index-based and name-based access."""
+        if isinstance(key, int):
+            # Index-based access
+            keys = list(self._data.keys())
+            if 0 <= key < len(keys):
+                return self._data[keys[key]]
+            raise IndexError(f"Index {key} out of range")
+
+        # Name-based access (case-insensitive)
+        if key in self._data:
+            return self._data[key]
+        # Try lowercase lookup
+        lower_key = key.lower()
+        if lower_key in self._lower_keys:
+            return self._data[self._lower_keys[lower_key]]
+        raise KeyError(key)
+
+    def __iter__(self) -> Iterator[Any]:
+        """Iterate over values (not keys) like SQLAlchemy Row."""
+        return iter(self._data.values())
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def keys(self) -> Any:
+        """Return original keys."""
+        return self._data.keys()
+
+    def values(self) -> Any:
+        return self._data.values()
+
+    def items(self) -> Any:
+        return self._data.items()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Case-insensitive get."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __repr__(self) -> str:
+        return f"CaseInsensitiveRow({self._data})"
+
+
 class CursorProxy:
     """Generic proxy that wraps ANY cursor-like object.
 
@@ -302,6 +365,9 @@ class CursorProxy:
                 if self._current_recording:
                     return self._current_recording.row_count
                 return -1
+            if name == "close":
+                # Return a no-op close function
+                return lambda: None
             raise AttributeError(
                 f"Cursor attribute '{name}' not available in replay mode"
             )
@@ -324,7 +390,12 @@ class CursorProxy:
         """
         if self._is_replay:
             if self._current_recording:
-                return iter(self._current_recording.results)
+                # Normalize results for case-insensitive access
+                results = [
+                    self._normalize_row_keys(row) if isinstance(row, dict) else row
+                    for row in self._current_recording.results
+                ]
+                return iter(results)
             return iter([])
 
         # In recording mode, return the recorded results
@@ -449,6 +520,34 @@ class CursorProxy:
         recording = self._recorder.get_recording(query, parameters)
 
         if recording is None:
+            # Check if this is a SQLAlchemy dialect initialization query
+            # These queries are used by SQLAlchemy to initialize the dialect
+            # and don't need real data - we can mock them
+            mock_data = self._get_mock_init_query_result(query)
+            if mock_data is not None:
+                mock_results, mock_description = mock_data
+                logger.debug(
+                    f"Mocking SQLAlchemy initialization query: {query[:100]}..."
+                )
+                # Create a temporary recording for this mock query
+                from datahub.ingestion.recording.db_proxy import QueryRecording
+
+                mock_recording = QueryRecording(
+                    query=query,
+                    parameters=parameters or {},
+                    results=mock_results,
+                    row_count=len(mock_results),
+                    description=mock_description,
+                )
+                self._current_recording = mock_recording
+                # Normalize mock results too for consistency
+                normalized_mock = [
+                    self._normalize_row_keys(row) if isinstance(row, dict) else row
+                    for row in mock_results
+                ]
+                self._result_iter = iter(normalized_mock)
+                return self
+
             raise RuntimeError(
                 f"Query not found in recordings (air-gapped replay failed):\n"
                 f"Query: {query[:200]}...\n"
@@ -459,10 +558,68 @@ class CursorProxy:
             raise RuntimeError(f"Recorded query error: {recording.error}")
 
         self._current_recording = recording
-        self._result_iter = iter(recording.results)
+        # Normalize keys for case-insensitive access (Snowflake returns UPPERCASE)
+        normalized_results = [
+            self._normalize_row_keys(row) if isinstance(row, dict) else row
+            for row in recording.results
+        ]
+        self._result_iter = iter(normalized_results)
 
         logger.debug(f"Replayed query: {query[:100]}...")
         return self
+
+    def _get_mock_init_query_result(
+        self, query: str
+    ) -> Optional[Tuple[List[Dict[str, Any]], Optional[List[Tuple[Any, ...]]]]]:
+        """Get mock result and description for SQLAlchemy initialization queries.
+
+        These queries are used by SQLAlchemy dialects to initialize and don't
+        need real data - we can return dummy values that satisfy the dialect.
+
+        Returns:
+            Tuple of (results, description) or None if not an init query.
+        """
+        query_lower = query.lower().strip()
+
+        # Snowflake: select current_database(), current_schema();
+        if "select current_database(), current_schema()" in query_lower:
+            results: List[Dict[str, Any]] = [
+                {"CURRENT_DATABASE()": None, "CURRENT_SCHEMA()": None}
+            ]
+            # Description: (name, type_code, display_size, internal_size, precision, scale, null_ok)
+            description: List[Tuple[Any, ...]] = [
+                ("CURRENT_DATABASE()", 2, None, 16777216, None, None, True),
+                ("CURRENT_SCHEMA()", 2, None, 16777216, None, None, True),
+            ]
+            return (results, description)
+
+        # BigQuery: SELECT @@project_id
+        if "@@project_id" in query_lower or "select @@project_id" in query_lower:
+            return (
+                [{"@@project_id": "mock-project-id"}],
+                [("@@project_id", 2, None, None, None, None, True)],
+            )
+
+        # PostgreSQL/MySQL: SELECT current_database() / SELECT DATABASE()
+        if "select current_database()" in query_lower:
+            return (
+                [{"current_database()": "mock_database"}],
+                [("current_database()", 2, None, None, None, None, True)],
+            )
+        if "select database()" in query_lower:
+            return (
+                [{"DATABASE()": "mock_database"}],
+                [("DATABASE()", 2, None, None, None, None, True)],
+            )
+
+        # Generic: SELECT 1 (common test query)
+        if query_lower == "select 1" or query_lower == "select 1;":
+            return (
+                [{"1": 1}],
+                [("1", 4, None, None, None, None, True)],
+            )  # type 4 = INTEGER
+
+        return None
 
     def _wrap_fetch(self, method_name: str) -> Callable[..., Any]:
         """Wrap fetch methods."""
@@ -479,17 +636,32 @@ class CursorProxy:
 
         return wrapper
 
+    def _normalize_row_keys(self, row: Dict[str, Any]) -> CaseInsensitiveRow:
+        """Normalize row keys to create a case-insensitive Row-like object.
+
+        Snowflake returns UPPERCASE column names, but SQLAlchemy/source code
+        often uses lowercase. This creates a Row-like object that supports both.
+        """
+        return CaseInsensitiveRow(row)
+
     def _replay_fetch(self, method_name: str, *args: Any, **kwargs: Any) -> Any:
         """Replay fetch operations from recordings."""
         if not self._current_recording:
             return None if method_name == "fetchone" else []
 
+        # Note: Results are already normalized in _replay_execute
+        # This method just serves from the existing iterator
         results = self._current_recording.results
 
         if method_name == "fetchone":
             try:
                 if self._result_iter is None:
-                    self._result_iter = iter(results)
+                    # Normalize here if results weren't normalized in execute
+                    normalized = [
+                        self._normalize_row_keys(row) if isinstance(row, dict) else row
+                        for row in results
+                    ]
+                    self._result_iter = iter(normalized)
                 return next(self._result_iter)
             except StopIteration:
                 return None
