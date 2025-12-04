@@ -42,6 +42,90 @@ PATCHABLE_CLIENTS: Dict[str, List[Tuple[str, str]]] = {
 }
 
 
+def _is_vcr_interference_error(exc: Exception) -> bool:
+    """Detect if an error is likely from VCR interference with connection.
+
+    VCR may interfere with database connections that use vendored or
+    non-standard HTTP libraries (Snowflake, Databricks). This function
+    uses two checks to minimize false positives:
+
+    1. Verify VCR is actually active (has active cassettes)
+    2. Check if error message matches known VCR interference patterns
+
+    Trade-offs:
+    - False positives: Acceptable - retry will still fail with real error,
+      only adds ~1-5 seconds to failure time
+    - False negatives: More problematic - VCR interference won't be detected,
+      recording will fail without retry
+
+    Therefore, we prefer being cautious (Option A: check VCR active) while
+    still being liberal with error pattern matching.
+
+    Args:
+        exc: The exception that occurred during connection attempt
+
+    Returns:
+        True if the error is likely from VCR interference
+    """
+    # First, check if VCR is actually active
+    # If VCR isn't running, it can't be causing interference
+    try:
+        import vcr as vcr_module
+
+        # Check if VCR has the cassette module and current_cassettes attribute
+        if not hasattr(vcr_module, "cassette"):
+            logger.debug("VCR cassette module not found, not VCR interference")
+            return False
+
+        if not hasattr(vcr_module.cassette, "_current_cassettes"):
+            logger.debug("VCR not tracking cassettes, not VCR interference")
+            return False
+
+        # Check if there are active cassettes
+        current_cassettes = vcr_module.cassette._current_cassettes
+        if not current_cassettes:
+            logger.debug("No active VCR cassettes, not VCR interference")
+            return False
+
+        # VCR is active, now check error patterns
+        logger.debug(
+            f"VCR is active with {len(current_cassettes)} cassette(s), checking error pattern"
+        )
+
+    except (ImportError, AttributeError) as e:
+        # VCR not available or structure changed
+        logger.debug(f"VCR not available ({e}), not VCR interference")
+        return False
+
+    # Now check if the error matches known VCR interference patterns
+    error_msg = str(exc).lower()
+
+    # Common indicators of VCR interference with SSL/HTTP connections
+    indicators = [
+        "connection refused",
+        "name resolution",
+        "ssl error",
+        "certificate verify failed",
+        "certificate validation",
+        "proxy",
+        "connection reset",
+        "connection aborted",
+        "handshake failure",
+        "ssl handshake",
+    ]
+
+    matches = any(indicator in error_msg for indicator in indicators)
+
+    if matches:
+        logger.debug(f"Error pattern matches VCR interference: {error_msg[:100]}")
+    else:
+        logger.debug(
+            f"Error pattern does not match VCR interference: {error_msg[:100]}"
+        )
+
+    return matches
+
+
 class ModulePatcher:
     """Context manager that patches database connector modules.
 
@@ -149,7 +233,7 @@ class ModulePatcher:
     def _create_connection_wrapper(
         self, original_connect: Callable[..., Any]
     ) -> Callable[..., Any]:
-        """Create a wrapper for connection factory functions."""
+        """Create a wrapper for connection factory functions with VCR interference recovery."""
         recorder = self.recorder
         is_replay = self.is_replay
 
@@ -160,13 +244,54 @@ class ModulePatcher:
                 return ReplayConnection(recorder)
 
             # In recording mode, wrap the real connection
-            logger.debug("Creating recording connection proxy")
-            real_connection = original_connect(*args, **kwargs)
-            return ConnectionProxy(
-                connection=real_connection,
-                recorder=recorder,
-                is_replay=False,
-            )
+            try:
+                logger.debug("Creating recording connection proxy")
+                real_connection = original_connect(*args, **kwargs)
+                logger.info("Database connection established (recording mode)")
+                return ConnectionProxy(
+                    connection=real_connection,
+                    recorder=recorder,
+                    is_replay=False,
+                )
+            except Exception as e:
+                # Check if error might be from VCR interference
+                # This can happen with Snowflake (vendored urllib3) or Databricks (Thrift client)
+                if _is_vcr_interference_error(e):
+                    logger.warning(
+                        f"Database connection failed with VCR active. "
+                        f"Error: {e}. "
+                        f"This may be VCR interference with vendored/non-standard HTTP libraries. "
+                        f"Retrying with temporary VCR bypass..."
+                    )
+                    # Retry with VCR temporarily disabled
+                    from datahub.ingestion.recording.http_recorder import (
+                        vcr_bypass_context,
+                    )
+
+                    try:
+                        with vcr_bypass_context():
+                            real_connection = original_connect(*args, **kwargs)
+                            logger.info(
+                                "Database connection succeeded with VCR bypassed. "
+                                "SQL queries will still be recorded normally."
+                            )
+                            return ConnectionProxy(
+                                connection=real_connection,
+                                recorder=recorder,
+                                is_replay=False,
+                            )
+                    except Exception as retry_error:
+                        # Bypass didn't help - this was a real connection error
+                        logger.error(
+                            f"Database connection failed even with VCR bypassed. "
+                            f"This is a real connection error, not VCR interference. "
+                            f"Error: {retry_error}"
+                        )
+                        raise retry_error
+                else:
+                    # Not VCR-related, re-raise immediately
+                    logger.error(f"Database connection failed: {e}")
+                    raise
 
         return wrapped_connect
 

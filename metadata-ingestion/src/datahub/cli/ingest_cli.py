@@ -128,6 +128,14 @@ def ingest() -> None:
     default=False,
     help="Disable S3 upload of recording (for testing).",
 )
+@click.option(
+    "--no-secret-redaction",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Disable secret redaction in recordings (for local debugging). "
+    "WARNING: Recording will contain actual secrets. Use with caution.",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -155,6 +163,7 @@ def run(
     record: bool,
     record_password: Optional[str],
     no_s3_upload: bool,
+    no_secret_redaction: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -219,7 +228,11 @@ def run(
     # so that SDK initialization (including auth) is captured by VCR.
     if record:
         recorder = _setup_recording(
-            pipeline_config, record_password, no_s3_upload, raw_pipeline_config
+            pipeline_config,
+            record_password,
+            no_s3_upload,
+            no_secret_redaction,
+            raw_pipeline_config,
         )
         with recorder:
             ret = create_and_run_pipeline()
@@ -355,6 +368,7 @@ def _setup_recording(
     pipeline_config: dict,
     record_password: Optional[str],
     no_s3_upload: bool,
+    no_secret_redaction: bool,
     raw_config: dict,
 ) -> "IngestionRecorder":
     """Setup recording for the ingestion run."""
@@ -408,10 +422,16 @@ def _setup_recording(
 
     logger.info(f"Recording enabled for run_id: {run_id}")
     logger.info(f"S3 upload: {'enabled' if s3_upload else 'disabled'}")
+    if no_secret_redaction:
+        logger.warning(
+            "Secret redaction is DISABLED - recording will contain actual secrets. "
+            "Use this only for local debugging and NEVER commit recordings to source control."
+        )
 
     return IngestionRecorder(
         run_id=run_id,
         password=password,
+        redact_secrets=not no_secret_redaction,
         recipe=raw_config,
         output_path=output_path,
         s3_upload=s3_upload,

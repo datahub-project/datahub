@@ -53,8 +53,17 @@ SECRET_PATTERNS = [
     r".*api[_-]?key.*",
     r".*private[_-]?key.*",
     r".*access[_-]?key.*",
-    r".*auth.*",
     r".*credential.*",
+]
+
+# Fields that contain auth-related words but are NOT secrets
+# These are typically enum values, config options, or metadata
+NON_SECRET_FIELDS = [
+    "authentication_type",
+    "authenticator",
+    "auth_type",
+    "auth_method",
+    "authorization_type",
 ]
 
 
@@ -94,8 +103,18 @@ def _redact_recursive(obj: Any, parent_key: str = "") -> Any:
 
 
 def _is_secret_key(key: str) -> bool:
-    """Check if a key name indicates a secret value."""
+    """Check if a key name indicates a secret value.
+
+    Checks against known secret patterns while excluding fields that
+    contain auth-related words but are not secrets (e.g., authentication_type).
+    """
     key_lower = key.lower()
+
+    # First check if this is a known non-secret field
+    if key_lower in NON_SECRET_FIELDS:
+        return False
+
+    # Then check against secret patterns
     return any(re.match(pattern, key_lower) for pattern in SECRET_PATTERNS)
 
 
@@ -103,8 +122,12 @@ def prepare_recipe_for_replay(recipe: Dict[str, Any]) -> Dict[str, Any]:
     """Replace REPLAY_DUMMY_MARKER with valid dummy values for replay.
 
     During replay, the recipe is loaded by Pydantic which validates secret
-    fields. We replace the marker with a valid dummy string that passes
-    validation but is never actually used (all data comes from recordings).
+    fields. We replace the marker with format-appropriate dummy values that
+    pass validation but are never actually used (all data comes from recordings).
+
+    For example:
+    - private_key fields get a valid PEM-formatted dummy key
+    - Other secrets get a generic dummy string
 
     Args:
         recipe: Recipe dictionary with REPLAY_DUMMY_MARKER values
@@ -112,21 +135,81 @@ def prepare_recipe_for_replay(recipe: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         New dictionary with markers replaced by valid dummy values
     """
-    return _replace_markers_recursive(recipe)
+    return _replace_markers_recursive(recipe, "")
 
 
-def _replace_markers_recursive(obj: Any) -> Any:
-    """Recursively replace REPLAY_DUMMY_MARKER with valid values."""
+def _replace_markers_recursive(obj: Any, parent_key: str = "") -> Any:
+    """Recursively replace REPLAY_DUMMY_MARKER with valid values.
+
+    For certain fields (like private_key), we need to provide values in
+    the expected format rather than a generic dummy string.
+    """
     if isinstance(obj, dict):
-        return {key: _replace_markers_recursive(value) for key, value in obj.items()}
+        return {
+            key: _replace_markers_recursive(value, key) for key, value in obj.items()
+        }
 
     if isinstance(obj, list):
-        return [_replace_markers_recursive(item) for item in obj]
+        return [_replace_markers_recursive(item, parent_key) for item in obj]
 
     if obj == REPLAY_DUMMY_MARKER:
-        return REPLAY_DUMMY_VALUE
+        # Return format-appropriate dummy values based on field name
+        return _get_dummy_value_for_field(parent_key)
 
     return obj
+
+
+# Test RSA private key for replay testing
+# This is a PUBLIC test key generated specifically for DataHub replay testing
+# Generated with: openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt
+# This key has NO real-world use and should NEVER be used for actual authentication
+# It's only used during replay when secret redaction is enabled (connection is mocked anyway)
+TEST_RSA_PRIVATE_KEY = """-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHjpPXINuhTHs+
+M+RS/mDapEmrr7SUiSdB4uzc1EfOSJiV44JzIzVxNIb6UCGilNvdC+xYoDTbkEUX
+XPrdqMJFRcgeyd4AiynJzKFtkiJNnoOaa4FOCvFvmKOQWegrdkNOyTetdV+54vz/
+LU33SZYWJKGPzQE9U4vioQy1Lsql9jXB3n83CIvo9jvR6oyS7e0v32OWRDnrjlzP
+zOGjQz2VRVo8pCiw6HkPYj4A8wbTLuuKiowY2dJjs5eLwndOI1qc+iv87ksrwYjJ
+kZiWBenhHsbh45v86QLUqlI5accPHvBb3fy1dininxmhRN1Z9lEhdBCGH0rj5FiY
+Lik8/p5RAgMBAAECggEABGW0xgcqM8sTxaZ+0+HZWEQJwAvggKvnhq0Fj2Wpmebx
+Xs8rORaH51FTHpmsrhCV6jBosjjAhWyPyzCgMgl1k3Fy1BPabZxjbLgSwA957Egv
+ifPvvtygnpcIVqZWhnumBsrKDGtTU00oSkaxKr9vPFhtC3ZG3lc0lEc8eJMaAc9p
+tLImxv17qU2jGFTJbF7Por65M10YbArQOdXdk5vsMbJyAPx+AQTlJyFvZ/d/bTyR
+Js7zwjP75L86p92vUOn+5b+Zl+OkuJTluSEIuxSsVHLKJP8B/HPCM7cmXUnSeFcS
+IRLrhOi7f1CP9iHsH/M5/Mfbh4VTQVDdprnWVYcrwQKBgQD44j8rvChj0d92OI9F
+ll17mjRw/yBqKYdgroayIuHXEovd2c1Zj6DAqlfRltEooBLmzaB5MW7m25bJpA/R
+M9Z4LfUi/cqF2l1v0B4180pXjgVVyzKSVlMV2GWwwHIqc8vkEe9yqjEql9jlGcU/
+97FyPwXf/ZL8jxUS+URkGGoisQKBgQDNQ0X8nV/8V6ak/Ku8IlkAXZvjqYBXFELP
+bnsuxlX1A7VDI9eszdkjyyefSUm0w/wE2UJXqD6QMlvL9d0HRgIy2UshEB2c/lGs
+hlteLv4QTDWAGx5T6WrYDM14EZuhGS3ITWE9EpqRmRKami0/2iyYgc0saUkjYoEl
+YrtnQgzdoQKBgH4WkQ5lKsk3YFCSYvNMNFwUSZEdj5x5IZ63jIHe7i95s+ZXG5PO
+EhDJu+fw0lIUlr7bWftMMfU/Nms9dM31xyfnkJODpACgGko1U7jdYsJsrwNCCILe
+vQUKNqqPNMeRFrCa7YZX9sSvXTDkF2xK3lkU2LMb0kWlb3XHVwCm5c5hAoGBAL1z
+Af2OIzF8lMpiiv8xlIPJ4j/WCiZVBPT/O6KIXH2v1nUJd95+f5ORxhg2RFkbKlgv
+ThQprNTaJe+yFTbJXu4fsD/r5+kmsatStrHPHZ9dN2Pto6g/H+YYquvPFJ0z6BWf
+lcgQi6kmZw1aj7kHXXHFG+GJq3+FQz2GSwGa7NUBAoGAW8qpBFtG8ExEug7kTDNF
+4Lgdyb2kyGtq8OGLgPctVhDGAv8zJeb3GbEtZbjhBEXzQ/kyCkVZEXpWGHwv1wrP
+hxU8kG/Q3sbr9FMMD0iLakcoWOus3T1NY7GOlTo6hiAlkpJufU7jOLZgaci8+koQ
+gu1Yi3GEOFR5fhCw7xjuO+E=
+-----END PRIVATE KEY-----
+"""
+
+
+def _get_dummy_value_for_field(field_name: str) -> str:
+    """Get an appropriate dummy value based on field name.
+
+    Some fields require specific formats (e.g., PEM keys, JSON tokens).
+    This ensures the dummy value passes validation during replay.
+    """
+    field_lower = field_name.lower()
+
+    # Private key fields need valid PEM format (PKCS#8)
+    # Use the public test key constant defined above
+    if "private_key" in field_lower or "private-key" in field_lower:
+        return TEST_RSA_PRIVATE_KEY
+
+    # Default dummy value for other secrets
+    return REPLAY_DUMMY_VALUE
 
 
 def compute_checksum(file_path: Path) -> str:
@@ -222,6 +305,7 @@ class RecordingArchive:
         temp_dir: Path,
         manifest: ArchiveManifest,
         recipe: Dict[str, Any],
+        redact_secrets_enabled: bool = True,
     ) -> Path:
         """Create an encrypted archive from recording files.
 
@@ -230,14 +314,24 @@ class RecordingArchive:
             temp_dir: Directory containing recording files (http/, db/).
             manifest: Archive manifest with metadata.
             recipe: Original recipe dictionary.
+            redact_secrets_enabled: Whether to redact secrets from the recipe (default: True).
+                                   Set to False for local debugging to keep actual credentials.
 
         Returns:
             Path to the created archive.
         """
         import pyzipper
 
-        # Redact secrets from recipe before storing
-        redacted_recipe = redact_secrets(recipe)
+        # Conditionally redact secrets from recipe before storing
+        if redact_secrets_enabled:
+            stored_recipe = redact_secrets(recipe)
+            logger.debug("Secrets redacted from recipe before archiving")
+        else:
+            stored_recipe = recipe
+            logger.warning(
+                "Secret redaction DISABLED - recipe contains actual credentials. "
+                "Do NOT share this recording outside secure environments."
+            )
 
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -265,7 +359,7 @@ class RecordingArchive:
             zf.writestr(MANIFEST_FILENAME, manifest_data.encode("utf-8"))
 
             # Add recipe
-            recipe_data = yaml.dump(redacted_recipe, default_flow_style=False)
+            recipe_data = yaml.dump(stored_recipe, default_flow_style=False)
             zf.writestr(RECIPE_FILENAME, recipe_data.encode("utf-8"))
 
             # Add recording files

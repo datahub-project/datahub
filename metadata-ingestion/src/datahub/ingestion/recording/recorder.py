@@ -63,6 +63,7 @@ class IngestionRecorder:
         s3_upload: bool = True,
         source_type: Optional[str] = None,
         sink_type: Optional[str] = None,
+        redact_secrets: bool = True,
     ) -> None:
         """Initialize ingestion recorder.
 
@@ -75,6 +76,8 @@ class IngestionRecorder:
             s3_upload: Whether to upload to S3 after recording.
             source_type: Source type (for manifest metadata).
             sink_type: Sink type (for manifest metadata).
+            redact_secrets: Whether to redact secrets in the stored recipe (default: True).
+                          Set to False for local debugging to keep actual credentials.
         """
         check_recording_dependencies()
 
@@ -83,6 +86,7 @@ class IngestionRecorder:
         self.recipe = recipe
         self.source_type = source_type
         self.sink_type = sink_type
+        self.redact_secrets = redact_secrets
 
         # Apply config overrides if provided
         if config:
@@ -174,6 +178,9 @@ class IngestionRecorder:
         if self._query_recorder:
             self._query_recorder.stop_recording()
 
+        # Validate recording completeness
+        self._validate_recording()
+
         # ALWAYS create archive - this is a debug feature, we need to capture
         # the state even (especially!) when there's an exception
         try:
@@ -230,6 +237,7 @@ class IngestionRecorder:
             temp_dir=self._temp_dir,
             manifest=manifest,
             recipe=self.recipe,
+            redact_secrets_enabled=self.redact_secrets,
         )
 
         logger.info(f"Created recording archive: {self._archive_path}")
@@ -298,6 +306,35 @@ class IngestionRecorder:
         # when that API is exposed. For now, return None to indicate
         # S3 upload is not available without explicit bucket configuration.
         return None
+
+    def _validate_recording(self) -> None:
+        """Validate that the recording captured meaningful data.
+
+        This helps catch issues where recording appears to succeed but didn't
+        actually capture anything useful (e.g., VCR interference, connection
+        failures that were swallowed, etc.).
+        """
+        query_count = (
+            len(self._query_recorder._recordings) if self._query_recorder else 0
+        )
+        http_count = self._http_recorder.request_count if self._http_recorder else 0
+
+        if query_count == 0 and http_count == 0:
+            logger.error(
+                "Recording validation failed: No queries or HTTP requests recorded. "
+                "The recording may be incomplete or the connection may have failed."
+            )
+        elif query_count == 0:
+            logger.warning(
+                f"No database queries recorded (HTTP requests: {http_count}). "
+                "This is expected for HTTP-only sources (Looker, PowerBI, etc.), "
+                "but unusual for database sources (Snowflake, Databricks, etc.)."
+            )
+        else:
+            logger.info(
+                f"Recording validation passed: {query_count} database queries, "
+                f"{http_count} HTTP requests recorded"
+            )
 
     @staticmethod
     def _get_datahub_version() -> Optional[str]:

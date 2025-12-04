@@ -437,3 +437,51 @@ class HTTPReplayerForLiveSink:
             finally:
                 self._cassette = None
                 logger.info("HTTP replay with live sink complete")
+
+
+@contextmanager
+def vcr_bypass_context() -> Iterator[None]:
+    """Temporarily disable VCR to allow direct HTTP connections.
+
+    This is useful when VCR interferes with authentication for sources
+    using vendored or non-standard HTTP libraries (e.g., Snowflake, Databricks).
+
+    During the bypass, VCR's patching is temporarily disabled, allowing
+    the connection to proceed normally. After the context exits, VCR
+    patching is restored.
+
+    Usage:
+        try:
+            # Try with VCR active
+            connection = snowflake.connector.connect(...)
+        except Exception:
+            # Retry with VCR bypassed
+            with vcr_bypass_context():
+                connection = snowflake.connector.connect(...)
+    """
+    try:
+        import vcr as vcr_module
+    except ImportError:
+        # VCR not installed, nothing to bypass
+        logger.debug("VCR not installed, bypass context is a no-op")
+        yield
+        return
+
+    # Store current VCR cassette state if any
+    # VCR stores active cassettes in a thread-local variable
+    original_cassettes = getattr(vcr_module.cassette, "_current_cassettes", None)
+
+    # Temporarily clear active cassettes to bypass VCR
+    if hasattr(vcr_module.cassette, "_current_cassettes"):
+        vcr_module.cassette._current_cassettes = []
+
+    try:
+        logger.debug("VCR temporarily bypassed for connection")
+        yield
+    finally:
+        # Restore VCR cassettes
+        if original_cassettes is not None and hasattr(
+            vcr_module.cassette, "_current_cassettes"
+        ):
+            vcr_module.cassette._current_cassettes = original_cassettes
+        logger.debug("VCR patching restored")

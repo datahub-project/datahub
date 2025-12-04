@@ -328,22 +328,35 @@ Sources using non-HTTP protocols cannot be fully recorded:
 
 ### 8. Vendored HTTP Libraries (Snowflake, Databricks)
 
-Some database connectors bundle (vendor) their own copies of HTTP libraries:
+Some database connectors use non-standard HTTP implementations:
 
 - **Snowflake**: Uses `snowflake.connector.vendored.urllib3` and `vendored.requests`
 - **Databricks**: Uses internal Thrift HTTP client
 
-VCR can only intercept the standard `urllib3`/`requests` libraries, not vendored copies. This means:
+**Impact:** HTTP authentication calls are NOT recorded during connection setup.
 
-- HTTP requests through vendored libraries are NOT recorded
-- Connection attempts may fail during recording due to VCR interference
-- Affects: Snowflake source, Fivetran with Snowflake/Databricks destinations
+**Why recording still works:**
 
-**Workarounds:**
+- Authentication happens once during `connect()`
+- SQL queries use standard DB-API cursors (no HTTP involved)
+- During replay, authentication is bypassed entirely (mock connection)
+- All SQL queries and results are perfectly recorded/replayed
 
-1. Use sources that don't use vendored HTTP (e.g., Looker, PowerBI, dbt Cloud)
-2. Debug database issues using the db_proxy recordings (SQL queries are still captured)
-3. Test without `--record` flag to verify credentials work, then debug other issues
+**What IS recorded:**
+
+- ✅ All SQL queries via `cursor.execute()`
+- ✅ All query results
+- ✅ Cursor metadata (description, rowcount)
+
+**What is NOT recorded:**
+
+- ❌ HTTP authentication calls (not needed for replay)
+- ❌ PUT/GET file operations (not used in metadata ingestion)
+
+**Automatic error handling:**
+The recording system detects when VCR interferes with connection and automatically retries with VCR bypassed. You'll see warnings in logs but recording will succeed. SQL queries are captured normally regardless of HTTP recording status.
+
+**For debugging:** SQL query recordings are sufficient for all metadata extraction scenarios.
 
 ### 9. Stateful Ingestion
 
@@ -385,16 +398,36 @@ datahub recording extract recording.zip --password mysecret --output-dir ./extra
 
 ### Database Sources
 
-| Source     | HTTP Recording | DB Recording | Notes                                           |
-| ---------- | -------------- | ------------ | ----------------------------------------------- |
-| Snowflake  | ⚠️ Limited     | ✅           | Uses vendored urllib3 - HTTP not fully captured |
-| Redshift   | N/A            | ✅           | Native connector wrapped                        |
-| BigQuery   | ✅ (REST API)  | ✅           | Client API wrapped                              |
-| Databricks | ⚠️ Limited     | ✅           | Thrift client compatibility issues              |
-| PostgreSQL | N/A            | ✅           | SQLAlchemy event capture                        |
-| MySQL      | N/A            | ✅           | SQLAlchemy event capture                        |
+| Source     | HTTP Recording | DB Recording | Notes                                        |
+| ---------- | -------------- | ------------ | -------------------------------------------- |
+| Snowflake  | ❌ Not needed  | ✅ Full      | SQL queries fully recorded via DB-API cursor |
+| Redshift   | N/A            | ✅ Full      | Native connector wrapped                     |
+| BigQuery   | ✅ (REST API)  | ✅ Full      | Client API wrapped                           |
+| Databricks | ❌ Not needed  | ✅ Full      | SQL queries fully recorded via DB-API cursor |
+| PostgreSQL | N/A            | ✅ Full      | SQLAlchemy event capture                     |
+| MySQL      | N/A            | ✅ Full      | SQLAlchemy event capture                     |
 
-**Note:** Snowflake and Databricks use vendored HTTP libraries that VCR cannot intercept. Recording may fail during connection setup. SQL queries are still captured via db_proxy.
+**Note:** File staging operations (PUT/GET) are not used in metadata extraction and are therefore not a concern for recording/replay.
+
+#### Database Connection Architecture
+
+Database sources have a two-phase execution model:
+
+**Phase 1: Authentication (During `connect()`)**
+
+- Uses source-specific HTTP clients (may be vendored/custom)
+- NOT recorded (but also not needed during replay)
+- During replay: Bypassed entirely with mock connection
+- Automatic retry if VCR interferes with connection
+
+**Phase 2: SQL Execution (After `connect()`)**
+
+- Uses standard Python DB-API 2.0 cursor interface
+- Fully recorded via `CursorProxy`
+- Protocol-agnostic (works for any DB-API connector)
+- During replay: Served from recorded `queries.jsonl`
+
+This architecture makes recording resilient to HTTP library changes while maintaining perfect SQL replay fidelity. For Snowflake and Databricks, all metadata extraction happens via SQL queries in Phase 2, making HTTP recording unnecessary.
 
 ### DataHub Backend
 

@@ -14,10 +14,90 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
+from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_value(value: Any) -> Any:
+    """Serialize a value to be JSON-safe.
+
+    Handles common database types that aren't JSON serializable:
+    - datetime/date objects -> ISO format strings with type marker
+    - Decimal -> float
+    - bytes -> base64 string
+    - Other objects -> string representation
+    """
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        # Store as dict with type marker so we can deserialize correctly
+        return {"__type__": "datetime", "__value__": value.isoformat()}
+    if isinstance(value, date):
+        return {"__type__": "date", "__value__": value.isoformat()}
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, bytes):
+        import base64
+
+        return base64.b64encode(value).decode("utf-8")
+    if isinstance(value, (list, tuple)):
+        return [_serialize_value(item) for item in value]
+    if isinstance(value, dict):
+        return {k: _serialize_value(v) for k, v in value.items()}
+    # For other types, convert to string
+    return str(value)
+
+
+def _deserialize_value(value: Any) -> Any:
+    """Deserialize a value from JSON storage.
+
+    Reverses the serialization done by _serialize_value, converting
+    type-marked dictionaries back to their original types.
+
+    Also handles ISO datetime strings from database results, converting
+    them back to datetime objects for compatibility with source code.
+    """
+    if value is None:
+        return value
+    if isinstance(value, (int, float, bool)):
+        return value
+    if isinstance(value, str):
+        # Try to parse as datetime if it looks like an ISO timestamp
+        # This handles Snowflake DictCursor results which return datetimes as ISO strings
+        if len(value) > 18 and ("T" in value or " " in value) and (":" in value):
+            try:
+                # Try parsing as datetime with timezone
+                if "+" in value or value.endswith("Z") or "-" in value[-6:]:
+                    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+                # Try parsing as datetime without timezone
+                return datetime.fromisoformat(value)
+            except (ValueError, AttributeError):
+                # Not a datetime string, return as-is
+                pass
+        return value
+    if isinstance(value, dict):
+        # Check for type markers (serialized datetime, date, etc.)
+        if "__type__" in value and "__value__" in value and len(value) == 2:
+            # This is a type-marked value, convert it
+            type_name = value["__type__"]
+            val_str = value["__value__"]
+            if type_name == "datetime":
+                return datetime.fromisoformat(val_str)
+            if type_name == "date":
+                return date.fromisoformat(val_str)
+            # Unknown type marker, return as-is
+            return value
+        # Regular dict, deserialize values recursively
+        return {k: _deserialize_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_deserialize_value(item) for item in value]
+    return value
 
 
 @dataclass
@@ -32,25 +112,42 @@ class QueryRecording:
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
+        """Convert to dictionary for JSON serialization.
+
+        Serializes all values to be JSON-safe, handling datetime objects,
+        Decimals, and other database types.
+        """
         return {
             "query": self.query,
             "parameters": self._serialize_params(self.parameters),
-            "results": self.results,
+            "results": [_serialize_value(row) for row in self.results],
             "row_count": self.row_count,
-            "description": self.description,
+            "description": _serialize_value(self.description),
             "error": self.error,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "QueryRecording":
-        """Create from dictionary."""
+        """Create from dictionary.
+
+        Deserializes values back to their original types (datetime, etc.)
+        """
+        raw_results = data.get("results", [])
+        deserialized_results = [_deserialize_value(row) for row in raw_results]
+
+        # Debug logging for first result if available
+        if raw_results and deserialized_results:
+            logger.debug(
+                f"Deserialized {len(deserialized_results)} rows. "
+                f"First row sample: {str(deserialized_results[0])[:100]}"
+            )
+
         return cls(
             query=data["query"],
             parameters=data.get("parameters"),
-            results=data.get("results", []),
+            results=deserialized_results,
             row_count=data.get("row_count"),
-            description=data.get("description"),
+            description=_deserialize_value(data.get("description")),
             error=data.get("error"),
         )
 
@@ -219,11 +316,23 @@ class CursorProxy:
             setattr(self._cursor, name, value)
 
     def __iter__(self) -> Iterator[Any]:
-        """Iterate over results."""
+        """Iterate over results.
+
+        In recording mode, we've already fetched all results to record them,
+        so we return an iterator over the recorded results.
+        In replay mode, we return the recorded results.
+        """
         if self._is_replay:
             if self._current_recording:
                 return iter(self._current_recording.results)
             return iter([])
+
+        # In recording mode, return the recorded results
+        # (the real cursor was already consumed by fetchall() in _record_execute)
+        if self._current_recording:
+            return iter(self._current_recording.results)
+
+        # Fallback to real cursor if no recording available
         return iter(self._cursor)
 
     def __enter__(self) -> "CursorProxy":
@@ -260,14 +369,20 @@ class CursorProxy:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
-        """Execute query on real cursor and record results."""
+        """Execute query on real cursor and record results.
+
+        IMPORTANT: We fetch all results to record them, but then need to make
+        them available again for the caller to iterate over. We store the results
+        and make the cursor proxy iterable.
+        """
         method = getattr(self._cursor, method_name)
 
         try:
+            # Execute the query on the real cursor
             if parameters is not None:
-                result = method(query, parameters, *args, **kwargs)
+                method(query, parameters, *args, **kwargs)
             else:
-                result = method(query, *args, **kwargs)
+                method(query, *args, **kwargs)
 
             # Fetch all results for recording
             results = []
@@ -285,11 +400,16 @@ class CursorProxy:
                 if hasattr(self._cursor, "fetchall"):
                     fetched = self._cursor.fetchall()
                     if fetched:
-                        # Convert to list of dicts if possible
-                        if description:
+                        # Check if results are already dicts (e.g., from DictCursor)
+                        if fetched and isinstance(fetched[0], dict):
+                            # Already in dict format (Snowflake DictCursor, etc.)
+                            results = fetched
+                        elif description:
+                            # Convert tuples to dicts using column names
                             col_names = [d[0] for d in description]
                             results = [dict(zip(col_names, row)) for row in fetched]
                         else:
+                            # No description, wrap in generic format
                             results = [{"row": list(row)} for row in fetched]
             except Exception:
                 # Some cursors don't support fetchall after certain operations
@@ -305,7 +425,14 @@ class CursorProxy:
             self._recorder.record(recording)
             self._current_recording = recording
 
-            return result
+            # Reset the result iterator so the caller can iterate over results
+            # Since we consumed the cursor with fetchall(), we need to provide
+            # the results again
+            self._result_iter = iter(results)
+
+            # Return self (the proxy) instead of the real cursor
+            # This allows iteration to work via our __iter__ method
+            return self
 
         except Exception as e:
             # Record the error too
