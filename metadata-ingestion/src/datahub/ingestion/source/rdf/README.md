@@ -1,268 +1,35 @@
-# RDF
+# RDF Ingestion Source
 
-A lightweight RDF ontology ingestion system for DataHub with **dynamic routing** based on SPARQL queries and **comprehensive lineage processing** via PROV-O.
+A lightweight RDF ontology ingestion system for DataHub focused on **business glossaries**. This source enables ingestion of SKOS-based glossaries with term definitions, hierarchical organization, and relationships.
 
-## Architecture
+## Overview
 
-RDF uses a **query-based approach** with **dynamic routing** that eliminates the need for separate processing methods for each entity type. Instead, it:
+The RDF ingestion source provides:
 
-1. **Executes SPARQL queries** to extract entities with their types
-2. **Routes dynamically** based on the `entity_type` field in results
-3. **Processes generically** using appropriate handlers based on the data itself
-4. **Extracts lineage** using PROV-O (Provenance Ontology) for complete data flow tracking
-
-This makes the system more flexible, maintainable, and RDF-native with comprehensive lineage support.
+- **Glossary Terms**: Import SKOS concepts as DataHub glossary terms
+- **Term Groups**: Automatic creation of glossary nodes from IRI path hierarchies
+- **Relationships**: Support for `skos:broader` and `skos:narrower` term relationships
+- **Standards-Based**: Native support for SKOS, OWL, and RDFS vocabularies
+- **Modular Architecture**: Pluggable entity system with auto-discovery
 
 ## Quick Start
 
-### Option 1: DataHub Ingestion Framework (Recommended)
+### Installation
 
 ```bash
-# Install
-pip install -e .
-
-# Ingest using a recipe file
-datahub ingest -c examples/recipe_basic.yml
+pip install acryl-datahub[rdf]
 ```
 
-### Option 2: CLI Tool
+### Basic Usage
 
-```bash
-# Install
-pip install -r requirements.txt
-
-# Ingest ontology with dynamic routing
-python -m src.rdf.scripts.datahub_rdf ingest \
-  --source examples/bcbs239/ \
-  --export entities \
-  --server http://localhost:8080 \
-  --token your-token
-
-# List glossary items
-python -m src.rdf.scripts.datahub_rdf list \
-  --server http://localhost:8080 \
-  --token your-token
-```
-
-## RDF-to-DataHub Mapping
-
-RDF maps RDF concepts to DataHub entities through specific property mappings and IRI transformations.
-
-### Quick Reference
-
-**Glossary Mapping:**
-
-- `skos:Concept` → `GlossaryTerm`
-- `skos:ConceptScheme` → `GlossaryNode`
-- `skos:prefLabel` → `name`
-- `skos:definition` → `description`
-
-**Dataset Mapping:**
-
-- `void:Dataset` → `Dataset`
-- `dcterms:title` → `name`
-- `void:sparqlEndpoint` → `connection`
-
-**Domain Mapping:**
-
-- IRI hierarchy → Domain hierarchy (parent segments only)
-- `https://example.com/finance/accounts` → `urn:li:domain:example_com`, `urn:li:domain:finance` (dataset `accounts` assigned to `finance` domain)
-- Automatic domain creation and dataset assignment
-- Follows same hierarchy logic as glossary terms
-
-**Lineage Mapping:**
-
-- `prov:wasDerivedFrom` → upstream lineage
-- `prov:wasGeneratedBy` → downstream lineage
-
-**IRI-to-URN Examples:**
-
-```
-http://example.com/finance/credit-risk
-→ urn:li:glossaryTerm:(finance,credit-risk)
-
-fibo:FinancialInstrument
-→ fibo:FinancialInstrument (preserved)
-```
-
-📖 **For detailed mapping specifications, see:**
-
-- [RDF Glossary Mapping](docs/RDF_GLOSSARY_MAPPING.md) - Glossary terms and relationships
-- [RDF Dataset Mapping](docs/RDF_DATASET_MAPPING.md) - Datasets, lineage, and platforms
-
-## Features
-
-- **Dynamic Routing**: Routes processing based on SPARQL results, not hardcoded logic
-- **Query-Based**: Uses SPARQL queries for flexible, RDF-native data extraction
-- **Unified Processing**: Single pipeline for all entity types (datasets, glossary terms, properties)
-- **Comprehensive Lineage**: Complete PROV-O lineage processing with activities and relationships
-- **Field-Level Tracking**: Column-to-column lineage mapping for detailed data flow analysis
-- **Strategy Pattern**: Clean separation between dry run and live execution
-- **Universal**: Works with any TTL file or SPARQL endpoint
-- **Smart**: Auto-detects ontology structure and entity types
-- **Flexible**: Handles various IRI formats and RDF vocabularies
-- **Clean**: Generates proper DataHub URNs
-- **Fast**: Batch processing for large ontologies
-- **Domain Management**: Automatic domain creation and dataset assignment based on IRI hierarchy
-
-## Commands
-
-| Command  | Description                                                  |
-| -------- | ------------------------------------------------------------ |
-| `ingest` | Load RDF files/directories into DataHub with dynamic routing |
-| `list`   | Show existing glossary items                                 |
-| `delete` | Remove glossary terms/domains                                |
-
-### Export Targets
-
-The `ingest` command supports these export targets:
-
-- `entities` - Datasets, glossary terms, and structured properties (unified)
-- `links` - Relationships, dataset-glossary links, dataset-property links (unified)
-- `lineage` - Data lineage and provenance
-- `all` - All export targets
-
-### Legacy Targets (for backward compatibility)
-
-- `glossary` - Glossary terms only
-- `datasets` - Datasets only
-- `properties` - Structured properties only
-- `relationships` - SKOS relationships only
-- `dataset_glossary_links` - Dataset-glossary links only
-- `dataset_property_links` - Dataset-property links only
-
-## Examples
-
-```bash
-# Dry run with dynamic routing
-python -m src.rdf.scripts.datahub_rdf ingest \
-  --source examples/bcbs239/ \
-  --export entities \
-  --server http://localhost:8080 --token "" --dry-run
-
-# Live ingestion with unified export targets
-python -m src.rdf.scripts.datahub_rdf ingest \
-  --source examples/bcbs239/ \
-  --export entities links lineage \
-  --server http://localhost:8080 --token ""
-
-# Process lineage with pretty print output
-python -m rdf --folder examples/bcbs239 --dry-run
-
-# Legacy single-target export (still supported)
-python -m src.rdf.scripts.datahub_rdf ingest \
-  --source examples/working_example_glossary.ttl \
-  --export glossary \
-  --server http://localhost:8080 --token ""
-
-# Delete domain
-python -m src.rdf.scripts.datahub_rdf delete \
-  --server http://localhost:8080 --token "" \
-  --domain "urn:li:glossaryNode:test"
-```
-
-## Lineage Processing
-
-RDF provides comprehensive lineage processing through PROV-O (Provenance Ontology):
-
-### Lineage Activities
-
-Process data jobs and ETL activities:
-
-```turtle
-ex:LoanAggregationActivity a prov:Activity ;
-    rdfs:label "Loan Data Aggregation" ;
-    dcterms:description "ETL process that aggregates loan trading data" ;
-    prov:startedAtTime "2024-01-01T06:00:00+00:00"^^xsd:dateTime ;
-    prov:endedAtTime "2024-01-01T06:30:00+00:00"^^xsd:dateTime ;
-    prov:wasAssociatedWith ex:DataEngineeringTeam .
-```
-
-### Lineage Relationships
-
-Track data flow and dependencies:
-
-```turtle
-# Activity uses upstream data
-ex:LoanAggregationActivity prov:used ex:LoanTradingDataset ;
-                          prov:used ex:AccountDetailsDataset .
-
-# Activity generates downstream data
-ex:LoanAggregationActivity prov:generated ex:ConsolidatedLoansDataset .
-
-# Direct derivation relationship
-ex:ConsolidatedLoansDataset prov:wasDerivedFrom ex:LoanTradingDataset .
-```
-
-### Field-Level Lineage
-
-Track column-to-column transformations:
-
-```turtle
-ex:AccountIdFieldMapping a prov:Activity ;
-    rdfs:label "Account ID Field Mapping" ;
-    prov:used ex:AccountDetailsDataset#account_id ;
-    prov:generated ex:ConsolidatedLoansDataset#account_id ;
-    prov:generated ex:FinanceLoanBalancesDataset#account_id .
-```
-
-**Features:**
-
-- Complete PROV-O activity extraction
-- All major PROV-O relationship types
-- Field-level lineage tracking
-- Temporal information and user attribution
-- Unauthorized data flow detection
-- DataHub native integration
-
-## Programmatic Usage
-
-```python
-from src.rdf.core import OntologyToDataHub
-from src.rdf.core.datahub_client import DataHubClient
-from src.rdf.core.output_strategy import DryRunOutputStrategy, LiveDataHubOutputStrategy
-from src.rdf.core.query_registry import ExportTarget
-
-# Create client
-client = DataHubClient("http://localhost:8080", "your-token")
-
-# Create converter with dynamic routing
-converter = OntologyToDataHub(client)
-
-# Choose output strategy (dry run or live)
-output_strategy = DryRunOutputStrategy()  # or LiveDataHubOutputStrategy(client)
-
-# Process with unified export targets using dynamic routing
-results = converter.process_graph(
-    graph,
-    [ExportTarget.ENTITIES, ExportTarget.LINKS],
-    output_strategy
-)
-
-# Legacy single-target processing (still supported)
-results = converter.process_graph(
-    graph,
-    [ExportTarget.GLOSSARY],
-    output_strategy
-)
-```
-
-## DataHub Ingestion Recipes
-
-RDF is available as a native DataHub ingestion source plugin. This is the recommended approach for production use.
-
-### Basic Recipe
+Create a recipe file (`rdf_glossary.yml`):
 
 ```yaml
 source:
   type: rdf
   config:
-    source: examples/bcbs239/
+    source: path/to/glossary.ttl
     environment: PROD
-    export_only:
-      - glossary
-      - datasets
-      - lineage
 
 sink:
   type: datahub-rest
@@ -271,22 +38,58 @@ sink:
     token: "${DATAHUB_TOKEN}"
 ```
 
-### Running Recipes
+Run ingestion:
 
 ```bash
-# Run ingestion
-datahub ingest -c examples/recipe_basic.yml
+# Ingest glossary
+datahub ingest -c rdf_glossary.yml
 
 # Dry run (preview without ingesting)
-datahub ingest -c examples/recipe_basic.yml --dry-run
-
-# Debug mode
-datahub ingest -c examples/recipe_basic.yml --debug
+datahub ingest -c rdf_glossary.yml --dry-run
 ```
 
-### Recipe Configuration
+## RDF-to-DataHub Mapping
 
-All CLI parameters are available in recipes:
+### Glossary Terms
+
+RDF concepts are mapped to DataHub glossary terms:
+
+- `skos:Concept` → `GlossaryTerm`
+- `skos:prefLabel` OR `rdfs:label` → term name
+- `skos:definition` OR `rdfs:comment` → term definition
+- IRI path segments → glossary node hierarchy
+
+### Term Groups (Domains)
+
+IRI path hierarchies are automatically converted to glossary node hierarchies:
+
+```
+https://example.com/finance/credit-risk
+→ Glossary Node: finance
+  └─ Glossary Node: credit-risk
+     └─ Glossary Term: (final segment)
+```
+
+**Note**: Domains are used internally as a data structure to organize glossary terms. They are **not** ingested as DataHub domain entities (which are for datasets/products).
+
+### Relationships
+
+- `skos:broader` → creates `isRelatedTerms` relationships in DataHub
+- `skos:narrower` → creates `isRelatedTerms` relationships (inverse direction)
+
+### IRI-to-URN Examples
+
+```
+http://example.com/finance/credit-risk
+→ urn:li:glossaryTerm:finance/credit-risk
+
+fibo:FinancialInstrument
+→ urn:li:glossaryTerm:fibo:FinancialInstrument
+```
+
+## Configuration
+
+### Source Configuration
 
 | Parameter     | Description                          | Default                              |
 | ------------- | ------------------------------------ | ------------------------------------ |
@@ -298,36 +101,99 @@ All CLI parameters are available in recipes:
 | `skip_export` | Skip specified types                 | none                                 |
 | `recursive`   | Recursive folder processing          | `true`                               |
 | `extensions`  | File extensions to process           | `.ttl`, `.rdf`, `.owl`, `.n3`, `.nt` |
-| `sparql`      | SPARQL query to execute              | none                                 |
-| `filter`      | Filter criteria                      | none                                 |
 
-**Export Types:** `glossary`, `datasets`, `data_products`, `lineage`, `properties`, `ownership`
+### Export Types (CLI Options)
 
-See [examples/RECIPES.md](examples/RECIPES.md) for more recipe examples and detailed documentation.
+- `glossary` or `glossary_terms` - Glossary terms only
+- `relationship` or `relationships` - Term relationships only
 
-## Project Structure
+**Note**: The `domain` option is not available in MVP. Domains are used internally as a data structure for organizing glossary terms into hierarchies.
 
+## Example RDF File
+
+```turtle
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<https://example.com/finance/credit-risk>
+    a skos:Concept ;
+    skos:prefLabel "Credit Risk" ;
+    skos:definition "The risk of loss due to a borrower's failure to repay a loan" ;
+    skos:broader <https://example.com/finance/risk> .
+
+<https://example.com/finance/risk>
+    a skos:Concept ;
+    skos:prefLabel "Risk" ;
+    skos:definition "General category of financial risk" .
 ```
-src/rdf/
-├── core/                    # Core processing logic
-│   ├── query_based_processor.py    # Dynamic routing processor
-│   ├── query_registry.py           # SPARQL query registry
-│   ├── output_strategy.py          # Strategy pattern for dry run/live
-│   ├── datahub_client.py           # DataHub API client
-│   └── ...
-├── scripts/                 # CLI tools
-└── standards/               # Ontology handlers
-```
 
-### Key Components
+This will create:
 
-- **QueryBasedProcessor**: Executes SPARQL queries and routes dynamically based on entity types
-- **QueryRegistry**: Centralized SPARQL queries for each export target
-- **OutputStrategy**: Strategy pattern for dry run vs live execution
-- **DataHubClient**: Centralized DataHub API interactions
+- Glossary Node: `finance`
+- Glossary Term: `Risk` (under `finance` node)
+- Glossary Term: `Credit Risk` (under `finance` node, with relationship to `Risk`)
+
+## Architecture
+
+RDF uses a modular, pluggable entity architecture:
+
+1. **Entity Extractors**: Extract RDF entities from graphs
+2. **Entity Converters**: Convert RDF AST to DataHub AST
+3. **MCP Builders**: Generate Metadata Change Proposals (MCPs)
+4. **Auto-Discovery**: Entity modules are automatically discovered and registered
+
+### Processing Flow
+
+1. Load RDF files into RDF graph
+2. Extract entities (glossary terms, relationships)
+3. Build domain hierarchy from IRI paths
+4. Convert to DataHub AST
+5. Generate MCPs for glossary nodes and terms
+6. Emit to DataHub
+
+## Documentation
+
+- **[RDF Specification](docs/rdf-specification.md)** - Complete technical specification
+- **[Entity Plugin Contract](docs/ENTITY_PLUGIN_CONTRACT.md)** - Guide for adding new entity types
+- **[Documentation Index](docs/README.md)** - All documentation files
+
+## Features
+
+- ✅ **Glossary Terms**: Full SKOS concept support
+- ✅ **Term Groups**: Automatic hierarchy from IRI paths
+- ✅ **Relationships**: `skos:broader`/`narrower` support
+- ✅ **Multiple Formats**: TTL, RDF/XML, JSON-LD, N3, N-Triples
+- ✅ **Multiple Sources**: Files, folders, URLs
+- ✅ **Standards-Based**: SKOS, OWL, RDFS support
+- ✅ **Modular**: Pluggable entity architecture
+
+## MVP Scope
+
+**Current MVP includes:**
+
+- Glossary terms
+- Term groups (domains) - used as data structure for hierarchy
+- Term relationships
+
+**Not included in MVP:**
+
+- Datasets
+- Data products
+- Structured properties
+- Lineage processing
+- Schema fields
+
+These features are available in the `rdf-full-features` branch.
 
 ## Requirements
 
 - Python 3.8+
 - DataHub instance
-- `rdflib`, `acryl-datahub`, `requests`
+- `rdflib`, `acryl-datahub`
+
+## Getting Help
+
+1. **Start with**: [RDF Specification](docs/rdf-specification.md) - Complete technical reference
+2. **Adding entities**: [Entity Plugin Contract](docs/ENTITY_PLUGIN_CONTRACT.md) - Plugin development guide
+3. **Examples**: Review example RDF files in test fixtures
+4. **CLI help**: Run `datahub ingest --help` for command options

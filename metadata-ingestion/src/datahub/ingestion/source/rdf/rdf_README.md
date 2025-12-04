@@ -24,18 +24,17 @@ results = converter.process_ontology_graph(graph)
 RDF concepts are mapped to DataHub entities:
 
 - `skos:Concept` → `GlossaryTerm`
-- `void:Dataset` → `Dataset`
-- `prov:wasDerivedFrom` → lineage relationships
+- `skos:broader` / `skos:narrower` → Glossary term relationships
 
 📖 **See detailed mapping specifications:**
 
-- [RDF Glossary Mapping](../../docs/RDF_GLOSSARY_MAPPING.md) - Glossary terms and relationships
-- [RDF Dataset Mapping](../../docs/RDF_DATASET_MAPPING.md) - Datasets, lineage, and platforms
+- [RDF Specification](./docs/rdf-specification.md) - Complete RDF ingestion specification
+- [Entity Plugin Contract](./docs/ENTITY_PLUGIN_CONTRACT.md) - Plugin architecture
 
 ## CLI
 
 ```bash
-python -m src.rdf.scripts.datahub_rdf ingest \
-  --server http://localhost:8080 --token "" \
-  ontology.ttl
+python -m datahub ingest -c config.yaml
 ```
+
+See [RDF Source Configuration](./docs/rdf-specification.md#configuration) for details.

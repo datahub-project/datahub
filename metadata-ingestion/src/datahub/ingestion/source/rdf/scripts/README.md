@@ -13,14 +13,10 @@ Unified command-line interface for RDF operations.
 ## Usage
 
 ```bash
-# Ingest ontology
-python -m src.rdf.scripts.datahub_rdf ingest \
-  --server http://localhost:8080 --token "" \
-  ontology.ttl
+# Ingest RDF glossary files
+python -m datahub ingest -c config.yaml
 
-# List items
-python -m src.rdf.scripts.datahub_rdf list \
-  --server http://localhost:8080 --token ""
+# See rdf-specification.md for configuration details
 
 # Delete domain
 python -m src.rdf.scripts.datahub_rdf delete \

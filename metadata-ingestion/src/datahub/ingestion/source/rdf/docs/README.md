@@ -26,8 +26,7 @@ RDF is a lightweight RDF ontology ingestion system for DataHub. This documentati
 
 ## Examples
 
-- [Examples Directory](../examples/README.md) - Sample RDF files and usage examples
-- [BCBS239 Demo](../examples/bcbs239/README.md) - Banking regulatory compliance example
+Example RDF files can be found in the test fixtures directory: `tests/unit/rdf/`
 
 ## Key Concepts
 
@@ -130,16 +129,11 @@ Complete guide for adding new entity types to rdf. Follow this contract to creat
 
 ### [SHACL Migration Guide](SHACL_MIGRATION_GUIDE.md)
 
-Guide for migrating from legacy SKOS approach to modern SHACL approach for dataset field definitions.
+Guide for SHACL constraint modeling (advanced feature - not part of MVP).
 
 ### Archived Documentation
 
-Historical and proposal documents are archived in `docs/archive/`:
-
-- `RDF_GLOSSARY_MAPPING.md` - Consolidated into main specification
-- `RDF_DATASET_MAPPING.md` - Dataset mapping (removed for MVP, available in full-features branch)
-- `TRANSPILER_ARCHITECTURE.md` - Consolidated into main specification
-- Other historical/proposal documents
+Historical and proposal documents have been removed for MVP. Full feature set documentation is available in the `rdf-full-features` branch.
 
 ## Getting Help
 

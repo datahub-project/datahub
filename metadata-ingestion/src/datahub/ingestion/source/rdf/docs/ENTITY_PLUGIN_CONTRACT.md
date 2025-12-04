@@ -41,8 +41,7 @@ The system uses a strict naming convention to auto-discover components:
 **Conversion rule**: `snake_case` → `PascalCase` (underscores removed, each word capitalized)
 
 - `glossary_term` → `GlossaryTerm`
-- `structured_property` → `StructuredProperty`
-- `data_product` → `DataProduct`
+- `relationship` → `Relationship`
 
 ## ENTITY_METADATA Structure
 
@@ -69,10 +68,8 @@ ENTITY_METADATA = EntityMetadata(
 - **`datahub_ast_class`**: The DataHub AST class that represents entities after conversion
 - **`export_targets`**: List of export targets this entity supports (e.g., `'pretty_print'`, `'file'`, `'datahub'`, `'ddl'`)
 - **`processing_order`**: Integer determining the order in which entities are processed during ingestion. Lower values are processed first. Default is 100. **Important**: Entities with dependencies on other entities should have higher `processing_order` values. For example:
-  - Structured property definitions: `processing_order=1` (must be created first)
-  - Glossary terms: `processing_order=2` (may depend on structured properties)
-  - Datasets: `processing_order=4` (may depend on glossary terms and structured properties)
-  - Structured property value assignments: Handled via post-processing hook (see below)
+  - Glossary terms: `processing_order=100` (may depend on domains for hierarchy)
+  - Relationships: `processing_order=200` (depend on glossary terms existing first)
 - **`validation_rules`**: Optional dictionary of entity-specific validation rules
 
 ## Required Interface Implementations
@@ -180,8 +177,9 @@ class YourEntityMCPBuilder(EntityMCPBuilder[DataHubYourEntity]):
 
         Example use cases:
         - Creating glossary nodes from domain hierarchy (GlossaryTermMCPBuilder)
-        - Note: Domains are data structure only, not ingested as DataHub domain entities
-        - Assigning structured property values to entities (StructuredPropertyMCPBuilder)
+        - Processing term relationships after terms are created (RelationshipMCPBuilder)
+
+        **Note**: Domains are data structure only, not ingested as DataHub domain entities
         """
         return []  # Default: no post-processing needed
 ```
