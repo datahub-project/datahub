@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.exception;
 
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -25,14 +26,6 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
     String message = DEFAULT_ERROR_MESSAGE;
 
-    IllegalArgumentException illException =
-        findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
-    if (illException != null) {
-      log.error("Failed to execute", illException);
-      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
-      message = extractErrorMessage(illException);
-    }
-
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
     if (graphQLException != null) {
@@ -41,12 +34,40 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = extractErrorMessage(graphQLException);
     }
 
+    com.linkedin.metadata.entity.validation.ValidationException entityServiceValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (entityServiceValidationException != null
+        && entityServiceValidationException.getValidationExceptionCollection() != null
+        && entityServiceValidationException
+            .getValidationExceptionCollection()
+            .getSubTypes()
+            .contains(ValidationSubType.AUTHORIZATION)) {
+      log.error("Failed to execute - authorization denied", entityServiceValidationException);
+      errorCode = DataHubGraphQLErrorCode.UNAUTHORIZED;
+      message = extractErrorMessage(entityServiceValidationException);
+    }
+
+    if (entityServiceValidationException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
+      log.error("Failed to execute - validation error", entityServiceValidationException);
+      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
+      message = extractErrorMessage(entityServiceValidationException);
+    }
+
     ValidationException validationException =
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
-    if (validationException != null) {
+    if (validationException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
       log.error("Failed to execute", validationException);
       errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
       message = extractErrorMessage(validationException);
+    }
+
+    IllegalArgumentException illException =
+        findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
+    if (illException != null && message.equals(DEFAULT_ERROR_MESSAGE)) {
+      log.error("Failed to execute", illException);
+      errorCode = DataHubGraphQLErrorCode.BAD_REQUEST;
+      message = extractErrorMessage(illException);
     }
 
     IllegalStateException illegalStateException =
@@ -67,6 +88,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     if (illException == null
         && graphQLException == null
+        && entityServiceValidationException == null
         && validationException == null
         && illegalStateException == null
         && runtimeException == null) {

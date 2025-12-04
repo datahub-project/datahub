@@ -5,13 +5,14 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -50,12 +51,11 @@ import lombok.extern.slf4j.Slf4j;
 public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
-  private Authorizer authorizer;
-
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
-      @Nonnull Collection<? extends com.linkedin.metadata.aspect.batch.BatchItem> mcpItems,
+      @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
+    // Validation happens in validatePreCommitAspects (inside transaction)
     return Stream.empty();
   }
 
@@ -66,15 +66,12 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
       @Nullable AuthorizationSession session) {
 
     if (session == null) {
+      log.warn("DomainBasedAuthorizationValidator: No authentication session provided");
       return Stream.of(
-          AspectValidationException.forItem(
+          AspectValidationException.forAuth(
               changeMCPs.stream().findFirst().orElse(null),
               "No authentication details found, cannot authorize change."));
     }
-
-    // Note: This validator is only registered when domain-based authorization is enabled
-    // (via @ConditionalOnProperty in SpringStandardPluginConfiguration)
-    // so we don't need to check if it's enabled here.
 
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
 
@@ -92,37 +89,30 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
               Urn entityUrn = entry.getKey();
               List<ChangeMCP> entityChanges = entry.getValue();
 
-              // Get domains from MCPs (lightweight parsing - safe anywhere)
-              Set<Urn> domainsFromMCPs = getDomainsFromMCPs(entityChanges);
-
-              // Read existing entity domains from database (INSIDE TRANSACTION)
-              Set<Urn> domainsFromDB = getEntityDomains(entityUrn, aspectRetriever);
-
-              // Combine both sources
-              Set<Urn> allDomains = new HashSet<>();
-              allDomains.addAll(domainsFromMCPs);
-              allDomains.addAll(domainsFromDB);
-
-              // If no domains, use standard authorization (not domain-based)
-              if (allDomains.isEmpty()) {
-                log.debug(
-                    "Entity {} has no domains, using standard authorization", entityUrn);
-                return Stream.empty();
-              }
-
-              // Determine the operation type
+              // Determine the operation type first
               ApiOperation operation =
                   entityChanges.stream()
                       .map(changeMCP -> ApiOperation.fromChangeType(changeMCP.getChangeType()))
                       .findFirst()
                       .orElse(ApiOperation.UPDATE);
 
-              // Perform domain-based authorization check
-              // Use domains as subResources for authorization
+              // Extract domains based on operation type
+              Set<Urn> allDomains = new HashSet<>();
+
+              if (operation == ApiOperation.DELETE) {
+                 allDomains.addAll(getEntityDomains(entityUrn, aspectRetriever));
+              } else {
+
+                Set<Urn> domainsFromMCPs = getDomainsFromMCPs(entityChanges);
+                Set<Urn> domainsFromDB = getEntityDomains(entityUrn, aspectRetriever);
+                allDomains.addAll(domainsFromMCPs);
+                allDomains.addAll(domainsFromDB);
+              }
+
               if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
                   session, operation, List.of(entityUrn), allDomains)) {
                 return Stream.of(
-                    AspectValidationException.forItem(
+                    AspectValidationException.forAuth(
                         entityChanges.get(0),
                         String.format(
                             "Unauthorized to %s entity %s with domains %s",
@@ -136,8 +126,7 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
   }
 
   /**
-   * Extract domains from MCPs (lightweight parsing - safe anywhere).
-   * This looks for Domains aspect in the MCPs being ingested.
+   * Extract domains from MCPs
    */
   private Set<Urn> getDomainsFromMCPs(Collection<ChangeMCP> changeMCPs) {
     return changeMCPs.stream()
@@ -160,11 +149,6 @@ public class DomainBasedAuthorizationValidator extends AspectPayloadValidator {
         .collect(Collectors.toSet());
   }
 
-  /**
-   * Read existing entity domains from database.
-   * When called inside validatePreCommit, this reads INSIDE THE TRANSACTION,
-   * ensuring consistent reads with proper isolation.
-   */
   private Set<Urn> getEntityDomains(Urn entityUrn, AspectRetriever aspectRetriever) {
     try {
       Aspect domainsAspect = aspectRetriever.getLatestAspectObject(entityUrn, DOMAINS_ASPECT_NAME);

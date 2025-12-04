@@ -378,17 +378,17 @@ public class SpringStandardPluginConfiguration {
       name = "authorization.defaultAuthorizer.domainBasedAuthorizationEnabled",
       havingValue = "true")
   public AspectPayloadValidator domainBasedAuthorizationValidator(
-      @Named("authorizerChain") com.datahub.plugins.auth.authorization.Authorizer authorizer) {
+      @Value("${authorization.defaultAuthorizer.domainBasedAuthorizationEnabled:false}")
+          boolean domainBasedAuthorizationEnabled) {
     // This validator performs domain-based authorization checks inside the transaction
     // ensuring consistent reads and preventing race conditions
-    log.info("Initialized {} with domain-based authorization enabled",
-        DomainBasedAuthorizationValidator.class.getName());
+    log.info("Initialized {} with domain-based authorization enabled={}",
+        DomainBasedAuthorizationValidator.class.getName(), domainBasedAuthorizationEnabled);
     return new DomainBasedAuthorizationValidator()
-        .setAuthorizer(authorizer)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(DomainBasedAuthorizationValidator.class.getName())
-                .enabled(true)
+                .enabled(domainBasedAuthorizationEnabled)
                 .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
                 .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
                 .build());

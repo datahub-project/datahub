@@ -1,7 +1,9 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
@@ -35,8 +37,19 @@ public class RestliUtils {
 
       final RestLiServiceException finalException;
 
+      // Check for ValidationException with AUTHORIZATION subtype -> 403 FORBIDDEN
+      if (throwable instanceof ValidationException) {
+        ValidationException validationException = (ValidationException) throwable;
+        if (validationException.getValidationExceptionCollection() != null
+            && validationException.getValidationExceptionCollection()
+                    .getSubTypes()
+                    .contains(ValidationSubType.AUTHORIZATION)) {
+          finalException = forbidden(throwable.getMessage());
+        } else {
+          finalException = badRequestException(throwable.getMessage());
+        }
       // Convert IllegalArgumentException to BAD REQUEST
-      if (throwable instanceof IllegalArgumentException
+      } else if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
         finalException = badRequestException(throwable.getMessage());
       } else if (throwable.getCause() instanceof ActorAccessException) {
