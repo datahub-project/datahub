@@ -220,17 +220,23 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         self, datahub_graph: Any, context: Dict[str, Any] = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Build MCPs for glossary nodes from domain hierarchy.
+        Build MCPs for glossary nodes and terms from domain hierarchy.
 
-        Reconstructs domain hierarchy from term path_segments and creates
-        glossary nodes dynamically. Terms are assigned to their parent glossary nodes.
+        This is the ONLY place where glossary MCPs are created. It:
+        1. Consults the domain hierarchy (built from glossary term path_segments)
+        2. Creates glossary nodes (term groups) from the domain hierarchy
+        3. Creates glossary terms under their parent glossary nodes
+
+        Domains are used ONLY as a data structure - they are NOT ingested as
+        DataHub domain entities. The glossary module is responsible for creating
+        all glossary-related MCPs (nodes and terms).
 
         Args:
-            datahub_graph: The complete DataHubGraph AST
+            datahub_graph: The complete DataHubGraph AST (contains domains as data structure)
             context: Optional context (should include 'report' for entity counting)
 
         Returns:
-            List of MCPs for glossary nodes and terms
+            List of MCPs for glossary nodes and terms (no domain MCPs)
         """
         from datahub.ingestion.source.rdf.entities.glossary_term.urn_generator import (
             GlossaryTermUrnGenerator,

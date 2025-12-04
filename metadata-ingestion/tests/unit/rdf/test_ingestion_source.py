@@ -733,7 +733,8 @@ def test_datahub_ingestion_target_domain_with_glossary_terms():
     mock_term.custom_properties = {}
     graph.glossary_terms = [mock_term]
 
-    # Create mock domain WITH glossary terms (this exercises the domain MCP creation path)
+    # Create mock domain WITH glossary terms
+    # Domains are used as data structure - glossary module creates glossary nodes and terms
     mock_domain = Mock(spec=DataHubDomain)
     mock_domain.urn = DomainUrn.from_string("urn:li:domain:test_domain")
     mock_domain.name = "test_domain"
@@ -741,7 +742,7 @@ def test_datahub_ingestion_target_domain_with_glossary_terms():
     mock_domain.parent_domain_urn = None
     mock_domain.glossary_terms = [
         mock_term
-    ]  # Domain has glossary terms - should create MCPs
+    ]  # Domain has glossary terms - glossary module will create glossary node and term MCPs
     mock_domain.subdomains = []
     mock_domain.description = "Test domain"
     mock_domain.owners = []  # No owners
@@ -749,9 +750,10 @@ def test_datahub_ingestion_target_domain_with_glossary_terms():
 
     result = target.send(graph)
 
-    # Should successfully process domain with glossary terms
+    # Should successfully process - glossary module creates glossary nodes and terms from domain
+    # Domains are NOT ingested as domain entities
     assert result["success"] is True
-    assert result["workunits_generated"] >= 1  # At least domain
+    assert result["workunits_generated"] >= 1  # At least glossary node and term
     assert result["entities_emitted"] >= 1
 
 

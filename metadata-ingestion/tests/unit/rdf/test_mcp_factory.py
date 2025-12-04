@@ -8,10 +8,6 @@ between DataHubTarget and DataHubIngestionTarget.
 
 import unittest
 
-from datahub.ingestion.source.rdf.entities.domain.ast import DataHubDomain
-from datahub.ingestion.source.rdf.entities.domain.mcp_builder import (
-    DomainMCPBuilder,
-)
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
     DataHubGlossaryTerm,
 )
@@ -25,7 +21,6 @@ from datahub.ingestion.source.rdf.entities.relationship.ast import (
 from datahub.ingestion.source.rdf.entities.relationship.mcp_builder import (
     RelationshipMCPBuilder,
 )
-from datahub.utilities.urns.domain_urn import DomainUrn
 
 
 class TestMCPFactory(unittest.TestCase):
@@ -95,84 +90,7 @@ class TestMCPFactory(unittest.TestCase):
         self.assertIsNone(mcp.aspect.parentNode)
 
     # Dataset, structured property, data product, and lineage tests removed - not supported in MVP
-
-    def test_create_domain_mcp(self):
-        """Test creating domain MCP with glossary terms."""
-        from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
-            DataHubGlossaryTerm,
-        )
-
-        domain = DataHubDomain(
-            path_segments=["test", "domain"],
-            urn=DomainUrn.from_string("urn:li:domain:test_domain"),
-            name="test_domain",
-            description="Test domain",
-            parent_domain_urn=DomainUrn.from_string("urn:li:domain:parent"),
-        )
-
-        # Add a glossary term so domain is created
-        term = DataHubGlossaryTerm(
-            urn="urn:li:glossaryTerm:test/domain/Term",
-            name="Term",
-            definition="Test term",
-            path_segments=["test", "domain", "Term"],
-        )
-        domain.glossary_terms.append(term)
-
-        mcp_builder = DomainMCPBuilder()
-        mcps = mcp_builder.build_mcps(domain)
-        mcp = mcps[0] if mcps else None
-
-        self.assertIsNotNone(mcp)
-        self.assertEqual(str(mcp.entityUrn), str(domain.urn))
-        self.assertEqual(mcp.aspect.name, "test_domain")
-        self.assertEqual(mcp.aspect.description, "Test domain")
-        self.assertEqual(str(mcp.aspect.parentDomain), str(domain.parent_domain_urn))
-
-    def test_create_domain_mcp_no_parent(self):
-        """Test creating domain MCP without parent (with glossary terms)."""
-        from datahub.ingestion.source.rdf.entities.glossary_term.ast import (
-            DataHubGlossaryTerm,
-        )
-
-        domain = DataHubDomain(
-            path_segments=["root"],
-            urn=DomainUrn.from_string("urn:li:domain:root"),
-            name="root",
-            description="Root domain",
-        )
-
-        # Add a glossary term so domain is created
-        term = DataHubGlossaryTerm(
-            urn="urn:li:glossaryTerm:root/Term",
-            name="Term",
-            definition="Test term",
-            path_segments=["root", "Term"],
-        )
-        domain.glossary_terms.append(term)
-
-        mcp_builder = DomainMCPBuilder()
-        mcps = mcp_builder.build_mcps(domain)
-        mcp = mcps[0] if mcps else None
-
-        self.assertIsNotNone(mcp)
-        self.assertIsNone(mcp.aspect.parentDomain)
-
-    def test_create_domain_mcp_no_glossary_terms(self):
-        """Test that domain MCP is not created when domain has no glossary terms."""
-        domain = DataHubDomain(
-            path_segments=["test", "domain"],
-            urn=DomainUrn.from_string("urn:li:domain:test_domain"),
-            name="test_domain",
-            description="Test domain",
-        )
-
-        mcp_builder = DomainMCPBuilder()
-        mcps = mcp_builder.build_mcps(domain)
-        mcp = mcps[0] if mcps else None
-
-        # Should return None since domain has no glossary terms
-        self.assertIsNone(mcp)
+    # Domain MCP tests removed - domains are data structure only, not ingested as DataHub domain entities
 
     def test_create_relationship_mcp_related(self):
         """Test creating relationship MCP for RELATED."""

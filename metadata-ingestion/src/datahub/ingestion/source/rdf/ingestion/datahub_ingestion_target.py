@@ -79,6 +79,14 @@ class DataHubIngestionTarget(TargetInterface):
             }
 
             for entity_type in entity_types_by_order:
+                # Skip domain - domains are only used as a data structure for glossary hierarchy
+                # The glossary module will create glossary nodes and terms from domains
+                if entity_type == "domain":
+                    logger.debug(
+                        "Skipping domain MCP creation - domains are used only as data structure for glossary hierarchy"
+                    )
+                    continue
+
                 mcp_builder = registry.get_mcp_builder(entity_type)
                 if not mcp_builder:
                     logger.debug(
@@ -178,32 +186,8 @@ class DataHubIngestionTarget(TargetInterface):
                         )
 
             # Note: Assertions, datasets, and lineage are not part of MVP
-
-            # Deferred: Domain owner groups and ownership
-            # These must be created AFTER domains are processed
-            domain_mcp_builder = registry.get_mcp_builder("domain")
-            if domain_mcp_builder and hasattr(
-                domain_mcp_builder, "build_post_processing_mcps"
-            ):
-                try:
-                    logger.info(
-                        "Processing domain owner groups and ownership (deferred until after domains)"
-                    )
-                    post_mcps = domain_mcp_builder.build_post_processing_mcps(
-                        datahub_graph, build_context
-                    )
-                    if post_mcps:
-                        mcps.extend(post_mcps)
-                        for _ in post_mcps:
-                            self.report.report_entity_emitted()
-                        logger.info(
-                            f"Created {len(post_mcps)} domain owner group and ownership MCPs"
-                        )
-                except Exception as e:
-                    logger.error(
-                        f"Failed to create domain owner group and ownership MCPs: {e}",
-                        exc_info=True,
-                    )
+            # Note: Domains are not created as MCPs - they are only used as a data structure
+            #       for the glossary module to understand hierarchy and create glossary nodes
 
             # Deferred: Glossary term nodes from domain hierarchy
             # These must be created AFTER domains are processed so the domain hierarchy is available
@@ -272,9 +256,6 @@ class DataHubIngestionTarget(TargetInterface):
             structured_prop_mcps = sum(
                 1 for mcp in mcps if "structuredproperty" in str(mcp.entityUrn).lower()
             )
-            domain_mcps = sum(
-                1 for mcp in mcps if "domain" in str(mcp.entityUrn).lower()
-            )
             assertion_mcps = sum(
                 1 for mcp in mcps if "assertion" in str(mcp.entityUrn).lower()
             )
@@ -295,7 +276,6 @@ class DataHubIngestionTarget(TargetInterface):
                 - glossary_mcps
                 - dataset_mcps
                 - structured_prop_mcps
-                - domain_mcps
                 - assertion_mcps
                 - lineage_mcps
                 - relationship_mcps
@@ -305,8 +285,10 @@ class DataHubIngestionTarget(TargetInterface):
             logger.info(f"  - Glossary terms/nodes: {glossary_mcps}")
             logger.info(f"  - Datasets: {dataset_mcps}")
             logger.info(f"  - Structured property definitions: {structured_prop_mcps}")
-            logger.info(f"  - Domains: {domain_mcps}")
             logger.info(f"  - Glossary relationships: {relationship_mcps}")
+            logger.debug(
+                f"  - Domains (data structure only, not ingested): {len(datahub_graph.domains)}"
+            )
             logger.info(f"  - Lineage: {lineage_mcps}")
             logger.info(f"  - Assertions: {assertion_mcps}")
             logger.info(f"  - Other: {other_mcps}")

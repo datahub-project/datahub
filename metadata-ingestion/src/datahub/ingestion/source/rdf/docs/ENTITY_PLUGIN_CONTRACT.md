@@ -180,7 +180,7 @@ class YourEntityMCPBuilder(EntityMCPBuilder[DataHubYourEntity]):
 
         Example use cases:
         - Creating glossary nodes from domain hierarchy (GlossaryTermMCPBuilder)
-        - Associating datasets with domains (DatasetMCPBuilder)
+        - Note: Domains are data structure only, not ingested as DataHub domain entities
         - Assigning structured property values to entities (StructuredPropertyMCPBuilder)
         """
         return []  # Default: no post-processing needed

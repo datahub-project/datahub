@@ -300,8 +300,9 @@ def _register_entity_module(registry: EntityRegistry, entity_type: str, module) 
     metadata = getattr(module, "ENTITY_METADATA", None)
 
     # Validate required components exist
+    # Note: MCPBuilder is optional for 'domain' since domains are data structure only, not ingested
     missing = []
-    if MCPBuilderClass is None:
+    if MCPBuilderClass is None and entity_type != "domain":
         missing.append(f"{_entity_type_to_class_name(entity_type, 'MCPBuilder')}")
     if metadata is None:
         missing.append("ENTITY_METADATA")
@@ -319,10 +320,15 @@ def _register_entity_module(registry: EntityRegistry, entity_type: str, module) 
             f"Entity type must match the folder name."
         )
 
-    # Register MCP builder (required)
+    # Register MCP builder (required, except for domain which is data structure only)
     if MCPBuilderClass:
         mcp_builder = MCPBuilderClass()
         registry.register_mcp_builder(entity_type, mcp_builder)
+    elif entity_type == "domain":
+        # Domain is data structure only - no MCP builder needed
+        logger.debug(
+            "Domain module has no MCPBuilder (domains are data structure only, not ingested)"
+        )
 
     # Register extractor and converter if they exist (optional for built entities)
     if ExtractorClass:
