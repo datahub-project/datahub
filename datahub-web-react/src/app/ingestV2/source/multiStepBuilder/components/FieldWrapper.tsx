@@ -1,9 +1,8 @@
-import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FieldLabel } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
-import { HelperText } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/HelperText';
+import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
+import { HelperText } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/HelperText';
 
 const Wrapper = styled.div`
     display: flex;

@@ -1,9 +1,9 @@
+import { colors } from '@components';
 import { Form, FormItemProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
-import { colors } from '@components';
 
 export const StyledFormItem = styled(Form.Item)<{
     $alignLeft?: boolean;

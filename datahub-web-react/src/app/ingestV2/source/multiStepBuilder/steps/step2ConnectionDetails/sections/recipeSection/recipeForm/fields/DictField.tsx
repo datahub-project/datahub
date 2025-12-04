@@ -4,12 +4,11 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
-
-import { HelperText } from './shared/HelperText';
-import { RecipeFormItem } from './RecipeFormItem';
-import { AddItemButton } from './shared/AddItemButton';
-import { RemoveIcon } from './shared/RemoveIcon';
-import { CommonFieldProps } from './types';
+import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
+import { AddItemButton } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/AddItemButton';
+import { HelperText } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/HelperText';
+import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
+import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 
 const ListWrapper = styled.div`
     display: flex;

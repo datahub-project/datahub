@@ -13,6 +13,7 @@ export interface Step {
 export type OnNextHandler = () => void;
 
 export interface MultiStepFormContextType<TState, TStep extends Step = Step, TSubmitOptions = any> {
+    steps: TStep[];
     state: TState;
     updateState: (newState: Partial<TState>) => void;
 
@@ -28,6 +29,8 @@ export interface MultiStepFormContextType<TState, TStep extends Step = Step, TSu
     goToNext: () => void;
     canGoToPrevious: () => boolean;
     goToPrevious: () => void;
+    goToStep: (key: StepKey) => void;
+    isStepVisited: (key: StepKey) => boolean;
     isFinalStep: () => boolean;
 
     isStepCompleted: (stepKey: StepKey) => boolean;

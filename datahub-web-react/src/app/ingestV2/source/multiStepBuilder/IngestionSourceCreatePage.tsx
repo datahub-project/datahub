@@ -10,8 +10,13 @@ import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
+import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep, MultiStepSourceBuilderState, SubmitOptions } from '@app/ingestV2/source/multiStepBuilder/types';
+import {
+    IngestionSourceFormStep,
+    MultiStepSourceBuilderState,
+    SubmitOptions,
+} from '@app/ingestV2/source/multiStepBuilder/types';
 import {
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
@@ -19,7 +24,6 @@ import {
 } from '@app/ingestV2/source/utils';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { PageRoutes } from '@conf/Global';
-import { ConnectionDetailsSubTitle } from './steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -33,7 +37,7 @@ const STEPS: IngestionSourceFormStep[] = [
     },
     {
         label: 'Connection Details',
-        subTitle: <ConnectionDetailsSubTitle/>,
+        subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
     },
@@ -55,8 +59,6 @@ export function IngestionSourceCreatePage() {
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
-            console.log('>>>data', data)
-            console.log('>>>options', options)
             const shouldRun = options?.shouldRun;
             const input = getIngestionSourceMutationInput(data);
 

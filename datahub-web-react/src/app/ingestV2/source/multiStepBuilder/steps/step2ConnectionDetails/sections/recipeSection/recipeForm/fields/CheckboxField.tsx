@@ -1,11 +1,9 @@
-import { Checkbox, NativeCheckbox, Text } from '@components';
+import { Checkbox, Text } from '@components';
+import React from 'react';
 import styled from 'styled-components';
 
-import { Field } from '@app/ingestV2/source/multiStepBuilder/components/Field';
-
-import { RecipeFormItem } from './RecipeFormItem';
-import { CommonFieldProps } from './types';
-import { useCallback, useMemo } from 'react';
+import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
+import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 
 const CheckboxWithHelper = styled.div`
     // compensate checkbox container size
@@ -27,10 +25,6 @@ interface Props {
 }
 
 function AntdFormCompatibmeCheckbox({ checked, onChange, helper }: Props) {
-    console.log('>>>AntdFormCompatibmeCheckbox', {
-        checked, onChange
-    });
-
     return (
         <CheckboxWithHelper>
             <Checkbox isChecked={checked} onCheckboxChange={onChange} justifyContent="flex-start" />
@@ -48,7 +42,7 @@ export function CheckboxField({ field }: CommonFieldProps) {
         <RecipeFormItem
             recipeField={field}
             style={{ flexDirection: 'row', alignItems: 'center' }}
-            valuePropName={'checked'}
+            valuePropName="checked"
         >
             <AntdFormCompatibmeCheckbox helper={field.helper} />
         </RecipeFormItem>

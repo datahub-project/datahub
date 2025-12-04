@@ -71,7 +71,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
         if (canGoToPrevious()) {
             buttons.push(
-                <Button size="sm" variant="secondary" onClick={goToPrevious}>
+                <Button key="back" size="sm" variant="secondary" onClick={goToPrevious}>
                     Back
                 </Button>,
             );
@@ -84,14 +84,14 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
         const buttons: React.ReactNode[] = [];
 
         buttons.push(
-            <Button size="sm" variant="text" color="gray" onClick={cancel}>
+            <Button key="cancel" size="sm" variant="text" color="gray" onClick={cancel}>
                 Cancel
             </Button>,
         );
 
         if (canGoToNext()) {
             buttons.push(
-                <Button size="sm" disabled={!isCurrentStepCompleted()} onClick={goToNext}>
+                <Button key="next" size="sm" disabled={!isCurrentStepCompleted()} onClick={goToNext}>
                     Next
                 </Button>,
             );
@@ -99,14 +99,28 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
         if (showSubmitButton && isFinalStep()) {
             buttons.push(
-                <Button size="sm" disabled={!isCurrentStepCompleted() || isSubmitInProgress} onClick={onSubmit}>
+                <Button
+                    key="submit"
+                    size="sm"
+                    disabled={!isCurrentStepCompleted() || isSubmitInProgress}
+                    onClick={onSubmit}
+                >
                     Submit
                 </Button>,
             );
         }
 
         return buttons;
-    }, [canGoToNext, isFinalStep, cancel, isCurrentStepCompleted, goToNext, onSubmit, showSubmitButton]);
+    }, [
+        canGoToNext,
+        isFinalStep,
+        cancel,
+        isCurrentStepCompleted,
+        goToNext,
+        onSubmit,
+        showSubmitButton,
+        isSubmitInProgress,
+    ]);
 
     return (
         <Container>

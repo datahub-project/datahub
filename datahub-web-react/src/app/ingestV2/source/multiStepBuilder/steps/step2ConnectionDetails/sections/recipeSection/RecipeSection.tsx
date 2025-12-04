@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
@@ -32,6 +32,11 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
 
+    // FYI: We don't have form validation for sources without a form
+    useEffect(() => {
+        setIsRecipeValid?.(!hasForm);
+    }, [hasForm, setIsRecipeValid]);
+
     const onTabClick = useCallback(
         (activeKey) => {
             if (activeKey !== 'form') {
@@ -50,8 +55,6 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                     : 'Please fix your recipe';
                 message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
             }
-
-            return;
         },
         [displayRecipe],
     );
@@ -81,7 +84,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 ),
             },
         ],
-        [displayRecipe, state, sourceConfigs, setStagedRecipe],
+        [displayRecipe, state, sourceConfigs, setStagedRecipe, setIsRecipeValid],
     );
 
     if (hasForm) {

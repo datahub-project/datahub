@@ -2,8 +2,7 @@ import { Typography } from 'antd';
 import React, { Fragment } from 'react';
 
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
-
-import { FormField } from '../recipeForm/fields/FormField';
+import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
 
 interface Props {
     filterFields?: RecipeField[];
@@ -26,10 +25,7 @@ export function FiltersSection({ filterFields, updateFormValue }: Props) {
                     {shouldRenderFilterSectionHeader(field, i, filterFields) && (
                         <Typography.Title level={4}>{field.section}</Typography.Title>
                     )}
-                    <FormField
-                        field={field}
-                        updateFormValue={updateFormValue}
-                    />
+                    <FormField field={field} updateFormValue={updateFormValue} />
                 </Fragment>
             ))}
         </>

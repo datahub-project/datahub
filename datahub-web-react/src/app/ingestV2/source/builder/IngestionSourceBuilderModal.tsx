@@ -11,10 +11,9 @@ import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep'
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 
 import { IngestionSource } from '@types';
-
-import { useIngestionSources } from './useIngestionSources';
 
 const StepsContainer = styled.div`
     margin-right: 20px;

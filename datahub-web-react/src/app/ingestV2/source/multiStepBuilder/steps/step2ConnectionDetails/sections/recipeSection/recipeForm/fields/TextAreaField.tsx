@@ -1,7 +1,8 @@
 import { TextArea } from '@components';
+import React from 'react';
 
-import { RecipeFormItem } from './RecipeFormItem';
-import { CommonFieldProps } from './types';
+import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
+import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 
 export function TextAreaField({ field }: CommonFieldProps) {
     return (

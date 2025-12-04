@@ -4,9 +4,7 @@ import styled from 'styled-components';
 
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
-
-import { Secret } from '@types';
-import { FormField } from '../recipeForm/fields/FormField';
+import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
 
 const SettingsContainer = styled.div`
     display: flex;
@@ -40,10 +38,7 @@ export function SettingsSection({ settingsFields: filterFields, updateFormValue 
             <FieldsContainer>
                 {filterFields.map((field) => (
                     <FieldWrapper key={field.name}>
-                        <FormField
-                            field={field}
-                            updateFormValue={updateFormValue}
-                        />
+                        <FormField field={field} updateFormValue={updateFormValue} />
                     </FieldWrapper>
                 ))}
             </FieldsContainer>

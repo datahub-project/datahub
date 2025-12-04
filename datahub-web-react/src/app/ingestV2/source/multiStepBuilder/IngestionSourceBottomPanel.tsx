@@ -1,10 +1,13 @@
 import { Button } from '@components';
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
+import {
+    IngestionSourceFormStep,
+    MultiStepSourceBuilderState,
+    SubmitOptions,
+} from '@app/ingestV2/source/multiStepBuilder/types';
 import { MultiStepFormBottomPanel } from '@app/sharedV2/forms/multiStepForm/MultiStepFormBottomPanel';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
-
-import { IngestionSourceFormStep, MultiStepSourceBuilderState, SubmitOptions } from './types';
 
 export function IngestionSourceBottomPanel() {
     const { isFinalStep, isCurrentStepCompleted, submit } = useMultiStepContext<
@@ -52,7 +55,7 @@ export function IngestionSourceBottomPanel() {
                 </Button>,
             ];
         },
-        [isFinalStep, isCurrentStepCompleted, onSaveAndRun, isSaveAndRunInProgress],
+        [isFinalStep, isCurrentStepCompleted, onSave, onSaveAndRun, isSaveAndRunInProgress],
     );
 
     return <MultiStepFormBottomPanel renderRightButtons={renderRightButtons} />;

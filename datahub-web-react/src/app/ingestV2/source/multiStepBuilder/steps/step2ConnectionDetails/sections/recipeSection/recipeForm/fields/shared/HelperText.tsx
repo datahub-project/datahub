@@ -1,4 +1,5 @@
 import { Text } from '@components';
+import React from 'react';
 
 interface Props {
     text: string;

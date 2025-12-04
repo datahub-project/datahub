@@ -2,8 +2,7 @@ import { Input } from '@components';
 import React, { useCallback, useState } from 'react';
 
 import { FieldWrapper } from '@app/ingestV2/source/multiStepBuilder/components/FieldWrapper';
-
-import { ErrorWrapper } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/ErrorWrapper';
+import { ErrorWrapper } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/ErrorWrapper';
 
 interface Props {
     label: string;

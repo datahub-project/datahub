@@ -2,9 +2,11 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
-
-import { CustomLabelFormItem, CustomLabelFormItemProps } from '../components/CustomFormItem';
-import { HelperText } from './shared/HelperText';
+import {
+    CustomLabelFormItem,
+    CustomLabelFormItemProps,
+} from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/CustomFormItem';
+import { HelperText } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/HelperText';
 
 const Wrapper = styled.div`
     display: flex;

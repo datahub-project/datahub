@@ -68,7 +68,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
             setOwners(defaultActors);
             setAreOwnersInStateInitializedWhileCreation(true);
         }
-    }, [defaultActors, isEditing, me.loaded, areOwnersInStateInitializedWhileCreation]);
+    }, [defaultActors, isEditing, me.loaded, areOwnersInStateInitializedWhileCreation, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {

@@ -11,7 +11,9 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
     canGoToPrevious: () => false,
     setOnNextHandler: () => {},
     goToPrevious: () => null,
+    goToStep: () => null,
     isFinalStep: () => false,
+    isStepVisited: () => false,
     isStepCompleted: () => false,
     isCurrentStepCompleted: () => false,
     setCurrentStepCompleted: () => null,
@@ -24,6 +26,7 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
         }),
     cancel: () => null,
 
+    steps: [],
     totalSteps: 0,
     currentStepIndex: 0,
 });
@@ -50,6 +53,7 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     const [onNextHandler, setOnNextHandler] = useState<OnNextHandler | undefined>();
 
     const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set());
+    const [visitedSteps, setVisitedSteps] = useState<Set<StepKey>>(new Set());
 
     const totalSteps = useMemo(() => steps.length, [steps]);
 
@@ -60,7 +64,11 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
 
     const getCurrentStep = useCallback(() => {
-        return steps?.[currentStepIndex];
+        const currentStep = steps?.[currentStepIndex];
+
+        if (currentStep) setVisitedSteps((currentVisitedSteps) => new Set([...currentVisitedSteps, currentStep?.key]));
+
+        return currentStep;
     }, [currentStepIndex, steps]);
 
     const canGoToNext = useCallback(() => {
@@ -89,9 +97,21 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
         }
     }, [canGoToPrevious]);
 
+    const goToStep = useCallback(
+        (key: StepKey) => {
+            const stepIndex = steps.findIndex((step) => step.key === key);
+            if (stepIndex !== -1) {
+                setCurrentStepIndex(stepIndex);
+            }
+        },
+        [steps],
+    );
+
     const isFinalStep = useCallback(() => {
         return currentStepIndex === totalSteps - 1;
     }, [currentStepIndex, totalSteps]);
+
+    const isStepVisited = useCallback((stepKey: StepKey) => visitedSteps.has(stepKey), [visitedSteps]);
 
     const isStepCompleted = useCallback((stepKey: StepKey) => completedSteps.has(stepKey), [completedSteps]);
     const isCurrentStepCompleted = useCallback(
@@ -110,9 +130,12 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
         );
     }, [getCurrentStep]);
 
-    const submit = useCallback(async (options?: TSubmitOptions) => {
-        await onSubmit?.(state, options);
-    }, [onSubmit, state]);
+    const submit = useCallback(
+        async (options?: TSubmitOptions) => {
+            await onSubmit?.(state, options);
+        },
+        [onSubmit, state],
+    );
 
     const cancel = useCallback(() => {
         onCancel?.();
@@ -126,6 +149,7 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
                 submit,
                 cancel,
 
+                steps,
                 totalSteps,
                 currentStepIndex,
                 getCurrentStep,
@@ -135,7 +159,9 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
                 goToNext,
                 canGoToPrevious,
                 goToPrevious,
+                goToStep,
                 isFinalStep,
+                isStepVisited,
                 isStepCompleted,
                 isCurrentStepCompleted,
                 setCurrentStepCompleted,

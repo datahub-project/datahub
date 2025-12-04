@@ -1,15 +1,14 @@
 import { useApolloClient } from '@apollo/client';
-import { AutoComplete, Input, Text, radius, spacing } from '@components';
+import { AutoComplete, Input, radius, spacing } from '@components';
 import { Divider } from 'antd';
 import React, { ReactNode, useMemo } from 'react';
 import styled from 'styled-components/macro';
 
 import { clearSecretListCache } from '@app/ingestV2/secret/cacheUtils';
+import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
 import CreateSecretButton from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/CreateSecretButton';
-
-import { RecipeFormItem } from '../RecipeFormItem';
-import { CommonFieldProps } from '../types';
-import { useSecrets } from './useSecrets';
+import { useSecrets } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/useSecrets';
+import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 
 const StyledDivider = styled(Divider)`
     margin: ${spacing.xsm} 0;

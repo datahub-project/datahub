@@ -1,7 +1,7 @@
 import { spacing } from '@components';
 import { Form, message } from 'antd';
 import { get } from 'lodash';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
@@ -17,7 +17,6 @@ import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
 import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 
 import { IngestionSource } from '@types';
 
@@ -76,7 +75,10 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type as string];
-    const allFields = [...fields, ...advancedFields, ...filterFields];
+    const allFields = useMemo(
+        () => [...fields, ...advancedFields, ...filterFields],
+        [fields, advancedFields, filterFields],
+    );
     const [form] = Form.useForm();
 
     const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
@@ -96,7 +98,7 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
             const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
             setStagedRecipe(stagedRecipe);
         },
-        [displayRecipe, allFields],
+        [displayRecipe, allFields, setStagedRecipe],
     );
 
     const updateFormValues = useCallback(

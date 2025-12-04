@@ -1,12 +1,15 @@
+import { Breadcrumb } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import { VerticalDivider } from '@components/components/Breadcrumb/components';
+import { BreadcrumbItem } from '@components/components/Breadcrumb/types';
+
 import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
+import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
-
-import { IngestionSourceBottomPanel } from './IngestionSourceBottomPanel';
 
 const ContentWrapper = styled.div`
     padding: 0 20px 16px 20px;
@@ -19,15 +22,41 @@ interface Props {
 }
 
 export function IngestionSourceBuilderLayout({ children }: Props) {
-    const { getCurrentStep } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
-    const step = useMemo(() => getCurrentStep(), [getCurrentStep]);
+    const { getCurrentStep, state, steps, goToStep, isStepVisited } = useMultiStepContext<
+        MultiStepSourceBuilderState,
+        IngestionSourceFormStep
+    >();
+    const currentStep = useMemo(() => getCurrentStep(), [getCurrentStep]);
+    const isEditing = state?.isEditing;
+
+    const breadCrumpStepItems: BreadcrumbItem[] = steps.map((step) => {
+        const breadCrumpItem: BreadcrumbItem = {
+            label: step.label,
+            onClick: isStepVisited(step.key) ? () => goToStep(step.key) : undefined,
+        };
+
+        return breadCrumpItem;
+    }, []);
+
+    const breadCrumb = (
+        <Breadcrumb
+            items={[
+                {
+                    label: isEditing ? 'Update Source' : 'Create Source',
+                    separator: <VerticalDivider type="vertical" />,
+                },
+                ...breadCrumpStepItems,
+            ]}
+        />
+    );
 
     return (
         <PageLayout
-            title={step?.label}
-            subTitle={step?.subTitle}
-            rightPanelContent={step?.hideRightPanel ? null : <AIChat />}
-            bottomPanelContent={step?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
+            title={currentStep?.label}
+            subTitle={currentStep?.subTitle}
+            rightPanelContent={currentStep?.hideRightPanel ? null : <AIChat />}
+            bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
+            topBreadcrumb={breadCrumb}
         >
             <ContentWrapper>{children}</ContentWrapper>
         </PageLayout>

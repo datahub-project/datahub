@@ -1,9 +1,6 @@
-import { PageTitle } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-
-import { SubTitle } from '@components/components/PageTitle/components';
 
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
@@ -29,14 +26,12 @@ export function ConnectionDetailsStep() {
 
     const { ingestionSources } = useIngestionSources();
 
-    const existingRecipeJson = state.config?.recipe;
+    const existingRecipeJson = state.ingestionSource?.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
-    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(true);
-
-    // const { secrets, refetchSecrets } = useSecrets();
+    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(false);
 
     const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || placeholderRecipe);
 
@@ -48,8 +43,6 @@ export function ConnectionDetailsStep() {
 
     const isEditing = !!state.isEditing;
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
-
-    console.log('>>>displayRecipe', displayRecipe);
 
     // TODO: Delete LookML banner specific code
     const isSourceLooker: boolean = sourceConfigs?.name === 'looker';

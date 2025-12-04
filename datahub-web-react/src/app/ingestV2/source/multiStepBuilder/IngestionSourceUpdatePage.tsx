@@ -9,6 +9,7 @@ import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
+import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
 import {
     IngestionSourceFormStep,
@@ -26,8 +27,6 @@ import { PageRoutes } from '@conf/Global';
 
 import { useGetIngestionSourceQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
-
-import { ConnectionDetailsSubTitle } from './steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 
 const STEPS: IngestionSourceFormStep[] = [
     {
