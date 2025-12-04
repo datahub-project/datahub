@@ -134,7 +134,7 @@ class AirbyteBaseClient(ABC):
         if self.config.verify_ssl and self.config.ssl_ca_cert:
             if os.path.isfile(self.config.ssl_ca_cert):
                 session.verify = self.config.ssl_ca_cert
-                logger.debug(f"Using custom CA certificate: {self.config.ssl_ca_cert}")
+                logger.debug("Using custom CA certificate: %s", self.config.ssl_ca_cert)
             else:
                 logger.warning(
                     f"CA certificate file not found: {self.config.ssl_ca_cert}. Using default verification."
@@ -189,7 +189,7 @@ class AirbyteBaseClient(ABC):
             AirbyteApiError: For HTTP errors, connection failures, or JSON parsing errors
         """
         url = self._get_full_url(endpoint)
-        logger.debug(f"Making GET request to {url}")
+        logger.debug("Making GET request to %s", url)
 
         try:
             response = self.session.get(
@@ -248,7 +248,9 @@ class AirbyteBaseClient(ABC):
                     if limit and total_items >= limit:
                         return
             else:
-                logger.warning(f"Expected list for {result_key} but got {type(items)}")
+                logger.warning(
+                    "Expected list for %s but got %s", result_key, type(items)
+                )
 
             next_token = response.get(next_page_token_key)
             if not next_token or next_token == "":
@@ -529,8 +531,9 @@ class AirbyteBaseClient(ABC):
                 )
 
             if stream_property_fields:
-                logger.info(
-                    f"Retrieved propertyFields for {len(stream_property_fields)} streams from /streams endpoint"
+                logger.debug(
+                    "Retrieved propertyFields for %d streams from /streams endpoint",
+                    len(stream_property_fields),
                 )
 
             return stream_property_fields
@@ -853,13 +856,13 @@ class AirbyteCloudClient(AirbyteBaseClient):
 
             logger.debug("OAuth2 token refreshed successfully")
         except Exception as e:
-            logger.error(f"Failed to refresh OAuth2 token: {str(e)}")
+            logger.error("Failed to refresh OAuth2 token: %s", str(e))
             raise
 
     def _make_request(self, endpoint: str, params: Optional[dict] = None) -> Any:
         """Override to add OAuth token retry logic for 401/403 responses."""
         url = self._get_full_url(endpoint)
-        logger.debug(f"Making GET request to {url}")
+        logger.debug("Making GET request to %s", url)
 
         try:
             response = self.session.get(
@@ -949,13 +952,13 @@ class AirbyteCloudClient(AirbyteBaseClient):
             return [AirbyteWorkspacePartial.model_validate(w) for w in workspaces_data]
         except requests.HTTPError as e:
             if e.response.status_code == 404:
-                logger.info(f"Workspace {self.workspace_id} not found")
+                logger.info("Workspace %s not found", self.workspace_id)
                 return []
             else:
-                logger.error(f"Failed to get workspace: HTTP {e.response.status_code}")
+                logger.error("Failed to get workspace: HTTP %s", e.response.status_code)
                 raise
         except requests.RequestException as e:
-            logger.error(f"Network error: {str(e)}")
+            logger.error("Network error: %s", str(e))
             raise
 
 
