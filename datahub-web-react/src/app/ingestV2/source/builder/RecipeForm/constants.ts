@@ -168,6 +168,14 @@ import {
     PRESTO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/presto';
 import {
+    RDF_DIALECT,
+    RDF_ENVIRONMENT,
+    RDF_EXTENSIONS,
+    RDF_FORMAT,
+    RDF_RECURSIVE,
+    RDF_SOURCE,
+} from '@app/ingestV2/source/builder/RecipeForm/rdf';
+import {
     REDSHIFT_DATABASE,
     REDSHIFT_HOST_PORT,
     REDSHIFT_PASSWORD,
@@ -231,14 +239,6 @@ import {
     VERTICA_PASSWORD,
     VERTICA_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
-import {
-    RDF_DIALECT,
-    RDF_ENVIRONMENT,
-    RDF_EXTENSIONS,
-    RDF_FORMAT,
-    RDF_RECURSIVE,
-    RDF_SOURCE,
-} from '@app/ingestV2/source/builder/RecipeForm/rdf';
 import {
     AZURE,
     CSV,

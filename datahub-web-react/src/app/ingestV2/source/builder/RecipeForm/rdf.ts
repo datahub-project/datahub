@@ -3,7 +3,8 @@ import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/
 export const RDF_SOURCE: RecipeField = {
     name: 'source',
     label: 'Source',
-    tooltip: 'Source to process: file path, folder path, server URL, or comma-separated files. Examples: /path/to/file.ttl, /path/to/folder, https://example.com/data.ttl, file1.ttl,file2.ttl',
+    tooltip:
+        'Source to process: file path, folder path, server URL, or comma-separated files. Examples: /path/to/file.ttl, /path/to/folder, https://example.com/data.ttl, file1.ttl,file2.ttl',
     type: FieldType.TEXT,
     fieldPath: 'source.config.source',
     placeholder: '/path/to/file.ttl or /path/to/folder or https://example.com/data.ttl',
