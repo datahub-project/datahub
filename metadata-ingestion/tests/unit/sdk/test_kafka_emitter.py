@@ -46,3 +46,22 @@ class KafkaEmitterTest(unittest.TestCase):
         assert (
             emitter_config.topic_routes[MCP_KEY] == DEFAULT_MCP_KAFKA_TOPIC
         )  # No change to MCP
+
+    def test_kafka_emitter_config_disable_auto_schema_registration_default(self):
+        """Test that auto schema registration is enabled by default."""
+        emitter_config = KafkaEmitterConfig.model_validate(
+            {"connection": {"bootstrap": "foobar:9092"}}
+        )
+        assert emitter_config.connection.disable_auto_schema_registration is False
+
+    def test_kafka_emitter_config_disable_auto_schema_registration_explicit(self):
+        """Test that auto schema registration can be explicitly disabled via config."""
+        emitter_config = KafkaEmitterConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "disable_auto_schema_registration": True,
+                }
+            }
+        )
+        assert emitter_config.connection.disable_auto_schema_registration is True

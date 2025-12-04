@@ -130,6 +130,53 @@ class KafkaSinkTest(unittest.TestCase):
         mock_w_callback.on_success.assert_called_once()
         assert mock_w_callback.on_success.call_args[0][0] == mock_re
 
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.AvroSerializer", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SchemaRegistryClient", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_kafka_sink_disable_auto_schema_registration(
+        self, mock_producer, mock_sr_client, mock_avro_serializer, mock_context
+    ):
+        """Test that AvroSerializer receives auto.register.schemas=False when disabled."""
+        DatahubKafkaSink.create(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "disable_auto_schema_registration": True,
+                }
+            },
+            mock_context,
+        )
+
+        # AvroSerializer is called twice (once for MCE, once for MCP)
+        assert mock_avro_serializer.call_count == 2
+
+        # Both calls should have conf={'auto.register.schemas': False}
+        for call_args in mock_avro_serializer.call_args_list:
+            _, kwargs = call_args
+            assert kwargs.get("conf") == {"auto.register.schemas": False}
+
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.AvroSerializer", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SchemaRegistryClient", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_kafka_sink_auto_schema_registration_enabled_by_default(
+        self, mock_producer, mock_sr_client, mock_avro_serializer, mock_context
+    ):
+        """Test that AvroSerializer uses default behavior when auto-registration not disabled."""
+        DatahubKafkaSink.create(
+            {"connection": {"bootstrap": "foobar:9092"}},
+            mock_context,
+        )
+
+        # AvroSerializer is called twice (once for MCE, once for MCP)
+        assert mock_avro_serializer.call_count == 2
+
+        # Both calls should have empty conf (default behavior)
+        for call_args in mock_avro_serializer.call_args_list:
+            _, kwargs = call_args
+            assert kwargs.get("conf") == {}
+
 
 def test_kafka_sink_producer_config_without_oauth_cb():
     """Test that standard producer_config works without oauth_cb (no breaking change)"""
