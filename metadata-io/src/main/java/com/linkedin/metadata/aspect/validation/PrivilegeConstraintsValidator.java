@@ -153,9 +153,9 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
       Set<Urn> subResources = new HashSet<>(tagDifference);
 
       // Only collect domain information if domain-based authorization is enabled
+      Set<Urn> domainUrns = Collections.emptySet();
       if (domainBasedAuthorizationEnabled) {
-        Set<Urn> domainUrns =
-            getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
+        domainUrns = getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
         subResources.addAll(domainUrns);
       }
 
@@ -164,9 +164,15 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
           ApiOperation.fromChangeType(item.getChangeType()),
           List.of(item.getUrn()),
           subResources)) {
-        return List.of(
-            AspectValidationException.forItem(
-                item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
+        String errorMessage;
+        if (domainBasedAuthorizationEnabled && !domainUrns.isEmpty()) {
+          errorMessage = String.format(
+              "Unauthorized to modify tags %s or access entity with domains %s",
+              tagDifference, domainUrns);
+        } else {
+          errorMessage = "Unauthorized to modify one or more tag Urns: " + tagDifference;
+        }
+        return List.of(AspectValidationException.forItem(item, errorMessage));
       }
     }
     return Collections.emptyList();
@@ -252,9 +258,9 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
       // Only collect domain information if domain-based authorization is enabled
       // WARNING: Domain reads here are outside transaction - see class-level security warning
+      Set<Urn> domainUrns = Collections.emptySet();
       if (domainBasedAuthorizationEnabled) {
-        Set<Urn> domainUrns =
-            getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
+        domainUrns = getEntityDomainsFromBatchOrDB(item.getUrn(), allBatchItems, aspectRetriever);
         subResources.addAll(domainUrns);
       }
 
@@ -263,9 +269,15 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
           ApiOperation.fromChangeType(item.getChangeType()),
           List.of(item.getUrn()),
           subResources)) {
-        return List.of(
-            AspectValidationException.forItem(
-                item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
+        String errorMessage;
+        if (domainBasedAuthorizationEnabled && !domainUrns.isEmpty()) {
+          errorMessage = String.format(
+              "Unauthorized to modify tags %s or access entity with domains %s",
+              tagDifference, domainUrns);
+        } else {
+          errorMessage = "Unauthorized to modify one or more tag Urns: " + tagDifference;
+        }
+        return List.of(AspectValidationException.forItem(item, errorMessage));
       }
     }
     return Collections.emptyList();
@@ -447,8 +459,9 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
 
       // Only add domains if domain-based authorization is enabled
       // This runs inside transaction, so domain reads are protected from race conditions
+      Set<Urn> domainUrns = Collections.emptySet();
       if (domainBasedAuthorizationEnabled) {
-        Set<Urn> domainUrns = getEntityDomainsFromChangeMCP(item, retrieverContext.getAspectRetriever());
+        domainUrns = getEntityDomainsFromChangeMCP(item, retrieverContext.getAspectRetriever());
         subResources.addAll(domainUrns);
       }
 
@@ -458,9 +471,15 @@ public class PrivilegeConstraintsValidator extends AspectPayloadValidator {
           ApiOperation.fromChangeType(item.getChangeType()),
           List.of(item.getUrn()),
           subResources)) {
-        exceptions.addException(
-            item,
-            "Unauthorized to modify one or more tag Urns: " + tagDifference);
+        String errorMessage;
+        if (domainBasedAuthorizationEnabled && !domainUrns.isEmpty()) {
+          errorMessage = String.format(
+              "Unauthorized to modify tags %s or access entity with domains %s",
+              tagDifference, domainUrns);
+        } else {
+          errorMessage = "Unauthorized to modify one or more tag Urns: " + tagDifference;
+        }
+        exceptions.addException(item, errorMessage);
       }
     }
 

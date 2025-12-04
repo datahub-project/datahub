@@ -514,36 +514,9 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    // Authorization for hard deletes
-    // Hard deletes bypass the validator layer (which only runs during MCP ingestion),
-    // so we must perform authorization here
-    if (configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
-      // Domain-based authorization: read entity's domains and authorize with domain context
-      Set<Urn> domains = DomainExtractionUtils.getEntityDomains(opContext, entityService, urn);
-
-      if (!domains.isEmpty()) {
-        // Entity has domains - use domain-based authorization
-        if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-            opContext, DELETE, List.of(urn), domains)) {
-          throw new UnauthorizedException(
-              authentication.getActor().toUrnStr()
-                  + " is unauthorized to "
-                  + DELETE
-                  + " entities with domains "
-                  + domains
-                  + ".");
-        }
-      } else {
-        // Entity has no domains - use standard authorization
-        if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
-          throw new UnauthorizedException(
-              authentication.getActor().toUrnStr()
-                  + " is unauthorized to "
-                  + DELETE
-                  + " entities.");
-        }
-      }
-    } else {
+    // Domain-based authorization (when enabled) is now handled inside the transaction
+    // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
+    if (!configurationProvider.getFeatureFlags().isDomainBasedAuthorizationEnabled()) {
       // Standard entity URN authorization when domain auth is disabled
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
         throw new UnauthorizedException(
