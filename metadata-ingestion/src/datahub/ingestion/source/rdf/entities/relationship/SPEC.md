@@ -1,6 +1,6 @@
 # Relationship Specification
 
-**Part of**: [RDF Specification](../../../../docs/rdf-specification.md)
+**Part of**: [RDF Specification](../../docs/rdf-specification.md)
 
 This document specifies how RDF glossary term relationships are extracted, converted, and mapped to DataHub relationship entities.
 

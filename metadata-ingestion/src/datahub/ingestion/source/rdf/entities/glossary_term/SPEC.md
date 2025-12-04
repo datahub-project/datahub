@@ -1,6 +1,6 @@
 # Glossary Term Specification
 
-**Part of**: [RDF Specification](../../../../docs/rdf-specification.md)
+**Part of**: [RDF Specification](../../docs/rdf-specification.md)
 
 This document specifies how RDF glossary terms are extracted, converted, and mapped to DataHub glossary entities.
 

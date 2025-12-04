@@ -127,10 +127,6 @@ Comprehensive business requirements document covering the background, motivation
 
 Complete guide for adding new entity types to rdf. Follow this contract to create pluggable entity modules that are automatically discovered and registered.
 
-### [SHACL Migration Guide](SHACL_MIGRATION_GUIDE.md)
-
-Guide for SHACL constraint modeling (advanced feature - not part of MVP).
-
 ### Archived Documentation
 
 Historical and proposal documents have been removed for MVP. Full feature set documentation is available in the `rdf-full-features` branch.

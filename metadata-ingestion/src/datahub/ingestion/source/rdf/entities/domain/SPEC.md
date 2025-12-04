@@ -1,6 +1,6 @@
 # Domain Specification
 
-**Part of**: [RDF Specification](../../../../docs/rdf-specification.md)
+**Part of**: [RDF Specification](../../docs/rdf-specification.md)
 
 This document specifies how DataHub domains are constructed from entity IRI paths.
 

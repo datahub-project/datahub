@@ -73,7 +73,7 @@ This specification defines an RDF vocabulary for creating business glossaries, d
 
 ## 3. Glossaries and Business Terms
 
-**Entity-Specific Specification**: See [`src/rdf/entities/glossary_term/SPEC.md`](../src/rdf/entities/glossary_term/SPEC.md)
+**Entity-Specific Specification**: See [`entities/glossary_term/SPEC.md`](../entities/glossary_term/SPEC.md)
 
 The primary goal of RDF is to create comprehensive business glossaries that define terms and their relationships.
 
@@ -86,7 +86,7 @@ The primary goal of RDF is to create comprehensive business glossaries that defi
 
 ---
 
-**For complete glossary term specifications including term definitions, identification criteria, relationship mappings, IRI-to-URN conversion, constraint extraction, and the hybrid term-constraint pattern, see the [Glossary Term Specification](../src/rdf/entities/glossary_term/SPEC.md).**
+**For complete glossary term specifications including term definitions, identification criteria, relationship mappings, IRI-to-URN conversion, constraint extraction, and the hybrid term-constraint pattern, see the [Glossary Term Specification](../entities/glossary_term/SPEC.md).**
 
 ---
 
@@ -296,9 +296,9 @@ The main `rdf-specification.md` provides high-level summaries and links to entit
 
 **Entity-Specific Specification Files**:
 
-- `src/rdf/entities/glossary_term/SPEC.md` - Glossary terms and business vocabulary
-- `src/rdf/entities/relationship/SPEC.md` - Term-to-term relationships
-- `src/rdf/entities/domain/SPEC.md` - Domain organization
+- `entities/glossary_term/SPEC.md` - Glossary terms and business vocabulary
+- `entities/relationship/SPEC.md` - Term-to-term relationships
+- `entities/domain/SPEC.md` - Domain organization
 
 See `docs/ENTITY_PLUGIN_CONTRACT.md` for requirements when creating new entity modules.
 
