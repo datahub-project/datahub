@@ -1,7 +1,9 @@
 import { Input } from '@components';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { FieldWrapper } from '@app/ingestV2/source/multiStepBuilder/components/FieldWrapper';
+
+import { ErrorWrapper } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/ErrorWrapper';
 
 interface Props {
     label: string;
@@ -13,16 +15,27 @@ interface Props {
 }
 
 export function Field({ label, value, onChange, name, required, placeholder }: Props) {
+    const [isTouched, setIsTouched] = useState<boolean>(false);
+
+    const onSetValue = useCallback(
+        (newValue: string) => {
+            onChange?.(newValue);
+            setIsTouched(true);
+        },
+        [onChange],
+    );
+
     return (
         <FieldWrapper label={label} required={required}>
             <Input
                 label=""
                 value={value}
-                setValue={(newValue) => onChange?.(newValue)}
+                setValue={onSetValue}
                 name={name}
                 placeholder={placeholder}
                 isRequired={required}
             />
+            {!value && isTouched && <ErrorWrapper errors={[`${label} is required`]} />}
         </FieldWrapper>
     );
 }

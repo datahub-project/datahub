@@ -1,5 +1,8 @@
-import { spacing } from '@components';
-import React, { useMemo } from 'react';
+import { Input, spacing } from '@components';
+import { Form } from 'antd';
+import { useForm } from 'antd/lib/form/Form';
+import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
+import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,6 +13,8 @@ import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step
 
 import { IngestionSource } from '@types';
 
+import { CustomLabelFormItem } from './recipeSection/recipeForm/components/CustomFormItem';
+
 const Container = styled.div`
     display: flex;
     flex-direction: column;
@@ -17,6 +22,9 @@ const Container = styled.div`
     max-width: ${MAX_FORM_WIDTH};
 `;
 
+interface FormData {
+    source_name: string;
+}
 interface Props {
     source?: IngestionSource;
     sourceName?: string;
@@ -36,6 +44,8 @@ export function NameAndOwnersSection({
 }: Props) {
     const me = useUserContext();
 
+    const form = useFormInstance<FormData>();
+
     const existingOwners = useMemo(() => source?.ownership?.owners || [], [source]);
     const defaultActors = useMemo(() => {
         if (!isEditing && me.user) {
@@ -44,23 +54,33 @@ export function NameAndOwnersSection({
         return existingOwners.map((owner) => owner.owner);
     }, [existingOwners, isEditing, me.user]);
 
-    return (
-        <Container>
-            <Field
-                label="Source Name"
-                name="source_name"
-                value={sourceName}
-                onChange={updateSourceName}
-                placeholder="Give data source a name"
-                required
-            />
+    const onValuesChange = useCallback(
+        (values: FormData) => {
+            updateSourceName?.(values.source_name);
+        },
+        [updateSourceName],
+    );
 
-            <ActorsField
-                label="Add Owners"
-                ownerUrns={ownerUrns}
-                updateOwners={updateOwners}
-                defaultActors={defaultActors}
-            />
-        </Container>
+    return (
+        <Form form={form} layout="vertical" onValuesChange={(_, values) => onValuesChange(values)}>
+            <Container>
+                <CustomLabelFormItem
+                    label="Source Name"
+                    name="source_name"
+                    initialValue={sourceName}
+                    rules={[{ required: true, message: 'Source Name is required' }]}
+                    required
+                >
+                    <Input placeholder="Give data source a name" />
+                </CustomLabelFormItem>
+
+                <ActorsField
+                    label="Add Owners"
+                    ownerUrns={ownerUrns}
+                    updateOwners={updateOwners}
+                    defaultActors={defaultActors}
+                />
+            </Container>
+        </Form>
     );
 }

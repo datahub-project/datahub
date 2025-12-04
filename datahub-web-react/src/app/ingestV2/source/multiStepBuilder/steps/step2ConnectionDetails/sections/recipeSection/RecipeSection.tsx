@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
+import { message } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
@@ -22,11 +24,37 @@ interface Props {
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
+    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe }: Props) {
+export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe, setIsRecipeValid }: Props) {
     const { type } = state;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM.has(type), [type]);
+    const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
+
+    const onTabClick = useCallback(
+        (activeKey) => {
+            if (activeKey !== 'form') {
+                setSelectedTabKey(activeKey);
+                return;
+            }
+
+            // Validate yaml content when switching from yaml tab to form
+            try {
+                YAML.parse(displayRecipe);
+                setSelectedTabKey(activeKey);
+            } catch (e) {
+                message.destroy();
+                const messageText = (e as any).parsedLine
+                    ? `Fix line ${(e as any).parsedLine} in your recipe`
+                    : 'Please fix your recipe';
+                message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
+            }
+
+            return;
+        },
+        [displayRecipe],
+    );
 
     const tabs: Tab[] = useMemo(
         () => [
@@ -39,6 +67,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                         displayRecipe={displayRecipe}
                         sourceConfigs={sourceConfigs}
                         setStagedRecipe={setStagedRecipe}
+                        setIsRecipeValid={setIsRecipeValid}
                     />
                 ),
             },
@@ -57,7 +86,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
 
     if (hasForm) {
         // destroyInactiveTabPane is required to reset state of RecipeForm with updated values from YAML editor
-        return <Tabs tabs={tabs} destroyInactiveTabPane />;
+        return <Tabs tabs={tabs} selectedTab={selectedTabKey} onTabClick={onTabClick} destroyInactiveTabPane />;
     }
 
     return (

@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 
 import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
 
-import { HelperText } from './HelperText';
+import { HelperText } from './shared/HelperText';
 import { RecipeFormItem } from './RecipeFormItem';
 import { AddItemButton } from './shared/AddItemButton';
 import { RemoveIcon } from './shared/RemoveIcon';

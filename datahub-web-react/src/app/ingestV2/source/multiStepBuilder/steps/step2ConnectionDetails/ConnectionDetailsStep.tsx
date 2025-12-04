@@ -34,6 +34,7 @@ export function ConnectionDetailsStep() {
     const { type } = state;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
+    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(true);
 
     // const { secrets, refetchSecrets } = useSecrets();
 
@@ -48,17 +49,26 @@ export function ConnectionDetailsStep() {
     const isEditing = !!state.isEditing;
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
+    console.log('>>>displayRecipe', displayRecipe);
+
     // TODO: Delete LookML banner specific code
     const isSourceLooker: boolean = sourceConfigs?.name === 'looker';
     const [showLookerBanner] = useState(isSourceLooker && !isEditing);
 
     useEffect(() => {
-        if (state.name && stagedRecipeYml && stagedRecipeYml.length > 0 && !showLookerBanner) {
+        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0 && !showLookerBanner) {
             setCurrentStepCompleted();
         } else {
             setCurrentStepUncompleted();
         }
-    }, [stagedRecipeYml, showLookerBanner, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+    }, [
+        isRecipeValid,
+        stagedRecipeYml,
+        showLookerBanner,
+        setCurrentStepCompleted,
+        setCurrentStepUncompleted,
+        state.name,
+    ]);
 
     const sourceName = useMemo(() => state.name || '', [state.name]);
     const updateSourceName = useCallback(
@@ -116,6 +126,7 @@ export function ConnectionDetailsStep() {
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
                     setStagedRecipe={setStagedRecipeYml}
+                    setIsRecipeValid={setIsRecipeValid}
                 />
             </Container>
         </>

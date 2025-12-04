@@ -11,7 +11,7 @@ import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/In
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState, SubmitOptions } from '@app/ingestV2/source/multiStepBuilder/types';
 import {
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
@@ -53,9 +53,11 @@ export function IngestionSourceCreatePage() {
     const { defaultOwnershipType } = useOwnershipTypes();
 
     const onSubmit = useCallback(
-        async (data: MultiStepSourceBuilderState | undefined) => {
+        async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
-            const shouldRun = true; // TODO:: set a real value
+            console.log('>>>data', data)
+            console.log('>>>options', options)
+            const shouldRun = options?.shouldRun;
             const input = getIngestionSourceMutationInput(data);
 
             try {

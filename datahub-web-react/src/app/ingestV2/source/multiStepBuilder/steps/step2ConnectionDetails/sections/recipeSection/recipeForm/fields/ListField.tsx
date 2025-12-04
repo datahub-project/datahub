@@ -7,7 +7,7 @@ import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2Con
 import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 
 import { ErrorWrapper } from '../components/ErrorWrapper';
-import { HelperText } from './HelperText';
+import { HelperText } from './shared/HelperText';
 import { RecipeFormItem } from './RecipeFormItem';
 import { RemoveIcon } from './shared/RemoveIcon';
 import { AddItemButton } from './shared/AddItemButton';
@@ -36,7 +36,7 @@ export function ListField({ field }: CommonFieldProps) {
 
                     {fields.map((item) => (
                         <ListItemWrapper key={item.fieldKey}>
-                            <RecipeFormItem {...item} noStyle>
+                            <RecipeFormItem {...item} initialValue="" noStyle>
                                 <Input placeholder={field.placeholder} style={{width: '100%'}}/>
                             </RecipeFormItem>
                             <RemoveIcon onClick={() => remove(item.name)} />

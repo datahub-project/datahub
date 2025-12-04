@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 export type StepKey = string;
 
@@ -12,11 +12,11 @@ export interface Step {
 
 export type OnNextHandler = () => void;
 
-export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
+export interface MultiStepFormContextType<TState, TStep extends Step = Step, TSubmitOptions = any> {
     state: TState;
     updateState: (newState: Partial<TState>) => void;
 
-    submit: () => void;
+    submit: (options?: TSubmitOptions) => void;
     cancel: () => void;
 
     totalSteps: number;
@@ -36,9 +36,9 @@ export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
     setCurrentStepUncompleted: () => void;
 }
 
-export interface MultiStepFormProviderProps<TState> {
+export interface MultiStepFormProviderProps<TState, TSubmitOptions = any> {
     steps: Step[];
     initialState?: TState;
-    onSubmit?: (state: TState | undefined) => Promise<void>;
+    onSubmit?: (state: TState | undefined, options?: TSubmitOptions | undefined) => Promise<void>;
     onCancel?: () => void;
 }

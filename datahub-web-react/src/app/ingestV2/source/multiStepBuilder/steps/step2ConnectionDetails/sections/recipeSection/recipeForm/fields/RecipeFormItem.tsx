@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import styled from 'styled-components';
 
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 import { CustomLabelFormItem, CustomLabelFormItemProps } from '../components/CustomFormItem';
-import { HelperText } from './HelperText';
-import styled from 'styled-components';
+import { HelperText } from './shared/HelperText';
 
 const Wrapper = styled.div`
     display: flex;
@@ -26,6 +26,12 @@ export function RecipeFormItem({
     tooltip,
     ...props
 }: React.PropsWithChildren<Props>) {
+    const rules = useMemo(() => {
+        if (recipeField?.rules) return recipeField.rules;
+        if (recipeField?.required) return [{ required: true, message: `${recipeField.label} is required` }];
+        return undefined;
+    }, [recipeField]);
+
     return (
         <Wrapper>
             <CustomLabelFormItem
@@ -33,7 +39,7 @@ export function RecipeFormItem({
                 label={recipeField?.label}
                 name={recipeField?.name}
                 tooltip={showTooltip ? (recipeField?.tooltip ?? tooltip) : undefined}
-                rules={recipeField?.rules || undefined}
+                rules={rules}
                 {...props}
             >
                 {children}

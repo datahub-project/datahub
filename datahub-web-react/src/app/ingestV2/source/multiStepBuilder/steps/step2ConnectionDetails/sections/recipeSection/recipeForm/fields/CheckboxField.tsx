@@ -1,8 +1,11 @@
-import { NativeCheckbox, Text } from '@components';
+import { Checkbox, NativeCheckbox, Text } from '@components';
 import styled from 'styled-components';
+
+import { Field } from '@app/ingestV2/source/multiStepBuilder/components/Field';
 
 import { RecipeFormItem } from './RecipeFormItem';
 import { CommonFieldProps } from './types';
+import { useCallback, useMemo } from 'react';
 
 const CheckboxWithHelper = styled.div`
     // compensate checkbox container size
@@ -16,6 +19,30 @@ const CheckboxWithHelper = styled.div`
     align-items: center;
 `;
 
+interface Props {
+    checked?: boolean;
+    onChange?: (newValue: boolean) => void;
+
+    helper?: string;
+}
+
+function AntdFormCompatibmeCheckbox({ checked, onChange, helper }: Props) {
+    console.log('>>>AntdFormCompatibmeCheckbox', {
+        checked, onChange
+    });
+
+    return (
+        <CheckboxWithHelper>
+            <Checkbox isChecked={checked} onCheckboxChange={onChange} justifyContent="flex-start" />
+            {helper && (
+                <Text size="sm" color="gray" colorLevel={600}>
+                    {helper}
+                </Text>
+            )}
+        </CheckboxWithHelper>
+    );
+}
+
 export function CheckboxField({ field }: CommonFieldProps) {
     return (
         <RecipeFormItem
@@ -23,12 +50,7 @@ export function CheckboxField({ field }: CommonFieldProps) {
             style={{ flexDirection: 'row', alignItems: 'center' }}
             valuePropName={'checked'}
         >
-            <CheckboxWithHelper>
-                <NativeCheckbox justifyContent="flex-start" />
-                <Text size="sm" color="gray" colorLevel={600}>
-                    {field.helper}
-                </Text>
-            </CheckboxWithHelper>
+            <AntdFormCompatibmeCheckbox helper={field.helper} />
         </RecipeFormItem>
     );
 }

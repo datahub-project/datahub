@@ -9,7 +9,11 @@ export interface IngestionSourceFormStep extends Step {
 }
 
 export interface MultiStepSourceBuilderState extends SourceBuilderState {
-    // shouldRun?: boolean;
+    shouldRun?: boolean;
     ingestionSource?: IngestionSource;
     isEditing?: boolean;
+}
+
+export interface SubmitOptions {
+    shouldRun?: boolean;
 }

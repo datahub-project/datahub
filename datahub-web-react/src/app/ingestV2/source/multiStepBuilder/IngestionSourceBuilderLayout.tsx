@@ -3,9 +3,10 @@ import styled from 'styled-components';
 
 import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
-import { MultiStepFormBottomPanel } from '@app/sharedV2/forms/multiStepForm/MultiStepFormBottomPanel';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
+
+import { IngestionSourceBottomPanel } from './IngestionSourceBottomPanel';
 
 const ContentWrapper = styled.div`
     padding: 0 20px 16px 20px;
@@ -26,7 +27,7 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
             title={step?.label}
             subTitle={step?.subTitle}
             rightPanelContent={step?.hideRightPanel ? null : <AIChat />}
-            bottomPanelContent={step?.hideBottomPanel ? null : <MultiStepFormBottomPanel />}
+            bottomPanelContent={step?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
         >
             <ContentWrapper>{children}</ContentWrapper>
         </PageLayout>

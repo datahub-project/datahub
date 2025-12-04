@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { FieldLabel } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
-import { HelperText } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/HelperText';
+import { HelperText } from '../steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/HelperText';
 
 const Wrapper = styled.div`
     display: flex;

@@ -1,7 +1,7 @@
 import { spacing } from '@components';
 import { Form, message } from 'antd';
 import { get } from 'lodash';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
@@ -69,43 +69,63 @@ interface Props {
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     selectedSource?: IngestionSource;
+    setIsRecipeValid?: (isValid: boolean) => void;
 }
 
-function RecipeForm(props: Props) {
-    const { state, displayRecipe, sourceConfigs, setStagedRecipe, selectedSource } = props;
+function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, selectedSource, setIsRecipeValid }: Props) {
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type as string];
     const allFields = [...fields, ...advancedFields, ...filterFields];
     const [form] = Form.useForm();
+
     const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
-    function updateFormValues(changedValues: any, allValues: any) {
-        console.log('>>>CHANGED', {changedValues})
-        const now = performance.now();
-        let updatedValues = YAML.parse(displayRecipe);
+    const updateRecipe = useCallback(
+        (changedValues: any, allValues: any) => {
+            let updatedValues = YAML.parse(displayRecipe);
+            Object.keys(changedValues).forEach((fieldName) => {
+                const recipeField = allFields.find((f) => f.name === fieldName);
+                if (recipeField) {
+                    updatedValues = recipeField.setValueOnRecipeOverride
+                        ? recipeField.setValueOnRecipeOverride(updatedValues, allValues[fieldName])
+                        : setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
+                }
+            });
 
-        Object.keys(changedValues).forEach((fieldName) => {
-            const recipeField = allFields.find((f) => f.name === fieldName);
-            if (recipeField) {
-                updatedValues = recipeField.setValueOnRecipeOverride
-                    ? recipeField.setValueOnRecipeOverride(updatedValues, allValues[fieldName])
-                    : setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
-            }
-        });
+            const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
+            setStagedRecipe(stagedRecipe);
+        },
+        [displayRecipe, allFields],
+    );
 
-        const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
-        setStagedRecipe(stagedRecipe);
-        console.log('>>>DIFF', performance.now() - now);
-    }
+    const updateFormValues = useCallback(
+        (changedValues: any, allValues: any) => {
+            updateRecipe(changedValues, allValues);
 
-    function updateFormValue(fieldName, fieldValue) {
-        updateFormValues({ [fieldName]: fieldValue }, { [fieldName]: fieldValue });
-        form.setFieldsValue({ [fieldName]: fieldValue });
-    }
+            form.validateFields()
+                .then(() => {
+                    setIsRecipeValid?.(true);
+                })
+                .catch((error) => {
+                    // FYI: `error` could be triggered with empty list of `errorFields` when form is valid
+                    const hasErrors = (error.errorFields?.length ?? 0) > 0;
+                    setIsRecipeValid?.(!hasErrors);
+                });
+        },
+        [setIsRecipeValid, updateRecipe, form],
+    );
+
+    const updateFormValue = useCallback(
+        (fieldName, fieldValue) => {
+            updateFormValues({ [fieldName]: fieldValue }, { [fieldName]: fieldValue });
+            form.setFieldsValue({ [fieldName]: fieldValue });
+        },
+        [updateFormValues, form],
+    );
 
     return (
-        <RequiredFieldForm
+        <Form
             layout="vertical"
             initialValues={getInitialValues(displayRecipe, allFields)}
             form={form}
@@ -116,11 +136,7 @@ function RecipeForm(props: Props) {
 
                 <FieldsContainer>
                     {fields.map((field) => (
-                        <FormField
-                            key={field.name}
-                            field={field}
-                            updateFormValue={updateFormValue}
-                        />
+                        <FormField key={field.name} field={field} updateFormValue={updateFormValue} />
                     ))}
                 </FieldsContainer>
 
@@ -138,17 +154,11 @@ function RecipeForm(props: Props) {
                     </TestConnectionWrapper>
                 )}
 
-                <FiltersSection
-                    filterFields={filterFields}
-                    updateFormValue={updateFormValue}
-                />
+                <FiltersSection filterFields={filterFields} updateFormValue={updateFormValue} />
 
-                <SettingsSection
-                    settingsFields={advancedFields}
-                    updateFormValue={updateFormValue}
-                />
+                <SettingsSection settingsFields={advancedFields} updateFormValue={updateFormValue} />
             </SectionsContainer>
-        </RequiredFieldForm>
+        </Form>
     );
 }
 

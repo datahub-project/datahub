@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
+import { colors } from '@components';
 
 export const StyledFormItem = styled(Form.Item)<{
     $alignLeft?: boolean;
@@ -18,6 +19,14 @@ export const StyledFormItem = styled(Form.Item)<{
         }
 
         padding: 0;
+    }
+
+    .ant-form-item-explain-error {
+        color: ${colors.red[500]}; // Color of error message
+    }
+
+    .ant-form-item-control {
+        margin-left: 1px; // Inputs from components library have 1px outline when focused so it prevents outline cutting off
     }
 `;
 

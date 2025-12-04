@@ -30,12 +30,14 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
     const me = useUserContext();
     const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
     const defaultActors = useMemo(() => {
-        if (!isEditing && me.user) {
+        if (!isEditing && me.user && me.loaded) {
             return [me.user];
         }
         return existingOwners.map((owner) => owner.owner);
-    }, [existingOwners, isEditing, me.user]);
+    }, [existingOwners, isEditing, me.user, me.loaded]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(defaultActors.map((actor) => actor.urn));
+    const [areOwnersInStateInitializedWhileCreation, setAreOwnersInStateInitializedWhileCreation] =
+        useState<boolean>(false);
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -59,6 +61,14 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
         },
         [updateState, state],
     );
+
+    // Initialize state with default owners while source creation
+    useEffect(() => {
+        if (me.loaded && !isEditing && !areOwnersInStateInitializedWhileCreation) {
+            setOwners(defaultActors);
+            setAreOwnersInStateInitializedWhileCreation(true);
+        }
+    }, [defaultActors, isEditing, me.loaded, areOwnersInStateInitializedWhileCreation]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {

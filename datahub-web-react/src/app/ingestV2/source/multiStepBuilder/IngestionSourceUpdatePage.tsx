@@ -10,7 +10,11 @@ import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSo
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import {
+    IngestionSourceFormStep,
+    MultiStepSourceBuilderState,
+    SubmitOptions,
+} from '@app/ingestV2/source/multiStepBuilder/types';
 import {
     buildOwnerEntities,
     getIngestionSourceMutationInput,
@@ -22,6 +26,7 @@ import { PageRoutes } from '@conf/Global';
 
 import { useGetIngestionSourceQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
+
 import { ConnectionDetailsSubTitle } from './steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 
 const STEPS: IngestionSourceFormStep[] = [
@@ -59,10 +64,10 @@ export function IngestionSourceUpdatePage() {
     const updateIngestionSource = useUpdateIngestionSource();
 
     const onSubmit = useCallback(
-        async (data: MultiStepSourceBuilderState | undefined) => {
+        async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
 
-            const shouldRun = true; // TODO:: set a real value
+            const shouldRun = options?.shouldRun;
             try {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
                 const input = getIngestionSourceMutationInput(data);

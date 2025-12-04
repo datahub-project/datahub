@@ -28,18 +28,18 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
     currentStepIndex: 0,
 });
 
-export function useMultiStepContext<TState, TStep extends Step>() {
-    return React.useContext<MultiStepFormContextType<TState, TStep>>(MultiStepContext);
+export function useMultiStepContext<TState, TStep extends Step, TSubmitOptions = any>() {
+    return React.useContext<MultiStepFormContextType<TState, TStep, TSubmitOptions>>(MultiStepContext);
 }
 
-export interface MultiStepFormProviderProps<TState> {
+export interface MultiStepFormProviderProps<TState, TSubmitOptions = any> {
     steps: Step[];
     initialState?: TState;
-    onSubmit?: (state: TState | undefined) => Promise<void>;
+    onSubmit?: (state: TState | undefined, options?: TSubmitOptions) => Promise<void>;
     onCancel?: () => void;
 }
 
-export function MultiStepFormProvider<TState>({
+export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     children,
     steps,
     initialState,
@@ -110,8 +110,8 @@ export function MultiStepFormProvider<TState>({
         );
     }, [getCurrentStep]);
 
-    const submit = useCallback(async () => {
-        await onSubmit?.(state);
+    const submit = useCallback(async (options?: TSubmitOptions) => {
+        await onSubmit?.(state, options);
     }, [onSubmit, state]);
 
     const cancel = useCallback(() => {
