@@ -301,7 +301,7 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.1.3',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.4',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.9.4',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
