@@ -379,8 +379,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             generate_usage_statistics=False,
             generate_operations=False,
             eager_graph_load=False,
+            prefer_lowercase=self.get_prefer_lowercase(),
         )
         self.report.sql_aggregator = self.aggregator.report
+
+    def get_prefer_lowercase(self) -> Optional[bool]:
+        """
+        Override this method in subclasses to control URN case preference for lineage resolution.
+
+        Returns:
+            None: Use platform-based defaults (default behavior)
+            True: Prefer lowercase URNs
+            False: Prefer preserving original case
+        """
+        return None
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
