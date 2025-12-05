@@ -101,6 +101,10 @@ export enum EntityCapabilityType {
      * Assigning the entity to an application
      */
     APPLICATIONS,
+    /**
+     * Adding a business attribute to the entity
+     */
+    BUSINESS_ATTRIBUTES,
 }
 
 export interface EntityMenuActions {

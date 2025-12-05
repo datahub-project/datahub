@@ -1,4 +1,5 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { get } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -22,9 +23,10 @@ const Content = styled.div`
 
 interface Props {
     readOnly?: boolean;
+    properties?: any;
 }
 
-export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
+export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => {
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -32,7 +34,17 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const areTermsEmpty = !entityData?.glossaryTerms?.terms?.length;
+    // Extract glossary terms using custom path or default path
+    const extractGlossaryTerms = () => {
+        if (properties?.customTermPath) {
+            return get(entityData, properties?.customTermPath);
+        }
+        // Fall back to default path
+        return entityData?.glossaryTerms;
+    };
+
+    const glossaryTerms = extractGlossaryTerms();
+    const areTermsEmpty = !glossaryTerms?.terms?.length;
 
     const canEditTerms = !!entityData?.privileges?.canEditGlossaryTerms;
 
@@ -44,7 +56,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                     <Content>
                         {!areTermsEmpty ? (
                             <TagTermGroup
-                                editableGlossaryTerms={entityData?.glossaryTerms}
+                                editableGlossaryTerms={glossaryTerms}
                                 canAddTerm
                                 canRemove
                                 entityUrn={mutationUrn}

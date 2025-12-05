@@ -13912,6 +13912,11 @@ type BusinessAttribute implements Entity {
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
 }
 
 """

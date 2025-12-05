@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
@@ -52,6 +53,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           switch (urn.getEntityType()) {
+            case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
+              return getBusinessAttributePrivileges(urn, context);
             case Constants.GLOSSARY_TERM_ENTITY_NAME:
               return getGlossaryTermPrivileges(urn, context);
             case Constants.GLOSSARY_NODE_ENTITY_NAME:
@@ -77,6 +80,14 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private EntityPrivileges getBusinessAttributePrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    result.setCanManageEntity(
+        BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
+    addCommonPrivileges(result, urn, context);
+    return result;
   }
 
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
