@@ -34,11 +34,17 @@ public class OpenSearchTestContainer implements SearchTestContainer {
   // within firewalled environments to override with an environment variable to point to the offline
   // repository.
   static {
-    OS_CONTAINER = new OpensearchContainer(DOCKER_IMAGE_NAME);
+    OS_CONTAINER = new OpensearchContainer(DOCKER_IMAGE_NAME).withSecurityEnabled();
     checkContainerEngine(OS_CONTAINER.getDockerClient());
     OS_CONTAINER
         .withEnv("OPENSEARCH_JAVA_OPTS", OPENSEARCH_JAVA_OPTS)
-        .withEnv("DISABLE_SECURITY_PLUGIN", "true")
+        .withEnv("plugins.security.ssl.http.enabled", "false")
+        .withEnv("plugins.security.ssl.transport.enabled", "false")
+        .withEnv("DISABLE_INSTALL_DEMO_CONFIG", "true")
+        .withEnv("plugins.security.allow_unsafe_democertificates", "true")
+        .withEnv("plugins.security.authcz.admin_dn", "")
+        .withEnv("plugins.security.authcz.rest_impersonation_user", "*")
+        .withEnv("plugins.security.restapi.roles_enabled", "[\"all_access\"]")
         .withStartupTimeout(STARTUP_TIMEOUT);
   }
 
