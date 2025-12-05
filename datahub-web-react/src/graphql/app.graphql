@@ -190,9 +190,21 @@ query getLatestProductUpdate {
         enabled
         id
         title
+        header
+        requiredVersion
         description
         image
+        primaryCtaText
+        primaryCtaLink
+        secondaryCtaText
+        secondaryCtaLink
         ctaText
         ctaLink
+        features {
+            title
+            description
+            icon
+            availability
+        }
     }
 }
