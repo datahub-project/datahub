@@ -1,6 +1,7 @@
 # Load environment variables first before any other imports
 import os
 import pathlib
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -29,9 +30,9 @@ logger.add(
 )
 # Also add console output for INFO and above
 logger.add(
-    lambda msg: None,  # Streamlit will capture via st.write/st.error
+    sys.stderr,
     level="INFO",
-    format="{message}",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
 )
 logger.info(f"Chat UI logging initialized - session log: {_LOG_FILE.name}")
 

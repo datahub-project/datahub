@@ -69,7 +69,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     },
     dataHubConfig: {
         serverEnv: 'cloud',
-        isFreeTrialInstance: false,
     },
     classificationConfig: {
         enabled: false,
@@ -123,6 +122,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
+        showIngestionPageRedesign: false,
+        ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
         showTaskCenterRedesign: false,
         usePropagationsFramework: false,
@@ -132,7 +133,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         tagPropagationV2Enabled: false,
         termPropagationV2Enabled: false,
         showCreatedAtFilter: false,
-        showIngestionPageRedesign: false,
         showHomePageRedesign: false,
         showProductUpdates: false,
         formsNotificationsEnabled: false,
@@ -148,10 +148,16 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         teamsNotificationsEnabled: false,
         datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
+        contextDocumentsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,
         lineageEnabled: false,
+    },
+    trialConfig: {
+        trialEnabled: false,
+        daysLeft: 0,
+        sampleDataEnabled: false,
     },
 };
 

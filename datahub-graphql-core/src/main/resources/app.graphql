@@ -166,6 +166,11 @@ type PlatformPrivileges {
   manageGlossaries: Boolean!
 
   """
+  Whether the user should be able to manage Documents (Knowledge Articles)
+  """
+  manageDocuments: Boolean!
+
+  """
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!
@@ -360,7 +365,6 @@ Configurations related to the Datahub server
 type DataHubConfig {
   serverType: String
   serverEnv: String!
-  isFreeTrialInstance: Boolean!
 }
 
 """
@@ -464,6 +468,11 @@ type AppConfig {
   Configurations for Classification
   """
   classificationConfig: ClassificationConfig!
+
+  """
+  Configurations related to Trial features
+  """
+  trialConfig: TrialConfig!
 }
 
 """
@@ -1780,9 +1789,19 @@ type FeatureFlagsConfig {
   datasetSummaryPageV1: Boolean!
 
   """
+  Enables displaying the ingestion onboarding redesign
+  """
+  ingestionOnboardingRedesignV1: Boolean!
+
+  """
   If enabled, allows uploading of files for documentation.
   """
   documentationFileUploadV1: Boolean!
+
+  """
+  If enabled, shows the context documents feature in the sidebar.
+  """
+  contextDocumentsEnabled: Boolean!
 }
 
 """
@@ -1898,6 +1917,26 @@ type ClassificationConfig {
   Individual automation settings
   """
   automations: ClassificationAutomations!
+}
+
+"""
+Configurations related to Trial features
+"""
+type TrialConfig {
+  """
+  Whether trial mode is enabled for this instance
+  """
+  trialEnabled: Boolean!
+
+  """
+  Number of days remaining in the trial period
+  """
+  daysLeft: Int!
+
+  """
+  Whether sample data is enabled for trial users
+  """
+  sampleDataEnabled: Boolean!
 }
 
 """

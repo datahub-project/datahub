@@ -66,6 +66,7 @@ import {
     AggregationMetadata,
     DataPlatform,
     DataPlatformInstance,
+    Document,
     Domain,
     Entity,
     EntityType,
@@ -386,6 +387,10 @@ export function getParentEntities(entity: Entity): Entity[] | null {
     }
     if (entity.type === EntityType.Domain) {
         return (entity as Domain).parentDomains?.domains || [];
+    }
+    if (entity.type === EntityType.Document) {
+        // Document type is generated and includes parentDocuments field
+        return (entity as Document).parentDocuments?.documents || [];
     }
     return null;
 }

@@ -196,22 +196,22 @@ The DataHub Integrations Service provides integrations between DataHub and exter
 
 #### Documentation Generation AI
 
-| Environment Variable                 | Default                                                | Unit/Type | Components               | Description                                                                                                                                        |
-| ------------------------------------ | ------------------------------------------------------ | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DESCRIPTION_GENERATION_MODEL`       | `bedrock/us.anthropic.claude-3-haiku-20240307-v1:0`    | string    | [`Integrations Service`] | Model identifier for documentation generation AI. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `vertex_ai/`) |
-| `QUERY_DESCRIPTION_GENERATION_MODEL` | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for query description generation.                                                                                                 |
+| Environment Variable                 | Default                                                | Unit/Type | Components               | Description                                                                                                                                              |
+| ------------------------------------ | ------------------------------------------------------ | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DESCRIPTION_GENERATION_MODEL`       | `bedrock/us.anthropic.claude-3-haiku-20240307-v1:0`    | string    | [`Integrations Service`] | Model identifier for documentation generation AI. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`) |
+| `QUERY_DESCRIPTION_GENERATION_MODEL` | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for query description generation.                                                                                                       |
 
 #### Chat Assistant AI
 
-| Environment Variable           | Default                                        | Unit/Type | Components               | Description                                                                         |
-| ------------------------------ | ---------------------------------------------- | --------- | ------------------------ | ----------------------------------------------------------------------------------- |
-| `CHATBOT_MODEL`                | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for DataHub chat assistant. Supports models from AWS bedrock only. |
-| `CHAT_SUMMARIZATION_MODEL`     | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for chat summary generation                                        |
-| `CHATBOT_PLANNING_ENABLED`     | `true`                                         | boolean   | [`Integrations Service`] | Enable planning mode for the DataHub chatbot to create and execute plans.           |
-| `CHATBOT_SMART_SEARCH_ENABLED` | `false`                                        | boolean   | [`Integrations Service`] | Enable smart search capabilities in the chatbot                                     |
+| Environment Variable           | Default                                                | Unit/Type | Components               | Description                                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHATBOT_MODEL`                | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for DataHub chat assistant. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`)  |
+| `CHAT_SUMMARIZATION_MODEL`     | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for chat summary generation. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`) |
+| `CHATBOT_PLANNING_ENABLED`     | `true`                                                 | boolean   | [`Integrations Service`] | Enable planning mode for the DataHub chatbot to create and execute plans.                                                                            |
+| `CHATBOT_SMART_SEARCH_ENABLED` | `false`                                                | boolean   | [`Integrations Service`] | Enable smart search capabilities in the chatbot. **Note:** Smart search is only supported with AWS cloud.                                            |
 
 #### Term Suggestion AI
 
-| Environment Variable    | Default                                        | Unit/Type | Components               | Description                                                      |
-| ----------------------- | ---------------------------------------------- | --------- | ------------------------ | ---------------------------------------------------------------- |
-| `TERM_SUGGESTION_MODEL` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for term suggestion / classification automation |
+| Environment Variable    | Default                                                | Unit/Type | Components               | Description                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------ | --------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `TERM_SUGGESTION_MODEL` | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for term suggestion / classification automation. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`) |

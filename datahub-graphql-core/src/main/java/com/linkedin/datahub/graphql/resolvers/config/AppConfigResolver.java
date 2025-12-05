@@ -243,7 +243,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final DataHubConfig dataHubConfig = new DataHubConfig();
     dataHubConfig.setServerEnv(_datahubConfiguration.getServerEnv());
-    dataHubConfig.setIsFreeTrialInstance(_datahubConfiguration.isFreeTrialInstance());
     appConfig.setDataHubConfig(dataHubConfig);
 
     final ViewsConfig viewsConfig = new ViewsConfig();
@@ -359,6 +358,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setSupportTicketsEnabled(_featureFlags.isSupportTicketsEnabled())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
+            .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -377,6 +377,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         _classificationConfiguration.getAutomations().isAiTermClassification());
     classificationConfig.setAutomations(automations);
     appConfig.setClassificationConfig(classificationConfig);
+
+    // Trial Configuration
+    final TrialConfig trialConfig = new TrialConfig();
+    trialConfig.setTrialEnabled(_datahubConfiguration.isFreeTrialInstance());
+    // TODO: Get the number of days left from the /expiration_timestamp API from Free Trial service
+    trialConfig.setDaysLeft(5);
+    // TODO: Get the sample data enabled from the new API
+    trialConfig.setSampleDataEnabled(true);
+    appConfig.setTrialConfig(trialConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

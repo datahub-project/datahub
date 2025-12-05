@@ -371,9 +371,9 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     SearchHit[] searchHits = response.getHits().getHits();
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
+    String pitId = response.pointInTimeId();
     if (searchHits.length == count && searchHits.length > 0) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      String pitId = response.pointInTimeId();
       if (pitId != null && keepAlive == null) {
         throw new IllegalArgumentException("Should not set pitId without keepAlive");
       }
@@ -383,6 +383,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
               : System.currentTimeMillis()
                   + TimeValue.parseTimeValue(keepAlive, "keepAlive").millis();
       nextScrollId = new SearchAfterWrapper(sort, pitId, expirationTime).toScrollId();
+    }
+    if (nextScrollId == null && pitId != null) {
+      // Last scroll, we clean up the pitId assuming user has gone through all data
+      graphReadDAO.cleanupPointInTime(pitId);
     }
 
     return RelatedEntitiesScrollResult.builder()

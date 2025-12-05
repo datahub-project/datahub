@@ -1,10 +1,11 @@
 import { Tooltip } from '@components';
-import { Button, Checkbox, Modal, Typography } from 'antd';
-import React from 'react';
+import { Button, Checkbox, Typography } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelectActions } from '@app/entityV2/shared/components/styled/search/SearchSelectActions';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
 import { useAppConfig } from '@src/app/useAppConfig';
 
@@ -72,22 +73,14 @@ export const SearchSelectBar = ({
 }: Props) => {
     const { isInFormContext } = useEntityFormContext();
     const appConfig = useAppConfig();
+
+    const [showClearSelectionModal, setShowClearSelectionModal] = useState(false);
     const selectedEntityCount = selectedEntities.length;
     const maxBulkLimit = appConfig.config.testsConfig?.executionLimitConfig?.elasticSearchExecutor; // add ? because here i'm getting white screen when i was adding assets in dataproduct
     const isBeyondAssetLimit = totalResults >= maxBulkLimit;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
-            Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`,
-                onOk() {
-                    onCancel?.();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowClearSelectionModal(true);
         } else {
             onCancel?.();
         }
@@ -150,6 +143,13 @@ export const SearchSelectBar = ({
                     )}
                 </ActionsContainer>
             )}
+            <ConfirmationModal
+                isOpen={showClearSelectionModal}
+                handleClose={() => setShowClearSelectionModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle="Exit Selection"
+                modalText={`Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`}
+            />
         </>
     );
 };

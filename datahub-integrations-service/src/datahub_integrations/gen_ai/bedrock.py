@@ -17,13 +17,16 @@ from datahub_integrations.util.serialized import serialized
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
+from datahub_integrations import is_dev_mode
+
+if not is_dev_mode():
+    logging.getLogger("boto3").setLevel(logging.INFO)
+    logging.getLogger("botocore").setLevel(logging.INFO)
+    logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
 # Enable boto3 debug logging for troubleshooting timeouts
-logging.getLogger("boto3").setLevel(logging.DEBUG)
-logging.getLogger("botocore").setLevel(logging.DEBUG)
-logging.getLogger("urllib3").setLevel(logging.DEBUG)
 
 _ENABLE_BEDROCK_OPTIMIZED_LATENCY = get_boolean_env_variable(
     "ENABLE_BEDROCK_OPTIMIZED_LATENCY", False
@@ -106,11 +109,19 @@ def get_bedrock_client(
     else:
         # Option 3: Default - use instance profile or standard AWS credential chain
         # This will check ~/.aws/credentials, EC2 instance profile, etc.
-        # Region is determined from AWS config, AWS_REGION env var, or instance metadata
         logger.info(
             "Initializing Bedrock client from default credential chain (instance profile or AWS CLI)"
         )
-        boto3_session = boto3.Session()
+        region = os.environ.get("BEDROCK_AWS_REGION") or os.environ.get("AWS_REGION")
+        if region:
+            logger.info(f"Using explicit region from environment: {region}")
+            boto3_session = boto3.Session(region_name=region)
+        else:
+            logger.info(
+                "No explicit region found in BEDROCK_AWS_REGION or AWS_REGION, "
+                "boto3 will resolve from AWS config or instance metadata"
+            )
+            boto3_session = boto3.Session()
 
     return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
 

@@ -32,9 +32,11 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
 )
 from datahub_integrations.chat.chat_session_formatter import format_message
+from datahub_integrations.chat.sql_generator.tools import generate_sql
 from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
 from datahub_integrations.gen_ai.model_config import model_config
+from datahub_integrations.mcp.mcp_server import register_all_tools
 from datahub_integrations.mcp_integration.tool import (
     ToolWrapper,
     async_background,
@@ -42,7 +44,11 @@ from datahub_integrations.mcp_integration.tool import (
 )
 from datahub_integrations.smart_search.smart_search import smart_search
 
+register_all_tools(is_oss=False)
+
+
 MAX_TOOL_CALLS = 30
+register_all_tools(is_oss=False)
 
 
 def _is_respond_to_user_result(message: Message) -> TypeGuard[ToolResult]:
@@ -53,7 +59,7 @@ def _is_respond_to_user_result(message: Message) -> TypeGuard[ToolResult]:
     )
 
 
-def _create_response_formatter(
+def create_response_formatter(
     chat_type: ChatType,
     client: DataHubClient,
 ) -> Callable[[Message, AgentRunner], NextMessage]:
@@ -123,7 +129,7 @@ def _create_response_formatter(
     return formatter
 
 
-def _data_catalog_completion_check(message: Message) -> bool:
+def data_catalog_completion_check(message: Message) -> bool:
     """
     Check if DataCatalog Explorer agent should stop generating.
 
@@ -146,6 +152,7 @@ def create_data_catalog_explorer_agent(
     extra_instructions_override: Optional[str] = None,
     chat_type: ChatType = ChatType.DEFAULT,
     tools: Optional[Sequence[ToolWrapper | FastMCP]] = None,
+    context: Optional[str] = None,
 ) -> AgentRunner:
     """
     Create a DataCatalog Explorer agent (formerly ChatSession).
@@ -163,6 +170,7 @@ def create_data_catalog_explorer_agent(
         extra_instructions_override: Optional override for extra instructions
         chat_type: Type of chat (UI, Slack, Teams, etc.)
         tools: Optional tools to use (defaults to [mcp])
+        context: Optional natural language context about what the user is working on
 
     Returns:
         Configured AgentRunner instance
@@ -205,10 +213,21 @@ def create_data_catalog_explorer_agent(
             )
         )
 
+    # Add generate_sql tool for text-to-SQL generation
+    plannable_tools.append(
+        ToolWrapper.from_function(
+            fn=async_background(generate_sql),
+            name="generate_sql",
+            description=generate_sql.__doc__ or "Generate SQL from natural language",
+        )
+    )
+
     # Create agent configuration (internal tools will be added after AgentRunner creation)
     config = AgentConfig(
         model_id=model_config.chat_assistant_ai.model,
-        system_prompt_builder=DataHubSystemPromptBuilder(extra_instructions_override),
+        system_prompt_builder=DataHubSystemPromptBuilder(
+            extra_instructions_override, context
+        ),
         tools=plannable_tools.copy(),  # Will be extended with internal tools
         plannable_tools=plannable_tools,  # Subset for planning (excludes internal)
         context_reducers=None,  # Will use defaults
@@ -218,8 +237,8 @@ def create_data_catalog_explorer_agent(
         temperature=0.5,
         max_tokens=4096,
         agent_name="DataCatalog Explorer",
-        response_formatter=_create_response_formatter(chat_type, client),
-        completion_check=_data_catalog_completion_check,
+        response_formatter=create_response_formatter(chat_type, client),
+        completion_check=data_catalog_completion_check,
     )
 
     # Create the agent runner

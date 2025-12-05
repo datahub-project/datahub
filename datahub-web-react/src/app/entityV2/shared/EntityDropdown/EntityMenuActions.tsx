@@ -28,6 +28,7 @@ export enum EntityMenuItems {
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
     LINK_VERSION,
+    CLONE,
     WORKFLOWS, // acryl-main only
 }
 

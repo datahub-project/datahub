@@ -632,6 +632,7 @@ class CSVEnricherSource(Source):
         if parsed_location.scheme in ("http", "https"):
             try:
                 resp = requests.get(self.config.filename)
+                resp.raise_for_status()  # Raise an exception for HTTP error status codes
                 decoded_content = resp.content.decode("utf-8-sig")
                 rows = list(
                     csv.DictReader(

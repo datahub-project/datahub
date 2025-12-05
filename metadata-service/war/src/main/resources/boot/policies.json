@@ -51,7 +51,8 @@
         "PROPOSE_CREATE_GLOSSARY_TERM",
         "PROPOSE_CREATE_GLOSSARY_NODE",
         "MANAGE_ACTION_WORKFLOWS",
-        "CREATE_SUPPORT_TICKETS"
+        "CREATE_SUPPORT_TICKETS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -285,7 +286,8 @@
         "PROPOSE_CREATE_GLOSSARY_TERM",
         "PROPOSE_CREATE_GLOSSARY_NODE",
         "MANAGE_ACTION_WORKFLOWS",
-        "CREATE_SUPPORT_TICKETS"
+        "CREATE_SUPPORT_TICKETS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -412,7 +414,8 @@
         "VIEW_METADATA_PROPOSALS",
         "PROPOSE_CREATE_GLOSSARY_TERM",
         "PROPOSE_CREATE_GLOSSARY_NODE",
-        "MANAGE_ACTION_WORKFLOWS"
+        "MANAGE_ACTION_WORKFLOWS",
+        "MANAGE_DOCUMENTS"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -532,7 +535,8 @@
                 "glossaryNode",
                 "notebook",
                 "dataProduct",
-                "dataProcessInstance"
+                "dataProcessInstance",
+                "document"
               ],
               "condition": "EQUALS"
             }

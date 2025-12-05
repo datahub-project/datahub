@@ -62,14 +62,19 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -128,14 +133,9 @@ public class AssertionService extends BaseService {
   public AssertionInfo getAssertionInfo(
       @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    final EntityResponse response = getAssertionEntityResponse(opContext, assertionUrn);
-    if (response != null
-        && response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
-      return new AssertionInfo(
-          response.getAspects().get(Constants.ASSERTION_INFO_ASPECT_NAME).getValue().data());
-    }
-    // No aspect found
-    return null;
+    final Map<Urn, AssertionInfo> result =
+        batchGetAssertionInfo(opContext, ImmutableSet.of(assertionUrn));
+    return result.get(assertionUrn);
   }
 
   /**
@@ -149,18 +149,13 @@ public class AssertionService extends BaseService {
   public AssertionsSummary getAssertionsSummary(
       @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    final EntityResponse response = getAssertionsSummaryResponse(opContext, entityUrn);
-    if (response != null
-        && response.getAspects().containsKey(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)) {
-      return new AssertionsSummary(
-          response.getAspects().get(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME).getValue().data());
-    }
-    // No aspect found
-    return null;
+    final Map<Urn, AssertionsSummary> result =
+        batchGetAssertionsSummary(opContext, ImmutableSet.of(entityUrn));
+    return result.get(entityUrn);
   }
 
   /**
-   * Returns an instance of {@link AssertionRunSummary} for the specified asseriton urn, or null if
+   * Returns an instance of {@link AssertionRunSummary} for the specified assertion urn, or null if
    * one cannot be found.
    *
    * @param assertionUrn the urn of the assertion to retrieve the summary for
@@ -171,14 +166,9 @@ public class AssertionService extends BaseService {
   public AssertionRunSummary getAssertionRunSummary(
       @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    final EntityResponse response = getAssertionEntityResponse(opContext, assertionUrn);
-    if (response != null
-        && response.getAspects().containsKey(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)) {
-      return new AssertionRunSummary(
-          response.getAspects().get(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME).getValue().data());
-    }
-    // No aspect found
-    return null;
+    final Map<Urn, AssertionRunSummary> result =
+        batchGetAssertionRunSummary(opContext, ImmutableSet.of(assertionUrn));
+    return result.get(assertionUrn);
   }
 
   /**
@@ -192,14 +182,68 @@ public class AssertionService extends BaseService {
   public AssertionActions getAssertionActions(
       @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    final EntityResponse response = getAssertionEntityResponse(opContext, entityUrn);
-    if (response != null
-        && response.getAspects().containsKey(Constants.ASSERTION_ACTIONS_ASPECT_NAME)) {
-      return new AssertionActions(
-          response.getAspects().get(Constants.ASSERTION_ACTIONS_ASPECT_NAME).getValue().data());
+    final Map<Urn, AssertionActions> result =
+        batchGetAssertionActions(opContext, ImmutableSet.of(entityUrn));
+    return result.get(entityUrn);
+  }
+
+  /**
+   * Returns both AssertionInfo and AssertionActions for the specified Assertion urn in a single
+   * batched request. This is more efficient than calling getAssertionInfo() and
+   * getAssertionActions() separately.
+   *
+   * @param assertionUrn the urn of the Assertion
+   * @return a Pair containing AssertionInfo (first) and AssertionActions (second), either may be
+   *     null
+   */
+  @Nonnull
+  public Pair<AssertionInfo, AssertionActions> getAssertionInfoAndActions(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    // Fetch both aspects in a single batch call
+    try {
+      final Map<Urn, EntityResponse> responses =
+          this.entityClient.batchGetV2(
+              opContext,
+              Constants.ASSERTION_ENTITY_NAME,
+              ImmutableSet.of(assertionUrn),
+              ImmutableSet.of(
+                  Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME),
+              null);
+
+      final EntityResponse response = responses.get(assertionUrn);
+      AssertionInfo info = null;
+      AssertionActions actions = null;
+
+      if (response != null && response.hasAspects()) {
+        if (response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
+          info =
+              new AssertionInfo(
+                  response
+                      .getAspects()
+                      .get(Constants.ASSERTION_INFO_ASPECT_NAME)
+                      .getValue()
+                      .data());
+        }
+        if (response.getAspects().containsKey(Constants.ASSERTION_ACTIONS_ASPECT_NAME)) {
+          actions =
+              new AssertionActions(
+                  response
+                      .getAspects()
+                      .get(Constants.ASSERTION_ACTIONS_ASPECT_NAME)
+                      .getValue()
+                      .data());
+        }
+      }
+
+      return Pair.of(info, actions);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to retrieve AssertionInfo and AssertionActions for assertion with urn %s",
+              assertionUrn),
+          e);
     }
-    // No aspect found
-    return null;
   }
 
   /**
@@ -207,24 +251,16 @@ public class AssertionService extends BaseService {
    * Assertion urn, or null if one cannot be found.
    *
    * @param assertionUrn the urn of the Assertion
-   * @return an instance of {@link AssertionInfo} for the Assertion, null if it does not exist.
+   * @return an instance of {@link DataPlatformInstance} for the Assertion, null if it does not
+   *     exist.
    */
   @Nullable
   public DataPlatformInstance getAssertionDataPlatformInstance(
       @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    final EntityResponse response = getAssertionEntityResponse(opContext, assertionUrn);
-    if (response != null
-        && response.getAspects().containsKey(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
-      return new DataPlatformInstance(
-          response
-              .getAspects()
-              .get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-              .getValue()
-              .data());
-    }
-    // No aspect found
-    return null;
+    final Map<Urn, DataPlatformInstance> result =
+        batchGetAssertionDataPlatformInstance(opContext, ImmutableSet.of(assertionUrn));
+    return result.get(assertionUrn);
   }
 
   /**
@@ -353,11 +389,25 @@ public class AssertionService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot
-   * be found.
+   * Returns an instance of {@link EntityResponse} for the specified Assertion urn with multiple
+   * aspects, or null if one cannot be found.
    *
-   * @param assertionUrn the urn of the View
-   * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
+   * <p>This method fetches multiple aspects (AssertionInfo, AssertionActions, DataPlatformInstance,
+   * GlobalTags, AssertionRunSummary) and should only be used when you need multiple aspects. For
+   * single-aspect use cases, prefer the more specific methods:
+   *
+   * <ul>
+   *   <li>{@link #getAssertionInfo(OperationContext, Urn)} - for AssertionInfo only
+   *   <li>{@link #getAssertionActions(OperationContext, Urn)} - for AssertionActions only
+   *   <li>{@link #getAssertionRunSummary(OperationContext, Urn)} - for AssertionRunSummary only
+   *   <li>{@link #getAssertionDataPlatformInstance(OperationContext, Urn)} - for
+   *       DataPlatformInstance only
+   *   <li>{@link #getAssertionInfoAndActions(OperationContext, Urn)} - for AssertionInfo and
+   *       AssertionActions
+   * </ul>
+   *
+   * @param assertionUrn the urn of the Assertion
+   * @return an instance of {@link EntityResponse} for the Assertion, null if it does not exist.
    */
   @Nullable
   public EntityResponse getAssertionEntityResponse(
@@ -382,28 +432,189 @@ public class AssertionService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link EntityResponse} for the specified Entity urn containing the
-   * assertions summary aspect or null if one cannot be found.
+   * Generic helper method to batch fetch aspects and extract them into a result map. This method
+   * encapsulates the common pattern of calling batchGetV2, iterating through responses, and
+   * extracting aspect data.
    *
-   * @param entityUrn the urn of the Entity for which to fetch assertion summary
-   * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
+   * @param <T> the type of aspect to extract
+   * @param opContext the operation context
+   * @param entityType the entity type to fetch
+   * @param urns the set of URNs to fetch
+   * @param aspectName the name of the aspect to extract
+   * @param aspectConverter a function to convert aspect data to the result type
+   * @param errorMessageTemplate the error message template for exceptions (should contain %s for
+   *     URNs)
+   * @return a map of URN to extracted aspect, entries may be null if not found
    */
-  @Nullable
-  private EntityResponse getAssertionsSummaryResponse(
-      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
-    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+  @Nonnull
+  private <T> Map<Urn, T> batchGetAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityType,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final String aspectName,
+      @Nonnull final Function<com.linkedin.data.DataMap, T> aspectConverter,
+      @Nonnull final String errorMessageTemplate) {
+    Objects.requireNonNull(urns, "urns must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(entityType, "entityType must not be null");
+    Objects.requireNonNull(aspectName, "aspectName must not be null");
+    Objects.requireNonNull(aspectConverter, "aspectConverter must not be null");
+    Objects.requireNonNull(errorMessageTemplate, "errorMessageTemplate must not be null");
+
+    if (urns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
     try {
-      return this.entityClient.getV2(
-          opContext,
-          entityUrn.getEntityType(),
-          entityUrn,
-          ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME));
+      final Map<Urn, EntityResponse> responses =
+          this.entityClient.batchGetV2(
+              opContext, entityType, urns, ImmutableSet.of(aspectName), null);
+
+      final Map<Urn, T> result = new HashMap<>();
+      for (Urn urn : urns) {
+        final EntityResponse response = responses.get(urn);
+        if (response != null
+            && response.hasAspects()
+            && response.getAspects().containsKey(aspectName)) {
+          result.put(
+              urn, aspectConverter.apply(response.getAspects().get(aspectName).getValue().data()));
+        } else {
+          result.put(urn, null);
+        }
+      }
+      return result;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format(errorMessageTemplate, urns), e);
+    }
+  }
+
+  /**
+   * Batch fetches AssertionInfo for multiple assertion URNs in a single request. This is more
+   * efficient than calling getAssertionInfo() multiple times.
+   *
+   * @param opContext the operation context
+   * @param assertionUrns the set of assertion URNs to fetch
+   * @return a map of assertion URN to AssertionInfo, entries may be null if not found
+   */
+  @Nonnull
+  public Map<Urn, AssertionInfo> batchGetAssertionInfo(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> assertionUrns) {
+    return batchGetAspects(
+        opContext,
+        Constants.ASSERTION_ENTITY_NAME,
+        assertionUrns,
+        Constants.ASSERTION_INFO_ASPECT_NAME,
+        AssertionInfo::new,
+        "Failed to batch retrieve AssertionInfo for urns %s");
+  }
+
+  /**
+   * Batch fetches AssertionsSummary for multiple entity URNs, grouped by entity type. This is more
+   * efficient than calling getAssertionsSummary() multiple times.
+   *
+   * @param opContext the operation context
+   * @param entityUrns the set of entity URNs to fetch (may be of different entity types)
+   * @return a map of entity URN to AssertionsSummary, entries may be null if not found
+   */
+  @Nonnull
+  public Map<Urn, AssertionsSummary> batchGetAssertionsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> entityUrns) {
+    Objects.requireNonNull(entityUrns, "entityUrns must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
+
+    if (entityUrns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    try {
+      // Group URNs by entity type since batchGetV2 requires a single entity type
+      final Map<String, Set<Urn>> urnsByEntityType =
+          entityUrns.stream()
+              .collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+
+      final Map<Urn, AssertionsSummary> result = new HashMap<>();
+
+      // Batch fetch for each entity type using the helper method
+      for (Map.Entry<String, Set<Urn>> entry : urnsByEntityType.entrySet()) {
+        final String entityType = entry.getKey();
+        final Set<Urn> urns = entry.getValue();
+
+        final Map<Urn, AssertionsSummary> batchResult =
+            batchGetAspects(
+                opContext,
+                entityType,
+                urns,
+                Constants.ASSERTIONS_SUMMARY_ASPECT_NAME,
+                AssertionsSummary::new,
+                "Failed to batch retrieve AssertionsSummary for urns %s");
+        result.putAll(batchResult);
+      }
+
+      return result;
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to retrieve Assertion Summary for entity with urn %s", entityUrn),
-          e);
+          String.format("Failed to batch retrieve AssertionsSummary for urns %s", entityUrns), e);
     }
+  }
+
+  /**
+   * Batch fetches AssertionRunSummary for multiple assertion URNs in a single request. This is more
+   * efficient than calling getAssertionRunSummary() multiple times.
+   *
+   * @param opContext the operation context
+   * @param assertionUrns the set of assertion URNs to fetch
+   * @return a map of assertion URN to AssertionRunSummary, entries may be null if not found
+   */
+  @Nonnull
+  public Map<Urn, AssertionRunSummary> batchGetAssertionRunSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> assertionUrns) {
+    return batchGetAspects(
+        opContext,
+        Constants.ASSERTION_ENTITY_NAME,
+        assertionUrns,
+        Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME,
+        AssertionRunSummary::new,
+        "Failed to batch retrieve AssertionRunSummary for urns %s");
+  }
+
+  /**
+   * Batch fetches AssertionActions for multiple assertion URNs in a single request. This is more
+   * efficient than calling getAssertionActions() multiple times.
+   *
+   * @param opContext the operation context
+   * @param assertionUrns the set of assertion URNs to fetch
+   * @return a map of assertion URN to AssertionActions, entries may be null if not found
+   */
+  @Nonnull
+  public Map<Urn, AssertionActions> batchGetAssertionActions(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> assertionUrns) {
+    return batchGetAspects(
+        opContext,
+        Constants.ASSERTION_ENTITY_NAME,
+        assertionUrns,
+        Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+        AssertionActions::new,
+        "Failed to batch retrieve AssertionActions for urns %s");
+  }
+
+  /**
+   * Batch fetches DataPlatformInstance for multiple assertion URNs in a single request. This is
+   * more efficient than calling getAssertionDataPlatformInstance() multiple times.
+   *
+   * @param opContext the operation context
+   * @param assertionUrns the set of assertion URNs to fetch
+   * @return a map of assertion URN to DataPlatformInstance, entries may be null if not found
+   */
+  @Nonnull
+  public Map<Urn, DataPlatformInstance> batchGetAssertionDataPlatformInstance(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> assertionUrns) {
+    return batchGetAspects(
+        opContext,
+        Constants.ASSERTION_ENTITY_NAME,
+        assertionUrns,
+        Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        DataPlatformInstance::new,
+        "Failed to batch retrieve DataPlatformInstance for urns %s");
   }
 
   /**

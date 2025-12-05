@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
 import graphql.schema.DataFetchingEnvironment;
@@ -46,10 +47,16 @@ public class GetPresignedUploadUrlResolverTest {
   @Mock private DataFetchingEnvironment mockEnv;
   @Mock private Authorizer mockAuthorizer;
   @Mock private S3Configuration mockS3Configuration;
+  @Mock private EntityClient mockEntityClient;
 
   private AutoCloseable mocks;
   private MockedStatic<DescriptionUtils> descriptionUtilsMockedStatic;
   private MockedStatic<ProposalUtils> proposalUtilsMockedStatic;
+
+  private MockedStatic<com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils>
+      linkUtilsMockedStatic;
+  private MockedStatic<com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils>
+      glossaryUtilsMockedStatic;
 
   @BeforeMethod
   public void setup() {
@@ -83,6 +90,24 @@ public class GetPresignedUploadUrlResolverTest {
                 ProposalUtils.isAuthorizedToProposeDescription(
                     any(QueryContext.class), any(Urn.class), any(String.class)))
         .thenReturn(false);
+
+    linkUtilsMockedStatic =
+        mockStatic(com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.class);
+    linkUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
+                    .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
+        .thenReturn(true);
+
+    glossaryUtilsMockedStatic =
+        mockStatic(com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils.class);
+    glossaryUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
+                    .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
+        .thenReturn(false); // Default to false so LinkUtils authorization takes effect
   }
 
   @AfterMethod
@@ -90,6 +115,8 @@ public class GetPresignedUploadUrlResolverTest {
     mocks.close();
     descriptionUtilsMockedStatic.close();
     proposalUtilsMockedStatic.close();
+    linkUtilsMockedStatic.close();
+    glossaryUtilsMockedStatic.close();
   }
 
   private GetPresignedUploadUrlInput createInput(
@@ -140,7 +167,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -187,7 +214,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     future.get(); // Execute the resolver to capture the argument
 
@@ -215,7 +242,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(null, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(null, mockS3Configuration, mockEntityClient);
     assertThrows(
         "S3Util isn't provided", IllegalArgumentException.class, () -> resolver.get(mockEnv).get());
   }
@@ -245,7 +272,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -279,7 +306,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(
         "Bucket name isn't provided",
         IllegalArgumentException.class,
@@ -305,7 +332,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(
         "Bucket name isn't provided",
         IllegalArgumentException.class,
@@ -327,7 +354,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(
         "assetUrn is required for ASSET_DOCUMENTATION scenario",
         IllegalArgumentException.class,
@@ -369,7 +396,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(
         "Unauthorized to edit documentation for asset: " + TEST_ASSET_URN,
         AuthorizationException.class,
@@ -396,7 +423,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).get());
   }
 
@@ -432,7 +459,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
 
     CompletableFuture<GetPresignedUploadUrlResponse> future1 = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result1 = future1.get();
@@ -480,7 +507,7 @@ public class GetPresignedUploadUrlResolverTest {
       when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
       GetPresignedUploadUrlResolver resolver =
-          new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+          new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
       CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
       GetPresignedUploadUrlResponse result = future.get();
 
@@ -522,7 +549,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -563,7 +590,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
 
     // The RuntimeException gets wrapped in ExecutionException when called via
     // CompletableFuture.get()
@@ -607,7 +634,7 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -670,7 +697,7 @@ public class GetPresignedUploadUrlResolverTest {
     when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     assertThrows(
         "Unauthorized to edit documentation for schema field: " + schemaFieldUrn,
         AuthorizationException.class,
@@ -713,7 +740,7 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -798,7 +825,7 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(false);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -869,7 +896,7 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(true);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
@@ -926,11 +953,332 @@ public class GetPresignedUploadUrlResolverTest {
         .thenReturn(true);
 
     GetPresignedUploadUrlResolver resolver =
-        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration);
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
     CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     GetPresignedUploadUrlResponse result = future.get();
 
     // The request should succeed because ProposalUtils authorization passed
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenario() throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            null,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    linkUtilsMockedStatic.reset();
+    linkUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
+                    .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
+        .thenReturn(true);
+    glossaryUtilsMockedStatic.reset();
+    glossaryUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
+                    .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
+        .thenReturn(false);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+
+    // Verify that LinkUtils.isAuthorizedToUpdateLinks is called for ASSET_DOCUMENTATION_LINKS
+    // scenario
+    linkUtilsMockedStatic.verify(
+        () ->
+            com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.isAuthorizedToUpdateLinks(
+                any(QueryContext.class), any(Urn.class)));
+
+    String capturedS3Key = s3KeyCaptor.getValue();
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
+
+    // Extract fileId from s3Key
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
+    String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
+
+    assertEquals(result.getFileId(), extractedFileId);
+    assertTrue(result.getFileId().contains(testFileName));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenarioAndSchemaField()
+      throws Exception {
+    String testFileName = "my_test_file.pdf";
+    String schemaFieldUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my-dataset,PROD),myField)";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            schemaFieldUrn,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    linkUtilsMockedStatic.reset();
+    linkUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
+                    .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
+        .thenReturn(true);
+    glossaryUtilsMockedStatic.reset();
+    glossaryUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
+                    .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
+        .thenReturn(false);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+
+    // Verify that LinkUtils.isAuthorizedToUpdateLinks is called for ASSET_DOCUMENTATION_LINKS
+    // scenario
+    linkUtilsMockedStatic.verify(
+        () ->
+            com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils.isAuthorizedToUpdateLinks(
+                any(QueryContext.class), any(Urn.class)));
+
+    String capturedS3Key = s3KeyCaptor.getValue();
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
+
+    // Extract fileId from s3Key
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
+    String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
+
+    assertEquals(result.getFileId(), extractedFileId);
+    assertTrue(result.getFileId().contains(testFileName));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithNullAssetUrnForAssetDocumentationLinks()
+      throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            null,
+            null,
+            TEST_CONTENT_TYPE,
+            "test.png");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+    assertThrows(
+        "assetUrn is required for ASSET_DOCUMENTATION scenario",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenarioAuthorizationFailure()
+      throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            null,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    // Reset mocks to return false for link/glossary authorization (this should cause the failure)
+    linkUtilsMockedStatic.reset();
+    linkUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
+                    .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
+        .thenReturn(false);
+    glossaryUtilsMockedStatic.reset();
+    glossaryUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
+                    .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
+        .thenReturn(false);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+    assertThrows(
+        "Unauthorized to edit links for asset: " + TEST_ASSET_URN,
+        AuthorizationException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAssetDocumentationLinksScenarioAuthorizedViaLinkUtils()
+      throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            null,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    // Temporarily reset the mocks to return true for LinkUtils
+    linkUtilsMockedStatic.reset();
+    linkUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
+                    .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
+        .thenReturn(true);
+    glossaryUtilsMockedStatic.reset();
+    glossaryUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
+                    .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
+        .thenReturn(false); // Doesn't matter since LinkUtils returns true
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+  }
+
+  @Test
+  public void
+      testGetPresignedUploadUrlWithAssetDocumentationLinksScenarioAuthorizedViaGlossaryUtils()
+          throws Exception {
+    String testFileName = "my_test_file.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS,
+            TEST_ASSET_URN,
+            null,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME),
+            s3KeyCaptor.capture(),
+            eq(TEST_EXPIRATION_SECONDS),
+            eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    when(mockS3Configuration.getBucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(mockS3Configuration.getPresignedUploadUrlExpirationSeconds())
+        .thenReturn(TEST_EXPIRATION_SECONDS);
+    when(mockS3Configuration.getAssetPathPrefix()).thenReturn(TEST_ASSET_PATH_PREFIX);
+
+    // Temporarily reset the mocks to return false for LinkUtils and true for Glossary
+    linkUtilsMockedStatic.reset();
+    linkUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils
+                    .isAuthorizedToUpdateLinks(any(QueryContext.class), any(Urn.class)))
+        .thenReturn(false);
+    glossaryUtilsMockedStatic.reset();
+    glossaryUtilsMockedStatic
+        .when(
+            () ->
+                com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils
+                    .canUpdateGlossaryEntity(any(Urn.class), any(QueryContext.class), any()))
+        .thenReturn(true);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, mockS3Configuration, mockEntityClient);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
+
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
     assertNotNull(result.getFileId());

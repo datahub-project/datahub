@@ -91,7 +91,11 @@ query appConfig {
         }
         dataHubConfig {
             serverEnv
-            isFreeTrialInstance
+        }
+        trialConfig {
+            trialEnabled
+            daysLeft
+            sampleDataEnabled
         }
         classificationConfig {
             enabled
@@ -116,6 +120,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             aiFeaturesEnabled
@@ -171,7 +176,9 @@ query appConfig {
             showAskDataHub
             teamsNotificationsEnabled
             datasetSummaryPageV1
+            ingestionOnboardingRedesignV1
             documentationFileUploadV1
+            contextDocumentsEnabled
         }
         chromeExtensionConfig {
             enabled

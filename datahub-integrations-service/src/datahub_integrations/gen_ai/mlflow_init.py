@@ -8,13 +8,6 @@ from mlflow import bedrock
 
 __all__ = ["is_mlflow_enabled", "initialize_mlflow"]
 
-
-class MLflowNotInitializedError(Exception):
-    """Raised when MLflow functionality is used before initialization."""
-
-    pass
-
-
 _mlflow_enabled: Optional[bool] = None
 
 
@@ -22,16 +15,15 @@ def is_mlflow_enabled() -> bool:
     """
     Check if MLflow is enabled.
 
-    Note: This is a pure query function - it does NOT initialize MLflow.
-    Call initialize_mlflow() first if you need MLflow to be set up.
-
-    Raises:
-        MLflowNotInitializedError: If MLflow has not been initialized yet.
+    Returns False if MLflow hasn't been initialized yet (safe default).
+    This allows the function to be called anytime without requiring
+    initialize_mlflow() to be called first.
     """
     if _mlflow_enabled is None:
-        raise MLflowNotInitializedError(
-            "MLflow has not been initialized. Call initialize_mlflow() first."
+        logger.debug(
+            "is_mlflow_enabled() called before initialize_mlflow() - returning False"
         )
+        return False
     return _mlflow_enabled
 
 
@@ -46,12 +38,13 @@ def initialize_mlflow() -> None:
         return  # Already initialized
 
     if "MLFLOW_TRACKING_URI" in os.environ:
-        logger.debug("Initializing MLflow with tracking URI")
+        logger.debug(
+            f"Initializing MLflow with tracking URI = {os.environ['MLFLOW_TRACKING_URI']}"
+        )
         # Enable autologging for all LLM providers
         bedrock.autolog()  # AWS Bedrock
         mlflow.openai.autolog()  # OpenAI direct API calls
         mlflow.gemini.autolog()  # Google Gemini/Vertex AI direct API calls
-        mlflow.litellm.autolog()  # LiteLLM (if used)
         mlflow.langchain.autolog()  # LangChain invoke() calls (used by OpenAI/Gemini wrappers)
         mlflow.config.enable_async_logging()
         _mlflow_enabled = True

@@ -113,16 +113,22 @@ public class DatabaseOperationsTest {
 
   @Test
   public void testPostgresGrantCdcPrivilegesSql() {
-    String result = postgresOps.grantCdcPrivilegesSql("cdcuser", "testdb");
-    assertTrue(result.contains("GRANT CONNECT ON DATABASE \"testdb\" TO \"cdcuser\""));
-    assertTrue(result.contains("CREATE PUBLICATION dbz_publication"));
+    java.util.List<String> statements = postgresOps.grantCdcPrivilegesSql("cdcuser", "testdb");
+    assertNotNull(statements);
+    assertTrue(statements.size() > 0);
+    String allStatements = String.join(" ", statements);
+    assertTrue(allStatements.contains("GRANT CONNECT ON DATABASE \"testdb\" TO \"cdcuser\""));
+    assertTrue(allStatements.contains("CREATE PUBLICATION dbz_publication"));
   }
 
   @Test
   public void testMysqlGrantCdcPrivilegesSql() {
-    String result = mysqlOps.grantCdcPrivilegesSql("cdcuser", "testdb");
-    assertTrue(result.contains("GRANT SELECT ON `testdb`.* TO 'cdcuser'@'%'"));
-    assertTrue(result.contains("GRANT REPLICATION CLIENT ON *.* TO 'cdcuser'@'%'"));
+    java.util.List<String> statements = mysqlOps.grantCdcPrivilegesSql("cdcuser", "testdb");
+    assertNotNull(statements);
+    assertTrue(statements.size() > 0);
+    String allStatements = String.join(" ", statements);
+    assertTrue(allStatements.contains("GRANT SELECT ON `testdb`.* TO 'cdcuser'@'%'"));
+    assertTrue(allStatements.contains("GRANT REPLICATION CLIENT ON *.* TO 'cdcuser'@'%'"));
   }
 
   @Test

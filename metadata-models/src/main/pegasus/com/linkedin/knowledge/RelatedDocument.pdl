@@ -1,0 +1,21 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.Urn
+
+/**
+ * An document referenced by or related to another document
+ * Note that this does NOT include child documents. 
+ */
+record RelatedDocument {
+    /**
+     * The document referenced by or related to the document. 
+     */
+    @Relationship = {
+        "name": "RelatedDocument",
+        "entityTypes": ["document"]
+    }
+    @Searchable = {
+        "fieldName": "relatedDocuments"
+    }
+    document: Urn
+}

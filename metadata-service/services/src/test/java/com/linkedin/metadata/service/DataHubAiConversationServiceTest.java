@@ -12,6 +12,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.conversation.DataHubAiConversationActorType;
+import com.linkedin.conversation.DataHubAiConversationContext;
 import com.linkedin.conversation.DataHubAiConversationInfo;
 import com.linkedin.conversation.DataHubAiConversationMessageArray;
 import com.linkedin.conversation.DataHubAiConversationMessageType;
@@ -48,9 +49,15 @@ public class DataHubAiConversationServiceTest {
     final DataHubAiConversationService service = new DataHubAiConversationService(mockClient);
 
     // Test creating a conversation
+    final DataHubAiConversationContext context = new DataHubAiConversationContext();
+    context.setText("Test context");
     final Urn conversationUrn =
         service.createConversation(
-            opContext, "Test Title", TEST_USER_URN, DataHubAiConversationOriginType.DATAHUB_UI);
+            opContext,
+            "Test Title",
+            TEST_USER_URN,
+            DataHubAiConversationOriginType.DATAHUB_UI,
+            context);
 
     // Verify the URN was created
     Assert.assertNotNull(conversationUrn);
@@ -66,10 +73,10 @@ public class DataHubAiConversationServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final DataHubAiConversationService service = new DataHubAiConversationService(mockClient);
 
-    // Test creating a conversation with null title
+    // Test creating a conversation with null title and null context
     final Urn conversationUrn =
         service.createConversation(
-            opContext, null, TEST_USER_URN, DataHubAiConversationOriginType.DATAHUB_UI);
+            opContext, null, TEST_USER_URN, DataHubAiConversationOriginType.DATAHUB_UI, null);
 
     // Verify the URN was created
     Assert.assertNotNull(conversationUrn);
@@ -188,7 +195,8 @@ public class DataHubAiConversationServiceTest {
             TEST_USER_URN,
             DataHubAiConversationActorType.USER,
             DataHubAiConversationMessageType.TEXT,
-            "Hello, World!");
+            "Hello, World!",
+            null); // agentName is null for user messages
 
     // Verify the conversation was updated
     Assert.assertNotNull(updatedInfo);
@@ -219,7 +227,8 @@ public class DataHubAiConversationServiceTest {
                 TEST_USER_URN,
                 DataHubAiConversationActorType.USER,
                 DataHubAiConversationMessageType.TEXT,
-                "Hello, World!"));
+                "Hello, World!",
+                null)); // agentName is null for user messages
   }
 
   @Test

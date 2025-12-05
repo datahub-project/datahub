@@ -52,6 +52,19 @@ public class DataHubAiConversationMapper
     result.setOriginType(
         DataHubAiConversationOriginType.valueOf(conversationInfo.getOriginType().toString()));
 
+    if (conversationInfo.hasContext()) {
+      final com.linkedin.conversation.DataHubAiConversationContext pdlContext =
+          conversationInfo.getContext();
+      final com.linkedin.datahub.graphql.generated.DataHubAiConversationContext graphqlContext =
+          new com.linkedin.datahub.graphql.generated.DataHubAiConversationContext();
+      graphqlContext.setText(pdlContext.getText());
+      if (pdlContext.hasEntityUrns()) {
+        graphqlContext.setEntityUrns(
+            pdlContext.getEntityUrns().stream().map(Object::toString).collect(Collectors.toList()));
+      }
+      result.setContext(graphqlContext);
+    }
+
     // Map basic fields
     if (conversationInfo.hasCreated()) {
       final AuditStamp created = conversationInfo.getCreated();

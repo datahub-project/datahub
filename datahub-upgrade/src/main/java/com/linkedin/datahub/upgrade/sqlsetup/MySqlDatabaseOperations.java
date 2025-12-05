@@ -78,17 +78,18 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public String grantCdcPrivilegesSql(String cdcUser, String databaseName) {
+  public java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName) {
     // MySQL - comprehensive CDC privileges (matching original init-cdc.sql)
-    return String.format(
-        """
-        GRANT SELECT ON `%s`.* TO '%s'@'%%';
-        GRANT RELOAD ON *.* TO '%s'@'%%';
-        GRANT REPLICATION CLIENT ON *.* TO '%s'@'%%';
-        GRANT REPLICATION SLAVE ON *.* TO '%s'@'%%';
-        FLUSH PRIVILEGES;
-        """,
-        databaseName, cdcUser, cdcUser, cdcUser, cdcUser);
+    // Return as separate statements since JDBC doesn't support multiple statements in one execution
+    String escapedUser = escapeMysqlStringLiteral(cdcUser);
+    String escapedDatabase = escapeMysqlIdentifier(databaseName);
+
+    return java.util.Arrays.asList(
+        String.format("GRANT SELECT ON %s.* TO %s@'%%'", escapedDatabase, escapedUser),
+        String.format("GRANT RELOAD ON *.* TO %s@'%%'", escapedUser),
+        String.format("GRANT REPLICATION CLIENT ON *.* TO %s@'%%'", escapedUser),
+        String.format("GRANT REPLICATION SLAVE ON *.* TO %s@'%%'", escapedUser),
+        "FLUSH PRIVILEGES");
   }
 
   @Override

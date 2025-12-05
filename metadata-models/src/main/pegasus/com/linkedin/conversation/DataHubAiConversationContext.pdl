@@ -1,0 +1,23 @@
+namespace com.linkedin.conversation
+
+import com.linkedin.common.Urn
+
+/**
+ * Context about where and how a conversation is being used.
+ * This helps the AI agent understand what the user is looking at and working on.
+ */
+record DataHubAiConversationContext {
+    /**
+     * Natural language context description for the AI agent.
+     * This will be included in the system prompt to help the agent
+     * understand what the user is looking at and working on.
+     * Example use cases: troubleshooting execution runs, configuring ingestion sources.
+     */
+    text: string
+
+    /**
+     * Optional URNs of the entities this conversation is about.
+     * Useful for linking conversations to specific entities such as execution runs or datasets.
+     */
+    entityUrns: optional array[Urn]
+}

@@ -10,7 +10,7 @@ interface Response {
     loading: boolean;
 }
 
-export default function useRecentlyViewedEntities(): Response {
+export default function useRecentlyViewedEntities(skip?: boolean): Response {
     const { user, loaded } = useUserContext();
 
     const { data, loading } = useListRecommendationsQuery({
@@ -24,7 +24,7 @@ export default function useRecentlyViewedEntities(): Response {
             },
         },
         fetchPolicy: 'cache-first',
-        skip: !user?.urn,
+        skip: skip || !user?.urn,
     });
 
     const viewedModule = data?.listRecommendations?.modules?.find(

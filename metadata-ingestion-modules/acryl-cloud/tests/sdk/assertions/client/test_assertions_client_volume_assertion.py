@@ -113,7 +113,7 @@ def test_create_volume_assertion_minimal_input(
     )
 
     # Act
-    assertion = client._create_volume_assertion(
+    assertion = client._volume_client._create_volume_assertion(
         dataset_urn=input_params.dataset_urn,
         display_name=input_params.display_name,
         criteria_condition=input_params.criteria_condition,
@@ -172,7 +172,7 @@ def test_create_volume_assertion_full_input(
     )
 
     # Act
-    assertion = client._create_volume_assertion(
+    assertion = client._volume_client._create_volume_assertion(
         dataset_urn=input_params.dataset_urn,
         display_name=input_params.display_name,
         criteria_condition=input_params.criteria_condition,
@@ -197,7 +197,7 @@ def test_create_volume_assertion_entities_client_called(
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create = MagicMock()
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
-    assertion = client._create_volume_assertion(
+    assertion = client._volume_client._create_volume_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
@@ -225,7 +225,7 @@ def test_create_volume_assertion_enabled_parameter(
     mock_create = MagicMock()
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
 
-    client._create_volume_assertion(
+    client._volume_client._create_volume_assertion(
         dataset_urn=any_dataset_urn,
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
@@ -251,7 +251,7 @@ def test_create_volume_assertion_enabled_defaults_to_true(
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
 
     # Don't specify enabled parameter
-    client._create_volume_assertion(
+    client._volume_client._create_volume_assertion(
         dataset_urn=any_dataset_urn,
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
@@ -463,7 +463,7 @@ def test_sync_volume_assertion_calls_create_assertion_if_urn_is_not_set(
     mock_upsert_entity = MagicMock()
     client.client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
     mock_create_assertion = MagicMock()
-    client._create_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client._volume_client._create_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=urn,
@@ -542,7 +542,7 @@ def test_sync_volume_assertion_calls_create_if_assertion_and_monitor_entities_do
             ),
         )
     )
-    client._create_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client._volume_client._create_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
@@ -663,7 +663,7 @@ def test_sync_volume_assertion_enabled_calls_create_with_enabled_when_urn_is_non
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Mock the create method to verify it's called with enabled parameter
-    with patch.object(client, "_create_volume_assertion") as mock_create:
+    with patch.object(client._volume_client, "_create_volume_assertion") as mock_create:
         mock_create.return_value = MagicMock()  # Return a mock assertion
 
         client.sync_volume_assertion(
@@ -836,7 +836,7 @@ def test_create_volume_assertion_with_string_parameters(
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Use string values instead of enum objects
-    assertion = client._create_volume_assertion(
+    assertion = client._volume_client._create_volume_assertion(
         dataset_urn=_any_dataset_urn,
         display_name="String Parameters Test",
         criteria_condition="ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE",  # String instead of enum
@@ -865,7 +865,7 @@ def test_sync_volume_assertion_with_string_parameters(
 
     # Mock the underlying methods to avoid complex entity retrieval logic
     with patch.object(
-        client, "_retrieve_and_merge_native_volume_assertion_and_monitor"
+        client._volume_client, "_retrieve_and_merge_native_volume_assertion_and_monitor"
     ) as mock_retrieve:
         # Create expected assertion with string-converted values
         expected_assertion = VolumeAssertion(

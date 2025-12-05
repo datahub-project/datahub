@@ -99,7 +99,9 @@ def test_create_column_metric_assertion_minimal_input(
     )
 
     # Act
-    actual_assertion = client._create_column_metric_assertion(**input_params.__dict__)
+    actual_assertion = client._column_metric_client._create_column_metric_assertion(
+        **input_params.__dict__
+    )
 
     # Assert
     assert actual_assertion.dataset_urn == _any_dataset_urn
@@ -145,7 +147,9 @@ def test_create_column_metric_assertion_with_range_parameters(
     )
 
     # Act
-    actual_assertion = client._create_column_metric_assertion(**input_params.__dict__)
+    actual_assertion = client._column_metric_client._create_column_metric_assertion(
+        **input_params.__dict__
+    )
 
     # Assert
     assert actual_assertion.column_name == "amount"
@@ -175,7 +179,9 @@ def test_create_column_metric_assertion_null_operator_no_parameters(
     )
 
     # Act
-    actual_assertion = client._create_column_metric_assertion(**input_params.__dict__)
+    actual_assertion = client._column_metric_client._create_column_metric_assertion(
+        **input_params.__dict__
+    )
 
     # Assert
     assert actual_assertion.column_name == "last_modified"

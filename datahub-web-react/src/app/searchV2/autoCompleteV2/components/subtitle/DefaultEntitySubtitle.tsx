@@ -8,7 +8,7 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 export default function DefaultEntitySubtitle({ entity }: EntitySubtitleProps) {
     const entityRegistry = useEntityRegistryV2();
     const genericEntityProperties = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const parentEntities = getParentEntities(genericEntityProperties);
+    const parentEntities = getParentEntities(genericEntityProperties, entity.type);
 
     return (
         <ContextPath

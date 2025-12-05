@@ -37,4 +37,5 @@ export interface AutoCompleteProps {
     dropdownMatchSelectWidth?: boolean | number;
 
     clickOutsideWidth?: string;
+    shouldPreventOptionSelectingByMouseMove?: boolean;
 }

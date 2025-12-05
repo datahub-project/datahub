@@ -4,7 +4,12 @@ from typing import List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from requests.exceptions import ConnectionError, HTTPError
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ConnectionError,
+    HTTPError,
+    Timeout,
+)
 from requests.models import Response
 
 from datahub.ingestion.graph.client import DataHubGraph
@@ -217,6 +222,44 @@ def test_poll_events_connection_error(mock_graph: DataHubGraph) -> None:
         "requests.get", side_effect=ConnectionError("Connection Error")
     ) as mock_get:
         with pytest.raises(ConnectionError):
+            consumer.poll_events(topic="TestTopic")
+
+        # requests.get should be called multiple times due to retry
+        assert mock_get.call_count == 3
+
+
+def test_poll_events_chunked_encoding_error(mock_graph: DataHubGraph) -> None:
+    """
+    Test that poll_events retries and raises a ChunkedEncodingError if requests.get fails.
+    """
+    consumer = DataHubEventsConsumer(
+        graph=mock_graph,
+        consumer_id="test-consumer",
+        offset_id="initial-offset",
+    )
+
+    with patch(
+        "requests.get", side_effect=ChunkedEncodingError("Chunked Encoding Error")
+    ) as mock_get:
+        with pytest.raises(ChunkedEncodingError):
+            consumer.poll_events(topic="TestTopic")
+
+        # requests.get should be called multiple times due to retry
+        assert mock_get.call_count == 3
+
+
+def test_poll_events_timeout(mock_graph: DataHubGraph) -> None:
+    """
+    Test that poll_events retries and raises a Timeout if requests.get times out.
+    """
+    consumer = DataHubEventsConsumer(
+        graph=mock_graph,
+        consumer_id="test-consumer",
+        offset_id="initial-offset",
+    )
+
+    with patch("requests.get", side_effect=Timeout("Request Timeout")) as mock_get:
+        with pytest.raises(Timeout):
             consumer.poll_events(topic="TestTopic")
 
         # requests.get should be called multiple times due to retry

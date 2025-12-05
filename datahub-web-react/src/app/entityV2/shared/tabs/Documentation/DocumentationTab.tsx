@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import InferDocsButton from '@app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import {
     useIsDocumentationInferenceEnabled,
@@ -48,10 +48,14 @@ const EmptyTabWrapper = styled.div`
     height: 100%;
 `;
 
-export const DocumentationTab = () => {
+interface Props {
+    hideLinksButton?: boolean;
+}
+
+export const DocumentationTab = ({ properties }: { properties?: Props }) => {
+    const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData, entityType } = useEntityData();
 
-    const refetch = useRefetch();
     const { displayedDescription, isInferred } = getAssetDescriptionDetails({
         entityProperties: entityData,
         enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
@@ -91,7 +95,7 @@ export const DocumentationTab = () => {
                             >
                                 <EditOutlined /> Edit
                             </AntButton>
-                            <AddLinkModal buttonType="text" refetch={refetch} />
+                            {!hideLinksButton && <AddLinkModal buttonType="text" />}
                         </div>
                         <div>
                             <AntButton
@@ -119,15 +123,13 @@ export const DocumentationTab = () => {
                             </DocumentationContainer>
                         )}
                         <Divider />
-                        <DocumentationContainer>
-                            <LinkList refetch={refetch} />
-                        </DocumentationContainer>
+                        <DocumentationContainer>{!hideLinksButton && <LinkList />}</DocumentationContainer>
                     </div>
                 </>
             ) : (
                 <EmptyTabWrapper>
                     <EmptyTab tab="documentation" hideImage={false}>
-                        <AddLinkModal refetch={refetch} />
+                        {!hideLinksButton && <AddLinkModal />}
                         <Button
                             data-testid="add-documentation"
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}

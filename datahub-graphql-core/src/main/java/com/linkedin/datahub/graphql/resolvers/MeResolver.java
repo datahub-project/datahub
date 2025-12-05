@@ -86,6 +86,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageGlossaries(canManageGlossaries(context));
             platformPrivileges.setProposeCreateGlossaryTerm(canProposeCreateGlossaryTerm(context));
             platformPrivileges.setProposeCreateGlossaryNode(canProposeCreateGlossaryNode(context));
+            platformPrivileges.setManageDocuments(AuthorizationUtils.canManageDocuments(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
             platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
             platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));

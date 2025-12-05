@@ -17,10 +17,14 @@ describe("Action Workflows Test", () => {
       if (hasOperationName(req, "appConfig")) {
         req.reply((res) => {
           // Enable required feature flags for workflows
-          res.body.data.appConfig.featureFlags.actionWorkflowsEnabled = true;
-          res.body.data.appConfig.featureFlags.showTaskCenterRedesign = true;
-          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Default = true;
+          const flags = res.body?.data?.appConfig?.featureFlags;
+
+          if (flags) {
+            flags.actionWorkflowsEnabled = true;
+            flags.showTaskCenterRedesign = true;
+            flags.themeV2Enabled = true;
+            flags.themeV2Default = true;
+          }
         });
       }
     });
@@ -32,23 +36,25 @@ describe("Action Workflows Test", () => {
 
     cy.get('[data-testid="entity-search-select-select"]')
       .scrollIntoView()
-      .should("be.visible")
-      .click();
+      .should("be.visible");
+    cy.get('[data-testid="entity-search-select-select"]').click();
 
     // Wait for dropdown and handle search
     cy.wait(2000);
 
-    // Type in search input
     cy.get(
       '[data-testid="entity-search-select-input"], input[placeholder*="Search"]',
     )
       .first()
-      .clear()
+      .clear();
+    cy.get(
+      '[data-testid="entity-search-select-input"], input[placeholder*="Search"]',
+    )
+      .first()
       .type(datasetName, { delay: 100 });
 
     cy.wait(3000);
 
-    // Click first option
     cy.get(
       '[data-testid*="entity-search-option"], [role="option"], .ant-select-item',
     )
@@ -82,10 +88,14 @@ describe("Action Workflows Test", () => {
     // Click workflow with specific text "Request Dataset Access"
     cy.get('[data-testid*="workflow-item"]').then(($items) => {
       if ($items.length > 0) {
-        // Look for the workflow item containing "Request Dataset Access" text
-        cy.contains('[data-testid*="workflow-item"]', "Request Dataset Access")
-          .should("be.visible")
-          .click();
+        cy.contains(
+          '[data-testid*="workflow-item"]',
+          "Request Dataset Access",
+        ).should("be.visible");
+        cy.contains(
+          '[data-testid*="workflow-item"]',
+          "Request Dataset Access",
+        ).click();
       } else {
         throw new Error("No workflow items found");
       }
@@ -101,13 +111,12 @@ describe("Action Workflows Test", () => {
     cy.wait(2000);
 
     // Fill form
+    cy.get('form input[type="text"], form textarea').first().clear();
     cy.get('form input[type="text"], form textarea')
       .first()
-      .clear()
       .type("Test workflow request");
-    cy.get('[data-testid="workflow-description"]')
-      .clear()
-      .type("Test from home page");
+    cy.get('[data-testid="workflow-description"]').clear();
+    cy.get('[data-testid="workflow-description"]').type("Test from home page");
 
     // Submit
     cy.get('[data-testid="workflow-submit-button"]').click({ force: true });
@@ -140,17 +149,22 @@ describe("Action Workflows Test", () => {
     });
 
     // Select workflow with specific text "Request Access"
-    cy.contains('[data-testid*="workflow-dropdown-item"]', "Request Access")
-      .should("be.visible")
-      .click();
+    cy.contains(
+      '[data-testid*="workflow-dropdown-item"]',
+      "Request Access",
+    ).should("be.visible");
+    cy.contains(
+      '[data-testid*="workflow-dropdown-item"]',
+      "Request Access",
+    ).click();
     cy.get('[data-testid="workflow-form"]', { timeout: 10000 }).should(
       "be.visible",
     );
 
     // Fill form (entity should be pre-selected)
+    cy.get('form input[type="text"], form textarea').first().clear();
     cy.get('form input[type="text"], form textarea')
       .first()
-      .clear()
       .type("Entity profile test");
     cy.get('[data-testid="workflow-submit-button"]').click();
     cy.wait(3000);
@@ -171,10 +185,14 @@ describe("Action Workflows Test", () => {
     // Click workflow with specific text "Request Dataset Access"
     cy.get('[data-testid*="workflow-item"]').then(($items) => {
       if ($items.length > 0) {
-        // Look for the workflow item containing "Request Dataset Access" text
-        cy.contains('[data-testid*="workflow-item"]', "Request Dataset Access")
-          .should("be.visible")
-          .click();
+        cy.contains(
+          '[data-testid*="workflow-item"]',
+          "Request Dataset Access",
+        ).should("be.visible");
+        cy.contains(
+          '[data-testid*="workflow-item"]',
+          "Request Dataset Access",
+        ).click();
       } else {
         throw new Error("No workflow items found");
       }
@@ -194,9 +212,8 @@ describe("Action Workflows Test", () => {
     cy.get('form input[type="text"], form textarea')
       .first()
       .type("Required field value");
-    cy.get('[data-testid="workflow-submit-button"]')
-      .should("not.be.disabled")
-      .click();
+    cy.get('[data-testid="workflow-submit-button"]').should("not.be.disabled");
+    cy.get('[data-testid="workflow-submit-button"]').click();
     cy.wait(3000);
   });
 
@@ -212,10 +229,14 @@ describe("Action Workflows Test", () => {
     // Click workflow with specific text "Request Dataset Access"
     cy.get('[data-testid*="workflow-item"]').then(($items) => {
       if ($items.length > 0) {
-        // Look for the workflow item containing "Request Dataset Access" text
-        cy.contains('[data-testid*="workflow-item"]', "Request Dataset Access")
-          .should("be.visible")
-          .click();
+        cy.contains(
+          '[data-testid*="workflow-item"]',
+          "Request Dataset Access",
+        ).should("be.visible");
+        cy.contains(
+          '[data-testid*="workflow-item"]',
+          "Request Dataset Access",
+        ).click();
       } else {
         throw new Error("No workflow items found");
       }

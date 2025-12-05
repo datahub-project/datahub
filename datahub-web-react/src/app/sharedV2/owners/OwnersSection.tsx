@@ -7,9 +7,9 @@ import styled from 'styled-components';
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, Owner, OwnerEntityType } from '@types';
 
@@ -103,15 +103,7 @@ const OwnersSection = <T,>({
         EntityType.CorpUser,
     ]);
 
-    // Lazy load ownership types
-    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
-
-    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
-    const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
+    const { defaultOwnershipTypeUrn } = useOwnershipTypes();
 
     // Get results from the recommendations or autocomplete
     const searchResults: Array<Entity> =
@@ -167,7 +159,7 @@ const OwnersSection = <T,>({
 
         setSelectedOwnerEntities(newEntities);
 
-        if (newValues.length > 0 && defaultOwnerType) {
+        if (newValues.length > 0 && defaultOwnershipTypeUrn) {
             const newOwners = newValues.map((urn) => {
                 const foundEntity = newEntities.find((e) => e.urn === urn);
                 const ownerEntityType =
@@ -178,7 +170,7 @@ const OwnersSection = <T,>({
                 return {
                     ownerUrn: urn,
                     ownerEntityType,
-                    ownershipTypeUrn: defaultOwnerType,
+                    ownershipTypeUrn: defaultOwnershipTypeUrn,
                 };
             });
 

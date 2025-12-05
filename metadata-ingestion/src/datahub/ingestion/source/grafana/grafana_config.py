@@ -8,6 +8,9 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -80,6 +83,11 @@ class GrafanaSourceConfig(
     ingest_owners: bool = Field(
         default=True, description="Whether to ingest dashboard ownership information"
     )
+    skip_text_panels: bool = Field(
+        default=False,
+        description="Whether to skip text panels during ingestion. "
+        "Text panels don't contain data visualizations and may not be relevant for data lineage.",
+    )
 
     include_lineage: bool = Field(
         default=True,
@@ -97,6 +105,10 @@ class GrafanaSourceConfig(
     connection_to_platform_map: Dict[str, PlatformConnectionConfig] = Field(
         default_factory=dict,
         description="Map of Grafana datasource types/UIDs to platform connection configs for lineage extraction",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description="Stateful ingestion configuration"
     )
 
     @field_validator("url", mode="after")

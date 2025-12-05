@@ -1,0 +1,226 @@
+name: Monitor Test Failures
+
+on:
+  schedule:
+    # Run 3 times daily: 2am, 10am, 6pm UTC
+    - cron: "0 2,10,18 * * *"
+  push:
+    branches:
+      - cr-fork-notify-build-failures
+  workflow_dispatch:
+    inputs:
+      force_analysis:
+        description: "Force analysis even if no new merges (default: false)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read # To fetch workflow runs and artifacts
+
+jobs:
+  check_and_collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      has_new_runs: ${{ steps.check.outputs.has_new_runs }}
+      analysis_window: ${{ steps.check.outputs.analysis_window }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: |
+          pip install requests
+
+      - name: Download previous state artifact
+        id: download_state
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Attempting to download previous state artifact..."
+
+          # Find the most recent successful run of this workflow
+          PREV_RUN_ID=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/monitor-test-failures.yml/runs?status=success&per_page=5" \
+            --jq '.workflow_runs[0].id // empty')
+
+          if [ -n "$PREV_RUN_ID" ]; then
+            echo "Found previous run: $PREV_RUN_ID"
+
+            # Download the state artifact if it exists
+            gh api "repos/${{ github.repository }}/actions/runs/$PREV_RUN_ID/artifacts" \
+              --jq '.artifacts[] | select(.name == "check-state") | .id' \
+              | head -1 \
+              | xargs -I {} gh api "repos/${{ github.repository }}/actions/artifacts/{}/zip" > state.zip || true
+
+            if [ -f state.zip ] && [ -s state.zip ]; then
+              unzip -q state.zip || true
+              if [ -f .last_check_state.json ]; then
+                echo "✓ Previous state loaded successfully"
+                cat .last_check_state.json
+              else
+                echo "⚠ State zip downloaded but no state file found"
+              fi
+            else
+              echo "⚠ No previous state artifact found"
+            fi
+          else
+            echo "⚠ No previous successful run found"
+          fi
+
+      - name: Collect CI failures
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          FORCE_ANALYSIS: ${{ github.event.inputs.force_analysis || 'false' }}
+        run: |
+          echo "Running CI failure collection..."
+          python .github/scripts/collect_ci_failures.py
+
+      - name: Upload state artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-state
+          path: .last_check_state.json
+          retention-days: 30
+
+      - name: Upload collected data
+        if: steps.check.outputs.has_new_runs == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-runs-data
+          path: |
+            ci_runs.json
+            artifacts/
+          retention-days: 7
+
+  analyze_failures:
+    needs: check_and_collect
+    if: needs.check_and_collect.outputs.has_new_runs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Download collected data
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-runs-data
+
+      - name: Analyze test failures
+        env:
+          ANALYSIS_WINDOW: ${{ needs.check_and_collect.outputs.analysis_window }}
+        run: |
+          echo "Analyzing test failures..."
+          python .github/scripts/analyze_test_failures.py
+
+      - name: Upload failure analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-analysis
+          path: failure_analysis.json
+          retention-days: 7
+
+  report:
+    needs: [check_and_collect, analyze_failures]
+    if: needs.check_and_collect.outputs.has_new_runs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Download failure analysis
+        uses: actions/download-artifact@v4
+        with:
+          name: failure-analysis
+
+      - name: Download ci-runs data
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-runs-data
+
+      - name: Load Slack secrets
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          SLACK_BOT_TOKEN: op://Engineering/slack tokens for release test of deploy-auto/slack token deploy-auto
+          SLACK_CHANNEL: op://Engineering/slack tokens for release test of deploy-auto/slack channel deploy-auto notification
+
+      - name: Generate failure report
+        id: generate_report
+        env:
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "Generating failure report..."
+          python .github/scripts/generate_failure_report.py
+
+          # Set step outputs for Slack notification
+          if [ -f slack_payload.json ]; then
+            HAS_FAILURES=$(python3 -c "import json; data=json.load(open('failure_analysis.json')); print('true' if data['summary']['total_build_failures'] > 0 or data['summary']['total_flakes'] > 0 else 'false')")
+            echo "has_failures=$HAS_FAILURES" >> $GITHUB_OUTPUT
+
+            # Export attachments for Slack action
+            ATTACHMENTS=$(python3 -c "import json; print(json.dumps(json.load(open('slack_payload.json'))['attachments']))")
+            echo "slack_attachments<<EOF" >> $GITHUB_OUTPUT
+            echo "$ATTACHMENTS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: steps.generate_report.outputs.has_failures == 'true'
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ env.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "${{ env.SLACK_CHANNEL }}",
+              "attachments": ${{ steps.generate_report.outputs.slack_attachments }}
+            }
+
+      # Phase 2: Uncomment to enable report artifact upload
+      # - name: Upload failure report
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: failure-report-${{ github.run_number }}
+      #     path: failure_report.md
+      #     retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### CI Health Report Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Analysis Window**: ${{ needs.check_and_collect.outputs.analysis_window }} runs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See detailed report in job logs above." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY

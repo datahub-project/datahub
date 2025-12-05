@@ -38,7 +38,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             any(),
             any(Urn.class),
-            any(DataHubAiConversationOriginType.class)))
+            any(DataHubAiConversationOriginType.class),
+            any()))
         .thenReturn(TEST_CONVERSATION_URN);
     when(mockService.getConversation(any(OperationContext.class), any(Urn.class)))
         .thenReturn(createMockConversationInfo());
@@ -67,7 +68,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             eq("Test Conversation"),
             eq(TEST_USER_URN),
-            any(DataHubAiConversationOriginType.class));
+            any(DataHubAiConversationOriginType.class),
+            any());
     verify(mockService, times(1))
         .getConversation(any(OperationContext.class), eq(TEST_CONVERSATION_URN));
   }
@@ -80,7 +82,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             any(),
             any(Urn.class),
-            any(DataHubAiConversationOriginType.class)))
+            any(DataHubAiConversationOriginType.class),
+            any()))
         .thenReturn(TEST_CONVERSATION_URN);
     when(mockService.getConversation(any(OperationContext.class), any(Urn.class)))
         .thenReturn(createMockConversationInfo());
@@ -108,7 +111,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             eq(null),
             eq(TEST_USER_URN),
-            any(DataHubAiConversationOriginType.class));
+            any(DataHubAiConversationOriginType.class),
+            any());
   }
 
   @Test
@@ -144,7 +148,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             any(),
             any(Urn.class),
-            any(DataHubAiConversationOriginType.class));
+            any(DataHubAiConversationOriginType.class),
+            any());
   }
 
   @Test
@@ -155,7 +160,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             any(),
             any(Urn.class),
-            any(DataHubAiConversationOriginType.class)))
+            any(DataHubAiConversationOriginType.class),
+            any()))
         .thenReturn(TEST_CONVERSATION_URN);
     when(mockService.getConversation(any(OperationContext.class), any(Urn.class)))
         .thenReturn(createMockConversationInfo());
@@ -185,7 +191,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             eq("Test Conversation"),
             eq(TEST_USER_URN),
-            eq(DataHubAiConversationOriginType.DATAHUB_UI));
+            eq(DataHubAiConversationOriginType.DATAHUB_UI),
+            any());
   }
 
   @Test
@@ -196,7 +203,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             any(),
             any(Urn.class),
-            any(DataHubAiConversationOriginType.class)))
+            any(DataHubAiConversationOriginType.class),
+            any()))
         .thenReturn(TEST_CONVERSATION_URN);
     when(mockService.getConversation(any(OperationContext.class), any(Urn.class)))
         .thenReturn(createMockConversationInfo());
@@ -226,7 +234,8 @@ public class CreateDataHubAiConversationResolverTest {
             any(OperationContext.class),
             eq("Test Conversation"),
             eq(TEST_USER_URN),
-            eq(DataHubAiConversationOriginType.DATAHUB_UI));
+            eq(DataHubAiConversationOriginType.DATAHUB_UI),
+            any());
   }
 
   private DataHubAiConversationInfo createMockConversationInfo() {

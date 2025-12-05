@@ -18,6 +18,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionAnalyticsRunEvent;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
@@ -215,7 +216,14 @@ public class AssertionAnalyticsRunEventHookTest {
                 any(OperationContext.class),
                 Mockito.eq(DATASET_ENTITY_NAME),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(Collections.emptySet())))
+                Mockito.eq(
+                    ImmutableSet.of(
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        CONTAINER_ASPECT_NAME,
+                        GLOBAL_TAGS_ASPECT_NAME,
+                        GLOSSARY_TERMS_ASPECT_NAME,
+                        DOMAINS_ASPECT_NAME,
+                        OWNERSHIP_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(DATASET_ENTITY_NAME)
@@ -274,7 +282,14 @@ public class AssertionAnalyticsRunEventHookTest {
             any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(Collections.emptySet()));
+            Mockito.eq(
+                ImmutableSet.of(
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    CONTAINER_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    GLOSSARY_TERMS_ASPECT_NAME,
+                    DOMAINS_ASPECT_NAME,
+                    OWNERSHIP_ASPECT_NAME)));
 
     // Verify that the analytics run event was ingested correctly.
     AssertionAnalyticsRunEvent expectedRunEvent =
@@ -321,7 +336,14 @@ public class AssertionAnalyticsRunEventHookTest {
                 any(OperationContext.class),
                 Mockito.eq(DATASET_ENTITY_NAME),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(Collections.emptySet())))
+                Mockito.eq(
+                    ImmutableSet.of(
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        CONTAINER_ASPECT_NAME,
+                        GLOBAL_TAGS_ASPECT_NAME,
+                        GLOSSARY_TERMS_ASPECT_NAME,
+                        DOMAINS_ASPECT_NAME,
+                        OWNERSHIP_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(DATASET_ENTITY_NAME)
@@ -348,7 +370,14 @@ public class AssertionAnalyticsRunEventHookTest {
             any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(Collections.emptySet()));
+            Mockito.eq(
+                ImmutableSet.of(
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    CONTAINER_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    GLOSSARY_TERMS_ASPECT_NAME,
+                    DOMAINS_ASPECT_NAME,
+                    OWNERSHIP_ASPECT_NAME)));
 
     // Verify that the analytics run event was ingested correctly.
     AssertionAnalyticsRunEvent expectedRunEvent =

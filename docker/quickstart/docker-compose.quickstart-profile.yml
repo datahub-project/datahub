@@ -406,6 +406,9 @@ services:
         required: true
     environment:
       BACKFILL_BROWSE_PATHS_V2: 'true'
+      CREATE_USER: 'false'
+      CREATE_USER_PASSWORD: datahub
+      CREATE_USER_USERNAME: datahub
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
@@ -416,7 +419,7 @@ services:
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
       EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
-      EBEAN_DATASOURCE_USERNAME: datahub
+      EBEAN_DATASOURCE_USERNAME: root
       ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: 'false'
       ELASTICSEARCH_HOST: search
       ELASTICSEARCH_IMPLEMENTATION: opensearch

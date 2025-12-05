@@ -366,6 +366,7 @@ async def test_send_streaming_message_calls_manager_correctly() -> None:
                     text="Hello AI",
                     user_urn="urn:li:corpuser:test",
                     conversation_urn="urn:li:dataHubAiConversation:123",
+                    agent_name=None,
                 )
 
 

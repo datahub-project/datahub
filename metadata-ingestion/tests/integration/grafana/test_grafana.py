@@ -19,9 +19,6 @@ pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2024-07-12 12:00:00"
 
-# Expected dashboards that should be provisioned during the test setup
-# If new dashboards are added to the test setup, they should be listed here
-# to ensure provisioning is complete before running ingestion tests
 EXPECTED_DASHBOARDS = {"Test Integration Dashboard"}
 
 logger = logging.getLogger(__name__)
@@ -142,10 +139,8 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "grafana"
     ) as docker_services:
-        # Wait for all services to be ready
         wait_for_port(docker_services, "postgres", 5432, timeout=90)
 
-        # Prometheus container doesn't have bash, so use a simple HTTP check
         def check_prometheus_ready():
             try:
                 prometheus_port = docker_services.port_for("prometheus", 9090)
@@ -179,12 +174,9 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
 def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> None:
     """Robust verification that Grafana API is fully accessible after health check passes"""
 
-    # Configure requests session with retries
     session = build_retry_session(
         total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
     )
-
-    # Wait for API endpoints to be fully ready (health check might pass but API still initializing)
     for attempt in tenacity.Retrying(
         stop=tenacity.stop_after_attempt(60), wait=tenacity.wait_fixed(3), reraise=True
     ):
@@ -238,11 +230,7 @@ def verify_grafana_fully_ready(
 
 
 def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
-    """Wait for Grafana entities to be provisioned before running ingestion tests
-
-    This function can be extended in the future to validate other entity types
-    like data sources, folders, etc.
-    """
+    """Wait for Grafana entities to be provisioned before running ingestion tests"""
     session = build_retry_session(
         total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
     )

@@ -311,6 +311,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.ingestion.ExecutionRequestType;
 import com.linkedin.datahub.graphql.types.ingestion.IngestionSourceType;
+import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -352,6 +353,7 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
@@ -439,6 +441,7 @@ public class GmsGraphQLEngine {
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
+  private final DocumentService documentService;
   private final EntityVersioningService entityVersioningService;
   private final IntegrationsService integrationsService;
   private final ApplicationService applicationService;
@@ -488,6 +491,7 @@ public class GmsGraphQLEngine {
   public final DataHubConnectionType connectionType;
   private final ContainerType containerType;
   private final DomainType domainType;
+  private final DocumentType documentType;
   private final NotebookType notebookType;
 
   @Getter private final AssertionType assertionType;
@@ -588,6 +592,7 @@ public class GmsGraphQLEngine {
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
+    this.documentService = args.documentService;
     this.entityVersioningService = args.entityVersioningService;
     this.integrationsService = args.integrationsService;
 
@@ -630,6 +635,7 @@ public class GmsGraphQLEngine {
     this.connectionType = new DataHubConnectionType(entityClient, secretService, featureFlags);
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
+    this.documentType = new DocumentType(entityClient);
     this.notebookType = new NotebookType(entityClient);
     this.assertionType = new AssertionType(entityClient);
     this.versionedDatasetType = new VersionedDatasetType(entityClient);
@@ -689,6 +695,7 @@ public class GmsGraphQLEngine {
                 containerType,
                 notebookType,
                 domainType,
+                documentType,
                 assertionType,
                 versionedDatasetType,
                 dataPlatformInstanceType,
@@ -799,6 +806,7 @@ public class GmsGraphQLEngine {
     configureOrganisationRoleResolvers(builder);
     configureGlossaryNodeResolvers(builder);
     configureDomainResolvers(builder);
+    configureDocumentResolvers(builder);
     configureDataProductResolvers(builder);
     configureApplicationResolvers(builder);
     configureAssertionResolvers(builder);
@@ -899,7 +907,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PATCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(FILES_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1185,7 +1194,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
-                        this.s3Util, this.datahubConfiguration.getS3())));
+                        this.s3Util, this.datahubConfiguration.getS3(), this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -3039,6 +3048,21 @@ public class GmsGraphQLEngine {
                         ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource())
                             .getDomain()
                             .getUrn())));
+  }
+
+  private void configureDocumentResolvers(final RuntimeWiring.Builder builder) {
+    // Delegate Knowledge Article wiring to consolidated resolver class
+    new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentResolvers(
+            this.documentService,
+            entityTypes,
+            documentType,
+            entityClient,
+            this.entityService,
+            this.graphClient,
+            entityRegistry,
+            this.timelineService,
+            this.groupService)
+        .configureResolvers(builder);
   }
 
   private void configureFormResolvers(final RuntimeWiring.Builder builder) {

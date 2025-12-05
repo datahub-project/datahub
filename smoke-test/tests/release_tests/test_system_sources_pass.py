@@ -5,28 +5,35 @@ import logging
 
 import pytest
 
-from tests.utilities.metadata_operations import list_ingestion_sources_with_filter
+from tests.utilities.env_vars import get_system_source_execution_timeout_minutes
+from tests.utilities.metadata_operations import (
+    create_ingestion_execution_request,
+    list_ingestion_sources_with_filter,
+    poll_execution_requests,
+)
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_SOURCES_MIN_COUNT = 7
 
 
-# TODO This requires an additional check that the system sources
-# TODO passed a run after the last upgrade was done
 @pytest.mark.release_tests
 def test_system_sources_pass(auth_session):
-    """Verify that all SYSTEM ingestion sources have passing last runs.
+    """Verify that all SYSTEM ingestion sources pass when executed.
 
-    This test queries all ingestion sources with sourceType=SYSTEM and checks that
-    their most recent execution has a status of SUCCESS. Sources without any completed
-    runs are tracked separately but don't cause test failure.
+    This test:
+    1. Queries all SYSTEM ingestion sources
+    2. Submits execution requests for each source
+    3. Polls execution status until all complete or timeout
+    4. Asserts all executions succeeded
     """
-    # Query for all SYSTEM ingestion sources with their latest execution
+    timeout_minutes = get_system_source_execution_timeout_minutes()
+
+    logger.info("Querying SYSTEM ingestion sources...")
     sources_data = list_ingestion_sources_with_filter(
         auth_session,
         filters=[{"field": "sourceType", "values": ["SYSTEM"], "negated": False}],
-        include_executions=True,
+        include_executions=False,
     )
 
     total_sources = sources_data["total"]
@@ -34,66 +41,102 @@ def test_system_sources_pass(auth_session):
 
     logger.info(f"Found {total_sources} SYSTEM ingestion sources")
     assert total_sources > 0, "Expected at least one SYSTEM ingestion source"
+    assert total_sources >= SYSTEM_SOURCES_MIN_COUNT, (
+        f"Expected at least {SYSTEM_SOURCES_MIN_COUNT} SYSTEM sources, "
+        f"but found {total_sources}"
+    )
 
-    failing_sources = []
-    sources_without_runs = []
-    sources_with_success = []
+    logger.info(f"Submitting execution requests for {total_sources} sources...")
+    execution_tracking = {}
 
     for source in ingestion_sources:
         source_name = source["name"]
         source_urn = source["urn"]
-        executions = source.get("executions", {}).get("executionRequests", [])
 
-        if not executions:
-            logger.debug(f"Source '{source_name}' has no executions")
-            sources_without_runs.append(source_name)
-            continue
+        try:
+            execution_urn = create_ingestion_execution_request(auth_session, source_urn)
+            execution_tracking[source_name] = {
+                "source_urn": source_urn,
+                "execution_urn": execution_urn,
+            }
+            logger.info(f"Submitted execution for '{source_name}': {execution_urn}")
+        except Exception as e:
+            logger.error(f"Failed to submit execution for '{source_name}': {e}")
+            execution_tracking[source_name] = {
+                "source_urn": source_urn,
+                "execution_urn": None,
+                "status": "SUBMISSION_FAILED",
+                "error": str(e),
+            }
 
-        latest_execution = executions[0]
-        result = latest_execution.get("result")
+    logger.info(
+        f"Polling {len(execution_tracking)} executions "
+        f"(timeout: {timeout_minutes} minutes)..."
+    )
+    results = poll_execution_requests(
+        auth_session,
+        execution_tracking,
+        timeout_minutes=timeout_minutes,
+        poll_interval_seconds=5,
+    )
 
-        if result is None:
-            # Execution hasn't completed yet
-            logger.debug(f"Source '{source_name}' has incomplete execution")
-            sources_without_runs.append(source_name)
-            continue
+    successful_sources = []
+    failed_sources = []
+    timed_out_sources = []
 
+    for source_name, result in results.items():
         status = result.get("status")
+
         if status == "SUCCESS":
-            logger.info(f"Source '{source_name}' passed with SUCCESS status")
-            sources_with_success.append(source_name)
-        else:
-            logger.warning(
-                f"Source '{source_name}' has non-SUCCESS status: {status} "
-                f"(execution: {latest_execution['urn']})"
-            )
-            failing_sources.append(
+            successful_sources.append(source_name)
+            logger.info(f"✓ Source '{source_name}' passed")
+        elif status == "TIMEOUT":
+            timed_out_sources.append(
                 {
                     "name": source_name,
-                    "urn": source_urn,
-                    "status": status,
-                    "execution_urn": latest_execution["urn"],
+                    "urn": result["source_urn"],
+                    "execution_urn": result["execution_urn"],
                 }
             )
+            logger.warning(f"⏱ Source '{source_name}' timed out")
+        else:
+            failed_sources.append(
+                {
+                    "name": source_name,
+                    "urn": result["source_urn"],
+                    "status": status,
+                    "execution_urn": result["execution_urn"],
+                }
+            )
+            logger.error(f"✗ Source '{source_name}' failed with status: {status}")
 
-    # Report findings
-    if sources_without_runs:
-        logger.info(f"Sources without completed runs: {sources_without_runs}")
+    logger.info("\n=== Execution Summary ===")
+    logger.info(f"Total sources: {total_sources}")
+    logger.info(f"Successful: {len(successful_sources)}")
+    logger.info(f"Failed: {len(failed_sources)}")
+    logger.info(f"Timed out: {len(timed_out_sources)}")
 
-    if failing_sources:
+    if timed_out_sources:
         logger.error(
-            f"Found {len(failing_sources)} SYSTEM source(s) with non-passing last runs: "
-            f"{failing_sources}"
-        )
-    else:
-        logger.info(
-            f"All {total_sources} SYSTEM sources passed. "
-            f"Sources without runs: {len(sources_without_runs)}"
+            f"The following {len(timed_out_sources)} source(s) timed out "
+            f"after {timeout_minutes} minutes: {timed_out_sources}"
         )
 
-    assert len(sources_with_success) >= SYSTEM_SOURCES_MIN_COUNT
+    if failed_sources:
+        logger.error(
+            f"The following {len(failed_sources)} source(s) failed: {failed_sources}"
+        )
 
-    assert not failing_sources, (
-        f"Found {len(failing_sources)} SYSTEM source(s) with non-passing last runs: "
-        f"{failing_sources}"
+    assert not timed_out_sources, (
+        f"{len(timed_out_sources)} source(s) timed out after {timeout_minutes} minutes: "
+        f"{[s['name'] for s in timed_out_sources]}"
+    )
+
+    assert not failed_sources, (
+        f"{len(failed_sources)} source(s) failed: {[s['name'] for s in failed_sources]}"
+    )
+
+    assert len(successful_sources) >= SYSTEM_SOURCES_MIN_COUNT, (
+        f"Expected at least {SYSTEM_SOURCES_MIN_COUNT} successful sources, "
+        f"but only {len(successful_sources)} succeeded"
     )
