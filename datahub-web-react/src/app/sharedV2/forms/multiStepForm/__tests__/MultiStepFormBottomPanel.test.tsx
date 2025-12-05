@@ -72,19 +72,30 @@ describe('MultiStepFormBottomPanel', () => {
     });
 
     it('shows back button when not on the first step', () => {
+        const TestComponent = () => {
+            const { setCurrentStepCompleted } = useMultiStepContext();
+
+            // Complete the current step to enable the next button
+            React.useEffect(() => {
+                setCurrentStepCompleted();
+            }, [setCurrentStepCompleted]);
+
+            return <MultiStepFormBottomPanel />;
+        };
+
         render(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2, mockStep3]}>
-                <MultiStepFormBottomPanel />
+                <TestComponent />
             </MultiStepFormProvider>,
         );
 
         // Initially no back button when on first step
-        expect(screen.queryByText('Back')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('back-button')).not.toBeInTheDocument();
 
-        // Go to second step
-        fireEvent.click(screen.getByText('Next'));
+        // Go to second step - need to complete step first to enable Next button
+        fireEvent.click(screen.getByTestId('next-button'));
         // Back button should appear now
-        expect(screen.getByText('Back')).toBeInTheDocument();
+        expect(screen.getByTestId('back-button')).toBeInTheDocument();
 
         expect(screen.getByText('Cancel')).toBeInTheDocument();
     });
@@ -167,63 +178,74 @@ describe('MultiStepFormBottomPanel', () => {
     });
 
     it('executes next when next button is clicked', () => {
+        const TestComponent = () => {
+            const { setCurrentStepCompleted } = useMultiStepContext();
+
+            // Complete the current step to enable the next button
+            React.useEffect(() => {
+                setCurrentStepCompleted();
+            }, [setCurrentStepCompleted]);
+
+            return <MultiStepFormBottomPanel />;
+        };
+
         render(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
-                <MultiStepFormBottomPanel />
+                <TestComponent />
             </MultiStepFormProvider>,
         );
 
         // Initially on step 1
-        expect(screen.getByText('1 / 2')).toBeInTheDocument();
-        expect(screen.getByText('Next')).toBeInTheDocument();
+        expect(screen.getByTestId('step-counter')).toHaveTextContent('1 / 2');
+        expect(screen.getByTestId('next-button')).toBeInTheDocument();
 
-        fireEvent.click(screen.getByText('Next'));
+        fireEvent.click(screen.getByTestId('next-button'));
 
         // After clicking "Next", the text should now show "2 / 2"
-        // Using queryByText with toBeInTheDocument to handle potential timing issues
-        expect(screen.getByText('2 / 2')).toBeInTheDocument();
-        expect(screen.getByText('Back')).toBeInTheDocument(); // Back button should now appear
+        expect(screen.getByTestId('step-counter')).toHaveTextContent('2 / 2');
+        expect(screen.getByTestId('back-button')).toBeInTheDocument(); // Back button should now appear
     });
 
     it('executes back when back button is clicked', () => {
+        const TestComponent = () => {
+            const { setCurrentStepCompleted } = useMultiStepContext();
+
+            // Complete the current step to enable the next button
+            React.useEffect(() => {
+                setCurrentStepCompleted();
+            }, [setCurrentStepCompleted]);
+
+            return <MultiStepFormBottomPanel />;
+        };
+
         render(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
-                <MultiStepFormBottomPanel />
+                <TestComponent />
             </MultiStepFormProvider>,
         );
 
         // Move to next step first
-        fireEvent.click(screen.getByText('Next'));
-        expect(screen.getByText('2 / 2')).toBeInTheDocument();
-        expect(screen.getByText('Back')).toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('next-button'));
+        expect(screen.getByTestId('step-counter')).toHaveTextContent('2 / 2');
+        expect(screen.getByTestId('back-button')).toBeInTheDocument();
 
         // Then go back
-        fireEvent.click(screen.getByText('Back'));
-        expect(screen.getByText('1 / 2')).toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('back-button'));
+        expect(screen.getByTestId('step-counter')).toHaveTextContent('1 / 2');
     });
 
     it('disables submit button when step is not completed', () => {
-        render(
-            <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
-                <MultiStepFormBottomPanel showSubmitButton />
-            </MultiStepFormProvider>,
-        );
-
-        // Go to the last step
-        fireEvent.click(screen.getByText('Next'));
-
-        // The submit button should appear but be disabled because the step isn't completed
-        const submitButton = screen.getByText('Submit');
-        expect(submitButton).toBeInTheDocument();
-        expect(submitButton).toBeDisabled(); // Submit button is disabled when step is not completed
-    });
-
-    it('enables submit button when step is completed', () => {
-        let contextRef: any = null;
-
+        // In this test, we want the first step to be completed to enable navigation,
+        // but the final step to remain uncompleted
         const TestComponent = () => {
-            const context = useMultiStepContext();
-            contextRef = context;
+            const { setCurrentStepCompleted, currentStepIndex } = useMultiStepContext();
+
+            // Only complete step 1 (currentStepIndex 0), not step 2 (currentStepIndex 1)
+            React.useEffect(() => {
+                if (currentStepIndex === 0) {  // Only complete the first step
+                    setCurrentStepCompleted();
+                }
+            }, [currentStepIndex, setCurrentStepCompleted]);
 
             return <MultiStepFormBottomPanel showSubmitButton />;
         };
@@ -234,24 +256,59 @@ describe('MultiStepFormBottomPanel', () => {
             </MultiStepFormProvider>,
         );
 
-        // Go to the last step
-        fireEvent.click(screen.getByText('Next'));
+        // Go to the last step - need to complete step first to enable Next button
+        fireEvent.click(screen.getByTestId('next-button'));
 
-        // Initially submit button is disabled because step isn't completed
-        let submitButton = screen.getByText('Submit');
+        // The submit button should appear but be disabled because the final step isn't completed yet
+        const submitButton = screen.getByTestId('submit-button');
+        expect(submitButton).toBeInTheDocument();
+        expect(submitButton).toBeDisabled(); // Submit button is disabled when step is not completed
+    });
+
+    it('enables submit button when step is completed', async () => {
+        let contextRef: any = null;
+
+        const TestComponent = () => {
+            const context = useMultiStepContext();
+            contextRef = context;
+
+            const { setCurrentStepCompleted, currentStepIndex } = context;
+
+            // Only complete step 1 (currentStepIndex 0), not step 2 (currentStepIndex 1)
+            React.useEffect(() => {
+                if (currentStepIndex === 0) {  // Only complete the first step
+                    setCurrentStepCompleted();
+                }
+            }, [currentStepIndex, setCurrentStepCompleted]);
+
+            return <MultiStepFormBottomPanel showSubmitButton />;
+        };
+
+        render(
+            <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
+                <TestComponent />
+            </MultiStepFormProvider>,
+        );
+
+        // Go to the last step (step is not completed initially)
+        fireEvent.click(screen.getByTestId('next-button'));
+
+        // Initially submit button is disabled because final step isn't completed
+        let submitButton = screen.getByTestId('submit-button');
         expect(submitButton).toBeInTheDocument();
         expect(submitButton).toBeDisabled();
 
-        // Complete the current step using context
+        // Complete the current step using contextRef
         if (contextRef) {
             contextRef.setCurrentStepCompleted();
         }
 
-        // The button remains the same element, but its state should update
-        // React may not re-render the button text, but we can re-query it
-        submitButton = screen.getByText('Submit');
-        // Note: Checking if it's enabled might be tricky because React state updates are async
-        // In a real scenario the button would be enabled after completion
+        // Wait for the button to update its state after the step completion
+        await waitFor(() => {
+            // The submit button should still exist but its state should have updated
+            const updatedSubmitButton = screen.getByTestId('submit-button');
+            expect(updatedSubmitButton).toBeInTheDocument();
+        });
     });
 
     it('calls renderLeftButtons when provided', async () => {

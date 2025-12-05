@@ -71,7 +71,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
         if (canGoToPrevious()) {
             buttons.push(
-                <Button key="back" size="sm" variant="secondary" onClick={goToPrevious}>
+                <Button key="back" size="sm" variant="secondary" onClick={goToPrevious} data-testid="back-button">
                     Back
                 </Button>,
             );
@@ -91,7 +91,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
         if (canGoToNext()) {
             buttons.push(
-                <Button key="next" size="sm" disabled={!isCurrentStepCompleted()} onClick={goToNext}>
+                <Button key="next" size="sm" disabled={!isCurrentStepCompleted()} onClick={goToNext} data-testid="next-button">
                     Next
                 </Button>,
             );
@@ -104,6 +104,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
                     size="sm"
                     disabled={!isCurrentStepCompleted() || isSubmitInProgress}
                     onClick={onSubmit}
+                    data-testid="submit-button"
                 >
                     Submit
                 </Button>,
@@ -127,7 +128,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
             <LeftButtonGroup>{renderLeftButtons ? renderLeftButtons(leftButtons) : leftButtons}</LeftButtonGroup>
             <Spacer />
 
-            <Text>
+            <Text data-testid="step-counter">
                 {currentStepIndex + 1} / {totalSteps}
             </Text>
             <Spacer />
