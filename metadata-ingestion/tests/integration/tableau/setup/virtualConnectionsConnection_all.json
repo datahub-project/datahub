@@ -1,0 +1,22 @@
+{
+  "data": {
+    "virtualConnectionsConnection": {
+      "nodes": [
+        {
+          "id": "vc-123",
+          "name": "Test Virtual Connection 1",
+          "luid": "vc-luid-123"
+        },
+        {
+          "id": "vc-456", 
+          "name": "Test Virtual Connection 2",
+          "luid": "vc-luid-456"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}
