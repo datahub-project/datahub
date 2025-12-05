@@ -9,7 +9,7 @@ dependencies {
 
   // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
   // latest caffeine 3.1.8 compatible
-  api 'nl.basjes.parse.useragent:yauaa:7.29.0'
+  api 'nl.basjes.parse.useragent:yauaa:7.32.0'
 
   implementation externalDependency.slf4jApi
   implementation externalDependency.servletApi
