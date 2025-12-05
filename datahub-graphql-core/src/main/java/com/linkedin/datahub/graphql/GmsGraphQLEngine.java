@@ -1288,14 +1288,16 @@ public class GmsGraphQLEngine {
                   "setDomain",
                   new SetDomainResolver(this.entityClient, this.entityService, this.featureFlags))
               .dataFetcher(
-                  "batchSetDomain", new BatchSetDomainResolver(this.entityService, entityClient))
+                  "batchSetDomain",
+                  new BatchSetDomainResolver(this.entityService, entityClient, this.featureFlags))
               .dataFetcher(
                   "updateDeprecation",
                   new UpdateDeprecationResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
               .dataFetcher(
-                  "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
+                  "unsetDomain",
+                  new UnsetDomainResolver(this.entityClient, this.entityService, this.featureFlags))
               .dataFetcher(
                   "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
               .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))

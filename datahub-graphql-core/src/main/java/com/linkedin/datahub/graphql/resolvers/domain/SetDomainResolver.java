@@ -47,7 +47,6 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
         () -> {
           // Domain-based authorization (when enabled) is now handled inside the transaction
           // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
-          // Only perform standard authorization here when domain-based auth is disabled
           if (!_featureFlags.isDomainBasedAuthorizationEnabled()) {
             // Legacy authorization approach when domain-based auth is disabled
             if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
@@ -56,8 +55,6 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
                   "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
           }
-          // When domain-based auth is enabled, authorization will happen inside the transaction
-          // via the DomainBasedAuthorizationValidator
 
           validateSetDomainInput(
               context.getOperationContext(), entityUrn, domainUrn, _entityService);
