@@ -928,3 +928,54 @@ def test_json_schema_ref_loop_in_definitions():
     # Both should be RecordType
     assert isinstance(fields[0].type.type, RecordTypeClass)
     assert isinstance(fields[1].type.type, RecordTypeClass)
+
+
+def test_json_schema_with_boolean_property_true():
+    """Test that a property set to true (accepts any JSON) is handled correctly."""
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "description": "demo schema for datahub json schema parsing",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "content": True,  # This should accept any valid JSON
+        },
+    }
+
+    # Should not raise TypeError
+    fields = json_schema_to_schema_fields(schema)
+
+    # Should have 2 fields: id and content
+    assert len(fields) == 2
+
+    # Find the content field
+    content_field = [f for f in fields if "content" in f.fieldPath][0]
+
+    # The content field should be treated as an object type (true -> {} -> object)
+    assert isinstance(content_field.type.type, RecordTypeClass)
+
+    assert_fields_are_valid(fields)
+
+
+def test_json_schema_with_boolean_property_false():
+    """Test that a property set to false (never valid) is handled correctly."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "never_valid": False,  # This should never validate
+        },
+    }
+
+    # Should not raise TypeError
+    fields = json_schema_to_schema_fields(schema)
+
+    # Should have 2 fields
+    assert len(fields) == 2
+
+    # Find the never_valid field (converted to {"not": {}})
+    never_valid_field = [f for f in fields if "never_valid" in f.fieldPath][0]
+
+    # Should be treated as object type
+    assert isinstance(never_valid_field.type.type, RecordTypeClass)
+    assert_fields_are_valid(fields)
