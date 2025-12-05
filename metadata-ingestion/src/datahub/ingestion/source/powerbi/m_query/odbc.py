@@ -44,6 +44,12 @@ platform_patterns = {
     "databricks": r"(databricks|spark)",
 }
 
+# Pre-compiled regex patterns for performance (used in ODBC connection hot path)
+_compiled_platform_patterns = {
+    platform: re.compile(pattern, re.IGNORECASE)
+    for platform, pattern in platform_patterns.items()
+}
+
 powerbi_platform_names = {
     "mysql": "MySQL",
     "postgres": "PostgreSQL",
@@ -157,8 +163,8 @@ def extract_platform(connection_string: str) -> Tuple[Optional[str], Optional[st
 
     driver_lower = driver_name.lower()
 
-    for platform, pattern in platform_patterns.items():
-        if re.search(pattern, driver_lower):
+    for platform, compiled_pattern in _compiled_platform_patterns.items():
+        if compiled_pattern.search(driver_lower):
             return platform, powerbi_platform_names.get(platform)
 
     return None, None
@@ -178,8 +184,8 @@ def normalize_platform_name(platform: str) -> Tuple[Optional[str], Optional[str]
     """
     platform_lower = platform.lower()
 
-    for platform, pattern in platform_patterns.items():
-        if re.search(pattern, platform_lower):
-            return platform, powerbi_platform_names.get(platform)
+    for platform_name, compiled_pattern in _compiled_platform_patterns.items():
+        if compiled_pattern.search(platform_lower):
+            return platform_name, powerbi_platform_names.get(platform_name)
 
     return None, None
