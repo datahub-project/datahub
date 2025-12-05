@@ -9,15 +9,19 @@ This guide helps to setup and configure `DataHubValidationAction` in Great Expec
 - **Assertion Details**: Details of assertions (i.e. expectation) set on a Dataset (Table).
 - **Assertion Results**: Evaluation results for an assertion tracked over time.
 
-This integration supports v3 api datasources using SqlAlchemyExecutionEngine.
+This integration supports v3 api datasources using SqlAlchemyExecutionEngine and SparkDFExecutionEngine.
 
 ## Limitations
 
 This integration does not support
 
 - v2 Datasources such as SqlAlchemyDataset
-- v3 Datasources using execution engine other than SqlAlchemyExecutionEngine (Spark, Pandas)
+- v3 Datasources using execution engine other than SqlAlchemyExecutionEngine,SparkDFExecutionEngine (Pandas)
 - Cross-dataset expectations (those involving > 1 table)
+
+## Compatibility
+
+- DataHubValidationAction with SparkDFExecutionEngine has only been tested with **Great Expectation >= 0.18.0, <1.0.0**. Other versions may not be compatible
 
 ## Setting up
 

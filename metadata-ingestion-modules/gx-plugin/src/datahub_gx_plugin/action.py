@@ -619,6 +619,7 @@ class DataHubValidationAction(ValidationAction):
                 data_platform = self.get_platform_instance(
                     data_asset.active_batch_definition.datasource_name
                 )
+
                 dataset_urn = builder.make_dataset_urn_with_platform_instance(
                     platform=(
                         data_platform
@@ -644,10 +645,11 @@ class DataHubValidationAction(ValidationAction):
                 )
             else:
                 warn(
-                    "DataHubValidationAction does not recognize this GE batch spec type- {batch_spec_type}.".format(
+                    "DataHubValidationAction does not recognize this GE batch spec type for SparkDFExecutionEngine- {batch_spec_type}. No action will be taken.".format(
                         batch_spec_type=type(ge_batch_spec)
                     )
                 )
+                return []
         elif is_sql_alchemy or is_pandas:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
@@ -824,9 +826,10 @@ class DataHubValidationAction(ValidationAction):
             return self.platform_instance_map[datasource_name]
         else:
             warn(
-                f"Datasource {datasource_name} is not present in platform_instance_map"
+                f"Datasource {datasource_name} is not present in platform_instance_map. \
+                    Data platform will be {datasource_name} by default "
             )
-        return None
+        return datasource_name
 
 
 def parse_int_or_default(value, default_value=None):
