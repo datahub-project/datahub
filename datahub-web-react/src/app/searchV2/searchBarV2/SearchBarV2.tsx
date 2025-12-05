@@ -58,6 +58,7 @@ export const SearchBarV2 = ({
     viewsEnabled = false,
     viewsInPopover = true,
     combineSiblings = false,
+    hideRecommendations,
     onFocus,
     onBlur,
     showViewAllResults = false,
@@ -106,6 +107,7 @@ export const SearchBarV2 = ({
         shouldCombineSiblings,
         isSearching,
         showAutoCompleteResults,
+        hideRecommendations,
     );
 
     const clearQueryAndFilters = useCallback(() => {
