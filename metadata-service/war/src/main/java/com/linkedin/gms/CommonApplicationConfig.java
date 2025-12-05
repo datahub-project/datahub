@@ -2,6 +2,8 @@ package com.linkedin.gms;
 
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Set;
 import javax.management.MBeanServer;
 import lombok.extern.slf4j.Slf4j;
@@ -145,6 +147,14 @@ public class CommonApplicationConfig {
             }
 
             if (serverAddress != null && !serverAddress.isBlank()) {
+              try {
+                // Resolve address to validate it
+                InetAddress unusedResolvedAddress = InetAddress.getByName(serverAddress);
+              } catch (UnknownHostException e) {
+                log.error("Configured server address {} is invalid", serverAddress);
+                throw new IllegalArgumentException(
+                    "Configured server address " + serverAddress + " is invalid");
+              }
               log.info("Server will listen on address: {}", serverAddress);
               connector.setHost(serverAddress);
             }
