@@ -299,14 +299,11 @@ public class DatasetType
       return false;
     }
 
-    // If entity-level authorization passes, also check domain-based authorization when enabled
-    // This ensures users have permissions for the dataset's domain(s)
-    if (featureFlags.isDomainBasedAuthorizationEnabled()) {
+    if (!featureFlags.isDomainBasedAuthorizationEnabled()) {
       final Urn entityUrn = UrnUtils.getUrn(urn);
       return DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
     }
 
-    // If domain-based authorization is not enabled, entity-level authorization is sufficient
     return true;
   }
 

@@ -35,10 +35,6 @@ public class DeleteUtils {
     // by DomainBasedAuthorizationValidator in validatePreCommit to prevent race conditions
     // Only perform standard authorization here when domain-based auth is disabled
     if (isDomainBasedAuthorizationEnabled(context.getAuthorizer())) {
-      // When domain-based auth is enabled, skip pre-transaction authorization
-      // The validator will handle it inside the transaction
-      // For now, return true to let the request proceed to the validator
-      // If unauthorized, the validator will throw an exception
       return true;
     }
 
