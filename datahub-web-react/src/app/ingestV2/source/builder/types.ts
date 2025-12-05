@@ -22,6 +22,9 @@ export interface SourceConfig {
     docsUrl: string;
     description?: string;
     recipe: string;
+    category?: string;
+    isPopular?: boolean;
+    isExternal?: boolean;
 }
 
 /**

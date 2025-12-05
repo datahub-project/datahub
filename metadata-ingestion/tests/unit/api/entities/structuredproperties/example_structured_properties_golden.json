@@ -35,7 +35,8 @@
                 "urn:li:entityType:datahub.dataFlow"
             ],
             "description": "Retention Time is used to figure out how long to retain records in a dataset",
-            "immutable": false
+            "immutable": false,
+            "version": "1.0.0"
         }
     }
 },

@@ -1,9 +1,12 @@
 import json
+import logging
 from typing import Any, Dict
 
 import pytest
 
 from tests.utils import execute_graphql, with_test_retry
+
+logger = logging.getLogger(__name__)
 
 
 def _get_ingestionSources(auth_session):
@@ -89,7 +92,7 @@ def _ensure_ingestion_source_present(
         }"""
     variables: Dict[str, Any] = {"urn": ingestion_source_urn}
     res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
+    logger.info(res_data)
 
     assert res_data["data"]["ingestionSource"] is not None
 
@@ -183,7 +186,7 @@ def test_create_list_get_remove_secret(auth_session):
     variables = {"input": {"secrets": ["SMOKE_TEST"]}}
     res_data = execute_graphql(auth_session, query, variables)
 
-    print(res_data)
+    logger.info(res_data)
     assert res_data["data"]["getSecretValues"] is not None
 
     secret_values = res_data["data"]["getSecretValues"]
@@ -200,6 +203,240 @@ def test_create_list_get_remove_secret(auth_session):
 
     # Re-fetch the secret values and see that they are not there.
     _ensure_secret_not_present(auth_session)
+
+
+def test_secret_roundtrip_preserves_json_credentials_with_newlines_and_slashes(
+    auth_session,
+):
+    """
+    Test that JSON credentials (e.g., BigQuery service account keys) with newlines,
+    forward slashes, and quotes are preserved exactly through create and update operations.
+
+    BigQuery private keys contain newlines that must not be corrupted when updating secrets.
+    """
+    fake_bigquery_key = """{
+  "type": "service_account",
+  "project_id": "test-project",
+  "private_key_id": "key123",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "test@test-project.iam.gserviceaccount.com",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token"
+}"""
+
+    query = """mutation createSecret($input: CreateSecretInput!) {\n
+            createSecret(input: $input)
+        }"""
+    variables: Dict[str, Any] = {
+        "input": {
+            "name": "SMOKE_TEST_BIGQUERY_KEY",
+            "value": fake_bigquery_key,
+            "description": "Test secret with special characters",
+        }
+    }
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["createSecret"] is not None
+
+    secret_urn = res_data["data"]["createSecret"]
+
+    query = """query getSecretValues($input: GetSecretValuesInput!) {\n
+            getSecretValues(input: $input) {\n
+              name\n
+              value\n
+            }\n
+        }"""
+    variables = {"input": {"secrets": ["SMOKE_TEST_BIGQUERY_KEY"]}}
+    res_data = execute_graphql(auth_session, query, variables)
+
+    assert res_data["data"]["getSecretValues"] is not None
+    secret_values = res_data["data"]["getSecretValues"]
+    secret_value = [x for x in secret_values if x["name"] == "SMOKE_TEST_BIGQUERY_KEY"][
+        0
+    ]
+    assert secret_value["value"] == fake_bigquery_key, (
+        f"Created secret value mismatch!\n"
+        f"Expected: {fake_bigquery_key}\n"
+        f"Got: {secret_value['value']}"
+    )
+
+    updated_bigquery_key = """{
+  "type": "service_account",
+  "project_id": "updated-project/with/slashes",
+  "private_key_id": "key456",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\nUPDATED_KEY_DATA\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "updated@test-project.iam.gserviceaccount.com",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token"
+}"""
+
+    query = """mutation updateSecret($input: UpdateSecretInput!) {\n
+            updateSecret(input: $input)
+        }"""
+    variables = {
+        "input": {
+            "urn": secret_urn,
+            "name": "SMOKE_TEST_BIGQUERY_KEY",
+            "value": updated_bigquery_key,
+            "description": "Updated test secret with special characters",
+        }
+    }
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["updateSecret"] is not None
+
+    query = """query getSecretValues($input: GetSecretValuesInput!) {\n
+            getSecretValues(input: $input) {\n
+              name\n
+              value\n
+            }\n
+        }"""
+    variables = {"input": {"secrets": ["SMOKE_TEST_BIGQUERY_KEY"]}}
+    res_data = execute_graphql(auth_session, query, variables)
+
+    assert res_data["data"]["getSecretValues"] is not None
+    secret_values = res_data["data"]["getSecretValues"]
+    secret_value = [x for x in secret_values if x["name"] == "SMOKE_TEST_BIGQUERY_KEY"][
+        0
+    ]
+    assert secret_value["value"] == updated_bigquery_key, (
+        f"Updated secret value mismatch!\n"
+        f"Expected: {updated_bigquery_key}\n"
+        f"Got: {secret_value['value']}"
+    )
+
+    query = """mutation deleteSecret($urn: String!) {\n
+            deleteSecret(urn: $urn)
+        }"""
+    variables = {"urn": secret_urn}
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["deleteSecret"] is not None
+
+    query = """query getSecretValues($input: GetSecretValuesInput!) {\n
+            getSecretValues(input: $input) {\n
+              name\n
+              value\n
+            }\n
+        }"""
+    variables = {"input": {"secrets": ["SMOKE_TEST_BIGQUERY_KEY"]}}
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["getSecretValues"] is not None
+
+    secret_values = res_data["data"]["getSecretValues"]
+    secret_value_arr = [
+        x for x in secret_values if x["name"] == "SMOKE_TEST_BIGQUERY_KEY"
+    ]
+    assert len(secret_value_arr) == 0
+
+
+def test_secret_roundtrip_preserves_passwords_and_connection_strings_with_special_chars(
+    auth_session,
+):
+    """
+    Test that complex passwords and connection strings with special characters
+    are preserved exactly through create and update operations.
+
+    Validates handling of mixed quotes, tabs, unicode, backslashes, special characters,
+    and connection strings with embedded credentials (MongoDB, PostgreSQL, etc.).
+    """
+    edge_case_value = """Line 1: Single quotes 'like this' and double quotes "like that"
+Line 2: Tab\tseparated\tvalues
+Line 3: Mixed quotes: "It's a test" and 'He said "hello"'
+Line 4: Backslashes: C:\\Users\\path\\to\\file
+Line 5: URLs: https://example.com/path?param=value&other=123
+Line 6: Unicode: 你好 🎉 café naïve
+Line 7: Special chars: @#$%^&*()_+-=[]{}|;:,.<>?
+Line 8: Empty line below:
+
+Line 9: Regex-like: ^.*\\.test\\.(js|ts)$
+Line 10: SQL-like: SELECT * FROM "table" WHERE name = 'O''Brien'"""
+
+    query = """mutation createSecret($input: CreateSecretInput!) {\n
+            createSecret(input: $input)
+        }"""
+    variables: Dict[str, Any] = {
+        "input": {
+            "name": "SMOKE_TEST_EDGE_CASES",
+            "value": edge_case_value,
+            "description": "Testing edge case characters",
+        }
+    }
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["createSecret"] is not None
+
+    secret_urn = res_data["data"]["createSecret"]
+
+    query = """query getSecretValues($input: GetSecretValuesInput!) {\n
+            getSecretValues(input: $input) {\n
+              name\n
+              value\n
+            }\n
+        }"""
+    variables = {"input": {"secrets": ["SMOKE_TEST_EDGE_CASES"]}}
+    res_data = execute_graphql(auth_session, query, variables)
+
+    assert res_data["data"]["getSecretValues"] is not None
+    secret_values = res_data["data"]["getSecretValues"]
+    secret_value = [x for x in secret_values if x["name"] == "SMOKE_TEST_EDGE_CASES"][0]
+
+    assert secret_value["value"] == edge_case_value, (
+        f"Edge case secret value mismatch after create!\n"
+        f"Expected length: {len(edge_case_value)}\n"
+        f"Got length: {len(secret_value['value'])}"
+    )
+
+    updated_edge_case = """Password with all the problematic chars:
+P@ssw0rd!/?\\"'`~
+Connection string: mongodb://user:p@ss"word'123@localhost:27017/db?authSource=admin
+JSON snippet: {"key": "value with \\"quotes\\" and 'apostrophes'", "path": "C:\\\\Windows\\\\System32"}
+Multiline command:
+  echo "Line 1" && \\
+  echo 'Line 2' && \\
+  echo Line\\ 3
+Heredoc-like:
+<<EOF
+Content with "quotes" and 'apostrophes'
+\t\tIndented with tabs
+EOF"""
+
+    query = """mutation updateSecret($input: UpdateSecretInput!) {\n
+            updateSecret(input: $input)
+        }"""
+    variables = {
+        "input": {
+            "urn": secret_urn,
+            "name": "SMOKE_TEST_EDGE_CASES",
+            "value": updated_edge_case,
+            "description": "Updated with more edge cases",
+        }
+    }
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["updateSecret"] is not None
+
+    query = """query getSecretValues($input: GetSecretValuesInput!) {\n
+            getSecretValues(input: $input) {\n
+              name\n
+              value\n
+            }\n
+        }"""
+    variables = {"input": {"secrets": ["SMOKE_TEST_EDGE_CASES"]}}
+    res_data = execute_graphql(auth_session, query, variables)
+
+    assert res_data["data"]["getSecretValues"] is not None
+    secret_values = res_data["data"]["getSecretValues"]
+    secret_value = [x for x in secret_values if x["name"] == "SMOKE_TEST_EDGE_CASES"][0]
+
+    assert secret_value["value"] == updated_edge_case, (
+        f"Edge case secret value mismatch after update!\n"
+        f"This indicates the updateSecret escaping bug may still exist.\n"
+        f"Expected length: {len(updated_edge_case)}\n"
+        f"Got length: {len(secret_value['value'])}"
+    )
+
+    query = """mutation deleteSecret($urn: String!) {\n
+            deleteSecret(urn: $urn)
+        }"""
+    variables = {"urn": secret_urn}
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["deleteSecret"] is not None
 
 
 @pytest.mark.dependency()
@@ -274,7 +511,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
         }"""
     variables = {"urn": ingestion_source_urn}
     res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
+    logger.info(res_data)
     assert res_data["data"]["deleteIngestionSource"] is not None
 
     # Ensure the ingestion source has been removed.

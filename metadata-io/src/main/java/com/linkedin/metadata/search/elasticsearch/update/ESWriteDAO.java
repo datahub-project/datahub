@@ -7,6 +7,7 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -14,16 +15,18 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.delete.DeleteRequest;
@@ -38,18 +41,25 @@ import org.opensearch.client.tasks.TaskId;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
   private boolean canWrite = true;
+
+  public ESWriteDAO(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> searchClient,
+      ESBulkProcessor bulkProcessor) {
+    this.config = config;
+    this.searchClient = searchClient;
+    this.bulkProcessor = bulkProcessor;
+  }
 
   public void setWritable(boolean writable) {
     canWrite = writable;
@@ -224,11 +234,17 @@ public class ESWriteDAO {
     bulkProcessor.add(updateRequest);
   }
 
-  /** Clear all documents in all the indices */
-  public void clear(@Nonnull OperationContext opContext) {
+  /**
+   * Delete the index
+   *
+   * @param opContext the operation context
+   * @return set of index names that were deleted
+   */
+  @Nonnull
+  public Set<String> clear(@Nonnull OperationContext opContext) {
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
-      return;
+      return Collections.emptySet();
     }
     List<String> patterns =
         opContext
@@ -239,7 +255,31 @@ public class ESWriteDAO {
     for (String pattern : patterns) {
       allIndices.addAll(Arrays.asList(getIndices(pattern)));
     }
-    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), allIndices.toArray(new String[0]));
+
+    // Track which indices (aliases or concrete) were deleted so the caller can recreate them
+    Set<String> deletedIndexNames = new HashSet<>();
+
+    // Instead of deleting all documents (inefficient), delete the indices themselves
+    for (String indexName : allIndices) {
+      try {
+        String nameToTrack = IndexDeletionUtils.deleteIndex(searchClient, indexName);
+        if (nameToTrack != null) {
+          deletedIndexNames.add(nameToTrack);
+        }
+      } catch (IOException e) {
+        log.error("Failed to delete index {} during clear operation", indexName, e);
+        throw new RuntimeException("Failed to clear index: " + indexName, e);
+      }
+    }
+
+    if (deletedIndexNames.isEmpty()) {
+      log.info("No indices were deleted");
+    } else {
+      log.info(
+          "Deleted {} indices. Caller should recreate them if needed.", deletedIndexNames.size());
+    }
+
+    return deletedIndexNames;
   }
 
   private String[] getIndices(String pattern) {
@@ -248,8 +288,24 @@ public class ESWriteDAO {
           searchClient.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
-      log.error("Failed to get indices using pattern {}", pattern);
-      return new String[] {};
+      // Only treat index_not_found_exception as "no indices"
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      // For real errors (ES down, network issues, etc.), propagate the exception
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      throw new RuntimeException(
+          "Failed to communicate with Elasticsearch for pattern: " + pattern, e);
+    } catch (Exception e) {
+      // Handle OpenSearchStatusException and similar
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      throw new RuntimeException(
+          "Failed to communicate with Elasticsearch for pattern: " + pattern, e);
     }
   }
 

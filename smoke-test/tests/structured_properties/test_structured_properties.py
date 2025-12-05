@@ -75,10 +75,10 @@ def ingest_cleanup_data(auth_session, graph_client, request):
     new_file, filename = tempfile.mkstemp()
     try:
         create_test_data(filename)
-        print("ingesting structured properties test data")
+        logger.info("ingesting structured properties test data")
         ingest_file_via_rest(auth_session, filename)
         yield
-        print("removing structured properties test data")
+        logger.info("removing structured properties test data")
         delete_urns_from_file(graph_client, filename)
         delete_urns(graph_client, generated_urns)
         wait_for_writes_to_sync()

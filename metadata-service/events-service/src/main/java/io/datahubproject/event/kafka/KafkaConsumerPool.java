@@ -1,37 +1,50 @@
 package io.datahubproject.event.kafka;
 
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.springframework.kafka.core.ConsumerFactory;
 
+@Slf4j
 public class KafkaConsumerPool {
 
-  private final BlockingQueue<KafkaConsumer<String, GenericRecord>> consumerPool;
+  private final BlockingQueue<CheckedConsumer> consumerPool;
   private final ConsumerFactory<String, GenericRecord> consumerFactory;
   private final int maxPoolSize;
+  private final Duration validationTimeout;
+  private final Duration validationCacheInterval;
+  @Nullable private final MetricUtils metricUtils;
   @Getter private final AtomicInteger totalConsumersCreated = new AtomicInteger(0);
-  @Getter private final Set<KafkaConsumer<String, GenericRecord>> activeConsumers = new HashSet<>();
   @Getter private volatile boolean shuttingDown = false;
 
-  private final ReentrantLock activeConsumersLock = new ReentrantLock();
-
+  private final Set<CheckedConsumer> allConsumers = ConcurrentHashMap.newKeySet();
   private final ReentrantLock poolManagementLock = new ReentrantLock();
 
   public KafkaConsumerPool(
       final ConsumerFactory<String, GenericRecord> consumerFactory,
       final int initialPoolSize,
-      final int maxPoolSize) {
+      final int maxPoolSize,
+      final Duration validationTimeout,
+      final Duration validationCacheInterval,
+      @Nullable final MetricUtils metricUtils) {
     this.consumerFactory = consumerFactory;
     this.maxPoolSize = maxPoolSize;
+    this.validationTimeout = validationTimeout;
+    this.validationCacheInterval = validationCacheInterval;
+    this.metricUtils = metricUtils;
     this.consumerPool = new LinkedBlockingQueue<>(maxPoolSize);
 
     // Initialize the pool with initial consumers
@@ -41,95 +54,153 @@ public class KafkaConsumerPool {
   }
 
   // Create a new consumer when required
-  private KafkaConsumer<String, GenericRecord> createConsumer() {
-    totalConsumersCreated.incrementAndGet();
-    KafkaConsumer<String, GenericRecord> consumer =
-        (KafkaConsumer<String, GenericRecord>) consumerFactory.createConsumer();
-
-    activeConsumersLock.lock();
+  private CheckedConsumer createConsumer() {
+    poolManagementLock.lock();
     try {
-      activeConsumers.add(consumer);
+      if (totalConsumersCreated.get() >= maxPoolSize || shuttingDown) {
+        return null;
+      }
+      totalConsumersCreated.incrementAndGet();
     } finally {
-      activeConsumersLock.unlock();
+      poolManagementLock.unlock();
     }
 
-    return consumer;
+    try {
+      KafkaConsumer<String, GenericRecord> consumer =
+          (KafkaConsumer<String, GenericRecord>) consumerFactory.createConsumer();
+      CheckedConsumer checkedConsumer =
+          new CheckedConsumer(consumer, validationTimeout, validationCacheInterval, metricUtils);
+      allConsumers.add(checkedConsumer);
+      return checkedConsumer;
+    } catch (Exception e) {
+      poolManagementLock.lock();
+      try {
+        totalConsumersCreated.decrementAndGet();
+      } finally {
+        poolManagementLock.unlock();
+      }
+      throw e;
+    }
   }
 
   // Borrow a consumer from the pool
   @Nullable
-  public KafkaConsumer<String, GenericRecord> borrowConsumer(long time, TimeUnit timeUnit)
+  public CheckedConsumer borrowConsumer(long time, TimeUnit timeUnit, @Nonnull String topic)
       throws InterruptedException {
     if (shuttingDown) {
       return null;
     }
+    if (topic == null || topic.isEmpty()) {
+      throw new IllegalArgumentException("Topic must be non-null and non-empty");
+    }
 
-    KafkaConsumer<String, GenericRecord> consumer = consumerPool.poll();
+    CheckedConsumer checkedConsumer = null;
+    long remainingTime = timeUnit.toMillis(time);
+    long startTime = System.currentTimeMillis();
+    int consecutiveInvalidCount = 0;
+    final int maxConsecutiveInvalid = maxPoolSize + 1;
 
-    // If no consumer is available, create a new one if we haven't hit the max pool size
-    if (consumer == null) {
-      poolManagementLock.lock();
-      try {
+    while (checkedConsumer == null && remainingTime > 0) {
+      CheckedConsumer candidate = consumerPool.poll();
 
-        if (totalConsumersCreated.get() < maxPoolSize && !shuttingDown) {
-          consumer = createConsumer();
+      if (candidate != null) {
+        if (candidate.isValid(topic)) {
+          checkedConsumer = candidate;
+          checkedConsumer.setState(CheckedConsumer.ConsumerState.BORROWED);
+          consecutiveInvalidCount = 0;
+        } else {
+          log.warn("Found invalid consumer in pool, closing and removing it");
+          closeAndRemoveConsumer(candidate);
+          consecutiveInvalidCount++;
         }
-      } finally {
-        poolManagementLock.unlock();
       }
 
-      // If still null, wait for a consumer to be returned
-      if (consumer == null) {
-        consumer = consumerPool.poll(time, timeUnit);
+      if (checkedConsumer == null) {
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        remainingTime = timeUnit.toMillis(time) - elapsedTime;
+
+        boolean canCreateMore = false;
+        poolManagementLock.lock();
+        try {
+          canCreateMore = totalConsumersCreated.get() < maxPoolSize && !shuttingDown;
+        } finally {
+          poolManagementLock.unlock();
+        }
+
+        if (canCreateMore) {
+          if (consecutiveInvalidCount >= maxConsecutiveInvalid) {
+            log.error(
+                "Too many consecutive invalid consumers ({}), possible Kafka connectivity issue. "
+                    + "Waiting before retrying.",
+                consecutiveInvalidCount);
+            if (remainingTime > 0) {
+              try {
+                Thread.sleep(Math.min(1000, remainingTime));
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+              }
+              consecutiveInvalidCount = 0;
+            }
+          } else {
+            CheckedConsumer newCheckedConsumer = createConsumer();
+            if (newCheckedConsumer != null && newCheckedConsumer.isValid(topic)) {
+              checkedConsumer = newCheckedConsumer;
+              checkedConsumer.setState(CheckedConsumer.ConsumerState.BORROWED);
+              consecutiveInvalidCount = 0;
+            } else if (newCheckedConsumer != null) {
+              log.warn("Newly created consumer is invalid, closing and removing it");
+              closeAndRemoveConsumer(newCheckedConsumer);
+              consecutiveInvalidCount++;
+            }
+          }
+        }
+
+        if (checkedConsumer == null && !canCreateMore) {
+          if (remainingTime > 0) {
+            candidate = consumerPool.poll(remainingTime, TimeUnit.MILLISECONDS);
+            if (candidate != null && candidate.isValid(topic)) {
+              checkedConsumer = candidate;
+              checkedConsumer.setState(CheckedConsumer.ConsumerState.BORROWED);
+              consecutiveInvalidCount = 0;
+            } else if (candidate != null) {
+              log.warn("Found invalid consumer while waiting, closing and removing it");
+              closeAndRemoveConsumer(candidate);
+              consecutiveInvalidCount++;
+            }
+          }
+        }
       }
     }
 
-    return consumer;
+    return checkedConsumer;
   }
 
-  // Return the consumer to the pool after use
-  public void returnConsumer(KafkaConsumer<String, GenericRecord> consumer) {
-    if (consumer == null) {
-      return;
-    }
-
-    // Verify this is actually one of our consumers
-    boolean isOurConsumer;
-    activeConsumersLock.lock();
-    try {
-      isOurConsumer = activeConsumers.contains(consumer);
-    } finally {
-      activeConsumersLock.unlock();
-    }
-
-    if (!isOurConsumer) {
-      // Not our consumer, don't add to pool
+  public void returnConsumer(CheckedConsumer checkedConsumer) {
+    if (checkedConsumer == null) {
       return;
     }
 
     if (shuttingDown) {
-      // Pool is shutting down, close the consumer instead of returning it
-      closeAndRemoveConsumer(consumer);
+      closeAndRemoveConsumer(checkedConsumer);
       return;
     }
 
-    // Try to return to pool, if it fails close the consumer
-    if (!consumerPool.offer(consumer)) {
-      closeAndRemoveConsumer(consumer);
+    checkedConsumer.setState(CheckedConsumer.ConsumerState.AVAILABLE);
+    if (!consumerPool.offer(checkedConsumer)) {
+      closeAndRemoveConsumer(checkedConsumer);
     }
   }
 
-  private void closeAndRemoveConsumer(KafkaConsumer<String, GenericRecord> consumer) {
+  private void closeAndRemoveConsumer(CheckedConsumer checkedConsumer) {
+    checkedConsumer.setState(CheckedConsumer.ConsumerState.CLOSED);
+    checkedConsumer.close();
+    allConsumers.remove(checkedConsumer);
+    poolManagementLock.lock();
     try {
-      consumer.close();
+      totalConsumersCreated.decrementAndGet();
     } finally {
-      activeConsumersLock.lock();
-      try {
-        activeConsumers.remove(consumer);
-        totalConsumersCreated.decrementAndGet();
-      } finally {
-        activeConsumersLock.unlock();
-      }
+      poolManagementLock.unlock();
     }
   }
 
@@ -142,17 +213,19 @@ public class KafkaConsumerPool {
       poolManagementLock.unlock();
     }
 
-    activeConsumersLock.lock();
-    try {
-      // Close all consumers (both in pool and borrowed)
-      for (KafkaConsumer<String, GenericRecord> consumer : activeConsumers) {
-        closeAndRemoveConsumer(consumer);
-      }
-      activeConsumers.clear();
-    } finally {
-      activeConsumersLock.unlock();
-    }
-
+    Set<CheckedConsumer> consumersToClose = new HashSet<>(allConsumers);
+    allConsumers.clear();
     consumerPool.clear();
+
+    poolManagementLock.lock();
+    try {
+      for (CheckedConsumer consumer : consumersToClose) {
+        consumer.setState(CheckedConsumer.ConsumerState.CLOSED);
+        consumer.close();
+        totalConsumersCreated.decrementAndGet();
+      }
+    } finally {
+      poolManagementLock.unlock();
+    }
   }
 }

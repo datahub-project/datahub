@@ -42,6 +42,10 @@ If you are using git worktrees then exclude this as that might cause git related
 cd datahub-web-react && yarn start                     # Frontend dev server
 ```
 
+**Java SDK v2 integration tests:**
+
+See [metadata-integration/java/datahub-client/CLAUDE.md](metadata-integration/java/datahub-client/CLAUDE.md) for detailed integration test documentation.
+
 ## Architecture Overview
 
 DataHub is a **schema-first, event-driven metadata platform** with three core layers:

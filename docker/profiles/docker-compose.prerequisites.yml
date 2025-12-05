@@ -405,10 +405,6 @@ services:
     environment:
       - discovery.type=single-node
       - DISABLE_SECURITY_PLUGIN=true
-    deploy:
-      resources:
-        limits:
-          memory: 2G
     healthcheck:
       test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
       start_period: 60s

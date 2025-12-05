@@ -4,7 +4,7 @@ import { colors, radius, spacing, typography } from '@src/alchemy-components/the
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
 export const CardContainer = styled.div<{ isClickable?: boolean; width?: string; maxWidth?: string; height?: string }>(
-    ({ isClickable, width, maxWidth, height }) => ({
+    ({ isClickable, width, maxWidth, height, theme }) => ({
         border: `1px solid ${colors.gray[100]}`,
         borderRadius: radius.lg,
         padding: spacing.md,
@@ -21,7 +21,7 @@ export const CardContainer = styled.div<{ isClickable?: boolean; width?: string;
 
         '&:hover': isClickable
             ? {
-                  border: `1px solid ${({ theme }) => theme.styles['primary-color']}`,
+                  border: `1px solid ${theme.styles['primary-color']}`,
                   cursor: 'pointer',
               }
             : {},
@@ -39,7 +39,7 @@ export const Header = styled.div<{ iconAlignment?: IconAlignmentOptions }>(({ ic
 export const TitleContainer = styled.div({
     display: 'flex',
     flexDirection: 'column',
-    gap: 0,
+    gap: 2,
     width: '100%',
 });
 
@@ -50,6 +50,7 @@ export const Title = styled.div<{ $isEmpty?: boolean }>(({ $isEmpty }) => ({
     display: 'flex',
     alignItems: 'center',
     gap: spacing.xsm,
+    lineHeight: 'normal',
 }));
 
 export const SubTitleContainer = styled.div({
@@ -58,8 +59,19 @@ export const SubTitleContainer = styled.div({
     alignItems: 'center',
 });
 
-export const SubTitle = styled.div({
+export const SubTitle = styled.div<{ $noOfSubtitleLines?: number }>(({ $noOfSubtitleLines }) => ({
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.normal,
     color: colors.gray[1700],
-});
+    lineHeight: 'normal',
+
+    ...($noOfSubtitleLines
+        ? {
+              display: '-webkit-box',
+              WebkitLineClamp: $noOfSubtitleLines,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+          }
+        : {}),
+}));

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import pytest
@@ -9,6 +10,8 @@ from tests.utils import (
     ingest_file_via_rest,
     wait_for_writes_to_sync,
 )
+
+logger = logging.getLogger(__name__)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -98,8 +101,8 @@ def test_delete_reference(graph_client, test_setup):
     references_count, related_aspects = graph_client.delete_references_to_urn(
         tag_urn, dry_run=True
     )
-    print("reference count: " + str(references_count))
-    print(related_aspects)
+    logger.info("reference count: " + str(references_count))
+    logger.info(related_aspects)
     assert references_count == 1
     assert related_aspects[0]["entity"] == dataset_urn
 

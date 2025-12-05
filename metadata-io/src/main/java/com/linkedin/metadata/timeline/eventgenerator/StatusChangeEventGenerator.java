@@ -39,7 +39,7 @@ public class StatusChangeEventGenerator extends EntityChangeEventGenerator<Statu
     }
 
     // If the new status is "unremoved", then return an reinstatement event.
-    if (!isRemoved(targetStatus)) {
+    if (!isRemoved(targetStatus) && isRemoved(baseStatus)) {
       return Collections.singletonList(
           ChangeEvent.builder()
               .category(ChangeCategory.LIFECYCLE)

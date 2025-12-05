@@ -19,7 +19,7 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
         <PageLayout
             title={step?.label}
             rightPanelContent={step?.hideRightPanel ? null : <AIChat />}
-            buttomPanelContent={step?.hideBottomPanel ? null : <MultiStepFormBottomPanel />}
+            bottomPanelContent={step?.hideBottomPanel ? null : <MultiStepFormBottomPanel />}
         >
             {children}
         </PageLayout>

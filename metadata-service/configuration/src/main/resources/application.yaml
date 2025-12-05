@@ -583,6 +583,8 @@ kafka:
   consumerPool:
     initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
     maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
+    validationTimeoutSeconds: ${KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS:5}
+    validationCacheIntervalMinutes: ${KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES:5}
 
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
