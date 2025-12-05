@@ -9,7 +9,6 @@ export interface SearchDocumentsInput {
     rootOnly?: boolean;
     types?: string[];
     states?: DocumentState[];
-    includeDrafts?: boolean;
     start?: number;
     count?: number;
     fetchPolicy?: 'cache-first' | 'cache-and-network' | 'network-only';
@@ -23,12 +22,10 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 start: input.start || 0,
                 count: input.count || 100,
                 query: input.query || '*',
-                parentDocument: input.parentDocument,
+                parentDocuments: input.parentDocument ? [input.parentDocument] : undefined,
                 rootOnly: input.rootOnly,
                 types: input.types,
-                states: input.states || [DocumentState.Published, DocumentState.Unpublished],
                 sourceType: DocumentSourceType.Native,
-                includeDrafts: input.includeDrafts || false,
             },
             includeParentDocuments: input.includeParentDocuments || false,
         },
