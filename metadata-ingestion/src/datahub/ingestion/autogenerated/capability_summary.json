@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-12-01T00:13:13.933940+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -36,6 +36,44 @@
       "platform_id": "abs",
       "platform_name": "ABS Data Lake",
       "support_status": "INCUBATING"
+    },
+    "airbyte": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default when stateful ingestion is turned on.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Requires recipe configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.airbyte.source.AirbyteSource",
+      "platform_id": "airbyte",
+      "platform_name": "Airbyte",
+      "support_status": "CERTIFIED"
     },
     "athena": {
       "capabilities": [
