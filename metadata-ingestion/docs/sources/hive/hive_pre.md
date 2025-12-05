@@ -164,7 +164,7 @@ source:
     password: ${HIVE_PASSWORD}
 
     # Enable storage lineage
-    emit_storage_lineage: true
+    include_table_location_lineage: true
 ```
 
 This will:
@@ -179,7 +179,7 @@ Storage lineage behavior is controlled by four parameters:
 
 | Parameter                        | Type    | Default      | Description                                                                 |
 | -------------------------------- | ------- | ------------ | --------------------------------------------------------------------------- |
-| `emit_storage_lineage`           | boolean | `false`      | Master toggle to enable/disable storage lineage                             |
+| `include_table_location_lineage` | boolean | `false`      | Master toggle to enable/disable storage lineage                             |
 | `hive_storage_lineage_direction` | string  | `"upstream"` | Direction: `"upstream"` (storage → Hive) or `"downstream"` (Hive → storage) |
 | `include_column_lineage`         | boolean | `true`       | Enable column-level lineage from storage paths to Hive columns              |
 | `storage_platform_instance`      | string  | `None`       | Platform instance for storage URNs (e.g., `"prod-s3"`, `"dev-hdfs"`)        |
@@ -227,7 +227,7 @@ source:
   config:
     platform_instance: "prod-hive" # Hive environment
     storage_platform_instance: "prod-s3" # Storage environment
-    emit_storage_lineage: true
+    include_table_location_lineage: true
 ```
 
 ### Performance Considerations
@@ -253,7 +253,7 @@ For Hive clusters with thousands of tables, consider:
 3. **Disable Column Lineage**: If not needed, disable to improve performance:
 
    ```yaml
-   emit_storage_lineage: true
+   include_table_location_lineage: true
    include_column_lineage: false # Faster ingestion
    ```
 
@@ -349,7 +349,7 @@ For Hive clusters with thousands of tables, consider:
 
 **Solutions**:
 
-- Verify `emit_storage_lineage: true` is set
+- Verify `include_table_location_lineage: true` is set
 - Check tables have defined storage locations: `DESCRIBE FORMATTED <table>`
 - Review logs for "Failed to parse storage location" warnings
 - See the "Storage Lineage" section above for more troubleshooting tips

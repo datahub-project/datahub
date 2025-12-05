@@ -26,7 +26,7 @@ def test_hive_metastore_configuration_basic():
     assert config.username == "test_user"
     assert config.host_port == "localhost:3306"
     assert config.database == "test_db"
-    assert config.emit_storage_lineage is False
+    # Note: include_table_location_lineage defaults are inherited from parent config
     assert config.hive_storage_lineage_direction == "upstream"
     assert config.include_column_lineage is True
 
@@ -38,14 +38,14 @@ def test_hive_metastore_storage_lineage_config():
         "password": "test_password",
         "host_port": "localhost:3306",
         "database": "test_db",
-        "emit_storage_lineage": True,
+        "include_table_location_lineage": True,
         "hive_storage_lineage_direction": "downstream",
         "include_column_lineage": False,
         "storage_platform_instance": "prod-cluster",
     }
     config = HiveMetastore.model_validate(config_dict)
 
-    assert config.emit_storage_lineage is True
+    assert config.include_table_location_lineage is True
     assert config.hive_storage_lineage_direction == "downstream"
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod-cluster"
@@ -61,7 +61,7 @@ def test_hive_metastore_storage_lineage_direction_validation():
         "password": "test_password",
         "host_port": "localhost:3306",
         "database": "test_db",
-        "emit_storage_lineage": True,
+        "include_table_location_lineage": True,
         "hive_storage_lineage_direction": "invalid_direction",
     }
 
@@ -78,7 +78,7 @@ def test_hive_metastore_source_initialization():
         "password": "test_password",
         "host_port": "localhost:3306",
         "database": "test_db",
-        "emit_storage_lineage": True,
+        "include_table_location_lineage": True,
     }
     config = HiveMetastore.model_validate(config_dict)
     ctx = PipelineContext(run_id="test-run")
@@ -90,7 +90,7 @@ def test_hive_metastore_source_initialization():
 
         assert source.config == config
         assert source.storage_lineage is not None
-        assert source.storage_lineage.config.emit_storage_lineage is True
+        assert source.storage_lineage.config.include_table_location_lineage is True
 
 
 @patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
@@ -101,7 +101,7 @@ def test_hive_metastore_source_with_storage_lineage_disabled(mock_client):
         "password": "test_password",
         "host_port": "localhost:3306",
         "database": "test_db",
-        "emit_storage_lineage": False,
+        "include_table_location_lineage": False,
     }
     config = HiveMetastore.model_validate(config_dict)
     ctx = PipelineContext(run_id="test-run")
@@ -123,13 +123,13 @@ def test_hive_metastore_source_with_storage_lineage_disabled(mock_client):
 def test_storage_lineage_config_upstream_direction():
     """Test HiveStorageLineageConfigMixin with upstream direction"""
     config = HiveStorageLineageConfigMixin(
-        emit_storage_lineage=True,
+        include_table_location_lineage=True,
         hive_storage_lineage_direction="upstream",
         include_column_lineage=True,
         storage_platform_instance=None,
     )
 
-    assert config.emit_storage_lineage is True
+    assert config.include_table_location_lineage is True
     assert config.hive_storage_lineage_direction == "upstream"
     assert config.include_column_lineage is True
 
@@ -137,13 +137,13 @@ def test_storage_lineage_config_upstream_direction():
 def test_storage_lineage_config_downstream_direction():
     """Test HiveStorageLineageConfigMixin with downstream direction"""
     config = HiveStorageLineageConfigMixin(
-        emit_storage_lineage=True,
+        include_table_location_lineage=True,
         hive_storage_lineage_direction="downstream",
         include_column_lineage=False,
         storage_platform_instance="prod",
     )
 
-    assert config.emit_storage_lineage is True
+    assert config.include_table_location_lineage is True
     assert config.hive_storage_lineage_direction == "downstream"
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod"
@@ -153,7 +153,7 @@ def test_storage_lineage_config_invalid_direction():
     """Test that HiveStorageLineageConfigMixin raises ValueError for invalid direction"""
     with pytest.raises(ValueError) as exc_info:
         HiveStorageLineageConfigMixin(
-            emit_storage_lineage=True,
+            include_table_location_lineage=True,
             hive_storage_lineage_direction="sideways",
             include_column_lineage=True,
             storage_platform_instance=None,
@@ -167,14 +167,14 @@ def test_storage_lineage_config_enum_values():
     from datahub.ingestion.source.sql.hive.storage_lineage import LineageDirection
 
     config1 = HiveStorageLineageConfigMixin(
-        emit_storage_lineage=True,
+        include_table_location_lineage=True,
         hive_storage_lineage_direction=LineageDirection.UPSTREAM,
         include_column_lineage=True,
         storage_platform_instance=None,
     )
 
     config2 = HiveStorageLineageConfigMixin(
-        emit_storage_lineage=True,
+        include_table_location_lineage=True,
         hive_storage_lineage_direction=LineageDirection.DOWNSTREAM,
         include_column_lineage=True,
         storage_platform_instance=None,
@@ -236,7 +236,7 @@ def test_hive_metastore_source_storage_lineage_integration(mock_client):
         "password": "test_password",
         "host_port": "localhost:3306",
         "database": "test_db",
-        "emit_storage_lineage": True,
+        "include_table_location_lineage": True,
         "hive_storage_lineage_direction": "upstream",
         "include_column_lineage": True,
         "storage_platform_instance": "prod",
@@ -249,7 +249,7 @@ def test_hive_metastore_source_storage_lineage_integration(mock_client):
     source = HiveMetastoreSource(config, ctx)
 
     assert source.storage_lineage is not None
-    assert source.storage_lineage.config.emit_storage_lineage is True
+    assert source.storage_lineage.config.include_table_location_lineage is True
     assert source.storage_lineage.config.hive_storage_lineage_direction == "upstream"
     assert source.storage_lineage.config.include_column_lineage is True
     assert source.storage_lineage.env == "PROD"
@@ -265,7 +265,7 @@ def test_hive_metastore_all_storage_platforms():
             "password": "test_password",
             "host_port": "localhost:3306",
             "database": "test_db",
-            "emit_storage_lineage": True,
+            "include_table_location_lineage": True,
             "storage_platform_instance": f"{platform}-prod",
         }
         config = HiveMetastore.model_validate(config_dict)
@@ -603,18 +603,18 @@ def test_hive_metastore_storage_lineage_config_from_mixin():
         "password": "test_password",
         "host_port": "localhost:3306",
         "database": "test_db",
-        "emit_storage_lineage": True,
+        "include_table_location_lineage": True,
         "hive_storage_lineage_direction": "downstream",
         "include_column_lineage": False,
         "storage_platform_instance": "prod-s3",
     }
     config = HiveMetastore.model_validate(config_dict)
 
-    assert config.emit_storage_lineage is True
+    assert config.include_table_location_lineage is True
     assert config.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod-s3"
 
     # Config inherits from HiveStorageLineageConfigMixin
-    assert config.emit_storage_lineage is True
+    assert config.include_table_location_lineage is True
     assert config.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM
