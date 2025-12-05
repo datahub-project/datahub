@@ -868,36 +868,47 @@ class SqlParsingAggregator(Closeable):
                 self.report.num_observed_queries_column_timeout += 1
 
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
-        downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
-        logger.info(
-            f"[OBSERVED-TO-PREPARSED] Creating PreparsedQuery: query_type={parsed.query_type}, "
-            f"in_tables={len(parsed.in_tables)}, out_tables={len(parsed.out_tables)}, "
-            f"downstream={downstream_urn}"
-        )
-        self.add_preparsed_query(
-            PreparsedQuery(
-                query_id=query_fingerprint,
-                query_text=observed.query,
-                query_count=observed.usage_multiplier,
-                timestamp=observed.timestamp,
-                user=observed.user,
-                session_id=session_id,
-                query_type=parsed.query_type,
-                query_type_props=parsed.query_type_props,
-                upstreams=parsed.in_tables,
-                downstream=downstream_urn,
-                column_lineage=parsed.column_lineage,
-                # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
-                inferred_schema=infer_output_schema(parsed),
-                confidence_score=parsed.debug_info.confidence,
-                extra_info=observed.extra_info,
-            ),
-            is_known_temp_table=is_known_temp_table,
-            require_out_table_schema=require_out_table_schema,
-            session_has_temp_tables=session_has_temp_tables,
-            _is_internal=True,
-        )
+
+        # Phase 1 Fix: Register ALL output tables, not just the first one
+        # This fixes the bug where stored procedures with multiple output tables
+        # only showed the first table as downstream.
+        # We create one PreparsedQuery per output table, maintaining the
+        # "one PreparsedQuery = one downstream" semantic model.
+        #
+        # For queries with no output tables (e.g., SELECT), we still create one
+        # PreparsedQuery with downstream=None to track usage statistics.
+        output_tables = parsed.out_tables if parsed.out_tables else [None]
+
+        for downstream_urn in output_tables:
+            logger.info(
+                f"[OBSERVED-TO-PREPARSED] Creating PreparsedQuery: query_type={parsed.query_type}, "
+                f"in_tables={len(parsed.in_tables)}, out_tables={len(parsed.out_tables)}, "
+                f"downstream={downstream_urn}"
+            )
+            self.add_preparsed_query(
+                PreparsedQuery(
+                    query_id=query_fingerprint,
+                    query_text=observed.query,
+                    query_count=observed.usage_multiplier,
+                    timestamp=observed.timestamp,
+                    user=observed.user,
+                    session_id=session_id,
+                    query_type=parsed.query_type,
+                    query_type_props=parsed.query_type_props,
+                    upstreams=parsed.in_tables,
+                    downstream=downstream_urn,
+                    column_lineage=parsed.column_lineage,
+                    # TODO: We need a full list of columns referenced, not just the out tables.
+                    column_usage=self._compute_upstream_fields(parsed),
+                    inferred_schema=infer_output_schema(parsed),
+                    confidence_score=parsed.debug_info.confidence,
+                    extra_info=observed.extra_info,
+                ),
+                is_known_temp_table=is_known_temp_table,
+                require_out_table_schema=require_out_table_schema,
+                session_has_temp_tables=session_has_temp_tables,
+                _is_internal=True,
+            )
 
     def add_preparsed_query(
         self,
