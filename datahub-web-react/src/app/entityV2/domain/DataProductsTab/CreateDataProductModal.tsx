@@ -1,4 +1,5 @@
-import { Button, Modal, message } from 'antd';
+import { Modal } from '@components';
+import { message } from 'antd';
 import React, { useState } from 'react';
 
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
@@ -9,14 +10,6 @@ import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 
 import { useCreateDataProductMutation } from '@graphql/dataProduct.generated';
 import { DataHubPageModuleType, DataProduct, Domain } from '@types';
-
-export const MODAL_WIDTH = '75vw';
-
-export const MODAL_BODY_STYLE = {
-    overflow: 'auto',
-    width: '80vw',
-    maxWidth: 800,
-};
 
 const DEFAULT_STATE = {
     name: '',
@@ -72,25 +65,23 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
         <Modal
             title="Create Data Product"
             onCancel={onClose}
-            style={MODAL_BODY_STYLE}
-            width={MODAL_WIDTH}
-            data-testid="create-data-product-modal"
             open
-            footer={
-                <>
-                    <Button onClick={onClose} type="text" data-testid="cancel-button">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        onClick={createDataProduct}
-                        disabled={!builderState.name}
-                        data-testid="submit-button"
-                    >
-                        Create
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                    buttonDataTestId: 'cancel-button',
+                },
+                {
+                    text: 'Create',
+                    onClick: createDataProduct,
+                    variant: 'filled',
+                    disabled: !builderState.name,
+                    buttonDataTestId: 'submit-button',
+                },
+            ]}
+            data-testid="create-data-product-modal"
         >
             <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
         </Modal>
