@@ -1,5 +1,5 @@
 import { Breadcrumb } from '@components';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
@@ -29,6 +29,8 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
     const currentStep = useMemo(() => getCurrentStep(), [getCurrentStep]);
     const isEditing = state?.isEditing;
 
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
     const breadCrumpStepItems: BreadcrumbItem[] = steps.map((step) => {
         const breadCrumpItem: BreadcrumbItem = {
             label: step.label,
@@ -37,6 +39,12 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
 
         return breadCrumpItem;
     }, []);
+
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0 });
+        }
+    }, [currentStep]);
 
     const breadCrumb = (
         <Breadcrumb
@@ -58,7 +66,7 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
             bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
             topBreadcrumb={breadCrumb}
         >
-            <ContentWrapper>{children}</ContentWrapper>
+            <ContentWrapper ref={scrollContainerRef}>{children}</ContentWrapper>
         </PageLayout>
     );
 }

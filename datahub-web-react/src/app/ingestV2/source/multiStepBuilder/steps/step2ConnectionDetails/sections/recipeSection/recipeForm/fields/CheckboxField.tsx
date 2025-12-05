@@ -18,16 +18,16 @@ const CheckboxWithHelper = styled.div`
 `;
 
 interface Props {
+    id?: string;
     checked?: boolean;
     onChange?: (newValue: boolean) => void;
-
     helper?: string;
 }
 
-function AntdFormCompatibmeCheckbox({ checked, onChange, helper }: Props) {
+function AntdFormCompatibmeCheckbox({ id, checked, onChange, helper }: Props) {
     return (
         <CheckboxWithHelper>
-            <Checkbox isChecked={checked} onCheckboxChange={onChange} justifyContent="flex-start" />
+            <Checkbox id={id} isChecked={checked} onCheckboxChange={onChange} justifyContent="flex-start" />
             {helper && (
                 <Text size="sm" color="gray" colorLevel={600}>
                     {helper}

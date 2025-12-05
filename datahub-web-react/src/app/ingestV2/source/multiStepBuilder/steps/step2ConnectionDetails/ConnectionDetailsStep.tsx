@@ -44,12 +44,8 @@ export function ConnectionDetailsStep() {
     const isEditing = !!state.isEditing;
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
-    // TODO: Delete LookML banner specific code
-    const isSourceLooker: boolean = sourceConfigs?.name === 'looker';
-    const [showLookerBanner] = useState(isSourceLooker && !isEditing);
-
     useEffect(() => {
-        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0 && !showLookerBanner) {
+        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
             setCurrentStepCompleted();
         } else {
             setCurrentStepUncompleted();
@@ -57,7 +53,6 @@ export function ConnectionDetailsStep() {
     }, [
         isRecipeValid,
         stagedRecipeYml,
-        showLookerBanner,
         setCurrentStepCompleted,
         setCurrentStepUncompleted,
         state.name,
