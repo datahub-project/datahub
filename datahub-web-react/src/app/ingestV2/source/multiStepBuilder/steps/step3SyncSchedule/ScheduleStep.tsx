@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
 
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 export function ScheduleStep() {
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted } = useMultiStepContext<
-        SourceBuilderState,
+        MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
 

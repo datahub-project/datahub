@@ -3,6 +3,7 @@ import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/sou
 export const BIGQUERY_BETA_PROJECT_ID: RecipeField = {
     name: 'credential.project_id',
     label: 'Project ID',
+    helper: 'Project ID from service account',
     tooltip: "The Project ID, which can be found in your service account's JSON Key (project_id)",
     placeholder: 'my-project-123',
     type: FieldType.TEXT,
@@ -15,6 +16,7 @@ const projectIdAllowFieldPath = 'source.config.project_id_pattern.allow';
 export const PROJECT_ALLOW: RecipeField = {
     name: 'project_id_pattern.allow',
     label: 'Allow Patterns',
+    helper: 'Filter for project IDs',
     tooltip: 'Use regex here to filter for project IDs.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
@@ -30,6 +32,7 @@ const projectIdDenyFieldPath = 'source.config.project_id_pattern.deny';
 export const PROJECT_DENY: RecipeField = {
     name: 'project_id_pattern.deny',
     label: 'Deny Patterns',
+    helper: 'Filter out project IDs',
     tooltip: 'Use regex here to filter for project IDs.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
@@ -45,6 +48,7 @@ const datasetAllowFieldPath = 'source.config.dataset_pattern.allow';
 export const DATASET_ALLOW: RecipeField = {
     name: 'dataset_pattern.allow',
     label: 'Allow Patterns',
+    helper: 'Allow specific datasets',
     tooltip: 'Use regex here.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
@@ -60,6 +64,7 @@ const datasetDenyFieldPath = 'source.config.dataset_pattern.deny';
 export const DATASET_DENY: RecipeField = {
     name: 'dataset_pattern.deny',
     label: 'Deny Patterns',
+    helper: 'Deny specific datasets',
     tooltip: 'Use regex here.',
     placeholder: '^my_db$',
     type: FieldType.LIST,

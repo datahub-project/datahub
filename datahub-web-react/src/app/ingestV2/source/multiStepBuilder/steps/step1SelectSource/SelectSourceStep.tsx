@@ -2,7 +2,6 @@ import { Badge, Icon, colors } from '@components';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
 import sourcesJson from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/sources.json';
@@ -13,7 +12,7 @@ import {
     groupByCategory,
     sortByPopularFirst,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 const StepContainer = styled.div`
@@ -58,7 +57,7 @@ const RightSection = styled.div`
 
 export function SelectSourceStep() {
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
-        SourceBuilderState,
+        MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
 

@@ -1,3 +1,4 @@
+import { Divider } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -29,4 +30,11 @@ export const BreadcrumbButton = styled(Text)`
     :hover {
         color: ${colors.primary[500]};
     }
+`;
+
+export const VerticalDivider = styled(Divider)`
+    color: ${colors.gray[100]};
+    height: 16px;
+    width: 2px;
+    margin: 0 4px;
 `;

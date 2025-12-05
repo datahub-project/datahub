@@ -17,6 +17,8 @@ export const iconDefaults: IconPropsDefaults = {
     tooltipText: '',
 };
 
+const ICON_NAMES = getIconNames();
+
 export const Icon = ({
     icon,
     source = iconDefaults.source,
@@ -29,7 +31,7 @@ export const Icon = ({
     tooltipText,
     ...props
 }: IconProps) => {
-    const { filled, outlined } = getIconNames();
+    const { filled, outlined } = ICON_NAMES;
     const { theme } = useCustomTheme();
 
     // Return early if no icon is provided

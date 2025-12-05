@@ -1,8 +1,8 @@
-import { Breadcrumb, colors } from '@components';
-import { Divider } from 'antd';
+import { Breadcrumb } from '@components';
 import React, { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router';
-import styled from 'styled-components';
+
+import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
@@ -11,13 +11,6 @@ import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-
-const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[100]};
-    height: 16px;
-    width: 2px;
-    margin: 0 4px;
-`;
 
 export default function IngestionRunDetailsPage() {
     const { urn } = useParams<{ urn: string }>();
