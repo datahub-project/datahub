@@ -3,6 +3,12 @@ from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
 import pytest
+from datahub.metadata.schema_classes import (
+    OwnerClass,
+    OwnershipSourceClass,
+    OwnershipSourceTypeClass,
+    OwnershipTypeClass,
+)
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
@@ -19,12 +25,6 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
     parse_dbt_timestamp,
-)
-from datahub.metadata.schema_classes import (
-    OwnerClass,
-    OwnershipSourceClass,
-    OwnershipSourceTypeClass,
-    OwnershipTypeClass,
 )
 from datahub.testing.doctest import assert_doctest
 
@@ -815,3 +815,118 @@ def test_dbt_cloud_source_description_fallback() -> None:
     assert (
         parsed_node.description == "This is the schema-level description for my_schema"
     )
+
+
+# ==================== Contract Tests ====================
+
+
+def test_contract_dataclass():
+    """Test DBTContract dataclass."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTContract
+
+    contract = DBTContract(
+        enforced=True,
+        alias_types=True,
+        checksum="abc123",
+    )
+    assert contract.enforced is True
+    assert contract.alias_types is True
+    assert contract.checksum == "abc123"
+
+    # Test default values
+    contract_defaults = DBTContract(enforced=False)
+    assert contract_defaults.enforced is False
+    assert contract_defaults.alias_types is True
+    assert contract_defaults.checksum is None
+
+
+def test_constraint_dataclass():
+    """Test DBTConstraint dataclass."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTConstraint
+
+    constraint = DBTConstraint(
+        type="not_null",
+        name="nn_col",
+    )
+    assert constraint.type == "not_null"
+    assert constraint.name == "nn_col"
+
+    # Test with all fields
+    constraint_full = DBTConstraint(
+        type="primary_key",
+        name="pk_id",
+        expression="id > 0",
+        columns=["id", "name"],
+    )
+    assert constraint_full.type == "primary_key"
+    assert constraint_full.columns == ["id", "name"]
+
+
+def test_contract_config_options():
+    """Test contract configuration options in DBTCommonConfig."""
+    config = DBTCoreConfig(
+        manifest_path="dummy_path",
+        target_platform="postgres",
+        ingest_contracts=True,
+        contract_test_tag="custom_contract",
+        ingest_column_constraints_as_assertions=False,
+    )
+    assert config.ingest_contracts is True
+    assert config.contract_test_tag == "custom_contract"
+    assert config.ingest_column_constraints_as_assertions is False
+
+
+def test_contract_config_defaults():
+    """Test default values for contract configuration."""
+    config = DBTCoreConfig(
+        manifest_path="dummy_path",
+        target_platform="postgres",
+    )
+    assert config.ingest_contracts is False
+    assert config.contract_test_tag == "contract"
+    assert config.ingest_column_constraints_as_assertions is True
+
+
+def test_contract_extraction_from_manifest() -> None:
+    """Test that contract information is extracted from manifest."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        manifest_path="tests/unit/dbt/artifacts/manifest.json",
+        target_platform="dummy",
+        ingest_contracts=True,
+    )
+    source = DBTCoreSource(config, ctx)
+    nodes, *_ = source.loadManifestAndCatalog()
+
+    # Find the model with contract.enforced=true
+    contracted_node = None
+    for node in nodes:
+        if node.dbt_name == "model.tdd.simple":
+            contracted_node = node
+            break
+
+    assert contracted_node is not None, "Expected to find model.tdd.simple"
+    assert contracted_node.contract is not None, "Expected contract to be extracted"
+    assert contracted_node.contract.enforced is True
+    assert contracted_node.contract.checksum is not None
+
+
+def test_column_constraints_extracted() -> None:
+    """Test that column constraints are extracted from DBTColumn."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    # Create a column with constraints
+    col = DBTColumn(
+        name="id",
+        comment="",
+        description="ID column",
+        index=0,
+        data_type="integer",
+        constraints=[
+            DBTConstraint(type="not_null"),
+            DBTConstraint(type="primary_key"),
+        ],
+    )
+    assert len(col.constraints) == 2
+    assert col.constraints[0].type == "not_null"
+    assert col.constraints[1].type == "primary_key"
