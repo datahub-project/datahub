@@ -91,7 +91,13 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
 
         if (canGoToNext()) {
             buttons.push(
-                <Button key="next" size="sm" disabled={!isCurrentStepCompleted()} onClick={goToNext} data-testid="next-button">
+                <Button
+                    key="next"
+                    size="sm"
+                    disabled={!isCurrentStepCompleted()}
+                    onClick={goToNext}
+                    data-testid="next-button"
+                >
                     Next
                 </Button>,
             );

@@ -242,7 +242,8 @@ describe('MultiStepFormBottomPanel', () => {
 
             // Only complete step 1 (currentStepIndex 0), not step 2 (currentStepIndex 1)
             React.useEffect(() => {
-                if (currentStepIndex === 0) {  // Only complete the first step
+                if (currentStepIndex === 0) {
+                    // Only complete the first step
                     setCurrentStepCompleted();
                 }
             }, [currentStepIndex, setCurrentStepCompleted]);
@@ -276,7 +277,8 @@ describe('MultiStepFormBottomPanel', () => {
 
             // Only complete step 1 (currentStepIndex 0), not step 2 (currentStepIndex 1)
             React.useEffect(() => {
-                if (currentStepIndex === 0) {  // Only complete the first step
+                if (currentStepIndex === 0) {
+                    // Only complete the first step
                     setCurrentStepCompleted();
                 }
             }, [currentStepIndex, setCurrentStepCompleted]);
@@ -294,7 +296,7 @@ describe('MultiStepFormBottomPanel', () => {
         fireEvent.click(screen.getByTestId('next-button'));
 
         // Initially submit button is disabled because final step isn't completed
-        let submitButton = screen.getByTestId('submit-button');
+        const submitButton = screen.getByTestId('submit-button');
         expect(submitButton).toBeInTheDocument();
         expect(submitButton).toBeDisabled();
 

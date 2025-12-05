@@ -1,3 +1,4 @@
+import { typography } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -17,6 +18,11 @@ const BorderedSection = styled.div`
     flex-direction: column;
     padding-bottom: 16px;
     border: solid ${ANTD_GRAY[4]} 0.5px;
+
+    && .view-line > span > span {
+        font-family: ${typography.fonts.mono} !important;
+        font-size: ${typography.fontSizes.md} !important;
+    }
 `;
 
 interface Props {

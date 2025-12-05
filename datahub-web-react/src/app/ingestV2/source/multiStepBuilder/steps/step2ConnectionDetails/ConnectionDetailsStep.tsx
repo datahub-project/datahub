@@ -50,13 +50,7 @@ export function ConnectionDetailsStep() {
         } else {
             setCurrentStepUncompleted();
         }
-    }, [
-        isRecipeValid,
-        stagedRecipeYml,
-        setCurrentStepCompleted,
-        setCurrentStepUncompleted,
-        state.name,
-    ]);
+    }, [isRecipeValid, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     const sourceName = useMemo(() => state.name || '', [state.name]);
     const updateSourceName = useCallback(
