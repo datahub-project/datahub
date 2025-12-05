@@ -11,6 +11,8 @@ This guide helps to setup and configure `DataHubValidationAction` in Great Expec
 
 This integration supports v3 api datasources using SqlAlchemyExecutionEngine and SparkDFExecutionEngine.
 
+For SparkDFExecutionEngine, DataHubValidationAction would map the **Data Asset** of GX to dataSet's entity name when constructing datasets URN.
+
 ## Limitations
 
 This integration does not support

@@ -616,7 +616,7 @@ class DataHubValidationAction(ValidationAction):
             }
 
             if isinstance(ge_batch_spec, RuntimeDataBatchSpec):
-                data_platform = self.get_platform_instance(
+                data_platform = self.get_platform_instance_spark(
                     data_asset.active_batch_definition.datasource_name
                 )
 
@@ -649,7 +649,6 @@ class DataHubValidationAction(ValidationAction):
                         batch_spec_type=type(ge_batch_spec)
                     )
                 )
-                return []
         elif is_sql_alchemy or is_pandas:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
@@ -683,7 +682,7 @@ class DataHubValidationAction(ValidationAction):
                     schema_name,
                     table_name,
                     self.env,
-                    self.get_platform_instance(
+                    self.get_platform_instance_sqlalchemy(
                         data_asset.active_batch_definition.datasource_name
                     ),
                     self.exclude_dbname,
@@ -765,7 +764,7 @@ class DataHubValidationAction(ValidationAction):
                         None,
                         table,
                         self.env,
-                        self.get_platform_instance(
+                        self.get_platform_instance_sqlalchemy(
                             data_asset.active_batch_definition.datasource_name
                         ),
                         self.exclude_dbname,
@@ -780,7 +779,7 @@ class DataHubValidationAction(ValidationAction):
                         }
                     )
             elif isinstance(ge_batch_spec, RuntimeDataBatchSpec):
-                data_platform = self.get_platform_instance(
+                data_platform = self.get_platform_instance_sqlalchemy(
                     data_asset.active_batch_definition.datasource_name
                 )
                 dataset_urn = builder.make_dataset_urn_with_platform_instance(
@@ -821,15 +820,24 @@ class DataHubValidationAction(ValidationAction):
 
         return dataset_partitions
 
-    def get_platform_instance(self, datasource_name):
+    def get_platform_instance_sqlalchemy(self, datasource_name):
+        if self.platform_instance_map and datasource_name in self.platform_instance_map:
+            return self.platform_instance_map[datasource_name]
+        else:
+            warn(
+                f"Datasource {datasource_name} is not present in platform_instance_map"
+            )
+        return None
+
+    def get_platform_instance_spark(self, datasource_name):
         if self.platform_instance_map and datasource_name in self.platform_instance_map:
             return self.platform_instance_map[datasource_name]
         else:
             warn(
                 f"Datasource {datasource_name} is not present in platform_instance_map. \
-                    Data platform will be {datasource_name} by default "
+                        Data platform will be {datasource_name} by default "
             )
-        return datasource_name
+            return datasource_name
 
 
 def parse_int_or_default(value, default_value=None):
