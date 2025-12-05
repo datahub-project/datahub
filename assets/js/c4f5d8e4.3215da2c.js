@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[52634],{37961:(e,s,t)=>{t.r(s),t.d(s,{default:()=>u});var c=t(96540),r=t(56347);function u(){return(0,c.useEffect)((()=>{window.location.href="/docs/features"}),[]),c.createElement(r.rd,{to:"/docs/features"})}}}]);

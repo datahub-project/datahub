@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs_website=self.webpackChunkdocs_website||[]).push([[87366],{59317:(e,s,t)=>{t.r(s),t.d(s,{default:()=>u});var c=t(96540);function u(){return(0,c.useEffect)((()=>{window.location.href="https://www.datahub.com/champions"}),[]),null}}}]);
