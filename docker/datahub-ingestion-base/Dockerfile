@@ -41,18 +41,21 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     software-properties-common \
     lsb-release \
     gnupg \
     ca-certificates \
-    && add-apt-repository --no-update ppa:deadsnakes/ppa \
-    && rm -rf /var/lib/apt/lists/*
+    && add-apt-repository --no-update ppa:deadsnakes/ppa
 
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-venv \
     python${PYTHON_VERSION}-dev \
@@ -63,8 +66,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
-    nano \
-    && rm -rf /var/lib/apt/lists/*
+    nano
 
 # Set the default python version.
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
@@ -92,7 +94,9 @@ ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \
@@ -106,18 +110,18 @@ RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     ldap-utils \
     unixodbc \
-    libodbc2 \
-    && rm -rf /var/lib/apt/lists/*
+    libodbc2
 USER datahub
 
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
 # We need to install build-essential in order to build some Python packages (e.g. python-ldap)
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    build-essential
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
