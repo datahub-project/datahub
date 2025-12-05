@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
@@ -25,6 +25,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    TimeStampClass,
 )
 from datahub.testing.doctest import assert_doctest
 
@@ -815,3 +816,84 @@ def test_dbt_cloud_source_description_fallback() -> None:
     assert (
         parsed_node.description == "This is the schema-level description for my_schema"
     )
+
+
+def test_max_loaded_at_in_dataset_properties() -> None:
+    """
+    Test that max_loaded_at is correctly set in DatasetProperties.lastModified.
+    """
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    # Create a source node with max_loaded_at set
+    test_timestamp = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+    source_node = DBTNode(
+        name="test_source",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test source",
+        language=None,
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.package.test_source",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="source",
+        materialization=None,
+        max_loaded_at=test_timestamp,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+
+    # Test that DatasetProperties.lastModified is set
+    dataset_properties = source._create_dataset_properties_aspect(source_node, {})
+    assert dataset_properties.lastModified is not None
+    assert isinstance(dataset_properties.lastModified, TimeStampClass)
+    # Verify the timestamp is correct (convert to milliseconds for comparison)
+    expected_timestamp_ms = int(test_timestamp.timestamp() * 1000)
+    assert dataset_properties.lastModified.time == expected_timestamp_ms
+
+    # Test that SchemaMetadata.lastModified is NOT set
+    schema_metadata = source.get_schema_metadata(source.report, source_node, "dbt")
+    assert schema_metadata.lastModified is None
+
+
+def test_max_loaded_at_none_in_dataset_properties() -> None:
+    """
+    Test that when max_loaded_at is None, DatasetProperties.lastModified is also None.
+    """
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    # Create a source node without max_loaded_at
+    source_node = DBTNode(
+        name="test_source",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test source",
+        language=None,
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="source.package.test_source",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="source",
+        materialization=None,
+        max_loaded_at=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+
+    # Test that DatasetProperties.lastModified is None
+    dataset_properties = source._create_dataset_properties_aspect(source_node, {})
+    assert dataset_properties.lastModified is None
