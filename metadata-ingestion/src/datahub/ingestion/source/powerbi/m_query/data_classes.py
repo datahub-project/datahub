@@ -72,6 +72,7 @@ class FunctionName(Enum):
     MSSQL_DATA_ACCESS = "Sql.Database"
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
+    AMAZON_ATHENA_DATA_ACCESS = "AmazonAthena.Databases"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
     DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
     MYSQL_DATA_ACCESS = "MySQL.Database"
