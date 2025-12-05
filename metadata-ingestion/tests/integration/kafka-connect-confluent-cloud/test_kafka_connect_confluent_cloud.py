@@ -1,4 +1,5 @@
 import logging
+from unittest import mock
 
 import pytest
 import requests
@@ -61,13 +62,44 @@ def test_resources_dir(pytestconfig):
 
 @freeze_time(FROZEN_TIME)
 def test_kafka_connect_confluent_cloud_ingest(
-    confluent_cloud_mock_runner, pytestconfig, tmp_path, test_resources_dir
+    confluent_cloud_mock_runner,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    mock_datahub_graph,
 ):
-    """Test ingestion from Confluent Cloud mock API"""
-    config_file = (
-        test_resources_dir / "kafka_connect_confluent_cloud_to_file.yml"
-    ).resolve()
-    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+    """Test ingestion from Confluent Cloud mock API with DataHub graph connection"""
+
+    # Configure the mock graph to return schema metadata for dataset URNs
+    # This simulates having dataset entities in DataHub that connectors can reference
+    def mock_get_aspect(
+        entity_urn: str, aspect_type: str, aspect_type_class: type
+    ) -> None:
+        # Return None by default (aspect not found)
+        # In real scenarios, this would return SchemaMetadata aspects for datasets
+        return None
+
+    mock_datahub_graph.get_aspect.side_effect = mock_get_aspect
+
+    # Patch the DataHubGraph to use our mock in multiple places
+    with (
+        mock.patch(
+            "datahub.ingestion.graph.client.DataHubGraph",
+            return_value=mock_datahub_graph,
+        ),
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            return_value=mock_datahub_graph,
+        ),
+        mock.patch(
+            "datahub.ingestion.run.pipeline.DataHubGraph",
+            return_value=mock_datahub_graph,
+        ),
+    ):
+        config_file = (
+            test_resources_dir / "kafka_connect_confluent_cloud_to_file.yml"
+        ).resolve()
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     mce_helpers.check_golden_file(
         pytestconfig,
