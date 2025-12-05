@@ -34,7 +34,7 @@ Standardizing business metrics is crucial because these metrics are direct indic
 
 ### Real-World Impact
 
-Consider a scenario where the finance team defines revenue differently from the product team. If these discrepancies are not reconciled, it could lead to conflicting reports and misguided strategies. For instance, a marketing campaign analyzed with inconsistent metrics might appear successful in one report and unsuccessful in another, causing confusion and potentially leading to incorrect strategic decisions. Disagreements about the source-of-truth or accuracy of a given metric are commonplace; perhaps you can recall some examples from your own experience. 
+Consider a scenario where the finance team defines revenue differently from the product team. If these discrepancies are not reconciled, it could lead to conflicting reports and misguided strategies. For instance, a marketing campaign analyzed with inconsistent metrics might appear successful in one report and unsuccessful in another, causing confusion and potentially leading to incorrect strategic decisions. Disagreements about the source-of-truth or accuracy of a given metric are commonplace; perhaps you can recall some examples from your own experience.
 
 ### Example Discovery Questions and Explanations
 
@@ -50,7 +50,7 @@ Start by identifying key business metrics that are actively used to power decisi
 
 ### Alternatives and Best Practices
 
-Some companies try to align metric definitions through emails and meetings. While this is a good place to start, it is often impractical at scale. Instead, best practices involve using a centralized system for defining and discovering key business metrics. Implementing approval flows and lineage tracking can ensure that all changes are reviewed and that the physical origins of a metric - e.g. the actual tables and rows that power it - are immediately clear. By making metrics centrally visible, you can begin to establish accountability and audibility around your key metrics, increasing their reliability through time and improving the quality of your decisions. 
+Some companies try to align metric definitions through emails and meetings. While this is a good place to start, it is often impractical at scale. Instead, best practices involve using a centralized system for defining and discovering key business metrics. Implementing approval flows and lineage tracking can ensure that all changes are reviewed and that the physical origins of a metric - e.g. the actual tables and rows that power it - are immediately clear. By making metrics centrally visible, you can begin to establish accountability and audibility around your key metrics, increasing their reliability through time and improving the quality of your decisions.
 
 ### Our Solution
 
@@ -61,7 +61,6 @@ DataHub Cloud offers comprehensive features designed to tackle the challenges of
   <br />
   <i style={{color:"grey"}}>Business Glossary Center</i>
 </p>
-
 
 - **[Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary):** A centralized repository for all metrics definitions, ensuring consistency across the organization.
 
