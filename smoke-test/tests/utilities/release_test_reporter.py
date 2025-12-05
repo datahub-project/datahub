@@ -8,7 +8,7 @@ All functions are designed to fail silently with try-catch blocks to prevent tes
 import logging
 import time
 import uuid
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from urllib.parse import urlparse
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -41,8 +41,42 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import IncidentUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from tests.utilities import env_vars
+from tests.utilities.metadata_operations import resolve_incidents_by_title
 
 logger = logging.getLogger(__name__)
+
+
+class _EmitterSessionAdapter:
+    """
+    Adapter to make DatahubRestEmitter compatible with auth_session interface.
+
+    Allows GraphQL helpers in metadata_operations.py to work with the emitter's
+    internal requests.Session object.
+    """
+
+    def __init__(self, emitter: DatahubRestEmitter, gms_url: str):
+        """
+        Initialize adapter.
+
+        Args:
+            emitter: DatahubRestEmitter instance
+            gms_url: GMS URL for the reporting instance
+        """
+        self._emitter = emitter
+        self._gms_url = gms_url
+        self._frontend_url = gms_url.replace("/gms", "") if gms_url else gms_url
+
+    def post(self, url: str, **kwargs: Any) -> Any:
+        """Forward post() calls to the emitter's internal session."""
+        return self._emitter._session.post(url, **kwargs)
+
+    def frontend_url(self) -> str:
+        """Return the frontend URL for GraphQL endpoint."""
+        return self._frontend_url
+
+    def gms_url(self) -> str:
+        """Return the GMS URL."""
+        return self._gms_url
 
 
 def get_actor_urn() -> str:
@@ -80,6 +114,27 @@ def _get_reporting_client():
         return DatahubRestEmitter(gms_server=gms_url, token=token)
     except Exception as e:
         logger.warning(f"❌ Failed to create reporting DataHub client: {e}")
+        return None
+
+
+def _get_reporting_session() -> Optional[_EmitterSessionAdapter]:
+    """
+    Create a session adapter for the reporting DataHub instance.
+    Returns None if reporting is not configured.
+    """
+    try:
+        emitter = _get_reporting_client()
+        if not emitter:
+            return None
+
+        gms_url = env_vars.get_reporting_datahub_gms_url()
+        if not gms_url:
+            logger.warning("⚠️  Reporting GMS URL not found, cannot create session")
+            return None
+
+        return _EmitterSessionAdapter(emitter, gms_url)
+    except Exception as e:
+        logger.warning(f"❌ Failed to create reporting session adapter: {e}")
         return None
 
 
@@ -311,7 +366,7 @@ def emit_process_end(
 
 def raise_incident_on_task(task_urn: str, message: str, title: str) -> None:
     """
-    Raise an incident on a task.
+    Raise an incident on a task, auto-resolving prior active incidents with the same title.
 
     Args:
         task_urn: URN of the DataJob
@@ -358,6 +413,38 @@ def raise_incident_on_task(task_urn: str, message: str, title: str) -> None:
             f"   Title:    {title}\n"
             f"   Message:  {message[:100]}{'...' if len(message) > 100 else ''}"
         )
+
+        if title.startswith("Release test failures"):
+            try:
+                session_adapter = _get_reporting_session()
+                if session_adapter:
+                    logger.info(
+                        f"🔍 Checking for existing incidents with title '{title}' on {task_urn}"
+                    )
+                    resolved_count = resolve_incidents_by_title(
+                        session_adapter,
+                        task_urn,
+                        title,
+                        resolution_message="Auto-resolved: New incident raised with same title",
+                        exclude_incident_urn=incident_urn,
+                    )
+                    if resolved_count > 0:
+                        logger.info(
+                            f"✅ Auto-resolved {resolved_count} existing incident(s) "
+                            f"with title '{title}' after raising new incident"
+                        )
+                    else:
+                        logger.info(
+                            f"ℹ️  No other active incidents found with title '{title}'"
+                        )
+                else:
+                    logger.warning(
+                        "⚠️  Could not create session adapter, skipping auto-resolution of old incidents"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"⚠️  Failed to auto-resolve old incidents (non-critical): {e}"
+                )
 
     except Exception as e:
         logger.warning(f"❌ Failed to raise incident on task: {e}")

@@ -10,23 +10,21 @@ This test verifies that:
 import logging
 
 import pytest
-import requests
 
+from tests.utilities.metadata_operations import get_prometheus_metrics
 from tests.utils import get_gms_url
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.mark.read_only
-def test_datahub_request_count_metric_present():
+def test_datahub_request_count_metric_present(auth_session):
     """Test that the new datahub_request_count metric is present in Prometheus output."""
     gms_url = get_gms_url()
-    prometheus_url = f"{gms_url}/actuator/prometheus"
 
-    # Service initialization should already induce requests that will generate
-    # metrics. So we don't need to trigger any requests as part of test setup.
-    response = requests.get(prometheus_url)
-    content = response.text
+    # Get Prometheus metrics (uses Bearer token auth from auth_session)
+    # Cloud deployments require auth; CI/local will ignore the auth header
+    content = get_prometheus_metrics(auth_session, gms_url)
 
     # Look specifically for the datahub_request_count metric
     metric_lines = []

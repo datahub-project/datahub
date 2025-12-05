@@ -3,7 +3,7 @@
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from datahub.cli.cli_utils import get_entity as get_entity_cli
 from tests.utils import execute_graphql, with_test_retry
@@ -572,6 +572,44 @@ def get_default_channel_name(auth_session) -> str | None:
     return slack_settings.get("defaultChannelName")
 
 
+def _get_entity_type_from_urn(urn: str) -> str:
+    """Extract entity type from URN for GraphQL queries.
+
+    Args:
+        urn: Entity URN (e.g., urn:li:dataset:(...), urn:li:dataJob:(...))
+
+    Returns:
+        Entity type string for GraphQL (e.g., 'dataset', 'dataJob')
+
+    Raises:
+        ValueError: If URN format is invalid or entity type not supported
+    """
+    if not urn.startswith("urn:li:"):
+        raise ValueError(f"Invalid URN format: {urn}")
+
+    parts = urn.split(":")
+    if len(parts) < 3:
+        raise ValueError(f"Invalid URN format: {urn}")
+
+    entity_type = parts[2]
+
+    supported_types = {
+        "dataset": "dataset",
+        "dataJob": "dataJob",
+        "dataFlow": "dataFlow",
+        "dashboard": "dashboard",
+        "chart": "chart",
+    }
+
+    if entity_type not in supported_types:
+        raise ValueError(
+            f"Entity type '{entity_type}' does not support incidents. "
+            f"Supported types: {list(supported_types.keys())}"
+        )
+
+    return supported_types[entity_type]
+
+
 @with_test_retry()
 def list_incidents(
     auth_session,
@@ -584,17 +622,21 @@ def list_incidents(
 
     Args:
         auth_session: The authenticated session
-        resource_urn: URN of the resource (e.g., dataset URN)
+        resource_urn: URN of the resource (e.g., dataset URN, dataJob URN)
         state: Incident state filter (ACTIVE, RESOLVED, or ALL)
         start: Starting offset for pagination
         count: Number of incidents to retrieve
 
     Returns:
         Dictionary containing incidents data with keys: start, count, total, incidents
+
+    Raises:
+        ValueError: If resource URN is invalid or entity type doesn't support incidents
     """
+    entity_type = _get_entity_type_from_urn(resource_urn)
     state_filter = f"state: {state}, " if state != "ALL" else ""
-    query = f"""query dataset($urn: String!) {{
-        dataset(urn: $urn) {{
+    query = f"""query entity($urn: String!) {{
+        {entity_type}(urn: $urn) {{
           incidents({state_filter}start: {start}, count: {count}) {{
             start
             count
@@ -639,7 +681,33 @@ def list_incidents(
     variables: Dict[str, Any] = {"urn": resource_urn}
 
     res_data = execute_graphql(auth_session, query, variables)
-    return res_data["data"]["dataset"]["incidents"]
+    return res_data["data"][entity_type]["incidents"]
+
+
+def list_incidents_by_title(
+    auth_session,
+    resource_urn: str,
+    title: str,
+    state: str = "ACTIVE",
+) -> List[Dict[str, Any]]:
+    """List incidents for a resource filtered by title.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataJob URN)
+        title: Incident title to filter by (exact match)
+        state: Incident state filter (ACTIVE, RESOLVED, or ALL)
+
+    Returns:
+        List of incidents matching the title
+    """
+    result = list_incidents(auth_session, resource_urn, state=state, start=0, count=100)
+
+    matching_incidents = [
+        incident for incident in result["incidents"] if incident.get("title") == title
+    ]
+
+    return matching_incidents
 
 
 def raise_incident(
@@ -679,6 +747,55 @@ def raise_incident(
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["raiseIncident"]
+
+
+def resolve_incidents_by_title(
+    auth_session,
+    resource_urn: str,
+    title: str,
+    resolution_message: str = "Auto-resolved by newer incident",
+    exclude_incident_urn: Optional[str] = None,
+) -> int:
+    """Resolve all active incidents on a resource with a specific title.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataJob URN)
+        title: Incident title to match (exact match)
+        resolution_message: Message to include when resolving incidents
+        exclude_incident_urn: Optional incident URN to exclude from resolution
+
+    Returns:
+        Number of incidents resolved
+    """
+    incidents = list_incidents_by_title(
+        auth_session, resource_urn, title, state="ACTIVE"
+    )
+
+    if exclude_incident_urn:
+        incidents = [
+            incident
+            for incident in incidents
+            if incident["urn"] != exclude_incident_urn
+        ]
+
+    resolved_count = 0
+    for incident in incidents:
+        incident_urn = incident["urn"]
+        try:
+            success = update_incident_status(
+                auth_session,
+                incident_urn,
+                state="RESOLVED",
+                message=resolution_message,
+            )
+            if success:
+                resolved_count += 1
+                logger.info(f"Resolved incident {incident_urn} with title '{title}'")
+        except Exception as e:
+            logger.warning(f"Failed to resolve incident {incident_urn}: {e}")
+
+    return resolved_count
 
 
 def update_incident_status(
@@ -1400,3 +1517,30 @@ def poll_execution_requests(
         }
 
     return results
+
+
+def get_prometheus_metrics(auth_session, gms_url: str) -> str:
+    """Get Prometheus metrics from GMS actuator endpoint.
+
+    Uses Bearer token authentication which works in both cloud (required) and
+    CI/local environments (headers ignored if not needed).
+
+    Args:
+        auth_session: Authenticated session with gms_token()
+        gms_url: Base GMS URL
+
+    Returns:
+        Raw Prometheus metrics text
+
+    Raises:
+        HTTPError: If the request fails
+    """
+    import requests
+
+    prometheus_url = f"{gms_url}/actuator/prometheus"
+    headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
+
+    response = requests.get(prometheus_url, headers=headers)
+    response.raise_for_status()
+
+    return response.text
