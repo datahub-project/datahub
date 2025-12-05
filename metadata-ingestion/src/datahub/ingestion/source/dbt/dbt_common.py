@@ -96,6 +96,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeStampClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
@@ -1799,6 +1800,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         dbt_properties.externalUrl = self.get_external_url(node)
 
+        # Set lastModified from max_loaded_at if available
+        if node.max_loaded_at is not None:
+            timestamp_millis = datetime_to_ts_millis(node.max_loaded_at)
+            dbt_properties.lastModified = TimeStampClass(timestamp_millis)
+
         return dbt_properties
 
     @abstractmethod
@@ -1968,21 +1974,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             canonical_schema.append(field)
 
-        last_modified = None
-        if node.max_loaded_at is not None:
-            actor = mce_builder.make_user_urn("dbt_executor")
-            last_modified = AuditStamp(
-                time=datetime_to_ts_millis(node.max_loaded_at),
-                actor=actor,
-            )
-
         return SchemaMetadata(
             schemaName=node.dbt_name,
             platform=mce_builder.make_data_platform_urn(platform),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            lastModified=last_modified,
             fields=canonical_schema,
         )
 
