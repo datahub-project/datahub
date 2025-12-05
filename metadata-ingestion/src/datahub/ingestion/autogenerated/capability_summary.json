@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-11-26T19:04:29.215241+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -1198,6 +1198,38 @@
       "platform_id": "hex",
       "platform_name": "Hex",
       "support_status": "INCUBATING"
+    },
+    "hightouch": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default via configuration `include_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default, showing data flow from source -> model -> sync -> destination",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.hightouch.hightouch.HightouchSource",
+      "platform_id": "hightouch",
+      "platform_name": "Hightouch",
+      "support_status": "TESTING"
     },
     "hive": {
       "capabilities": [
