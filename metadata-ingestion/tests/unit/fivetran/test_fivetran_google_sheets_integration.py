@@ -9,17 +9,15 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranLogConfig,
     FivetranSourceConfig,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
+from datahub.ingestion.source.fivetran.fivetran import FivetranSource
+from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
-    TableLineage,
-)
-from datahub.ingestion.source.fivetran.fivetran import FivetranSource
-from datahub.ingestion.source.fivetran.response_models import (
     FivetranConnectionConfig,
     FivetranConnectionDetails,
     FivetranConnectionSourceSyncDetails,
     FivetranConnectionStatus,
+    TableLineage,
 )
 
 
@@ -49,19 +47,19 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
         )
         self.ctx = PipelineContext(run_id="test_run")
 
-        # Mock the FivetranLogAPI to avoid real database connections
+        # Mock the factory to return a mock access implementation
         with patch(
-            "datahub.ingestion.source.fivetran.fivetran.FivetranLogAPI"
-        ) as mock_log_api:
+            "datahub.ingestion.source.fivetran.fivetran.create_fivetran_access"
+        ) as mock_factory:
             mock_audit_log = Mock()
             mock_audit_log.get_user_email.return_value = "test@example.com"
             mock_audit_log.fivetran_log_database = "test_db"
-            mock_log_api.return_value = mock_audit_log
+            mock_factory.return_value = mock_audit_log
             self.source = FivetranSource(self.config, self.ctx)
 
-            # Mock the API client
-            self.mock_api_client = Mock()
-            self.source.api_client = self.mock_api_client
+            # Mock the Fivetran access
+            self.mock_fivetran_access = Mock()
+            self.source.fivetran_access = self.mock_fivetran_access
 
     def test_google_sheets_connector_detection(self):
         """Test detection of Google Sheets connectors."""
@@ -79,7 +77,7 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
 
         # Mock the API client
         mock_api_client = Mock()
-        self.source.api_client = mock_api_client
+        self.source.fivetran_access = mock_api_client
 
         # Mock the connection details response
         mock_connection_details = FivetranConnectionDetails(
@@ -112,21 +110,33 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
             mock_connection_details
         )
 
+        # Ensure the mock has the method properly set up
+        mock_api_client = Mock()
+        mock_api_client.get_connection_details_by_id = Mock(
+            return_value=mock_connection_details
+        )
+        self.source.fivetran_access = mock_api_client
+
         # Test the connector workunits generation
         workunits = list(self.source._get_connector_workunits(connector))
 
         # Should generate Google Sheets datasets
         assert len(workunits) >= 2  # At least the two Google Sheets datasets
 
-        # Find the Google Sheets datasets
-        gsheets_datasets = [
-            wu
-            for wu in workunits
-            if hasattr(wu, "platform")
-            and str(wu.platform)
-            == f"urn:li:dataPlatform:{Constant.GOOGLE_SHEETS_CONNECTOR_TYPE}"
-        ]
-        assert len(gsheets_datasets) == 2
+        # Find the unique Google Sheets dataset URNs
+        gsheets_dataset_urns = set()
+        for wu in workunits:
+            if (
+                hasattr(wu, "metadata")
+                and hasattr(wu.metadata, "entityUrn")
+                and wu.metadata.entityUrn is not None
+                and "google_sheets" in str(wu.metadata.entityUrn)
+                and wu.metadata.entityUrn.startswith("urn:li:dataset:")
+            ):
+                gsheets_dataset_urns.add(wu.metadata.entityUrn)
+
+        # Should create exactly 2 Google Sheets datasets: the sheet and the named range
+        assert len(gsheets_dataset_urns) == 2
 
     def test_google_sheets_lineage_generation(self):
         """Test lineage generation for Google Sheets connectors."""
@@ -154,7 +164,7 @@ class TestFivetranGoogleSheetsIntegration(TestCase):
 
         # Mock the API client
         mock_api_client = Mock()
-        self.source.api_client = mock_api_client
+        self.source.fivetran_access = mock_api_client
 
         # Mock the connection details response
         mock_connection_details = FivetranConnectionDetails(
