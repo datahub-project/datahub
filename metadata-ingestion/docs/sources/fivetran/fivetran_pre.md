@@ -94,6 +94,8 @@ grant role fivetran_datahub to user snowflake_user;
 
 The Fivetran REST API configuration is **required** for Google Sheets connectors and optional for other use cases. It provides access to connection details that aren't available in the Platform Connector logs.
 
+#### Setup
+
 To obtain API credentials:
 
 1. Log in to your Fivetran account
@@ -108,7 +110,15 @@ api_config:
   request_timeout_sec: 30 # Optional, defaults to 30 seconds
 ```
 
-**Note**: If you're using Google Sheets connectors, you must provide `api_config`. Without it, Google Sheets connectors will be skipped with a warning.
+#### Permissions Required
+
+To use the Fivetran REST API integration, you need:
+
+**Required API Permissions**:
+
+- **Read access** to connection details (`GET /v1/connections/{connection_id}`)
+- The API key must be associated with a user or service account that has access to the connectors you want to ingest
+- The API key inherits permissions from the user or service account it's associated with
 
 ## Google Sheets Connector Support
 
