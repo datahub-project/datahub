@@ -34,7 +34,7 @@ jobs:
     steps:
       # We explicitly don't use acryldata/sane-checkout-action because docusaurus runs
       # git commands to determine the last change date for each file.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up JDK 17
