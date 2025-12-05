@@ -83,6 +83,11 @@ class GrafanaSourceConfig(
     ingest_owners: bool = Field(
         default=True, description="Whether to ingest dashboard ownership information"
     )
+    strip_user_ids_from_email: bool = Field(
+        True,
+        description="When enabled, converts Grafana user emails of the form name@domain.com to urn:li:corpuser:name "
+        "when assigning ownership",
+    )
     skip_text_panels: bool = Field(
         default=False,
         description="Whether to skip text panels during ingestion. "
