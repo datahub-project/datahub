@@ -14,6 +14,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
@@ -25,6 +26,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -99,9 +101,11 @@ public class DatasetType
   private static final String ENTITY_NAME = "dataset";
 
   private final EntityClient entityClient;
+  private final FeatureFlags featureFlags;
 
-  public DatasetType(final EntityClient entityClient) {
+  public DatasetType(final EntityClient entityClient, final FeatureFlags featureFlags) {
     this.entityClient = entityClient;
+    this.featureFlags = featureFlags;
   }
 
   @Override
@@ -285,9 +289,22 @@ public class DatasetType
   private boolean isAuthorized(
       @Nonnull String urn, @Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
     // Decide whether the current principal should be allowed to update the Dataset.
+    // First check entity-level authorization
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
-    return AuthorizationUtils.isAuthorized(
-        context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
+    boolean entityLevelAuthorized =
+        AuthorizationUtils.isAuthorized(
+            context, PoliciesConfig.DATASET_PRIVILEGES.getResourceType(), urn, orPrivilegeGroups);
+
+    if (!entityLevelAuthorized) {
+      return false;
+    }
+
+    if (!featureFlags.isDomainBasedAuthorizationEnabled()) {
+      final Urn entityUrn = UrnUtils.getUrn(urn);
+      return DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, entityUrn, entityClient);
+    }
+
+    return true;
   }
 
   private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DatasetUpdateInput updateInput) {
