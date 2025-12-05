@@ -392,6 +392,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             chart_urns=chart_urns,
             base_url=self.config.url,
             ingest_owners=self.config.ingest_owners,
+            strip_user_ids_from_email=self.config.strip_user_ids_from_email,
             ingest_tags=self.config.ingest_tags,
         )
 

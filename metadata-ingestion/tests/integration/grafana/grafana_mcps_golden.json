@@ -2222,32 +2222,6 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
     "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:default",
-                    "type": "TECHNICAL_OWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(grafana,local-grafana.default)",
-    "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
         "json": {
