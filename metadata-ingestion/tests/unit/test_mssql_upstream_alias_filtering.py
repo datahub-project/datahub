@@ -58,7 +58,12 @@ def mssql_source():
             return urn in schema_tables
 
         schema_resolver.has_urn = MagicMock(side_effect=has_urn_side_effect)
-        source.get_schema_resolver = MagicMock(return_value=schema_resolver)
+
+        # Mock get_schema_resolver method
+        def mock_get_schema_resolver() -> MagicMock:
+            return schema_resolver
+
+        source.get_schema_resolver = mock_get_schema_resolver  # type: ignore[method-assign,assignment]
 
         # Mock aggregator
         source.aggregator = MagicMock()
@@ -227,6 +232,83 @@ class TestIsTempTableForAliases:
         # This will be True with schema_resolver approach (treats all undiscovered as temp)
         # This is the known limitation we're addressing with upstream filtering
         assert result
+
+
+class TestPlatformInstancePrefixHandling:
+    """Test platform_instance prefix stripping logic."""
+
+    def test_filter_with_platform_instance_prefix_in_urn(self, mssql_source):
+        """Test that platform_instance prefix is correctly stripped from URN names."""
+        # URNs include platform_instance prefix, but discovered_datasets doesn't
+        upstream_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.alias,PROD)",
+        ]
+
+        # discovered_datasets has entries WITHOUT platform_instance prefix
+        assert "db1.dbo.real_table" in mssql_source.discovered_datasets
+
+        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+
+        # Should keep real_table (found after stripping prefix), filter alias
+        assert len(filtered) == 1
+        assert "real_table" in filtered[0]
+
+    def test_filter_handles_mixed_prefix_formats(self, mssql_source):
+        """Test filtering when some tables have prefix and some don't."""
+        upstream_urns = [
+            # With platform_instance prefix
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
+            # Without platform_instance prefix (shouldn't happen but handle gracefully)
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.another_real_table,PROD)",
+            # Alias with prefix
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.unknown,PROD)",
+        ]
+
+        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+
+        # Should keep both real tables regardless of prefix format
+        assert len(filtered) == 2
+        assert any("real_table" in urn for urn in filtered)
+        assert any("another_real_table" in urn for urn in filtered)
+
+
+class TestDifferentAliasNames:
+    """Test filtering of various alias naming patterns found in production."""
+
+    def test_filter_target_alias(self, mssql_source):
+        """Test filtering 'target' alias (found in addAverageDailyPremiumDiscount)."""
+        upstream_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.timeseries.dbo.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.timeseries.dbo.target,PROD)",
+        ]
+
+        # Mock timeseries.dbo.table1 as discovered
+        mssql_source.discovered_datasets.add("timeseries.dbo.table1")
+        schema_resolver = mssql_source.get_schema_resolver()
+        schema_resolver.has_urn = lambda urn: "table1" in urn
+
+        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+
+        assert len(filtered) == 1
+        assert "table1" in filtered[0]
+        assert "target" not in filtered[0]
+
+    def test_filter_multiple_different_aliases(self, mssql_source):
+        """Test filtering multiple different alias names in one procedure."""
+        upstream_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.dst,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.src,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.target,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.temp,PROD)",
+        ]
+
+        filtered = mssql_source._filter_upstream_aliases(upstream_urns)
+
+        # Should keep only real_table, filter all aliases
+        assert len(filtered) == 1
+        assert "real_table" in filtered[0]
 
 
 class TestUpstreamFilteringIntegration:

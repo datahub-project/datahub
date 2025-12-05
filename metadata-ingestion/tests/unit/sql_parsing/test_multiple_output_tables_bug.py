@@ -10,8 +10,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
-    QueryType,
     SqlParsingDebugInfo,
     SqlParsingResult,
 )
@@ -32,7 +32,7 @@ def test_multiple_output_tables_only_first_shows_as_downstream():
     # Add schemas for test tables
     for table in ["DB_A.dbo.Table_A", "DB_B.dbo.Table_B", "DB_C.dbo.Table_C"]:
         urn = make_dataset_urn(platform="mssql", name=table, env="PROD")
-        from datahub.metadata.schema_classes import SchemaMetadataClass
+        from datahub.metadata.schema_classes import SchemalessClass, SchemaMetadataClass
 
         schema_resolver.add_schema_metadata(
             urn,
@@ -41,7 +41,7 @@ def test_multiple_output_tables_only_first_shows_as_downstream():
                 platform="urn:li:dataPlatform:mssql",
                 version=0,
                 hash="",
-                platformSchema=None,
+                platformSchema=SchemalessClass(),
                 fields=[],
             ),
         )
@@ -89,11 +89,11 @@ def test_multiple_output_tables_only_first_shows_as_downstream():
     )
 
     # Monkey-patch the aggregator's _run_sql_parser to return our mock result
-    def mock_parser(*args, **kwargs):
+    def mock_parser(*args, **kwargs):  # type: ignore[no-untyped-def]
         return mock_parsed_result
 
     original_parser = aggregator._run_sql_parser
-    aggregator._run_sql_parser = mock_parser
+    aggregator._run_sql_parser = mock_parser  # type: ignore[method-assign]
 
     # Now add as ObservedQuery to trigger the bug at line 871
     aggregator.add(
@@ -105,7 +105,7 @@ def test_multiple_output_tables_only_first_shows_as_downstream():
     )
 
     # Restore original parser
-    aggregator._run_sql_parser = original_parser
+    aggregator._run_sql_parser = original_parser  # type: ignore[method-assign]
 
     # Generate lineage
     result = list(aggregator.gen_metadata())
