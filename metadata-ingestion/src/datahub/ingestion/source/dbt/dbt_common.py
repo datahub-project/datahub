@@ -47,6 +47,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
@@ -186,6 +187,10 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit metadata for dbt snapshots when set to Yes or Only",
     )
+    semantic_views: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt semantic views when set to Yes or Only",
+    )
     test_definitions: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit metadata for test definitions when enabled when set to Yes or Only",
@@ -230,6 +235,7 @@ class DBTEntitiesEnabled(ConfigModel):
             "seed": self.seeds,
             "snapshot": self.snapshots,
             "test": self.test_definitions,
+            "semantic_view": self.semantic_views,
         }
 
     def can_emit_node_type(self, node_type: str) -> bool:
@@ -563,7 +569,7 @@ class DBTNode:
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
-    node_type: str  # source, model, snapshot, seed, test, etc
+    node_type: str  # source, model, snapshot, seed, test, semantic_view, etc
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
@@ -573,6 +579,11 @@ class DBTNode:
     )
 
     owner: Optional[str]
+
+    # Semantic view specific fields (only populated when node_type == 'semantic_view')
+    entities: List[Dict[str, Any]] = field(default_factory=list)
+    dimensions: List[Dict[str, Any]] = field(default_factory=list)
+    measures: List[Dict[str, Any]] = field(default_factory=list)
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
@@ -982,7 +993,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        # return dbt nodes + global custom properties
+        # return dbt nodes (including semantic models) + global custom properties
         raise NotImplementedError()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -1320,9 +1331,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
             depends_on_ephemeral_models = False
-            if node.node_type in {"source", "test", "seed"}:
+            if node.node_type in {"source", "test", "seed", "semantic_view"}:
                 # For sources, we generate CLL as a 1:1 mapping.
-                # We don't support CLL for tests (assertions) or seeds.
+                # We don't support CLL for tests (assertions), seeds, or semantic views.
+                pass
+            elif node.materialization == "semantic_view":
+                # Skip SQL parsing for dbt models with semantic_view materialization
+                # (e.g., from dbt_semantic_view package)
+                logger.debug(
+                    f"Skipping SQL parsing for {node.dbt_name} because it uses semantic_view materialization"
+                )
                 pass
             elif node.dbt_name not in cll_required_nodes:
                 logger.debug(
@@ -2038,7 +2056,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.node_type:
             return None
 
-        subtypes: List[str] = [node.node_type.capitalize()]
+        if node.node_type == "semantic_view":
+            subtypes: List[str] = [DatasetSubTypes.SEMANTIC_VIEW]
+        else:
+            subtypes: List[str] = [node.node_type.capitalize()]
 
         return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
