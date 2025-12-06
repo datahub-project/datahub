@@ -395,11 +395,19 @@ class HiveStorageLineage:
                     ),
                 )
 
-        except (ValueError, TypeError, AttributeError) as e:
+        except ValueError as e:
             logger.warning(
-                f"Failed to create storage dataset MCPs for {storage_location}: {e}",
+                f"Invalid storage location format {storage_location}: {e}",
                 exc_info=True,
             )
+            self.report.report_location_failed(storage_location)
+            return
+        except (TypeError, AttributeError) as e:
+            logger.error(
+                f"Programming error while creating storage dataset MCPs for {storage_location}: {e}",
+                exc_info=True,
+            )
+            self.report.report_location_failed(storage_location)
             return
 
     def get_lineage_mcp(

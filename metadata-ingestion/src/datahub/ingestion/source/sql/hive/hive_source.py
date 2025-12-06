@@ -274,9 +274,15 @@ class HiveSource(TwoTierSQLAlchemySource):
         if self._COMPLEX_TYPE.match(fields[0].nativeDataType) and isinstance(
             fields[0].type.type, NullTypeClass
         ):
-            assert len(fields) == 1
+            if len(fields) != 1:
+                logger.warning(
+                    f"Expected exactly 1 field for complex type {fields[0].nativeDataType}, "
+                    f"got {len(fields)} fields. Skipping complex type expansion.",
+                    extra={"dataset": dataset_name, "column": column.get("name")},
+                )
+                return fields
+
             field = fields[0]
-            # Get avro schema for subfields along with parent complex field
             avro_schema = get_avro_schema_for_hive_column(
                 column["name"], field.nativeDataType
             )
@@ -285,7 +291,6 @@ class HiveSource(TwoTierSQLAlchemySource):
                 json.dumps(avro_schema), default_nullable=True
             )
 
-            # First field is the parent complex field
             new_fields[0].nullable = field.nullable
             new_fields[0].description = field.description
             new_fields[0].isPartOfKey = field.isPartOfKey
