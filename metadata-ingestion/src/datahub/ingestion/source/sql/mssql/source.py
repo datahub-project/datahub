@@ -1067,7 +1067,7 @@ class SQLServerSource(SQLAlchemySource):
         Returns:
             Filtered list with only real tables
         """
-        from datahub.metadata._urns.urn_defs import DatasetUrn
+        from datahub.metadata.urns import DatasetUrn
 
         if not upstream_urns:
             return []
