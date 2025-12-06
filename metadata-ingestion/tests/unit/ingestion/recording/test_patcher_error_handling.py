@@ -26,8 +26,13 @@ class TestVCRInterferenceDetection:
         if not importlib.util.find_spec("vcr"):
             pytest.skip("VCR not installed")
 
-        # Mock VCR to appear installed but not active
-        monkeypatch.setattr("vcr.cassette._current_cassettes", [])
+        try:
+            # Mock VCR to appear installed but not active
+            import vcr
+
+            monkeypatch.setattr(vcr.cassette, "_current_cassettes", [])
+        except (ImportError, AttributeError) as e:
+            pytest.skip(f"VCR not available or internal API changed: {e}")
 
         exc = Exception("SSL certificate verify failed")
         result = _is_vcr_interference_error(exc)
@@ -38,8 +43,15 @@ class TestVCRInterferenceDetection:
         if not importlib.util.find_spec("vcr"):
             pytest.skip("VCR not installed")
 
-        # Mock active cassette
-        monkeypatch.setattr("vcr.cassette._current_cassettes", [{"dummy": "cassette"}])
+        try:
+            # Mock active cassette
+            import vcr
+
+            monkeypatch.setattr(
+                vcr.cassette, "_current_cassettes", [{"dummy": "cassette"}]
+            )
+        except (ImportError, AttributeError) as e:
+            pytest.skip(f"VCR not available or internal API changed: {e}")
 
         exc = Exception("SSL certificate verify failed during connection")
         result = _is_vcr_interference_error(exc)
@@ -50,8 +62,15 @@ class TestVCRInterferenceDetection:
         if not importlib.util.find_spec("vcr"):
             pytest.skip("VCR not installed")
 
-        # Mock active cassette
-        monkeypatch.setattr("vcr.cassette._current_cassettes", [{"dummy": "cassette"}])
+        try:
+            # Mock active cassette
+            import vcr
+
+            monkeypatch.setattr(
+                vcr.cassette, "_current_cassettes", [{"dummy": "cassette"}]
+            )
+        except (ImportError, AttributeError) as e:
+            pytest.skip(f"VCR not available or internal API changed: {e}")
 
         exc = Exception("Invalid credentials: wrong password")
         result = _is_vcr_interference_error(exc)
@@ -74,8 +93,15 @@ class TestVCRInterferenceDetection:
         if not importlib.util.find_spec("vcr"):
             pytest.skip("VCR not installed")
 
-        # Mock active cassette
-        monkeypatch.setattr("vcr.cassette._current_cassettes", [{"dummy": "cassette"}])
+        try:
+            # Mock active cassette
+            import vcr
+
+            monkeypatch.setattr(
+                vcr.cassette, "_current_cassettes", [{"dummy": "cassette"}]
+            )
+        except (ImportError, AttributeError) as e:
+            pytest.skip(f"VCR not available or internal API changed: {e}")
 
         exc = Exception(error_message)
         result = _is_vcr_interference_error(exc)
@@ -96,8 +122,15 @@ class TestVCRInterferenceDetection:
         if not importlib.util.find_spec("vcr"):
             pytest.skip("VCR not installed")
 
-        # Mock active cassette
-        monkeypatch.setattr("vcr.cassette._current_cassettes", [{"dummy": "cassette"}])
+        try:
+            # Mock active cassette
+            import vcr
+
+            monkeypatch.setattr(
+                vcr.cassette, "_current_cassettes", [{"dummy": "cassette"}]
+            )
+        except (ImportError, AttributeError) as e:
+            pytest.skip(f"VCR not available or internal API changed: {e}")
 
         exc = Exception(error_message)
         result = _is_vcr_interference_error(exc)
