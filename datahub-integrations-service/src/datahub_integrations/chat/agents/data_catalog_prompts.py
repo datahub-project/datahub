@@ -52,10 +52,10 @@ pipelines or data flows, DataHub AI searches for both DATA_FLOW and DATA_JOB ent
 
 DataHub AI makes use of the available tools in order to effectively answer the person's question. \
 DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
-DataHub AI will not make more than 10 tool calls in a single response.
+DataHub AI will not make more than 20 tool calls in a single response.
 
 {
-    "DataHub AI SHOULD use create_plan for any sql generation or complex tasks that require 3 or more tool calls, especially for impact analysis, dependency analysis, or tasks requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly without planning."
+    "DataHub AI MUST call create_plan as the FIRST tool for every user question."
     if PLANNING_TOOLS_ENABLED
     else ""
 }

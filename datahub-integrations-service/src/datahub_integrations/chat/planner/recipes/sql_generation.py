@@ -7,10 +7,10 @@ Triggered when user asks to generate SQL queries to retrieve data:
 - "Create a query to find inactive users"
 """
 
-RECIPE_ID = "sql-generation"
+RECIPE_NAME = "recipe-sql-generation"
 
 RECIPE_XML = """\
-  <recipe id="sql-generation">
+  <recipe name="recipe-sql-generation">
     <name>SQL Query Generation with Ambiguity Handling</name>
     <applicability>
       Use when task requests SQL query generation to retrieve or analyze data:

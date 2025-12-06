@@ -7,10 +7,10 @@ Triggered when user asks about finding data by topic:
 - "Find all marketing data"
 """
 
-RECIPE_ID = "broad-data-discovery"
+RECIPE_NAME = "recipe-broad-data-discovery"
 
 RECIPE_XML = """\
-  <recipe id="broad-data-discovery">
+  <recipe name="recipe-broad-data-discovery">
     <name>Broad Data Discovery with Metadata Investigation</name>
     <applicability>
       Use when task requests:

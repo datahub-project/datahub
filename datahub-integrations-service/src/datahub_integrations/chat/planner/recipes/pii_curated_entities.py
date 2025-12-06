@@ -7,10 +7,10 @@ Triggered when user asks about PII/sensitive data entities:
 - "Find jobs that access PII"
 """
 
-RECIPE_ID = "pii-curated-entities"
+RECIPE_NAME = "recipe-pii-curated-entities"
 
 RECIPE_XML = """\
-  <recipe id="pii-curated-entities">
+  <recipe name="recipe-pii-curated-entities">
     <name>PII Discovery - Requires Explicit Tagging</name>
     <applicability>
       Use when task requests finding PII/sensitive data entities:

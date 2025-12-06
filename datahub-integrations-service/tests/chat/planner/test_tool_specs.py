@@ -90,39 +90,15 @@ class TestPlanningToolSpecs:
         assert "issue" in parameters
         assert "evidence" in parameters
 
-    def test_report_step_progress_spec_hides_session_parameter(
-        self, mock_agent: AgentRunner
-    ) -> None:
-        """Test that report_step_progress tool spec does not expose session parameter to LLM."""
+    def test_report_step_progress_not_registered(self, mock_agent: AgentRunner) -> None:
+        """Test that report_step_progress is intentionally not registered (latency optimization)."""
         wrappers = get_planning_tool_wrappers(mock_agent)
 
-        # Find report_step_progress wrapper
-        report_progress_wrapper = next(
-            (w for w in wrappers if w.name == "report_step_progress"), None
+        # Verify report_step_progress is NOT in the registered tools
+        tool_names = {w.name for w in wrappers}
+        assert "report_step_progress" not in tool_names, (
+            "report_step_progress should not be registered (latency optimization)"
         )
-        assert report_progress_wrapper is not None, (
-            "report_step_progress tool wrapper not found"
-        )
-
-        # Get the Bedrock tool spec
-        spec = report_progress_wrapper.to_bedrock_spec()
-        input_schema = spec["toolSpec"]["inputSchema"]["json"]
-        parameters = input_schema["properties"].keys()
-
-        # Verify session is NOT in parameters
-        assert "session" not in parameters, (
-            "session parameter should not be exposed to LLM"
-        )
-
-        # Verify expected parameters ARE present
-        assert "plan_id" in parameters
-        assert "step_id" in parameters
-        assert "status" in parameters
-        assert "done_criteria_met" in parameters
-        assert "failed_criteria_met" in parameters
-        assert "return_to_user_criteria_met" in parameters
-        assert "evidence" in parameters
-        assert "confidence" in parameters
 
     def test_all_planning_tools_have_descriptions(
         self, mock_agent: AgentRunner
@@ -130,7 +106,7 @@ class TestPlanningToolSpecs:
         """Test that all planning tools have descriptions."""
         wrappers = get_planning_tool_wrappers(mock_agent)
 
-        assert len(wrappers) == 3, "Should have exactly 3 planning tools"
+        assert len(wrappers) == 2, "Should have exactly 2 planning tools"
 
         for wrapper in wrappers:
             spec = wrapper.to_bedrock_spec()
@@ -146,7 +122,7 @@ class TestPlanningToolSpecs:
         wrappers = get_planning_tool_wrappers(mock_agent)
 
         tool_names = {w.name for w in wrappers}
-        expected_names = {"create_plan", "revise_plan", "report_step_progress"}
+        expected_names = {"create_plan", "revise_plan"}
 
         assert tool_names == expected_names, (
             f"Expected tools {expected_names}, got {tool_names}"

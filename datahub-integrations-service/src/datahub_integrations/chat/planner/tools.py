@@ -20,7 +20,16 @@ to handle failures gracefully.
 import json
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Literal, Optional
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    NamedTuple,
+    Optional,
+)
 
 from json_repair import repair_json
 from loguru import logger
@@ -31,6 +40,10 @@ from datahub_integrations.chat.agents.data_catalog_prompts import (
 )
 from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, Step
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
+from datahub_integrations.chat.planner.templates import (
+    get_template,
+)
+from datahub_integrations.gen_ai.bedrock import _ENABLE_BEDROCK_PROMPT_CACHING
 from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import get_datahub_client
@@ -38,6 +51,247 @@ from datahub_integrations.mcp_integration.tool import ToolWrapper, async_backgro
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.agent_runner import AgentRunner
+
+
+# =============================================================================
+# Planner LLM Response
+# =============================================================================
+
+
+class PlannerLLMResponse(NamedTuple):
+    """
+    Response from _call_planner_llm containing plan data and internal metadata.
+
+    Attributes:
+        plan_data: Dictionary with plan fields (title, goal, steps, etc.) for constructing Plan object
+        internal_data: Dictionary with internal metadata (tool_used, template_id) for observability
+    """
+
+    plan_data: Dict[str, Any]
+    internal_data: Dict[str, Any]
+
+
+# =============================================================================
+# Internal planner LLM tool functions
+# These functions are called by the planner LLM via tool use, not by the agent.
+# =============================================================================
+
+
+def _create_execution_plan_internal(
+    title: Annotated[str, Field(description="Short plan title")],
+    goal: Annotated[str, Field(description="Overall objective")],
+    steps: List[Dict[str, Any]] | str,
+    expected_deliverable: Annotated[
+        str, Field(description="What should be delivered to the user")
+    ],
+    assumptions: List[str] | str | None = None,
+) -> Dict[str, Any]:
+    """
+    Creates a structured execution plan for a complex multi-step task.
+
+    Use this tool when the task requires 3+ steps with custom logic that doesn't
+    fit a predefined template. This is the most flexible option but also the
+    slowest since it requires generating all step details.
+
+    WHEN TO USE:
+    - Complex tasks that don't match any template
+    - Tasks requiring custom step sequences
+    - Impact analysis, multi-stage searches, comparison workflows
+
+    WHEN NOT TO USE:
+    - Simple single-search tasks (use create_noop_plan)
+    - Common patterns like search-then-examine (use create_templated_plan)
+
+    Args:
+        title: Human-readable plan title
+        goal: Overall goal of the plan
+        steps: List of step objects, each with id, description, done_when, etc.
+               May be a JSON string if LLM output was malformed.
+        expected_deliverable: What should be delivered at the end
+        assumptions: Optional list of assumptions made when creating the plan.
+                     May be a markdown-style string if LLM output was malformed.
+
+    Returns:
+        Dictionary with plan data ready to construct a Plan object
+    """
+    # Fix steps if LLM returned a JSON string instead of array
+    fixed_steps: List[Dict[str, Any]]
+    if isinstance(steps, str):
+        logger.warning("Steps field is a JSON string, parsing it with json_repair")
+        repaired = repair_json(steps)
+        fixed_steps = json.loads(repaired)
+    else:
+        fixed_steps = steps
+
+    # Fix assumptions if LLM returned a markdown-style string instead of array
+    fixed_assumptions: List[str]
+    if assumptions is None:
+        fixed_assumptions = []
+    elif isinstance(assumptions, str):
+        logger.warning(
+            "Assumptions field is a string (likely markdown bullet list), converting to list"
+        )
+        fixed_assumptions = [
+            line.strip().lstrip("-").lstrip("*").strip()
+            for line in assumptions.split("\n")
+            if line.strip() and not line.strip().startswith("#")
+        ]
+    else:
+        fixed_assumptions = assumptions
+
+    return {
+        "title": title,
+        "goal": goal,
+        "steps": fixed_steps,
+        "expected_deliverable": expected_deliverable,
+        "assumptions": fixed_assumptions,
+    }
+
+
+def _create_noop_plan_internal() -> Dict[str, Any]:
+    """
+    Use this tool when the task can be completed in 1-2 tool calls.
+
+    COUNT THE TOOL CALLS NEEDED:
+    - 1 tool call: search, get entity, get schema, get lineage, etc.
+    - 2 tool calls: search + get details, or get entity + get lineage
+    - 3+ tool calls: Use create_templated_plan or create_execution_plan instead
+
+    EXAMPLES OF 1-2 TOOL CALL TASKS (USE THIS TOOL):
+    - "show me the schema for X" → 1 call (search or get_entities)
+    - "find the customers table" → 1 call (search)
+    - "who owns dataset Y" → 1 call (get_entities)
+    - "what columns are in table Z" → 1 call (list_schema_fields)
+    - "show me lineage for X" → 1-2 calls (search + get_lineage)
+
+    EXAMPLES OF 3+ TOOL CALL TASKS (DO NOT USE THIS TOOL):
+    - "what breaks if I delete X" → multiple calls (search + lineage + filter + details)
+    - "compare schemas of X and Y" → multiple calls (get both schemas + compare)
+    - "find all PII tables and their owners" → multiple calls (search + iterate + get details)
+
+    Returns:
+        Dictionary with noop plan data (metadata.noop=True)
+    """
+    logger.info("Creating noop plan")
+
+    return {
+        "title": "Direct Execution",
+        "goal": "Execute task directly without multi-step planning",
+        "steps": [
+            {
+                "id": "s0",
+                "description": "Execute task directly",
+                "done_when": "Task completed",
+            }
+        ],
+        "expected_deliverable": "Direct response to user query",
+        "assumptions": [],
+        "metadata": {"noop": True},
+    }
+
+
+def _create_templated_plan_internal(
+    template_id: str,
+    title: str,
+    goal: str,
+    step_overrides: List[Dict[str, Any]] | str | None = None,
+) -> Dict[str, Any]:
+    """
+    Use this tool when the task matches a common pattern (3-5 tool calls).
+
+    AVAILABLE TEMPLATES (all prefixed with "template-"):
+
+    template-definition-discovery:
+      Use when: User asks for definition/meaning of a term, metric, or field
+      Examples: "what is the definition of MAU", "what does market_type mean", "what is add to cart rate"
+      Searches: glossary → dashboards → datasets → compile definition with sources
+
+    template-data-location:
+      Use when: User asks where to find specific data or metrics
+      Examples: "where can I find monthly churn rate", "where do I find inventory data"
+      Searches: datasets → dashboards → present location options
+
+    template-join-discovery:
+      Use when: User asks how to join two tables
+      Examples: "how do I join ACCOUNTS with ORGANIZATIONS", "how can I join EVENTS with USERS"
+      Retrieves: schema A → schema B → sample queries → identify join keys
+
+    template-impact-analysis:
+      Use when: User asks about downstream impacts of changing/deleting entity
+      Examples: "if I change X what breaks", "what will be impacted if I deprecate Y"
+      Steps: search entity → get downstream lineage → present impact report with owners
+
+    template-search-then-examine:
+      Use when: User wants to find entities and get their details
+      Examples: "find PII datasets and show owners", "find tables with customer data and show schema"
+      Steps: search → get details → present combined results
+
+    Args:
+        template_id: ID of the template (must start with "template-")
+        title: Human-readable plan title for this specific task
+        goal: Goal of this specific task
+        step_overrides: List of {step_id, tool, param_hints} to bind tools to template steps
+
+    Returns:
+        Dictionary with plan data ready to construct a Plan object.
+        Falls back to noop plan if template_id is not found.
+    """
+    template = get_template(template_id)
+    if template is None:
+        available = "template-definition-discovery, template-data-location, template-join-discovery, template-impact-analysis, template-search-then-examine"
+        hint = ""
+        if not template_id.startswith("template-"):
+            hint = " Template IDs must start with 'template-'. Recipe names (recipe-*) cannot be used here."
+        logger.error(
+            f"Unknown template_id: {template_id}. "
+            f"Available templates: {available}.{hint} "
+            f"Falling back to noop plan."
+        )
+        return _create_noop_plan_internal()
+
+    logger.info(f"Using plan template: {template_id} ({template.name})")
+
+    # Fix step_overrides if LLM returned a JSON string
+    fixed_overrides: List[Dict[str, Any]]
+    if step_overrides is None:
+        fixed_overrides = []
+    elif isinstance(step_overrides, str):
+        logger.warning("step_overrides is a JSON string, parsing it with json_repair")
+        repaired = repair_json(step_overrides)
+        fixed_overrides = json.loads(repaired)
+    else:
+        fixed_overrides = step_overrides
+
+    # Build override lookup: step_id -> {tool, param_hints}
+    override_map = {o["step_id"]: o for o in fixed_overrides}
+
+    # Convert template steps to plan steps, applying overrides
+    steps = []
+    for template_step in template.steps:
+        step_dict = template_step.model_dump(exclude_none=True)
+        # Apply overrides if present
+        if template_step.id in override_map:
+            override = override_map[template_step.id]
+            if "tool" in override:
+                step_dict["tool"] = override["tool"]
+            if "param_hints" in override:
+                step_dict["param_hints"] = override["param_hints"]
+        steps.append(step_dict)
+
+    return {
+        "title": title,
+        "goal": goal,
+        "steps": steps,
+        "expected_deliverable": template.expected_deliverable_template,
+        "assumptions": [],
+        "metadata": {},
+        # Note: template_id is stored in plan_cache["internal"] for observability,
+        # not in Plan.metadata (executor doesn't need to know how plan was created)
+        "_internal": {
+            "template_id": template_id,
+        },
+    }
+
 
 # Planner configuration
 PLANNER_MODEL = model_config.chat_assistant_ai.model
@@ -62,7 +316,7 @@ def get_plan_by_id(plan_id: str, agent: "AgentRunner") -> Optional[Plan]:
 
 
 _PLANNER_SYSTEM_PROMPT = """\
-You are a planning assistant for DataHub AI. Your job is to create structured execution plans for complex multi-step tasks.
+You are a planning assistant for DataHub AI. Your job is to choose the right planning tool for each task.
 
 Your plans should:
 - Break down tasks into 3-7 sequential steps (prefer fewer when possible)
@@ -71,7 +325,14 @@ Your plans should:
 - Steps are executed sequentially in array order (s0, s1, s2...)
 - Select the most appropriate tools from the available tool list
 
-For each step, provide:
+First output <steps>N</steps> (no other text) where N = number of steps needed.
+
+Then choose the right tool:
+- If the task needs 1-3 steps: use create_noop_plan (simple task, agent can handle directly)
+- If the task matches a template pattern: use create_templated_plan
+- Otherwise: use create_execution_plan with full step details
+
+For create_execution_plan, provide each step with:
 - id: Sequential identifier (s0, s1, s2...)
 - description: What this step accomplishes
 - done_when: Natural language criteria for completion (e.g., "Search returned exactly 1 result")
@@ -100,65 +361,99 @@ def _get_tool_descriptions(agent: "AgentRunner") -> Dict[str, str]:
     }
 
 
-def _get_plan_tool_spec() -> dict:
+def _get_planner_tool_wrappers() -> List[ToolWrapper]:
     """
-    Create a Bedrock tool specification for structured Plan output.
+    Get ToolWrappers for internal planner LLM tools.
 
-    This ensures the LLM returns a properly structured Plan object
-    instead of free-form JSON that might have format issues.
+    These tools are used by the planner LLM to generate plans.
+    The tool specs are extracted from the function signatures and docstrings.
 
-    Automatically generates the JSON schema from the Plan Pydantic model,
-    ensuring it stays in sync with the model definition.
+    Returns:
+        List of ToolWrapper objects for the three planner tools
     """
-    # Generate JSON schema from the Plan Pydantic model
-    # This avoids duplication and ensures schema matches the model
-    plan_schema = Plan.model_json_schema()
-
-    # Remove fields that the LLM shouldn't provide (they're set by the code)
-    # plan_id and version are generated/managed by create_plan/revise_plan
-    if "properties" in plan_schema:
-        plan_schema["properties"].pop("plan_id", None)
-        plan_schema["properties"].pop("version", None)
-        plan_schema["properties"].pop("metadata", None)  # Also auto-generated
-
-        # Update required fields list to remove the ones we popped
-        if "required" in plan_schema:
-            plan_schema["required"] = [
-                field
-                for field in plan_schema["required"]
-                if field not in ["plan_id", "version", "metadata"]
-            ]
-
-    return {
-        "toolSpec": {
-            "name": "create_execution_plan",
-            "description": "Creates a structured execution plan for a multi-step task",
-            "inputSchema": {"json": plan_schema},
-        }
-    }
+    return [
+        ToolWrapper.from_function(
+            fn=_create_noop_plan_internal,
+            name="create_noop_plan",
+            description=(
+                _create_noop_plan_internal.__doc__
+                or "Signal task is simple, skip planning"
+            ),
+        ),
+        ToolWrapper.from_function(
+            fn=_create_templated_plan_internal,
+            name="create_templated_plan",
+            description=(
+                _create_templated_plan_internal.__doc__ or "Create plan from template"
+            ),
+        ),
+        ToolWrapper.from_function(
+            fn=_create_execution_plan_internal,
+            name="create_execution_plan",
+            description=(
+                _create_execution_plan_internal.__doc__ or "Create full custom plan"
+            ),
+        ),
+    ]
 
 
-def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
+def _get_planner_tool_specs() -> List[dict]:
+    """
+    Get Bedrock tool specifications for internal planner LLM tools.
+
+    Returns:
+        List of Bedrock toolSpec dictionaries
+    """
+    return [wrapper.to_bedrock_spec() for wrapper in _get_planner_tool_wrappers()]
+
+
+def _dispatch_planner_tool(
+    tool_name: str, tool_input: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Dispatch a tool call from the planner LLM to the appropriate function.
+
+    Args:
+        tool_name: Name of the tool called by the LLM
+        tool_input: Input arguments for the tool
+
+    Returns:
+        Dictionary with plan data ready to construct a Plan object
+
+    Raises:
+        ValueError: If tool_name is not recognized
+    """
+    if tool_name == "create_noop_plan":
+        return _create_noop_plan_internal(**tool_input)
+    elif tool_name == "create_templated_plan":
+        return _create_templated_plan_internal(**tool_input)
+    elif tool_name == "create_execution_plan":
+        return _create_execution_plan_internal(**tool_input)
+    else:
+        raise ValueError(f"Unknown planner tool: {tool_name}")
+
+
+def _call_planner_llm(prompt: str, tools_summary: str) -> PlannerLLMResponse:
     """
     Call the planner LLM to generate a plan using structured output.
 
-    Uses low temperature and toolConfig with a Plan schema to enforce
-    proper structure. This function is responsible for returning a valid,
-    properly-formatted dictionary that can be used to construct a Plan object.
+    Uses low temperature and toolConfig with tool specs to enforce proper structure.
+    The LLM chooses which tool to call (create_execution_plan, create_noop_plan,
+    or create_templated_plan), and the corresponding function handles JSON fixups.
 
-    This function handles common LLM output issues:
-    - Repairs malformed JSON in the 'steps' field if needed
-    - Converts markdown-style assumptions strings to proper arrays
-    - Ensures all fields match the expected schema
+    Prompt caching is enabled when ENABLE_BEDROCK_PROMPT_CACHING=true. Cache checkpoints
+    are placed after static content (system prompt, tools summary, recipes) to maximize
+    cache hits across multiple planner calls.
 
     Args:
         prompt: The user task/prompt
         tools_summary: Formatted string of available tools and descriptions
 
     Returns:
-        Dictionary with plan data, ready to be used for constructing a Plan object.
-        The returned dict is guaranteed to have properly structured 'steps'
-        (as an array) and 'assumptions' (as an array of strings).
+        PlannerLLMResponse with:
+        - plan_data: Dictionary with plan fields to construct a Plan object
+        - internal_data: Dictionary with internal metadata (tool_used, template_id if applicable)
+                        This is stored in plan_cache for observability but not in the Plan object.
 
     Raises:
         ValueError: If the LLM response cannot be converted to valid plan dict.
@@ -166,14 +461,23 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
     llm_client = get_llm_client(PLANNER_MODEL)
 
     # Build system messages: main prompt + tools + custom instructions (if any) + recipes
-    system_messages = [
+    # Order is intentional for prompt caching - most stable content first
+    system_messages: List[Dict[str, Any]] = [
         {"text": _PLANNER_SYSTEM_PROMPT},
     ]
 
-    # Add available tools (stable, good for prompt caching)
+    # Add available tools (stable within a session, good for prompt caching)
     system_messages.append({"text": f"AVAILABLE TOOLS:\n\n{tools_summary}"})
 
-    # Add custom instructions if configured
+    # Add recipe guidance (static, excellent for caching)
+    system_messages.append({"text": get_recipe_guidance()})
+
+    # Add cache checkpoint after static content if prompt caching is enabled
+    # This allows the LLM to cache the system prompt + tools + recipes
+    if _ENABLE_BEDROCK_PROMPT_CACHING:
+        system_messages.append({"cachePoint": {"type": "default"}})
+
+    # Add custom instructions if configured (may vary per customer, added after cache point)
     client = get_datahub_client()
     extra_instructions = get_extra_llm_instructions(client)
     if extra_instructions:
@@ -183,19 +487,19 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
         )
         system_messages.append({"text": formatted_instructions})
 
-    # Add recipe guidance
-    system_messages.append(
-        {
-            "text": get_recipe_guidance()
-        }  # Recipes as separate message (machine-constructible)
-    )
+    # Get tool specs from internal planner tools
+    planner_tool_specs: List[Dict[str, Any]] = _get_planner_tool_specs()
+
+    # Add cache checkpoint after tool specs if prompt caching is enabled
+    if _ENABLE_BEDROCK_PROMPT_CACHING:
+        planner_tool_specs.append({"cachePoint": {"type": "default"}})
 
     # Use toolConfig to enforce structured output
     response = llm_client.converse(
         system=system_messages,  # type: ignore[arg-type]
         messages=[{"role": "user", "content": [{"text": prompt}]}],
         toolConfig={
-            "tools": [_get_plan_tool_spec()]  # type: ignore[list-item]  # Enforce Plan schema
+            "tools": planner_tool_specs  # type: ignore[list-item]
         },
         inferenceConfig={
             "temperature": PLANNER_TEMPERATURE,
@@ -221,37 +525,25 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
             break
 
     if tool_use_block:
-        # Structured output - extract the input (the plan data)
-        plan_input = tool_use_block.get("input", {})
+        tool_name = tool_use_block.get("name", "")
+        tool_input = tool_use_block.get("input", {})
+
+        # Log which planner tool was chosen for monitoring/troubleshooting
+        logger.info(f"Planner LLM chose tool: {tool_name}")
 
         # If input is already a string (shouldn't happen), parse it
-        if isinstance(plan_input, str):
+        if isinstance(tool_input, str):
             logger.warning("Tool input is a string, parsing it")
-            plan_input = json.loads(plan_input)
+            tool_input = json.loads(tool_input)
 
-        # Fix common LLM output issues before returning
-        # Handle case where Bedrock returns steps as a JSON string instead of array
-        steps_data = plan_input.get("steps", [])
-        if isinstance(steps_data, str):
-            logger.warning("Steps field is a JSON string, parsing it with json_repair")
-            repaired = repair_json(steps_data)
-            plan_input["steps"] = json.loads(repaired)
+        # Dispatch to the appropriate function which handles JSON fixups
+        plan_data = _dispatch_planner_tool(tool_name, tool_input)
 
-        # Handle case where Bedrock returns assumptions as a markdown-style string instead of array
-        assumptions_data = plan_input.get("assumptions", [])
-        if isinstance(assumptions_data, str):
-            logger.warning(
-                "Assumptions field is a string (likely markdown bullet list), converting to list"
-            )
-            # Split by newlines and clean up markdown bullet points
-            plan_input["assumptions"] = [
-                line.strip().lstrip("-").lstrip("*").strip()
-                for line in assumptions_data.split("\n")
-                if line.strip() and not line.strip().startswith("#")
-            ]
+        # Extract internal metadata (template_id, etc.) from plan_data
+        internal_data = plan_data.pop("_internal", {})
+        internal_data["tool_used"] = tool_name
 
-        # Return the fixed dict
-        return plan_input
+        return PlannerLLMResponse(plan_data=plan_data, internal_data=internal_data)
 
     # Fallback: try to extract text and parse as JSON (shouldn't happen with toolConfig)
     if "text" in content[0]:
@@ -261,7 +553,11 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
         text_response = content[0]["text"]
         # Try to parse the text as JSON
         try:
-            return json.loads(text_response)
+            plan_data = json.loads(text_response)
+            # No tool name in fallback case
+            return PlannerLLMResponse(
+                plan_data=plan_data, internal_data={"tool_used": "unknown"}
+            )
         except json.JSONDecodeError:
             raise ValueError(
                 f"Could not parse text response as JSON: {text_response}"
@@ -409,9 +705,11 @@ Requirements:
 Use the create_execution_plan tool to return the structured plan."""
 
     # Call planner LLM (tools_summary goes to system message)
-    # The LLM call handles fixups internally and returns a valid dict
+    # Returns PlannerLLMResponse with plan_data and internal_data
     try:
-        plan_data = _call_planner_llm(prompt, tools_summary)
+        response = _call_planner_llm(prompt, tools_summary)
+        plan_data = response.plan_data
+        internal_data = response.internal_data
 
         # Build Plan object from LLM response
         # Note: _call_planner_llm has already fixed steps and assumptions to be proper arrays
@@ -420,11 +718,11 @@ Use the create_execution_plan tool to return the structured plan."""
             version=1,
             title=plan_data.get("title", f"Plan for: {task[:50]}"),
             goal=plan_data.get("goal", task),
-            assumptions=plan_data.get("assumptions", []),
             constraints=Constraints(
                 tool_allowlist=tool_allowlist,
                 max_tool_calls=plan_data.get("max_tool_calls", max_steps * 3),
             ),
+            assumptions=plan_data.get("assumptions", []),
             steps=[
                 Step(
                     id=step_data["id"],
@@ -452,10 +750,11 @@ Use the create_execution_plan tool to return the structured plan."""
             )
         raise
 
-    # Store in agent cache
+    # Store in agent cache with internal metadata for observability
     agent.plan_cache[plan_id] = {
         "plan": plan,
         "progress": {},  # Will store {step_id: {status, evidence, confidence, timestamp}}
+        "internal": internal_data,  # tool_used, template_id (for monitoring/validation)
     }
 
     logger.info(
@@ -613,9 +912,11 @@ Use the create_execution_plan tool to return the revised plan structure with:
 - Expected deliverable"""
 
     # Call planner LLM (tools_summary goes to system message)
-    # The LLM call handles fixups internally and returns a valid dict
+    # Returns PlannerLLMResponse with plan_data and internal_data
     try:
-        revision_data = _call_planner_llm(prompt, tools_summary)
+        response = _call_planner_llm(prompt, tools_summary)
+        revision_data = response.plan_data
+        internal_data = response.internal_data
 
         # Build revised plan with completed steps + new steps
         completed_step_objs = [
@@ -656,8 +957,12 @@ Use the create_execution_plan tool to return the revised plan structure with:
         logger.error(f"Failed to revise plan {plan_id}: {e}")
         raise
 
-    # Update agent cache
+    # Update agent cache (preserve internal metadata, update with revision info)
     agent.plan_cache[plan_id]["plan"] = revised_plan
+    if "internal" not in agent.plan_cache[plan_id]:
+        agent.plan_cache[plan_id]["internal"] = {}
+    agent.plan_cache[plan_id]["internal"].update(internal_data)
+    agent.plan_cache[plan_id]["internal"]["revised"] = True
 
     logger.info(
         f"Revised plan {plan_id} to version {revised_plan.version} with {len(revised_plan.steps)} steps"
@@ -861,11 +1166,16 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
     These tools are NOT registered on the customer-facing MCP server.
     They are internal tools for agents that support planning.
 
+    Note: report_step_progress is intentionally not registered. The LLM's
+    reasoning messages already capture progress naturally, and forcing a
+    structured tool call adds latency without providing control flow value.
+    The function is kept in case we need to re-enable it later.
+
     Args:
         agent: The AgentRunner instance to bind to planning tools
 
     Returns:
-        List of ToolWrapper objects for create_plan, revise_plan, and report_step_progress
+        List of ToolWrapper objects for create_plan and revise_plan
     """
     # Create wrapper functions that bind the agent parameter
     # We can't use functools.partial because FastMCP's tool introspection
@@ -917,7 +1227,9 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
     # Copy docstrings from original functions
     _create_plan_wrapper.__doc__ = create_plan.__doc__
     _revise_plan_wrapper.__doc__ = revise_plan.__doc__
+    # Keep wrapper defined but not registered (see docstring for rationale)
     _report_step_progress_wrapper.__doc__ = report_step_progress.__doc__
+    _ = _report_step_progress_wrapper  # Silence unused variable warning
 
     # Explicitly wrap sync functions with async_background to run them in thread pool
     # This prevents blocking the event loop during expensive operations like LLM calls
@@ -932,9 +1244,5 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
             name="revise_plan",
             description=revise_plan.__doc__ or "Revise an execution plan",
         ),
-        ToolWrapper.from_function(
-            fn=async_background(_report_step_progress_wrapper),
-            name="report_step_progress",
-            description=report_step_progress.__doc__ or "Report plan step progress",
-        ),
+        # report_step_progress intentionally not registered - see docstring
     ]
