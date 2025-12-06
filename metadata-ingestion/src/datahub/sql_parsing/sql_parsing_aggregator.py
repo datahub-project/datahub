@@ -9,7 +9,7 @@ import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -877,8 +877,10 @@ class SqlParsingAggregator(Closeable):
         #
         # For queries with no output tables (e.g., SELECT), we still create one
         # PreparsedQuery with downstream=None to track usage statistics.
-        output_tables: list[Optional[str]] = (
-            parsed.out_tables if parsed.out_tables else [None]
+        output_tables: Sequence[Optional[str]] = (
+            parsed.out_tables
+            if parsed.out_tables
+            else cast(List[Optional[str]], [None])
         )
 
         for downstream_urn in output_tables:
