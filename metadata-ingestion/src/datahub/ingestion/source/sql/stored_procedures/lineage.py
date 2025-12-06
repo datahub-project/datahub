@@ -14,7 +14,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_utils import parse_statement
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,8 @@ def parse_procedure_code(
 
         # Parse statement to determine its type using sqlglot
         try:
-            parsed = parse_statement(stmt_stripped, dialect="tsql")
+            dialect = get_dialect("tsql")
+            parsed = parse_statement(stmt_stripped, dialect=dialect)
             query_type, _ = get_query_type_of_sql(parsed, dialect="tsql")
 
             # Skip UNKNOWN types (RAISERROR, unsupported SQL, etc.)
