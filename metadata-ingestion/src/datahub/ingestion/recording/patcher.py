@@ -316,7 +316,8 @@ class ModulePatcher:
             # Create the real engine
             engine = original_create_engine(*args, **kwargs)
 
-            # For recording/replay, wrap the engine's raw_connection to intercept all queries
+            # Wrap raw_connection() which is used by SQLAlchemy's Inspector
+            # for metadata queries
             if not is_replay:
                 # Recording mode: wrap connections to record queries
                 original_raw_connection = engine.raw_connection
