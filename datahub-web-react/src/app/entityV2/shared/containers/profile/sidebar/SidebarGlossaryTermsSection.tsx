@@ -1,5 +1,4 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { get } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +7,7 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
 import { ENTITY_PROFILE_GLOSSARY_TERMS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
@@ -34,17 +34,12 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    // Extract glossary terms using custom path or default path
-    const extractGlossaryTerms = () => {
-        if (properties?.customTermPath) {
-            return get(entityData, properties?.customTermPath);
-        }
-        // Fall back to default path
-        return entityData?.glossaryTerms;
-    };
-
-    const glossaryTerms = extractGlossaryTerms();
-    const areTermsEmpty = !glossaryTerms?.terms?.length;
+    // Extract glossary terms using custom hook
+    const { data: glossaryTerms, isEmpty: areTermsEmpty } = useEntityDataExtractor({
+        customPath: properties?.customTermPath,
+        defaultPath: 'glossaryTerms',
+        arrayProperty: 'terms',
+    });
 
     const canEditTerms = !!entityData?.privileges?.canEditGlossaryTerms;
 
