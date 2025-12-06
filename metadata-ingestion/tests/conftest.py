@@ -26,10 +26,18 @@ from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
     pytest_addoption,
 )
-from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
-    docker_compose_command,
-    docker_compose_runner,
-)
+
+# Docker helpers are optional - only import if pytest_docker is available
+# This allows unit tests to run without docker dependencies
+try:
+    from tests.test_helpers.docker_helpers import (  # noqa: F401
+        docker_compose_command,
+        docker_compose_runner,
+    )
+except ImportError:
+    # pytest_docker not available - docker fixtures won't be available
+    # This is fine for unit tests that don't need docker
+    pass
 from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph,
     mock_datahub_graph_instance,
@@ -41,11 +49,16 @@ try:
 except ImportError:
     pass
 
-import freezegun  # noqa: E402
+# freezegun is optional - only configure if available
+try:
+    import freezegun
 
-# The freezegun library has incomplete type annotations.
-# See https://github.com/spulec/freezegun/issues/469
-freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
+    # The freezegun library has incomplete type annotations.
+    # See https://github.com/spulec/freezegun/issues/469
+    freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
+except ImportError:
+    # freezegun not available - time mocking won't work, but that's okay for unit tests
+    pass
 
 
 @pytest.fixture

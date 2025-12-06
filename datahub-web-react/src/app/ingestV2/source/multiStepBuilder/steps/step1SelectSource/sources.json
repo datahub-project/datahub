@@ -446,5 +446,15 @@
         "recipe": "source:\n  type: hex\n  config:\n    workspace_name: # Your Hex Workspace name\n     token: # Your PAT or Workspace token",
         "category": "Other",
         "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:rdf",
+        "name": "rdf",
+        "displayName": "RDF",
+        "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
+        "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary",
+        "category": "Other",
+        "isPopular": false
     }
 ]

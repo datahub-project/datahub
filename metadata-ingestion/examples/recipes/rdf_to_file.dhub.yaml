@@ -1,0 +1,26 @@
+---
+# Example recipe for RDF ingestion source
+# This recipe reads RDF files and outputs metadata to a file for inspection
+source:
+  type: rdf
+  config:
+    # Path to RDF file or directory
+    source: tests/unit/rdf/sample_glossary_domains.ttl
+    # RDF format (auto-detected if not specified)
+    format: turtle
+    # DataHub environment
+    environment: PROD
+    # Optional: Export only specific entity types
+    # export_only:
+    #   - glossary
+    #   - datasets
+    # Optional: Skip specific entity types
+    # skip_export:
+    #   - assertions
+
+# Output to file for inspection
+sink:
+  type: file
+  config:
+    filename: ./rdf_ingestion_output.json
+
