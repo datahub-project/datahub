@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Dict, Iterable, Optional
@@ -205,6 +206,8 @@ def generate_procedure_lineage(
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
+    logger = logging.getLogger(__name__)
+
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
@@ -213,12 +216,18 @@ def generate_procedure_lineage(
             code=procedure.procedure_definition,
             is_temp_table=is_temp_table,
             raise_=raise_,
+            procedure_name=procedure.name,
         )
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(
                 entityUrn=procedure_job_urn,
                 aspect=datajob_input_output,
+            )
+        else:
+            logger.warning(
+                f"Failed to extract lineage for stored procedure: {procedure.name}. "
+                f"URN: {procedure_job_urn}."
             )
 
 

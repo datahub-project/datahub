@@ -1,0 +1,96 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {
+        "kind": "PROCEDURE"
+    },
+    "query_fingerprint": null,
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.vw_fundshareclassid,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.vw_personid,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.xv_fundmanager,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "managerid",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.xv_fundmanager,PROD)",
+                    "column": "personid"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[b].[personid] AS [managerid]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "managername",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.vw_personid,PROD)",
+                    "column": "familyname"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.vw_personid,PROD)",
+                    "column": "givenname"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "[c].[givenname] + ' ' + [c].[familyname] AS [managername]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "startdate",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.xv_fundmanager,PROD)",
+                    "column": "startdate"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[b].[startdate] AS [startdate]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "enddate",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dataindex.dbo.xv_fundmanager,PROD)",
+                    "column": "enddate"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[b].[enddate] AS [enddate]"
+            }
+        }
+    ],
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.5,
+        "generalized_statement": "CREATE PROCEDURE (parsed 1 statements via fallback)"
+    }
+}

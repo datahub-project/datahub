@@ -1019,62 +1019,392 @@ class SQLServerSource(SQLAlchemySource):
             else qualified_table_name
         )
 
+    def _is_qualified_table_urn(
+        self, urn: str, platform_instance: Optional[str] = None
+    ) -> bool:
+        """Check if a table URN represents a fully qualified table name.
+
+        MSSQL uses 3-part naming: database.schema.table.
+        This helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
+
+        Args:
+            urn: Dataset URN
+            platform_instance: Platform instance to strip from the name if present
+
+        Returns:
+            True if the table name is fully qualified (>= 3 parts), False otherwise
+        """
+        # Extract name from URN: urn:li:dataset:(urn:li:dataPlatform:mssql,NAME,ENV)
+        parts = urn.split(",")
+        if len(parts) < 2:
+            return False
+
+        name = parts[1]
+
+        # Strip platform_instance prefix if present
+        if platform_instance and name.startswith(f"{platform_instance}."):
+            name = name[len(platform_instance) + 1 :]
+
+        # Check if name has at least 3 parts (database.schema.table)
+        name_parts = name.split(".")
+        return len(name_parts) >= 3
+
+    def _filter_upstream_aliases(self, upstream_urns: List[str]) -> List[str]:
+        """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
+
+        TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
+        both 'dst' (alias) and 'table' (real table). These aliases appear as upstream
+        references but aren't real tables.
+
+        Uses the existing is_temp_table() method to identify aliases:
+        - Tables in schema_resolver: Real tables (keep)
+        - Tables in discovered_datasets: Real tables (keep)
+        - Undiscovered tables: Likely aliases (filter)
+
+        Args:
+            upstream_urns: List of upstream dataset URNs
+
+        Returns:
+            Filtered list with only real tables
+        """
+        from datahub.metadata.urns import DatasetUrn
+
+        if not upstream_urns:
+            return []
+
+        logger.info(
+            f"[FILTER-UPSTREAM] Starting alias filtering for {len(upstream_urns)} upstream URNs"
+        )
+
+        filtered = []
+        filtered_aliases = []
+        kept_tables = []
+
+        for urn in upstream_urns:
+            try:
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_name = dataset_urn.name
+
+                # Strip platform_instance prefix if present
+                # (dataset_urn.name includes platform_instance, but discovered_datasets doesn't)
+                if self.config.platform_instance and table_name.startswith(
+                    f"{self.config.platform_instance}."
+                ):
+                    table_name = table_name[len(self.config.platform_instance) + 1 :]
+
+                # Reuse existing is_temp_table() logic
+                if self.is_temp_table(table_name):
+                    filtered_aliases.append(table_name)
+                    logger.info(f"[FILTER-UPSTREAM] Filtering alias: {table_name}")
+                else:
+                    filtered.append(urn)
+                    kept_tables.append(table_name)
+                    logger.debug(f"[FILTER-UPSTREAM] Keeping real table: {table_name}")
+            except Exception as e:
+                logger.warning(f"[FILTER-UPSTREAM] Error parsing URN {urn}: {e}")
+                filtered.append(urn)  # Conservative: keep it
+
+        # Summary logging
+        if filtered_aliases:
+            logger.info(
+                f"[FILTER-UPSTREAM] Summary: Filtered {len(filtered_aliases)} alias(es), "
+                f"kept {len(kept_tables)} real table(s)"
+            )
+            logger.info(f"[FILTER-UPSTREAM]   Filtered aliases: {filtered_aliases}")
+            logger.info(f"[FILTER-UPSTREAM]   Kept tables: {kept_tables}")
+        else:
+            logger.info(
+                f"[FILTER-UPSTREAM] No aliases filtered, all {len(upstream_urns)} tables are real"
+            )
+
+        return filtered
+
+    def _filter_procedure_lineage(  # noqa: C901
+        self,
+        mcps: Iterable[MetadataChangeProposalWrapper],
+        procedure_name: Optional[str] = None,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Filter out unqualified table URNs from stored procedure lineage.
+
+        TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
+        both 'dst' (alias) and 'table' (real table). Unqualified aliases create
+        invalid URNs that cause DataHub sink to reject the entire aspect.
+
+        This filter removes URNs with < 3 parts (database.schema.table).
+
+        Args:
+            mcps: MCPs from generate_procedure_lineage()
+            procedure_name: Procedure name for logging
+
+        Yields:
+            Filtered MCPs with only qualified table URNs
+        """
+        platform_instance = self.get_schema_resolver().platform_instance
+
+        from datahub.metadata.schema_classes import DataJobInputOutputClass
+
+        for mcp in mcps:
+            # Only filter dataJobInputOutput aspects
+            if (
+                hasattr(mcp, "aspect")
+                and mcp.aspect
+                and isinstance(mcp.aspect, DataJobInputOutputClass)
+            ):
+                aspect: DataJobInputOutputClass = mcp.aspect
+                original_input_count = len(aspect.inputDatasets or [])
+                original_output_count = len(aspect.outputDatasets or [])
+
+                # Log BEFORE filtering to see what parser extracted
+                logger.info(
+                    f"[LINEAGE-BEFORE] Procedure {procedure_name or 'unknown'}: "
+                    f"Parser extracted {original_input_count} inputs, {original_output_count} outputs"
+                )
+                if original_input_count > 0:
+                    logger.info("[LINEAGE-BEFORE]   Input URNs (showing first 5):")
+                    for i, urn in enumerate((aspect.inputDatasets or [])[:5], start=1):
+                        # Extract table name and count parts
+                        parts = urn.split(",")
+                        name = parts[1] if len(parts) >= 2 else "unknown"
+                        # Strip platform_instance to show actual table reference
+                        display_name = name
+                        if platform_instance and name.startswith(
+                            f"{platform_instance}."
+                        ):
+                            display_name = name[len(platform_instance) + 1 :]
+                        name_parts = display_name.split(".")
+                        logger.info(
+                            f"[LINEAGE-BEFORE]     {i}. {display_name} ({len(name_parts)} parts)"
+                        )
+
+                if original_output_count > 0:
+                    logger.info("[LINEAGE-BEFORE]   Output URNs (showing first 5):")
+                    for i, urn in enumerate((aspect.outputDatasets or [])[:5], start=1):
+                        parts = urn.split(",")
+                        name = parts[1] if len(parts) >= 2 else "unknown"
+                        display_name = name
+                        if platform_instance and name.startswith(
+                            f"{platform_instance}."
+                        ):
+                            display_name = name[len(platform_instance) + 1 :]
+                        name_parts = display_name.split(".")
+                        logger.info(
+                            f"[LINEAGE-BEFORE]     {i}. {display_name} ({len(name_parts)} parts)"
+                        )
+
+                # Filter inputs and outputs
+                filtered_inputs = []
+                filtered_outputs = []
+
+                if aspect.inputDatasets:
+                    # First filter unqualified tables
+                    for urn in aspect.inputDatasets:
+                        if not self._is_qualified_table_urn(urn, platform_instance):
+                            filtered_inputs.append(urn)
+                    qualified_inputs = [
+                        urn
+                        for urn in aspect.inputDatasets
+                        if self._is_qualified_table_urn(urn, platform_instance)
+                    ]
+
+                    # Log phase 1 filtering results
+                    if filtered_inputs:
+                        logger.info(
+                            f"[FILTER-PHASE1] Filtered {len(filtered_inputs)} unqualified table(s), "
+                            f"proceeding with {len(qualified_inputs)} qualified table(s) for alias filtering"
+                        )
+
+                    # Then filter upstream aliases using is_temp_table()
+                    aspect.inputDatasets = self._filter_upstream_aliases(
+                        qualified_inputs
+                    )
+
+                if aspect.outputDatasets:
+                    for urn in aspect.outputDatasets:
+                        if not self._is_qualified_table_urn(urn, platform_instance):
+                            filtered_outputs.append(urn)
+                    aspect.outputDatasets = [
+                        urn
+                        for urn in aspect.outputDatasets
+                        if self._is_qualified_table_urn(urn, platform_instance)
+                    ]
+
+                # Log if any tables were filtered out
+                filtered_input_count = len(aspect.inputDatasets or [])
+                filtered_output_count = len(aspect.outputDatasets or [])
+                if (
+                    filtered_input_count < original_input_count
+                    or filtered_output_count < original_output_count
+                ):
+                    logger.info(
+                        f"[FILTER] Filtered unqualified tables for {procedure_name or 'procedure'}: "
+                        f"inputs {original_input_count} -> {filtered_input_count}, "
+                        f"outputs {original_output_count} -> {filtered_output_count}"
+                    )
+                    # Log sample of filtered tables (first 3)
+                    if filtered_inputs:
+                        sample = filtered_inputs[:3]
+                        logger.info(f"[FILTER]   Sample filtered inputs: {sample}")
+                    if filtered_outputs:
+                        sample = filtered_outputs[:3]
+                        logger.info(f"[FILTER]   Sample filtered outputs: {sample}")
+
+                # Skip aspect only if BOTH inputs and outputs are empty
+                if not aspect.inputDatasets and not aspect.outputDatasets:
+                    logger.info(
+                        f"[SKIP] Skipping lineage for {procedure_name or 'procedure'}: "
+                        f"all tables were unqualified aliases"
+                    )
+                    continue
+
+                # Warn if we have inputs but no outputs (incomplete lineage)
+                if aspect.inputDatasets and not aspect.outputDatasets:
+                    logger.warning(
+                        f"[WARN] Incomplete lineage for {procedure_name or 'procedure'}: "
+                        f"UPDATE/DELETE statement has {filtered_input_count} input(s) but 0 qualified output tables. "
+                        f"Filtered outputs: {filtered_outputs[:3]}. "
+                        f"Proceeding with partial lineage (inputs only)."
+                    )
+
+                # Log AFTER filtering - what we're keeping
+                column_lineage_count = len(aspect.fineGrainedLineages or [])
+                logger.info(
+                    f"[LINEAGE-AFTER] Procedure {procedure_name or 'unknown'}: "
+                    f"Keeping {filtered_input_count} inputs, {filtered_output_count} outputs, "
+                    f"{column_lineage_count} column lineages"
+                )
+                logger.info(
+                    f"[YIELD-MCP] Yielding dataJobInputOutput MCP for {procedure_name or 'unknown'}"
+                )
+
+            yield mcp
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
         # This is done at the end so that we will have access to tables
         # from all databases in schema_resolver and discovered_tables
-        for procedure in self.stored_procedures:
-            with self.report.report_exc(
-                message="Failed to parse stored procedure lineage",
-                context=procedure.full_name,
-                level=StructuredLogLevel.WARN,
-            ):
-                yield from auto_workunit(
-                    generate_procedure_lineage(
-                        schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure.to_base_procedure(),
-                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                        is_temp_table=self.is_temp_table,
-                        default_db=procedure.db,
-                        default_schema=procedure.schema,
-                    )
+        if self.stored_procedures:
+            logger.info(
+                f"[PROC-START] Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+            )
+            logger.info(
+                f"[PROC-START] Platform instance: {self.get_schema_resolver().platform_instance}"
+            )
+
+            for idx, procedure in enumerate(self.stored_procedures, start=1):
+                logger.info(
+                    f"[PROC] Processing procedure {idx}/{len(self.stored_procedures)}: "
+                    f"{procedure.full_name} (db={procedure.db}, schema={procedure.schema})"
                 )
+
+                # Log SQL code snippet at DEBUG level
+                if procedure.code:
+                    sql_snippet = (
+                        procedure.code[:200].replace("\n", " ").replace("\r", "")
+                    )
+                    logger.debug(
+                        f"[SQL-SNIPPET] First 200 chars of {procedure.name}: {sql_snippet}..."
+                    )
+
+                with self.report.report_exc(
+                    message="Failed to parse stored procedure lineage",
+                    context=procedure.full_name,
+                    level=StructuredLogLevel.WARN,
+                ):
+                    workunit_count = 0
+                    for workunit in auto_workunit(
+                        self._filter_procedure_lineage(
+                            generate_procedure_lineage(
+                                schema_resolver=self.get_schema_resolver(),
+                                procedure=procedure.to_base_procedure(),
+                                procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                                is_temp_table=self.is_temp_table,
+                                default_db=procedure.db,
+                                default_schema=procedure.schema,
+                            ),
+                            procedure_name=procedure.name,
+                        )
+                    ):
+                        workunit_count += 1
+                        yield workunit
+
+                    if workunit_count == 0:
+                        logger.warning(
+                            f"[NO-LINEAGE] No workunits generated for procedure: {procedure.name}"
+                        )
+                    else:
+                        logger.info(
+                            f"[SUCCESS] Generated {workunit_count} workunit(s) for procedure: {procedure.name}"
+                        )
 
     def is_temp_table(self, name: str) -> bool:
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            logger.debug(f"temp table matched by pattern {name}")
+            logger.debug(f"[IS-TEMP] {name} matched temporary_tables_pattern")
             return True
 
         try:
             parts = name.split(".")
             table_name = parts[-1]
-            schema_name = parts[-2]
-            db_name = parts[-3]
 
             if table_name.startswith("#"):
+                logger.debug(f"[IS-TEMP] {name} starts with #")
                 return True
 
-            # This is also a temp table if
-            #   1. this name would be allowed by the dataset patterns, and
-            #   2. we have a list of discovered tables, and
-            #   3. it's not in the discovered tables list
-            if (
-                self.config.database_pattern.allowed(db_name)
-                and self.config.schema_pattern.allowed(schema_name)
-                and self.config.table_pattern.allowed(name)
-                and self.standardize_identifier_case(name)
-                not in self.discovered_datasets
-            ):
-                logger.debug(f"inferred as temp table {name}")
-                return True
+            # Check if the table exists in schema_resolver
+            # If we have schema information for it, it's a real table (not an alias)
+            # Only check schema_resolver if aggregator is initialized (not in unit tests)
+            if hasattr(self, "aggregator") and self.aggregator is not None:
+                from datahub.emitter.mce_builder import (
+                    make_dataset_urn_with_platform_instance,
+                )
 
-        except Exception:
-            logger.warning(f"Error parsing table name {name} ")
-        return False
+                schema_resolver = self.get_schema_resolver()
+
+                urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
+
+                if schema_resolver.has_urn(urn):
+                    logger.debug(
+                        f"[IS-TEMP] {name} is NOT temp: found in schema_resolver"
+                    )
+                    return False
+
+            # If not in schema_resolver, check if it matches our patterns
+            # and check against discovered_datasets as fallback
+            if len(parts) >= 3:
+                schema_name = parts[-2]
+                db_name = parts[-3]
+
+                if (
+                    self.config.database_pattern.allowed(db_name)
+                    and self.config.schema_pattern.allowed(schema_name)
+                    and self.config.table_pattern.allowed(name)
+                ):
+                    standardized_name = self.standardize_identifier_case(name)
+                    if standardized_name not in self.discovered_datasets:
+                        logger.info(
+                            f"[IS-TEMP] {name} treated as temp: not in schema_resolver and not in discovered_datasets "
+                            f"(standardized: {standardized_name})"
+                        )
+                        return True
+                    else:
+                        logger.debug(
+                            f"[IS-TEMP] {name} is NOT temp: found in discovered_datasets"
+                        )
+                        return False
+
+            return False
+
+        except Exception as e:
+            logger.warning(f"Error parsing table name {name}: {e}")
+            return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (

@@ -9,7 +9,7 @@ import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -868,30 +868,51 @@ class SqlParsingAggregator(Closeable):
                 self.report.num_observed_queries_column_timeout += 1
 
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
-        self.add_preparsed_query(
-            PreparsedQuery(
-                query_id=query_fingerprint,
-                query_text=observed.query,
-                query_count=observed.usage_multiplier,
-                timestamp=observed.timestamp,
-                user=observed.user,
-                session_id=session_id,
-                query_type=parsed.query_type,
-                query_type_props=parsed.query_type_props,
-                upstreams=parsed.in_tables,
-                downstream=parsed.out_tables[0] if parsed.out_tables else None,
-                column_lineage=parsed.column_lineage,
-                # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
-                inferred_schema=infer_output_schema(parsed),
-                confidence_score=parsed.debug_info.confidence,
-                extra_info=observed.extra_info,
-            ),
-            is_known_temp_table=is_known_temp_table,
-            require_out_table_schema=require_out_table_schema,
-            session_has_temp_tables=session_has_temp_tables,
-            _is_internal=True,
+
+        # Phase 1 Fix: Register ALL output tables, not just the first one
+        # This fixes the bug where stored procedures with multiple output tables
+        # only showed the first table as downstream.
+        # We create one PreparsedQuery per output table, maintaining the
+        # "one PreparsedQuery = one downstream" semantic model.
+        #
+        # For queries with no output tables (e.g., SELECT), we still create one
+        # PreparsedQuery with downstream=None to track usage statistics.
+        output_tables: Sequence[Optional[str]] = (
+            parsed.out_tables
+            if parsed.out_tables
+            else cast(List[Optional[str]], [None])
         )
+
+        for downstream_urn in output_tables:
+            logger.info(
+                f"[OBSERVED-TO-PREPARSED] Creating PreparsedQuery: query_type={parsed.query_type}, "
+                f"in_tables={len(parsed.in_tables)}, out_tables={len(parsed.out_tables)}, "
+                f"downstream={downstream_urn}"
+            )
+            self.add_preparsed_query(
+                PreparsedQuery(
+                    query_id=query_fingerprint,
+                    query_text=observed.query,
+                    query_count=observed.usage_multiplier,
+                    timestamp=observed.timestamp,
+                    user=observed.user,
+                    session_id=session_id,
+                    query_type=parsed.query_type,
+                    query_type_props=parsed.query_type_props,
+                    upstreams=parsed.in_tables,
+                    downstream=downstream_urn,
+                    column_lineage=parsed.column_lineage,
+                    # TODO: We need a full list of columns referenced, not just the out tables.
+                    column_usage=self._compute_upstream_fields(parsed),
+                    inferred_schema=infer_output_schema(parsed),
+                    confidence_score=parsed.debug_info.confidence,
+                    extra_info=observed.extra_info,
+                ),
+                is_known_temp_table=is_known_temp_table,
+                require_out_table_schema=require_out_table_schema,
+                session_has_temp_tables=session_has_temp_tables,
+                _is_internal=True,
+            )
 
     def add_preparsed_query(
         self,
@@ -977,22 +998,42 @@ class SqlParsingAggregator(Closeable):
         )
 
         if not parsed.downstream:
+            logger.info(
+                f"[PREPARSED-SKIP] Query has no downstream table, skipping lineage registration. "
+                f"Query type: {parsed.query_type}, upstreams: {len(parsed.upstreams)}"
+            )
             return
         out_table = parsed.downstream
+        logger.info(
+            f"[PREPARSED-DOWNSTREAM] Registering lineage for downstream: {out_table}, "
+            f"upstreams: {len(parsed.upstreams)}"
+        )
 
         # Register the query's lineage.
+        is_temp_condition_1 = is_known_temp_table
+        is_temp_condition_2 = (
+            parsed.query_type.is_create() and parsed.query_type_props.get("temporary")
+        )
+        is_temp_condition_3 = self.is_temp_table(out_table)
+        is_temp_condition_4 = (
+            require_out_table_schema and not self._schema_resolver.has_urn(out_table)
+        )
+
         if (
-            is_known_temp_table
-            or (
-                parsed.query_type.is_create()
-                and parsed.query_type_props.get("temporary")
-            )
-            or self.is_temp_table(out_table)
-            or (
-                require_out_table_schema
-                and not self._schema_resolver.has_urn(out_table)
-            )
+            is_temp_condition_1
+            or is_temp_condition_2
+            or is_temp_condition_3
+            or is_temp_condition_4
         ):
+            logger.info(
+                f"[TEMP-LINEAGE] Treating as temp table: downstream={out_table}, "
+                f"is_known_temp={is_temp_condition_1}, "
+                f"is_create_temp={is_temp_condition_2}, "
+                f"is_temp_table={is_temp_condition_3}, "
+                f"require_schema={is_temp_condition_4} "
+                f"(require_out_table_schema={require_out_table_schema}, "
+                f"has_urn={self._schema_resolver.has_urn(out_table) if require_out_table_schema else 'N/A'})"
+            )
             # Infer the schema of the output table and track it for later.
             if parsed.inferred_schema is not None:
                 self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
@@ -1010,6 +1051,10 @@ class SqlParsingAggregator(Closeable):
 
         else:
             # Non-temp tables immediately generate lineage.
+            logger.info(
+                f"[LINEAGE-MAP-ADD] Adding to lineage_map: downstream={out_table}, "
+                f"query_id={query_fingerprint[:50]}, query_type={parsed.query_type}"
+            )
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
                 query_fingerprint
             )
@@ -1282,7 +1327,14 @@ class SqlParsingAggregator(Closeable):
         self, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_lineage:
+            logger.info(
+                "[GEN-LINEAGE] Skipping lineage generation (generate_lineage=False)"
+            )
             return
+
+        logger.info(
+            f"[GEN-LINEAGE] Starting lineage MCP generation, lineage_map has {len(self._lineage_map)} downstream URNs"
+        )
 
         # Process all views and inject them into the lineage map.
         # The parsing of view definitions is deferred until this point
@@ -1293,6 +1345,9 @@ class SqlParsingAggregator(Closeable):
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
+            logger.info(
+                f"[GEN-LINEAGE] Generating lineage for downstream: {downstream_urn}"
+            )
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )
