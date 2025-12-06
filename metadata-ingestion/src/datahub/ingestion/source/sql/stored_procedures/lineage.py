@@ -2,14 +2,19 @@ import logging
 import uuid
 from typing import Callable, Optional
 
+import sqlglot
+
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.sql_parsing.datajob import to_datajob_input_output
+from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_utils import parse_statement
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +74,8 @@ def parse_procedure_code(
         f"(code length: {len(code)} chars)"
     )
 
-    # Filter out control flow keywords and CREATE PROCEDURE statements
+    # Filter out non-DML statements using sqlglot parser
+    # This approach is more robust than string matching as it properly parses SQL
     dml_statements = []
     for stmt in statements:
         stmt_stripped = stmt.strip()
@@ -88,6 +94,7 @@ def parse_procedure_code(
             continue
 
         # Skip control flow keywords that don't produce lineage
+        # These are not valid SQL statements, so we filter by keyword matching
         is_control_flow = any(
             stmt_upper.startswith(kw) for kw in TSQL_CONTROL_FLOW_KEYWORDS
         )
@@ -97,18 +104,53 @@ def parse_procedure_code(
             )
             continue
 
-        # Skip DROP statements
-        if stmt_upper.startswith("DROP TABLE") or stmt_upper.startswith("DROP "):
+        # Parse statement to determine its type using sqlglot
+        try:
+            parsed = parse_statement(stmt_stripped, dialect="tsql")
+            query_type, _ = get_query_type_of_sql(parsed, dialect="tsql")
+
+            # Skip UNKNOWN types (RAISERROR, unsupported SQL, etc.)
+            # These don't produce lineage
+            if query_type == QueryType.UNKNOWN:
+                logger.debug(
+                    f"[PHASE2-FILTER] Skipping UNKNOWN statement type: {stmt_stripped[:50]}..."
+                )
+                continue
+
+            # Skip CREATE_DDL (table definitions without data operations)
+            # Example: CREATE TABLE #temp (col1 INT)
+            if query_type == QueryType.CREATE_DDL:
+                logger.debug(
+                    f"[PHASE2-FILTER] Skipping CREATE_DDL: {stmt_stripped[:50]}..."
+                )
+                continue
+
+            # Skip SELECT without FROM clause (variable assignments)
+            # Example: SELECT @ErrorMessage = ERROR_MESSAGE()
+            # BUT keep: SELECT @Count = COUNT(0) FROM table (has FROM, produces lineage)
+            if query_type == QueryType.SELECT:
+                has_from = any(
+                    isinstance(node, sqlglot.exp.From) for node in parsed.walk()
+                )
+                if not has_from:
+                    logger.debug(
+                        f"[PHASE2-FILTER] Skipping SELECT without FROM (variable assignment): {stmt_stripped[:50]}..."
+                    )
+                    continue
+
+            # This is a DML statement that produces lineage
+            dml_statements.append(stmt_stripped)
             logger.debug(
-                f"[PHASE2-FILTER] Skipping DROP statement: {stmt_stripped[:50]}..."
+                f"[PHASE2-DML] Keeping {query_type.value} statement: {stmt_stripped[:100]}..."
+            )
+
+        except Exception as e:
+            # Parse errors: comments, malformed SQL, etc.
+            # These can't produce lineage, so skip them
+            logger.debug(
+                f"[PHASE2-FILTER] Skipping unparseable statement: {stmt_stripped[:50]}... Error: {type(e).__name__}"
             )
             continue
-
-        # This is a DML statement that should produce lineage
-        dml_statements.append(stmt_stripped)
-        logger.debug(
-            f"[PHASE2-DML] Keeping statement for lineage: {stmt_stripped[:100]}..."
-        )
 
     logger.info(
         f"[PHASE2-DML] Filtered to {len(dml_statements)} DML statements from {len(statements)} total statements"
