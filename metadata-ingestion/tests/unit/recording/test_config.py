@@ -38,17 +38,21 @@ class TestRecordingConfig:
         assert config.enabled is True
         assert config.password is not None
         assert config.password.get_secret_value() == "mysecret"
-        assert config.s3_upload is True
+        assert config.s3_upload is False
 
-    def test_disabled_s3_requires_output_path(self) -> None:
-        """Test that output_path is required when s3_upload is disabled."""
-        with pytest.raises(ValidationError) as exc_info:
-            RecordingConfig(
-                enabled=True,
-                password=SecretStr("mysecret"),
-                s3_upload=False,
-            )
-        assert "output_path is required" in str(exc_info.value)
+    def test_disabled_s3_allows_missing_output_path(self) -> None:
+        """Test that output_path is optional when s3_upload is disabled.
+
+        When s3_upload is False and output_path is not provided, recordings
+        are saved to INGESTION_ARTIFACT_DIR (if set) or a temp directory.
+        """
+        config = RecordingConfig(
+            enabled=True,
+            password=SecretStr("mysecret"),
+            s3_upload=False,
+        )
+        assert config.s3_upload is False
+        assert config.output_path is None
 
     def test_disabled_s3_with_output_path(self) -> None:
         """Test valid config with disabled S3 and output path."""

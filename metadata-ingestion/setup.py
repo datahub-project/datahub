@@ -793,6 +793,7 @@ full_test_dev_requirements = {
             "athena",
             "circuit-breaker",
             "clickhouse",
+            "debug-recording",
             "delta-lake",
             "druid",
             "excel",

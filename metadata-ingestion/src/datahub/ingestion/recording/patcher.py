@@ -316,43 +316,31 @@ class ModulePatcher:
             # Create the real engine
             engine = original_create_engine(*args, **kwargs)
 
-            # Register event listeners for connection interception
-            try:
-                from sqlalchemy import event
+            # For recording/replay, wrap the engine's raw_connection to intercept all queries
+            if not is_replay:
+                # Recording mode: wrap connections to record queries
+                original_raw_connection = engine.raw_connection
 
-                def on_connect(dbapi_connection: Any, connection_record: Any) -> None:
-                    """Intercept raw DBAPI connections."""
-                    if is_replay:
-                        # Replace with replay connection
-                        connection_record.info["recording_proxy"] = ReplayConnection(
-                            recorder
-                        )
-                    else:
-                        # Wrap with recording proxy
-                        connection_record.info["recording_proxy"] = ConnectionProxy(
-                            connection=dbapi_connection,
-                            recorder=recorder,
-                            is_replay=False,
-                        )
+                def wrapped_raw_connection() -> Any:
+                    """Wrap raw DBAPI connection with our recording proxy."""
+                    real_connection = original_raw_connection()
+                    # Wrap with our ConnectionProxy
+                    return ConnectionProxy(
+                        connection=real_connection,
+                        recorder=recorder,
+                        is_replay=False,
+                    )
 
-                def before_execute(
-                    conn: Any,
-                    cursor: Any,
-                    statement: str,
-                    parameters: Any,
-                    context: Any,
-                    executemany: bool,
-                ) -> None:
-                    """Record query before execution."""
-                    if not is_replay:
-                        logger.debug(f"Recording query: {statement[:100]}...")
+                engine.raw_connection = wrapped_raw_connection
+                logger.debug("Wrapped SQLAlchemy engine for recording mode")
+            else:
+                # Replay mode: replace raw_connection entirely
+                def replay_raw_connection() -> Any:
+                    """Return replay connection for air-gapped mode."""
+                    return ReplayConnection(recorder)
 
-                # Use event.listen() instead of decorator for proper typing
-                event.listen(engine, "connect", on_connect)
-                event.listen(engine, "before_cursor_execute", before_execute)
-
-            except Exception as e:
-                logger.warning(f"Failed to register SQLAlchemy events: {e}")
+                engine.raw_connection = replay_raw_connection
+                logger.debug("Wrapped SQLAlchemy engine for replay mode")
 
             return engine
 
