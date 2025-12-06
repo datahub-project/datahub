@@ -174,7 +174,7 @@ class HiveMetastore(BasicSQLAlchemyConfig, HiveStorageLineageConfigMixin):
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `include_table_location_lineage`",
+    "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
     subtype_modifier=[
         SourceCapabilityModifier.TABLE,
         SourceCapabilityModifier.VIEW,
@@ -668,9 +668,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                     domain_registry=self.domain_registry,
                 )
 
-            if self.config.include_table_location_lineage and properties.get(
-                "table_location"
-            ):
+            if self.config.emit_storage_lineage and properties.get("table_location"):
                 table_dict = {
                     "StorageDescriptor": {"Location": properties["table_location"]}
                 }

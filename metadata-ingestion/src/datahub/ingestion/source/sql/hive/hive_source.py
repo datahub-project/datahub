@@ -24,10 +24,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.common.subtypes import (
-    DatasetSubTypes,
-    SourceCapabilityModifier,
-)
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
@@ -46,7 +43,6 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SchemaFieldClass,
     SchemaMetadataClass,
-    SubTypesClass,
     TimeTypeClass,
     ViewPropertiesClass,
 )
@@ -161,7 +157,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `include_table_location_lineage`",
+    "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
     subtype_modifier=[
         SourceCapabilityModifier.TABLE,
         SourceCapabilityModifier.VIEW,
@@ -325,11 +321,6 @@ class HiveSource(TwoTierSQLAlchemySource):
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=view_properties_aspect,
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
             ).as_workunit()
 
         if view_definition and self.config.include_view_lineage:

@@ -193,7 +193,7 @@ source:
     scheme: "postgresql+psycopg2"
 
     # Enable storage lineage
-    include_table_location_lineage: true
+    emit_storage_lineage: true
 ```
 
 #### Configuration Options
@@ -202,7 +202,7 @@ Storage lineage is controlled by the same parameters as the Hive connector:
 
 | Parameter                        | Type    | Default      | Description                                                                 |
 | -------------------------------- | ------- | ------------ | --------------------------------------------------------------------------- |
-| `include_table_location_lineage` | boolean | `false`      | Master toggle to enable/disable storage lineage                             |
+| `emit_storage_lineage`           | boolean | `false`      | Master toggle to enable/disable storage lineage                             |
 | `hive_storage_lineage_direction` | string  | `"upstream"` | Direction: `"upstream"` (storage → Hive) or `"downstream"` (Hive → storage) |
 | `include_column_lineage`         | boolean | `true`       | Enable column-level lineage from storage paths to Hive columns              |
 | `storage_platform_instance`      | string  | `None`       | Platform instance for storage URNs (e.g., `"prod-s3"`, `"dev-hdfs"`)        |
@@ -256,7 +256,7 @@ source:
     scheme: "postgresql+psycopg2"
 
     # Enable storage lineage for complete lineage chain
-    include_table_location_lineage: true
+    emit_storage_lineage: true
 ```
 
 This configuration will create complete lineage:
@@ -349,7 +349,7 @@ The Hive Metastore connector is significantly faster than the Hive connector bec
 
 4. **Disable Column Lineage**: If not needed:
    ```yaml
-   include_table_location_lineage: true
+   emit_storage_lineage: true
    include_column_lineage: false # Faster
    ```
 
@@ -380,7 +380,7 @@ source:
   config:
     platform_instance: "prod-hive" # Hive tables
     storage_platform_instance: "prod-hdfs" # Storage locations
-    include_table_location_lineage: true
+    emit_storage_lineage: true
 ```
 
 ### Caveats and Limitations
@@ -497,7 +497,7 @@ Same as the Hive connector:
 
 **Solutions**:
 
-- Verify `include_table_location_lineage: true` is set
+- Verify `emit_storage_lineage: true` is set
 - Check tables have storage locations in metastore:
   ```sql
   SELECT d.name as db_name, t.tbl_name as table_name, s.location

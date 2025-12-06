@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -157,16 +156,11 @@ class StoragePathParser:
 class HiveStorageLineageConfigMixin(ConfigModel):
     """Configuration for Hive storage lineage"""
 
-    include_table_location_lineage: bool = Field(
+    emit_storage_lineage: bool = Field(
         default=False,
         description="Whether to emit storage-to-Hive lineage. When enabled, creates lineage relationships "
         "between Hive tables and their underlying storage locations (S3, Azure, GCS, HDFS, etc.).",
     )
-
-    _emit_storage_lineage_rename = pydantic_renamed_field(
-        "emit_storage_lineage", "include_table_location_lineage"
-    )
-
     hive_storage_lineage_direction: LineageDirection = Field(
         default=LineageDirection.UPSTREAM,
         description="Direction of storage lineage. If 'upstream', storage is treated as upstream to Hive "
@@ -416,7 +410,7 @@ class HiveStorageLineage:
     ) -> Iterable[MetadataWorkUnit]:
         """Generate lineage between Hive table and storage location"""
 
-        if not self.config.include_table_location_lineage:
+        if not self.config.emit_storage_lineage:
             return
 
         storage_location = table.get("StorageDescriptor", {}).get("Location")

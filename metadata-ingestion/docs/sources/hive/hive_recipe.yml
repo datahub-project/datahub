@@ -23,7 +23,7 @@ source:
 
     # Storage Lineage Configuration (Optional)
     # Enables lineage between Hive tables and their underlying storage locations
-    #include_table_location_lineage: false  # Set to true to enable storage lineage
+    #emit_storage_lineage: false  # Set to true to enable storage lineage
     #hive_storage_lineage_direction: upstream  # Direction: 'upstream' (storage -> Hive) or 'downstream' (Hive -> storage)
     #include_column_lineage: true  # Set to false to disable column-level lineage
     #storage_platform_instance: "prod-s3"  # Optional: platform instance for storage URNs

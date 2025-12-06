@@ -34,7 +34,7 @@ There are **two different ways** to ingest Presto metadata into DataHub, dependi
 
 ```yaml
 source:
-  type: presto
+  type: presto # ← This connector
   config:
     host_port: presto-coordinator.company.com:8080
     username: datahub_user
@@ -58,15 +58,15 @@ source:
 
 ```yaml
 source:
-  type: hive-metastore
+  type: hive-metastore # ← Use this for storage lineage
   config:
     host_port: metastore-db.company.com:5432
     database: metastore
     scheme: "postgresql+psycopg2"
-    mode: presto
+    mode: presto # ← Set mode to 'presto'
 
     # Enable storage lineage
-    include_table_location_lineage: true
+    emit_storage_lineage: true
     hive_storage_lineage_direction: upstream
 ```
 
@@ -387,7 +387,7 @@ If you're currently using the deprecated `presto-on-hive` source:
 
 ```yaml
 source:
-  type: presto-on-hive
+  type: presto-on-hive # ← Deprecated
   config:
     host_port: metastore-db:3306
     # ...
@@ -397,11 +397,11 @@ source:
 
 ```yaml
 source:
-  type: hive-metastore
+  type: hive-metastore # ← Use this instead
   config:
     host_port: metastore-db:3306
-    mode: presto
-    include_table_location_lineage: true
+    mode: presto # ← Set mode to 'presto'
+    emit_storage_lineage: true # ← Now available!
     # ...
 ```
 

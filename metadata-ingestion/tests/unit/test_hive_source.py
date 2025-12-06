@@ -98,7 +98,7 @@ def test_hive_source_storage_lineage_config_default():
     }
     config = HiveConfig.model_validate(config_dict)
 
-    assert config.include_table_location_lineage is False
+    assert config.emit_storage_lineage is False
     assert config.hive_storage_lineage_direction == "upstream"
     assert config.include_column_lineage is True
 
@@ -109,14 +109,14 @@ def test_hive_source_storage_lineage_config_enabled():
         "username": "test_user",
         "password": "test_password",
         "host_port": "localhost:10000",
-        "include_table_location_lineage": True,
+        "emit_storage_lineage": True,
         "hive_storage_lineage_direction": "downstream",
         "include_column_lineage": False,
         "storage_platform_instance": "prod-hdfs",
     }
     config = HiveConfig.model_validate(config_dict)
 
-    assert config.include_table_location_lineage is True
+    assert config.emit_storage_lineage is True
     assert config.hive_storage_lineage_direction == "downstream"
     assert config.include_column_lineage is False
     assert config.storage_platform_instance == "prod-hdfs"
@@ -131,7 +131,7 @@ def test_hive_source_storage_lineage_direction_validation():
         "username": "test_user",
         "password": "test_password",
         "host_port": "localhost:10000",
-        "include_table_location_lineage": True,
+        "emit_storage_lineage": True,
         "hive_storage_lineage_direction": "sideways",
     }
 
@@ -148,7 +148,7 @@ def test_hive_source_initialization_with_storage_lineage():
         "username": "test_user",
         "password": "test_password",
         "host_port": "localhost:10000",
-        "include_table_location_lineage": True,
+        "emit_storage_lineage": True,
         "hive_storage_lineage_direction": "upstream",
         "include_column_lineage": True,
     }
@@ -158,7 +158,7 @@ def test_hive_source_initialization_with_storage_lineage():
     source = HiveSource(config, ctx)
 
     assert source.storage_lineage is not None
-    assert source.storage_lineage.config.include_table_location_lineage is True
+    assert source.storage_lineage.config.emit_storage_lineage is True
     assert source.storage_lineage.config.hive_storage_lineage_direction == "upstream"
     assert source.storage_lineage.config.include_column_lineage is True
 
@@ -223,7 +223,7 @@ def test_hive_source_combined_lineage_config():
         "username": "test_user",
         "password": "test_password",
         "host_port": "localhost:10000",
-        "include_table_location_lineage": True,
+        "emit_storage_lineage": True,
         "hive_storage_lineage_direction": "upstream",
         "include_column_lineage": True,
         "include_view_lineage": True,
@@ -238,7 +238,7 @@ def test_hive_source_combined_lineage_config():
 
     # Verify both storage lineage and view lineage are configured
     assert source.storage_lineage is not None
-    assert source.storage_lineage.config.include_table_location_lineage is True
+    assert source.storage_lineage.config.emit_storage_lineage is True
     assert source.storage_lineage.config.include_column_lineage is True
 
     assert source.aggregator is not None
@@ -255,201 +255,10 @@ def test_hive_source_all_storage_platforms():
             "username": "test_user",
             "password": "test_password",
             "host_port": "localhost:10000",
-            "include_table_location_lineage": True,
+            "emit_storage_lineage": True,
             "storage_platform_instance": f"{platform}-prod",
         }
         config = HiveConfig.model_validate(config_dict)
 
         # Config inherits from HiveStorageLineageConfigMixin
         assert config.storage_platform_instance == f"{platform}-prod"
-
-
-def test_hive_config_with_deprecated_field():
-    """Test backward compatibility with old emit_storage_lineage field name"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:10000",
-        "emit_storage_lineage": True,  # Old field name
-    }
-    config = HiveConfig.model_validate(config_dict)
-
-    # Should be renamed to new field
-    assert config.include_table_location_lineage is True
-
-
-def test_hive_source_type_error_on_wrong_config():
-    """Test that TypeError is raised for wrong config type"""
-    from unittest.mock import MagicMock
-
-    from datahub.ingestion.source.sql.hive.hive_source import HiveSource
-
-    # Create mock source with wrong config type
-    mock_config = MagicMock()
-    mock_config.database = None
-    source = HiveSource.__new__(HiveSource)
-    source.config = mock_config  # Wrong type
-
-    # get_schema_names should raise TypeError
-    with pytest.raises(TypeError, match="Expected HiveConfig"):
-        source.get_schema_names(MagicMock())
-
-
-def test_dbapi_get_columns_patched_logic():
-    """Test the logic of dbapi_get_columns_patched function"""
-    # Test with mock data to verify the patching logic
-    mock_rows = [
-        ["# col_name", "data_type", "comment"],  # Should be filtered
-        ["col1", "string", "First column"],
-        ["col2", "int", "Second column"],
-        ["col3", "  bigint  ", "Third column with spaces"],
-        ["", "string", "Empty name - should be filtered"],
-        ["# Partition Information", "", ""],  # Should break here
-        ["part_col", "string", "Should not appear"],
-    ]
-
-    # Expected result: col1, col2, col3 (stripped and filtered)
-    # Note: We can't easily test the actual function since it requires databricks_dbapi
-    # But we can verify the logic patterns it uses
-
-    # Simulate the filtering logic
-    filtered_rows = [row for row in mock_rows if row[0] and row[0] != "# col_name"]
-    assert len(filtered_rows) == 5  # Excludes the header
-
-    # Simulate strip logic
-    stripped_rows = [
-        [col.strip() if col else None for col in row] for row in filtered_rows
-    ]
-    assert stripped_rows[2] == ["col3", "bigint", "Third column with spaces"]
-
-    # Simulate break on partition info
-    result_rows = []
-    for row in stripped_rows:
-        if row[0] in ("# Partition Information", "# Partitioning"):
-            break
-        if row[0]:  # Only non-empty names
-            result_rows.append(row)
-
-    assert len(result_rows) == 3
-    assert result_rows[0][0] == "col1"
-    assert result_rows[1][0] == "col2"
-    assert result_rows[2][0] == "col3"
-
-
-def test_hive_source_schema_field_complex_type():
-    """Test schema field generation for complex Hive types"""
-    from datahub.ingestion.source.sql.hive.hive_source import HiveSource
-
-    # Verify the complex type regex pattern
-    assert HiveSource._COMPLEX_TYPE.match("struct<field:int>")
-    assert HiveSource._COMPLEX_TYPE.match("array<string>")
-    assert HiveSource._COMPLEX_TYPE.match("map<string,int>")
-    assert not HiveSource._COMPLEX_TYPE.match("string")
-    assert not HiveSource._COMPLEX_TYPE.match("int")
-
-
-def test_hive_source_get_workunits_internal_with_storage_lineage_errors():
-    """Test that storage lineage errors are logged and don't break ingestion"""
-    from unittest.mock import MagicMock
-
-    from datahub.ingestion.source.sql.hive.hive_source import HiveSource
-    from datahub.metadata.schema_classes import DatasetPropertiesClass
-
-    config_dict = {
-        "username": "test",
-        "password": "test",
-        "host_port": "test:80",
-        "database": "test_db",
-        "include_table_location_lineage": True,
-    }
-    config = HiveConfig.model_validate(config_dict)
-    ctx = PipelineContext(run_id="test")
-
-    # Create a partial source object for testing
-    source = HiveSource.__new__(HiveSource)
-    source.config = config
-    source.ctx = ctx
-    source.report = MagicMock()
-    source.storage_lineage = MagicMock()
-
-    # Mock storage_lineage.get_lineage_mcp to raise ValueError
-    source.storage_lineage.get_lineage_mcp.side_effect = ValueError(
-        "Test storage error"
-    )
-
-    # Create a mock workunit with properties
-    mock_wu = MagicMock()
-    mock_wu.get_urn.return_value = (
-        "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"
-    )
-
-    mock_props = DatasetPropertiesClass(
-        customProperties={"Location": "s3://bucket/path"}
-    )
-    mock_wu.get_aspect_of_type.side_effect = [mock_props, MagicMock()]
-
-    # Verify that the error is caught and logged but doesn't propagate
-    # (We can't easily test the generator without mocking the entire parent class,
-    # but we verify the error handling logic exists)
-    assert source.config.include_table_location_lineage is True
-    assert isinstance(
-        source.storage_lineage.get_lineage_mcp.side_effect, type(ValueError(""))
-    )
-
-
-def test_hive_source_storage_lineage_with_type_error():
-    """Test handling of TypeError in storage lineage"""
-    from unittest.mock import MagicMock
-
-    from datahub.ingestion.source.sql.hive.hive_source import HiveSource
-
-    config_dict = {
-        "username": "test",
-        "password": "test",
-        "host_port": "test:80",
-        "database": "test_db",
-        "include_table_location_lineage": True,
-    }
-    config = HiveConfig.model_validate(config_dict)
-    ctx = PipelineContext(run_id="test")
-
-    source = HiveSource.__new__(HiveSource)
-    source.config = config
-    source.ctx = ctx
-    source.report = MagicMock()
-    source.storage_lineage = MagicMock()
-
-    # Mock storage_lineage.get_lineage_mcp to raise TypeError
-    source.storage_lineage.get_lineage_mcp.side_effect = TypeError("Invalid type")
-
-    # Verify the exception type is in the caught exceptions
-    assert source.config.include_table_location_lineage is True
-
-
-def test_hive_source_storage_lineage_with_key_error():
-    """Test handling of KeyError in storage lineage"""
-    from unittest.mock import MagicMock
-
-    from datahub.ingestion.source.sql.hive.hive_source import HiveSource
-
-    config_dict = {
-        "username": "test",
-        "password": "test",
-        "host_port": "test:80",
-        "database": "test_db",
-        "include_table_location_lineage": True,
-    }
-    config = HiveConfig.model_validate(config_dict)
-    ctx = PipelineContext(run_id="test")
-
-    source = HiveSource.__new__(HiveSource)
-    source.config = config
-    source.ctx = ctx
-    source.report = MagicMock()
-    source.storage_lineage = MagicMock()
-
-    # Mock storage_lineage.get_lineage_mcp to raise KeyError
-    source.storage_lineage.get_lineage_mcp.side_effect = KeyError("Missing key")
-
-    # Verify the exception type is in the caught exceptions
-    assert source.config.include_table_location_lineage is True
