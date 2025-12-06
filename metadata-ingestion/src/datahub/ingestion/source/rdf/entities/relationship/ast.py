@@ -14,10 +14,6 @@ class RelationshipType(Enum):
 
     BROADER = "broader"
     NARROWER = "narrower"
-    RELATED = "related"
-    EXACT_MATCH = "exactMatch"
-    CLOSE_MATCH = "closeMatch"
-    SYNONYM = "synonym"
 
 
 @dataclass

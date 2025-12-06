@@ -91,20 +91,8 @@ class TestMCPFactory(unittest.TestCase):
     # Dataset, structured property, data product, and lineage tests removed - not supported in MVP
     # Domain MCP tests removed - domains are data structure only, not ingested as DataHub domain entities
 
-    def test_create_relationship_mcp_related(self):
-        """Test creating relationship MCP for RELATED."""
-        relationship = DataHubRelationship(
-            source_urn="urn:li:glossaryTerm:term1",
-            target_urn="urn:li:glossaryTerm:term2",
-            relationship_type=RelationshipType.RELATED,
-        )
-
-        mcp_builder = RelationshipMCPBuilder()
-        # build_mcps returns empty for single relationships (needs aggregation)
-        # RELATED relationships are not processed (only BROADER)
-        mcps = mcp_builder.build_all_mcps([relationship])
-        # RELATED relationships don't create MCPs (only BROADER does)
-        self.assertEqual(len(mcps), 0)
+    # test_create_relationship_mcp_related removed - RELATED enum value was removed
+    # Only BROADER and NARROWER relationship types are supported
 
     def test_create_relationship_mcp_broader(self):
         """Test creating relationship MCP for BROADER."""

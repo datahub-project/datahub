@@ -684,8 +684,6 @@ def test_datahub_ingestion_target_domain_with_glossary_terms():
         mock_term
     ]  # Domain has glossary terms - glossary module will create glossary node and term MCPs
     mock_domain.subdomains = []
-    mock_domain.description = "Test domain"
-    mock_domain.owners = []  # No owners
     graph.domains = [mock_domain]
 
     result = target.send(graph)

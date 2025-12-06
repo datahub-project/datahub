@@ -24,8 +24,6 @@ class DataHubDomain:
     path_segments: List[str]  # Hierarchical path segments from IRI
     urn: DomainUrn  # DataHub domain URN
     name: str  # Domain name (last segment)
-    description: Optional[str] = None
     parent_domain_urn: Optional[DomainUrn] = None  # Parent domain URN for hierarchy
     glossary_terms: List["DataHubGlossaryTerm"] = field(default_factory=list)
     subdomains: List["DataHubDomain"] = field(default_factory=list)
-    owners: List[str] = field(default_factory=list)  # List of owner IRIs

@@ -194,7 +194,7 @@ class TestGlossaryTermConverter(unittest.TestCase):
         datahub_term = self.converter.convert(rdf_term)
 
         self.assertIsNotNone(datahub_term.path_segments)
-        self.assertIsInstance(datahub_term.path_segments, tuple)
+        self.assertIsInstance(datahub_term.path_segments, list)
 
 
 class TestGlossaryTermConverterEdgeCases(unittest.TestCase):

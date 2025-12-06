@@ -109,7 +109,6 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
                 custom_properties["shacl:dataConstraints"] = shacl_constraints
 
             # Extract SKOS-specific properties
-            rdf_type = self._extract_rdf_type(graph, uri)
             alternative_labels = self._extract_alternative_labels(graph, uri)
             hidden_labels = self._extract_hidden_labels(graph, uri)
             notation = self._extract_notation(graph, uri)
@@ -121,9 +120,7 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
                 definition=definition,
                 source=source,
                 relationships=relationships,
-                properties={},
                 custom_properties=custom_properties,
-                rdf_type=rdf_type,
                 alternative_labels=alternative_labels,
                 hidden_labels=hidden_labels,
                 notation=notation,
@@ -405,13 +402,6 @@ class GlossaryTermExtractor(EntityExtractor[RDFGlossaryTerm]):
             return f"{term_name} {description}"
         else:
             return description.capitalize()
-
-    def _extract_rdf_type(self, graph: Graph, uri: URIRef) -> Optional[str]:
-        """Extract the primary RDF type."""
-        for obj in graph.objects(uri, RDF.type):
-            if isinstance(obj, URIRef):
-                return str(obj)
-        return None
 
     def _extract_alternative_labels(self, graph: Graph, uri: URIRef) -> List[str]:
         """Extract alternative labels (skos:altLabel)."""

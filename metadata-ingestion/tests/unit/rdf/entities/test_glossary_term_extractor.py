@@ -195,17 +195,6 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         self.assertIsNotNone(term)
         self.assertEqual(term.scope_note, "This term is used in banking contexts")
 
-    def test_extract_rdf_type(self):
-        """Test extraction of RDF type."""
-        uri = self.EX.TypedTerm
-        self.graph.add((uri, RDF.type, SKOS.Concept))
-        self.graph.add((uri, SKOS.prefLabel, Literal("Typed Term")))
-
-        term = self.extractor.extract(self.graph, uri)
-
-        self.assertIsNotNone(term)
-        self.assertEqual(term.rdf_type, str(SKOS.Concept))
-
 
 class TestGlossaryTermExtractorMultipleRelationships(unittest.TestCase):
     """Test cases for multiple relationship extraction."""

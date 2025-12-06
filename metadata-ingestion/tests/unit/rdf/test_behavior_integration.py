@@ -423,11 +423,8 @@ class TestRelationshipBehavior(unittest.TestCase):
 
         result = self.facade.process(graph, environment="PROD")
 
-        # Should have no "related" relationships
-        related_rels = [
-            r for r in result.relationships if r.relationship_type.value == "related"
-        ]
-        self.assertEqual(len(related_rels), 0)
+        # Should have no relationships extracted (skos:related is not supported)
+        self.assertEqual(len(result.relationships), 0)
 
     def test_exactmatch_not_extracted_for_terms(self):
         """Test that skos:exactMatch is NOT extracted for term-to-term (per spec)."""
@@ -448,11 +445,8 @@ class TestRelationshipBehavior(unittest.TestCase):
 
         result = self.facade.process(graph, environment="PROD")
 
-        # Should have no "exactMatch" relationships for term-to-term
-        exact_rels = [
-            r for r in result.relationships if r.relationship_type.value == "exactMatch"
-        ]
-        self.assertEqual(len(exact_rels), 0)
+        # Should have no relationships extracted (skos:exactMatch is not supported for term-to-term)
+        self.assertEqual(len(result.relationships), 0)
 
 
 # TestDatasetBehavior removed - dataset extraction not supported in MVP

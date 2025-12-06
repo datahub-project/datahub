@@ -20,12 +20,10 @@ class RDFGlossaryTerm:
     name: str
     definition: Optional[str] = None
     source: Optional[str] = None
-    properties: Dict[str, Any] = field(default_factory=dict)
     relationships: List["RDFRelationship"] = field(default_factory=list)
     custom_properties: Dict[str, Any] = field(default_factory=dict)
 
     # Additional RDF properties useful for exporting
-    rdf_type: Optional[str] = None  # Original RDF type (e.g., skos:Concept, owl:Class)
     alternative_labels: List[str] = field(default_factory=list)  # skos:altLabel values
     hidden_labels: List[str] = field(default_factory=list)  # skos:hiddenLabel values
     notation: Optional[str] = None  # skos:notation value
@@ -40,7 +38,6 @@ class DataHubGlossaryTerm:
     name: str
     definition: Optional[str] = None
     source: Optional[str] = None
-    properties: Dict[str, Any] = field(default_factory=dict)
     relationships: Dict[str, List[str]] = field(
         default_factory=dict
     )  # Use strings for now

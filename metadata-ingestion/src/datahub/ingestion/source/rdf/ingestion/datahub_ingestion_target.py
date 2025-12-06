@@ -11,7 +11,7 @@ import logging
 from typing import Any, Dict, List
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.rdf.core.target_factory import TargetInterface
+from datahub.ingestion.source.rdf.core.orchestrator import TargetInterface
 from datahub.ingestion.source.rdf.core.utils import entity_type_to_field_name
 from datahub.ingestion.source.rdf.entities.registry import (
     create_default_registry,

@@ -52,7 +52,7 @@ class RelationshipExtractor(EntityExtractor[RDFRelationship]):
     ) -> Optional[RDFRelationship]:
         """
         Extract a single relationship. Not typically used directly.
-        Use extract_all or extract_for_term instead.
+        Use extract_all instead.
         """
         return None  # Relationships are extracted in bulk
 
@@ -92,36 +92,4 @@ class RelationshipExtractor(EntityExtractor[RDFRelationship]):
                     seen.add(rel_key)
 
         logger.info(f"Extracted {len(relationships)} relationships")
-        return relationships
-
-    def extract_for_term(self, graph: Graph, term_uri: URIRef) -> List[RDFRelationship]:
-        """
-        Extract relationships for a specific glossary term.
-
-        Args:
-            graph: The RDF graph
-            term_uri: The URI of the term
-
-        Returns:
-            List of relationships where this term is the source
-        """
-        relationships = []
-
-        # Only broader and narrower are supported
-        relationship_mappings = {
-            SKOS.broader: RelationshipType.BROADER,
-            SKOS.narrower: RelationshipType.NARROWER,
-        }
-
-        for predicate, rel_type in relationship_mappings.items():
-            for obj in graph.objects(term_uri, predicate):
-                if isinstance(obj, URIRef):
-                    relationships.append(
-                        RDFRelationship(
-                            source_uri=str(term_uri),
-                            target_uri=str(obj),
-                            relationship_type=rel_type,
-                        )
-                    )
-
         return relationships
