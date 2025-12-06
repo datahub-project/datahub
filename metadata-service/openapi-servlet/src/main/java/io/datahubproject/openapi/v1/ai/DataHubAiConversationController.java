@@ -2,13 +2,17 @@ package io.datahubproject.openapi.v1.ai;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.List;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,15 +48,18 @@ public class DataHubAiConversationController {
   private final IntegrationsService integrationsService;
   private final DataHubAiConversationService conversationService;
   private final OperationContext systemOperationContext;
+  private final AuthorizerChain authorizerChain;
 
   @Autowired
   public DataHubAiConversationController(
       IntegrationsService integrationsService,
       DataHubAiConversationService conversationService,
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      AuthorizerChain authorizerChain) {
     this.integrationsService = integrationsService;
     this.conversationService = conversationService;
     this.systemOperationContext = systemOperationContext;
+    this.authorizerChain = authorizerChain;
   }
 
   @Data
@@ -82,13 +89,18 @@ public class DataHubAiConversationController {
    * @return SSE emitter that streams the AI response
    */
   @PostMapping(value = STREAM_ENDPOINT, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-  public SseEmitter streamChat(@RequestBody ChatRequest request) {
+  public SseEmitter streamChat(
+      HttpServletRequest httpServletRequest, @RequestBody ChatRequest request) {
     log.debug("Received chat stream request for conversation: {}", request.getConversationUrn());
 
     // Extract authenticated user from context - do NOT trust client-provided userUrn
     Authentication authentication = AuthenticationContext.getAuthentication();
     String authenticatedUserUrn = authentication.getActor().toUrnStr();
     Urn userUrn = UrnUtils.getUrn(authenticatedUserUrn);
+
+    // Build user-scoped operation context for authorization checks
+    OperationContext userOpContext =
+        buildOperationContext(authentication, httpServletRequest, "streamChat");
 
     // Validate request
     if (request.getConversationUrn() == null || request.getText() == null) {
@@ -105,7 +117,7 @@ public class DataHubAiConversationController {
     }
 
     // Check authorization - user must be the creator of the conversation
-    if (!isAuthorizedToSendMessage(conversationUrn, userUrn)) {
+    if (!isAuthorizedToSendMessage(userOpContext, conversationUrn, userUrn)) {
       log.warn(
           "User {} attempted to send message to conversation {} but is not authorized",
           authenticatedUserUrn,
@@ -187,17 +199,35 @@ public class DataHubAiConversationController {
    * <p>A user is authorized if they are the creator of the conversation. This prevents users from
    * sending messages to conversations they don't own.
    *
+   * @param opContext the user's operation context (must be user-scoped, not system context)
    * @param conversationUrn the conversation URN
    * @param userUrn the user URN
    * @return true if authorized, false otherwise
    */
-  private boolean isAuthorizedToSendMessage(Urn conversationUrn, Urn userUrn) {
+  private boolean isAuthorizedToSendMessage(
+      OperationContext opContext, Urn conversationUrn, Urn userUrn) {
     try {
-      return conversationService.canAccessConversation(
-          systemOperationContext, conversationUrn, userUrn);
+      return conversationService.canAccessConversation(opContext, conversationUrn, userUrn);
     } catch (Exception e) {
       log.error("Error checking conversation access for user {}: {}", userUrn, e.getMessage(), e);
       return false;
     }
+  }
+
+  /**
+   * Builds a user-scoped OperationContext for the authenticated user.
+   *
+   * <p>This ensures authorization checks use the actual user's identity rather than the system
+   * context, preventing unauthorized access to other users' resources.
+   */
+  private OperationContext buildOperationContext(
+      Authentication authentication, HttpServletRequest request, String actionName) {
+    return OperationContext.asSession(
+        systemOperationContext,
+        RequestContext.builder()
+            .buildOpenapi(authentication.getActor().toUrnStr(), request, actionName, List.of()),
+        authorizerChain,
+        authentication,
+        true);
   }
 }
