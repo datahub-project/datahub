@@ -992,15 +992,17 @@ END
     )
 
 
-# Tests for failed cases from test2.log
+# Tests for advanced MSSQL syntax patterns
 
 
 def test_mssql_procedure_with_for_xml_path_and_stuff() -> None:
     """Test stored procedure with FOR XML PATH and STUFF function.
 
-    From test2.log: MDS_getFundManagerHistory failed with SELECT using
-    STUFF((SELECT ... FOR XML PATH(''), TYPE).value(...)) pattern.
-    Also uses @@ERROR and table-valued function.
+    Tests complex MSSQL-specific syntax including:
+    - STUFF function for string manipulation
+    - FOR XML PATH for concatenating rows
+    - @@ERROR global variable
+    - Table-valued function calls
     """
     assert_sql_result(
         """
@@ -1061,8 +1063,10 @@ END
 def test_mssql_procedure_with_table_variable() -> None:
     """Test stored procedure with table variable declaration.
 
-    From test2.log: GetSecurityDetailBySecIds failed with DECLARE @SecId TABLE
-    and SELECT with CASE expression and function in FROM clause.
+    Tests MSSQL table variable patterns including:
+    - DECLARE @variable TABLE syntax
+    - SELECT with CASE expressions
+    - Functions in FROM clause (string_split)
     """
     assert_sql_result(
         """
@@ -1128,8 +1132,9 @@ END
 def test_mssql_procedure_with_set_rowcount() -> None:
     """Test stored procedure with SET ROWCOUNT statements.
 
-    From test2.log: findBondMasterByName_V3 failed with SET ROWCOUNT @variable
-    and SET ROWCOUNT 0 statements.
+    Tests MSSQL-specific SET ROWCOUNT syntax:
+    - SET ROWCOUNT @variable (dynamic row limit)
+    - SET ROWCOUNT 0 (reset to unlimited)
     """
     assert_sql_result(
         """
@@ -1197,9 +1202,9 @@ END
 def test_mssql_procedure_simple_without_begin_end() -> None:
     """Test simple stored procedure without explicit BEGIN/END around body.
 
-    From test2.log: getManagerInformationBySecId failed with
-    'could not extract any lineage from 1 statements'.
-    This is a simple SELECT with JOINs but no TRY/CATCH or explicit BEGIN/END.
+    This pattern is valid MSSQL syntax where BEGIN/END is optional for single-statement procedures.
+    However, split_statements does not handle this correctly - it treats the entire procedure
+    as one CREATE PROCEDURE statement which gets filtered out, resulting in no lineage extraction.
     """
     assert_sql_result(
         """

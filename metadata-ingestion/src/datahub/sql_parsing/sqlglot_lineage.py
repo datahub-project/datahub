@@ -1444,10 +1444,10 @@ def _parse_stored_procedure_fallback(
     """
     from datahub.sql_parsing.split_statements import split_statements
 
-    logger.info(
-        "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements [WHEEL-BUILD-VERSION-2025-12-02]"
+    logger.debug(
+        "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements"
     )
-    logger.info(f"[FALLBACK-START] SQL length: {len(sql)} chars")
+    logger.debug(f"[FALLBACK-START] SQL length: {len(sql)} chars")
 
     # split_statements() already handles CREATE PROCEDURE correctly:
     # - It splits the CREATE PROCEDURE header (ending with AS) into one statement
