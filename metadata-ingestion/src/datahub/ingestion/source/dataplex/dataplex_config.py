@@ -32,14 +32,14 @@ class DataplexFilterConfig(ConfigModel):
         description="Regex patterns for zone names to filter in ingestion.",
     )
 
-    asset_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for asset names to filter in ingestion.",
-    )
-
     entity_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for entity names to filter in ingestion.",
+    )
+
+    entry_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for entry names to filter in ingestion.",
     )
 
 

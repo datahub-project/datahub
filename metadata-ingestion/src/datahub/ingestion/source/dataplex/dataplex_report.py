@@ -24,6 +24,7 @@ class DataplexReport(StaleEntityRemovalSourceReport):
     num_zones_filtered: int = 0
     num_assets_filtered: int = 0
     num_entities_filtered: int = 0
+    num_entries_filtered: int = 0
 
     num_lakes_ingested: int = 0
     num_zones_ingested: int = 0
@@ -40,6 +41,7 @@ class DataplexReport(StaleEntityRemovalSourceReport):
     zones_scanned: Dict[str, bool] = field(default_factory=dict)
     assets_scanned: Dict[str, bool] = field(default_factory=dict)
     entities_scanned: Dict[str, bool] = field(default_factory=dict)
+    entries_scanned: Dict[str, bool] = field(default_factory=dict)
 
     dataplex_api_timer: PerfTimer = field(default_factory=PerfTimer)
     lineage_api_timer: PerfTimer = field(default_factory=PerfTimer)
@@ -87,10 +89,14 @@ class DataplexReport(StaleEntityRemovalSourceReport):
         self.num_entry_groups_scanned += 1
         self.num_entry_groups_ingested += 1
 
-    def report_entry_scanned(self) -> None:
+    def report_entry_scanned(self, entry_id: str, filtered: bool = False) -> None:
         """Report that an entry was scanned."""
         self.num_entries_scanned += 1
-        self.num_entries_ingested += 1
+        self.entries_scanned[entry_id] = not filtered
+        if filtered:
+            self.num_entries_filtered += 1
+        else:
+            self.num_entries_ingested += 1
 
     def report_lineage_relationship_created(self) -> None:
         """Report that a lineage relationship was created."""
