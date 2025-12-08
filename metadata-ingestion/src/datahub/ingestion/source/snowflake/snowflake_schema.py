@@ -925,18 +925,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
         """Fetch and populate base table lineage for semantic views using INFORMATION_SCHEMA.SEMANTIC_TABLES."""
         try:
             query = SnowflakeQuery.get_semantic_tables_for_database(db_name)
-            logger.info(f"Fetching semantic tables for database {db_name}")
+            logger.debug(f"Fetching semantic tables for database {db_name}")
 
             # Build a map of semantic_view_name -> semantic_view object for quick lookup
             semantic_view_map: Dict[Tuple[str, str], SnowflakeSemanticView] = {}
             for schema_name, views in semantic_views.items():
                 for semantic_view in views:
                     semantic_view_map[(schema_name, semantic_view.name)] = semantic_view
-                    logger.info(
-                        f"Registered semantic view for lookup: {schema_name}.{semantic_view.name}"
-                    )
-
-            logger.info(f"Semantic view map has {len(semantic_view_map)} entries")
 
             cur = self.connection.query(query)
             row_count = 0
@@ -944,16 +939,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 row_count += 1
                 schema_name = row["SEMANTIC_VIEW_SCHEMA"]
                 view_name = row["SEMANTIC_VIEW_NAME"]
-                logical_table_name = row[
-                    "SEMANTIC_TABLE_NAME"
-                ]  # Name within the semantic view
+                logical_table_name = row["SEMANTIC_TABLE_NAME"]
                 base_db = row["BASE_TABLE_CATALOG"]
                 base_schema = row["BASE_TABLE_SCHEMA"]
                 base_table = row["BASE_TABLE_NAME"]
-
-                logger.info(
-                    f"Processing semantic table row: {schema_name}.{view_name} -> {base_db}.{base_schema}.{base_table} (logical: {logical_table_name})"
-                )
 
                 # Find the corresponding semantic view and add the base table
                 semantic_view_obj = semantic_view_map.get((schema_name, view_name))
@@ -963,64 +952,40 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 base_table_tuple = (base_db, base_schema, base_table)
                 if base_table_tuple not in semantic_view_obj.base_tables:
                     semantic_view_obj.base_tables.append(base_table_tuple)
-                    logger.info(
-                        f"Added base table {base_db}.{base_schema}.{base_table} "
-                        f"to semantic view {schema_name}.{view_name}"
-                    )
-                else:
-                    logger.info(
-                        f"Base table {base_table_tuple} already in semantic view"
-                    )
 
-                # Also store the logical-to-physical mapping for lineage generation
+                # Store the logical-to-physical mapping for lineage generation
                 logical_table_upper = logical_table_name.upper()
                 semantic_view_obj.logical_to_physical_table[logical_table_upper] = (
                     base_table_tuple
                 )
-                logger.info(
-                    f"Mapped logical table '{logical_table_name}' -> {base_db}.{base_schema}.{base_table}"
-                )
 
-                # Parse PRIMARY_KEYS JSON array (e.g., '["col1", "col2"]')
+                # Parse PRIMARY_KEYS JSON array
                 primary_keys_raw = row.get("PRIMARY_KEYS")
                 primary_keys = self._parse_json_array(
-                    primary_keys_raw,
-                    "PRIMARY_KEYS",
-                    f"{schema_name}.{view_name}",
+                    primary_keys_raw, "PRIMARY_KEYS", f"{schema_name}.{view_name}"
                 )
                 if primary_keys:
-                    # Add all primary keys to the set (uppercase for consistency)
                     for pk_col in primary_keys:
                         semantic_view_obj.primary_key_columns.add(pk_col.upper())
-                    logger.info(
-                        f"Added primary keys {primary_keys} for {schema_name}.{view_name}"
-                    )
 
-                # Parse table-level SYNONYMS JSON array (e.g., '["alias1", "alias2"]')
-                # These are alternative names for the logical table within the semantic view
+                # Parse table-level SYNONYMS JSON array
                 synonyms_raw = row.get("SYNONYMS")
-                logger.debug(
-                    f"SYNONYMS raw value for {logical_table_name} in {schema_name}.{view_name}: {synonyms_raw!r}"
-                )
                 synonyms = self._parse_json_array(
                     synonyms_raw,
                     "SYNONYMS",
                     f"{logical_table_name} in {schema_name}.{view_name}",
                 )
                 if synonyms and logical_table_name:
-                    # Store synonyms by logical table name (uppercase for consistency)
                     logical_table_upper = logical_table_name.upper()
                     if logical_table_upper not in semantic_view_obj.table_synonyms:
                         semantic_view_obj.table_synonyms[logical_table_upper] = []
                     semantic_view_obj.table_synonyms[logical_table_upper].extend(
                         synonyms
                     )
-                    logger.info(
-                        f"Added table synonyms {synonyms} for logical table {logical_table_name} in {schema_name}.{view_name}"
-                    )
 
             logger.info(
-                f"Populated base tables for semantic views in database {db_name}. Processed {row_count} rows."
+                f"Populated base tables for {len(semantic_view_map)} semantic views "
+                f"in database {db_name} ({row_count} table mappings)"
             )
         except Exception as e:
             error_msg = str(e).lower()
@@ -1123,7 +1088,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     semantic_view.columns = []
                     semantic_view.column_subtypes = {}
 
-            logger.info(f"Fetching semantic view columns for database {db_name}")
+            logger.debug(f"Fetching semantic view columns for database {db_name}")
 
             # Step 1: Collect all column metadata with duplicates
             # Format: {(schema_name, view_name): {col_name_upper: [row1, row2, ...]}}
@@ -1158,17 +1123,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         "data_type": row.get("DATA_TYPE", "VARCHAR"),
                         "comment": row.get("COMMENT"),
                         "subtype": "DIMENSION",
-                        "table_name": row.get(
-                            "TABLE_NAME"
-                        ),  # Logical table for lineage
-                        "synonyms": synonyms,  # List of alternative names
-                        "expression": row.get(
-                            "EXPRESSION"
-                        ),  # SQL expression (TODO: use for derived column lineage)
+                        "table_name": row.get("TABLE_NAME"),
+                        "synonyms": synonyms,
+                        "expression": row.get("EXPRESSION"),
                     }
                 )
 
-            logger.info(f"Fetched {dim_count} dimensions for database {db_name}")
+            logger.debug(f"Fetched {dim_count} dimensions for database {db_name}")
 
             # Fetch facts
             fact_query = SnowflakeQuery.get_semantic_facts_for_database(db_name)
@@ -1189,21 +1150,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 # Parse SYNONYMS JSON array
                 synonyms_raw = row.get("SYNONYMS")
-                synonyms = []
-                if synonyms_raw:
-                    try:
-                        import json
-
-                        synonyms = (
-                            json.loads(synonyms_raw)
-                            if isinstance(synonyms_raw, str)
-                            else synonyms_raw
-                        )
-                    except (json.JSONDecodeError, TypeError):
-                        logger.debug(
-                            f"Failed to parse SYNONYMS for {col_name}: {synonyms_raw}"
-                        )
-                        synonyms = []
+                synonyms = self._parse_json_array(
+                    synonyms_raw, "SYNONYMS", f"fact {col_name}"
+                )
 
                 column_data[view_key][col_name_upper].append(
                     {
@@ -1211,17 +1160,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         "data_type": row.get("DATA_TYPE", "NUMBER"),
                         "comment": row.get("COMMENT"),
                         "subtype": "FACT",
-                        "table_name": row.get(
-                            "TABLE_NAME"
-                        ),  # Logical table for lineage
-                        "synonyms": synonyms,  # List of alternative names
-                        "expression": row.get(
-                            "EXPRESSION"
-                        ),  # SQL expression (TODO: use for derived column lineage)
+                        "table_name": row.get("TABLE_NAME"),
+                        "synonyms": synonyms,
+                        "expression": row.get("EXPRESSION"),
                     }
                 )
 
-            logger.info(f"Fetched {fact_count} facts for database {db_name}")
+            logger.debug(f"Fetched {fact_count} facts for database {db_name}")
 
             # Fetch metrics
             metric_query = SnowflakeQuery.get_semantic_metrics_for_database(db_name)
@@ -1242,21 +1187,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 # Parse SYNONYMS JSON array
                 synonyms_raw = row.get("SYNONYMS")
-                synonyms = []
-                if synonyms_raw:
-                    try:
-                        import json
-
-                        synonyms = (
-                            json.loads(synonyms_raw)
-                            if isinstance(synonyms_raw, str)
-                            else synonyms_raw
-                        )
-                    except (json.JSONDecodeError, TypeError):
-                        logger.debug(
-                            f"Failed to parse SYNONYMS for {col_name}: {synonyms_raw}"
-                        )
-                        synonyms = []
+                synonyms = self._parse_json_array(
+                    synonyms_raw, "SYNONYMS", f"metric {col_name}"
+                )
 
                 column_data[view_key][col_name_upper].append(
                     {
@@ -1264,17 +1197,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         "data_type": row.get("DATA_TYPE", "NUMBER"),
                         "comment": row.get("COMMENT"),
                         "subtype": "METRIC",
-                        "table_name": row.get(
-                            "TABLE_NAME"
-                        ),  # Logical table for lineage
-                        "synonyms": synonyms,  # List of alternative names
-                        "expression": row.get(
-                            "EXPRESSION"
-                        ),  # SQL expression (TODO: use for derived column lineage)
+                        "table_name": row.get("TABLE_NAME"),
+                        "synonyms": synonyms,
+                        "expression": row.get("EXPRESSION"),
                     }
                 )
 
-            logger.info(f"Fetched {metric_count} metrics for database {db_name}")
+            logger.debug(f"Fetched {metric_count} metrics for database {db_name}")
 
             # Step 2: Deduplicate and merge metadata for each semantic view
             total_unique = 0

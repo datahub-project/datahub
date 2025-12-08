@@ -1125,28 +1125,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 f"include_technical_schema={self.config.include_technical_schema}"
             )
             if self.config.include_technical_schema:
-                logger.info(f"CALLING gen_dataset_workunits for {semantic_view.name}")
+                logger.debug(
+                    f"Generating schema for semantic view {semantic_view.name}"
+                )
                 yield from self.gen_dataset_workunits(
                     semantic_view, schema_name, db_name
                 )
-                logger.info(
-                    f"Schema emitted for {semantic_view.name}, now proceeding to lineage..."
-                )
             else:
-                logger.warning(
-                    f"SKIPPING gen_dataset_workunits for {semantic_view.name} "
-                    f"because include_technical_schema is False"
+                logger.debug(
+                    f"Skipping schema for {semantic_view.name} (include_technical_schema=False)"
                 )
 
             # Generate and emit column lineage AFTER schema
-            logger.info(
-                f"Config check for {semantic_view.name}: "
-                f"include_semantic_view_column_lineage={self.config.include_semantic_view_column_lineage}"
-            )
             if self.config.include_semantic_view_column_lineage:
-                logger.info(
-                    f"Column lineage is ENABLED for {semantic_view.name}, proceeding to generate..."
-                )
                 try:
                     semantic_view_urn = self.identifiers.gen_dataset_urn(
                         semantic_view_name
@@ -1154,45 +1145,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     column_lineages = self._generate_column_lineage_for_semantic_view(
                         semantic_view, semantic_view_urn, db_name
                     )
-                    logger.info(
-                        f"Generated {len(column_lineages)} column-level lineage mappings for {semantic_view.name}"
-                    )
 
-                    # Emit lineage directly as an MCP to bypass aggregator's auto-generation
-                    # Get the upstream URNs that were stored earlier
+                    # Emit lineage directly as an MCP
                     upstream_urns = semantic_view.resolved_upstream_urns
-                    logger.info(
-                        f"Preparing to emit explicit lineage for {semantic_view.name}: "
-                        f"{len(column_lineages)} column lineages, {len(upstream_urns)} upstream tables"
-                    )
-
                     if upstream_urns:
-                        logger.info(
-                            f"Emitting explicit lineage MCP for {semantic_view.name} (AFTER schema)"
-                        )
                         yield from self._emit_semantic_view_lineage(
                             semantic_view,
                             semantic_view_urn,
                             column_lineages,
                             upstream_urns,
                         )
-                        logger.info(
-                            f"Finished emitting lineage for {semantic_view.name}"
-                        )
                     else:
-                        logger.warning(
-                            f"No upstream URNs found for {semantic_view.name}, cannot emit lineage"
+                        logger.debug(
+                            f"No upstream URNs found for {semantic_view.name}, skipping lineage"
                         )
                 except Exception as e:
                     logger.error(
                         f"Failed to generate column lineage for {semantic_view.name}: {e}",
                         exc_info=True,
                     )
-            else:
-                logger.warning(
-                    f"Column lineage is DISABLED for {semantic_view.name}. "
-                    f"Set include_semantic_view_column_lineage=true to enable."
-                )
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         use_sp = self.config.extract_tags_as_structured_properties
@@ -1848,26 +1819,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             DownstreamColumnRef,
         )
 
-        logger.info(
-            f"Converting {len(fine_grained_lineages)} FineGrainedLineage objects to ColumnLineageInfo for {semantic_view.name}"
-        )
-
         # Convert FineGrainedLineageClass to ColumnLineageInfo
         column_lineage_infos = []
 
-        for i, fg_lineage in enumerate(fine_grained_lineages):
-            logger.info(
-                f"  Processing FineGrainedLineage #{i + 1}/{len(fine_grained_lineages)}"
-            )
-            logger.info(f"    downstreams: {fg_lineage.downstreams}")
-            logger.info(f"    upstreams: {fg_lineage.upstreams}")
-
+        for fg_lineage in fine_grained_lineages:
             # Extract column name from URN
             # Format: urn:li:schemaField:(urn:li:dataset:(...),column_name)
             if not fg_lineage.downstreams:
-                logger.warning(
-                    f"FineGrainedLineage #{i + 1} has no downstreams, skipping"
-                )
                 continue
             downstream_urn = fg_lineage.downstreams[0]
 
@@ -1875,31 +1833,23 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if downstream_urn.startswith(
                 "urn:li:schemaField:("
             ) and downstream_urn.endswith(")"):
-                # Remove prefix and suffix
                 inner = downstream_urn[len("urn:li:schemaField:(") : -1]
-                # Find the last comma which separates dataset URN from column name
                 last_comma = inner.rfind(",")
                 if last_comma > 0:
                     downstream_col = inner[last_comma + 1 :]
-                    logger.info(f"    downstream_col extracted: {downstream_col}")
                 else:
-                    logger.warning(
+                    logger.debug(
                         f"Could not parse downstream URN (no comma found): {downstream_urn}"
                     )
                     continue
             else:
-                logger.warning(f"Unexpected downstream URN format: {downstream_urn}")
+                logger.debug(f"Unexpected downstream URN format: {downstream_urn}")
                 continue
 
             upstream_cols = []
             if not fg_lineage.upstreams:
-                logger.warning(
-                    f"FineGrainedLineage #{i + 1} has no upstreams, skipping"
-                )
                 continue
             for upstream_field_urn in fg_lineage.upstreams:
-                logger.info(f"    Parsing upstream URN: {upstream_field_urn}")
-
                 # Parse schema field URN for upstream
                 if upstream_field_urn.startswith(
                     "urn:li:schemaField:("
@@ -1912,15 +1862,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         upstream_cols.append(
                             ColumnRef(table=table_urn, column=col_name)
                         )
-                        logger.info(
-                            f"Mapped: {table_urn} / {col_name} to {semantic_view_urn} / {downstream_col}"
-                        )
                     else:
-                        logger.warning(
+                        logger.debug(
                             f"Could not parse upstream URN (no comma): {upstream_field_urn}"
                         )
                 else:
-                    logger.warning(
+                    logger.debug(
                         f"Unexpected upstream URN format: {upstream_field_urn}"
                     )
 
@@ -1933,32 +1880,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         upstreams=upstream_cols,
                     )
                 )
-                logger.info(
-                    f"Created ColumnLineageInfo with {len(upstream_cols)} upstream columns"
-                )
-            else:
-                logger.warning(
-                    f"No upstream columns found for downstream {downstream_col}"
-                )
-
-        logger.info(
-            f"Total ColumnLineageInfo objects created: {len(column_lineage_infos)}"
-        )
 
         if column_lineage_infos:
-            # Register with aggregator - use ALL upstream table URNs for table-level lineage
-            # but ONLY the validated column lineages for column-level lineage
-            logger.info(f"⚙️  Registering with aggregator for {semantic_view.name}:")
-            logger.info(
-                f"   • Table-level lineage: {len(upstream_table_urns)} upstream tables"
-            )
-            logger.info(
-                f"   • Column-level lineage: {len(column_lineage_infos)} explicit column mappings"
-            )
-            logger.info(
-                "   • This will OVERRIDE any auto-generated column lineage from the aggregator"
-            )
-
             from datahub.sql_parsing.sql_parsing_common import QueryType
 
             if self.aggregator:
@@ -1966,13 +1889,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     KnownQueryLineageInfo(
                         query_text=f"-- Semantic view {semantic_view.name} definition",
                         downstream=semantic_view_urn,
-                        upstreams=upstream_table_urns,  # All base tables for table-level lineage
-                        column_lineage=column_lineage_infos,  # Only validated columns (overrides auto-generation)
-                        query_type=QueryType.CREATE_VIEW,  # Treat as a CREATE VIEW to ensure proper lineage
+                        upstreams=upstream_table_urns,
+                        column_lineage=column_lineage_infos,
+                        query_type=QueryType.CREATE_VIEW,
                     )
                 )
-
-            logger.info(f"Successfully registered lineage for {semantic_view.name}")
+                logger.info(
+                    f"Registered lineage for {semantic_view.name}: "
+                    f"{len(upstream_table_urns)} upstream tables, "
+                    f"{len(column_lineage_infos)} column mappings"
+                )
 
     def _is_table_allowed(
         self, db_name: str, schema_name: str, table_name: str
@@ -2009,7 +1935,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         if not self.aggregator:
             # If no aggregator, we can't verify - assume it exists
-            logger.warning(
+            logger.debug(
                 f"No aggregator available, assuming column {column_name} exists in {table_name}"
             )
             return True
@@ -2020,20 +1946,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
         table_urn = self.identifiers.gen_dataset_urn(table_identifier)
 
-        logger.info(f"Looking up schema for table URN: {table_urn}")
+        logger.debug(f"Looking up schema for table URN: {table_urn}")
 
         # Get schema from aggregator's schema resolver
         # SchemaInfo is Dict[str, str] mapping column names to types
         schema_info = self.aggregator._schema_resolver._resolve_schema_info(table_urn)
         if not schema_info:
             # Schema not found - assume column exists (may not be ingested yet)
-            logger.warning(
+            logger.debug(
                 f"Could not find schema for {table_urn} in resolver. "
                 f"Assuming column {column_name} exists (table may not be ingested yet)."
             )
             return True
 
-        logger.info(
+        logger.debug(
             f"Found schema with {len(schema_info)} columns: {list(schema_info.keys())}"
         )
 
@@ -2042,7 +1968,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         column_name_lower = column_name.lower()
         exists = column_name_lower in schema_info
 
-        logger.info(
+        logger.debug(
             f"Column {column_name} (normalized to {column_name_lower}) exists in schema: {exists}"
         )
         return exists
@@ -2079,10 +2005,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 if col_name:
                     # Get table qualifier if present (e.g., "ORDERS" in "ORDERS.ORDER_TOTAL_METRIC")
                     table_name = col_node.table if hasattr(col_node, "table") else None
-                    if table_name:
-                        table_name = table_name.upper()
+                    # Normalize empty string to None for consistency
+                    table_name = table_name.upper() if table_name else None
 
-                    # Normalize to uppercase (Snowflake standard)
+                    # Normalize column name to uppercase (Snowflake standard)
                     col_upper = col_name.upper()
 
                     # Store as tuple (table, column)
@@ -2129,7 +2055,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         ]
 
         if unprocessed_columns:
-            logger.info(
+            logger.debug(
                 f"Found {len(unprocessed_columns)} columns without table associations. "
                 f"Processing their expressions for lineage..."
             )
@@ -2141,7 +2067,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if not column_expression:
                 continue
 
-            logger.info(
+            logger.debug(
                 f"Processing unassociated column: {col_name_upper}, expression: {column_expression}"
             )
 
@@ -2160,13 +2086,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 continue
 
-            logger.info(
+            logger.debug(
                 f"Extracted {len(source_columns)} source columns from expression: {source_columns}"
             )
 
             for table_qualifier, source_col in source_columns:
                 if not table_qualifier:
-                    logger.warning(
+                    logger.debug(
                         f"Source column {source_col} has no table qualifier. "
                         f"Cannot determine physical table. Skipping lineage."
                     )
@@ -2176,7 +2102,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     table_qualifier
                 )
                 if not physical_table_tuple:
-                    logger.warning(
+                    logger.debug(
                         f"Logical table '{table_qualifier}' not found. "
                         f"Skipping lineage for {table_qualifier}.{source_col}"
                     )
@@ -2191,7 +2117,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ):
                     # Column not in physical table - check if it's another derived column
                     # in the same semantic view (chained derivation)
-                    logger.info(
+                    logger.debug(
                         f"Source column {source_col} not found in {source_table_full_name}. "
                         f"Checking if it's a derived column in the semantic view..."
                     )
@@ -2204,7 +2130,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             break
 
                     if derived_col_expression:
-                        logger.info(
+                        logger.debug(
                             f"Found expression for {source_col}: {derived_col_expression}. "
                             f"Recursively extracting source columns..."
                         )
@@ -2271,7 +2197,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 )
                             )
 
-                            logger.info(
+                            logger.debug(
                                 f"Created chained lineage: {rec_col} ({rec_table_full}) -> "
                                 f"{source_col} (derived) -> {col_name_upper} ({semantic_view.name})"
                             )
@@ -2285,7 +2211,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     continue
 
                 if not self._is_table_allowed(source_db, source_schema, source_table):
-                    logger.info(
+                    logger.debug(
                         f"Skipping lineage from {source_col} to filtered table {source_table_full_name}"
                     )
                     continue
@@ -2310,9 +2236,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     )
                 )
 
-                logger.info(
+                logger.debug(
                     f"Created derived column lineage: "
-                    f"{source_col} ({source_table_full_name}) to "
+                    f"{source_col} ({source_table_full_name}) -> "
                     f"{col_name_upper} ({semantic_view.name})"
                 )
 
@@ -2366,7 +2292,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             col_name_upper,
             logical_table_names,
         ) in semantic_view.column_table_mappings.items():
-            logger.info(
+            logger.debug(
                 f"Processing column: {col_name_upper}, logical tables: {logical_table_names}"
             )
 
@@ -2412,8 +2338,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.snowflake_identifier(col_name_upper),
                 )
 
-                # CRITICAL: Verify the column actually exists in the upstream table
-                logger.info(
+                # Verify the column actually exists in the upstream table
+                logger.debug(
                     f"Checking if column {col_name_upper} exists in table {base_table_full_name}"
                 )
                 upstream_table_has_column = self._verify_column_exists_in_table(
@@ -2422,7 +2348,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 if not upstream_table_has_column:
                     # Column not found directly - check if it's a derived column with an expression
-                    logger.info(
+                    logger.debug(
                         f"Column {col_name_upper} not found in {base_table_full_name}. "
                         f"Checking if it's a derived column with an expression..."
                     )
@@ -2436,7 +2362,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             break
 
                     if column_expression:
-                        logger.info(
+                        logger.debug(
                             f"Found expression for {col_name_upper}: {column_expression}"
                         )
 
@@ -2447,7 +2373,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         )
 
                         if source_columns:
-                            logger.info(
+                            logger.debug(
                                 f"Extracted {len(source_columns)} source columns from expression: {source_columns}"
                             )
 
@@ -2498,7 +2424,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 if not self._is_table_allowed(
                                     source_db, source_schema, source_table
                                 ):
-                                    logger.info(
+                                    logger.debug(
                                         f"Skipping lineage from {source_col} to filtered table {source_table_full_name}"
                                     )
                                     continue
@@ -2527,9 +2453,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                     )
                                 )
 
-                                logger.info(
+                                logger.debug(
                                     f"Created derived column lineage: "
-                                    f"{source_col} ({source_table_full_name}) to "
+                                    f"{source_col} ({source_table_full_name}) -> "
                                     f"{col_name_upper} ({semantic_view.name})"
                                 )
                         else:
@@ -2546,7 +2472,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Move to next column (don't add to lineage list)
                     continue
                 else:
-                    logger.info(
+                    logger.debug(
                         f"Column {col_name_upper} exists in {base_table_full_name}. Creating lineage."
                     )
 
