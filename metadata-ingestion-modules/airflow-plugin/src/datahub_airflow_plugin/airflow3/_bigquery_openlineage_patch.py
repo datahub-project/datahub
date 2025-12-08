@@ -10,13 +10,150 @@ column-level lineage extraction.
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from airflow.templates import SandboxedEnvironment
+
 import datahub.emitter.mce_builder as builder
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
     from airflow.providers.openlineage.extractors import OperatorLineage
 
 logger = logging.getLogger(__name__)
+
+
+def _render_bigquery_sql_templates(
+    sql: str, operator: Any, task_instance: "TaskInstance"
+) -> str:
+    """
+    Render Jinja templates in BigQuery SQL if they exist.
+
+    Args:
+        sql: SQL string that may contain templates
+        operator: BigQuery operator instance
+        task_instance: Airflow task instance for context
+
+    Returns:
+        Rendered SQL string
+    """
+    if "{{" not in str(sql) and "{%" not in str(sql):
+        return sql
+
+    try:
+        # Get template context from task_instance
+        context: Any = {}
+        if hasattr(task_instance, "get_template_context"):
+            context = task_instance.get_template_context()
+        elif (
+            hasattr(task_instance, "task")
+            and task_instance.task is not None
+            and hasattr(task_instance.task, "get_template_context")
+        ):
+            context = task_instance.task.get_template_context()
+
+        # Try to render using the operator's render_template method
+        if hasattr(operator, "render_template") and context:
+            return operator.render_template(sql, context)
+
+        # Fallback: try to render using Jinja2 directly
+        jinja_env = SandboxedEnvironment()
+        template = jinja_env.from_string(str(sql))
+        return template.render(**context)  # type: ignore[misc]
+
+    except Exception as e:
+        logger.warning(
+            "Failed to render BigQuery SQL templates, using original SQL: %s", e
+        )
+        return sql
+
+
+def _enhance_bigquery_lineage_with_sql_parsing(
+    operator: Any,
+    operator_lineage: "OperatorLineage",
+    rendered_sql: str,
+) -> None:
+    """
+    Enhance BigQuery OpenLineage result with DataHub SQL parsing for column-level lineage.
+
+    Args:
+        operator: BigQuery operator instance
+        operator_lineage: OpenLineage result to enhance
+        rendered_sql: Rendered SQL string to parse
+    """
+    try:
+        # Import here to avoid circular dependency
+        from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+        platform = "bigquery"
+        default_database = (
+            operator.project_id if hasattr(operator, "project_id") else None
+        )
+
+        logger.debug(
+            "Running DataHub SQL parser for BigQuery (platform=%s, default_db=%s): %s",
+            platform,
+            default_database,
+            rendered_sql[:200],
+        )
+
+        listener = get_airflow_plugin_listener()
+        graph = listener.graph if listener else None
+
+        # Use DataHub's SQL parser with rendered SQL
+        sql_parsing_result = create_lineage_sql_parsed_result(
+            query=rendered_sql,
+            graph=graph,
+            platform=platform,
+            platform_instance=None,
+            env=builder.DEFAULT_ENV,
+            default_db=default_database,
+            default_schema=None,
+        )
+
+        logger.debug(
+            "DataHub SQL parsing result: in_tables=%d, out_tables=%d, column_lineage=%d",
+            len(sql_parsing_result.in_tables),
+            len(sql_parsing_result.out_tables),
+            len(sql_parsing_result.column_lineage or []),
+        )
+
+        # Check if there's a destinationTable in configuration
+        destination_table = operator.configuration.get("query", {}).get(
+            "destinationTable"
+        )
+        if destination_table:
+            project_id = destination_table.get("projectId")
+            dataset_id = destination_table.get("datasetId")
+            table_id = destination_table.get("tableId")
+
+            if project_id and dataset_id and table_id:
+                destination_table_urn = builder.make_dataset_urn(
+                    platform="bigquery",
+                    name=f"{project_id}.{dataset_id}.{table_id}",
+                    env=builder.DEFAULT_ENV,
+                )
+                # Add to output tables if not already present
+                if destination_table_urn not in sql_parsing_result.out_tables:
+                    sql_parsing_result.out_tables.append(destination_table_urn)
+                    logger.debug(
+                        "Added destination table to outputs: %s", destination_table_urn
+                    )
+
+        # Store the SQL parsing result in run_facets for DataHub listener
+        if sql_parsing_result:
+            operator_lineage.run_facets[DATAHUB_SQL_PARSING_RESULT_KEY] = (
+                sql_parsing_result
+            )
+            logger.debug(
+                "Added DataHub SQL parsing result with %d column lineages",
+                len(sql_parsing_result.column_lineage or []),
+            )
+
+    except Exception as e:
+        logger.warning(
+            "Error running DataHub SQL parser for BigQuery: %s", e, exc_info=True
+        )
 
 
 def patch_bigquery_insert_job_operator() -> None:
@@ -60,13 +197,6 @@ def patch_bigquery_insert_job_operator() -> None:
             2. Enhances it with DataHub SQL parsing result for column lineage
             """
             try:
-                from datahub.sql_parsing.sqlglot_lineage import (
-                    create_lineage_sql_parsed_result,
-                )
-                from datahub_airflow_plugin.datahub_listener import (
-                    get_airflow_plugin_listener,
-                )
-
                 # Extract SQL from configuration
                 sql = self.configuration.get("query", {}).get("query")
                 if not sql:
@@ -78,52 +208,11 @@ def patch_bigquery_insert_job_operator() -> None:
                     )
 
                 # Render Jinja templates in SQL if they exist
-                # In Airflow 3.x, templates should be rendered by task execution,
-                # but self.configuration may still contain unrendered templates
-                rendered_sql = sql
-                if "{{" in str(sql) or "{%" in str(sql):
-                    try:
-                        # Get template context from task_instance
-                        # Context can be a dict-like object or a Context object
-                        context: Any = {}
-                        if hasattr(task_instance, "get_template_context"):
-                            context_obj = task_instance.get_template_context()
-                            # Context objects can be used directly with ** unpacking
-                            context = context_obj
-                        elif (
-                            hasattr(task_instance, "task")
-                            and task_instance.task is not None
-                            and hasattr(task_instance.task, "get_template_context")
-                        ):
-                            context_obj = task_instance.task.get_template_context()
-                            context = context_obj
-
-                        # Try to render using the operator's render_template method
-                        if hasattr(self, "render_template") and context:
-                            rendered_sql = self.render_template(sql, context)
-                        else:
-                            # Fallback: try to render using Jinja2 directly
-                            from airflow.templates import SandboxedEnvironment
-
-                            jinja_env = SandboxedEnvironment()
-                            template = jinja_env.from_string(str(sql))
-                            # Context objects support ** unpacking
-                            rendered_sql = template.render(**context)  # type: ignore[misc]
-
-                        logger.debug(
-                            "Rendered BigQuery SQL templates: %s -> %s",
-                            str(sql)[:100],
-                            str(rendered_sql)[:100],
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to render BigQuery SQL templates, using original SQL: %s",
-                            e,
-                        )
-                        rendered_sql = sql
+                rendered_sql = _render_bigquery_sql_templates(sql, self, task_instance)
 
                 logger.debug(
-                    f"DataHub patched BigQuery get_openlineage_facets_on_complete called for query: {rendered_sql[:100]}..."
+                    "DataHub patched BigQuery get_openlineage_facets_on_complete called for query: %s...",
+                    rendered_sql[:100],
                 )
 
                 # Get the original OpenLineage result
@@ -138,95 +227,22 @@ def patch_bigquery_insert_job_operator() -> None:
                     return operator_lineage
 
                 logger.debug(
-                    f"Original BigQuery OpenLineage result: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}"
+                    "Original BigQuery OpenLineage result: inputs=%d, outputs=%d",
+                    len(operator_lineage.inputs),
+                    len(operator_lineage.outputs),
                 )
 
-                # Now enhance with DataHub SQL parsing
-                try:
-                    # Get platform and database info
-                    platform = "bigquery"
-                    default_database = (
-                        self.project_id if hasattr(self, "project_id") else None
-                    )
-
-                    logger.debug(
-                        f"Running DataHub SQL parser for BigQuery (platform={platform}, "
-                        f"default_db={default_database}): {rendered_sql}"
-                    )
-
-                    listener = get_airflow_plugin_listener()
-                    graph = listener.graph if listener else None
-
-                    # Use DataHub's SQL parser with rendered SQL
-                    sql_parsing_result = create_lineage_sql_parsed_result(
-                        query=rendered_sql,
-                        graph=graph,
-                        platform=platform,
-                        platform_instance=None,
-                        env=builder.DEFAULT_ENV,
-                        default_db=default_database,
-                        default_schema=None,
-                    )
-
-                    logger.debug(
-                        f"DataHub SQL parsing result: in_tables={len(sql_parsing_result.in_tables)}, "
-                        f"out_tables={len(sql_parsing_result.out_tables)}, "
-                        f"column_lineage={len(sql_parsing_result.column_lineage or [])}"
-                    )
-
-                    # Check if there's a destinationTable in configuration
-                    # If so, add it to the outputs in the SQL parsing result
-                    destination_table = self.configuration.get("query", {}).get(
-                        "destinationTable"
-                    )
-                    if destination_table:
-                        project_id = destination_table.get("projectId")
-                        dataset_id = destination_table.get("datasetId")
-                        table_id = destination_table.get("tableId")
-
-                        if project_id and dataset_id and table_id:
-                            destination_table_urn = builder.make_dataset_urn(
-                                platform="bigquery",
-                                name=f"{project_id}.{dataset_id}.{table_id}",
-                                env=builder.DEFAULT_ENV,
-                            )
-                            # Add to output tables if not already present
-                            if (
-                                destination_table_urn
-                                not in sql_parsing_result.out_tables
-                            ):
-                                sql_parsing_result.out_tables.append(
-                                    destination_table_urn
-                                )
-                                logger.debug(
-                                    f"Added destination table to outputs: {destination_table_urn}"
-                                )
-
-                    # Store the SQL parsing result in run_facets for DataHub listener
-                    from datahub_airflow_plugin._constants import (
-                        DATAHUB_SQL_PARSING_RESULT_KEY,
-                    )
-
-                    if sql_parsing_result:
-                        operator_lineage.run_facets[DATAHUB_SQL_PARSING_RESULT_KEY] = (
-                            sql_parsing_result
-                        )
-                        logger.debug(
-                            f"Added DataHub SQL parsing result with "
-                            f"{len(sql_parsing_result.column_lineage or [])} column lineages"
-                        )
-
-                except Exception as e:
-                    logger.warning(
-                        f"Error running DataHub SQL parser for BigQuery: {e}",
-                        exc_info=True,
-                    )
+                # Enhance with DataHub SQL parsing for column-level lineage
+                _enhance_bigquery_lineage_with_sql_parsing(
+                    self, operator_lineage, rendered_sql
+                )
 
                 return operator_lineage
 
             except Exception as e:
                 logger.warning(
-                    f"Error in patched BigQueryInsertJobOperator.get_openlineage_facets_on_complete: {e}",
+                    "Error in patched BigQueryInsertJobOperator.get_openlineage_facets_on_complete: %s",
+                    e,
                     exc_info=True,
                 )
                 # Fall back to original method
@@ -244,5 +260,6 @@ def patch_bigquery_insert_job_operator() -> None:
 
     except ImportError as e:
         logger.debug(
-            f"Could not patch BigQueryInsertJobOperator for OpenLineage (provider not installed or Airflow < 3.0): {e}"
+            "Could not patch BigQueryInsertJobOperator for OpenLineage (provider not installed or Airflow < 3.0): %s",
+            e,
         )
