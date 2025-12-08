@@ -84,7 +84,14 @@ public abstract class BaseIntegrationTest {
       generatedTokenId = null; // Don't revoke externally provided tokens
     } else {
       System.out.println("No DATAHUB_TOKEN provided, generating new token...");
-      authenticateAndGenerateToken();
+      try {
+        authenticateAndGenerateToken();
+      } catch (Exception e) {
+        // Frontend might not be available in CI - skip tests gracefully
+        System.err.println("Failed to authenticate (frontend may not be available): " + e.getMessage());
+        System.err.println("Skipping integration tests. Set DATAHUB_TOKEN environment variable to run tests without frontend.");
+        assumeTrue("Frontend authentication failed and no DATAHUB_TOKEN provided", false);
+      }
     }
 
     // Build client with token (SDK mode defaults to async=false for synchronous DB writes)
