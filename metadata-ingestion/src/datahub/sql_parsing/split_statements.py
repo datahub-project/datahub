@@ -8,6 +8,14 @@ SELECT_KEYWORD = "SELECT"
 CASE_KEYWORD = "CASE"
 END_KEYWORD = "END"
 
+# MSSQL control flow keywords for STATEMENT BOUNDARY DETECTION.
+# These are regex patterns used to determine where to split SQL into statements.
+#
+# NOTE: This is distinct from sqlglot_lineage.py's TSQL_CONTROL_FLOW_KEYWORDS which
+# is used for LINEAGE FILTERING (determining which statements produce data flow).
+#
+# This set: 8 keywords (regex) for boundary detection
+# sqlglot_lineage.py: 28+ keywords for filtering non-lineage statements
 CONTROL_FLOW_KEYWORDS = [
     "GO",
     r"BEGIN\s+TRY",

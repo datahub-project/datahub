@@ -74,6 +74,19 @@ assert SQLGLOT_PATCHED
 logger = logging.getLogger(__name__)
 
 # TSQL control flow keywords that sqlglot doesn't support
+# TSQL control flow keywords for LINEAGE FILTERING.
+# This determines which statements produce lineage (data flow between tables).
+#
+# NOTE: This is distinct from split_statements.py's CONTROL_FLOW_KEYWORDS which is
+# used for STATEMENT BOUNDARY DETECTION (where to split SQL into statements).
+#
+# Comparison:
+#   - split_statements.py: 8 keywords (regex patterns) for boundary detection
+#   - This set: 28+ keywords for lineage relevance filtering
+#
+# Example flow:
+#   1. split_statements.py splits "BEGIN TRY INSERT INTO t1 SELECT * FROM t2 END TRY"
+#   2. This set filters out BEGIN TRY/END TRY (no lineage), keeps INSERT (has lineage)
 TSQL_CONTROL_FLOW_KEYWORDS = {
     "BEGIN",
     "END",

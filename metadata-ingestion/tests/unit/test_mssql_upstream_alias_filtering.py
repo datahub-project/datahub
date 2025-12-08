@@ -396,3 +396,89 @@ class TestUpstreamFilteringIntegration:
         assert len(filtered) == 2
         assert any("orders" in urn for urn in filtered)
         assert any("customers" in urn for urn in filtered)
+
+
+class TestErrorHandling:
+    """Tests for error handling and edge cases."""
+
+    def test_is_qualified_table_urn_malformed_urn(self, mssql_source):
+        """Test _is_qualified_table_urn handles malformed URNs gracefully."""
+        # Malformed URNs should return False without raising exceptions
+        malformed_urns = [
+            "",
+            "not-a-urn",
+            "urn:li:invalid",
+            "urn:li:dataset:()",
+            "urn:li:dataset:(bad,data)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,,PROD)",
+        ]
+
+        for urn in malformed_urns:
+            result = mssql_source._is_qualified_table_urn(urn)
+            # Should return False for all malformed URNs, not raise
+            assert result is False, f"Expected False for malformed URN: {urn}"
+
+    def test_is_qualified_table_urn_with_platform_instance_edge_cases(
+        self, mssql_source
+    ):
+        """Test platform instance prefix handling edge cases."""
+        # Empty platform instance
+        result = mssql_source._is_qualified_table_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.schema.table,PROD)",
+            platform_instance="",
+        )
+        assert result is True
+
+        # Platform instance that's a prefix of the table name
+        result = mssql_source._is_qualified_table_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test.db.schema.table,PROD)",
+            platform_instance="test",
+        )
+        assert result is True  # After stripping "test.", "db.schema.table" has 3 parts
+
+        # Platform instance that doesn't match
+        result = mssql_source._is_qualified_table_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,other_instance.db.schema.table,PROD)",
+            platform_instance="test_instance",
+        )
+        # No stripping occurs, "other_instance.db.schema.table" has 4 parts
+        assert result is True
+
+    def test_filter_upstream_aliases_empty_input(self, mssql_source):
+        """Test _filter_upstream_aliases handles empty input."""
+        result = mssql_source._filter_upstream_aliases([])
+        assert result == []
+
+    def test_filter_upstream_aliases_all_malformed(self, mssql_source):
+        """Test _filter_upstream_aliases when all URNs are malformed."""
+        malformed_urns = [
+            "not-a-urn",
+            "urn:li:invalid",
+            "",
+        ]
+        # Conservative behavior: malformed URNs are kept (not filtered out)
+        # This prevents accidentally losing valid lineage due to parse errors
+        result = mssql_source._filter_upstream_aliases(malformed_urns)
+        assert len(result) == len(malformed_urns)
+
+    def test_filter_upstream_aliases_mixed_valid_and_malformed(self, mssql_source):
+        """Test _filter_upstream_aliases with mix of valid and malformed URNs."""
+        mixed_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
+            "not-a-urn",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
+        ]
+        result = mssql_source._filter_upstream_aliases(mixed_urns)
+        # Should keep valid URNs AND malformed ones (conservative approach)
+        assert len(result) == 3
+
+    def test_is_temp_table_exception_handling(self, mssql_source):
+        """Test is_temp_table handles exceptions gracefully."""
+        # Mock schema_resolver to raise exception
+        schema_resolver = mssql_source.get_schema_resolver()
+        schema_resolver.has_urn = MagicMock(side_effect=Exception("Simulated error"))
+
+        # Returns False on exception (conservative: assume it's a real table)
+        # Logs a warning but doesn't raise
+        result = mssql_source.is_temp_table("db.schema.table")
+        assert result is False

@@ -547,6 +547,77 @@ def test_contains_control_flow_keyword_word_boundary() -> None:
     )  # END is separate word
 
 
+def test_fallback_parser_all_statements_fail() -> None:
+    """Test fallback parser when all statements fail to parse."""
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sqlglot_lineage import _parse_stored_procedure_fallback
+    from datahub.sql_parsing.sqlglot_utils import get_dialect
+
+    schema_resolver = SchemaResolver(platform="mssql")
+    dialect = get_dialect("mssql")
+
+    # SQL with only unparseable statements
+    result = _parse_stored_procedure_fallback(
+        sql="CREATE PROCEDURE X AS INVALID SYNTAX THAT CANNOT PARSE",
+        schema_resolver=schema_resolver,
+        dialect=dialect,
+        default_db=None,
+        default_schema=None,
+    )
+
+    # Fallback parser returns result with empty in_tables when no valid DML
+    assert result.in_tables == []
+
+
+def test_fallback_parser_empty_sql() -> None:
+    """Test fallback parser with empty SQL."""
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sqlglot_lineage import _parse_stored_procedure_fallback
+    from datahub.sql_parsing.sqlglot_utils import get_dialect
+
+    schema_resolver = SchemaResolver(platform="mssql")
+    dialect = get_dialect("mssql")
+
+    result = _parse_stored_procedure_fallback(
+        sql="",
+        schema_resolver=schema_resolver,
+        dialect=dialect,
+        default_db=None,
+        default_schema=None,
+    )
+
+    # Should handle empty SQL gracefully with empty result
+    assert result.in_tables == []
+
+
+def test_fallback_parser_only_control_flow() -> None:
+    """Test fallback parser when SQL contains only control flow statements."""
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sqlglot_lineage import _parse_stored_procedure_fallback
+    from datahub.sql_parsing.sqlglot_utils import get_dialect
+
+    schema_resolver = SchemaResolver(platform="mssql")
+    dialect = get_dialect("mssql")
+
+    result = _parse_stored_procedure_fallback(
+        sql="""
+        BEGIN
+            DECLARE @x INT
+            SET @x = 1
+            IF @x > 0
+                PRINT 'Hello'
+        END
+        """,
+        schema_resolver=schema_resolver,
+        dialect=dialect,
+        default_db=None,
+        default_schema=None,
+    )
+
+    # Should return empty lineage when no DML statements
+    assert result.in_tables == []
+
+
 def test_fallback_parser_statement_filtering() -> None:
     """Test that control flow statements are properly filtered."""
     # This is implicitly tested by the other tests, but we verify the behavior
