@@ -871,7 +871,6 @@ class AirbyteCloudClient(AirbyteBaseClient):
             response.raise_for_status()
             return response.json()
         except requests.HTTPError as e:
-            # Handle server-side token invalidation (401/403) with one retry
             if e.response.status_code in (401, 403):
                 logger.warning(
                     f"Received {e.response.status_code}, attempting token refresh"

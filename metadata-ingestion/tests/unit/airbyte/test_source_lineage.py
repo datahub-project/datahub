@@ -233,7 +233,9 @@ def test_create_dataset_lineage(source, stream):
     destination_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"
     )
-    tags = ["test-tag-1", "test-tag-2"]
+
+    # Add destination to known_urns so lineage is emitted
+    source.known_urns.add(destination_urn)
 
     # Ensure column-level lineage is disabled for this test
     source.source_config.extract_column_level_lineage = False
@@ -242,7 +244,6 @@ def test_create_dataset_lineage(source, stream):
         source_urn=source_urn,
         destination_urn=destination_urn,
         stream=stream,
-        tags=tags,
     )
 
     workunits_list = list(workunits)
