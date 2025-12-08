@@ -5,7 +5,6 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
     AirbyteSourceConfig,
-    PlatformInstanceConfig,
 )
 
 
@@ -61,25 +60,6 @@ class TestAirbyteClientConfig:
                 or "not a valid enum" in str(e).lower()
                 or "invalid_type" in str(e).lower()
             )
-
-
-class TestPlatformInstanceConfig:
-    def test_basic_config(self):
-        config = PlatformInstanceConfig(
-            platform="my_platform", env="PROD", platform_instance="instance1"
-        )
-        assert config.platform == "my_platform"
-        assert config.env == "PROD"
-        assert config.platform_instance == "instance1"
-
-    def test_mapping_config(self):
-        config = PlatformInstanceConfig(
-            platform="my_platform",
-            database_mapping={"db1": "mapped_db1"},
-            schema_mapping={"schema1": "mapped_schema1"},
-        )
-        assert config.database_mapping == {"db1": "mapped_db1"}
-        assert config.schema_mapping == {"schema1": "mapped_schema1"}
 
 
 class TestAirbyteSourceConfig:
