@@ -404,8 +404,11 @@ def test_known_urns_prevents_phantom_destinations(mock_create_client, mock_ctx):
     lineage_mcps = [
         wu
         for wu in work_units
-        if "UpstreamLineage" in str(wu.metadata.aspect)
-        and dest_urn in wu.metadata.entityUrn
+        if hasattr(wu, "metadata")
+        and hasattr(wu.metadata, "aspect")
+        and "UpstreamLineage" in str(wu.metadata.aspect)
+        and hasattr(wu.metadata, "entityUrn")
+        and dest_urn in str(wu.metadata.entityUrn)
     ]
     assert len(lineage_mcps) == 0
 
@@ -444,8 +447,11 @@ def test_known_urns_allows_airbyte_to_airbyte_lineage(mock_create_client, mock_c
     lineage_mcps = [
         wu
         for wu in work_units
-        if "UpstreamLineage" in str(wu.metadata.aspect)
-        and dest_urn in wu.metadata.entityUrn
+        if hasattr(wu, "metadata")
+        and hasattr(wu.metadata, "aspect")
+        and "UpstreamLineage" in str(wu.metadata.aspect)
+        and hasattr(wu.metadata, "entityUrn")
+        and dest_urn in str(wu.metadata.entityUrn)
     ]
     assert len(lineage_mcps) == 1
 

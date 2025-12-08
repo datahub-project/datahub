@@ -1143,8 +1143,43 @@ class AirbyteSource(StatefulIngestionSourceBase):
             destination.destination_id, PlatformDetail()
         )
 
-        schema_name = stream.namespace or source.get_schema or ""
+        # Log connection-level namespace configuration for troubleshooting
+        connection = pipeline_info.connection
+        namespace_def = connection.get_namespace_definition
+        namespace_fmt = connection.get_namespace_format
+        table_prefix = connection.get_prefix
+
+        if namespace_def or namespace_fmt or table_prefix:
+            logger.debug(
+                "Connection %s has namespace config: definition=%s, format=%s, prefix=%s",
+                connection.connection_id,
+                namespace_def or "None",
+                namespace_fmt or "None",
+                table_prefix or "None",
+            )
+
+        # Resolve schema name with proper precedence
+        schema_name = self._resolve_schema_name(
+            stream.namespace,
+            source_details.default_schema,
+            source.get_schema,
+            stream.stream_name,
+            source.source_id,
+        )
         table_name = stream.stream_name
+
+        # Apply table prefix if configured at connection level
+        if table_prefix:
+            logger.debug("Applying prefix '%s' to table '%s'", table_prefix, table_name)
+            table_name = f"{table_prefix}{table_name}"
+
+        if not schema_name and source.configuration:
+            logger.debug(
+                "No schema found for source %s (type: %s). Configuration keys: %s",
+                source.source_id,
+                source.source_type,
+                list(source.configuration.keys()) if source.configuration else "None",
+            )
 
         if "." in table_name:
             logger.debug(
@@ -1153,29 +1188,25 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             table_name = table_name.split(".")[-1]
 
+        # Database precedence: config override > source.get_database
+        # Note: Individual streams cannot override database (only schema/namespace)
         source_database = source_details.database or source.get_database
-        if source_database:
-            should_include_schema = source_details.include_schema_in_urn
 
-            if should_include_schema is None:
-                if schema_name and schema_name == source_database:
-                    should_include_schema = False
-                    logger.debug(
-                        "Auto-detected 2-tier platform for source: schema '%s' equals database '%s', excluding schema from URN",
-                        schema_name,
-                        source_database,
-                    )
-                else:
-                    should_include_schema = True
-
-            if schema_name and should_include_schema:
-                source_dataset_name = f"{source_database}.{schema_name}.{table_name}"
-            else:
-                source_dataset_name = f"{source_database}.{table_name}"
-        else:
-            source_dataset_name = (
-                f"{schema_name}.{table_name}" if schema_name else table_name
+        if not source_database and source.configuration:
+            logger.debug(
+                "No database found for source %s (type: %s). Configuration keys: %s",
+                source.source_id,
+                source.source_type,
+                list(source.configuration.keys()) if source.configuration else "None",
             )
+
+        source_dataset_name = self._build_dataset_name(
+            source_database,
+            schema_name,
+            table_name,
+            source_details.include_schema_in_urn,
+            "source",
+        )
 
         validated_source_platform = _validate_urn_component(
             source_platform, "source_platform"
@@ -1197,30 +1228,67 @@ class AirbyteSource(StatefulIngestionSourceBase):
             platform_instance=source_plat_instance,
         )
 
-        dest_schema = destination.get_schema or schema_name
-        dest_database = dest_details.database or destination.get_database
-        if dest_database:
-            should_include_schema = dest_details.include_schema_in_urn
+        # Destination schema/database precedence
+        # Note: Destinations typically use the same schema as source, unless overridden
+        dest_override_schema = (
+            dest_details.default_schema
+        )  # Manual DataHub config override
+        dest_config_schema = (
+            destination.get_schema
+        )  # Default from Airbyte destination config
 
-            if should_include_schema is None:
-                if dest_schema and dest_schema == dest_database:
-                    should_include_schema = False
-                    logger.debug(
-                        "Auto-detected 2-tier platform for destination: schema '%s' equals database '%s', excluding schema from URN",
-                        dest_schema,
-                        dest_database,
-                    )
-                else:
-                    should_include_schema = True
-
-            if dest_schema and should_include_schema:
-                dest_dataset_name = f"{dest_database}.{dest_schema}.{table_name}"
-            else:
-                dest_dataset_name = f"{dest_database}.{table_name}"
+        if dest_override_schema:
+            # Manual override from DataHub config
+            dest_schema = dest_override_schema
+            if schema_name and dest_override_schema != schema_name:
+                logger.debug(
+                    "Using DataHub config schema override '%s' for destination instead of source schema '%s'",
+                    dest_override_schema,
+                    schema_name,
+                )
+        elif dest_config_schema:
+            # Destination has its own schema config
+            dest_schema = dest_config_schema
+            if schema_name and dest_config_schema != schema_name:
+                logger.debug(
+                    "Destination schema '%s' differs from source schema '%s' for stream '%s'",
+                    dest_config_schema,
+                    schema_name,
+                    stream.stream_name,
+                )
         else:
-            dest_dataset_name = (
-                f"{dest_schema}.{table_name}" if dest_schema else table_name
+            # Fall back to source schema
+            dest_schema = schema_name
+
+        dest_database = dest_details.database or destination.get_database
+
+        if not dest_schema and destination.configuration:
+            logger.debug(
+                "No schema found for destination %s (type: %s). Using source schema: %s, Configuration keys: %s",
+                destination.destination_id,
+                destination.destination_type,
+                schema_name or "None",
+                list(destination.configuration.keys())
+                if destination.configuration
+                else "None",
             )
+
+        if not dest_database and destination.configuration:
+            logger.debug(
+                "No database found for destination %s (type: %s). Configuration keys: %s",
+                destination.destination_id,
+                destination.destination_type,
+                list(destination.configuration.keys())
+                if destination.configuration
+                else "None",
+            )
+        dest_dataset_name = self._build_dataset_name(
+            dest_database,
+            dest_schema,
+            table_name,
+            dest_details.include_schema_in_urn,
+            "destination",
+        )
 
         validated_dest_platform = _validate_urn_component(
             dest_platform, "destination_platform"
@@ -1247,6 +1315,66 @@ class AirbyteSource(StatefulIngestionSourceBase):
         return AirbyteDatasetUrns(
             source_urn=source_urn, destination_urn=destination_urn
         )
+
+    def _resolve_schema_name(
+        self,
+        stream_namespace: Optional[str],
+        override_schema: Optional[str],
+        config_schema: Optional[str],
+        stream_name: str,
+        source_id: str,
+    ) -> str:
+        """Resolve schema name with proper precedence."""
+        if stream_namespace:
+            if config_schema and stream_namespace != config_schema:
+                logger.debug(
+                    "Stream '%s' namespace '%s' differs from config schema '%s' - using stream namespace",
+                    stream_name,
+                    stream_namespace,
+                    config_schema,
+                )
+            return stream_namespace
+        elif override_schema:
+            if config_schema and override_schema != config_schema:
+                logger.debug(
+                    "Using DataHub config schema override '%s' instead of source config schema '%s'",
+                    override_schema,
+                    config_schema,
+                )
+            return override_schema
+        else:
+            return config_schema or ""
+
+    def _build_dataset_name(
+        self,
+        database: Optional[str],
+        schema: str,
+        table: str,
+        include_schema_override: Optional[bool],
+        entity_type: str,
+    ) -> str:
+        """Build dataset name with 2-tier/3-tier auto-detection."""
+        if database:
+            should_include_schema = include_schema_override
+
+            if should_include_schema is None:
+                if schema and schema == database:
+                    should_include_schema = False
+                    logger.debug(
+                        "Auto-detected 2-tier platform for %s: schema '%s' equals database '%s', excluding schema from URN",
+                        entity_type,
+                        schema,
+                        database,
+                    )
+                else:
+                    should_include_schema = True
+
+            if schema and should_include_schema:
+                return f"{database}.{schema}.{table}"
+            else:
+                return f"{database}.{table}"
+        else:
+            return f"{schema}.{table}" if schema else table
 
     def _create_lineage_workunits(
         self, pipeline_info: AirbytePipelineInfo
