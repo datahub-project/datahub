@@ -136,8 +136,7 @@ test {
 
 // no submodule depends on datahub-schematron:cli
 // and tests there are the ones checking python-java compatibility
-// Removed cli:test dependency due to circular dependency (cli depends on datahub-client)
-// test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:cli:test")
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:cli:test")
 test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:lib:test")
 
 task checkShadowJar(type: Exec) {
