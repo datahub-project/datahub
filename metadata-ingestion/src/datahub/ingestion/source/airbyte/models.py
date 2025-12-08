@@ -198,15 +198,27 @@ class AirbyteSourcePartial(BaseModel):
         if not self.configuration:
             return None
 
-        # First look for a single schema field
-        schema = self.configuration.get("schema")
-        if schema:
-            return schema
+        # Try common schema field names across different connectors
+        schema_fields = [
+            "schema",  # Generic, Postgres, Snowflake
+            "default_schema",  # MSSQL, Oracle
+            "schema_name",  # Alternative name
+        ]
 
-        # Then look for schemas array
+        for field in schema_fields:
+            schema = self.configuration.get(field)
+            if schema and isinstance(schema, str):
+                return schema
+
+        # Then look for schemas array (Snowflake, BigQuery)
         schemas = self.configuration.get("schemas")
         if schemas and isinstance(schemas, list) and len(schemas) > 0:
-            return schemas[0]  # Return the first schema in the list
+            first_schema = schemas[0]
+            # schemas might be array of strings or objects
+            if isinstance(first_schema, str):
+                return first_schema
+            elif isinstance(first_schema, dict):
+                return first_schema.get("name") or first_schema.get("schema")
 
         return None
 
@@ -221,7 +233,26 @@ class AirbyteSourcePartial(BaseModel):
         if not self.configuration:
             return None
 
-        return self.configuration.get("database")
+        # Try common database field names across different connectors
+        database_fields = [
+            "database",  # Generic, Postgres, MySQL, MSSQL, Snowflake
+            "db",  # Short form
+            "db_name",  # Alternative
+            "database_name",  # Alternative
+            "dbname",  # Alternative
+            "service_name",  # Oracle
+            "sid",  # Oracle SID
+            "project",  # BigQuery (project = database equivalent)
+            "project_id",  # BigQuery alternative
+            "catalog",  # Databricks, Trino
+        ]
+
+        for field in database_fields:
+            database = self.configuration.get(field)
+            if database and isinstance(database, str):
+                return database
+
+        return None
 
 
 class AirbyteDestinationPartial(BaseModel):
@@ -249,7 +280,19 @@ class AirbyteDestinationPartial(BaseModel):
         if not self.configuration:
             return None
 
-        return self.configuration.get("schema")
+        # Try common schema field names across different connectors
+        schema_fields = [
+            "schema",  # Generic, Postgres, Snowflake
+            "default_schema",  # MSSQL, Oracle
+            "schema_name",  # Alternative name
+        ]
+
+        for field in schema_fields:
+            schema = self.configuration.get(field)
+            if schema and isinstance(schema, str):
+                return schema
+
+        return None
 
     @property
     def get_database(self) -> Optional[str]:
@@ -262,7 +305,27 @@ class AirbyteDestinationPartial(BaseModel):
         if not self.configuration:
             return None
 
-        return self.configuration.get("database")
+        # Try common database field names across different connectors
+        database_fields = [
+            "database",  # Generic, Postgres, MySQL, MSSQL, Snowflake
+            "db",  # Short form
+            "db_name",  # Alternative
+            "database_name",  # Alternative
+            "dbname",  # Alternative
+            "service_name",  # Oracle
+            "sid",  # Oracle SID
+            "project",  # BigQuery (project = database equivalent)
+            "project_id",  # BigQuery alternative
+            "catalog",  # Databricks, Trino
+            "dataset",  # BigQuery (dataset = schema equivalent, but some use it as database)
+        ]
+
+        for field in database_fields:
+            database = self.configuration.get(field)
+            if database and isinstance(database, str):
+                return database
+
+        return None
 
 
 class AirbyteConnectionPartial(BaseModel):
@@ -277,8 +340,62 @@ class AirbyteConnectionPartial(BaseModel):
     configuration: Optional[Dict[str, Any]] = None  # May contain catalog info
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
+    namespace_definition: Optional[str] = Field(None, alias="namespaceDefinition")
+    namespace_format: Optional[str] = Field(None, alias="namespaceFormat")
+    prefix: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @property
+    def get_namespace_definition(self) -> Optional[str]:
+        """Get namespace definition from connection config.
+
+        Returns:
+            'source', 'destination', or 'customformat', or None if not set
+        """
+        # First check top-level field
+        if self.namespace_definition:
+            return self.namespace_definition
+
+        # Fall back to configuration dict
+        if self.configuration:
+            return self.configuration.get("namespaceDefinition")
+
+        return None
+
+    @property
+    def get_namespace_format(self) -> Optional[str]:
+        """Get namespace format string from connection config.
+
+        Returns:
+            Format string like "${SOURCE_NAMESPACE}" or None
+        """
+        # First check top-level field
+        if self.namespace_format:
+            return self.namespace_format
+
+        # Fall back to configuration dict
+        if self.configuration:
+            return self.configuration.get("namespaceFormat")
+
+        return None
+
+    @property
+    def get_prefix(self) -> Optional[str]:
+        """Get table name prefix from connection config.
+
+        Returns:
+            Prefix string or None
+        """
+        # First check top-level field
+        if self.prefix:
+            return self.prefix
+
+        # Fall back to configuration dict
+        if self.configuration:
+            return self.configuration.get("prefix")
+
+        return None
 
 
 # Updated AirbyteWorkspacePartial model with workspace_id as mandatory
