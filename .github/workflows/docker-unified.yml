@@ -705,8 +705,8 @@ jobs:
         if: ${{ (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
         env:
           DATAHUB_SERVER: http://localhost:8080
-          ADMIN_USERNAME: datahub
-          ADMIN_PASSWORD: datahub
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: mypass
         run: |
           echo "Running Java SDK V2 integration tests against running DataHub instance..."
           ./gradlew :metadata-integration:java:datahub-client:test --tests "*Integration*"
