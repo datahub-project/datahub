@@ -766,6 +766,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     entry_id = entry.name.split("/")[-1]
                     logger.debug(f"Processing entry: {entry_id}")
 
+                    if not self.config.filter_config.entry_pattern.allowed(entry_id):
+                        logger.debug(f"Entry {entry_id} filtered out by pattern")
+                        with self._report_lock:
+                            self.report.report_entry_scanned(entry_id, filtered=True)
+                        continue
+
                     entry_details_request = dataplex_v1.GetEntryRequest(
                         name=entry.name, view=dataplex_v1.EntryView.ALL
                     )
@@ -774,7 +780,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
                     with self._report_lock:
-                        self.report.report_entry_scanned()
+                        self.report.report_entry_scanned(entry_id)
 
                     yield from self._process_entry(
                         project_id, entry_details, entry_group_id

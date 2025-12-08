@@ -38,6 +38,11 @@ class DataplexFilterConfig(ConfigModel):
         "Applies to both entries (from Universal Catalog) and entities (from Lakes/Zones).",
     )
 
+    entry_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for entry names to filter in ingestion.",
+    )
+
 
 class DataplexConfig(
     EnvConfigMixin,
