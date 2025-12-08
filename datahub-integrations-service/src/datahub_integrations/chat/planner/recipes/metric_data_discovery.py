@@ -7,10 +7,10 @@ Triggered when user asks for metrics or KPIs:
 - "Count active users"
 """
 
-RECIPE_ID = "metric-data-discovery"
+RECIPE_NAME = "recipe-metric-data-discovery"
 
 RECIPE_XML = """\
-  <recipe id="metric-data-discovery">
+  <recipe name="recipe-metric-data-discovery">
     <name>Metric/KPI Data Discovery via Dashboard Lineage</name>
     <applicability>
       Use when task requests SQL or data for METRICS or KPIs:

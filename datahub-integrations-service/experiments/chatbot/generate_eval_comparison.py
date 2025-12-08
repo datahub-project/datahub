@@ -24,8 +24,8 @@ client = mlflow.MlflowClient()
 
 # Run names are hardcoded here (intentional - helps remember which baseline we're using)
 # Update these when you want to compare different runs
-current_run_name = 'ai_eval_intrigued-croc-408'
-baseline_run_name = 'ai_eval_wise-hare-663'  # Baseline copied from local server
+current_run_name = 'ai_eval_delightful-seal-919'
+baseline_run_name = 'ai_eval_kindly-hen-294'  # Baseline AI eval run
 
 print(f"Comparing: {current_run_name} (current) vs {baseline_run_name} (baseline)")
 

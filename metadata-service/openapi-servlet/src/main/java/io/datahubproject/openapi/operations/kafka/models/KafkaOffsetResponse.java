@@ -1,7 +1,6 @@
-package io.datahubproject.openapi.operations.kafka;
+package io.datahubproject.openapi.operations.kafka.models;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +8,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /** Response model for Kafka consumer offsets API endpoint. */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "Kafka consumer group offset information with lag metrics")
-public class KafkaOffsetResponse extends LinkedHashMap<String, Object> {
+public class KafkaOffsetResponse {
+
+  @Schema(description = "The consumer group ID")
+  private String consumerGroupId;
+
+  @Schema(description = "Map of topic name to topic offset information")
+  private Map<String, TopicOffsetInfo> topics;
 
   /** Class representing information for a specific topic. */
   @Data

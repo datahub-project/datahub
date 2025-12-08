@@ -7,10 +7,10 @@ Triggered when user asks about impact analysis or dependencies:
 - "Impact of deprecating dataset"
 """
 
-RECIPE_ID = "lineage-impact-analysis"
+RECIPE_NAME = "recipe-lineage-impact-analysis"
 
 RECIPE_XML = """\
-  <recipe id="lineage-impact-analysis">
+  <recipe name="recipe-lineage-impact-analysis">
     <name>Lineage Impact Analysis - Rule of 10</name>
     <applicability>
       Use when task requests:

@@ -59,6 +59,33 @@ if TYPE_CHECKING:
     )
 
 
+def _get_tool_call_error_message(
+    response: AIMessage, response_metadata: Dict[str, Any]
+) -> Optional[str]:
+    """Get error message for invalid or malformed tool calls, or None if neither exists.
+
+    Checks for both invalid_tool_calls (from Langchain parsing errors) and
+    malformed function calls (from provider finish_reason like MALFORMED_FUNCTION_CALL).
+    """
+    # Check for invalid tool calls first (more specific)
+    if response.invalid_tool_calls:
+        error_messages = [
+            f"Invalid tool call to '{call.get('name', 'unknown')}': {call.get('error', 'Unknown error')}. "
+            "Please retry with corrected parameters."
+            for call in response.invalid_tool_calls
+        ]
+        return "\n".join(error_messages)
+
+    # Check for malformed function calls (from provider)
+    if "MALFORMED_FUNCTION_CALL" in (response_metadata.get("finish_reason") or ""):
+        finish_message = response_metadata.get("finish_message")
+        if finish_message:
+            return f"Tool call error: {finish_message}. Please retry with corrected parameters."
+        return "Tool call error: Malformed function call detected. Please retry with corrected parameters."
+
+    return None
+
+
 class LLMWrapper(ABC):
     """
     Abstract base class for LLM provider wrappers.
@@ -444,14 +471,28 @@ class LLMWrapper(ABC):
         # Build content blocks array from langchain response
         content_blocks: List[Dict[str, Any]] = []
 
-        # Add text content block if the model generated text
-        if response.content:
+        # Convert tool call errors to text content so the agent can retry.
+        # This ensures malformed/invalid tool calls don't terminate the agent loop.
+        response_metadata = response.response_metadata or {}
+        llm_server_tool_error_message = _get_tool_call_error_message(
+            response, response_metadata
+        )
+
+        if llm_server_tool_error_message:
+            content_blocks.append(
+                {
+                    "text": f"{response.content}\n\n{llm_server_tool_error_message}"
+                    if response.content
+                    else llm_server_tool_error_message
+                }
+            )
+        elif response.content:
             content_blocks.append({"text": response.content})
 
-        # Add tool call blocks if the model wants to call tools
+        # Add tool call blocks if the model wants to call tools (only valid ones)
         # Langchain tool_calls: [{"name": "...", "args": {...}, "id": "..."}]
         # Bedrock toolUse: {"toolUse": {"toolUseId": "...", "name": "...", "input": {...}}}
-        if hasattr(response, "tool_calls") and response.tool_calls:
+        if response.tool_calls:
             for tool_call in response.tool_calls:
                 # Transform langchain tool_call to Bedrock toolUse format
                 content_blocks.append(
@@ -482,16 +523,18 @@ class LLMWrapper(ABC):
         #   "MAX_TOKENS" -> "max_tokens"
         #   "SAFETY" -> "end_turn" (safety filter triggered, treat as completion)
         #   "RECITATION" -> "end_turn" (recitation filter, treat as completion)
+        #   "MALFORMED_FUNCTION_CALL" -> "tool_use" (malformed tool call, treat as error)
 
-        # First, check if model made tool calls (highest priority)
-        if hasattr(response, "tool_calls") and response.tool_calls:
+        # Determine stop_reason: check valid tool calls first, then tool call errors,
+        # then finish_reason (which may indicate normal completion)
+        if response.tool_calls:
+            stop_reason = "tool_use"
+        elif llm_server_tool_error_message:
+            # Invalid or malformed tool calls -> set tool_use so agent can retry
             stop_reason = "tool_use"
         else:
-            # Extract finish_reason from response metadata and map to Bedrock format
-            response_metadata = getattr(response, "response_metadata", {})
-            finish_reason = response_metadata.get("finish_reason", "")
-
             # Map provider-specific finish reasons to Bedrock stopReason
+            finish_reason = response_metadata.get("finish_reason", "")
             if finish_reason in ("stop", "STOP"):
                 # OpenAI "stop" or Gemini "STOP" -> normal completion
                 stop_reason = "end_turn"
@@ -602,6 +645,8 @@ class LLMWrapper(ABC):
         # - Response metadata
         # - Usage metadata
         full_message: Optional[AIMessage] = None
+        last_finish_reason: Optional[str] = None
+        last_finish_message: Optional[str] = None
 
         for chunk in llm.stream(lc_messages, **stream_kwargs):
             if full_message is None:
@@ -609,6 +654,25 @@ class LLMWrapper(ABC):
             else:
                 # Langchain's AIMessageChunk supports + operator for proper merging
                 full_message = full_message + chunk
+
+            # Track finish_reason and finish_message from each chunk (will use last one)
+            chunk_metadata = getattr(chunk, "response_metadata", {}) or {}
+            if "finish_reason" in chunk_metadata:
+                last_finish_reason = chunk_metadata["finish_reason"]
+            if "finish_message" in chunk_metadata:
+                last_finish_message = chunk_metadata["finish_message"]
+
+        # Fix finish_reason and finish_message: merge_dicts concatenates string values,
+        # but these should use only the last chunk's value (the final state)
+        if full_message is not None:
+            if last_finish_reason is not None:
+                if full_message.response_metadata is None:
+                    full_message.response_metadata = {}
+                full_message.response_metadata["finish_reason"] = last_finish_reason
+            if last_finish_message is not None:
+                if full_message.response_metadata is None:
+                    full_message.response_metadata = {}
+                full_message.response_metadata["finish_message"] = last_finish_message
 
         # Return the combined message (or empty message if stream was empty)
         return full_message if full_message is not None else AIMessage(content="")

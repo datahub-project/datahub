@@ -9,7 +9,7 @@ from typing import Any
 
 from deepdiff import DeepDiff
 
-from datahub_integrations.chat.planner.tools import _get_plan_tool_spec
+from datahub_integrations.chat.planner.tools import _get_planner_tool_specs
 
 # The old manual schema (what we had before switching to Pydantic auto-generation)
 OLD_MANUAL_SCHEMA = {
@@ -128,8 +128,12 @@ def test_schema_deep_comparison():
     These differences are IMPROVEMENTS, not regressions. The test verifies that
     no important fields were REMOVED or broken.
     """
-    spec = _get_plan_tool_spec()
-    auto_schema = spec["toolSpec"]["inputSchema"]["json"]
+    # Get the create_execution_plan tool spec (first in the list)
+    specs = _get_planner_tool_specs()
+    create_plan_spec = next(
+        s for s in specs if s["toolSpec"]["name"] == "create_execution_plan"
+    )
+    auto_schema = create_plan_spec["toolSpec"]["inputSchema"]["json"]
 
     # Resolve all $refs in auto-generated schema to get inline version
     resolved_auto_schema = _resolve_refs(auto_schema, auto_schema)
@@ -215,8 +219,12 @@ def test_print_actual_schemas_for_manual_review():
     This is a helper test that outputs both schemas so developers can
     visually compare them. Not a real assertion, just for debugging.
     """
-    spec = _get_plan_tool_spec()
-    auto_schema = spec["toolSpec"]["inputSchema"]["json"]
+    # Get the create_execution_plan tool spec (first in the list)
+    specs = _get_planner_tool_specs()
+    create_plan_spec = next(
+        s for s in specs if s["toolSpec"]["name"] == "create_execution_plan"
+    )
+    auto_schema = create_plan_spec["toolSpec"]["inputSchema"]["json"]
 
     print("\n" + "=" * 80)
     print("OLD MANUAL SCHEMA:")

@@ -250,3 +250,28 @@ class ChatHistory(BaseModel):
     @property
     def num_reducers_applied(self) -> int:
         return len(self.extra_properties.get("reducers", []))
+
+    @property
+    def is_followup_datahub_ask_question(self) -> Optional[bool]:
+        """Whether the current question is a follow-up to a prior DataHub response.
+
+        Returns:
+            Optional[bool]: True if a prior assistant reply exists, False if none exist
+            in the available history, or None when history is incomplete.
+        """
+        if not self.messages:
+            return None
+
+        prior_messages = self.messages[:-1]
+        has_prior_assistant = any(
+            isinstance(message, AssistantMessage) for message in prior_messages
+        )
+
+        if has_prior_assistant:
+            return True
+
+        is_limited_history = bool(self.extra_properties.get("is_limited_history"))
+        if not prior_messages:
+            return None if is_limited_history else False
+
+        return None if is_limited_history else False

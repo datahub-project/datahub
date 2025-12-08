@@ -176,9 +176,9 @@ class TestPlanningToolWrapperBindsCorrectAgent:
         """Test that get_planning_tool_wrappers creates properly bound functions."""
         wrappers = get_planning_tool_wrappers(agent)
 
-        assert len(wrappers) == 3
+        assert len(wrappers) == 2
         tool_names = {w.name for w in wrappers}
-        assert tool_names == {"create_plan", "revise_plan", "report_step_progress"}
+        assert tool_names == {"create_plan", "revise_plan"}
 
     def test_wrapper_preserves_function_signatures(self, agent: AgentRunner) -> None:
         """Test that wrapper functions have correct signatures (without agent param)."""

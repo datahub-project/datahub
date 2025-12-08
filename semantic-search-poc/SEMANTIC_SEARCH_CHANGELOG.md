@@ -1,5 +1,106 @@
 # Semantic Search Implementation Changelog
 
+## 2025-12-04: Enhanced Chunk Metadata with Character Positioning
+
+### Summary
+
+Added character-level positioning metadata to semantic search chunk schema to enable precise text highlighting and document reconstruction.
+
+### Changes Made
+
+#### 🔧 **Index Schema Updates**
+
+1. **V2SemanticSearchMappingsBuilder.java**
+
+   - Added `character_offset` field (integer) - starting position of chunk in original document
+   - Added `character_length` field (integer) - length of chunk in characters
+   - Added `token_count` field (integer) - approximate token count for the chunk
+   - Updated documentation comments to reflect new schema
+
+2. **Schema Definition Files**
+   - `docs/tech-spec-semantic-search.md` - Updated OpenSearch mapping examples
+   - `semantic-search-poc/OPENSEARCH_SCHEMA.md` - Updated complete schema definition
+   - `semantic-search-poc/create_semantic_indices.py` - Updated index creation script
+   - `semantic-search-poc/documents/DOCUMENT_KNN_INDEX_SETUP.md` - Updated setup documentation
+
+#### 📝 **Data Population Updates**
+
+1. **Document Chunking Source** (`metadata-ingestion/src/datahub/ingestion/source/unstructured/chunking_source.py`)
+
+   - Computes character offset for each chunk sequentially
+   - Calculates character length from chunk text
+   - Estimates token count using whitespace splitting
+   - Populates all new fields when writing to OpenSearch
+
+2. **Backfill Scripts**
+
+   - `semantic-search-poc/backfill_document_embeddings.py` - Updated for multi-chunk documents
+   - `semantic-search-poc/backfill_dataset_embeddings.py` - Updated for single-chunk entities
+
+3. **EmbeddingUtils.java**
+   - Updated single-chunk embedding utility to include character metadata
+   - Sets character_offset=0, character_length=text.length() for single chunks
+
+#### 📊 **Query Examples Updated**
+
+- Updated inner_hits examples to return character positioning fields
+- Enables precise highlighting of matching text portions in UI
+
+### Chunk Schema Structure
+
+**Before:**
+
+```json
+{
+  "position": 0,
+  "text": "chunk text...",
+  "vector": [...]
+}
+```
+
+**After:**
+
+```json
+{
+  "position": 0,
+  "text": "chunk text...",
+  "character_offset": 0,
+  "character_length": 145,
+  "token_count": 32,
+  "vector": [...]
+}
+```
+
+### Use Cases Enabled
+
+1. **Text Highlighting** - Exact character ranges can be highlighted in search results
+2. **Document Reconstruction** - Original document can be reconstructed from chunks with proper positioning
+3. **Chunk Navigation** - UI can jump to specific portions of documents
+4. **Analytics** - Token/character distributions can be analyzed for optimization
+5. **Overlap Detection** - Character offsets reveal overlapping chunks (if chunking strategy uses overlap)
+
+### Migration Notes
+
+- **Backward Compatible**: Existing indices without these fields will continue to work
+- **Reindexing Recommended**: For full feature support, reindex documents to populate new fields
+- **No Query Changes Required**: New fields are optional; existing queries work unchanged
+
+### Testing
+
+- ✅ Unit tests updated to verify new fields in mappings
+- ✅ Integration tests validate field population during ingestion
+- ✅ Backfill scripts tested with real document corpus
+- ✅ Character offset calculations verified for sequential chunks
+
+### Future Enhancements
+
+- Add support for overlapping chunk detection
+- Visualize chunk boundaries in document viewer
+- Use character positions for snippet extraction in search results
+- Support for multi-column or multi-section documents with section-aware offsets
+
+---
+
 ## 2025-08-27 (Update): GraphQL Resolver Package Reorganization
 
 ### Summary

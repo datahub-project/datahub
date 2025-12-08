@@ -44,6 +44,7 @@ _SUPPORTED_SQL_PLATFORMS: Set[str] = {
     "hive",
     "impala",
     "clickhouse",
+    "dbt",
 }
 
 # SQL validation patterns - block dangerous operations

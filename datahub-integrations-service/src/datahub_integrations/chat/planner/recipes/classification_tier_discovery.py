@@ -7,10 +7,10 @@ Triggered when user asks about tier/classification:
 - "Find certified datasets"
 """
 
-RECIPE_ID = "classification-tier-discovery"
+RECIPE_NAME = "recipe-classification-tier-discovery"
 
 RECIPE_XML = """\
-  <recipe id="classification-tier-discovery">
+  <recipe name="recipe-classification-tier-discovery">
     <name>Classification and Tier Discovery</name>
     <applicability>
       Use when task requests:

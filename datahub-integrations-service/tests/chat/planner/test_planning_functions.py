@@ -16,6 +16,7 @@ from datahub_integrations.chat.agent import (
 )
 from datahub_integrations.chat.planner.models import Constraints, Plan, Step
 from datahub_integrations.chat.planner.tools import (
+    PlannerLLMResponse,
     create_plan,
     get_plan_by_id,
     report_step_progress,
@@ -90,22 +91,25 @@ class TestCreatePlan:
         return agent
 
     @pytest.fixture
-    def mock_llm_response(self) -> dict:
-        """Create a valid LLM response dict."""
-        return {
-            "title": "Find Dataset Plan",
-            "goal": "Locate the orders dataset",
-            "assumptions": ["Dataset exists in catalog"],
-            "steps": [
-                {
-                    "id": "s0",
-                    "description": "Search for dataset",
-                    "done_when": "Found exactly 1 result",
-                    "tool": "datahub__search_datasets",
-                }
-            ],
-            "expected_deliverable": "Dataset URN",
-        }
+    def mock_llm_response(self):
+        """Create a valid LLM response using PlannerLLMResponse."""
+        return PlannerLLMResponse(
+            plan_data={
+                "title": "Find Dataset Plan",
+                "goal": "Locate the orders dataset",
+                "assumptions": ["Dataset exists in catalog"],
+                "steps": [
+                    {
+                        "id": "s0",
+                        "description": "Search for dataset",
+                        "done_when": "Found exactly 1 result",
+                        "tool": "datahub__search_datasets",
+                    }
+                ],
+                "expected_deliverable": "Dataset URN",
+            },
+            internal_data={"tool_used": "create_execution_plan"},
+        )
 
     def test_create_plan_success(
         self, mock_agent: AgentRunner, mock_llm_response: dict
@@ -167,15 +171,18 @@ class TestCreatePlan:
     def test_create_plan_with_markdown_wrapped_json(
         self, mock_agent: AgentRunner
     ) -> None:
-        """Test that _call_planner_llm handles markdown-wrapped JSON (it returns a dict)."""
-        # _call_planner_llm handles parsing internally and returns a dict
-        parsed_response = {
-            "title": "Test Plan",
-            "goal": "Test",
-            "assumptions": [],
-            "steps": [{"id": "s0", "description": "Step 1", "done_when": "Done"}],
-            "expected_deliverable": "Result",
-        }
+        """Test that _call_planner_llm handles markdown-wrapped JSON (it returns PlannerLLMResponse)."""
+        # _call_planner_llm handles parsing internally and returns a PlannerLLMResponse
+        parsed_response = PlannerLLMResponse(
+            plan_data={
+                "title": "Test Plan",
+                "goal": "Test",
+                "assumptions": [],
+                "steps": [{"id": "s0", "description": "Step 1", "done_when": "Done"}],
+                "expected_deliverable": "Result",
+            },
+            internal_data={"tool_used": "create_execution_plan"},
+        )
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"
         ) as mock_llm:
@@ -248,7 +255,10 @@ class TestCreatePlan:
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"
         ) as mock_llm:
-            mock_llm.return_value = parsed_response
+            mock_llm.return_value = PlannerLLMResponse(
+                plan_data=parsed_response,
+                internal_data={"tool_used": "create_execution_plan"},
+            )
 
             plan = create_plan(
                 agent=mock_agent,
@@ -265,13 +275,16 @@ class TestCreatePlan:
 
     def test_create_plan_generates_unique_ids(self, mock_agent: AgentRunner) -> None:
         """Test that multiple plans get unique IDs."""
-        mock_response = {
-            "title": "Plan",
-            "goal": "Goal",
-            "assumptions": [],
-            "steps": [{"id": "s0", "description": "Step", "done_when": "Done"}],
-            "expected_deliverable": "Result",
-        }
+        mock_response = PlannerLLMResponse(
+            plan_data={
+                "title": "Plan",
+                "goal": "Goal",
+                "assumptions": [],
+                "steps": [{"id": "s0", "description": "Step", "done_when": "Done"}],
+                "expected_deliverable": "Result",
+            },
+            internal_data={"tool_used": "create_execution_plan"},
+        )
 
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"
@@ -335,22 +348,25 @@ class TestRevisePlan:
 
     def test_revise_plan_success(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test successful plan revision."""
-        revision_response = {
-            "assumptions": ["Dataset exists", "Need broader search"],
-            "steps": [
-                {
-                    "id": "s1",
-                    "description": "Get downstream lineage with more hops",
-                    "done_when": "Retrieved lineage with depth 3",
-                },
-                {
-                    "id": "s2",
-                    "description": "Filter for BI assets",
-                    "done_when": "Found BI dashboards",
-                },
-            ],
-            "expected_deliverable": "List of affected BI assets",
-        }
+        revision_response = PlannerLLMResponse(
+            plan_data={
+                "assumptions": ["Dataset exists", "Need broader search"],
+                "steps": [
+                    {
+                        "id": "s1",
+                        "description": "Get downstream lineage with more hops",
+                        "done_when": "Retrieved lineage with depth 3",
+                    },
+                    {
+                        "id": "s2",
+                        "description": "Filter for BI assets",
+                        "done_when": "Found BI dashboards",
+                    },
+                ],
+                "expected_deliverable": "List of affected BI assets",
+            },
+            internal_data={"tool_used": "create_execution_plan"},
+        )
 
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"
@@ -388,11 +404,14 @@ class TestRevisePlan:
 
     def test_revise_plan_updates_cache(self, mock_agent_with_plan: AgentRunner) -> None:
         """Test that revised plan updates the cache."""
-        revision_response = {
-            "assumptions": ["Updated"],
-            "steps": [{"id": "s1", "description": "New step", "done_when": "Done"}],
-            "expected_deliverable": "Result",
-        }
+        revision_response = PlannerLLMResponse(
+            plan_data={
+                "assumptions": ["Updated"],
+                "steps": [{"id": "s1", "description": "New step", "done_when": "Done"}],
+                "expected_deliverable": "Result",
+            },
+            internal_data={"tool_used": "create_execution_plan"},
+        )
 
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"

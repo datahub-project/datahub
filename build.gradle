@@ -303,6 +303,8 @@ project.ext.externalDependency = [
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'springRetry': "org.springframework.retry:spring-retry:2.0.11",
+    'springCloud': "org.springframework.cloud:spring-cloud-dependencies:2024.0.2",
+    'fabric8KubernetesClient': 'io.fabric8:kubernetes-client:7.4.0',
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',

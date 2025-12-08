@@ -30,6 +30,9 @@ public class EmbeddingUtils {
     ObjectNode chunk = modelData.putArray("chunks").addObject();
     chunk.put("position", 0);
     chunk.put("text", text);
+    chunk.put("character_offset", 0);
+    chunk.put("character_length", text.length());
+    chunk.put("token_count", text.split("\\s+").length);
 
     // Convert float array to JSON array
     var vectorArray = chunk.putArray("vector");

@@ -12,6 +12,9 @@ dependencies {
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:scim-api')
+  implementation project(':metadata-dao-impl:kafka-producer')
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.springKafka
 
   implementation (externalDependency.scimServer) {
     exclude group: 'commons-logging', module: 'commons-logging'
@@ -33,6 +36,7 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
+  implementation externalDependency.fabric8KubernetesClient
   implementation externalDependency.swaggerCore
   implementation externalDependency.servletApi
   implementation externalDependency.slf4jApi

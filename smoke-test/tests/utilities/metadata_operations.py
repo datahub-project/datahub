@@ -283,7 +283,7 @@ def list_scheduled_ingestion_sources(
 
     This helper fetches ingestion sources that have cron schedules along with:
     - Schedule configuration (cron interval and timezone)
-    - All execution history (up to 1000 executions)
+    - Recent execution history (up to 10 executions)
     - Source metadata (URN, name, type)
 
     Args:
@@ -308,7 +308,7 @@ def list_scheduled_ingestion_sources(
                         interval
                         timezone
                     }
-                    executions(start: 0, count: 1000) {
+                    executions(start: 0, count: 10) {
                         executionRequests {
                             urn
                             input {

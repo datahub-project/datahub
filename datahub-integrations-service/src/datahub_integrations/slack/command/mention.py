@@ -143,6 +143,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     channel_id = event.channel_id
     user_name = event.user_id
+    is_followup_question: Optional[bool] = None
     response_ts = None
     agent = None
     is_limited_history = None
@@ -184,6 +185,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
 
         # Process the actual response
         agent, is_limited_history = _build_agent(app.client, event)
+        is_followup_question = agent.history.is_followup_datahub_ask_question
         message, followup_questions = _generate_mention_response(
             agent, event, progress_callback, response_ts
         )
@@ -229,6 +231,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 full_history=agent.history.json(indent=None),
                 reduction_sequence=agent.history.reduction_sequence_json,
                 num_reducers_applied=agent.history.num_reducers_applied,
+                is_followup_question=is_followup_question,
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
@@ -270,6 +273,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             response_generation_duration_sec=timer.elapsed_seconds(),
             chat_session_id=None,
             is_limited_history=is_limited_history,
+            is_followup_question=is_followup_question,
         )
 
         # Update with agent data if available
