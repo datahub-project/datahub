@@ -497,15 +497,6 @@ class AirbyteDatasetUrns(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class AirbyteInputOutputDatasets(BaseModel):
-    """Model for input and output dataset URNs."""
-
-    input_urns: List[str] = Field(default_factory=list)
-    output_urns: List[str] = Field(default_factory=list)
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
 @dataclass
 class DataFlowResult:
     """Container for DataFlow creation results."""

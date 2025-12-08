@@ -202,14 +202,10 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     "datahub.ingestion.source.airbyte.source.AirbyteSource._create_dataflow_workunits"
 )
 @patch(
-    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_datajob_workunits"
-)
-@patch(
     "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
 )
 def test_get_workunits(
     mock_create_lineage,
-    mock_create_datajob,
     mock_create_dataflow,
     mock_create_client,
     mock_ctx,
@@ -258,20 +254,17 @@ def test_get_workunits(
         source, "_get_pipelines", return_value=[pipeline_info]
     ) as mock_get_pipelines:
         mock_create_dataflow.return_value = ["dataflow_workunit"]
-        mock_create_datajob.return_value = ["datajob_workunit"]
         mock_create_lineage.return_value = ["lineage_workunit"]
 
         workunits = list(source.get_workunits())
 
         mock_get_pipelines.assert_called_once()
         mock_create_dataflow.assert_called_once_with(pipeline_info)
-        mock_create_datajob.assert_called_once_with(pipeline_info)
         mock_create_lineage.assert_called_once_with(pipeline_info)
 
-        assert len(workunits) == 3
+        assert len(workunits) == 2
         assert workunits == [
             "dataflow_workunit",
-            "datajob_workunit",
             "lineage_workunit",
         ]
 
