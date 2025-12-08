@@ -227,9 +227,9 @@
                     "log_url": "http://airflow.example.com/dags/bigquery_insert_job_operator/runs/manual_run_test/tasks/select_with_destination_config?try_number=1",
                     "orchestrator": "airflow",
                     "duration": "<duration>",
-                    "execution_date": "<execution_date>",
-                    "external_executor_id": "<external_executor_id>",
-                    "priority_weight": "<priority_weight>"
+                    "execution_date": "2023-09-27 21:34:38+00:00",
+                    "external_executor_id": "None",
+                    "priority_weight": "1"
                 },
                 "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/runs/manual_run_test/tasks/select_with_destination_config?try_number=1",
                 "name": "bigquery_insert_job_operator_select_with_destination_config_manual_run_test",
@@ -490,9 +490,9 @@
                     "log_url": "http://airflow.example.com/dags/bigquery_insert_job_operator/runs/manual_run_test/tasks/insert_query_without_destination?try_number=1",
                     "orchestrator": "airflow",
                     "duration": "<duration>",
-                    "execution_date": "<execution_date>",
-                    "external_executor_id": "<external_executor_id>",
-                    "priority_weight": "<priority_weight>"
+                    "execution_date": "2023-09-27 21:34:38+00:00",
+                    "external_executor_id": "None",
+                    "priority_weight": "1"
                 },
                 "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator/runs/manual_run_test/tasks/insert_query_without_destination?try_number=1",
                 "name": "bigquery_insert_job_operator_insert_query_without_destination_manual_run_test",

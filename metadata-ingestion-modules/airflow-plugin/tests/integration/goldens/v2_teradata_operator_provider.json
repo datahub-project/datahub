@@ -433,62 +433,6 @@
               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD),cost_per_area)"
             ],
             "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD),id)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD),id)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD),month)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD),month)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD),total_cost)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD),total_cost)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD),area)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD),area)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD),area)",
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD),total_cost)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD),cost_per_area)"
-            ],
-            "confidenceScore": 1.0
           }
         ]
       }
