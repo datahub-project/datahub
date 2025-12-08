@@ -22,7 +22,6 @@ import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletionException;
-import org.apache.commons.text.StringEscapeUtils;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,6 +33,13 @@ public class UpdateSecretResolverTest {
   private static final UpdateSecretInput TEST_INPUT =
       new UpdateSecretInput(
           TEST_URN.toString(), "MY_SECRET", "BcH>?5\"kWixy>[]PKs#O?gn2Y", "dummy");
+
+  private static final UpdateSecretInput TEST_INPUT_WITH_SPECIAL_CHARS =
+      new UpdateSecretInput(
+          TEST_URN.toString(),
+          "MY_SECRET_WITH_SPECIAL_CHARS",
+          "password\nwith/slashes\"and\\backslashes",
+          "secret with special chars");
 
   private DataFetchingEnvironment mockEnv;
   private EntityClient mockClient;
@@ -67,8 +73,7 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Mockito.when(mockClient.exists(any(), any())).thenReturn(true);
-    Mockito.when(mockSecretService.encrypt(StringEscapeUtils.escapeJson(TEST_INPUT.getValue())))
-        .thenReturn("encrypted_value");
+    Mockito.when(mockSecretService.encrypt(TEST_INPUT.getValue())).thenReturn("encrypted_value");
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
@@ -80,8 +85,39 @@ public class UpdateSecretResolverTest {
 
     // Invoke the resolver
     resolver.get(mockEnv).join();
+    Mockito.verify(mockSecretService, Mockito.times(1)).encrypt(TEST_INPUT.getValue());
+    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testGetSuccessWithSpecialCharacters() throws Exception {
+    // Verify that special characters (newlines, slashes, quotes, backslashes) are NOT escaped
+    // before encryption
+    QueryContext mockContext = getMockAllowContext();
+    mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_WITH_SPECIAL_CHARS);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(mockClient.exists(any(), any())).thenReturn(true);
+    // The secret value should NOT be escaped before encryption
+    Mockito.when(mockSecretService.encrypt(TEST_INPUT_WITH_SPECIAL_CHARS.getValue()))
+        .thenReturn("encrypted_special_value");
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        SECRET_VALUE_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(createSecretAspect().data())));
+    entityResponse.setAspects(aspectMap);
+
+    when(mockClient.getV2(any(), any(), any(), any(), anyBoolean())).thenReturn(entityResponse);
+
+    // Invoke the resolver
+    resolver.get(mockEnv).join();
+
+    // Verify that the secret value was passed to encrypt WITHOUT escaping
     Mockito.verify(mockSecretService, Mockito.times(1))
-        .encrypt(StringEscapeUtils.escapeJson(TEST_INPUT.getValue()));
+        .encrypt(Mockito.eq("password\nwith/slashes\"and\\backslashes"));
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean());
   }
 
