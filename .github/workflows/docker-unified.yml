@@ -701,6 +701,12 @@ jobs:
           ./gradlew --stop
           ./smoke-test/smoke.sh
 
+      - name: Build Java SDK V2 Dependencies
+        if: ${{ (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
+        run: |
+          echo "Building datahub-schematron modules required by datahub-client..."
+          ./gradlew :metadata-integration:java:datahub-schematron:lib:build :metadata-integration:java:datahub-schematron:cli:build
+
       - name: Java SDK V2 Integration Tests
         if: ${{ (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
         env:
