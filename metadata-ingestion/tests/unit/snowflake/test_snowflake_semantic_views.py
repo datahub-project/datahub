@@ -311,5 +311,82 @@ def test_populate_semantic_view_base_tables(mock_connection):
     assert ("TEST_DB", "PUBLIC", "ORDERS") in semantic_view.base_tables
 
 
+def test_snowflake_semantic_view_columns_with_expressions():
+    """Test that SnowflakeColumn can store SQL expressions for derived metrics/facts."""
+    semantic_view = SnowflakeSemanticView(
+        name="test_semantic_view",
+        created=datetime.datetime.now(),
+        comment="Test semantic view",
+        view_definition="yaml: definition",
+        last_altered=datetime.datetime.now(),
+        semantic_definition="yaml: definition",
+        columns=[
+            SnowflakeColumn(
+                name="order_total_metric",
+                ordinal_position=1,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Sum of order totals",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=2,
+                expression="SUM(ORDER_TOTAL)",
+            ),
+            SnowflakeColumn(
+                name="derived_metric",
+                ordinal_position=2,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Calculated from other metrics",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=2,
+                expression="ORDERS.ORDER_TOTAL_METRIC + TRANSACTIONS.TRANSACTION_AMOUNT_METRIC",
+            ),
+        ],
+    )
+
+    assert len(semantic_view.columns) == 2
+    assert semantic_view.columns[0].expression == "SUM(ORDER_TOTAL)"
+    assert (
+        semantic_view.columns[1].expression
+        == "ORDERS.ORDER_TOTAL_METRIC + TRANSACTIONS.TRANSACTION_AMOUNT_METRIC"
+    )
+
+
+def test_snowflake_semantic_view_logical_to_physical_mapping():
+    """Test that SnowflakeSemanticView stores logical to physical table mappings."""
+    semantic_view = SnowflakeSemanticView(
+        name="test_semantic_view",
+        created=datetime.datetime.now(),
+        comment="Test semantic view",
+        view_definition="yaml: definition",
+        last_altered=datetime.datetime.now(),
+        semantic_definition="yaml: definition",
+        logical_to_physical_table={
+            "ORDERS": ("TEST_DB", "PUBLIC", "ORDERS"),
+            "TRANSACTIONS": ("TEST_DB", "PUBLIC", "TRANSACTIONS"),
+            "CUSTOMERS": ("TEST_DB", "SALES", "CUSTOMER_DATA"),
+        },
+    )
+
+    assert len(semantic_view.logical_to_physical_table) == 3
+    assert semantic_view.logical_to_physical_table["ORDERS"] == (
+        "TEST_DB",
+        "PUBLIC",
+        "ORDERS",
+    )
+    assert semantic_view.logical_to_physical_table["TRANSACTIONS"] == (
+        "TEST_DB",
+        "PUBLIC",
+        "TRANSACTIONS",
+    )
+    assert semantic_view.logical_to_physical_table["CUSTOMERS"] == (
+        "TEST_DB",
+        "SALES",
+        "CUSTOMER_DATA",
+    )
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
