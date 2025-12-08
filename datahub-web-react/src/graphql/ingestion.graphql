@@ -40,6 +40,9 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
 query getIngestionExecutionRequest($urn: String!) {
     executionRequest(urn: $urn) {
         ...ingestionExecutionRequestFields
+        source {
+            ...ingestionSourceFields
+        }
     }
 }
 
