@@ -1276,8 +1276,10 @@ class SQLServerSource(SQLAlchemySource):
             return True
 
         except Exception as e:
+            # If parsing fails, safer to exclude (return True = treat as temp/alias)
+            # than to include potentially spurious aliases in lineage
             logger.warning(f"Error parsing table name {name}: {e}")
-            return False
+            return True
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (

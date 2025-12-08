@@ -478,7 +478,8 @@ class TestErrorHandling:
         schema_resolver = mssql_source.get_schema_resolver()
         schema_resolver.has_urn = MagicMock(side_effect=Exception("Simulated error"))
 
-        # Returns False on exception (conservative: assume it's a real table)
+        # Returns True on exception (safer: exclude uncertain items from lineage)
+        # Better to miss a real table than to include spurious aliases
         # Logs a warning but doesn't raise
         result = mssql_source.is_temp_table("db.schema.table")
-        assert result is False
+        assert result is True
