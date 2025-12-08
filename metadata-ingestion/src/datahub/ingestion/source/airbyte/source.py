@@ -2,7 +2,6 @@ import logging
 from functools import partial
 from typing import Dict, Iterable, List, Optional
 
-from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
@@ -42,7 +41,6 @@ from datahub.ingestion.source.airbyte.config import (
 from datahub.ingestion.source.airbyte.models import (
     AirbyteDatasetUrns,
     AirbyteDestinationPartial,
-    AirbyteInputOutputDatasets,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
     AirbyteStreamDetails,
@@ -74,7 +72,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -406,7 +403,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         for pipeline_info in self._get_pipelines():
             try:
                 yield from self._create_dataflow_workunits(pipeline_info)
-                yield from self._create_datajob_workunits(pipeline_info)
                 yield from self._create_lineage_workunits(pipeline_info)
             except Exception as e:
                 conn_id = pipeline_info.connection.connection_id or "unknown"
@@ -444,142 +440,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataflow_urn, aspect=dataflow_info
         ).as_workunit()
-
-    def _create_datajob_workunits(
-        self, pipeline_info: AirbytePipelineInfo
-    ) -> Iterable[MetadataWorkUnit]:
-        """Create datajob workunits for a connection.
-
-        Note: pipeline_info is validated in _get_pipelines, so IDs are guaranteed to exist.
-        """
-        workspace = pipeline_info.workspace
-        connection = pipeline_info.connection
-        source = pipeline_info.source
-        destination = pipeline_info.destination
-
-        workspace_id = workspace.workspace_id
-        connection_id = connection.connection_id
-        connection_name = connection.name or "Unnamed Connection"
-
-        source_platform, _, _ = self._get_platform_for_source(source)
-        destination_platform, _, _ = self._get_platform_for_destination(destination)
-
-        dataset_urns = AirbyteInputOutputDatasets()
-
-        if connection.sync_catalog:
-            dataset_urns = self._get_input_output_datasets(
-                pipeline_info,
-                source_platform,
-                destination_platform,
-            )
-
-        datajob = DataJob(
-            id=connection_id,
-            flow_urn=DataFlowUrn(
-                orchestrator=self.platform,
-                flow_id=workspace_id,
-                cluster=self.source_config.env,
-            ),
-            name=connection_name,
-        )
-
-        datajob.inlets = [
-            DatasetUrn.from_string(input_urn) for input_urn in dataset_urns.input_urns
-        ]
-        datajob.outlets = [
-            DatasetUrn.from_string(output_urn)
-            for output_urn in dataset_urns.output_urns
-        ]
-
-        datajob.properties = {
-            "connection_id": connection_id,
-            "source_id": source.source_id or "",
-            "destination_id": destination.destination_id or "",
-            "source_name": source.name or "",
-            "destination_name": destination.name or "",
-            "source_platform": source_platform,
-            "destination_platform": destination_platform,
-            "status": connection.status or "",
-            "schedule_type": connection.schedule_type or "",
-            "schedule_data": str(connection.schedule_data or {}),
-            "platform": "airbyte",
-            "deployment_type": self.source_config.deployment_type.value,
-        }
-
-        for mcp in datajob.generate_mcp(materialize_iolets=False):
-            yield mcp.as_workunit()
-
-    def _get_input_output_datasets(
-        self,
-        pipeline_info: AirbytePipelineInfo,
-        source_platform: str,
-        destination_platform: str,
-    ) -> AirbyteInputOutputDatasets:
-        inputs: List[str] = []
-        outputs: List[str] = []
-
-        if (
-            not pipeline_info.connection.sync_catalog
-            or not pipeline_info.connection.sync_catalog.streams
-        ):
-            return AirbyteInputOutputDatasets(input_urns=inputs, output_urns=outputs)
-
-        source = pipeline_info.source
-        destination = pipeline_info.destination
-
-        source_platform, source_plat_instance, source_env = (
-            self._get_platform_for_source(source)
-        )
-        destination_platform, dest_plat_instance, dest_env = (
-            self._get_platform_for_destination(destination)
-        )
-
-        from datahub.ingestion.source.airbyte.config import PlatformDetail
-
-        source_details = self.source_config.sources_to_platform_instance.get(
-            source.source_id, PlatformDetail()
-        )
-        dest_details = self.source_config.destinations_to_platform_instance.get(
-            destination.destination_id, PlatformDetail()
-        )
-
-        for stream_config in pipeline_info.connection.sync_catalog.streams:
-            if not stream_config or not stream_config.stream:
-                continue
-
-            stream = stream_config.stream
-            schema_name = stream.namespace or ""
-            table_name = stream.name
-
-            if source_platform and table_name:
-                dataset_name = (
-                    f"{schema_name}.{table_name}" if schema_name else table_name
-                )
-                if source_details.convert_urns_to_lowercase:
-                    dataset_name = dataset_name.lower()
-                source_urn = make_dataset_urn_with_platform_instance(
-                    platform=_sanitize_platform_name(source_platform),
-                    name=dataset_name,
-                    env=source_env or FabricTypeClass.PROD,
-                    platform_instance=source_plat_instance,
-                )
-                inputs.append(source_urn)
-
-            if destination_platform and table_name:
-                dataset_name = (
-                    f"{schema_name}.{table_name}" if schema_name else table_name
-                )
-                if dest_details.convert_urns_to_lowercase:
-                    dataset_name = dataset_name.lower()
-                destination_urn = make_dataset_urn_with_platform_instance(
-                    platform=_sanitize_platform_name(destination_platform),
-                    name=dataset_name,
-                    env=dest_env or FabricTypeClass.PROD,
-                    platform_instance=dest_plat_instance,
-                )
-                outputs.append(destination_urn)
-
-        return AirbyteInputOutputDatasets(input_urns=inputs, output_urns=outputs)
 
     def _enrich_job_properties_with_details(
         self, properties: Dict[str, str], job_details: dict, stream_name: str

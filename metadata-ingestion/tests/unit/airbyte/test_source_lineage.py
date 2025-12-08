@@ -12,7 +12,6 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
     AirbyteDatasetUrns,
     AirbyteDestinationPartial,
-    AirbyteInputOutputDatasets,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
     AirbyteStreamDetails,
@@ -255,18 +254,6 @@ def test_create_lineage_workunits(source, pipeline_info, stream):
     with (
         patch.object(source, "_get_source_platform", return_value="postgres"),
         patch.object(source, "_get_destination_platform", return_value="postgres"),
-        patch.object(
-            source,
-            "_get_input_output_datasets",
-            return_value=AirbyteInputOutputDatasets(
-                input_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"
-                ],
-                output_urns=[
-                    "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"
-                ],
-            ),
-        ),
         patch.object(source, "_fetch_streams_for_source", return_value=[stream]),
         patch.object(
             source, "_extract_connection_tags", return_value=["airbyte", "etl"]

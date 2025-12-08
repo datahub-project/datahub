@@ -15,10 +15,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
-    AirbyteStream,
-    AirbyteStreamConfig,
     AirbyteStreamDetails,
-    AirbyteSyncCatalog,
     AirbyteWorkspacePartial,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
@@ -91,19 +88,21 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
         destination=destination,
     )
 
-    # Create sync catalog with uppercase stream name
-    stream = AirbyteStream(name="CUSTOMERS", namespace="PUBLIC", json_schema={})
-    stream_config = AirbyteStreamConfig(stream=stream, config={"selected": True})
-    sync_catalog = AirbyteSyncCatalog(streams=[stream_config])
-    connection.sync_catalog = sync_catalog
+    # Create stream with uppercase name
+    stream = AirbyteStreamDetails(
+        streamName="CUSTOMERS",
+        namespace="PUBLIC",
+        propertyFields=[],
+        stream_name="CUSTOMERS",
+    )
 
-    # Get the input/output datasets
-    datasets = source._get_input_output_datasets(pipeline_info, "postgres", "snowflake")
+    # Get the dataset URNs
+    dataset_urns = source._create_dataset_urns(pipeline_info, stream, "test-instance")
 
-    # Should be lowercased
-    assert len(datasets.input_urns) == 1
-    assert "public.customers" in datasets.input_urns[0]
-    assert "PUBLIC.CUSTOMERS" not in datasets.input_urns[0]
+    # Source URN should have lowercased dataset name
+    assert "public.customers" in dataset_urns.source_urn
+    assert "PUBLIC" not in dataset_urns.source_urn
+    assert "CUSTOMERS" not in dataset_urns.source_urn
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
@@ -118,6 +117,12 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
         sources_to_platform_instance={
             "source-1": PlatformDetail(
                 platform="postgres",
+                convert_urns_to_lowercase=False,
+            )
+        },
+        destinations_to_platform_instance={
+            "dest-1": PlatformDetail(
+                platform="snowflake",
                 convert_urns_to_lowercase=False,
             )
         },
@@ -160,16 +165,19 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
         destination=destination,
     )
 
-    stream = AirbyteStream(name="CUSTOMERS", namespace="PUBLIC", json_schema={})
-    stream_config = AirbyteStreamConfig(stream=stream, config={"selected": True})
-    sync_catalog = AirbyteSyncCatalog(streams=[stream_config])
-    connection.sync_catalog = sync_catalog
+    # Create stream with uppercase name
+    stream = AirbyteStreamDetails(
+        streamName="CUSTOMERS",
+        namespace="PUBLIC",
+        propertyFields=[],
+        stream_name="CUSTOMERS",
+    )
 
-    datasets = source._get_input_output_datasets(pipeline_info, "postgres", "snowflake")
+    # Get the dataset URNs
+    dataset_urns = source._create_dataset_urns(pipeline_info, stream, "test-instance")
 
-    # Should preserve case
-    assert len(datasets.input_urns) == 1
-    assert "PUBLIC.CUSTOMERS" in datasets.input_urns[0]
+    # Source URN should preserve case
+    assert "PUBLIC.CUSTOMERS" in dataset_urns.source_urn
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
