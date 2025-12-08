@@ -9,7 +9,7 @@ import tempfile
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -869,45 +869,35 @@ class SqlParsingAggregator(Closeable):
 
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
 
-        # Register ALL output tables, not just the first one.
-        # This ensures stored procedures with multiple output tables show all
-        # tables as downstream (not just the first one).
-        # We create one PreparsedQuery per output table, maintaining the
-        # "one PreparsedQuery = one downstream" semantic model.
-        #
-        # For queries with no output tables (e.g., SELECT), we still create one
-        # PreparsedQuery with downstream=None to track usage statistics.
-        output_tables: Sequence[Optional[str]] = (
-            parsed.out_tables
-            if parsed.out_tables
-            else cast(List[Optional[str]], [None])
-        )
+        # Register the first output table (standard single-query behavior).
+        # For stored procedures with multiple DML statements, each statement
+        # is added separately via add_observed_query, so each has one output.
+        downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
 
-        for downstream_urn in output_tables:
-            self.add_preparsed_query(
-                PreparsedQuery(
-                    query_id=query_fingerprint,
-                    query_text=observed.query,
-                    query_count=observed.usage_multiplier,
-                    timestamp=observed.timestamp,
-                    user=observed.user,
-                    session_id=session_id,
-                    query_type=parsed.query_type,
-                    query_type_props=parsed.query_type_props,
-                    upstreams=parsed.in_tables,
-                    downstream=downstream_urn,
-                    column_lineage=parsed.column_lineage,
-                    # TODO: We need a full list of columns referenced, not just the out tables.
-                    column_usage=self._compute_upstream_fields(parsed),
-                    inferred_schema=infer_output_schema(parsed),
-                    confidence_score=parsed.debug_info.confidence,
-                    extra_info=observed.extra_info,
-                ),
-                is_known_temp_table=is_known_temp_table,
-                require_out_table_schema=require_out_table_schema,
-                session_has_temp_tables=session_has_temp_tables,
-                _is_internal=True,
-            )
+        self.add_preparsed_query(
+            PreparsedQuery(
+                query_id=query_fingerprint,
+                query_text=observed.query,
+                query_count=observed.usage_multiplier,
+                timestamp=observed.timestamp,
+                user=observed.user,
+                session_id=session_id,
+                query_type=parsed.query_type,
+                query_type_props=parsed.query_type_props,
+                upstreams=parsed.in_tables,
+                downstream=downstream_urn,
+                column_lineage=parsed.column_lineage,
+                # TODO: We need a full list of columns referenced, not just the out tables.
+                column_usage=self._compute_upstream_fields(parsed),
+                inferred_schema=infer_output_schema(parsed),
+                confidence_score=parsed.debug_info.confidence,
+                extra_info=observed.extra_info,
+            ),
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=True,
+        )
 
     def add_preparsed_query(
         self,
