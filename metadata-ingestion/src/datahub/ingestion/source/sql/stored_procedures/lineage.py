@@ -33,8 +33,8 @@ def parse_procedure_code(
     """
     Parse stored procedure code and extract lineage.
 
-    Phase 2 Implementation: Split statements BEFORE aggregation to ensure each
-    downstream table gets only its relevant upstreams (not aggregated from all statements).
+    Splits statements BEFORE aggregation to ensure each downstream table gets
+    only its relevant upstreams (prevents lineage pollution from statement aggregation).
     """
     # Derive dialect from schema_resolver's platform to support multiple databases
     platform = schema_resolver.platform

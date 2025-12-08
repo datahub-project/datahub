@@ -1,11 +1,11 @@
 """
 Test for lineage pollution bug in MSSQL stored procedures with multiple sections.
 
-Before Phase 2, when a stored procedure had multiple sections modifying different tables,
+Previously, when a stored procedure had multiple sections modifying different tables,
 all output tables would show the SAME aggregated upstream list, causing lineage pollution.
 
-Phase 2 fixes this by splitting statements BEFORE aggregation, so each downstream table
-gets only its relevant upstreams.
+The fix splits statements BEFORE aggregation, so each downstream table gets only its
+relevant upstreams.
 """
 
 import pytest
@@ -23,11 +23,11 @@ def test_mssql_procedure_lineage_pollution_fix():
     - Section 2: Create temp table from TableA
     - Section 3: Modify TableB using temp table
 
-    Expected lineage (Phase 2):
+    Expected lineage (after fix):
     - TableA upstreams: [TableSource, TableA] (from Section 1 only)
     - TableB upstreams: [TableA, TableB, #TempData] (from Sections 2-3 only)
 
-    Bug (before Phase 2):
+    Bug (before fix):
     - TableA upstreams: [TableSource, TableA, TableB, #TempData] (polluted!)
     - TableB upstreams: [TableSource, TableA, TableB, #TempData] (polluted!)
     """
@@ -147,20 +147,16 @@ def test_mssql_procedure_lineage_pollution_fix():
     for urn in sorted(output_datasets):
         print(f"  - {urn}")
 
-    # Verify both output tables are registered (Phase 1 fix)
-    assert table_a_urn in output_datasets, (
-        "TableA should be in output datasets (Phase 1 fix)"
-    )
-    assert table_b_urn in output_datasets, (
-        "TableB should be in output datasets (Phase 1 fix)"
-    )
+    # Verify both output tables are registered
+    assert table_a_urn in output_datasets, "TableA should be in output datasets"
+    assert table_b_urn in output_datasets, "TableB should be in output datasets"
 
     # Verify source table is in inputs
     assert source_urn in input_datasets, "TableSource should be in input datasets"
 
     # CRITICAL: Verify no lineage pollution
-    # After Phase 2, we cannot verify precise per-table upstreams at this level
-    # because DataJobInputOutput aggregates all inputs/outputs.
+    # We cannot verify precise per-table upstreams at this level because
+    # DataJobInputOutput aggregates all inputs/outputs.
     # The real fix is that PreparsedQuery objects are created per-statement,
     # which is verified by the aggregator receiving separate queries.
 
@@ -187,17 +183,17 @@ def test_mssql_procedure_lineage_pollution_fix():
             )
 
     print("\n=== POLLUTION CHECK PASSED ===")
-    print("✅ Both output tables registered (Phase 1)")
-    print("✅ No temp tables in final outputs")
-    print("✅ No unqualified aliases in outputs")
-    print("✅ All tables properly qualified (Phase 2)")
+    print("- Both output tables registered")
+    print("- No temp tables in final outputs")
+    print("- No unqualified aliases in outputs")
+    print("- All tables properly qualified")
 
 
 def test_mssql_procedure_cross_database_lineage():
     """
     Test stored procedure that modifies tables across multiple databases.
 
-    This verifies that Phase 2 correctly handles procedures that:
+    This verifies that the parser correctly handles procedures that:
     - Read from Database1
     - Write to Database2
     - Write to Database3
@@ -292,8 +288,8 @@ def test_mssql_procedure_cross_database_lineage():
     # CRITICAL: Database3.Report should NOT show Database1.Transactions as upstream
     # (This would be pollution - Report reads from Summary, not Transactions)
     # We verify this indirectly by confirming all three tables are properly tracked
-    print("\n✅ Cross-database lineage correctly tracked")
-    print(f"✅ {len(input_datasets)} inputs, {len(output_datasets)} outputs")
+    print("\n- Cross-database lineage correctly tracked")
+    print(f"- {len(input_datasets)} inputs, {len(output_datasets)} outputs")
 
 
 if __name__ == "__main__":

@@ -161,7 +161,7 @@ def test_multiple_output_tables_bug_fixed():
     """
     This test verifies the fix for the bug where only the first output table was registered.
 
-    Phase 1 Fix (Dec 2024): Loop over all parsed.out_tables instead of taking [0].
+    Fix: Loop over all parsed.out_tables instead of taking [0].
     This ensures all output tables from stored procedures show as downstream.
     """
     test_multiple_output_tables_only_first_shows_as_downstream()

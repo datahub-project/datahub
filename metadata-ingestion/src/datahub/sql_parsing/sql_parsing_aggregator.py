@@ -869,9 +869,9 @@ class SqlParsingAggregator(Closeable):
 
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
 
-        # Phase 1 Fix: Register ALL output tables, not just the first one
-        # This fixes the bug where stored procedures with multiple output tables
-        # only showed the first table as downstream.
+        # Register ALL output tables, not just the first one.
+        # This ensures stored procedures with multiple output tables show all
+        # tables as downstream (not just the first one).
         # We create one PreparsedQuery per output table, maintaining the
         # "one PreparsedQuery = one downstream" semantic model.
         #

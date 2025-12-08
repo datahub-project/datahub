@@ -1049,7 +1049,9 @@ class SQLServerSource(SQLAlchemySource):
         except Exception:
             return False
 
-    def _filter_upstream_aliases(self, upstream_urns: List[str]) -> List[str]:
+    def _filter_upstream_aliases(
+        self, upstream_urns: List[str], platform_instance: Optional[str] = None
+    ) -> List[str]:
         """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
 
         TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
@@ -1063,6 +1065,7 @@ class SQLServerSource(SQLAlchemySource):
 
         Args:
             upstream_urns: List of upstream dataset URNs
+            platform_instance: Platform instance for prefix stripping (consistency with _filter_procedure_lineage)
 
         Returns:
             Filtered list with only real tables
@@ -1081,10 +1084,8 @@ class SQLServerSource(SQLAlchemySource):
 
                 # Strip platform_instance prefix if present
                 # (dataset_urn.name includes platform_instance, but discovered_datasets doesn't)
-                if self.config.platform_instance and table_name.startswith(
-                    f"{self.config.platform_instance}."
-                ):
-                    table_name = table_name[len(self.config.platform_instance) + 1 :]
+                if platform_instance and table_name.startswith(f"{platform_instance}."):
+                    table_name = table_name[len(platform_instance) + 1 :]
 
                 # Reuse existing is_temp_table() logic to filter aliases
                 if not self.is_temp_table(table_name):
@@ -1138,7 +1139,7 @@ class SQLServerSource(SQLAlchemySource):
                         if self._is_qualified_table_urn(urn, platform_instance)
                     ]
                     aspect.inputDatasets = self._filter_upstream_aliases(
-                        qualified_inputs
+                        qualified_inputs, platform_instance
                     )
 
                 # Filter outputs: only unqualified tables

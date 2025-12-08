@@ -1,12 +1,11 @@
 """
-Test Phase 2 statement filtering for MSSQL stored procedures.
+Test statement filtering for MSSQL stored procedures.
 
 This test verifies that parse_procedure_code() correctly filters out non-DML
 statements found in production logs, using sqlglot-based parsing instead of
 string matching.
 
-Test cases cover all problematic statement patterns found in phase2_timeseries
-and phase2_staging logs.
+Test cases cover all problematic statement patterns found in production logs.
 """
 
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
@@ -93,7 +92,7 @@ def test_keep_select_with_from():
     However, SELECT without a downstream table (no INSERT INTO, no output) won't
     produce final lineage - that's expected aggregator behavior, not a filtering issue.
 
-    The key test is that these are NOT filtered at the Phase 2 filtering stage.
+    The key test is that these are NOT filtered at the statement filtering stage.
     """
     schema_resolver = SchemaResolver(platform="mssql", env="PROD")
     schema_resolver.add_raw_schema_info(
@@ -106,7 +105,7 @@ def test_keep_select_with_from():
     )
 
     # SELECT with FROM - this has input but no output, so returns None
-    # But it should NOT be filtered at Phase 2 stage (it should reach aggregator)
+    # But it should NOT be filtered at statement filtering stage (it should reach aggregator)
     code = """
     SELECT @Count=COUNT(0) FROM SourceTable
     """
@@ -118,7 +117,7 @@ def test_keep_select_with_from():
         is_temp_table=lambda x: x.startswith("#"),
     )
     # Returns None because no output table, but that's aggregator behavior
-    # The important thing is it wasn't filtered at Phase 2 stage
+    # The important thing is it wasn't filtered at statement filtering stage
     assert result is None  # No downstream table
 
     # INSERT INTO ... SELECT FROM - this should produce lineage
