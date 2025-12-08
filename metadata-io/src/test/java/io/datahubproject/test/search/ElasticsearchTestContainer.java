@@ -28,7 +28,6 @@ public class ElasticsearchTestContainer implements SearchTestContainer {
             .withEnv(
                 "xpack.security.enabled", "true") // Enable security APIs for testing role creation
             .withEnv("xpack.security.http.ssl.enabled", "false")
-            .withEnv("xpack.security.transport.ssl.enabled", "false")
             .withEnv("xpack.security.authc.anonymous.username", "anonymous")
             .withEnv("xpack.security.authc.anonymous.roles", "superuser")
             .withEnv("xpack.security.authc.anonymous.authz_exception", "false");
