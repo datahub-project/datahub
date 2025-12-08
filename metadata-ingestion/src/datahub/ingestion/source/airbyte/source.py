@@ -37,6 +37,7 @@ from datahub.ingestion.source.airbyte.client import (
 from datahub.ingestion.source.airbyte.config import (
     KNOWN_SOURCE_TYPE_MAPPING,
     AirbyteSourceConfig,
+    PlatformDetail,
 )
 from datahub.ingestion.source.airbyte.models import (
     AirbyteDatasetUrns,
@@ -159,6 +160,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self.report = StaleEntityRemovalSourceReport()
         self._warned_source_ids: set[str] = set()
         self._warned_destination_ids: set[str] = set()
+        self.known_urns: set[str] = set()
+        self._source_platform_cache: Dict[
+            str, tuple[str, Optional[str], Optional[str]]
+        ] = {}
+        self._dest_platform_cache: Dict[
+            str, tuple[str, Optional[str], Optional[str]]
+        ] = {}
 
         logger.debug(
             "Initialized Airbyte source with deployment type: %s",
@@ -176,7 +184,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self, source: AirbyteSourcePartial
     ) -> tuple[str, Optional[str], Optional[str]]:
         """Return (platform, platform_instance, env) for source."""
-        from datahub.ingestion.source.airbyte.config import PlatformDetail
+        if source.source_id in self._source_platform_cache:
+            return self._source_platform_cache[source.source_id]
 
         source_details = self.source_config.sources_to_platform_instance.get(
             source.source_id, PlatformDetail()
@@ -212,13 +221,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
         platform_instance = source_details.platform_instance
         env = source_details.env
 
-        return platform, platform_instance, env
+        result = (platform, platform_instance, env)
+        self._source_platform_cache[source.source_id] = result
+        return result
 
     def _get_platform_for_destination(
         self, destination: AirbyteDestinationPartial
     ) -> tuple[str, Optional[str], Optional[str]]:
         """Return (platform, platform_instance, env) for destination."""
-        from datahub.ingestion.source.airbyte.config import PlatformDetail
+        if destination.destination_id in self._dest_platform_cache:
+            return self._dest_platform_cache[destination.destination_id]
 
         dest_details = self.source_config.destinations_to_platform_instance.get(
             destination.destination_id, PlatformDetail()
@@ -254,7 +266,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
         platform_instance = dest_details.platform_instance
         env = dest_details.env
 
-        return platform, platform_instance, env
+        result = (platform, platform_instance, env)
+        self._dest_platform_cache[destination.destination_id] = result
+        return result
 
     def _validate_pipeline_ids(
         self, pipeline_info: AirbytePipelineInfo, operation: str
@@ -328,8 +342,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             f"Processing connection {connection.connection_id}"
                         )
 
-                        # Fetch full connection details including syncCatalog
-                        # list_connections() may return summaries without full syncCatalog
                         connection = self.client.get_connection(
                             connection.connection_id
                         )
@@ -368,7 +380,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             destination=destination,
                         )
                     except AirbyteAuthenticationError:
-                        # Auth errors should fail fast - don't continue processing
                         logger.error("Authentication failed. Stopping ingestion.")
                         raise
                     except Exception as e:
@@ -394,13 +405,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         for pipeline_info in self._get_pipelines():
             try:
-                # Create dataflow for the workspace
                 yield from self._create_dataflow_workunits(pipeline_info)
-
-                # Create datajob for the connection
                 yield from self._create_datajob_workunits(pipeline_info)
-
-                # Create lineage information
                 yield from self._create_lineage_workunits(pipeline_info)
             except Exception as e:
                 conn_id = pipeline_info.connection.connection_id or "unknown"
@@ -648,7 +654,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 f"Found {len(jobs)} jobs for connection {connection_id} and stream {stream_name}"
             )
 
-            # Process each job
             for job in jobs:
                 try:
                     job_id = job.get("id")
@@ -663,25 +668,21 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             f"Could not fetch detailed job info for {job_id}: {e}"
                         )
 
-                    # Process job attempts
                     attempts = job.get("attempts", [])
                     for attempt_idx, attempt in enumerate(attempts):
                         attempt_id = attempt.get("id", attempt_idx)
                         attempt_status = attempt.get("status", "").lower()
 
-                        # Map status to result
                         result = AIRBYTE_JOB_STATUS_MAP.get(
                             attempt_status, InstanceRunResult.FAILURE
                         )
 
-                        # Get timestamps
                         start_time_millis = attempt.get("createdAt")
                         end_time_millis = attempt.get("endedAt")
 
                         if not start_time_millis:
                             continue
 
-                        # Create unique ID for this execution
                         execution_id = f"{job_id}-{attempt_id}-{stream_name}"
 
                         properties = {
@@ -697,8 +698,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                                 properties, job_details, stream_name
                             )
 
-                        # Create a DataProcessInstance for this execution
-                        # URL links to connection's status page where job history is visible
                         job_url = f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}/status"
 
                         dpi = DataProcessInstance(
@@ -709,20 +708,17 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             url=job_url,
                         )
 
-                        # Generate the main entity MCPs
                         for mcp in dpi.generate_mcp(
                             created_ts_millis=start_time_millis,
                             materialize_iolets=False,
                         ):
                             yield mcp.as_workunit()
 
-                        # Generate the start event MCP
                         for mcp in dpi.start_event_mcp(
                             start_timestamp_millis=start_time_millis,
                         ):
                             yield mcp.as_workunit()
 
-                        # Generate the end event MCP if the job has completed
                         if end_time_millis and attempt_status not in [
                             "running",
                             "pending",
@@ -979,7 +975,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             },
         )
 
-        # Create fine-grained lineage for column-level lineage (attached to DataJob, not dataset)
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         if self.source_config.extract_column_level_lineage:
             property_fields = stream.get_column_names()
@@ -999,7 +994,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         )
                     )
 
-        # Create InputOutput aspect with fine-grained lineages
         input_output = DataJobInputOutputClass(
             inputDatasets=[source_urn],
             outputDatasets=[destination_urn],
@@ -1039,12 +1033,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_urn: str,
         destination_urn: str,
         stream: AirbyteStreamDetails,
-        tags: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit dataset lineage with column-level mappings. Marked as non-primary source."""
         work_units = []
 
-        # Build fine-grained (column-level) lineages if enabled
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         if self.source_config.extract_column_level_lineage:
             property_fields = stream.get_column_names()
@@ -1062,36 +1054,71 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     )
 
         # Create dataset-level lineage with fine-grained lineages
-        # Mark as non-primary since Airbyte is not authoritative for these datasets
-        work_units.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=destination_urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=source_urn, type=DatasetLineageTypeClass.TRANSFORMED
-                        )
-                    ],
-                    fineGrainedLineages=fine_grained_lineages or None,
-                ),
-            ).as_workunit(is_primary_source=False)
-        )
-
-        # Add tags to datasets
-        # Also marked as non-primary since Airbyte is not authoritative for these datasets
-        if tags:
-            logger.debug("Adding %d tags to source and destination datasets", len(tags))
-            for dataset_urn in [source_urn, destination_urn]:
-                global_tags = GlobalTagsClass(
-                    tags=[TagAssociationClass(tag=tag) for tag in tags]
-                )
-                work_units.append(
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=global_tags
-                    ).as_workunit(is_primary_source=False)
-                )
+        # Only emit lineage for destination if it's in our known URNs
+        # (i.e., destination is also a source in some other Airbyte connection)
+        # This prevents creating phantom destination datasets
+        if destination_urn in self.known_urns:
+            work_units.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=destination_urn,
+                    aspect=UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=source_urn,
+                                type=DatasetLineageTypeClass.TRANSFORMED,
+                            )
+                        ],
+                        fineGrainedLineages=fine_grained_lineages or None,
+                    ),
+                ).as_workunit(is_primary_source=False)
+            )
+        else:
+            logger.debug(
+                "Skipping lineage emission for destination '%s' - not in known URNs. "
+                "Destination connector should create this dataset.",
+                destination_urn,
+            )
 
         return work_units
+
+    def _collect_source_urns(self, pipeline_info: AirbytePipelineInfo) -> None:
+        """First pass: collect all source dataset URNs that Airbyte reads from."""
+        if (
+            not pipeline_info.connection.sync_catalog
+            or not pipeline_info.connection.sync_catalog.streams
+        ):
+            return
+
+        source = pipeline_info.source
+        source_platform, source_plat_instance, source_env = (
+            self._get_platform_for_source(source)
+        )
+
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source.source_id, PlatformDetail()
+        )
+
+        for stream_config in pipeline_info.connection.sync_catalog.streams:
+            if not stream_config or not stream_config.stream:
+                continue
+
+            stream = stream_config.stream
+            schema_name = stream.namespace or ""
+            table_name = stream.name
+
+            if source_platform and table_name:
+                dataset_name = (
+                    f"{schema_name}.{table_name}" if schema_name else table_name
+                )
+                if source_details.convert_urns_to_lowercase:
+                    dataset_name = dataset_name.lower()
+                source_urn = make_dataset_urn_with_platform_instance(
+                    platform=_sanitize_platform_name(source_platform),
+                    name=dataset_name,
+                    env=source_env or FabricTypeClass.PROD,
+                    platform_instance=source_plat_instance,
+                )
+                self.known_urns.add(source_urn)
 
     def _create_dataset_urns(
         self,
@@ -1109,8 +1136,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             self._get_platform_for_destination(destination)
         )
 
-        from datahub.ingestion.source.airbyte.config import PlatformDetail
-
         source_details = self.source_config.sources_to_platform_instance.get(
             source.source_id, PlatformDetail()
         )
@@ -1121,12 +1146,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
         schema_name = stream.namespace or source.get_schema or ""
         table_name = stream.stream_name
 
+        if "." in table_name:
+            logger.debug(
+                "Stream name '%s' contains dots - may be fully qualified. Will extract table name only.",
+                table_name,
+            )
+            table_name = table_name.split(".")[-1]
+
         source_database = source_details.database or source.get_database
         if source_database:
             should_include_schema = source_details.include_schema_in_urn
 
             if should_include_schema is None:
-                # Auto-detect 2-tier vs 3-tier: if schema == database, they're synonyms (MySQL, MongoDB)
                 if schema_name and schema_name == source_database:
                     should_include_schema = False
                     logger.debug(
@@ -1153,7 +1184,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             source_dataset_name, "source_dataset_name"
         )
 
-        # Apply lowercase conversion if configured
         normalized_source_name = (
             validated_source_name.lower()
             if source_details.convert_urns_to_lowercase
@@ -1173,7 +1203,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             should_include_schema = dest_details.include_schema_in_urn
 
             if should_include_schema is None:
-                # Auto-detect 2-tier vs 3-tier: if schema == database, they're synonyms
                 if dest_schema and dest_schema == dest_database:
                     should_include_schema = False
                     logger.debug(
@@ -1200,7 +1229,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             dest_dataset_name, "destination_dataset_name"
         )
 
-        # Apply lowercase conversion if configured
         normalized_dest_name = (
             validated_dest_name.lower()
             if dest_details.convert_urns_to_lowercase
@@ -1304,7 +1332,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
                 # Create dataset lineage
                 lineage_workunits = self._create_dataset_lineage(
-                    dataset_urns.source_urn, dataset_urns.destination_urn, stream, tags
+                    dataset_urns.source_urn, dataset_urns.destination_urn, stream
                 )
 
                 # Emit lineage work units
