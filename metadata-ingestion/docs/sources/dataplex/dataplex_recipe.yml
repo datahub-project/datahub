@@ -5,8 +5,14 @@ source:
     project_ids:
       - "my-gcp-project"
 
-    # Optional: GCP location (default: us-central1)
+    # Optional: GCP location for lakes/zones/entities (default: us-central1)
+    # Use regional locations like us-central1, europe-west1, etc.
     location: "us-central1"
+
+    # Optional: GCP location for entries (Universal Catalog)
+    # Use multi-region locations (us, eu, asia) to access system entry groups like @bigquery
+    # If not specified, uses the same value as 'location'
+    entries_location: "us"
 
     # Optional: Environment (default: PROD)
     env: "PROD"
@@ -34,7 +40,7 @@ source:
     #     deny:
     #       - "deprecated-.*"
     #
-    #   asset_pattern:
+    #   dataset_pattern:
     #     allow:
     #       - ".*"
     #     deny:

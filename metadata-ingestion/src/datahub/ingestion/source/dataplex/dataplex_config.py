@@ -32,9 +32,10 @@ class DataplexFilterConfig(ConfigModel):
         description="Regex patterns for zone names to filter in ingestion.",
     )
 
-    entity_pattern: AllowDenyPattern = Field(
+    dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for entity names to filter in ingestion.",
+        description="Regex patterns for dataset names to filter in ingestion. "
+        "Applies to both entries (from Universal Catalog) and entities (from Lakes/Zones).",
     )
 
     entry_pattern: AllowDenyPattern = Field(
@@ -64,7 +65,16 @@ class DataplexConfig(
 
     location: str = Field(
         default="us-central1",
-        description="GCP location/region where Dataplex resources are located (e.g., us-central1, us, eu).",
+        description="GCP location/region where Dataplex lakes, zones, and entities are located (e.g., us-central1, europe-west1). "
+        "Only used for entities extraction (include_entities=True).",
+    )
+
+    entries_location: Optional[str] = Field(
+        default=None,
+        description="GCP location for Universal Catalog entries extraction. "
+        "Use multi-region locations (us, eu, asia) to access system-managed entry groups like @bigquery. "
+        "If not specified, uses the same value as 'location'. "
+        "Recommended: Set this to multi-region (e.g., 'us') for full BigQuery table coverage.",
     )
 
     filter_config: DataplexFilterConfig = Field(
@@ -75,14 +85,15 @@ class DataplexConfig(
     include_entries: bool = Field(
         default=True,
         description="Whether to extract Entries from Universal Catalog. "
-        "This is the primary source of metadata and is always processed first.",
+        "This is the primary source of metadata and takes precedence when both sources are enabled.",
     )
 
     include_entities: bool = Field(
         default=False,
         description="Whether to include Entity metadata from Lakes/Zones (discovered tables/filesets) as Datasets. "
         "This is optional and complements the Entries API data. "
-        "When both include_entries and include_entities are enabled, entities already found in Entries API will be skipped to avoid duplicates.",
+        "When both include_entries and include_entities are enabled, entities are processed first, "
+        "then entries overwrite any duplicate metadata, making Universal Catalog the source of truth.",
     )
 
     include_lineage: bool = Field(
@@ -92,12 +103,13 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
-    lineage_batch_size: int = Field(
+    batch_size: int = Field(
         default=1000,
-        description="Number of entities to process in each lineage extraction batch. "
+        description="Batch size for metadata emission and lineage extraction. "
+        "Entries and entities are emitted in batches to prevent memory issues in large deployments. "
         "Lower values reduce memory usage but may increase processing time. "
         "Set to -1 to disable batching (process all entities at once). "
-        "Recommended: 1000 for large deployments, -1 for small deployments. Default: 1000.",
+        "Recommended: 1000 for large deployments (>10k entities), -1 for small deployments (<1k entities). Default: 1000.",
     )
 
     max_workers: int = Field(

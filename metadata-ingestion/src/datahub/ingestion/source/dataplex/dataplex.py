@@ -123,9 +123,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         # Key: project_id, Value: set of tuples (entity_id, zone_id, lake_id)
         self.entity_data_by_project: dict[str, set[EntityDataTuple]] = {}
 
-        # Track which entities were found in Entries API to avoid duplicate processing
-        self.entries_found: set[str] = set()
-
         creds = self.config.get_credentials()
         credentials = (
             service_account.Credentials.from_service_account_info(creds)
@@ -179,7 +176,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         self._entity_data_lock = Lock()
         self._zone_metadata_lock = Lock()
         self._bq_containers_lock = Lock()
-        self._entries_found_lock = Lock()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -244,59 +240,82 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Process all Dataplex resources for a single project.
 
-        This uses a multi-pass approach:
-        1. If include_entries is enabled, process Entries API first (discovers containers)
-        2. If include_entities is enabled:
-           - First pass: Stream through entities to discover containers (tracking only)
-           - Skip entities already found in Entries API
-        3. Emit containers (lightweight)
-        4. If include_entries is enabled, re-stream entries to emit full metadata
-        5. If include_entities is enabled, re-stream entities to emit full metadata
+        This uses a single-pass approach with batched emission:
+        1. Collect entities/entries MCPs in batches and track containers simultaneously
+        2. Emit batches as they fill up to keep memory bounded
+        3. Emit BigQuery containers (so entities can reference them)
+        4. Extract lineage
 
-        The container tracking (self.bq_containers) is populated during the first pass.
+        Processing order: Entities first, then Entries.
+        When both are enabled, entries will overwrite entity metadata for the same table,
+        making Universal Catalog the source of truth without requiring deduplication tracking.
 
-        Memory optimization: The entries_found set is cleared after the first pass to
-        free memory before emitting metadata.
+        Memory optimization: Batched emission prevents memory issues in large deployments
+        while maintaining the performance benefit of avoiding duplicate schema extraction.
         """
-        # Process Entries API first (if enabled)
-        if self.config.include_entries:
-            logger.info(
-                f"Processing entries from Universal Catalog for project {project_id}"
-            )
-            # First pass: Stream entries to discover containers (consume but don't yield)
-            for _ in self._get_entries_mcps(project_id):
-                pass  # Container tracking happens in _process_entry
+        # Determine batch size (-1 means no batching)
+        batch_size = self.config.batch_size
+        should_batch = batch_size > 0
 
-        # Process Entities API (if enabled)
+        # Cache MCPs during the first pass
+        cached_entities_mcps: list[MetadataChangeProposalWrapper] = []
+        cached_entries_mcps: list[MetadataChangeProposalWrapper] = []
+        entities_emitted = 0
+        entries_emitted = 0
+
+        # Process Entities API FIRST (if enabled) - collect MCPs and track containers
         if self.config.include_entities:
             logger.info(
                 f"Processing entities from Dataplex Entities API for project {project_id}"
             )
-            # First pass: Stream entities to discover containers (consume but don't yield)
-            for _ in self._get_entities_mcps(project_id):
-                pass  # Container tracking happens in _process_zone_entities
+            for mcp in self._get_entities_mcps(project_id):
+                cached_entities_mcps.append(mcp)
 
-        # Clear entries_found set to free memory after deduplication
-        # We only need it during the first pass to detect duplicates
-        if self.config.include_entries and self.config.include_entities:
-            entries_count = len(self.entries_found)
-            with self._entries_found_lock:
-                self.entries_found.clear()
+                # Emit batch if we've reached the batch size
+                if should_batch and len(cached_entities_mcps) >= batch_size:
+                    yield from auto_workunit(cached_entities_mcps)
+                    entities_emitted += len(cached_entities_mcps)
+                    logger.info(
+                        f"Emitted batch of {len(cached_entities_mcps)} entities ({entities_emitted} total) for project {project_id}"
+                    )
+                    cached_entities_mcps.clear()
+
+        # Process Entries API SECOND (if enabled) - collect MCPs and track containers
+        # Entries will overwrite any duplicate entity metadata
+        if self.config.include_entries:
             logger.info(
-                f"Cleared {entries_count} entries from deduplication tracking to free memory"
+                f"Processing entries from Universal Catalog for project {project_id}"
             )
+            for mcp in self._get_entries_mcps(project_id):
+                cached_entries_mcps.append(mcp)
 
-        # Emit BigQuery containers BEFORE entities (so entities can reference them)
+                # Emit batch if we've reached the batch size
+                if should_batch and len(cached_entries_mcps) >= batch_size:
+                    yield from auto_workunit(cached_entries_mcps)
+                    entries_emitted += len(cached_entries_mcps)
+                    logger.info(
+                        f"Emitted batch of {len(cached_entries_mcps)} entries ({entries_emitted} total) for project {project_id}"
+                    )
+                    cached_entries_mcps.clear()
+
+        # Emit BigQuery containers BEFORE remaining entities/entries (so they can reference them)
         yield from self._gen_bigquery_containers(project_id)
 
-        # Second pass: Re-stream to emit full metadata
-        if self.config.include_entries:
-            logger.info(f"Emitting entries metadata for project {project_id}")
-            yield from auto_workunit(self._get_entries_mcps(project_id))
+        # Emit remaining cached entities MCPs
+        if self.config.include_entities and cached_entities_mcps:
+            yield from auto_workunit(cached_entities_mcps)
+            entities_emitted += len(cached_entities_mcps)
+            logger.info(
+                f"Emitted final batch of {len(cached_entities_mcps)} entities ({entities_emitted} total) for project {project_id}"
+            )
 
-        if self.config.include_entities:
-            logger.info(f"Emitting entities metadata for project {project_id}")
-            yield from auto_workunit(self._get_entities_mcps(project_id))
+        # Emit remaining cached entries MCPs (will overwrite any duplicate entities)
+        if self.config.include_entries and cached_entries_mcps:
+            yield from auto_workunit(cached_entries_mcps)
+            entries_emitted += len(cached_entries_mcps)
+            logger.info(
+                f"Emitted final batch of {len(cached_entries_mcps)} entries ({entries_emitted} total) for project {project_id}"
+            )
 
         # Extract lineage for entities (after entities and containers have been processed)
         if self.config.include_lineage and self.lineage_extractor:
@@ -492,8 +511,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     f"Processing entity: {entity_id} in zone: {zone_id}, lake: {lake_id}, project: {project_id}"
                 )
 
-                if not self.config.filter_config.entity_pattern.allowed(entity_id):
-                    logger.debug(f"Entity {entity_id} filtered out by pattern")
+                # Skip invalid entities (empty IDs or placeholder metadata)
+                if not entity_id or not entity_id.strip():
+                    logger.debug(
+                        f"Skipping entity with empty ID in zone {zone_id}, lake {lake_id}"
+                    )
+                    continue
+
+                if not self.config.filter_config.dataset_pattern.allowed(entity_id):
+                    logger.debug(f"Entity {entity_id} filtered out by dataset_pattern")
                     with self._report_lock:
                         self.report.report_entity_scanned(entity_id, filtered=True)
                     continue
@@ -519,21 +545,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                             self.dataplex_client,
                         )
 
-                # Check if this entity was already processed via Entries API
-                # Construct FQN to match entries format
-                if source_platform == "bigquery":
-                    fqn = f"{source_platform}:{dataset_id}.{entity_id}"
-                elif source_platform == "gcs":
-                    fqn = f"{source_platform}:{dataset_id}/{entity_id}"
-                else:
-                    fqn = f"{source_platform}:{dataset_id}"
-
-                with self._entries_found_lock:
-                    if fqn in self.entries_found:
-                        logger.debug(
-                            f"Skipping entity {entity_id} - already processed via Entries API with FQN {fqn}"
-                        )
-                        continue
+                # Skip entities where we couldn't determine platform or dataset
+                if not source_platform or not dataset_id:
+                    logger.debug(
+                        f"Skipping entity {entity_id} - unable to determine platform or dataset from asset {entity.asset}"
+                    )
+                    continue
 
                 # Track entity ID for lineage extraction
                 with self._entity_data_lock:
@@ -564,6 +581,24 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         f"Could not fetch full entity details for {entity_id}: {e}"
                     )
                     entity_full = entity
+
+                # Skip non-table entities (only process TABLE and FILESET types)
+                entity_type = (
+                    entity_full.type_.name if hasattr(entity_full, "type_") else None
+                )
+                if entity_type not in ("TABLE", "FILESET"):
+                    logger.debug(
+                        f"Skipping entity {entity_id} with type {entity_type} - only TABLE and FILESET types are supported"
+                    )
+                    continue
+
+                # Skip entities that are just asset metadata (entity_id matches asset name)
+                # These are placeholder entities that represent the asset itself, not actual tables/files
+                if entity.asset and entity_id == entity.asset:
+                    logger.debug(
+                        f"Skipping entity {entity_id} - entity ID matches asset name, likely asset metadata not a table/file"
+                    )
+                    continue
 
                 # Generate dataset URN with source platform (bigquery, gcs, etc.)
                 dataset_urn = make_entity_dataset_urn(
@@ -702,8 +737,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         This method uses the Entries API to extract metadata from Universal Catalog.
         It processes entry groups and their entries, extracting aspects as custom properties.
+
+        Uses entries_location if specified, otherwise falls back to location.
+        For system entry groups (@bigquery, @pubsub), use multi-region locations (us, eu, asia).
         """
-        parent = f"projects/{project_id}/locations/{self.config.location}"
+        entries_location = self.config.entries_location or self.config.location
+        parent = f"projects/{project_id}/locations/{entries_location}"
 
         try:
             with self.report.catalog_api_timer:
@@ -779,15 +818,57 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         fqn = entry.fully_qualified_name
         logger.debug(f"Processing entry with FQN: {fqn}")
 
-        # Track that we found this entry
-        with self._entries_found_lock:
-            self.entries_found.add(fqn)
+        # Apply dataset pattern filter to entry_id
+        if not self.config.filter_config.dataset_pattern.allowed(entry_id):
+            logger.debug(f"Entry {entry_id} filtered out by dataset_pattern")
+            return
 
         # Parse the FQN to determine platform and dataset_id
         source_platform, dataset_id = self._parse_entry_fqn(fqn)
         if not source_platform or not dataset_id:
             logger.warning(f"Could not parse FQN {fqn} for entry {entry_id}, skipping")
             return
+
+        # Validate that FQN has a table/file component (not just zone/asset metadata)
+        if ":" in fqn:
+            _, resource_path = fqn.split(":", 1)
+
+            # For BigQuery: should be project.dataset.table (3 parts minimum)
+            if source_platform == "bigquery":
+                parts = resource_path.split(".")
+                if len(parts) < 3:
+                    logger.debug(
+                        f"Skipping entry {entry_id} with FQN {fqn} - missing table name (only {len(parts)} parts)"
+                    )
+                    return
+                # Check if the table name looks like a zone or asset (common pattern suffixes)
+                table_name = parts[-1]
+                if any(
+                    suffix in table_name.lower()
+                    for suffix in ["_zone", "_asset", "zone1", "asset1"]
+                ):
+                    logger.debug(
+                        f"Skipping entry {entry_id} with FQN {fqn} - table name '{table_name}' appears to be zone/asset metadata"
+                    )
+                    return
+
+            # For GCS: should be bucket/path (2 parts minimum)
+            elif source_platform == "gcs":
+                parts = resource_path.split("/")
+                if len(parts) < 2:
+                    logger.debug(
+                        f"Skipping entry {entry_id} with FQN {fqn} - missing file path (only {len(parts)} parts)"
+                    )
+                    return
+                # Check if the file/object name looks like an asset
+                object_name = parts[-1]
+                if any(
+                    suffix in object_name.lower() for suffix in ["_asset", "asset1"]
+                ):
+                    logger.debug(
+                        f"Skipping entry {entry_id} with FQN {fqn} - object name '{object_name}' appears to be asset metadata"
+                    )
+                    return
 
         # Track entry for lineage extraction (entries don't have lake/zone/asset info,
         # but lineage API only needs FQN which we can construct from entry metadata)
@@ -806,16 +887,24 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
-        # Generate dataset URN
-        # For entries, use just the entry_id as the dataset name (e.g., "adoption-human_profiles")
-        # rather than the full hierarchy (e.g., "project.dataset.table")
+        # Generate dataset URN using the full resource path from FQN
+        # For BigQuery: bigquery:project.dataset.table -> use full path
+        # This ensures consistency with entity URNs
+        if ":" in fqn:
+            _, resource_path = fqn.split(":", 1)
+            dataset_name = resource_path
+        else:
+            dataset_name = entry_id
+
         dataset_urn = builder.make_dataset_urn_with_platform_instance(
             platform=source_platform,
-            name=entry_id,
+            name=dataset_name,
             platform_instance=None,
             env=self.config.env,
         )
-        logger.debug(f"Created dataset URN for entry {entry_id}: {dataset_urn}")
+        logger.debug(
+            f"Created dataset URN for entry {entry_id} (FQN: {fqn}): {dataset_urn}"
+        )
 
         # Extract custom properties using helper method
         custom_properties = self._extract_entry_custom_properties(
@@ -856,8 +945,20 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         # Link to source platform container (only for BigQuery)
         if source_platform == "bigquery":
-            container_urn = self._track_bigquery_container(project_id, dataset_id)
-            aspects.append(ContainerClass(container=container_urn))
+            # Extract project_id and dataset from the full FQN
+            # dataset_id format: project.dataset.table
+            parts = dataset_id.split(".")
+            if len(parts) >= 3:
+                bq_project_id = parts[0]
+                bq_dataset_id = parts[1]
+                container_urn = self._track_bigquery_container(
+                    bq_project_id, bq_dataset_id
+                )
+                aspects.append(ContainerClass(container=container_urn))
+            else:
+                logger.warning(
+                    f"Could not extract BigQuery project and dataset from dataset_id '{dataset_id}' for entry {entry_id}"
+                )
 
         # Construct MCPs
         yield from self._construct_mcps(dataset_urn, aspects)
@@ -870,6 +971,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         Returns:
             Tuple of (platform, dataset_id)
+            - For BigQuery: dataset_id is 'project.dataset.table'
+            - For GCS: dataset_id is 'bucket/path'
         """
         if ":" not in fqn:
             return "", ""
@@ -877,16 +980,29 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         platform, resource_path = fqn.split(":", 1)
 
         if platform == "bigquery":
+            # BigQuery FQN format: bigquery:project.dataset.table
+            # Return the full project.dataset.table as dataset_id
             parts = resource_path.split(".")
-            if len(parts) >= 2:
-                dataset_id = f"{parts[1]}"
-                return platform, dataset_id
+            if len(parts) >= 3:
+                # Full table reference: project.dataset.table
+                return platform, resource_path
+            elif len(parts) == 2:
+                # Dataset reference (legacy): project.dataset
+                logger.warning(
+                    f"BigQuery FQN '{fqn}' only has 2 parts (project.dataset), expected 3 (project.dataset.table)"
+                )
+                return platform, resource_path
+            else:
+                logger.warning(
+                    f"BigQuery FQN '{fqn}' has unexpected format, expected 'bigquery:project.dataset.table'"
+                )
+                return platform, resource_path
         elif platform == "gcs":
-            parts = resource_path.split("/")
-            if parts:
-                dataset_id = parts[0]
-                return platform, dataset_id
+            # GCS FQN format: gcs:bucket/path
+            # Return the full bucket/path as dataset_id
+            return platform, resource_path
 
+        # For other platforms, return the full resource_path
         return platform, resource_path
 
     def _extract_schema_metadata(

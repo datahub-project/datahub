@@ -82,16 +82,84 @@ Default GCP Role for lineage: [roles/datalineage.viewer](https://docs.cloud.goog
 
 ### Integration Details
 
-The Dataplex connector extracts metadata from Google Dataplex entities (discovered tables and filesets) in a given project and location. **Entities are ingested using their source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
+The Dataplex connector extracts metadata from Google Dataplex using two complementary APIs:
+
+1. **Universal Catalog Entries API** (Primary, default enabled): Extracts entries from system-managed entry groups like `@bigquery`, `@pubsub`, etc. This is the recommended approach for discovering BigQuery tables and other Google Cloud resources.
+
+2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you need entity-level details not available in the Entries API.
+
+**Datasets are ingested using their source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
 
 #### Concept Mapping
 
 This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 
-| Dataplex Concept | DataHub Concept                                                                 | Notes                                                                                                                                                                  |
-| :--------------- | :------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entity           | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset) | Discovered table or fileset. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.                           |
-| Lake/Zone/Asset  | Custom Properties                                                               | Dataplex hierarchy information (lake, zone, asset, zone type) is preserved as **custom properties** on datasets for traceability without creating separate containers. |
+| Dataplex Concept          | DataHub Concept                                                                 | Notes                                                                                                                                                                  |
+| :------------------------ | :------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entry (Universal Catalog) | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset) | Metadata from Universal Catalog. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.                       |
+| Entity (Lakes/Zones)      | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset) | Discovered table or fileset from lakes/zones. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.          |
+| Lake/Zone/Asset           | Custom Properties                                                               | Dataplex hierarchy information (lake, zone, asset, zone type) is preserved as **custom properties** on datasets for traceability without creating separate containers. |
+
+#### API Selection Guide
+
+**When to use Entries API** (default, `include_entries: true`):
+
+- ✅ You want to discover all BigQuery tables, Pub/Sub topics, and other Google Cloud resources
+- ✅ You need comprehensive metadata from Dataplex's centralized catalog
+- ✅ You want system-managed discovery without manual lake/zone configuration
+- ✅ **Recommended for most users**
+
+**When to use Entities API** (`include_entities: true`):
+
+- Use this if you need entity-level details specific to lakes/zones that aren't available in the Entries API
+- Can be used alongside Entries API (duplicates are automatically skipped)
+
+**Important**: To access system-managed entry groups like `@bigquery` that contain BigQuery tables, you must use **multi-region locations** (`us`, `eu`, `asia`) via the `entries_location` config parameter. Regional locations (`us-central1`, etc.) only contain placeholder entries.
+
+#### Filtering Configuration
+
+The connector supports filtering at multiple levels:
+
+**Lake and Zone Filtering** (only applies when `include_entities: true`):
+
+- `lake_pattern`: Filter which lakes to process
+- `zone_pattern`: Filter which zones to process
+
+**Dataset Filtering** (applies to both entries and entities):
+
+- `dataset_pattern`: Filter which datasets/tables to ingest by name
+  - Applies to entry names from Universal Catalog
+  - Applies to entity names from lakes/zones
+  - Supports regex patterns with allow/deny lists
+
+**Example with filtering:**
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    entries_location: "us"
+
+    filter_config:
+      # Filter datasets by name (applies to entries and entities)
+      dataset_pattern:
+        allow:
+          - "prod_.*" # Allow production tables
+          - "analytics_.*" # Allow analytics tables
+        deny:
+          - ".*_test" # Deny test tables
+          - ".*_temp" # Deny temporary tables
+
+      # Lake/zone filtering (only for include_entities=true)
+      lake_pattern:
+        allow:
+          - "production-.*"
+      zone_pattern:
+        deny:
+          - ".*-sandbox"
+```
 
 #### Platform Alignment
 
@@ -163,10 +231,10 @@ When `include_lineage` is enabled and proper permissions are granted, the connec
 
 For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
-**Lineage Configuration Options:**
+**Lineage and Performance Configuration Options:**
 
 - **`include_lineage`** (default: `true`): Enable table-level lineage extraction. Lineage API calls automatically retry transient errors (timeouts, rate limits, service unavailable) with exponential backoff
-- **`lineage_batch_size`** (default: `1000`): Number of entities to process in each lineage extraction batch. Lower values reduce memory usage but may increase processing time. Set to `-1` to disable batching. Recommended: `1000` for large deployments (>10k entities), `-1` for small deployments
+- **`batch_size`** (default: `1000`): Controls batching for metadata emission and lineage extraction. Lower values reduce memory usage but may increase processing time. Set to `-1` to disable batching. Recommended: `1000` for large deployments (>10k entities), `-1` for small deployments (<1k entities)
 
 **Automatic Retry Behavior:**
 
@@ -200,7 +268,16 @@ source:
   config:
     project_ids:
       - "my-gcp-project"
+
+    # Location for lakes/zones/entities (if using include_entities)
     location: "us-central1"
+
+    # Location for entries (Universal Catalog) - use multi-region for system entry groups
+    entries_location: "us" # Required for @bigquery, @pubsub system entries
+
+    # API selection
+    include_entries: true # Enable Universal Catalog entries (default: true)
+    include_entities: false # Enable lakes/zones entities (default: false)
 
     # Lineage settings
     include_lineage: true # Enable lineage extraction with automatic retries
@@ -208,7 +285,7 @@ source:
 
 **Advanced Configuration for Large Deployments:**
 
-For deployments with thousands of entities, memory optimization is critical:
+For deployments with thousands of entities, memory optimization is critical. The connector uses batched emission to keep memory bounded:
 
 ```yaml
 source:
@@ -217,11 +294,27 @@ source:
     project_ids:
       - "my-gcp-project"
     location: "us-central1"
+    entries_location: "us"
+
+    # API selection
+    include_entries: true
+    include_entities: false
 
     # Memory optimization for large deployments
-    lineage_batch_size: 1000 # Process 1000 entities at a time
+    batch_size:
+      1000 # Batch size for metadata emission and lineage extraction
+      # Entries/entities are emitted in batches of 1000 to prevent memory issues
+      # Set to -1 to disable batching (only for small deployments <1k entities)
     max_workers: 10 # Parallelize entity extraction across zones
 ```
+
+**How Batching Works:**
+
+- Entries and entities are collected during API streaming
+- When a batch reaches `batch_size` entries, it's immediately emitted to DataHub
+- The batch cache is cleared to free memory
+- This keeps memory usage bounded regardless of dataset size
+- For deployments with 50k+ entities, batching prevents out-of-memory errors
 
 **Lineage Limitations:**
 

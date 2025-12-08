@@ -496,7 +496,7 @@ class DataplexLineageExtractor:
         Main entry point to get lineage workunits for multiple entities.
 
         Processes entities in batches to reduce memory consumption for large deployments.
-        Batch size is controlled by config.lineage_batch_size (default: 1000).
+        Batch size is controlled by config.batch_size (default: 1000).
         Set to -1 to disable batching and process all entities at once.
 
         Args:
@@ -517,10 +517,7 @@ class DataplexLineageExtractor:
         total_entities = len(entity_list)
 
         # Check if batching is disabled (-1) or batch size >= total entities
-        if (
-            self.config.lineage_batch_size == -1
-            or self.config.lineage_batch_size >= total_entities
-        ):
+        if self.config.batch_size == -1 or self.config.batch_size >= total_entities:
             logger.info(f"Processing all {total_entities} entities in a single batch")
             # Process all entities at once (original behavior)
             self.build_lineage_map(project_id, entity_list)
@@ -560,7 +557,7 @@ class DataplexLineageExtractor:
                     )
         else:
             # Process entities in batches
-            batch_size = self.config.lineage_batch_size
+            batch_size = self.config.batch_size
             num_batches = (
                 total_entities + batch_size - 1
             ) // batch_size  # Ceiling division
