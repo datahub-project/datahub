@@ -10,14 +10,13 @@ import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/do
 import OwnersSection from '@app/domainV2/OwnersSection';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
+import { Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
 import { DataHubPageModuleType, EntityType } from '@types';
@@ -142,24 +141,22 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     return (
         <Modal
             title="Create New Domain"
-            visible
+            open
             onCancel={onClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" onClick={onClose} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        id="createDomainButton"
-                        data-testid="create-domain-button"
-                        onClick={onCreateDomain}
-                        disabled={!createButtonEnabled}
-                        type="submit"
-                    >
-                        Create
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Save',
+                    id: 'createDomainButton',
+                    buttonDataTestId: 'create-domain-button',
+                    onClick: onCreateDomain,
+                    disabled: !createButtonEnabled,
+                },
+            ]}
         >
             <Form
                 form={form}

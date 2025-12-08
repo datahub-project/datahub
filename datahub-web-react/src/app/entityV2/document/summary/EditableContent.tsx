@@ -6,8 +6,7 @@ import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissio
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { useRefetch } from '@app/entity/shared/EntityContext';
-import { RelatedAssetsSection } from '@app/entityV2/document/summary/RelatedAssetsSection';
-import { RelatedDocumentsSection } from '@app/entityV2/document/summary/RelatedDocumentsSection';
+import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import colors from '@src/alchemy-components/theme/foundations/colors';
@@ -31,7 +30,7 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
     &&& {
         .remirror-editor {
             padding: 0px 0;
-            min-height: 400px;
+            min-height: 460px;
         }
         .remirror-editor.ProseMirror {
             font-size: 15px;
@@ -133,7 +132,10 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             try {
                 // Extract mentions from the content to save
                 // Pattern matches markdown link syntax: [text](urn:li:entityType:id)
-                const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:[^\s)]+)\)/g;
+                // Handle URNs with nested parentheses by matching everything between the markdown link's parens
+                // The pattern matches: [text](urn:li:entityType:...) where ... can include nested parens
+                // We match the URN prefix, then allow nested paren groups or non-paren characters
+                const urnPattern = /\[([^\]]+)\]\((urn:li:[a-zA-Z]+:(?:[^)(]+|\([^)]*\))+)\)/g;
                 const matches = Array.from(contentToSave.matchAll(urnPattern));
                 const documentUrnsToSave: string[] = [];
                 const assetUrnsToSave: string[] = [];
@@ -149,17 +151,30 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     }
                 });
 
+                // Merge new URNs with existing ones (additive, not replacement)
+                // Get existing URNs
+                const existingAssetUrns = new Set(relatedAssets?.map((ra) => ra.asset.urn) || []);
+                const existingDocumentUrns = new Set(relatedDocuments?.map((rd) => rd.document.urn) || []);
+
+                // Add new URNs to existing sets (automatically handles duplicates)
+                assetUrnsToSave.forEach((urn) => existingAssetUrns.add(urn));
+                documentUrnsToSave.forEach((urn) => existingDocumentUrns.add(urn));
+
+                // Convert back to arrays
+                const finalAssetUrns = Array.from(existingAssetUrns);
+                const finalDocumentUrns = Array.from(existingDocumentUrns);
+
                 // Save content
                 await updateContents({
                     urn: documentUrn,
                     contents: { text: contentToSave },
                 });
 
-                // Update related entities based on @ mentions
+                // Update related entities - merge new mentions with existing ones
                 await updateRelatedEntities({
                     urn: documentUrn,
-                    relatedAssets: assetUrnsToSave,
-                    relatedDocuments: documentUrnsToSave,
+                    relatedAssets: finalAssetUrns,
+                    relatedDocuments: finalDocumentUrns,
                 });
 
                 // Track that we just saved this content to prevent remount on refetch
@@ -173,7 +188,17 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                 setIsSaving(false);
             }
         },
-        [isSaving, initialContent, canEditContents, updateContents, updateRelatedEntities, documentUrn, refetch],
+        [
+            isSaving,
+            initialContent,
+            canEditContents,
+            updateContents,
+            updateRelatedEntities,
+            documentUrn,
+            refetch,
+            relatedAssets,
+            relatedDocuments,
+        ],
     );
 
     // Auto-save after 2 seconds of no typing
@@ -211,6 +236,52 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [content, initialContent, canEditContents, isSaving, saveDocument]);
+
+    // Handle updating related entities (supports both adding and removing)
+    // The passed URNs represent the final desired list after user selections/deselections
+    const handleAddEntities = useCallback(
+        async (assetUrns: string[], documentUrns: string[]) => {
+            // The URNs passed here are the final list (after user selections/deselections in the dropdown)
+            // So we replace the entire list, which handles both additions and removals
+            await updateRelatedEntities({
+                urn: documentUrn,
+                relatedAssets: assetUrns,
+                relatedDocuments: documentUrns,
+            });
+
+            // Refetch to get updated data
+            await refetch();
+        },
+        [documentUrn, updateRelatedEntities, refetch],
+    );
+
+    // Handle removing a single related entity
+    const handleRemoveEntity = useCallback(
+        async (urnToRemove: string) => {
+            // Get existing URNs
+            const existingAssetUrns = relatedAssets?.map((ra) => ra.asset.urn) || [];
+            const existingDocumentUrns = relatedDocuments?.map((rd) => rd.document.urn) || [];
+
+            // Remove the URN from the appropriate list
+            const isDocument = urnToRemove.includes(':document:');
+            const finalAssetUrns = isDocument
+                ? existingAssetUrns
+                : existingAssetUrns.filter((urn) => urn !== urnToRemove);
+            const finalDocumentUrns = isDocument
+                ? existingDocumentUrns.filter((urn) => urn !== urnToRemove)
+                : existingDocumentUrns;
+
+            await updateRelatedEntities({
+                urn: documentUrn,
+                relatedAssets: finalAssetUrns,
+                relatedDocuments: finalDocumentUrns,
+            });
+
+            // Refetch to get updated data
+            await refetch();
+        },
+        [documentUrn, updateRelatedEntities, refetch, relatedAssets, relatedDocuments],
+    );
 
     return (
         <ContentWrapper>
@@ -253,8 +324,16 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                 )}
             </EditorSection>
 
-            <RelatedDocumentsSection relatedDocuments={relatedDocuments} />
-            <RelatedAssetsSection relatedAssets={relatedAssets} />
+            {!isEditorFocused && (
+                <RelatedSection
+                    relatedAssets={relatedAssets}
+                    relatedDocuments={relatedDocuments}
+                    documentUrn={documentUrn}
+                    onAddEntities={handleAddEntities}
+                    onRemoveEntity={handleRemoveEntity}
+                    canEdit={canEditContents}
+                />
+            )}
         </ContentWrapper>
     );
 };

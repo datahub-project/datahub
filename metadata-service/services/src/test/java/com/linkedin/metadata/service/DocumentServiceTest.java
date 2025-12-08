@@ -61,6 +61,7 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             null, // no draftOfUrn
+            null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 
     // Verify the URN was created
@@ -93,6 +94,7 @@ public class DocumentServiceTest {
             Arrays.asList(TEST_ASSET_URN),
             Arrays.asList(TEST_DOCUMENT_URN),
             null, // no draftOfUrn
+            null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 
     // Verify the URN was created with custom ID
@@ -125,6 +127,7 @@ public class DocumentServiceTest {
           null,
           null,
           null, // no draftOfUrn
+          null, // showInGlobalContext
           TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
@@ -796,6 +799,7 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             publishedDocUrn, // draftOf
+            null, // showInGlobalContext
             TEST_USER_URN);
 
     // Verify the URN was created
@@ -830,11 +834,117 @@ public class DocumentServiceTest {
           null,
           null,
           publishedDocUrn, // draftOf
+          new com.linkedin.knowledge.DocumentSettings()
+              .setShowInGlobalContext(true), // showInGlobalContext
           TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(
           e.getMessage().contains("Cannot create a draft document with PUBLISHED state"));
+    }
+  }
+
+  @Test
+  public void testCreateDocumentWithCustomSettings() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test creating a document with showInGlobalContext=false
+    final Urn documentUrn =
+        service.createDocument(
+            opContext,
+            null, // auto-generate ID
+            java.util.Collections.singletonList("tutorial"),
+            "Private Context Document",
+            null, // source
+            null, // state
+            "This is a private context document",
+            null, // no parent
+            null, // no related assets
+            null, // no related documents
+            null, // no draftOfUrn
+            new com.linkedin.knowledge.DocumentSettings()
+                .setShowInGlobalContext(false), // showInGlobalContext = false
+            TEST_USER_URN);
+
+    // Verify the URN was created
+    Assert.assertNotNull(documentUrn);
+    Assert.assertEquals(documentUrn.getEntityType(), Constants.DOCUMENT_ENTITY_NAME);
+
+    // Verify ingest was called (documentInfo + subTypes + documentSettings)
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
+  }
+
+  @Test
+  public void testCreateDocumentWithDefaultSettings() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test creating a document with null settings (should default to showInGlobalContext=true)
+    final Urn documentUrn =
+        service.createDocument(
+            opContext,
+            null, // auto-generate ID
+            java.util.Collections.singletonList("tutorial"),
+            "Public Document",
+            null, // source
+            null, // state
+            "This is a public document",
+            null, // no parent
+            null, // no related assets
+            null, // no related documents
+            null, // no draftOfUrn
+            null, // showInGlobalContext defaults to true
+            TEST_USER_URN);
+
+    // Verify the URN was created
+    Assert.assertNotNull(documentUrn);
+    Assert.assertEquals(documentUrn.getEntityType(), Constants.DOCUMENT_ENTITY_NAME);
+
+    // Verify ingest was called
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
+  }
+
+  @Test
+  public void testUpdateDocumentSettings() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test updating document settings
+    service.updateDocumentSettings(
+        opContext,
+        TEST_DOCUMENT_URN,
+        new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(false),
+        TEST_USER_URN);
+
+    // Verify batch ingest was called (settings + documentInfo for lastModified)
+    verify(mockClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), any(List.class), eq(false));
+  }
+
+  @Test
+  public void testUpdateDocumentSettingsNotFound() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+
+    final DocumentService service = new DocumentService(mockClient);
+
+    // Test updating settings for a non-existent document
+    try {
+      service.updateDocumentSettings(
+          opContext,
+          TEST_DOCUMENT_URN,
+          new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(true),
+          TEST_USER_URN);
+      Assert.fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("does not exist"));
     }
   }
 }

@@ -128,7 +128,9 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
 
-    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+    with docker_compose_runner(
+        docker_compose_file, "kafka-connect", setup_command=["up --wait"]
+    ) as docker_services:
         # We rely on Docker health checks to confirm all services are up & healthy
 
         # However healthcheck for test_connect service is not very trustable, so

@@ -32,6 +32,8 @@ interface DocumentTreeProps {
     selectedUrn?: string; // For selection mode (e.g., in move dialog)
     onSelectDocument?: (urn: string) => void; // Callback when document is selected
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
+    hideActionsMenu?: boolean; // Hide move/delete menu actions
+    hideCreate?: boolean; // Hide create/add button
 }
 
 export const DocumentTree: React.FC<DocumentTreeProps> = ({
@@ -39,6 +41,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     selectedUrn,
     onSelectDocument,
     hideActions = false,
+    hideActionsMenu = false,
+    hideCreate = false,
 }) => {
     const history = useHistory();
     const location = useLocation();
@@ -133,6 +137,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         onClick={() => handleDocumentClick(node.urn)}
                         onCreateChild={onCreateChild}
                         hideActions={hideActions}
+                        hideActionsMenu={hideActionsMenu}
+                        hideCreate={hideCreate}
                         parentUrn={node.parentUrn}
                     />
                     {isExpanded && children.length > 0 && (
@@ -151,6 +157,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             handleDocumentClick,
             onCreateChild,
             hideActions,
+            hideActionsMenu,
+            hideCreate,
         ],
     );
 
