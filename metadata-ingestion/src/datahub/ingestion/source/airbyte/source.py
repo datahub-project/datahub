@@ -102,16 +102,13 @@ def _map_source_type_to_platform(
     source_type: str, source_type_mapping: Dict[str, str]
 ) -> str:
     """Map Airbyte source type to DataHub platform name."""
-    # Check if user provided an explicit mapping
     if source_type in source_type_mapping:
         return source_type_mapping[source_type]
 
-    # Check known source type mapping
     source_type_lower = source_type.lower()
     if source_type_lower in KNOWN_SOURCE_TYPE_MAPPING:
         return KNOWN_SOURCE_TYPE_MAPPING[source_type_lower]
 
-    # Otherwise sanitize the source type (lowercase, replace spaces with hyphens)
     return _sanitize_platform_name(source_type)
 
 
@@ -120,7 +117,6 @@ def _validate_urn_component(component: str, component_name: str) -> str:
     if not component or not component.strip():
         raise ValueError(f"{component_name} cannot be empty")
 
-    # Check for problematic characters
     invalid_chars = [",", "(", ")"]
     for char in invalid_chars:
         if char in component:
@@ -128,7 +124,6 @@ def _validate_urn_component(component: str, component_name: str) -> str:
                 f"URN component '{component_name}' contains invalid character '{char}': {component}"
             )
 
-    # Check for spaces (common issue)
     if " " in component.strip():
         logger.warning(
             "URN component '%s' contains spaces: %s", component_name, component
@@ -183,12 +178,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         """Return (platform, platform_instance, env) for source."""
         from datahub.ingestion.source.airbyte.config import PlatformDetail
 
-        # Check if there's a per-source override
         source_details = self.source_config.sources_to_platform_instance.get(
             source.source_id, PlatformDetail()
         )
 
-        # Determine platform
         if source_details.platform:
             platform = source_details.platform
         elif source.source_type:
@@ -227,12 +220,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         """Return (platform, platform_instance, env) for destination."""
         from datahub.ingestion.source.airbyte.config import PlatformDetail
 
-        # Check if there's a per-destination override
         dest_details = self.source_config.destinations_to_platform_instance.get(
             destination.destination_id, PlatformDetail()
         )
 
-        # Determine platform
         if dest_details.platform:
             platform = dest_details.platform
         elif destination.destination_type:
@@ -390,7 +381,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             exc=e,
                         )
             except AirbyteAuthenticationError:
-                # Auth errors should fail fast - don't continue processing
                 logger.error("Authentication failed. Stopping ingestion.")
                 raise
             except Exception as e:
@@ -465,11 +455,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
         connection_id = connection.connection_id
         connection_name = connection.name or "Unnamed Connection"
 
-        # Get platform details with per-source/destination overrides
         source_platform, _, _ = self._get_platform_for_source(source)
         destination_platform, _, _ = self._get_platform_for_destination(destination)
 
-        # Prepare inputs and outputs from source and destination
         dataset_urns = AirbyteInputOutputDatasets()
 
         if connection.sync_catalog:
@@ -479,7 +467,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 destination_platform,
             )
 
-        # Create a DataJob object with the parent flow URN
         datajob = DataJob(
             id=connection_id,
             flow_urn=DataFlowUrn(
@@ -490,7 +477,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             name=connection_name,
         )
 
-        # Add inlet and outlet datasets
         datajob.inlets = [
             DatasetUrn.from_string(input_urn) for input_urn in dataset_urns.input_urns
         ]
@@ -499,7 +485,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             for output_urn in dataset_urns.output_urns
         ]
 
-        # Add custom properties
         datajob.properties = {
             "connection_id": connection_id,
             "source_id": source.source_id or "",
@@ -515,7 +500,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             "deployment_type": self.source_config.deployment_type.value,
         }
 
-        # Generate all MCPs for this datajob
         for mcp in datajob.generate_mcp(materialize_iolets=False):
             yield mcp.as_workunit()
 
@@ -544,6 +528,15 @@ class AirbyteSource(StatefulIngestionSourceBase):
             self._get_platform_for_destination(destination)
         )
 
+        from datahub.ingestion.source.airbyte.config import PlatformDetail
+
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source.source_id, PlatformDetail()
+        )
+        dest_details = self.source_config.destinations_to_platform_instance.get(
+            destination.destination_id, PlatformDetail()
+        )
+
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
                 continue
@@ -556,6 +549,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 dataset_name = (
                     f"{schema_name}.{table_name}" if schema_name else table_name
                 )
+                if source_details.convert_urns_to_lowercase:
+                    dataset_name = dataset_name.lower()
                 source_urn = make_dataset_urn_with_platform_instance(
                     platform=_sanitize_platform_name(source_platform),
                     name=dataset_name,
@@ -568,6 +563,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 dataset_name = (
                     f"{schema_name}.{table_name}" if schema_name else table_name
                 )
+                if dest_details.convert_urns_to_lowercase:
+                    dataset_name = dataset_name.lower()
                 destination_urn = make_dataset_urn_with_platform_instance(
                     platform=_sanitize_platform_name(destination_platform),
                     name=dataset_name,
@@ -1126,7 +1123,21 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         source_database = source_details.database or source.get_database
         if source_database:
-            if schema_name and source_details.include_schema_in_urn:
+            should_include_schema = source_details.include_schema_in_urn
+
+            if should_include_schema is None:
+                # Auto-detect 2-tier vs 3-tier: if schema == database, they're synonyms (MySQL, MongoDB)
+                if schema_name and schema_name == source_database:
+                    should_include_schema = False
+                    logger.debug(
+                        "Auto-detected 2-tier platform for source: schema '%s' equals database '%s', excluding schema from URN",
+                        schema_name,
+                        source_database,
+                    )
+                else:
+                    should_include_schema = True
+
+            if schema_name and should_include_schema:
                 source_dataset_name = f"{source_database}.{schema_name}.{table_name}"
             else:
                 source_dataset_name = f"{source_database}.{table_name}"
@@ -1142,9 +1153,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
             source_dataset_name, "source_dataset_name"
         )
 
+        # Apply lowercase conversion if configured
+        normalized_source_name = (
+            validated_source_name.lower()
+            if source_details.convert_urns_to_lowercase
+            else validated_source_name
+        )
+
         source_urn = make_dataset_urn_with_platform_instance(
             platform=_sanitize_platform_name(validated_source_platform),
-            name=validated_source_name,
+            name=normalized_source_name,
             env=source_env or FabricTypeClass.PROD,
             platform_instance=source_plat_instance,
         )
@@ -1152,7 +1170,21 @@ class AirbyteSource(StatefulIngestionSourceBase):
         dest_schema = destination.get_schema or schema_name
         dest_database = dest_details.database or destination.get_database
         if dest_database:
-            if dest_schema and dest_details.include_schema_in_urn:
+            should_include_schema = dest_details.include_schema_in_urn
+
+            if should_include_schema is None:
+                # Auto-detect 2-tier vs 3-tier: if schema == database, they're synonyms
+                if dest_schema and dest_schema == dest_database:
+                    should_include_schema = False
+                    logger.debug(
+                        "Auto-detected 2-tier platform for destination: schema '%s' equals database '%s', excluding schema from URN",
+                        dest_schema,
+                        dest_database,
+                    )
+                else:
+                    should_include_schema = True
+
+            if dest_schema and should_include_schema:
                 dest_dataset_name = f"{dest_database}.{dest_schema}.{table_name}"
             else:
                 dest_dataset_name = f"{dest_database}.{table_name}"
@@ -1168,9 +1200,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
             dest_dataset_name, "destination_dataset_name"
         )
 
+        # Apply lowercase conversion if configured
+        normalized_dest_name = (
+            validated_dest_name.lower()
+            if dest_details.convert_urns_to_lowercase
+            else validated_dest_name
+        )
+
         destination_urn = make_dataset_urn_with_platform_instance(
             platform=_sanitize_platform_name(validated_dest_platform),
-            name=validated_dest_name,
+            name=normalized_dest_name,
             env=dest_env or FabricTypeClass.PROD,
             platform_instance=dest_plat_instance,
         )

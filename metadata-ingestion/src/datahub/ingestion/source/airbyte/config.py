@@ -107,9 +107,15 @@ class PlatformDetail(ConfigModel):
         default=None,
         description="Override the database name for all datasets from this source/destination",
     )
-    include_schema_in_urn: bool = Field(
+    include_schema_in_urn: Optional[bool] = Field(
+        default=None,
+        description="Include schema in the dataset URN when database is present. "
+        "If None (default), automatically detects 2-tier vs 3-tier platforms by checking if schema equals database. "
+        "Set to True to force 3-tier (database.schema.table), or False to force 2-tier (database.table).",
+    )
+    convert_urns_to_lowercase: bool = Field(
         default=True,
-        description="Include schema in the dataset URN. Set to false for two-tier sources like MySQL.",
+        description="Whether to convert dataset urns to lowercase. Recommended for case-insensitive platforms (Snowflake, BigQuery, PostgreSQL, etc.) to ensure lineage compatibility.",
     )
 
 
