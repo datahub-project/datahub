@@ -14,39 +14,10 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_lineage import TSQL_CONTROL_FLOW_KEYWORDS
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 
 logger = logging.getLogger(__name__)
-
-# TSQL control flow keywords that don't produce lineage
-# Imported from sqlglot_lineage.py to maintain consistency
-TSQL_CONTROL_FLOW_KEYWORDS = {
-    "BEGIN",
-    "END",
-    "BEGIN TRY",
-    "END TRY",
-    "BEGIN CATCH",
-    "END CATCH",
-    "BEGIN TRANSACTION",
-    "BEGIN TRAN",
-    "COMMIT",
-    "ROLLBACK",
-    "SAVE TRANSACTION",
-    "SAVE TRAN",
-    "DECLARE",
-    "SET",
-    "IF",
-    "ELSE",
-    "WHILE",
-    "BREAK",
-    "CONTINUE",
-    "RETURN",
-    "GOTO",
-    "WAITFOR",
-    "PRINT",
-    "RAISERROR",
-    "THROW",
-}
 
 
 def parse_procedure_code(
@@ -65,6 +36,10 @@ def parse_procedure_code(
     Phase 2 Implementation: Split statements BEFORE aggregation to ensure each
     downstream table gets only its relevant upstreams (not aggregated from all statements).
     """
+    # Derive dialect from schema_resolver's platform to support multiple databases
+    platform = schema_resolver.platform
+    dialect = get_dialect(platform)
+
     # Split statements using split_statements()
     statements = list(split_statements(code))
 
@@ -83,18 +58,19 @@ def parse_procedure_code(
         ):
             continue
 
-        # Skip control flow keywords that don't produce lineage
-        is_control_flow = any(
-            stmt_upper.startswith(kw) for kw in TSQL_CONTROL_FLOW_KEYWORDS
-        )
-        if is_control_flow:
-            continue
+        # Skip TSQL control flow keywords that don't produce lineage
+        # Only apply for MSSQL platform
+        if platform == "mssql":
+            is_control_flow = any(
+                stmt_upper.startswith(kw) for kw in TSQL_CONTROL_FLOW_KEYWORDS
+            )
+            if is_control_flow:
+                continue
 
         # Parse statement to determine its type using sqlglot
         try:
-            dialect = get_dialect("tsql")
             parsed = parse_statement(stmt_stripped, dialect=dialect)
-            query_type, _ = get_query_type_of_sql(parsed, dialect="tsql")
+            query_type, _ = get_query_type_of_sql(parsed, dialect=platform)
 
             # Skip UNKNOWN types (RAISERROR, unsupported SQL, etc.)
             if query_type == QueryType.UNKNOWN:

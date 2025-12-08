@@ -95,6 +95,7 @@ TSQL_CONTROL_FLOW_KEYWORDS = {
     "BREAK",
     "CONTINUE",
     "RETURN",
+    "GOTO",
     "THROW",
     "EXECUTE",
     "EXEC",

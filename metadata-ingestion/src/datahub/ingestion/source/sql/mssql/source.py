@@ -1034,20 +1034,20 @@ class SQLServerSource(SQLAlchemySource):
         Returns:
             True if the table name is fully qualified (>= 3 parts), False otherwise
         """
-        # Extract name from URN: urn:li:dataset:(urn:li:dataPlatform:mssql,NAME,ENV)
-        parts = urn.split(",")
-        if len(parts) < 2:
+        from datahub.metadata.urns import DatasetUrn
+
+        try:
+            dataset_urn = DatasetUrn.from_string(urn)
+            name = dataset_urn.name
+
+            # Strip platform_instance prefix if present
+            if platform_instance and name.startswith(f"{platform_instance}."):
+                name = name[len(platform_instance) + 1 :]
+
+            # Check if name has at least 3 parts (database.schema.table)
+            return len(name.split(".")) >= 3
+        except Exception:
             return False
-
-        name = parts[1]
-
-        # Strip platform_instance prefix if present
-        if platform_instance and name.startswith(f"{platform_instance}."):
-            name = name[len(platform_instance) + 1 :]
-
-        # Check if name has at least 3 parts (database.schema.table)
-        name_parts = name.split(".")
-        return len(name_parts) >= 3
 
     def _filter_upstream_aliases(self, upstream_urns: List[str]) -> List[str]:
         """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
@@ -1226,6 +1226,10 @@ class SQLServerSource(SQLAlchemySource):
             if table_name.startswith("#"):
                 return True
 
+            # Standardize case early to ensure consistent lookups
+            # This must match how get_identifier() stores names in discovered_datasets
+            standardized_name = self.standardize_identifier_case(name)
+
             # Check if the table exists in schema_resolver
             # If we have schema information for it, it's a real table (not an alias)
             # Only check schema_resolver if aggregator is initialized (not in unit tests)
@@ -1236,9 +1240,10 @@ class SQLServerSource(SQLAlchemySource):
 
                 schema_resolver = self.get_schema_resolver()
 
+                # Use standardized name for URN to match how tables are registered
                 urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
-                    name=name,
+                    name=standardized_name,
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
@@ -1246,8 +1251,8 @@ class SQLServerSource(SQLAlchemySource):
                 if schema_resolver.has_urn(urn):
                     return False
 
-            # If not in schema_resolver, check if it matches our patterns
-            # and check against discovered_datasets as fallback
+            # If not in schema_resolver, check against discovered_datasets
+            # For qualified names (>=3 parts), also validate against patterns
             if len(parts) >= 3:
                 schema_name = parts[-2]
                 db_name = parts[-3]
@@ -1257,13 +1262,21 @@ class SQLServerSource(SQLAlchemySource):
                     and self.config.schema_pattern.allowed(schema_name)
                     and self.config.table_pattern.allowed(name)
                 ):
-                    standardized_name = self.standardize_identifier_case(name)
+                    # Table matches our ingestion patterns but wasn't discovered
+                    # This is likely an alias or undiscovered table - treat as temp
                     if standardized_name not in self.discovered_datasets:
                         return True
                     else:
                         return False
+                else:
+                    # Qualified name outside our patterns (cross-database reference)
+                    # Assume it's a real table in another database - not a temp table
+                    return False
 
-            return False
+            # For unqualified names (<3 parts), if not in schema_resolver,
+            # treat as alias/temp table since we can't verify it's a real table
+            # This handles cases like "dst", "src" which are common TSQL aliases
+            return True
 
         except Exception as e:
             logger.warning(f"Error parsing table name {name}: {e}")
