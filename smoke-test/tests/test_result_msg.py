@@ -1,7 +1,10 @@
-import os
+import logging
 
 from slack_sdk import WebClient
 
+from tests.utilities import env_vars
+
+logger = logging.getLogger(__name__)
 datahub_stats = {}
 
 
@@ -10,10 +13,10 @@ def add_datahub_stats(stat_name, stat_val):
 
 
 def send_to_slack(passed: str):
-    slack_api_token = os.getenv("SLACK_API_TOKEN")
-    slack_channel = os.getenv("SLACK_CHANNEL")
-    slack_thread_ts = os.getenv("SLACK_THREAD_TS")
-    test_identifier = os.getenv("TEST_IDENTIFIER", "LOCAL_TEST")
+    slack_api_token = env_vars.get_slack_api_token()
+    slack_channel = env_vars.get_slack_channel()
+    slack_thread_ts = env_vars.get_slack_thread_ts()
+    test_identifier = env_vars.get_test_identifier()
     if slack_api_token is None or slack_channel is None:
         return
     client = WebClient(token=slack_api_token)
@@ -43,4 +46,4 @@ def send_message(exitstatus):
         send_to_slack("PASSED" if exitstatus == 0 else "FAILED")
     except Exception as e:
         # We don't want to fail pytest at all
-        print(f"Exception happened for sending msg to slack {e}")
+        logger.info(f"Exception happened for sending msg to slack {e}")

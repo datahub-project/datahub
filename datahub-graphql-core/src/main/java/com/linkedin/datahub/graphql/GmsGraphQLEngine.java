@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationResolver;
+import com.linkedin.datahub.graphql.resolvers.application.BatchUnsetApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
@@ -166,6 +167,8 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResol
 import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.PatchEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.PatchEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
@@ -298,6 +301,7 @@ import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.ingestion.ExecutionRequestType;
 import com.linkedin.datahub.graphql.types.ingestion.IngestionSourceType;
+import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -338,6 +342,7 @@ import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
@@ -421,6 +426,7 @@ public class GmsGraphQLEngine {
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
   private AssertionService assertionService;
+  private final DocumentService documentService;
   private final EntityVersioningService entityVersioningService;
   private final ApplicationService applicationService;
   private final PageTemplateService pageTemplateService;
@@ -467,6 +473,7 @@ public class GmsGraphQLEngine {
   private final DataHubConnectionType connectionType;
   private final ContainerType containerType;
   private final DomainType domainType;
+  private final DocumentType documentType;
   private final NotebookType notebookType;
   private final AssertionType assertionType;
   private final VersionedDatasetType versionedDatasetType;
@@ -571,6 +578,7 @@ public class GmsGraphQLEngine {
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
+    this.documentService = args.documentService;
     this.entityVersioningService = args.entityVersioningService;
 
     this.businessAttributeService = args.businessAttributeService;
@@ -610,6 +618,7 @@ public class GmsGraphQLEngine {
     this.connectionType = new DataHubConnectionType(entityClient, secretService);
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
+    this.documentType = new DocumentType(entityClient);
     this.notebookType = new NotebookType(entityClient);
     this.assertionType = new AssertionType(entityClient);
     this.versionedDatasetType = new VersionedDatasetType(entityClient);
@@ -669,6 +678,7 @@ public class GmsGraphQLEngine {
                 containerType,
                 notebookType,
                 domainType,
+                documentType,
                 assertionType,
                 versionedDatasetType,
                 dataPlatformInstanceType,
@@ -772,6 +782,7 @@ public class GmsGraphQLEngine {
     configureOrganisationRoleResolvers(builder);
     configureGlossaryNodeResolvers(builder);
     configureDomainResolvers(builder);
+    configureDocumentResolvers(builder);
     configureDataProductResolvers(builder);
     configureApplicationResolvers(builder);
     configureAssertionResolvers(builder);
@@ -868,8 +879,10 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(PATCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(FILES_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1007,7 +1020,8 @@ public class GmsGraphQLEngine {
                         this.s3Util != null))
                 .dataFetcher(
                     "latestProductUpdate",
-                    new ProductUpdateResolver(this.productUpdateService, this.featureFlags))
+                    new ProductUpdateResolver(
+                        this.productUpdateService, this.featureFlags, this.entityService))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
@@ -1141,7 +1155,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
-                        this.s3Util, this.datahubConfiguration.getS3())));
+                        this.s3Util, this.datahubConfiguration.getS3(), this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1246,6 +1260,12 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
+              .dataFetcher(
+                  "patchEntity",
+                  new PatchEntityResolver(entityService, entityClient, entityRegistry))
+              .dataFetcher(
+                  "patchEntities",
+                  new PatchEntitiesResolver(entityService, entityClient, entityRegistry))
               .dataFetcher("updateLink", new UpdateLinkResolver(entityService, this.entityClient))
               .dataFetcher("upsertLink", new UpsertLinkResolver(entityService, this.entityClient))
               .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
@@ -1384,6 +1404,9 @@ public class GmsGraphQLEngine {
                   new DeleteApplicationResolver(this.entityClient, this.applicationService))
               .dataFetcher(
                   "batchSetApplication", new BatchSetApplicationResolver(this.applicationService))
+              .dataFetcher(
+                  "batchUnsetApplication",
+                  new BatchUnsetApplicationResolver(this.applicationService))
               .dataFetcher(
                   "createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher(
@@ -2940,6 +2963,21 @@ public class GmsGraphQLEngine {
                         ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource())
                             .getDomain()
                             .getUrn())));
+  }
+
+  private void configureDocumentResolvers(final RuntimeWiring.Builder builder) {
+    // Delegate Knowledge Article wiring to consolidated resolver class
+    new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentResolvers(
+            this.documentService,
+            entityTypes,
+            documentType,
+            entityClient,
+            this.entityService,
+            this.graphClient,
+            entityRegistry,
+            this.timelineService,
+            this.groupService)
+        .configureResolvers(builder);
   }
 
   private void configureFormResolvers(final RuntimeWiring.Builder builder) {

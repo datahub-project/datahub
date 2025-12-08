@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Type, Union
 
 import yaml
-from pydantic import Field, StrictStr, validator
+from pydantic import Field, StrictStr, field_validator, model_validator
 from ruamel.yaml import YAML
 
 from datahub.configuration.common import ConfigModel
@@ -61,9 +61,12 @@ def _validate_entity_type_urn(cls: Type, v: str) -> str:
 class TypeQualifierAllowedTypes(ConfigModel):
     allowed_types: List[str]
 
-    _check_allowed_types = validator("allowed_types", each_item=True, allow_reuse=True)(
-        _validate_entity_type_urn
-    )
+    @field_validator("allowed_types", mode="before")
+    @classmethod
+    def _check_allowed_types(cls, v: Union[str, List[str]]) -> Union[str, List[str]]:
+        if isinstance(v, list):
+            return [_validate_entity_type_urn(cls, item) for item in v]
+        return _validate_entity_type_urn(cls, v)
 
 
 class StructuredProperties(ConfigModel):
@@ -71,6 +74,7 @@ class StructuredProperties(ConfigModel):
     urn: Optional[str] = Field(None, validate_default=True)
     qualified_name: Optional[str] = None
     type: str
+    version: Optional[str] = None
     value_entity_types: Optional[List[str]] = None
     description: Optional[str] = None
     display_name: Optional[str] = None
@@ -80,11 +84,15 @@ class StructuredProperties(ConfigModel):
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
     immutable: Optional[bool] = False
 
-    _check_entity_types = validator("entity_types", each_item=True, allow_reuse=True)(
-        _validate_entity_type_urn
-    )
+    @field_validator("entity_types", mode="before")
+    @classmethod
+    def _check_entity_types(cls, v: Union[str, List[str]]) -> Union[str, List[str]]:
+        if isinstance(v, list):
+            return [_validate_entity_type_urn(cls, item) for item in v]
+        return _validate_entity_type_urn(cls, v)
 
-    @validator("type")
+    @field_validator("type", mode="after")
+    @classmethod
     def validate_type(cls, v: str) -> str:
         # This logic is somewhat hacky, since we need to deal with
         # 1. fully qualified urns
@@ -123,13 +131,13 @@ class StructuredProperties(ConfigModel):
             )
         return id
 
-    @validator("urn", pre=True, always=True)
-    def urn_must_be_present(cls, v, values):
-        if not v:
-            if "id" not in values:
+    @model_validator(mode="after")
+    def urn_must_be_present(self) -> "StructuredProperties":
+        if not self.urn:
+            if not hasattr(self, "id") or not self.id:
                 raise ValueError("id must be present if urn is not")
-            return f"urn:li:structuredProperty:{values['id']}"
-        return v
+            self.urn = f"urn:li:structuredProperty:{self.id}"
+        return self
 
     @staticmethod
     def from_yaml(file: str) -> List["StructuredProperties"]:
@@ -138,7 +146,7 @@ class StructuredProperties(ConfigModel):
 
         result: List[StructuredProperties] = []
         for structuredproperty_raw in structuredproperties:
-            result.append(StructuredProperties.parse_obj(structuredproperty_raw))
+            result.append(StructuredProperties.model_validate(structuredproperty_raw))
         return result
 
     def generate_mcps(self) -> List[MetadataChangeProposalWrapper]:
@@ -168,6 +176,7 @@ class StructuredProperties(ConfigModel):
                     if self.type_qualifier
                     else None
                 ),
+                version=self.version,
             ),
         )
         return [mcp]
@@ -196,6 +205,7 @@ class StructuredProperties(ConfigModel):
             qualified_name=structured_property.qualifiedName,
             display_name=structured_property.displayName,
             type=structured_property.valueType,
+            version=structured_property.version,
             description=structured_property.description,
             entity_types=structured_property.entityTypes,
             cardinality=structured_property.cardinality,
@@ -225,7 +235,7 @@ class StructuredProperties(ConfigModel):
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.default_flow_style = False
-            yaml.dump(self.dict(), fp)
+            yaml.dump(self.model_dump(), fp)
 
     @staticmethod
     def list_urns(graph: DataHubGraph) -> Iterable[str]:

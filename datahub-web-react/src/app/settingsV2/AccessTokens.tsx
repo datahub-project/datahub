@@ -1,6 +1,7 @@
 import { red } from '@ant-design/colors';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, Divider, Dropdown, Empty, Modal, Pagination, Select, Typography, message } from 'antd';
+import { PageTitle } from '@components';
+import { Alert, Button, Divider, Dropdown, Empty, Pagination, Select, Typography, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -14,6 +15,7 @@ import { Message } from '@app/shared/Message';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -23,9 +25,7 @@ import { EntityType, FacetFilterInput } from '@types';
 
 const SourceContainer = styled.div`
     width: 100%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
     overflow: auto;
@@ -33,18 +33,6 @@ const SourceContainer = styled.div`
 
 const TokensContainer = styled.div`
     padding-top: 0px;
-`;
-
-const TokensHeaderContainer = styled.div`
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
 `;
 
 const StyledAlert = styled(Alert)`
@@ -108,6 +96,7 @@ export const AccessTokens = () => {
     const [owner, setOwner] = useState('All');
     const [filters, setFilters] = useState<Array<FacetFilterInput> | null>(null);
     const [query, setQuery] = useState<undefined | string>(undefined);
+    const [tokenToBeRemoved, setTokenToBeRemoved] = useState<any>(null);
     // Current User Urn
     const authenticatedUser = useUserContext();
     const entityRegistry = useEntityRegistry();
@@ -207,35 +196,25 @@ export const AccessTokens = () => {
 
     // Revoke token Handler
     const onRemoveToken = (token: any) => {
-        Modal.confirm({
-            title: 'Are you sure you want to revoke this token?',
-            content: `Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action.`,
-            onOk() {
-                // Hack to deal with eventual consistency.
-                const newTokenIds = [...removedTokens, token.id];
-                setRemovedTokens(newTokenIds);
+        // Hack to deal with eventual consistency.
+        const newTokenIds = [...removedTokens, token.id];
+        setRemovedTokens(newTokenIds);
 
-                revokeAccessToken({ variables: { tokenId: token.id } })
-                    .then(({ errors }) => {
-                        if (!errors) {
-                            analytics.event({ type: EventType.RevokeAccessTokenEvent });
-                        }
-                    })
-                    .catch((e) => {
-                        message.destroy();
-                        message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
-                    })
-                    .finally(() => {
-                        setTimeout(() => {
-                            tokensRefetch?.();
-                        }, 3000);
-                    });
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        revokeAccessToken({ variables: { tokenId: token.id } })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({ type: EventType.RevokeAccessTokenEvent });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                setTimeout(() => {
+                    tokensRefetch?.();
+                }, 3000);
+            });
     };
 
     const tableData = filteredTokens?.map((token) => ({
@@ -295,7 +274,7 @@ export const AccessTokens = () => {
             render: (_, record: any) => (
                 <ActionButtonContainer>
                     <Button
-                        onClick={() => onRemoveToken(record)}
+                        onClick={() => setTokenToBeRemoved(record)}
                         icon={<DeleteOutlined />}
                         danger
                         data-testid="revoke-token-button"
@@ -322,12 +301,7 @@ export const AccessTokens = () => {
             {tokensError && message.error('Failed to load tokens :(')}
             {revokeTokenError && message.error('Failed to update the Token :(')}
             <TokensContainer>
-                <TokensHeaderContainer>
-                    <TokensTitle level={2}>Manage Access Tokens</TokensTitle>
-                    <Typography.Paragraph type="secondary">
-                        Manage Access Tokens for use with DataHub APIs.
-                    </Typography.Paragraph>
-                </TokensHeaderContainer>
+                <PageTitle title="Manage Access Tokens" subTitle="Manage Access Tokens for use with DataHub APIs." />
             </TokensContainer>
             <Divider />
             {isTokenAuthEnabled === false && (
@@ -448,6 +422,16 @@ export const AccessTokens = () => {
                         tokensRefetch?.();
                     }, 3000);
                 }}
+            />
+            <ConfirmationModal
+                isOpen={!!tokenToBeRemoved}
+                handleClose={() => setTokenToBeRemoved(null)}
+                handleConfirm={() => {
+                    onRemoveToken(tokenToBeRemoved);
+                    setTokenToBeRemoved(null);
+                }}
+                modalTitle="Are you sure you want to revoke this token?"
+                modalText="Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action."
             />
         </SourceContainer>
     );

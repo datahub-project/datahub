@@ -12,7 +12,7 @@ FROZEN_TIME = "2021-08-24 09:00:00"
 
 
 def test_trino_usage_config():
-    config = TrinoUsageConfig.parse_obj(
+    config = TrinoUsageConfig.model_validate(
         dict(
             host_port="xxxxx",
             database="testcatalog",

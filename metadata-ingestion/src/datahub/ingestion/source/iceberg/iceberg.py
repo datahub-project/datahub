@@ -118,7 +118,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 
 
 @platform_name("Iceberg")
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
@@ -161,7 +161,7 @@ class IcebergSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
-        config = IcebergSourceConfig.parse_obj(config_dict)
+        config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -337,6 +337,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Iceberg REST Server Error",
                     message="Iceberg REST Server returned error status when trying to process a table, skipping it.",
+                    context=dataset_name,
+                    exc=e,
+                )
+            except OSError as e:
+                self.report.warning(
+                    title="Can't read manifest",
+                    message="Provided manifest path appeared impossible to read",
                     context=dataset_name,
                     exc=e,
                 )

@@ -17,7 +17,6 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -104,11 +103,12 @@ public abstract class GenericRelationshipController {
         graphService.scrollRelatedEntities(
             opContext,
             null,
+            QueryUtils.EMPTY_FILTER,
             null,
-            null,
-            null,
+            QueryUtils.EMPTY_FILTER,
             Set.of(relationshipType),
-            new RelationshipFilter().setDirection(RelationshipDirection.UNDIRECTED),
+            QueryUtils.newRelationshipFilter(
+                QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -208,15 +208,14 @@ public abstract class GenericRelationshipController {
           graphService.scrollRelatedEntities(
               opContext,
               null,
+              QueryUtils.EMPTY_FILTER,
               null,
-              null,
-              null,
+              QueryUtils.newFilter("urn", entityUrn),
               relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
                   ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                   : Set.of(),
-              new RelationshipFilter()
-                  .setDirection(RelationshipDirection.UNDIRECTED)
-                  .setOr(QueryUtils.newFilter("destination.urn", entityUrn).getOr()),
+              QueryUtils.newRelationshipFilter(
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
               pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -227,15 +226,14 @@ public abstract class GenericRelationshipController {
           graphService.scrollRelatedEntities(
               opContext,
               null,
+              QueryUtils.newFilter("urn", entityUrn),
               null,
-              null,
-              null,
+              QueryUtils.EMPTY_FILTER,
               relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
                   ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                   : Set.of(),
-              new RelationshipFilter()
-                  .setDirection(RelationshipDirection.UNDIRECTED)
-                  .setOr(QueryUtils.newFilter("source.urn", entityUrn).getOr()),
+              QueryUtils.newRelationshipFilter(
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
               pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,

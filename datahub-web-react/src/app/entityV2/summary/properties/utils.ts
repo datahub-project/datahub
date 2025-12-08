@@ -21,10 +21,13 @@ export function assetPropertyToMenuItem(
 
 const SUMMARY_ELEMENT_TYPE_TO_NAME = {
     [SummaryElementType.Created]: 'Created',
+    [SummaryElementType.LastModified]: 'Last Modified',
     [SummaryElementType.Domain]: 'Domain',
     [SummaryElementType.GlossaryTerms]: 'Glossary Terms',
     [SummaryElementType.Owners]: 'Owners',
     [SummaryElementType.Tags]: 'Tags',
+    [SummaryElementType.DocumentStatus]: 'Status',
+    [SummaryElementType.DocumentType]: 'Type',
 };
 
 export function mapSummaryElement(

@@ -1,7 +1,9 @@
+import dataclasses
+import json
 import logging
 import re
 import time
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urljoin
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -176,7 +178,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
@@ -209,13 +211,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
             config.workspace_url,
-            config.token,
             config.warehouse_id,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
             usage_data_source=config.usage_data_source,
             databricks_api_page_size=config.databricks_api_page_size,
+            personal_access_token=config.token if config.token else None,
+            azure_auth=config.azure_auth if config.azure_auth else None,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
@@ -317,7 +320,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = UnityCatalogSourceConfig.parse_obj(config_dict)
+        config = UnityCatalogSourceConfig.model_validate(config_dict)
         return cls(ctx=ctx, config=config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -741,6 +744,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     created=TimeStampClass(time=created_time, actor=created_actor),
                 )
             )
+        custom_properties = {}
+        if ml_model_version.signature:
+            for key, value in dataclasses.asdict(ml_model_version.signature).items():
+                if value:
+                    custom_properties[f"signature.{key}"] = json.dumps(value)
+
+        if ml_model_version.run_details:
+            if ml_model_version.run_details.tags:
+                for key, value in ml_model_version.run_details.tags.items():
+                    if value:
+                        custom_properties[key] = json.dumps(value)
 
         ml_model = MLModel(
             id=ml_model_version.id,
@@ -751,6 +765,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             model_group=ml_model_urn,
             platform=self.platform,
             last_modified=ml_model_version.updated_at,
+            training_metrics=cast(
+                Optional[Dict[str, Optional[str]]], ml_model_version.run_details.metrics
+            )
+            if ml_model_version.run_details and ml_model_version.run_details.metrics
+            else None,
+            hyper_params=cast(
+                Optional[Dict[str, Optional[str]]],
+                ml_model_version.run_details.parameters,
+            )
+            if ml_model_version.run_details and ml_model_version.run_details.parameters
+            else None,
+            custom_properties=custom_properties if custom_properties else None,
             extra_aspects=extra_aspects,
         )
 

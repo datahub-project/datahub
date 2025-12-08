@@ -212,6 +212,7 @@ export const SearchBarV2 = ({
                         open={isDropdownVisible}
                         dropdownContentHeight={480}
                         clickOutsideWidth={width === '100%' ? '100%' : undefined}
+                        shouldPreventOptionSelectingByMouseMove
                     >
                         <SearchBarInput
                             placeholder={placeholderText}

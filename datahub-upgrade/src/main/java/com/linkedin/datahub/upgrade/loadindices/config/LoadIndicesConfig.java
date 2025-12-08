@@ -6,7 +6,6 @@ import com.linkedin.datahub.upgrade.loadindices.NoOpKafkaEventProducer;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -59,7 +58,6 @@ public class LoadIndicesConfig {
   @Nonnull
   public LoadIndices createInstance(
       final Database ebeanServer,
-      final EntityService<?> entityService,
       final UpdateIndicesService updateIndicesService,
       @Qualifier("loadIndicesIndexManager") final LoadIndicesIndexManager indexManager,
       final SystemMetadataService systemMetadataService,
@@ -69,7 +67,6 @@ public class LoadIndicesConfig {
       final AspectDao aspectDao) {
     return new LoadIndices(
         ebeanServer,
-        entityService,
         updateIndicesService,
         indexManager,
         systemMetadataService,

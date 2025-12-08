@@ -21,6 +21,7 @@ from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.utilities.urns.urn import Urn
+from tests.utilities import env_vars
 from tests.utils import (
     delete_urns_from_file,
     get_gms_url,
@@ -30,7 +31,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-DELETE_AFTER_TEST = os.getenv("DELETE_AFTER_TEST", "false").lower() == "true"
+DELETE_AFTER_TEST = env_vars.get_delete_after_test()
 
 
 class FileEmitter:
@@ -205,7 +206,7 @@ def ingest_cleanup_data_function(
         try:
             template_path = Path(test_resources_dir) / template_file
             all_urns = create_test_data(filename, template_path, test_id)
-            print(
+            logger.info(
                 f"Ingesting datasets test data for test_id: {test_id} using template: {template_file}"
             )
             ingest_file_via_rest(auth_session=auth_session, filename=filename)
@@ -214,7 +215,7 @@ def ingest_cleanup_data_function(
             yield all_urns
         finally:
             if DELETE_AFTER_TEST:
-                print(f"Removing test data for test_id: {test_id}")
+                logger.info(f"Removing test data for test_id: {test_id}")
                 delete_urns_from_file(graph_client=graph_client, filename=filename)
                 for urn in all_urns:
                     graph_client.delete_entity(urn, hard=True)

@@ -116,6 +116,7 @@ public class Constants {
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
   public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
+  public static final String DOCUMENT_ENTITY_NAME = "document";
 
   /** Aspects */
   // Common
@@ -461,6 +462,12 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
   public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
   public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
+
+  // Knowledge Article
+  public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
+  public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
+  public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
 
@@ -544,11 +551,18 @@ public class Constants {
   public static final String MDC_ENTITY_TYPE = "entityType";
   public static final String MDC_CHANGE_TYPE = "changeType";
 
+  // Log messages
+  public static final String READ_ONLY_LOG =
+      "DataHub is currently in read only mode and this write will be dropped.";
+
   public static final String RESTLI_SUCCESS = "success";
 
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
   // EntityPrivilegesResolver
   public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
+
+  // AWS S3
+  public static final String S3_FILE_ID_NAME_SEPARATOR = "__";
 
   private Constants() {}
 }

@@ -3,6 +3,9 @@ import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
+import { ModalButton } from '@components/components/Modal/Modal';
+
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
     font-weight: bold;
@@ -33,6 +36,7 @@ type Props = {
     onClose: () => void;
     onSubmit: (description: string) => void;
     isAddDesc?: boolean;
+    editorProps?: Partial<EditorProps>;
 };
 
 export default function UpdateDescriptionModal({
@@ -43,8 +47,24 @@ export default function UpdateDescriptionModal({
     onClose,
     onSubmit,
     isAddDesc,
+    editorProps,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
+
+    const buttons: ModalButton[] = [
+        {
+            text: 'Cancel',
+            variant: 'text',
+            onClick: onClose,
+        },
+        {
+            text: 'Publish',
+            onClick: () => onSubmit(updatedDesc),
+            variant: 'filled',
+            disabled: updatedDesc === description,
+            buttonDataTestId: 'description-modal-update-button',
+        },
+    ];
 
     return (
         <Modal
@@ -53,16 +73,7 @@ export default function UpdateDescriptionModal({
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
-            buttons={[
-                { text: 'Cancel', variant: 'outline', onClick: onClose },
-                {
-                    text: 'Publish',
-                    variant: 'filled',
-                    onClick: () => onSubmit(updatedDesc),
-                    disabled: updatedDesc === description,
-                    buttonDataTestId: 'description-modal-update-button',
-                },
-            ]}
+            buttons={buttons}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (
@@ -77,7 +88,13 @@ export default function UpdateDescriptionModal({
                 )}
                 <Form.Item>
                     <EditorContainer>
-                        <Editor content={updatedDesc} onChange={setDesc} dataTestId="description-editor" hideBorder />
+                        <Editor
+                            content={updatedDesc}
+                            onChange={setDesc}
+                            dataTestId="description-editor"
+                            hideBorder
+                            {...editorProps}
+                        />
                     </EditorContainer>
                 </Form.Item>
             </Form>

@@ -127,22 +127,28 @@ USER datahub
 # INLINE-END
 
 # =============================================================================
-# PRE-BUILD BUNDLED INGESTION VENVS
+# PRE-BUILD BUNDLED INGESTION VENVS - FULL VARIANT
 # =============================================================================
 
-FROM ingestion-base-slim AS bundled-vEnvs
+FROM ingestion-base-slim AS bundled-venvs-full
 USER 0
 
-# Set up bundled venv configuration
+# Set up bundled venv configuration for FULL variant (with PySpark)
 ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+RUN test -n "$BUNDLED_CLI_VERSION"
 
 # Create venv directory
 RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
     chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
@@ -155,7 +161,91 @@ RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
 
 USER datahub
 
-# Build bundled venvs using our self-contained script
+# Build bundled venvs using our self-contained script (standard s3 with PySpark)
+WORKDIR /tmp
+RUN ./build_bundled_venvs_unified.sh
+
+USER datahub
+
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS - SLIM VARIANT
+# =============================================================================
+
+FROM ingestion-base-slim AS bundled-venvs-slim
+USER 0
+
+# Set up bundled venv configuration for SLIM variant (without PySpark)
+# Venv named s3-bundled but uses s3-slim package internally
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+RUN test -n "$BUNDLED_CLI_VERSION"
+
+# Create venv directory
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+
+# Copy the self-contained venv build scripts
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
+
+# Make scripts executable
+RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
+    chmod +x /tmp/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script (s3-slim without PySpark)
+WORKDIR /tmp
+RUN ./build_bundled_venvs_unified.sh
+
+USER datahub
+
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS - LOCKED VARIANT
+# =============================================================================
+
+FROM ingestion-base-slim AS bundled-venvs-locked
+USER 0
+
+# Set up bundled venv configuration for LOCKED variant (without PySpark, network blocked)
+# Same as slim but will have network access disabled in final stage
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+RUN test -n "$BUNDLED_CLI_VERSION"
+
+# Create venv directory
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy metadata-ingestion source (needed to build wheels)
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+
+# Copy the self-contained venv build scripts
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
+
+# Make scripts executable
+RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
+    chmod +x /tmp/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
 RUN ./build_bundled_venvs_unified.sh
 
@@ -165,12 +255,16 @@ USER datahub
 # END BUNDLED VENVS SECTION
 # =============================================================================
 
-FROM ingestion-base-${APP_ENV} AS final
+# =============================================================================
+# FINAL STAGE - FULL VARIANT (default, with PySpark, network enabled)
+# =============================================================================
+
+FROM ingestion-base-full AS final-full
 
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
-COPY --from=bundled-vEnvs $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
 COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
@@ -195,22 +289,137 @@ USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
-# Add other default configurations into this!
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
 
 USER datahub
 
 ARG RELEASE_VERSION
-RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
+RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-# For the datahub-actions build, we explicitly want to retain the uv cache.
-# This speeds up the process of creating venvs at runtime.
-# Because uv uses hardlinks for installing packages, keeping the cache around does not
-# really impact image size.
-RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
+# Install metadata-ingestion with base extras (network enabled, can install more at runtime)
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+  uv pip install -e '/metadata-ingestion/[base,s3,gcs,abs]'
+
+# Install datahub-actions with all extras
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+  uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+
+# =============================================================================
+# FINAL STAGE - SLIM VARIANT (no PySpark, network enabled)
+# =============================================================================
+
+FROM ingestion-base-slim AS final-slim
+
+USER root
+
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+
+RUN chmod a+x /start_datahub_actions.sh && \
+    mkdir -p /etc/datahub/actions && \
+    mkdir -p /tmp/datahub/logs/actions/system && \
+    chown -R datahub:datahub /etc/datahub /tmp/datahub
+
+# Install a cacheable layer that installs external dependencies
+COPY --chown=datahub:datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub:datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
+COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
+COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
+
+USER datahub
+RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+USER 0
+
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
+COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+
+USER datahub
+
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
+    python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+# Install metadata-ingestion with SLIM extras (no PySpark, network enabled for flexibility)
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+  uv pip install -e '/metadata-ingestion/[base,s3-slim,gcs-slim,abs-slim]'
+
+# Install datahub-actions with all extras
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+  uv pip install -e '/datahub-actions/[all]'
+
+ENTRYPOINT [ ]
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+
+# =============================================================================
+# FINAL STAGE - LOCKED VARIANT (no PySpark, network BLOCKED, bundled venvs only)
+# =============================================================================
+
+FROM ingestion-base-slim AS final-locked
+
+USER root
+
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+
+RUN chmod a+x /start_datahub_actions.sh && \
+    mkdir -p /etc/datahub/actions && \
+    mkdir -p /tmp/datahub/logs/actions/system && \
+    chown -R datahub:datahub /etc/datahub /tmp/datahub
+
+# NO metadata-ingestion install in locked variant - only bundled venvs available
+# This ensures complete isolation and prevents any package installations
+
+# Copy only datahub-actions code (not metadata-ingestion)
+COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
+COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
+COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
+
+USER datahub
+# Install only datahub-actions, NOT metadata-ingestion
+RUN echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+USER 0
+
+COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
+COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+
+USER datahub
+
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+# Install ONLY datahub-actions (not metadata-ingestion)
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+  uv pip install -e '/datahub-actions/[all]'
+
+# Block network access to PyPI - locked variant only uses bundled venvs
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+ENTRYPOINT [ ]
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+
+# =============================================================================
+# DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
+# =============================================================================
+
+FROM final-${APP_ENV} AS final

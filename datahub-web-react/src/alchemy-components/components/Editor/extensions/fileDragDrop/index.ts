@@ -2,7 +2,7 @@ export { FileDragDropExtension } from './FileDragDropExtension';
 export { FileNodeView } from './FileNodeView';
 export {
     FILE_ATTRS,
-    FileNodeAttributes,
+    // FileNodeAttributes,
     SUPPORTED_FILE_TYPES,
     createFileNodeAttributes,
     handleFileDownload,

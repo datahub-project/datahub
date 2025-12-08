@@ -1,6 +1,9 @@
 namespace com.linkedin.dataset
 
 /**
- * Schema field path. TODO: Add formal documentation on normalization rules.
+ * Schema field path.
+ *
+ * For formal documentation on normalization rules, see docs/advanced/field-path-spec-v2.md
+ * or https://github.com/datahub-project/datahub/blob/master/docs/advanced/field-path-spec-v2.md
  */
 typeref SchemaFieldPath = string

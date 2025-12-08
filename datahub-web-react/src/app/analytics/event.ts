@@ -1,3 +1,5 @@
+import { FileUploadFailureType } from '@components/components/Editor/types';
+
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { Direction } from '@app/lineage/types';
@@ -17,6 +19,7 @@ import {
     ScenarioType,
     SearchBarApi,
     SummaryElementType,
+    UploadDownloadScenario,
 } from '@types';
 
 /**
@@ -160,6 +163,16 @@ export enum EventType {
     AssetPageAddSummaryElement,
     AssetPageRemoveSummaryElement,
     AssetPageReplaceSummaryElement,
+    FileUploadAttemptEvent,
+    FileUploadFailedEvent,
+    FileUploadSucceededEvent,
+    FileDownloadViewEvent,
+    FileUploadLatencyEvent,
+    FileDownloadLatencyEvent,
+    CreateDocumentEvent,
+    MoveDocumentEvent,
+    EditDocumentEvent,
+    DeleteDocumentEvent,
 }
 
 /**
@@ -1171,6 +1184,110 @@ export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
     newElementType: SummaryElementType;
 }
 
+export interface FileUploadAttemptEvent extends BaseEvent {
+    type: EventType.FileUploadAttemptEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileUploadFailedEvent extends BaseEvent {
+    type: EventType.FileUploadFailedEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+    failureType: FileUploadFailureType;
+    comment?: string;
+}
+
+export interface FileUploadSucceededEvent extends BaseEvent {
+    type: EventType.FileUploadSucceededEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileDownloadViewEvent extends BaseEvent {
+    type: EventType.FileDownloadViewEvent;
+    // These fields aren't accessible while downloading
+    // fileType: string;
+    // fileSize: number;
+    scenario: UploadDownloadScenario;
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileUploadLatencyEvent extends BaseEvent {
+    type: EventType.FileUploadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+export interface FileDownloadLatencyEvent extends BaseEvent {
+    type: EventType.FileDownloadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+/**
+ * Logged when a user creates a new document.
+ */
+export interface CreateDocumentEvent extends BaseEvent {
+    type: EventType.CreateDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+    hasParent: boolean;
+    parentDocumentUrn?: string;
+}
+
+/**
+ * Logged when a user moves a document to a different parent.
+ */
+export interface MoveDocumentEvent extends BaseEvent {
+    type: EventType.MoveDocumentEvent;
+    documentUrn: string;
+    oldParentDocumentUrn?: string;
+    newParentDocumentUrn?: string;
+}
+
+/**
+ * Describes what kind of edit was made to a document.
+ */
+export enum DocumentEditType {
+    Title = 'Title',
+    Contents = 'Contents',
+    PublishState = 'PublishState',
+    Type = 'Type',
+}
+
+/**
+ * Logged when a user edits a document.
+ */
+export interface EditDocumentEvent extends BaseEvent {
+    type: EventType.EditDocumentEvent;
+    documentUrn: string;
+    editType: DocumentEditType;
+    documentType?: string;
+}
+
+/**
+ * Logged when a user deletes a document.
+ */
+export interface DeleteDocumentEvent extends BaseEvent {
+    type: EventType.DeleteDocumentEvent;
+    documentUrn: string;
+    documentType?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1311,4 +1428,14 @@ export type Event =
     | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent
-    | AssetPageReplaceSummaryElementEvent;
+    | AssetPageReplaceSummaryElementEvent
+    | FileUploadAttemptEvent
+    | FileUploadFailedEvent
+    | FileUploadSucceededEvent
+    | FileDownloadViewEvent
+    | FileUploadLatencyEvent
+    | FileDownloadLatencyEvent
+    | CreateDocumentEvent
+    | MoveDocumentEvent
+    | EditDocumentEvent
+    | DeleteDocumentEvent;
