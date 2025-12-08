@@ -26,9 +26,12 @@ public class MfeConfigControllerTest {
   @Test
   public void testGetMfeConfigWhenFilePathNull() {
     when(mockConfig.getString("mfeConfigFilePath")).thenReturn(null);
-    MfeConfigController mfeConfigController = new MfeConfigController(mockConfig, mockEnvironment);
-    Result result = mfeConfigController.getMfeConfig();
-    assertEquals(500, result.status());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          new MfeConfigController(mockConfig, mockEnvironment);
+        });
   }
 
   @Test
