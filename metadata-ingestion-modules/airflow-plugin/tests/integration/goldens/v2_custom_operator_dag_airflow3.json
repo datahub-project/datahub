@@ -204,20 +204,6 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.custom_operator_dag,prod),custom_task_id)",
     "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [],
-            "fineGrainedLineages": []
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.custom_operator_dag,prod),custom_task_id)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -268,8 +254,8 @@
                 "task_id": "custom_task_id",
                 "dag_id": "custom_operator_dag",
                 "end_date": "<end_date>",
-                "max_tries": "0",
                 "operator": "CustomOperator",
+                "max_tries": "0",
                 "log_url": "http://airflow.example.com/dags/custom_operator_dag/runs/manual_run_test/tasks/custom_task_id?try_number=1",
                 "orchestrator": "airflow"
             },
@@ -277,7 +263,7 @@
             "name": "custom_operator_dag_custom_task_id_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760951186254,
+                "time": 1765182750913,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -314,7 +300,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951186254,
+            "timestampMillis": 1765182750913,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -479,7 +465,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951188196,
+            "timestampMillis": 1765182751740,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

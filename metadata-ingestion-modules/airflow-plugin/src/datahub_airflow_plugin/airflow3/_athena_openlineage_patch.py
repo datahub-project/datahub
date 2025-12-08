@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
@@ -77,43 +78,53 @@ def patch_athena_operator() -> None:
                     f"Original Athena OpenLineage result: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}"
                 )
 
-                # Now enhance with DataHub SQL parsing
-                try:
-                    # Get platform and database info
-                    platform = "athena"
-                    default_database = (
-                        self.database if hasattr(self, "database") else None
-                    )
-
-                    logger.debug(
-                        f"Running DataHub SQL parser for Athena (platform={platform}, "
-                        f"default_db={default_database}): {self.query}"
-                    )
-
-                    # Use DataHub's SQL parser
-                    sql_parsing_result = create_lineage_sql_parsed_result(
-                        query=self.query,
-                        platform=platform,
-                        platform_instance=None,
-                        env=builder.DEFAULT_ENV,
-                        default_db=default_database,
-                        default_schema=None,
-                    )
-
-                    # Store the SQL parsing result in run_facets for DataHub listener
-                    if sql_parsing_result:
-                        operator_lineage.run_facets["datahub_sql_parsing_result"] = (
-                            sql_parsing_result
+                # Check if SQL parsing result is already in run_facets (from SQLParser patch)
+                # If not, add it manually since Athena might not use SQLParser or patch might not work
+                if DATAHUB_SQL_PARSING_RESULT_KEY not in operator_lineage.run_facets:
+                    # SQLParser patch didn't add it - add it manually
+                    try:
+                        platform = "athena"
+                        default_database = (
+                            self.database if hasattr(self, "database") else None
                         )
+
+                        # Get the SQL query - templates are already rendered by Airflow during task execution
+                        rendered_query = self.query
+
                         logger.debug(
-                            f"Added DataHub SQL parsing result with "
-                            f"{len(sql_parsing_result.column_lineage or [])} column lineages"
+                            f"Running DataHub SQL parser for Athena (platform={platform}, "
+                            f"default_db={default_database}): {rendered_query[:200] if rendered_query else 'None'}"
                         )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Error running DataHub SQL parser for Athena: {e}",
-                        exc_info=True,
+                        # Use DataHub's SQL parser
+                        sql_parsing_result = create_lineage_sql_parsed_result(
+                            query=rendered_query,
+                            platform=platform,
+                            platform_instance=None,
+                            env=builder.DEFAULT_ENV,
+                            default_db=default_database,
+                            default_schema=None,
+                        )
+
+                        # Store the SQL parsing result in run_facets for DataHub listener
+                        if sql_parsing_result:
+                            operator_lineage.run_facets[
+                                DATAHUB_SQL_PARSING_RESULT_KEY
+                            ] = sql_parsing_result
+                            logger.debug(
+                                f"Added DataHub SQL parsing result with "
+                                f"{len(sql_parsing_result.column_lineage or [])} column lineages"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error running DataHub SQL parser for Athena: {e}",
+                            exc_info=True,
+                        )
+                else:
+                    logger.debug(
+                        f"DataHub SQL parsing result already present in run_facets "
+                        f"(added by SQLParser patch) with "
+                        f"{len(operator_lineage.run_facets[DATAHUB_SQL_PARSING_RESULT_KEY].column_lineage or [])} column lineages"
                     )
 
                 return operator_lineage

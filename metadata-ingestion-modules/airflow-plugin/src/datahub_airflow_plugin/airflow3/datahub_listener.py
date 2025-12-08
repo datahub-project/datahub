@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     DataFlowKeyClass,
+    DataJobInputOutputClass,
     DataJobKeyClass,
     DataPlatformInstanceClass,
     FineGrainedLineageClass,
@@ -692,10 +693,25 @@ class DataHubListener:
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         if not sql_parsing_result:
+            logger.debug(
+                f"No SQL parsing result available for task {datajob.urn} - lineage may be incomplete"
+            )
             return input_urns, output_urns, fine_grained_lineages
 
+        # Log parsing result summary for debugging
+        logger.debug(
+            f"Processing SQL parsing result for task {datajob.urn}: "
+            f"in_tables={len(sql_parsing_result.in_tables)}, "
+            f"out_tables={len(sql_parsing_result.out_tables)}, "
+            f"column_lineage={len(sql_parsing_result.column_lineage or [])}, "
+            f"table_error={sql_parsing_result.debug_info.table_error}, "
+            f"error={sql_parsing_result.debug_info.error}"
+        )
+
         if error := sql_parsing_result.debug_info.error:
-            logger.debug(f"SQL parsing error: {error}", exc_info=error)
+            logger.warning(
+                f"SQL parsing error for task {datajob.urn}: {error}", exc_info=error
+            )
             datajob.properties["datahub_sql_parser_error"] = (
                 f"{type(error).__name__}: {error}"
             )
@@ -705,6 +721,8 @@ class DataHubListener:
             output_urns.extend(sql_parsing_result.out_tables)
 
             if sql_parsing_result.column_lineage:
+                # Create FGLs from column_lineage items
+                # Duplicates will be caught by sql_fine_grained_lineages deduplication below
                 fine_grained_lineages.extend(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -725,6 +743,13 @@ class DataHubListener:
                     )
                     for column_lineage in sql_parsing_result.column_lineage
                 )
+                logger.debug(
+                    f"Created {len(fine_grained_lineages)} FGLs from {len(sql_parsing_result.column_lineage)} column_lineage items for task {datajob.urn}"
+                )
+        else:
+            logger.warning(
+                f"SQL parsing table error for task {datajob.urn}: {sql_parsing_result.debug_info.table_error}"
+            )
 
         return input_urns, output_urns, fine_grained_lineages
 
@@ -741,7 +766,7 @@ class DataHubListener:
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
-        logger.debug(
+        logger.info(
             f"_extract_lineage called for task {task.task_id} (complete={complete}, enable_datajob_lineage={self.config.enable_datajob_lineage})"
         )
         if not self.config.enable_datajob_lineage:
@@ -753,6 +778,10 @@ class DataHubListener:
         input_urns: List[str] = []
         output_urns: List[str] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        # For completion events, start with empty FGLs to avoid accumulating duplicates
+        if complete and datajob.fine_grained_lineages:
+            datajob.fine_grained_lineages = []
 
         task_metadata = None
         sql_parsing_result: Optional[SqlParsingResult] = None
@@ -774,6 +803,29 @@ class DataHubListener:
         )
         input_urns.extend(sql_input_urns)
         output_urns.extend(sql_output_urns)
+
+        # Deduplicate within sql_fine_grained_lineages before adding to fine_grained_lineages
+        # This prevents duplicates from SQL parsing result itself
+        if sql_fine_grained_lineages:
+            seen_sql_fgl_keys = {}
+            unique_sql_fgls = []
+            for fgl in sql_fine_grained_lineages:
+                fgl_key = (
+                    tuple(sorted(fgl.upstreams)) if fgl.upstreams else (),
+                    tuple(sorted(fgl.downstreams)) if fgl.downstreams else (),
+                    fgl.upstreamType,
+                    fgl.downstreamType,
+                )
+                if fgl_key not in seen_sql_fgl_keys:
+                    seen_sql_fgl_keys[fgl_key] = fgl
+                    unique_sql_fgls.append(fgl)
+
+            if len(unique_sql_fgls) != len(sql_fine_grained_lineages):
+                logger.debug(
+                    f"Deduplicated SQL parsing FGLs: {len(sql_fine_grained_lineages)} -> {len(unique_sql_fgls)} for task {datajob.urn}"
+                )
+            sql_fine_grained_lineages = unique_sql_fgls
+
         fine_grained_lineages.extend(sql_fine_grained_lineages)
 
         # Add DataHub-native inlets/outlets
@@ -788,7 +840,9 @@ class DataHubListener:
         datajob.inlets.extend(entities_to_dataset_urn_list(input_urns))
         datajob.outlets.extend(entities_to_dataset_urn_list(output_urns))
         datajob.upstream_urns.extend(entities_to_datajob_urn_list(input_urns))
-        datajob.fine_grained_lineages.extend(fine_grained_lineages)
+
+        # Set fine_grained_lineages - already deduplicated (sql_fine_grained_lineages)
+        datajob.fine_grained_lineages = fine_grained_lineages
 
         # Merge with datajob from task start (if this is task completion)
         if complete:
@@ -802,7 +856,8 @@ class DataHubListener:
             datajob.inlets.extend(original_datajob.inlets)
             datajob.outlets.extend(original_datajob.outlets)
             datajob.upstream_urns.extend(original_datajob.upstream_urns)
-            datajob.fine_grained_lineages.extend(original_datajob.fine_grained_lineages)
+            # Don't merge fine_grained_lineages from start - completion lineage is complete and accurate
+            # This avoids duplicates when SQLParser extracts lineage on both start and completion
 
             for k, v in original_datajob.properties.items():
                 datajob.properties.setdefault(k, v)
@@ -933,10 +988,23 @@ class DataHubListener:
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=complete)  # type: ignore[arg-type]
 
         # Emit DataJob MCPs
+        # Skip dataJobInputOutput aspects on task start to avoid file emitter merging duplicates
+        # The file emitter merges aspects with the same entity URN and aspect name,
+        # which causes FGLs from start and completion to be combined into duplicates.
+        # We only emit the aspect on completion when lineage is complete and accurate.
         for mcp in datajob.generate_mcp(
             generate_lineage=self.config.enable_datajob_lineage,
             materialize_iolets=self.config.materialize_iolets,
         ):
+            # Skip dataJobInputOutput aspects on task start
+            if not complete:
+                if isinstance(mcp.aspect, DataJobInputOutputClass):
+                    logger.debug(
+                        f"Skipping dataJobInputOutput for task {task.task_id} on start "
+                        f"(will be emitted on completion to avoid file emitter merging duplicates)"
+                    )
+                    continue
+
             emitter.emit(mcp, self._make_emit_callback())
 
         status_text = f"finish w/ status {complete}" if complete else "start"

@@ -31,7 +31,7 @@ def patch_bigquery_insert_job_operator() -> None:
             BigQueryInsertJobOperator,
         )
 
-        # Check if the method exists (only in Airflow 3.x)
+        # Check if the methods exist (only in Airflow 3.x)
         if not hasattr(BigQueryInsertJobOperator, "get_openlineage_facets_on_complete"):
             logger.debug(
                 "BigQueryInsertJobOperator.get_openlineage_facets_on_complete not found - "
@@ -77,8 +77,53 @@ def patch_bigquery_insert_job_operator() -> None:
                         self, task_instance
                     )
 
+                # Render Jinja templates in SQL if they exist
+                # In Airflow 3.x, templates should be rendered by task execution,
+                # but self.configuration may still contain unrendered templates
+                rendered_sql = sql
+                if "{{" in str(sql) or "{%" in str(sql):
+                    try:
+                        # Get template context from task_instance
+                        # Context can be a dict-like object or a Context object
+                        context: Any = {}
+                        if hasattr(task_instance, "get_template_context"):
+                            context_obj = task_instance.get_template_context()
+                            # Context objects can be used directly with ** unpacking
+                            context = context_obj
+                        elif (
+                            hasattr(task_instance, "task")
+                            and task_instance.task is not None
+                            and hasattr(task_instance.task, "get_template_context")
+                        ):
+                            context_obj = task_instance.task.get_template_context()
+                            context = context_obj
+
+                        # Try to render using the operator's render_template method
+                        if hasattr(self, "render_template") and context:
+                            rendered_sql = self.render_template(sql, context)
+                        else:
+                            # Fallback: try to render using Jinja2 directly
+                            from airflow.templates import SandboxedEnvironment
+
+                            jinja_env = SandboxedEnvironment()
+                            template = jinja_env.from_string(str(sql))
+                            # Context objects support ** unpacking
+                            rendered_sql = template.render(**context)  # type: ignore[misc]
+
+                        logger.debug(
+                            "Rendered BigQuery SQL templates: %s -> %s",
+                            str(sql)[:100],
+                            str(rendered_sql)[:100],
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to render BigQuery SQL templates, using original SQL: %s",
+                            e,
+                        )
+                        rendered_sql = sql
+
                 logger.debug(
-                    f"DataHub patched BigQuery get_openlineage_facets_on_complete called for query: {sql[:100]}..."
+                    f"DataHub patched BigQuery get_openlineage_facets_on_complete called for query: {rendered_sql[:100]}..."
                 )
 
                 # Get the original OpenLineage result
@@ -106,15 +151,15 @@ def patch_bigquery_insert_job_operator() -> None:
 
                     logger.debug(
                         f"Running DataHub SQL parser for BigQuery (platform={platform}, "
-                        f"default_db={default_database}): {sql}"
+                        f"default_db={default_database}): {rendered_sql}"
                     )
 
                     listener = get_airflow_plugin_listener()
                     graph = listener.graph if listener else None
 
-                    # Use DataHub's SQL parser
+                    # Use DataHub's SQL parser with rendered SQL
                     sql_parsing_result = create_lineage_sql_parsed_result(
-                        query=sql,
+                        query=rendered_sql,
                         graph=graph,
                         platform=platform,
                         platform_instance=None,
@@ -158,8 +203,12 @@ def patch_bigquery_insert_job_operator() -> None:
                                 )
 
                     # Store the SQL parsing result in run_facets for DataHub listener
+                    from datahub_airflow_plugin._constants import (
+                        DATAHUB_SQL_PARSING_RESULT_KEY,
+                    )
+
                     if sql_parsing_result:
-                        operator_lineage.run_facets["datahub_sql_parsing_result"] = (
+                        operator_lineage.run_facets[DATAHUB_SQL_PARSING_RESULT_KEY] = (
                             sql_parsing_result
                         )
                         logger.debug(

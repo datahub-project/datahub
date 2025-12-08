@@ -148,6 +148,14 @@ def _datahub_generate_openlineage_metadata_from_sql(
             logger.debug("Got list of SQL statements. Using first one for parsing.")
             sql = sql[0] if sql else ""
 
+        # Check if SQL still contains templates (should be rendered by operator)
+        if "{{" in str(sql):
+            logger.warning(
+                f"SQL still contains Jinja templates - lineage extraction may fail. "
+                f"SQL: {sql[:200]}... "
+                f"This usually means templates weren't rendered before SQL parsing."
+            )
+
         # Run DataHub's SQL parser
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
