@@ -614,9 +614,11 @@ class DataHubListener:
                 )
 
                 if not operator_lineage:
-                    logger.debug(
-                        f"OpenLineage facet method {facet_method_name} returned None for task {task.task_id}"
+                    logger.info(
+                        f"⚠️ OpenLineage facet method {facet_method_name} returned None for task {task.task_id} - this is expected for BigQuery when no job_id is found"
                     )
+                    # Even if operator_lineage is None, we might have SQL parsing result from a patch
+                    # that created a new OperatorLineage. But if it's None, there's nothing to process.
                     return input_urns, output_urns, sql_parsing_result
 
                 logger.debug(
