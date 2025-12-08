@@ -4,6 +4,7 @@ import com.linkedin.mxe.TopicConvention;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 
@@ -17,10 +18,16 @@ import lombok.Getter;
  */
 public class DataHubTopicConvention {
 
-  @Nonnull private final TopicConvention topicConvention;
+  @Getter @Nonnull private final TopicConvention topicConvention;
 
   /** Set of known DataHub consumer group IDs. */
   @Getter @Nonnull private final Set<String> knownConsumerGroupIds;
+
+  /** Cached map of alias to topic name. */
+  @Getter @Nonnull private final Map<String, String> aliasToTopicNameMap;
+
+  /** Cached map of topic name to alias. */
+  @Getter @Nonnull private final Map<String, String> topicNameToAliasMap;
 
   /**
    * Creates a new DataHubTopicConvention with topic convention only (no consumer groups).
@@ -41,6 +48,19 @@ public class DataHubTopicConvention {
       @Nonnull TopicConvention topicConvention, @Nonnull Set<String> consumerGroupIds) {
     this.topicConvention = topicConvention;
     this.knownConsumerGroupIds = consumerGroupIds != null ? Set.copyOf(consumerGroupIds) : Set.of();
+
+    // Build and cache both maps eagerly
+    this.aliasToTopicNameMap =
+        Map.of(
+            ALIAS_MCP, topicConvention.getMetadataChangeProposalTopicName(),
+            ALIAS_MCP_FAILED, topicConvention.getFailedMetadataChangeProposalTopicName(),
+            ALIAS_MCL_VERSIONED, topicConvention.getMetadataChangeLogVersionedTopicName(),
+            ALIAS_MCL_TIMESERIES, topicConvention.getMetadataChangeLogTimeseriesTopicName(),
+            ALIAS_PLATFORM_EVENT, topicConvention.getPlatformEventTopicName(),
+            ALIAS_UPGRADE_HISTORY, topicConvention.getDataHubUpgradeHistoryTopicName());
+    this.topicNameToAliasMap =
+        this.aliasToTopicNameMap.entrySet().stream()
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getValue, Map.Entry::getKey));
   }
 
   // ============================================================================
@@ -66,34 +86,8 @@ public class DataHubTopicConvention {
   public static final String ALIAS_UPGRADE_HISTORY = "upgrade-history";
 
   // ============================================================================
-  // Delegate Methods
-  // ============================================================================
-
-  /** Returns the underlying TopicConvention. */
-  @Nonnull
-  public TopicConvention getTopicConvention() {
-    return topicConvention;
-  }
-
-  // ============================================================================
   // Topic Validation and Lookup Methods
   // ============================================================================
-
-  /**
-   * Returns a map of alias to topic name for all DataHub topics. This is the single source of truth
-   * for all topic alias mappings.
-   *
-   * @return map of alias to topic name
-   */
-  public Map<String, String> getAliasToTopicNameMap() {
-    return Map.of(
-        ALIAS_MCP, topicConvention.getMetadataChangeProposalTopicName(),
-        ALIAS_MCP_FAILED, topicConvention.getFailedMetadataChangeProposalTopicName(),
-        ALIAS_MCL_VERSIONED, topicConvention.getMetadataChangeLogVersionedTopicName(),
-        ALIAS_MCL_TIMESERIES, topicConvention.getMetadataChangeLogTimeseriesTopicName(),
-        ALIAS_PLATFORM_EVENT, topicConvention.getPlatformEventTopicName(),
-        ALIAS_UPGRADE_HISTORY, topicConvention.getDataHubUpgradeHistoryTopicName());
-  }
 
   /**
    * Returns all known DataHub topic names as a set.
@@ -101,7 +95,7 @@ public class DataHubTopicConvention {
    * @return set of all DataHub topic names
    */
   public Set<String> getAllDataHubTopicNames() {
-    return Set.copyOf(getAliasToTopicNameMap().values());
+    return getTopicNameToAliasMap().keySet();
   }
 
   /**
@@ -111,7 +105,7 @@ public class DataHubTopicConvention {
    * @return true if the topic is a known DataHub topic
    */
   public boolean isDataHubTopic(String topicName) {
-    return topicName != null && getAliasToTopicNameMap().containsValue(topicName);
+    return topicName != null && getTopicNameToAliasMap().containsKey(topicName);
   }
 
   /**
@@ -138,10 +132,7 @@ public class DataHubTopicConvention {
     if (topicName == null) {
       return Optional.empty();
     }
-    return getAliasToTopicNameMap().entrySet().stream()
-        .filter(entry -> entry.getValue().equals(topicName))
-        .map(Map.Entry::getKey)
-        .findFirst();
+    return Optional.ofNullable(getTopicNameToAliasMap().get(topicName));
   }
 
   /**

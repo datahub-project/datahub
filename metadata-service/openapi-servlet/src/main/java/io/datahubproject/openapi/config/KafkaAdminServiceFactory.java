@@ -8,6 +8,7 @@ import io.datahubproject.openapi.operations.kafka.KafkaAdminService;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 import javax.annotation.Nonnull;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -84,9 +85,7 @@ public class KafkaAdminServiceFactory {
     Properties consumerProps = new Properties();
     consumerProps.putAll(ADMIN_CONSUMER_PROPERTIES);
     // Add a unique suffix to the client.id
-    consumerProps.put(
-        ConsumerConfig.CLIENT_ID_CONFIG,
-        baseClientId + "-" + Thread.currentThread().getId() + "-" + System.nanoTime());
+    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, baseClientId + "-" + UUID.randomUUID());
 
     return kafkaConsumerFactory.createConsumer(
         baseClientId, // groupId prefix

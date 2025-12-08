@@ -517,18 +517,12 @@ public class KafkaAdminService {
       Map<String, KafkaConsumerGroupResponse.TopicOffsets> topicOffsetsMap = new HashMap<>();
       long totalLag = 0;
 
+      // Batch fetch all end offsets in a single call (instead of N calls per partition)
+      Map<TopicPartition, Long> endOffsets = fetchOffsets(offsets.keySet(), OffsetSpec.latest());
+
       for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
         TopicPartition tp = entry.getKey();
         OffsetAndMetadata offsetAndMetadata = entry.getValue();
-
-        Map<TopicPartition, Long> endOffsets =
-            adminClient
-                .listOffsets(Map.of(tp, OffsetSpec.latest()))
-                .all()
-                .get(timeoutSeconds, TimeUnit.SECONDS)
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset()));
 
         Long endOffset = endOffsets.get(tp);
         Long currentOffset = offsetAndMetadata.offset();
@@ -1070,35 +1064,38 @@ public class KafkaAdminService {
                     alias, topicConvention.getAllAliases()));
   }
 
+  /**
+   * Fetches offsets for the given partitions using a single batched admin call.
+   *
+   * @param partitions the set of topic partitions to fetch offsets for
+   * @param spec the offset specification (earliest, latest, etc.)
+   * @return map of topic partition to offset
+   * @throws InterruptedException if the operation is interrupted
+   * @throws ExecutionException if the operation fails
+   * @throws TimeoutException if the operation times out
+   */
+  private Map<TopicPartition, Long> fetchOffsets(Set<TopicPartition> partitions, OffsetSpec spec)
+      throws InterruptedException, ExecutionException, TimeoutException {
+    Map<TopicPartition, OffsetSpec> offsetSpecMap =
+        partitions.stream().collect(Collectors.toMap(tp -> tp, tp -> spec));
+    return adminClient
+        .listOffsets(offsetSpecMap)
+        .all()
+        .get(timeoutSeconds, TimeUnit.SECONDS)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset()));
+  }
+
   private Map<TopicPartition, Long> calculateTargetOffsets(
       Map<TopicPartition, OffsetAndMetadata> currentOffsets, String strategy, String value) {
     Map<TopicPartition, Long> targetOffsets = new HashMap<>();
 
     try {
       if ("earliest".equals(strategy)) {
-        for (TopicPartition tp : currentOffsets.keySet()) {
-          Map<TopicPartition, Long> beginningOffsets =
-              adminClient
-                  .listOffsets(Map.of(tp, OffsetSpec.earliest()))
-                  .all()
-                  .get(timeoutSeconds, TimeUnit.SECONDS)
-                  .entrySet()
-                  .stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset()));
-          targetOffsets.put(tp, beginningOffsets.get(tp));
-        }
+        targetOffsets.putAll(fetchOffsets(currentOffsets.keySet(), OffsetSpec.earliest()));
       } else if ("latest".equals(strategy)) {
-        for (TopicPartition tp : currentOffsets.keySet()) {
-          Map<TopicPartition, Long> endOffsets =
-              adminClient
-                  .listOffsets(Map.of(tp, OffsetSpec.latest()))
-                  .all()
-                  .get(timeoutSeconds, TimeUnit.SECONDS)
-                  .entrySet()
-                  .stream()
-                  .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().offset()));
-          targetOffsets.put(tp, endOffsets.get(tp));
-        }
+        targetOffsets.putAll(fetchOffsets(currentOffsets.keySet(), OffsetSpec.latest()));
       } else if ("to-offset".equals(strategy)) {
         if (value == null) {
           throw new IllegalArgumentException("Value is required for to-offset strategy");
