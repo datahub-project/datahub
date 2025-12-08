@@ -1201,6 +1201,152 @@ class TestConvertLangchainResponseToBedrock:
         # Should default to end_turn when no response_metadata
         assert result["stopReason"] == "end_turn"
 
+    def test_malformed_function_call_handling(self) -> None:
+        """Test MALFORMED_FUNCTION_CALL handling for both streaming and direct responses.
+
+        Covers:
+        - Streaming chunks with MALFORMED_FUNCTION_CALL (finish_reason not concatenated)
+        - Direct AIMessage with finish_message included
+        - Direct AIMessage without finish_message
+        - Direct AIMessage with text content
+        """
+        wrapper = MockLLMWrapper(model_name="test")
+
+        from unittest.mock import MagicMock
+
+        from langchain_core.messages import AIMessageChunk
+
+        # Test case 1: Streaming chunks with MALFORMED_FUNCTION_CALL (no finish_message)
+        mock_client = MagicMock()
+        chunks = [
+            AIMessageChunk(
+                content="",
+                response_metadata={"finish_reason": "FINISH_REASON_UNSPECIFIED"},
+            ),
+            AIMessageChunk(
+                content="",
+                response_metadata={"finish_reason": "MALFORMED_FUNCTION_CALL"},
+            ),
+        ]
+
+        def make_mock_stream(chunks_to_use):
+            def mock_stream(messages, **kwargs):
+                for chunk in chunks_to_use:
+                    yield chunk
+
+            return mock_stream
+
+        mock_client.stream.side_effect = make_mock_stream(chunks)
+        wrapper._client = mock_client
+
+        lc_messages = [HumanMessage(content="Test")]
+        result_message = wrapper._invoke_with_langchain(lc_messages, None, None)
+
+        # Verify finish_reason is correctly extracted (not concatenated)
+        assert (
+            result_message.response_metadata["finish_reason"]
+            == "MALFORMED_FUNCTION_CALL"
+        )
+
+        # Verify stop_reason is "tool_use" so agent continues
+        result = wrapper._convert_langchain_response_to_bedrock(result_message)
+        assert result["stopReason"] == "tool_use"
+
+        # Test case 2: Direct AIMessage with finish_message
+        response_with_finish_message = AIMessage(
+            content="Some text",
+            response_metadata={
+                "finish_reason": "MALFORMED_FUNCTION_CALL",
+                "finish_message": "Function call argument 'limit' must be an integer, got string 'ten'",
+            },
+            usage_metadata={
+                "input_tokens": 50,
+                "output_tokens": 10,
+                "total_tokens": 60,
+            },
+        )
+
+        result2 = wrapper._convert_langchain_response_to_bedrock(
+            response_with_finish_message
+        )
+        assert result2["stopReason"] == "tool_use"
+        assert len(result2["output"]["message"]["content"]) == 1
+        content_text = result2["output"]["message"]["content"][0]["text"]
+        assert "Function call argument 'limit' must be an integer" in content_text
+        assert "got string 'ten'" in content_text
+        assert "Please retry with corrected parameters" in content_text
+        assert "Some text" in content_text  # Original content should also be included
+
+        # Test case 3: Direct AIMessage without finish_message
+        response_without_finish_message = AIMessage(
+            content="Some text",
+            response_metadata={"finish_reason": "MALFORMED_FUNCTION_CALL"},
+            usage_metadata={
+                "input_tokens": 50,
+                "output_tokens": 10,
+                "total_tokens": 60,
+            },
+        )
+
+        result3 = wrapper._convert_langchain_response_to_bedrock(
+            response_without_finish_message
+        )
+        assert result3["stopReason"] == "tool_use"
+        assert len(result3["output"]["message"]["content"]) == 1
+        content_text3 = result3["output"]["message"]["content"][0]["text"]
+        assert "Malformed function call detected" in content_text3
+        assert "Please retry with corrected parameters" in content_text3
+
+        # Test case 4: Direct AIMessage with text content but no finish_message
+        response_with_text = AIMessage(
+            content="I encountered an error with the tool call parameters.",
+            response_metadata={"finish_reason": "MALFORMED_FUNCTION_CALL"},
+            usage_metadata={
+                "input_tokens": 50,
+                "output_tokens": 10,
+                "total_tokens": 60,
+            },
+        )
+
+        result4 = wrapper._convert_langchain_response_to_bedrock(response_with_text)
+        assert result4["stopReason"] == "tool_use"  # Not "end_turn" - allows retry
+        assert len(result4["output"]["message"]["content"]) == 1
+        assert "text" in result4["output"]["message"]["content"][0]
+
+    def test_invalid_tool_calls_from_langchain(self) -> None:
+        # Test that invalid_tool_calls from langchain are handled correctly
+        wrapper = MockLLMWrapper(model_name="test")
+
+        from langchain_core.messages.tool import invalid_tool_call
+
+        response = AIMessage(
+            content="",
+            invalid_tool_calls=[
+                invalid_tool_call(
+                    name="search_entities",
+                    args='{"query": "test", "limit": }',  # Malformed JSON
+                    id="call_123",
+                    error="Invalid JSON in tool arguments",
+                )
+            ],
+            usage_metadata={
+                "input_tokens": 50,
+                "output_tokens": 10,
+                "total_tokens": 60,
+            },
+        )
+
+        result = wrapper._convert_langchain_response_to_bedrock(response)
+
+        # Should set stop_reason to "tool_use" so agent can retry
+        assert result["stopReason"] == "tool_use"
+
+        # Should convert invalid tool calls to text explaining the error
+        assert len(result["output"]["message"]["content"]) > 0
+        content_text = result["output"]["message"]["content"][0]["text"]
+        assert "invalid" in content_text.lower() or "error" in content_text.lower()
+        assert "search_entities" in content_text
+
 
 class TestInvokeWithLangchain:
     """
@@ -1537,3 +1683,112 @@ class TestInvokeWithLangchain:
 
         # Verify strict=True is passed
         assert mock_client.bind_tools.call_args[1]["strict"] is True
+
+    def test_streaming_finish_reason_and_message_preservation(self) -> None:
+        """Test that finish_reason and finish_message from streaming chunks use only the last chunk's value.
+
+        This test verifies that merge_dicts concatenation bug is fixed - finish_reason and finish_message
+        should use only the final chunk's value, not concatenated values from all chunks.
+        """
+        wrapper = MockLLMWrapper(model_name="test")
+
+        from unittest.mock import MagicMock
+
+        from langchain_core.messages import AIMessageChunk
+
+        mock_client = MagicMock()
+
+        # Test case 1: Simple case with 3 chunks ending in "STOP"
+        chunks_simple = [
+            AIMessageChunk(
+                content="Hello",
+                response_metadata={"finish_reason": "FINISH_REASON_UNSPECIFIED"},
+            ),
+            AIMessageChunk(
+                content=" world",
+                response_metadata={"finish_reason": "FINISH_REASON_UNSPECIFIED"},
+            ),
+            AIMessageChunk(content="!", response_metadata={"finish_reason": "STOP"}),
+        ]
+
+        # Test case 2: Many UNSPECIFIED chunks (the exact bug scenario)
+        chunks_many = [
+            AIMessageChunk(
+                content=f" chunk{i}",
+                response_metadata={"finish_reason": "FINISH_REASON_UNSPECIFIED"},
+            )
+            for i in range(8)
+        ]
+        chunks_many.append(
+            AIMessageChunk(
+                content=" final", response_metadata={"finish_reason": "STOP"}
+            )
+        )
+
+        # Test case 3: Streaming with MALFORMED_FUNCTION_CALL and finish_message
+        chunks_malformed = [
+            AIMessageChunk(
+                content="",
+                response_metadata={"finish_reason": "FINISH_REASON_UNSPECIFIED"},
+            ),
+            AIMessageChunk(
+                content="",
+                response_metadata={
+                    "finish_reason": "MALFORMED_FUNCTION_CALL",
+                    "finish_message": "Function call argument 'limit' must be an integer",
+                },
+            ),
+        ]
+
+        # Test all cases separately to avoid closure issues
+        test_cases = [
+            (chunks_simple, "STOP", None, "end_turn"),
+            (chunks_many, "STOP", None, "end_turn"),
+            (
+                chunks_malformed,
+                "MALFORMED_FUNCTION_CALL",
+                "Function call argument 'limit' must be an integer",
+                "tool_use",
+            ),
+        ]
+
+        for (
+            test_chunks,
+            expected_finish_reason,
+            expected_finish_message,
+            expected_stop_reason,
+        ) in test_cases:
+
+            def make_mock_stream(chunks_to_use):
+                def mock_stream(messages, **kwargs):
+                    for chunk in chunks_to_use:
+                        yield chunk
+
+                return mock_stream
+
+            mock_client.stream.side_effect = make_mock_stream(test_chunks)
+            wrapper._client = mock_client
+
+            lc_messages = [HumanMessage(content="Test")]
+            result_message = wrapper._invoke_with_langchain(lc_messages, None, None)
+
+            # Verify finish_reason is from last chunk only (not concatenated)
+            assert (
+                result_message.response_metadata["finish_reason"]
+                == expected_finish_reason
+            )
+            assert (
+                "FINISH_REASON_UNSPECIFIED"
+                not in result_message.response_metadata["finish_reason"]
+            )
+
+            # Verify finish_message is preserved if present
+            if expected_finish_message:
+                assert (
+                    result_message.response_metadata.get("finish_message")
+                    == expected_finish_message
+                )
+
+            # Verify this enables correct stop_reason mapping
+            result = wrapper._convert_langchain_response_to_bedrock(result_message)
+            assert result["stopReason"] == expected_stop_reason
