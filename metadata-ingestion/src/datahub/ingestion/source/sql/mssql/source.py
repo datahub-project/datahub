@@ -1274,8 +1274,15 @@ class SQLServerSource(SQLAlchemySource):
                     # Assume it's a real table in another database - not a temp table
                     return False
 
-            # For unqualified names (<3 parts), if not in schema_resolver,
-            # treat as alias/temp table since we can't verify it's a real table
+            # For 2-part names (schema.table), check if any discovered table ends with this pattern
+            # This handles cases where the parser couldn't determine the database context
+            if len(parts) == 2:
+                suffix = f".{standardized_name}"
+                for discovered in self.discovered_datasets:
+                    if discovered.endswith(suffix):
+                        return False  # Found a matching table - not an alias
+
+            # For 1-part names, treat as alias/temp table since we can't verify it's a real table
             # This handles cases like "dst", "src" which are common TSQL aliases
             return True
 
