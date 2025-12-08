@@ -162,6 +162,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self.source_config = config
         self.client = create_airbyte_client(config)
         self.report = StaleEntityRemovalSourceReport()
+        self._warned_source_ids: set[str] = set()
+        self._warned_destination_ids: set[str] = set()
 
         logger.debug(
             "Initialized Airbyte source with deployment type: %s",
@@ -194,20 +196,24 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 source.source_type, self.source_config.source_type_mapping
             )
         elif source.name:
-            self.report.warning(
-                title="Platform Detection Fallback",
-                message=f"Source {source.source_id} missing source_type, using name as fallback",
-                context=f"source_id={source.source_id}, source_name={source.name}",
-            )
+            if source.source_id not in self._warned_source_ids:
+                self.report.warning(
+                    title="Platform Detection Fallback",
+                    message=f"Source {source.source_id} missing source_type, using name as fallback",
+                    context=f"source_id={source.source_id}, source_name={source.name}",
+                )
+                self._warned_source_ids.add(source.source_id)
             platform = _map_source_type_to_platform(
                 source.name, self.source_config.source_type_mapping
             )
         else:
-            self.report.warning(
-                title="Platform Detection Failed",
-                message=f"Source {source.source_id} missing both source_type and name",
-                context=f"source_id={source.source_id}",
-            )
+            if source.source_id not in self._warned_source_ids:
+                self.report.warning(
+                    title="Platform Detection Failed",
+                    message=f"Source {source.source_id} missing both source_type and name",
+                    context=f"source_id={source.source_id}",
+                )
+                self._warned_source_ids.add(source.source_id)
             platform = ""
 
         platform_instance = source_details.platform_instance
@@ -234,20 +240,24 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 destination.destination_type, self.source_config.source_type_mapping
             )
         elif destination.name:
-            self.report.warning(
-                title="Platform Detection Fallback",
-                message=f"Destination {destination.destination_id} missing destination_type, using name as fallback",
-                context=f"destination_id={destination.destination_id}, destination_name={destination.name}",
-            )
+            if destination.destination_id not in self._warned_destination_ids:
+                self.report.warning(
+                    title="Platform Detection Fallback",
+                    message=f"Destination {destination.destination_id} missing destination_type, using name as fallback",
+                    context=f"destination_id={destination.destination_id}, destination_name={destination.name}",
+                )
+                self._warned_destination_ids.add(destination.destination_id)
             platform = _map_source_type_to_platform(
                 destination.name, self.source_config.source_type_mapping
             )
         else:
-            self.report.warning(
-                title="Platform Detection Failed",
-                message=f"Destination {destination.destination_id} missing both destination_type and name",
-                context=f"destination_id={destination.destination_id}",
-            )
+            if destination.destination_id not in self._warned_destination_ids:
+                self.report.warning(
+                    title="Platform Detection Failed",
+                    message=f"Destination {destination.destination_id} missing both destination_type and name",
+                    context=f"destination_id={destination.destination_id}",
+                )
+                self._warned_destination_ids.add(destination.destination_id)
             platform = ""
 
         platform_instance = dest_details.platform_instance
