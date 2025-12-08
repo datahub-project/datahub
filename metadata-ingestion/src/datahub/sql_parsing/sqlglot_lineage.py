@@ -50,6 +50,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
+from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -1482,8 +1483,6 @@ def _parse_stored_procedure_fallback(
     This is necessary because sqlglot doesn't support TSQL control flow syntax like
     TRY/CATCH blocks, which causes the entire procedure to be unparseable.
     """
-    from datahub.sql_parsing.split_statements import split_statements
-
     logger.debug(
         "Attempting fallback parsing for stored procedure with unsupported syntax"
     )
