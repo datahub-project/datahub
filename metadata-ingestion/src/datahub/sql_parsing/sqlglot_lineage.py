@@ -1445,9 +1445,8 @@ def _parse_stored_procedure_fallback(
     from datahub.sql_parsing.split_statements import split_statements
 
     logger.debug(
-        "Attempting to parse stored procedure with unsupported syntax by extracting and parsing individual statements"
+        "Attempting fallback parsing for stored procedure with unsupported syntax"
     )
-    logger.debug(f"[FALLBACK-START] SQL length: {len(sql)} chars")
 
     # split_statements() already handles CREATE PROCEDURE correctly:
     # - It splits the CREATE PROCEDURE header (ending with AS) into one statement
@@ -1552,10 +1551,6 @@ def _parse_stored_procedure_fallback(
     # Build aggregated result
     # Use UNKNOWN instead of CREATE_OTHER so the aggregator treats it as a mutation query
     # and generates lineage MCPs. CREATE_OTHER is treated as DDL and doesn't generate lineage.
-    logger.info(
-        f"[FALLBACK-RESULT] Returning SqlParsingResult: query_type=UNKNOWN, "
-        f"{len(all_in_tables)} in_tables, {len(all_out_tables)} out_tables"
-    )
     return SqlParsingResult(
         query_type=QueryType.UNKNOWN,
         query_type_props={"kind": "PROCEDURE"},

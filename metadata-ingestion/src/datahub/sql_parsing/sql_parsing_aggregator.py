@@ -884,11 +884,6 @@ class SqlParsingAggregator(Closeable):
         )
 
         for downstream_urn in output_tables:
-            logger.info(
-                f"[OBSERVED-TO-PREPARSED] Creating PreparsedQuery: query_type={parsed.query_type}, "
-                f"in_tables={len(parsed.in_tables)}, out_tables={len(parsed.out_tables)}, "
-                f"downstream={downstream_urn}"
-            )
             self.add_preparsed_query(
                 PreparsedQuery(
                     query_id=query_fingerprint,
@@ -998,42 +993,25 @@ class SqlParsingAggregator(Closeable):
         )
 
         if not parsed.downstream:
-            logger.info(
-                f"[PREPARSED-SKIP] Query has no downstream table, skipping lineage registration. "
-                f"Query type: {parsed.query_type}, upstreams: {len(parsed.upstreams)}"
-            )
             return
         out_table = parsed.downstream
-        logger.info(
-            f"[PREPARSED-DOWNSTREAM] Registering lineage for downstream: {out_table}, "
-            f"upstreams: {len(parsed.upstreams)}"
-        )
 
         # Register the query's lineage.
-        is_temp_condition_1 = is_known_temp_table
-        is_temp_condition_2 = (
-            parsed.query_type.is_create() and parsed.query_type_props.get("temporary")
-        )
-        is_temp_condition_3 = self.is_temp_table(out_table)
-        is_temp_condition_4 = (
-            require_out_table_schema and not self._schema_resolver.has_urn(out_table)
+        # Check if output table is a temp table
+        is_temp = (
+            is_known_temp_table
+            or (
+                parsed.query_type.is_create()
+                and parsed.query_type_props.get("temporary")
+            )
+            or self.is_temp_table(out_table)
+            or (
+                require_out_table_schema
+                and not self._schema_resolver.has_urn(out_table)
+            )
         )
 
-        if (
-            is_temp_condition_1
-            or is_temp_condition_2
-            or is_temp_condition_3
-            or is_temp_condition_4
-        ):
-            logger.info(
-                f"[TEMP-LINEAGE] Treating as temp table: downstream={out_table}, "
-                f"is_known_temp={is_temp_condition_1}, "
-                f"is_create_temp={is_temp_condition_2}, "
-                f"is_temp_table={is_temp_condition_3}, "
-                f"require_schema={is_temp_condition_4} "
-                f"(require_out_table_schema={require_out_table_schema}, "
-                f"has_urn={self._schema_resolver.has_urn(out_table) if require_out_table_schema else 'N/A'})"
-            )
+        if is_temp:
             # Infer the schema of the output table and track it for later.
             if parsed.inferred_schema is not None:
                 self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
@@ -1051,10 +1029,6 @@ class SqlParsingAggregator(Closeable):
 
         else:
             # Non-temp tables immediately generate lineage.
-            logger.info(
-                f"[LINEAGE-MAP-ADD] Adding to lineage_map: downstream={out_table}, "
-                f"query_id={query_fingerprint[:50]}, query_type={parsed.query_type}"
-            )
             self._lineage_map.for_mutation(out_table, OrderedSet()).add(
                 query_fingerprint
             )
@@ -1327,14 +1301,7 @@ class SqlParsingAggregator(Closeable):
         self, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_lineage:
-            logger.info(
-                "[GEN-LINEAGE] Skipping lineage generation (generate_lineage=False)"
-            )
             return
-
-        logger.info(
-            f"[GEN-LINEAGE] Starting lineage MCP generation, lineage_map has {len(self._lineage_map)} downstream URNs"
-        )
 
         # Process all views and inject them into the lineage map.
         # The parsing of view definitions is deferred until this point
@@ -1345,9 +1312,6 @@ class SqlParsingAggregator(Closeable):
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
-            logger.info(
-                f"[GEN-LINEAGE] Generating lineage for downstream: {downstream_urn}"
-            )
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )
