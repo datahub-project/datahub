@@ -494,6 +494,69 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
   }
 
+  @Test
+  public void testGetFileWithValidAssetDocumentationLinksPermissions() throws Exception {
+    // Setup file ID with separator to test UUID extraction
+    String fileIdWithSeparator = "abc123__filename.pdf";
+    String expectedKey = String.format("%s/%s", TEST_FOLDER, fileIdWithSeparator);
+
+    when(mockS3Util.generatePresignedDownloadUrl(
+            eq(TEST_BUCKET), eq(expectedKey), eq(DEFAULT_EXPIRATION)))
+        .thenReturn(TEST_PRESIGNED_URL);
+
+    // Setup EntityService to return file entity with ASSET_DOCUMENTATION_LINKS scenario
+    setupDefaultFileEntity(
+        TEST_FILE_URN, TEST_ASSET_URN, FileUploadScenario.ASSET_DOCUMENTATION_LINKS);
+
+    // AuthUtil should return true (already set up in setup())
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, fileIdWithSeparator))
+        .andExpect(status().isFound())
+        .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
+  }
+
+  @Test
+  public void testGetFileWithoutAssetDocumentationLinksPermissions() throws Exception {
+    // Setup file ID with separator to test UUID extraction
+    String fileIdWithSeparator = "abc123__filename.pdf";
+
+    // Override AuthUtil to deny access
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .thenReturn(false);
+
+    // Setup EntityService to return file entity with ASSET_DOCUMENTATION_LINKS scenario
+    setupDefaultFileEntity(
+        TEST_FILE_URN, TEST_ASSET_URN, FileUploadScenario.ASSET_DOCUMENTATION_LINKS);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, fileIdWithSeparator))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  public void testGetFileWithAssetDocumentationLinksScenarioWhenFileEntityDoesNotExist()
+      throws Exception {
+    // Override EntityService to return null
+    when(mockEntityService.getEntityV2(
+            eq(mockSystemOperationContext),
+            eq(Constants.DATAHUB_FILE_ENTITY_NAME),
+            any(Urn.class),
+            any(HashSet.class),
+            anyBoolean()))
+        .thenReturn(null);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
+        .andExpect(status().isForbidden());
+  }
+
   @SpringBootConfiguration
   @Import({
     FilesControllerTestConfig.class,
