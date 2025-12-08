@@ -12,6 +12,9 @@ dependencies {
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:scim-api')
+  implementation project(':metadata-dao-impl:kafka-producer')
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.springKafka
 
   implementation (externalDependency.scimServer) {
     exclude group: 'commons-logging', module: 'commons-logging'

@@ -3,6 +3,9 @@ package io.datahubproject.openapi.operations.kafka;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -22,6 +25,8 @@ import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
+import io.datahubproject.openapi.operations.kafka.models.KafkaClusterResponse;
+import io.datahubproject.openapi.operations.kafka.models.KafkaTopicResponse;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
 import java.util.HashMap;
@@ -75,6 +80,10 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
   private MCLTraceReader mockMclTimeseriesTraceReader;
 
   @Autowired private AuthorizerChain authorizerChain;
+
+  @Autowired
+  @Qualifier("kafkaAdminService")
+  private KafkaAdminService kafkaAdminService;
 
   private Map<TopicPartition, OffsetAndMetadata> createOffsetMap(String topic) {
     Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
@@ -162,56 +171,42 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
               System.out.println("Response content: " + responseContent);
             })
         // Verify consumer group id
-        .andExpect(MockMvcResultMatchers.jsonPath("$['" + MCP_CONSUMER_GROUP + "']").exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.consumerGroupId").value(MCP_CONSUMER_GROUP))
         // Verify topic
-        .andExpect(
-            MockMvcResultMatchers.jsonPath("$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "']")
-                .exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "']").exists())
         // Verify partitions
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['0'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['0'].offset")
                 .value(1000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['0'].metadata")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['0'].metadata")
                 .value("metadata-p0"))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['0'].lag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['0'].lag")
                 .value(100))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['1'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['1'].offset")
                 .value(2000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['1'].lag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['1'].lag")
                 .value(500))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['2'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['2'].offset")
                 .value(3000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions['2'].lag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions['2'].lag")
                 .value(50))
         // Verify metrics
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].metrics.maxLag")
-                .value(500))
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].metrics.maxLag").value(500))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].metrics.medianLag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].metrics.medianLag")
                 .value(100))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].metrics.totalLag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].metrics.totalLag")
                 .value(650))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].metrics.avgLag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].metrics.avgLag")
                 .value(217));
   }
 
@@ -232,23 +227,16 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
               System.out.println("Response content: " + responseContent);
             })
         // Verify consumer group id and topic
-        .andExpect(MockMvcResultMatchers.jsonPath("$['" + MCP_CONSUMER_GROUP + "']").exists())
-        .andExpect(
-            MockMvcResultMatchers.jsonPath("$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "']")
-                .exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.consumerGroupId").value(MCP_CONSUMER_GROUP))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "']").exists())
         // Partitions should not be included
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].partitions")
-                .doesNotExist())
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].partitions").doesNotExist())
         // Metrics should still be included
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].metrics.maxLag")
-                .value(500))
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].metrics.maxLag").value(500))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCP_CONSUMER_GROUP + "']['" + TOPIC_1 + "'].metrics.totalLag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_1 + "'].metrics.totalLag")
                 .value(650));
   }
 
@@ -269,32 +257,24 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
               System.out.println("Response content: " + responseContent);
             })
         // Verify consumer group id
-        .andExpect(MockMvcResultMatchers.jsonPath("$['" + MCL_CONSUMER_GROUP + "']").exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.consumerGroupId").value(MCL_CONSUMER_GROUP))
         // Verify topic
-        .andExpect(
-            MockMvcResultMatchers.jsonPath("$['" + MCL_CONSUMER_GROUP + "']['" + TOPIC_2 + "']")
-                .exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_2 + "']").exists())
         // Verify partitions
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_CONSUMER_GROUP + "']['" + TOPIC_2 + "'].partitions['0'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_2 + "'].partitions['0'].offset")
                 .value(1000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_CONSUMER_GROUP + "']['" + TOPIC_2 + "'].partitions['1'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_2 + "'].partitions['1'].offset")
                 .value(2000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_CONSUMER_GROUP + "']['" + TOPIC_2 + "'].partitions['2'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_2 + "'].partitions['2'].offset")
                 .value(3000))
         // Verify metrics
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_CONSUMER_GROUP + "']['" + TOPIC_2 + "'].metrics.maxLag")
-                .value(500))
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_2 + "'].metrics.maxLag").value(500))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_CONSUMER_GROUP + "']['" + TOPIC_2 + "'].metrics.totalLag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_2 + "'].metrics.totalLag")
                 .value(650));
   }
 
@@ -316,49 +296,25 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
             })
         // Verify consumer group id
         .andExpect(
-            MockMvcResultMatchers.jsonPath("$['" + MCL_TIMESERIES_CONSUMER_GROUP + "']").exists())
+            MockMvcResultMatchers.jsonPath("$.consumerGroupId")
+                .value(MCL_TIMESERIES_CONSUMER_GROUP))
         // Verify topic
-        .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_TIMESERIES_CONSUMER_GROUP + "']['" + TOPIC_3 + "']")
-                .exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_3 + "']").exists())
         // Verify partitions
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['"
-                        + MCL_TIMESERIES_CONSUMER_GROUP
-                        + "']['"
-                        + TOPIC_3
-                        + "'].partitions['0'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_3 + "'].partitions['0'].offset")
                 .value(1000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['"
-                        + MCL_TIMESERIES_CONSUMER_GROUP
-                        + "']['"
-                        + TOPIC_3
-                        + "'].partitions['1'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_3 + "'].partitions['1'].offset")
                 .value(2000))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['"
-                        + MCL_TIMESERIES_CONSUMER_GROUP
-                        + "']['"
-                        + TOPIC_3
-                        + "'].partitions['2'].offset")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_3 + "'].partitions['2'].offset")
                 .value(3000))
         // Verify metrics
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['" + MCL_TIMESERIES_CONSUMER_GROUP + "']['" + TOPIC_3 + "'].metrics.maxLag")
-                .value(500))
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_3 + "'].metrics.maxLag").value(500))
         .andExpect(
-            MockMvcResultMatchers.jsonPath(
-                    "$['"
-                        + MCL_TIMESERIES_CONSUMER_GROUP
-                        + "']['"
-                        + TOPIC_3
-                        + "'].metrics.totalLag")
+            MockMvcResultMatchers.jsonPath("$.topics['" + TOPIC_3 + "'].metrics.totalLag")
                 .value(650));
   }
 
@@ -374,8 +330,381 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
-        // Should return an empty response
-        .andExpect(MockMvcResultMatchers.jsonPath("$").isEmpty());
+        // Should return a response with consumer group id but empty topics
+        .andExpect(MockMvcResultMatchers.jsonPath("$.consumerGroupId").value(MCP_CONSUMER_GROUP))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.topics").isEmpty());
+  }
+
+  // ============================================================================
+  // Cluster Info Tests
+  // ============================================================================
+
+  @Test
+  public void testGetClusterInfo() throws Exception {
+    // Setup mock
+    KafkaClusterResponse clusterInfo =
+        KafkaClusterResponse.builder()
+            .clusterId("test-cluster-id")
+            .controller(
+                KafkaClusterResponse.BrokerInfo.builder()
+                    .id(0)
+                    .host("localhost")
+                    .port(9092)
+                    .rack("rack1")
+                    .build())
+            .brokers(java.util.List.of())
+            .build();
+    when(kafkaAdminService.getClusterInfo()).thenReturn(clusterInfo);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/cluster")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.clusterId").value("test-cluster-id"));
+  }
+
+  @Test
+  public void testGetClusterInfo_Error() throws Exception {
+    // Setup mock to throw exception
+    when(kafkaAdminService.getClusterInfo())
+        .thenThrow(new KafkaAdminException("Failed to connect to Kafka"));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/cluster")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isInternalServerError())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  // ============================================================================
+  // Topic Tests
+  // ============================================================================
+
+  @Test
+  public void testListTopics() throws Exception {
+    when(kafkaAdminService.listTopics(false))
+        .thenReturn(java.util.List.of("MetadataChangeProposal_v1", "MetadataChangeLog_v1"));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/topics")
+                .param("includeInternal", "false")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(2))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.topics[0]").value("MetadataChangeProposal_v1"));
+  }
+
+  @Test
+  public void testListTopics_Error() throws Exception {
+    when(kafkaAdminService.listTopics(anyBoolean()))
+        .thenThrow(new KafkaAdminException("Failed to list topics"));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/topics")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isInternalServerError())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  @Test
+  public void testDescribeTopic() throws Exception {
+    KafkaTopicResponse topicInfo =
+        KafkaTopicResponse.builder()
+            .name("MetadataChangeProposal_v1")
+            .partitionCount(3)
+            .replicationFactor(1)
+            .build();
+    when(kafkaAdminService.describeTopic("MetadataChangeProposal_v1")).thenReturn(topicInfo);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/topics/MetadataChangeProposal_v1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.name").value("MetadataChangeProposal_v1"))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.partitionCount").value(3));
+  }
+
+  @Test
+  public void testDescribeTopic_NotFound() throws Exception {
+    when(kafkaAdminService.describeTopic("unknown-topic"))
+        .thenThrow(new KafkaAdminException.TopicNotFoundException("unknown-topic"));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/topics/unknown-topic")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isNotFound())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  @Test
+  public void testCreateTopic() throws Exception {
+    KafkaTopicResponse topicInfo =
+        KafkaTopicResponse.builder()
+            .name("MetadataChangeProposal_v1")
+            .partitionCount(3)
+            .replicationFactor(1)
+            .build();
+    when(kafkaAdminService.createDataHubTopic(any(), any(), any(), any())).thenReturn(topicInfo);
+
+    String requestBody = "{\"numPartitions\": 3, \"replicationFactor\": 1}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/operations/kafka/topics/mcp")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.name").value("MetadataChangeProposal_v1"));
+  }
+
+  @Test
+  public void testCreateTopic_InvalidAlias() throws Exception {
+    when(kafkaAdminService.createDataHubTopic(any(), any(), any(), any()))
+        .thenThrow(
+            new KafkaAdminException.InvalidAliasException(
+                "invalid", java.util.Set.of("mcp", "mcl-versioned")));
+
+    String requestBody = "{\"numPartitions\": 3}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/operations/kafka/topics/invalid")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  @Test
+  public void testCreateTopic_AlreadyExists() throws Exception {
+    when(kafkaAdminService.createDataHubTopic(any(), any(), any(), any()))
+        .thenThrow(
+            new KafkaAdminException.TopicAlreadyExistsException("MetadataChangeProposal_v1"));
+
+    String requestBody = "{\"numPartitions\": 3}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/operations/kafka/topics/mcp")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  @Test
+  public void testDeleteTopic() throws Exception {
+    // No exception means success
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/operations/kafka/topics/mcp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  public void testDeleteTopic_InvalidAlias() throws Exception {
+    org.mockito.Mockito.doThrow(
+            new KafkaAdminException.InvalidAliasException(
+                "invalid", java.util.Set.of("mcp", "mcl-versioned")))
+        .when(kafkaAdminService)
+        .deleteDataHubTopic("invalid");
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/operations/kafka/topics/invalid")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  @Test
+  public void testDeleteTopic_NotFound() throws Exception {
+    org.mockito.Mockito.doThrow(new KafkaAdminException.TopicNotFoundException("mcp"))
+        .when(kafkaAdminService)
+        .deleteDataHubTopic("mcp");
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/operations/kafka/topics/mcp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  // ============================================================================
+  // Message Retrieval Tests
+  // ============================================================================
+
+  @Test
+  public void testGetMessages() throws Exception {
+    io.datahubproject.openapi.operations.kafka.models.KafkaMessageResponse response =
+        io.datahubproject.openapi.operations.kafka.models.KafkaMessageResponse.builder()
+            .topic("MetadataChangeProposal_v1")
+            .dataHubAlias("mcp")
+            .messages(java.util.List.of())
+            .count(0)
+            .hasMore(false)
+            .build();
+    when(kafkaAdminService.getMessages(
+            anyString(), anyInt(), anyLong(), anyInt(), anyString(), anyBoolean()))
+        .thenReturn(response);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/messages/mcp")
+                .param("partition", "0")
+                .param("offset", "0")
+                .param("count", "10")
+                .param("format", "json")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.topic").value("MetadataChangeProposal_v1"));
+  }
+
+  @Test
+  public void testGetMessages_MissingPartition() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/messages/mcp")
+                .param("offset", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testGetMessages_InvalidFormat() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/messages/mcp")
+                .param("partition", "0")
+                .param("offset", "0")
+                .param("format", "invalid-format")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.error")
+                .value("Invalid format. Allowed values: json, avro, raw"));
+  }
+
+  @Test
+  public void testGetMessages_InvalidAlias() throws Exception {
+    when(kafkaAdminService.getMessages(
+            anyString(), anyInt(), anyLong(), anyInt(), anyString(), anyBoolean()))
+        .thenThrow(
+            new KafkaAdminException.InvalidAliasException(
+                "invalid", java.util.Set.of("mcp", "mcl-versioned")));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/operations/kafka/messages/invalid")
+                .param("partition", "0")
+                .param("offset", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
+  }
+
+  // ============================================================================
+  // Consumer Group Reset Offsets Tests
+  // ============================================================================
+
+  @Test
+  public void testResetConsumerGroupOffsets() throws Exception {
+    java.util.List<
+            io.datahubproject.openapi.operations.kafka.models.KafkaConsumerGroupResponse
+                .PartitionResetInfo>
+        resetInfos =
+            java.util.List.of(
+                io.datahubproject.openapi.operations.kafka.models.KafkaConsumerGroupResponse
+                    .PartitionResetInfo.builder()
+                    .partition(0)
+                    .previousOffset(100L)
+                    .newOffset(0L)
+                    .build());
+    when(kafkaAdminService.resetConsumerGroupOffsets(
+            any(), any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(resetInfos);
+
+    String requestBody = "{\"topic\": \"mcp\", \"strategy\": \"earliest\", \"dryRun\": true}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/kafka/consumer-groups/datahub-mcp-consumer/offsets/reset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.dryRun").value(true))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.groupId").value("datahub-mcp-consumer"));
+  }
+
+  @Test
+  public void testResetConsumerGroupOffsets_MissingTopic() throws Exception {
+    String requestBody = "{\"strategy\": \"earliest\"}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/kafka/consumer-groups/datahub-mcp-consumer/offsets/reset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.error").value("Topic and strategy are required"));
+  }
+
+  @Test
+  public void testResetConsumerGroupOffsets_MissingStrategy() throws Exception {
+    String requestBody = "{\"topic\": \"mcp\"}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/kafka/consumer-groups/datahub-mcp-consumer/offsets/reset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.error").value("Topic and strategy are required"));
+  }
+
+  @Test
+  public void testResetConsumerGroupOffsets_Error() throws Exception {
+    when(kafkaAdminService.resetConsumerGroupOffsets(
+            any(), any(), any(), any(), any(), anyBoolean()))
+        .thenThrow(new KafkaAdminException("Consumer group is active"));
+
+    String requestBody = "{\"topic\": \"mcp\", \"strategy\": \"earliest\"}";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/kafka/consumer-groups/datahub-mcp-consumer/offsets/reset")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.error").exists());
   }
 
   @SpringBootConfiguration
@@ -394,6 +723,10 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
     @MockBean
     @Qualifier("mclTimeseriesTraceReader")
     public MCLTraceReader mclTimeseriesTraceReader;
+
+    @MockBean
+    @Qualifier("kafkaAdminService")
+    public KafkaAdminService kafkaAdminService;
 
     @Bean
     public ObjectMapper objectMapper() {
