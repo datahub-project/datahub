@@ -15,6 +15,7 @@ from sqlalchemy.sql import quoted_name
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -52,11 +53,15 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
+from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# MSSQL uses 3-part naming: database.schema.table
+MSSQL_QUALIFIED_NAME_PARTS = 3
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
@@ -1045,7 +1050,7 @@ class SQLServerSource(SQLAlchemySource):
                 name = name[len(platform_instance) + 1 :]
 
             # Check if name has at least 3 parts (database.schema.table)
-            return len(name.split(".")) >= 3
+            return len(name.split(".")) >= MSSQL_QUALIFIED_NAME_PARTS
         except Exception:
             return False
 
@@ -1088,10 +1093,9 @@ class SQLServerSource(SQLAlchemySource):
                 # Reuse existing is_temp_table() logic to filter aliases
                 if not self.is_temp_table(table_name):
                     filtered.append(urn)
-            except (InvalidUrnError, ValueError, AttributeError) as e:
+            except (InvalidUrnError, ValueError) as e:
                 # InvalidUrnError: malformed URN string (e.g., doesn't start with urn:li:)
                 # ValueError: other URN parsing errors
-                # AttributeError: URN parsing returned unexpected type
                 logger.warning(f"Error parsing URN {urn}: {e}")
                 filtered.append(urn)  # Conservative: keep it
 
@@ -1119,15 +1123,9 @@ class SQLServerSource(SQLAlchemySource):
         """
         platform_instance = self.get_schema_resolver().platform_instance
 
-        from datahub.metadata.schema_classes import DataJobInputOutputClass
-
         for mcp in mcps:
             # Only filter dataJobInputOutput aspects
-            if (
-                hasattr(mcp, "aspect")
-                and mcp.aspect
-                and isinstance(mcp.aspect, DataJobInputOutputClass)
-            ):
+            if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
                 aspect: DataJobInputOutputClass = mcp.aspect
                 original_input_count = len(aspect.inputDatasets or [])
                 original_output_count = len(aspect.outputDatasets or [])
@@ -1236,10 +1234,6 @@ class SQLServerSource(SQLAlchemySource):
             # If we have schema information for it, it's a real table (not an alias)
             # Only check schema_resolver if aggregator is initialized (not in unit tests)
             if hasattr(self, "aggregator") and self.aggregator is not None:
-                from datahub.emitter.mce_builder import (
-                    make_dataset_urn_with_platform_instance,
-                )
-
                 schema_resolver = self.get_schema_resolver()
 
                 # Use standardized name for URN to match how tables are registered
@@ -1255,7 +1249,7 @@ class SQLServerSource(SQLAlchemySource):
 
             # If not in schema_resolver, check against discovered_datasets
             # For qualified names (>=3 parts), also validate against patterns
-            if len(parts) >= 3:
+            if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
                 db_name = parts[-3]
 
@@ -1275,9 +1269,9 @@ class SQLServerSource(SQLAlchemySource):
                     # Assume it's a real table in another database - not a temp table
                     return False
 
-            # For names with < 3 parts (1-part or 2-part), treat as alias/temp table
-            # since we can't verify they're real tables without full qualification.
-            # This handles common TSQL aliases like "dst", "src".
+            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS (1-part or 2-part),
+            # treat as alias/temp table since we can't verify they're real tables
+            # without full qualification. This handles common TSQL aliases like "dst", "src".
             # Consistent with _is_qualified_table_urn which requires 3+ parts.
             return True
 
