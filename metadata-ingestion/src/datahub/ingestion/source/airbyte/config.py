@@ -113,66 +113,6 @@ class PlatformDetail(ConfigModel):
     )
 
 
-class PlatformInstanceConfig(ConfigModel):
-    """Configuration for mapping Airbyte datasets to DataHub dataset URNs."""
-
-    platform: Optional[str] = Field(
-        default=None,
-        description="Target DataHub platform name (overrides the source platform name)",
-    )
-    env: Optional[str] = Field(
-        default=None,
-        description="Environment to use for dataset URNs (e.g., PROD, DEV, STAGING)",
-    )
-    platform_instance: Optional[str] = Field(
-        default=None, description="Platform instance to use for dataset URNs"
-    )
-    database_mapping: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Mapping from Airbyte database names to DataHub database names",
-    )
-    schema_mapping: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Mapping from Airbyte schema names to DataHub schema names",
-    )
-    database_prefix: Optional[str] = Field(
-        default=None, description="Prefix to add to all database names"
-    )
-    schema_prefix: Optional[str] = Field(
-        default=None, description="Prefix to add to all schema names"
-    )
-
-
-class PlatformMappingConfig(ConfigModel):
-    default: PlatformInstanceConfig = Field(
-        default_factory=PlatformInstanceConfig,
-        description="Default mapping configuration to use when no specific mapping is found",
-    )
-
-    mappings: Dict[str, PlatformInstanceConfig] = Field(
-        default_factory=dict,
-        description="Mapping configurations for each platform (key: platform_name, value: mapping_config)",
-    )
-
-    def get_dataset_mapping(self, platform_name: str) -> PlatformInstanceConfig:
-        if not platform_name:
-            return self.default
-
-        normalized_name = platform_name.lower().replace(" ", "_").replace("-", "_")
-
-        if normalized_name in self.mappings:
-            return self.mappings[normalized_name]
-
-        return self.default
-
-    def __getitem__(self, key: str) -> PlatformInstanceConfig:
-        return self.get_dataset_mapping(key)
-
-    def __setitem__(self, key: str, value: PlatformInstanceConfig) -> None:
-        normalized_key = key.lower().replace(" ", "_").replace("-", "_")
-        self.mappings[normalized_key] = value
-
-
 class AirbyteClientConfig(ConfigModel):
     """Base Airbyte Client Configuration"""
 
@@ -361,11 +301,6 @@ class AirbyteSourceConfig(
     extract_tags: bool = Field(
         default=False,
         description="Extract tags from Airbyte metadata",
-    )
-
-    platform_mapping: PlatformMappingConfig = Field(
-        default_factory=PlatformMappingConfig,
-        description="Platform mapping configuration for controlling dataset URN components",
     )
 
     use_workspace_name_as_platform_instance: bool = Field(

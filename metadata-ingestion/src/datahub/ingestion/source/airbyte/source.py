@@ -39,7 +39,6 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteSourceConfig,
 )
 from datahub.ingestion.source.airbyte.models import (
-    AirbyteDatasetMapping,
     AirbyteDatasetUrns,
     AirbyteDestinationPartial,
     AirbyteInputOutputDatasets,
@@ -510,84 +509,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
         for mcp in datajob.generate_mcp(materialize_iolets=False):
             yield mcp.as_workunit()
 
-    def _map_dataset_urn_components(
-        self,
-        platform_name: str,
-        schema_name: str,
-        table_name: str,
-    ) -> AirbyteDatasetMapping:
-        """Map dataset URN components using configuration.
-
-        Args:
-            platform_name: Source or destination platform name
-            schema_name: Schema/namespace name (can be empty)
-            table_name: Table/stream name
-
-        Returns:
-            Mapped dataset information for URN creation
-        """
-        platform_name = platform_name or ""
-        schema_name = schema_name or ""
-
-        mapping_config = self.source_config.platform_mapping.get_dataset_mapping(
-            platform_name
-        )
-        # Sanitize platform name to remove spaces and special characters for URN compatibility
-        mapped_platform = mapping_config.platform or _sanitize_platform_name(
-            platform_name
-        )
-        mapped_env = mapping_config.env or "PROD"
-
-        if (
-            mapping_config.schema_mapping
-            and schema_name in mapping_config.schema_mapping
-        ):
-            mapped_schema = mapping_config.schema_mapping[schema_name]
-        else:
-            prefix = mapping_config.schema_prefix or ""
-            mapped_schema = f"{prefix}{schema_name}"
-
-        # Determine the full dataset name
-        if "." in table_name:
-            mapped_dataset_name = table_name
-        else:
-            database_component = ""
-            if (
-                mapping_config.database_mapping
-                and schema_name in mapping_config.database_mapping
-            ):
-                database_component = f"{mapping_config.database_mapping[schema_name]}."
-            elif mapping_config.database_prefix:
-                database_component = f"{mapping_config.database_prefix}."
-
-            # Build the dataset name based on what components we have
-            # For two-tier connectors (e.g., MySQL), mapped_schema may be empty
-            if mapped_schema:
-                mapped_dataset_name = (
-                    f"{database_component}{mapped_schema}.{table_name}"
-                )
-            else:
-                mapped_dataset_name = f"{database_component}{table_name}"
-
-        return AirbyteDatasetMapping(
-            platform=mapped_platform,
-            name=mapped_dataset_name,
-            env=mapped_env,
-            platform_instance=mapping_config.platform_instance,
-        )
-
     def _get_input_output_datasets(
         self,
         pipeline_info: AirbytePipelineInfo,
         source_platform: str,
         destination_platform: str,
     ) -> AirbyteInputOutputDatasets:
-        """Get input and output dataset URNs for a connection.
-
-        NOTE: This method does NOT apply per-source/per-destination platform_instance overrides.
-        It only uses the platform mapping configuration. Per-source/per-destination overrides
-        are applied in _create_dataset_urns which is used for per-stream lineage.
-        """
         inputs: List[str] = []
         outputs: List[str] = []
 
@@ -596,6 +523,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
             or not pipeline_info.connection.sync_catalog.streams
         ):
             return AirbyteInputOutputDatasets(input_urns=inputs, output_urns=outputs)
+
+        source = pipeline_info.source
+        destination = pipeline_info.destination
+
+        source_platform, source_plat_instance, source_env = (
+            self._get_platform_for_source(source)
+        )
+        destination_platform, dest_plat_instance, dest_env = (
+            self._get_platform_for_destination(destination)
+        )
 
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
@@ -606,34 +543,26 @@ class AirbyteSource(StatefulIngestionSourceBase):
             table_name = stream.name
 
             if source_platform and table_name:
-                # Map source dataset components to URN
-                source_mapping = self._map_dataset_urn_components(
-                    source_platform, schema_name, table_name
+                dataset_name = (
+                    f"{schema_name}.{table_name}" if schema_name else table_name
                 )
-
-                # Use platform_instance from mapping only (no global fallback)
                 source_urn = make_dataset_urn_with_platform_instance(
-                    platform=source_mapping.platform,
-                    name=source_mapping.name,
-                    env=source_mapping.env
-                    if source_mapping.env
-                    else FabricTypeClass.PROD,
-                    platform_instance=source_mapping.platform_instance,
+                    platform=_sanitize_platform_name(source_platform),
+                    name=dataset_name,
+                    env=source_env or FabricTypeClass.PROD,
+                    platform_instance=source_plat_instance,
                 )
                 inputs.append(source_urn)
 
             if destination_platform and table_name:
-                # Map destination dataset components to URN
-                dest_mapping = self._map_dataset_urn_components(
-                    destination_platform, schema_name, table_name
+                dataset_name = (
+                    f"{schema_name}.{table_name}" if schema_name else table_name
                 )
-
-                # Use platform_instance from mapping only (no global fallback)
                 destination_urn = make_dataset_urn_with_platform_instance(
-                    platform=dest_mapping.platform,
-                    name=dest_mapping.name,
-                    env=dest_mapping.env if dest_mapping.env else FabricTypeClass.PROD,
-                    platform_instance=dest_mapping.platform_instance,
+                    platform=_sanitize_platform_name(destination_platform),
+                    name=dataset_name,
+                    env=dest_env or FabricTypeClass.PROD,
+                    platform_instance=dest_plat_instance,
                 )
                 outputs.append(destination_urn)
 
@@ -1166,133 +1095,74 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source = pipeline_info.source
         destination = pipeline_info.destination
 
-        # Get platform details with per-source/destination overrides
         source_platform, source_plat_instance, source_env = (
             self._get_platform_for_source(source)
         )
-        (
-            destination_platform,
-            dest_plat_instance,
-            dest_env,
-        ) = self._get_platform_for_destination(destination)
+        dest_platform, dest_plat_instance, dest_env = (
+            self._get_platform_for_destination(destination)
+        )
 
-        schema_name = stream.namespace or ""
+        from datahub.ingestion.source.airbyte.config import PlatformDetail
+
+        source_details = self.source_config.sources_to_platform_instance.get(
+            source.source_id, PlatformDetail()
+        )
+        dest_details = self.source_config.destinations_to_platform_instance.get(
+            destination.destination_id, PlatformDetail()
+        )
+
+        schema_name = stream.namespace or source.get_schema or ""
         table_name = stream.stream_name
 
-        # Get source and destination schema/database info
-        source_schema = source.get_schema
-        source_database = source.get_database
-        destination_schema = destination.get_schema
-        destination_database = destination.get_database
-
-        if not schema_name and source_schema:
-            schema_name = source_schema
-
-        # Map source dataset components
-        source_mapping = self._map_dataset_urn_components(
-            source_platform, schema_name, table_name
-        )
-
-        # Prioritize per-source platform_instance, then mapping
-        # NOTE: We do NOT fall back to the global platform_instance for dataset URNs
-        # Following Fivetran's approach: only use per-source/per-destination overrides
-        source_platform_instance = (
-            source_plat_instance or source_mapping.platform_instance
-        )
-
-        # Prioritize per-source env, then mapping, then PROD
-        source_env_final = source_env or source_mapping.env or FabricTypeClass.PROD
-
-        # Create fully qualified dataset name including database
-        source_mapped_name = source_mapping.name
+        source_database = source_details.database or source.get_database
         if source_database:
-            # Check if database is already part of the mapped name
-            if "." in source_mapped_name:
-                # If it already contains dots (schema.table format), we need to prepend the database
-                if not source_mapped_name.startswith(f"{source_database}."):
-                    source_mapped_name = f"{source_database}.{source_mapped_name}"
+            if schema_name and source_details.include_schema_in_urn:
+                source_dataset_name = f"{source_database}.{schema_name}.{table_name}"
             else:
-                # If it's just a table name, add database and optionally schema
-                # For two-tier connectors (e.g., MySQL), schema_name may be empty
-                if schema_name:
-                    source_mapped_name = f"{source_database}.{schema_name}.{table_name}"
-                else:
-                    source_mapped_name = f"{source_database}.{table_name}"
+                source_dataset_name = f"{source_database}.{table_name}"
         else:
-            # No database, ensure we at least have schema.table format (if schema exists)
-            if "." not in source_mapped_name:
-                if schema_name:
-                    source_mapped_name = f"{schema_name}.{source_mapped_name}"
-                # else: just use the mapped name as-is (already contains table name)
+            source_dataset_name = (
+                f"{schema_name}.{table_name}" if schema_name else table_name
+            )
 
-        # Validate URN components before creating URN
         validated_source_platform = _validate_urn_component(
-            source_mapping.platform, "source_platform"
+            source_platform, "source_platform"
         )
         validated_source_name = _validate_urn_component(
-            source_mapped_name, "source_dataset_name"
+            source_dataset_name, "source_dataset_name"
         )
 
         source_urn = make_dataset_urn_with_platform_instance(
-            platform=validated_source_platform,
+            platform=_sanitize_platform_name(validated_source_platform),
             name=validated_source_name,
-            env=source_env_final,
-            platform_instance=source_platform_instance,
+            env=source_env or FabricTypeClass.PROD,
+            platform_instance=source_plat_instance,
         )
 
-        # Use destination schema if specified
-        dest_namespace = destination_schema if destination_schema else schema_name
-
-        # Map the destination dataset components
-        dest_mapping = self._map_dataset_urn_components(
-            destination_platform, dest_namespace, table_name
-        )
-
-        # Prioritize per-destination platform_instance, then mapping
-        # NOTE: We do NOT fall back to the global platform_instance for dataset URNs
-        # Following Fivetran's approach: only use per-source/per-destination overrides
-        dest_platform_instance = dest_plat_instance or dest_mapping.platform_instance
-
-        # Prioritize per-destination env, then mapping, then PROD
-        dest_env_final = dest_env or dest_mapping.env or FabricTypeClass.PROD
-
-        # Create fully qualified dataset name including database
-        dest_mapped_name = dest_mapping.name
-        if destination_database:
-            # Check if database is already part of the mapped name
-            if "." in dest_mapped_name:
-                # If it already contains dots (schema.table format), we need to prepend the database
-                if not dest_mapped_name.startswith(f"{destination_database}."):
-                    dest_mapped_name = f"{destination_database}.{dest_mapped_name}"
+        dest_schema = destination.get_schema or schema_name
+        dest_database = dest_details.database or destination.get_database
+        if dest_database:
+            if dest_schema and dest_details.include_schema_in_urn:
+                dest_dataset_name = f"{dest_database}.{dest_schema}.{table_name}"
             else:
-                # If it's just a table name, add database and optionally schema
-                # For two-tier connectors (e.g., MySQL), dest_namespace may be empty
-                if dest_namespace:
-                    dest_mapped_name = (
-                        f"{destination_database}.{dest_namespace}.{table_name}"
-                    )
-                else:
-                    dest_mapped_name = f"{destination_database}.{table_name}"
+                dest_dataset_name = f"{dest_database}.{table_name}"
         else:
-            # No database, ensure we at least have schema.table format (if schema exists)
-            if "." not in dest_mapped_name:
-                if dest_namespace:
-                    dest_mapped_name = f"{dest_namespace}.{dest_mapped_name}"
-                # else: just use the mapped name as-is (already contains table name)
+            dest_dataset_name = (
+                f"{dest_schema}.{table_name}" if dest_schema else table_name
+            )
 
-        # Validate destination URN components before creating URN
         validated_dest_platform = _validate_urn_component(
-            dest_mapping.platform, "destination_platform"
+            dest_platform, "destination_platform"
         )
         validated_dest_name = _validate_urn_component(
-            dest_mapped_name, "destination_dataset_name"
+            dest_dataset_name, "destination_dataset_name"
         )
 
         destination_urn = make_dataset_urn_with_platform_instance(
-            platform=validated_dest_platform,
+            platform=_sanitize_platform_name(validated_dest_platform),
             name=validated_dest_name,
-            env=dest_env_final,
-            platform_instance=dest_platform_instance,
+            env=dest_env or FabricTypeClass.PROD,
+            platform_instance=dest_plat_instance,
         )
 
         logger.debug("Created lineage from %s to %s", source_urn, destination_urn)

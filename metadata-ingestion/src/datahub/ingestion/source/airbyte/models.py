@@ -3,7 +3,6 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -359,17 +358,6 @@ class AirbyteTagInfo(BaseModel):
     resource_type: Optional[str] = Field(
         None, alias="resourceType"
     )  # May be missing for global tags
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AirbyteDatasetMapping(BaseModel):
-    """Model for mapping Airbyte dataset components to DataHub URNs."""
-
-    platform: str
-    name: str
-    env: str = DEFAULT_ENV
-    platform_instance: Optional[str] = None  # This can legitimately be None
 
     model_config = ConfigDict(populate_by_name=True)
 
