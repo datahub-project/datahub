@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
@@ -57,6 +56,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
@@ -76,7 +76,7 @@ import org.opensearch.search.suggest.term.TermSuggestion;
 @Slf4j
 public class SearchRequestHandler extends BaseRequestHandler {
 
-  private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
+  private static final Map<SearchHandlerKey, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
   private final List<String> entityNames;
@@ -144,16 +144,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
-    return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
+    return getBuilder(
+        systemOperationContext,
         ImmutableList.of(entitySpec),
-        k ->
-            new SearchRequestHandler(
-                systemOperationContext,
-                entitySpec,
-                configs,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfiguration));
+        configs,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        searchServiceConfiguration);
   }
 
   public static SearchRequestHandler getBuilder(
@@ -164,7 +161,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
-        ImmutableList.copyOf(entitySpecs),
+        new SearchHandlerKey(
+            ImmutableList.copyOf(entitySpecs),
+            configs,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfiguration),
         k ->
             new SearchRequestHandler(
                 systemOperationContext,
@@ -675,5 +677,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
     }
     return searchSuggestions;
+  }
+
+  /**
+   * Enhanced cache key implementation to prevent handler cross-contamination in tests.
+   *
+   * <p>Background: Flaky tests occurred because the cache key (previously just entitySpecs) didn't
+   * account for all configuration variants. Identical entitySpecs with different search
+   * configurations would incorrectly share handlers, leading to test instability.
+   *
+   * <p>This key ensures each unique configuration combination gets its own handler instance.
+   */
+  @Value
+  private static class SearchHandlerKey {
+    @Nonnull private final List<EntitySpec> entitySpecs;
+    @Nonnull private final ElasticSearchConfiguration configs;
+    @Nullable private final CustomSearchConfiguration customSearchConfiguration;
+    @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
+    @Nonnull private final SearchServiceConfiguration searchServiceConfiguration;
   }
 }

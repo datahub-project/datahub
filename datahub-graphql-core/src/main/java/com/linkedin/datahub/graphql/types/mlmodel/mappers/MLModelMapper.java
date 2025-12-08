@@ -258,7 +258,12 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
   private static void mapApplicationAssociation(
       @Nullable final QueryContext context, @Nonnull MLModel mlModel, @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    mlModel.setApplication(
-        ApplicationAssociationMapper.map(context, applications, mlModel.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, mlModel.getUrn());
+    mlModel.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      mlModel.setApplication(applicationAssociations.get(0));
+    }
   }
 }

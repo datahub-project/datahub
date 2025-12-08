@@ -194,13 +194,13 @@ import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.index.Index;
 import org.opensearch.core.index.shard.ShardId;
-import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
@@ -1253,17 +1253,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private Action convertAliasAction(IndicesAliasesRequest.AliasActions aliasAction) {
-    try {
-      String jsonString =
-          aliasAction.toXContent(XContentFactory.jsonBuilder(), ToXContent.EMPTY_PARAMS).toString();
-      return Action.of(
-          q ->
-              q.withJson(
-                  jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
-                  jacksonJsonpMapper));
-    } catch (IOException ie) {
-      throw new RuntimeException(ie);
-    }
+    String jsonString = Strings.toString(MediaTypeRegistry.JSON, aliasAction, true, true);
+    return Action.of(
+        q ->
+            q.withJson(
+                jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
+                jacksonJsonpMapper));
   }
 
   @Nonnull
@@ -1641,6 +1636,21 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
       Script script = convertScript(update.script());
+
+      @SuppressWarnings("rawtypes")
+      UpdateAction.Builder actionBuilder =
+          new UpdateAction.Builder()
+              .detectNoop(update.detectNoop())
+              .docAsUpsert(update.docAsUpsert())
+              .script(script)
+              .upsert(update.upsert());
+
+      // Only set doc if it exists (not present for script-only updates)
+      if (update.doc() != null) {
+        actionBuilder.doc(
+            XContentHelper.convertToMap(update.doc().source(), true, XContentType.JSON).v2());
+      }
+
       operation =
           new BulkOperation(
               new UpdateOperation.Builder<>()
@@ -1651,17 +1661,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .requireAlias(writeRequest.isRequireAlias())
                   .index(writeRequest.index())
                   .routing(writeRequest.routing())
-                  .action(
-                      new UpdateAction.Builder<>()
-                          .doc(
-                              XContentHelper.convertToMap(
-                                      update.doc().source(), true, XContentType.JSON)
-                                  .v2())
-                          .detectNoop(update.detectNoop())
-                          .docAsUpsert(update.docAsUpsert())
-                          .script(script)
-                          .upsert(update.upsert())
-                          .build())
+                  .action(actionBuilder.build())
                   .build());
     } else if (writeRequest instanceof DeleteRequest) {
       DeleteRequest deleteRequest = (DeleteRequest) writeRequest;
@@ -1750,7 +1750,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private FieldSuggester convertSuggestion(SuggestionBuilder<?> suggestionBuilder) {
-    String jsonString = suggestionBuilder.toString();
+    String jsonString = Strings.toString(MediaTypeRegistry.JSON, suggestionBuilder, true, true);
     return FieldSuggester.of(
         q ->
             q.withJson(

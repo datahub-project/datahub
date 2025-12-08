@@ -1,3 +1,4 @@
+import contextvars
 import dataclasses
 import re
 import unittest.mock
@@ -21,11 +22,13 @@ from typing import (
 import pydantic
 import pydantic_core
 from cached_property import cached_property
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, model_validator
 from pydantic.fields import Field
 from typing_extensions import Protocol, Self
 
 from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
+from datahub.configuration.env_vars import get_debug
+from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 from datahub.utilities.dedup_list import deduplicate_list
 
 REDACT_KEYS = {
@@ -95,6 +98,11 @@ else:
 
 LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]
 
+# Context variable to track if we're inside a nested ConfigModel construction
+_inside_nested_config: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "_inside_nested_config", default=False
+)
+
 
 @dataclasses.dataclass(frozen=True)
 class SupportedSources:
@@ -127,7 +135,98 @@ class ConfigModel(BaseModel):
         extra="forbid",
         ignored_types=(cached_property,),
         json_schema_extra=_config_model_schema_extra,
+        hide_input_in_errors=not get_debug(),
     )
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _track_nesting_context(
+        cls,
+        data: Any,
+        handler: pydantic.ValidatorFunctionWrapHandler,
+        info: pydantic.ValidationInfo,
+    ) -> Self:
+        """
+        Wrap validator that tracks nesting context for nested ConfigModel detection.
+
+        Sets a context variable so nested ConfigModels know they're being constructed as fields.
+        """
+        # Set context for any nested models that will be created during field processing
+        token = _inside_nested_config.set(True)
+        try:
+            # Process the model normally (this calls __init__ and all validators)
+            instance = handler(data)
+        finally:
+            # Reset context after processing
+            _inside_nested_config.reset(token)
+
+        return instance
+
+    @model_validator(mode="after")
+    def _register_secret_fields(self) -> Self:
+        """
+        Register SecretStr fields with the secret masking registry.
+        Recursively traverses nested ConfigModel instances to find all SecretStr fields.
+
+        Only models that are constructed outside of Pydantic field processing will register secrets.
+        This ensures we capture the full qualified paths for nested secrets.
+
+        Performance: Uses batch registration for efficiency - single version
+        increment instead of one per secret.
+        """
+        if not is_masking_enabled():
+            return self
+
+        # Only register if we're NOT inside another ConfigModel's field processing
+        # This means we're a "root" model from the user's perspective
+        if _inside_nested_config.get():
+            return self
+
+        # Collect all secrets recursively (including from nested models)
+        secrets: Dict[str, str] = {}
+        self._collect_secrets(secrets, prefix="")
+
+        # Batch register all secrets in one operation
+        if secrets:
+            SecretRegistry.get_instance().register_secrets_batch(secrets)
+
+        return self
+
+    def _collect_secrets(self, secrets: Dict[str, str], prefix: str) -> None:
+        """
+        Recursively collect SecretStr fields from this model and nested ConfigModel instances.
+
+        Args:
+            secrets: Dictionary to populate with field_name -> secret_value mappings
+            prefix: Prefix for nested field names (e.g., "azure_auth." for nested fields)
+        """
+        for field_name, _field_info in self.__class__.model_fields.items():
+            field_value = getattr(self, field_name, None)
+
+            if field_value is None:
+                continue
+
+            # Build the full field path for better debugging
+            full_name = f"{prefix}{field_name}" if prefix else field_name
+
+            if isinstance(field_value, SecretStr):
+                # Direct SecretStr field
+                secret_value = field_value.get_secret_value()
+                if secret_value:
+                    secrets[full_name] = secret_value
+            elif isinstance(field_value, ConfigModel):
+                # Nested ConfigModel - recurse into it
+                field_value._collect_secrets(secrets, prefix=f"{full_name}.")
+            elif isinstance(field_value, list):
+                # Handle lists of ConfigModels
+                for idx, item in enumerate(field_value):
+                    if isinstance(item, ConfigModel):
+                        item._collect_secrets(secrets, prefix=f"{full_name}[{idx}].")
+            elif isinstance(field_value, dict):
+                # Handle dicts with ConfigModel values
+                for key, item in field_value.items():
+                    if isinstance(item, ConfigModel):
+                        item._collect_secrets(secrets, prefix=f"{full_name}[{key}].")
 
     @classmethod
     def parse_obj_allow_extras(cls, obj: Any) -> Self:
@@ -161,7 +260,7 @@ class PermissiveConfigModel(ConfigModel):
 class ConnectionModel(BaseModel):
     """Represents the config associated with a connection"""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", hide_input_in_errors=not get_debug())
 
 
 class TransformerSemantics(ConfigEnum):
