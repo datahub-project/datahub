@@ -485,6 +485,68 @@ def test_is_stored_procedure_with_unsupported_syntax() -> None:
     )
 
 
+def test_is_control_flow_statement_word_boundary() -> None:
+    """Test that control flow detection uses word boundaries to avoid false positives."""
+    from datahub.sql_parsing.sqlglot_lineage import _is_control_flow_statement
+
+    # Should match actual control flow keywords
+    assert _is_control_flow_statement("SET @VAR = 1")
+    assert _is_control_flow_statement("BEGIN")
+    assert _is_control_flow_statement("END")
+    assert _is_control_flow_statement("IF @X > 0")
+    assert _is_control_flow_statement("GO")
+    assert _is_control_flow_statement("RETURN")
+    assert _is_control_flow_statement("DECLARE @X INT")
+
+    # Should NOT match when keyword is part of identifier
+    assert not _is_control_flow_statement("SETVAR = 1")  # SET is prefix
+    assert not _is_control_flow_statement("BEGINX")  # BEGIN is prefix
+    assert not _is_control_flow_statement("ENDPOINT")  # END is prefix
+    assert not _is_control_flow_statement("IFFY")  # IF is prefix
+    assert not _is_control_flow_statement("GOAL_TABLE")  # GO is prefix
+    assert not _is_control_flow_statement("RETURNVALUE")  # RETURN is prefix
+
+    # Should match with various delimiters after keyword
+    assert _is_control_flow_statement("SET;")
+    assert _is_control_flow_statement("BEGIN\n")
+    assert _is_control_flow_statement("IF(")
+
+
+def test_contains_control_flow_keyword_word_boundary() -> None:
+    """Test that keyword detection in SQL uses word boundaries to avoid false positives."""
+    from datahub.sql_parsing.sqlglot_lineage import _contains_control_flow_keyword
+
+    # Should match actual control flow keywords in SQL
+    assert _contains_control_flow_keyword("CREATE PROCEDURE X AS BEGIN SELECT 1 END")
+    assert _contains_control_flow_keyword("CREATE PROCEDURE X AS SET @VAR = 1")
+    assert _contains_control_flow_keyword("CREATE PROCEDURE X AS IF @X > 0 SELECT 1")
+
+    # Should NOT match when keyword appears as substring in table/column names
+    assert not _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT * FROM TREND_TABLE"
+    )  # TREND contains END
+    assert not _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT * FROM SETTINGS_TABLE"
+    )  # SETTINGS contains SET
+    assert not _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT GOAL FROM GOALS"
+    )  # GOAL contains GO
+    assert not _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT * FROM LEGEND"
+    )  # LEGEND contains END
+    assert not _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT RETURNVALUE FROM T"
+    )  # RETURNVALUE contains RETURN
+    assert not _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT IFFY FROM T"
+    )  # IFFY contains IF
+
+    # Should match keywords at word boundaries
+    assert _contains_control_flow_keyword(
+        "CREATE PROCEDURE X AS SELECT * FROM T; END"
+    )  # END is separate word
+
+
 def test_fallback_parser_statement_filtering() -> None:
     """Test that control flow statements are properly filtered."""
     # This is implicitly tested by the other tests, but we verify the behavior
