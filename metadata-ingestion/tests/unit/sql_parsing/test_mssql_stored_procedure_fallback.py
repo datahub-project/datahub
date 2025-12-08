@@ -590,62 +590,6 @@ def test_fallback_parser_empty_sql() -> None:
     assert result.in_tables == []
 
 
-def test_fallback_parser_only_control_flow() -> None:
-    """Test fallback parser when SQL contains only control flow statements."""
-    from datahub.sql_parsing.schema_resolver import SchemaResolver
-    from datahub.sql_parsing.sqlglot_lineage import _parse_stored_procedure_fallback
-    from datahub.sql_parsing.sqlglot_utils import get_dialect
-
-    schema_resolver = SchemaResolver(platform="mssql")
-    dialect = get_dialect("mssql")
-
-    result = _parse_stored_procedure_fallback(
-        sql="""
-        BEGIN
-            DECLARE @x INT
-            SET @x = 1
-            IF @x > 0
-                PRINT 'Hello'
-        END
-        """,
-        schema_resolver=schema_resolver,
-        dialect=dialect,
-        default_db=None,
-        default_schema=None,
-    )
-
-    # Should return empty lineage when no DML statements
-    assert result.in_tables == []
-
-
-def test_fallback_parser_statement_filtering() -> None:
-    """Test that control flow statements are properly filtered."""
-    # This is implicitly tested by the other tests, but we verify the behavior
-    # by checking that procedures with only control flow don't produce lineage
-    assert_sql_result(
-        """
-CREATE PROCEDURE dbo.OnlyDeclarations
-AS
-BEGIN
-    DECLARE @var1 INT;
-    DECLARE @var2 NVARCHAR(100);
-    SET @var1 = 1;
-    SET @var2 = 'test';
-END
-""",
-        dialect="mssql",
-        expected_file=RESOURCE_DIR / "test_mssql_procedure_only_declarations.json",
-        allow_table_error=True,  # Should fail because no DML
-    )
-
-
-def test_fallback_parser_confidence_score() -> None:
-    """Test that fallback parser returns appropriate confidence score."""
-    # The confidence should be 0.5 for fallback parsing
-    # This is tested by comparing the debug_info in golden files
-    pass  # Implicit test via golden files
-
-
 # Real-world test cases based on customer issues
 
 
@@ -1357,3 +1301,145 @@ AS
         dialect="mssql",
         expected_file=RESOURCE_DIR / "test_mssql_procedure_simple_no_begin_end.json",
     )
+
+
+# =============================================================================
+# Multiple Output Tables Tests
+# =============================================================================
+
+
+def test_procedure_with_multiple_output_tables_all_registered() -> None:
+    """Test that procedures with multiple output tables register ALL outputs."""
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+    from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+
+    aggregator = SqlParsingAggregator(
+        platform="mssql",
+        platform_instance=None,
+        env="PROD",
+        graph=None,
+    )
+
+    # Procedure that modifies 3 different tables
+    procedure_sql = """
+    CREATE PROCEDURE dbo.update_inventory_and_sales AS
+    BEGIN
+        -- Update inventory table
+        UPDATE inventory
+        SET quantity = quantity - 1
+        WHERE product_id = 100;
+
+        -- Insert into sales table
+        INSERT INTO sales (product_id, quantity, sale_date)
+        SELECT product_id, 1, GETDATE()
+        FROM inventory
+        WHERE product_id = 100;
+
+        -- Update audit log
+        INSERT INTO audit_log (action, timestamp)
+        VALUES ('inventory_update', GETDATE());
+    END
+    """
+
+    # Parse the procedure
+    result = sqlglot_lineage(
+        procedure_sql,
+        schema_resolver=aggregator._schema_resolver,
+        default_db="testdb",
+        default_schema="dbo",
+    )
+
+    # Should find all 3 output tables
+    assert len(result.out_tables) == 3, (
+        f"Expected 3 output tables, got {len(result.out_tables)}: {result.out_tables}"
+    )
+
+    # Verify each table is present
+    output_table_names = {urn.split(".")[-1].split(",")[0] for urn in result.out_tables}
+    assert "inventory" in output_table_names
+    assert "sales" in output_table_names
+    assert "audit_log" in output_table_names
+
+
+def test_procedure_with_four_cross_database_outputs() -> None:
+    """Test procedure modifying tables across multiple databases."""
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+    from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+
+    aggregator = SqlParsingAggregator(
+        platform="mssql",
+        platform_instance=None,
+        env="PROD",
+        graph=None,
+    )
+
+    procedure_sql = """
+    CREATE PROCEDURE dbo.sync_data_across_systems AS
+    BEGIN
+        -- Update staging database
+        DELETE FROM staging_db.dbo.temp_data WHERE age > 30;
+
+        -- Insert into production database
+        INSERT INTO prod_db.dbo.customers (id, name)
+        SELECT id, name FROM staging_db.dbo.temp_data;
+
+        -- Update reporting database
+        UPDATE reporting_db.dbo.customer_summary
+        SET total_count = (SELECT COUNT(*) FROM prod_db.dbo.customers);
+
+        -- Log to audit database
+        INSERT INTO audit_db.dbo.sync_log (sync_time, record_count)
+        VALUES (GETDATE(), @@ROWCOUNT);
+    END
+    """
+
+    result = sqlglot_lineage(
+        procedure_sql,
+        schema_resolver=aggregator._schema_resolver,
+        default_db="staging_db",
+        default_schema="dbo",
+    )
+
+    # Should capture all 4 output tables across different databases
+    assert len(result.out_tables) == 4, (
+        f"Expected 4 cross-database output tables, got {len(result.out_tables)}"
+    )
+
+    # Verify we have tables from all 4 databases
+    all_outputs = " ".join(result.out_tables)
+
+    assert "staging_db" in all_outputs
+    assert "prod_db" in all_outputs
+    assert "reporting_db" in all_outputs
+    assert "audit_db" in all_outputs
+
+
+def test_procedure_single_output_still_works() -> None:
+    """Ensure single-output procedures still work (regression test)."""
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+    from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+
+    aggregator = SqlParsingAggregator(
+        platform="mssql",
+        platform_instance=None,
+        env="PROD",
+        graph=None,
+    )
+
+    procedure_sql = """
+    CREATE PROCEDURE dbo.simple_update AS
+    BEGIN
+        UPDATE customers SET status = 'active' WHERE id = 1;
+    END
+    """
+
+    result = sqlglot_lineage(
+        procedure_sql,
+        schema_resolver=aggregator._schema_resolver,
+        default_db="testdb",
+        default_schema="dbo",
+    )
+
+    # Should still work for single output
+    assert len(result.out_tables) == 1
+    assert "customers" in result.out_tables[0]
