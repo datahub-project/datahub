@@ -114,15 +114,15 @@
     "aspect": {
       "json": {
         "customProperties": {
-          "depends_on_past": "false",
-          "email": "",
+          "depends_on_past": "False",
+          "email": "None",
           "label": "'transform_cost_table'",
-          "execution_timeout": "",
-          "sla": "",
+          "execution_timeout": "None",
+          "sla": "None",
           "sql": "'\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        '",
           "task_id": "'transform_cost_table'",
           "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
-          "wait_for_downstream": "false",
+          "wait_for_downstream": "False",
           "downstream_task_ids": "[]",
           "inlets": "[]",
           "outlets": "[]",
@@ -220,32 +220,6 @@
             "confidenceScore": 1.0
           }
         ]
-      }
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:teradata",
-        "name": "costs",
-        "origin": "PROD"
-      }
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:teradata",
-        "name": "processed_costs",
-        "origin": "PROD"
       }
     }
   },
@@ -299,7 +273,7 @@
           "execution_date": "2023-09-27 21:34:38+00:00",
           "try_number": "0",
           "max_tries": "0",
-          "external_executor_id": "",
+          "external_executor_id": "None",
           "state": "running",
           "operator": "TeradataOperator",
           "priority_weight": "1",
@@ -334,58 +308,6 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:119395991908a63ca4316b2b06ccfb1c",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-      "json": {
-        "inputs": [
-          "urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD)"
-        ]
-      }
-    }
-  },
-  {
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:119395991908a63ca4316b2b06ccfb1c",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-      "json": {
-        "outputs": [
-          "urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD)"
-        ]
-      }
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:teradata",
-        "name": "costs",
-        "origin": "PROD"
-      }
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:teradata",
-        "name": "processed_costs",
-        "origin": "PROD"
-      }
-    }
-  },
-  {
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:119395991908a63ca4316b2b06ccfb1c",
-    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
       "json": {
@@ -400,24 +322,6 @@
     }
   },
   {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-      "json": {
-        "timestampMillis": 1764297418061,
-        "partitionSpec": {
-          "partition": "FULL_TABLE_SNAPSHOT",
-          "type": "FULL_TABLE"
-        },
-        "actor": "urn:li:corpuser:airflow",
-        "operationType": "CREATE",
-        "lastUpdatedTimestamp": 1764297418061
-      }
-    }
-  },
-  {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,teradata_operator,prod),transform_cost_table)",
     "changeType": "UPSERT",
@@ -425,15 +329,15 @@
     "aspect": {
       "json": {
         "customProperties": {
-          "depends_on_past": "false",
-          "email": "",
+          "depends_on_past": "False",
+          "email": "None",
           "label": "'transform_cost_table'",
-          "execution_timeout": "",
-          "sla": "",
+          "execution_timeout": "None",
+          "sla": "None",
           "sql": "'\\n        CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        '",
           "task_id": "'transform_cost_table'",
           "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
-          "wait_for_downstream": "false",
+          "wait_for_downstream": "False",
           "downstream_task_ids": "[]",
           "inlets": "[]",
           "outlets": "[]",
@@ -587,32 +491,6 @@
             "confidenceScore": 1.0
           }
         ]
-      }
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:teradata",
-        "name": "costs",
-        "origin": "PROD"
-      }
-    }
-  },
-  {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:teradata,processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:teradata",
-        "name": "processed_costs",
-        "origin": "PROD"
       }
     }
   },

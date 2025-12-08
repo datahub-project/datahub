@@ -7,6 +7,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "_access_control": "",
                 "catchup": "false",
                 "description": "",
                 "doc_md": "",
