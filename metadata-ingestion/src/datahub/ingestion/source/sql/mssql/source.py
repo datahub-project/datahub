@@ -52,7 +52,9 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.file_backed_collections import FileBackedList
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -1034,8 +1036,6 @@ class SQLServerSource(SQLAlchemySource):
         Returns:
             True if the table name is fully qualified (>= 3 parts), False otherwise
         """
-        from datahub.metadata.urns import DatasetUrn
-
         try:
             dataset_urn = DatasetUrn.from_string(urn)
             name = dataset_urn.name
@@ -1070,8 +1070,6 @@ class SQLServerSource(SQLAlchemySource):
         Returns:
             Filtered list with only real tables
         """
-        from datahub.metadata.urns import DatasetUrn
-
         if not upstream_urns:
             return []
 
@@ -1090,7 +1088,10 @@ class SQLServerSource(SQLAlchemySource):
                 # Reuse existing is_temp_table() logic to filter aliases
                 if not self.is_temp_table(table_name):
                     filtered.append(urn)
-            except Exception as e:
+            except (InvalidUrnError, ValueError, AttributeError) as e:
+                # InvalidUrnError: malformed URN string (e.g., doesn't start with urn:li:)
+                # ValueError: other URN parsing errors
+                # AttributeError: URN parsing returned unexpected type
                 logger.warning(f"Error parsing URN {urn}: {e}")
                 filtered.append(urn)  # Conservative: keep it
 

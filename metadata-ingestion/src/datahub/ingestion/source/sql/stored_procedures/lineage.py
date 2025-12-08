@@ -14,29 +14,14 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import TSQL_CONTROL_FLOW_KEYWORDS
-from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
+from datahub.sql_parsing.sqlglot_lineage import _is_control_flow_statement
+from datahub.sql_parsing.sqlglot_utils import (
+    get_dialect,
+    is_dialect_instance,
+    parse_statement,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _is_control_flow_statement(stmt_upper: str) -> bool:
-    """Check if statement starts with a TSQL control flow keyword.
-
-    Uses word boundary matching to avoid false positives like:
-    - 'SETVAR' matching 'SET'
-    - 'EXEC_PROCEDURE' matching 'EXEC'
-    """
-    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
-        if stmt_upper.startswith(kw):
-            # Check for word boundary after keyword
-            if len(stmt_upper) == len(kw):
-                return True
-            next_char = stmt_upper[len(kw)]
-            # Word boundary: whitespace, parenthesis, semicolon, or other non-alphanumeric
-            if not next_char.isalnum() and next_char != "_":
-                return True
-    return False
 
 
 def parse_procedure_code(
@@ -48,12 +33,24 @@ def parse_procedure_code(
     is_temp_table: Callable[[str], bool],
     raise_: bool = False,
     procedure_name: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> Optional[DataJobInputOutputClass]:
     """
     Parse stored procedure code and extract lineage.
 
     Splits statements BEFORE aggregation to ensure each downstream table gets
     only its relevant upstreams (prevents lineage pollution from statement aggregation).
+
+    Args:
+        schema_resolver: Schema resolver for table lookups
+        default_db: Default database context
+        default_schema: Default schema context
+        code: Stored procedure SQL code
+        is_temp_table: Callback to check if a table is temporary
+        raise_: Whether to raise on parse failures
+        procedure_name: Name of the procedure for logging
+        session_id: Optional session ID for deterministic temp table resolution.
+            If not provided, generates a random UUID. Useful for testing.
     """
     # Derive dialect from schema_resolver's platform to support multiple databases
     platform = schema_resolver.platform
@@ -78,8 +75,10 @@ def parse_procedure_code(
             continue
 
         # Skip TSQL control flow keywords that don't produce lineage
-        # Only apply for MSSQL platform
-        if platform == "mssql" and _is_control_flow_statement(stmt_upper):
+        # Only apply for MSSQL/TSQL dialect
+        if is_dialect_instance(dialect, "tsql") and _is_control_flow_statement(
+            stmt_upper
+        ):
             continue
 
         # Parse statement to determine its type using sqlglot
@@ -123,7 +122,8 @@ def parse_procedure_code(
 
     # Generate a shared session_id for all statements in this procedure
     # This is critical for temp table resolution across statements
-    session_id = str(uuid.uuid4())
+    if session_id is None:
+        session_id = str(uuid.uuid4())
 
     aggregator = SqlParsingAggregator(
         platform=schema_resolver.platform,
