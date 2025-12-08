@@ -153,6 +153,8 @@ class DatasetEmbeddingBackfiller:
                         {
                             "position": 0,
                             "text": text,
+                            "character_offset": 0,
+                            "character_length": len(text),
                             "token_count": len(text.split()),
                             "vector": embedding
                         }

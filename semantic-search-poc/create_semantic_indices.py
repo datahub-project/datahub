@@ -81,6 +81,8 @@ def _build_embeddings_properties(models: Sequence[EmbeddingModelSpec]) -> Dict[s
                         },
                         "text": {"type": "text", "index": False},
                         "position": {"type": "integer"},
+                        "character_offset": {"type": "integer"},
+                        "character_length": {"type": "integer"},
                         "token_count": {"type": "integer"},
                     },
                 },

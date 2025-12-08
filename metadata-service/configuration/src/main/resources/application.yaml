@@ -403,7 +403,7 @@ elasticsearch:
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
     semanticSearch:
       enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
-      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:dataset}
+      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
       # Multi-model configuration: map of model name to embedding config
       # Example with multiple models:
       # models:
