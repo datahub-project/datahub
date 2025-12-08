@@ -20,6 +20,25 @@ from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 logger = logging.getLogger(__name__)
 
 
+def _is_control_flow_statement(stmt_upper: str) -> bool:
+    """Check if statement starts with a TSQL control flow keyword.
+
+    Uses word boundary matching to avoid false positives like:
+    - 'SETVAR' matching 'SET'
+    - 'EXEC_PROCEDURE' matching 'EXEC'
+    """
+    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+        if stmt_upper.startswith(kw):
+            # Check for word boundary after keyword
+            if len(stmt_upper) == len(kw):
+                return True
+            next_char = stmt_upper[len(kw)]
+            # Word boundary: whitespace, parenthesis, semicolon, or other non-alphanumeric
+            if not next_char.isalnum() and next_char != "_":
+                return True
+    return False
+
+
 def parse_procedure_code(
     *,
     schema_resolver: SchemaResolver,
@@ -60,12 +79,8 @@ def parse_procedure_code(
 
         # Skip TSQL control flow keywords that don't produce lineage
         # Only apply for MSSQL platform
-        if platform == "mssql":
-            is_control_flow = any(
-                stmt_upper.startswith(kw) for kw in TSQL_CONTROL_FLOW_KEYWORDS
-            )
-            if is_control_flow:
-                continue
+        if platform == "mssql" and _is_control_flow_statement(stmt_upper):
+            continue
 
         # Parse statement to determine its type using sqlglot
         try:
