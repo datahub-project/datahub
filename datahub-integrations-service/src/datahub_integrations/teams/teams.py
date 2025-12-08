@@ -183,7 +183,7 @@ class TeamsActivity(BaseModel):
     value: Optional[Dict[str, Any]] = None
     name: Optional[str] = None
     action: Optional[str] = None
-    is_followup_question: Optional[bool] = False
+    is_followup_question: Optional[bool] = None
 
     class Config:
         allow_population_by_field_name = True

@@ -54,6 +54,7 @@ class ChatbotInteractionEvent(BaseEvent):
     chat_session_id: Optional[str] = None  # datahub internal
 
     is_limited_history: Optional[bool] = None
+    is_followup_question: Optional[bool] = None
 
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 

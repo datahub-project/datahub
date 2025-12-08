@@ -136,6 +136,7 @@ def test_telemetry_api_via_tracking(graph_client: DataHubGraph) -> None:
             num_tool_call_errors=0,
             num_history_messages=1,
             full_history="Test history",
+            is_followup_question=False,
         )
         logger.info(f"Test event created: {test_event}")
 
@@ -196,6 +197,7 @@ def test_telemetry_api_via_tracking(graph_client: DataHubGraph) -> None:
         assert message["num_tool_call_errors"] == 0
         assert message["num_history_messages"] == 1
         assert message["full_history"] == "Test history"
+        assert message["is_followup_question"] is False
 
         assert "timestamp" in message
         assert "origin" in message
