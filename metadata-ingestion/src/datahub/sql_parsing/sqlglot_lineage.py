@@ -105,6 +105,31 @@ TSQL_CONTROL_FLOW_KEYWORDS = {
     "WAITFOR",
 }
 
+
+def _is_control_flow_statement(stmt_upper: str) -> bool:
+    """Check if statement starts with a TSQL control flow keyword with word boundary."""
+    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+        if stmt_upper.startswith(kw):
+            if len(stmt_upper) == len(kw):
+                return True
+            next_char = stmt_upper[len(kw)]
+            if not next_char.isalnum() and next_char != "_":
+                return True
+    return False
+
+
+def _contains_control_flow_keyword(sql_upper: str) -> bool:
+    """Check if SQL contains any TSQL control flow keyword as a whole word."""
+    import re
+
+    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+        # Use word boundary regex to avoid matching substrings like TREND, SETTINGS
+        pattern = r"\b" + re.escape(kw) + r"\b"
+        if re.search(pattern, sql_upper):
+            return True
+    return False
+
+
 Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
@@ -1421,7 +1446,8 @@ def _is_stored_procedure_with_unsupported_syntax(
         return False
 
     # Check for TSQL control flow that causes parsing failures
-    return any(pattern in sql_upper for pattern in TSQL_CONTROL_FLOW_KEYWORDS)
+    # Use word boundary matching to avoid false positives like TREND (contains END)
+    return _contains_control_flow_keyword(sql_upper)
 
 
 def _parse_stored_procedure_fallback(
@@ -1481,10 +1507,8 @@ def _parse_stored_procedure_fallback(
             continue
 
         # Skip control flow statements that don't produce lineage
-        is_control_flow = any(
-            stmt_upper.startswith(kw) for kw in TSQL_CONTROL_FLOW_KEYWORDS
-        )
-        if is_control_flow:
+        # Use word boundary checking to avoid false positives like SETVAR, BEGINX
+        if _is_control_flow_statement(stmt_upper):
             logger.debug(f"Skipping control flow statement: {stmt_stripped[:50]}...")
             continue
 
@@ -1531,14 +1555,24 @@ def _parse_stored_procedure_fallback(
             )
 
         except Exception as e:
-            logger.debug(f"Failed to parse statement: {e}")
+            # Log at debug level to avoid noise - failures are expected for some TSQL constructs
+            # The summary INFO log at the end shows the overall success/failure rate
+            logger.debug(
+                f"Failed to parse statement in fallback parser: {stmt_stripped[:100]}... "
+                f"Error: {e}"
+            )
             failed_count += 1
             continue
 
-    logger.info(
-        f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully, "
-        f"{failed_count} failed"
-    )
+    if failed_count > 0:
+        logger.info(
+            f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully, "
+            f"{failed_count} failed. Enable DEBUG logging for details on failed statements."
+        )
+    else:
+        logger.debug(
+            f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully"
+        )
 
     # If we couldn't parse anything, return an error
     if parsed_count == 0:
