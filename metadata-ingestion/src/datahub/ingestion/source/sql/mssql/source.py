@@ -1274,16 +1274,10 @@ class SQLServerSource(SQLAlchemySource):
                     # Assume it's a real table in another database - not a temp table
                     return False
 
-            # For 2-part names (schema.table), check if any discovered table ends with this pattern
-            # This handles cases where the parser couldn't determine the database context
-            if len(parts) == 2:
-                suffix = f".{standardized_name}"
-                for discovered in self.discovered_datasets:
-                    if discovered.endswith(suffix):
-                        return False  # Found a matching table - not an alias
-
-            # For 1-part names, treat as alias/temp table since we can't verify it's a real table
-            # This handles cases like "dst", "src" which are common TSQL aliases
+            # For names with < 3 parts (1-part or 2-part), treat as alias/temp table
+            # since we can't verify they're real tables without full qualification.
+            # This handles common TSQL aliases like "dst", "src".
+            # Consistent with _is_qualified_table_urn which requires 3+ parts.
             return True
 
         except Exception as e:
