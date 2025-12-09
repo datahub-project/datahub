@@ -80,6 +80,7 @@ import org.opensearch.tasks.TaskInfo;
 
 @Slf4j
 public class ESIndexBuilder {
+
   //  this setting is not allowed to change as of now in AOS:
   // https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-operations.html
   //  public static final String INDICES_MEMORY_INDEX_BUFFER_SIZE =
@@ -98,11 +99,17 @@ public class ESIndexBuilder {
   // private static final Float MINJVMHEAP = 0.1F;
 
   private final SearchClientShim<?> searchClient;
+
   @Getter @VisibleForTesting private final ElasticSearchConfiguration config;
+
   private final IndexConfiguration indexConfig;
+
   @Getter @VisibleForTesting private final StructuredPropertiesConfiguration structPropConfig;
+
   @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
+
   @Getter @VisibleForTesting private final GitVersion gitVersion;
+
   private final OpenSearchJvmInfo jvminfo;
 
   private static final RequestOptions REQUEST_OPTIONS =
@@ -239,7 +246,6 @@ public class ESIndexBuilder {
       @Nonnull SettingsBuilder settingsBuilder,
       @Nonnull MappingsBuilder mappingsBuilder,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-
     Collection<MappingsBuilder.IndexMapping> indexMappings =
         mappingsBuilder.getIndexMappings(opContext, properties);
 
@@ -313,8 +319,9 @@ public class ESIndexBuilder {
     baseSettings.put(NUMBER_OF_REPLICAS, indexConfig.getNumReplicas());
     baseSettings.put(
         REFRESH_INTERVAL, String.format("%ss", indexConfig.getRefreshIntervalSeconds()));
-    // use zstd in OS only, in ES we can use it in the future with best_compression
-    if (isOpenSearch29OrHigher()) {
+    // Use zstd in OS only and only if KNN is not enabled (codec settings conflict with KNN)
+    // In ES we can use it in the future with best_compression
+    if (isOpenSearch29OrHigher() && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
@@ -360,10 +367,13 @@ public class ESIndexBuilder {
     return builder.build();
   }
 
+  private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
+    return baseSettings.get("knn") == Boolean.TRUE;
+  }
+
   @SuppressWarnings("unchecked")
   private void mergeStructuredPropertyMappings(
       Map<String, Object> targetMappings, Map<String, Object> currentMappings) {
-
     // Extract current structured property mapping (entire object, not just properties)
     Map<String, Object> currentStructuredPropertyMapping =
         (Map<String, Object>)
@@ -396,7 +406,6 @@ public class ESIndexBuilder {
   // ES8+ includes additional top level fields that we don't want to wipe out or detect as
   // differences
   private void mergeTopLevelFields(Map<String, Object> target, Map<String, Object> current) {
-
     current.entrySet().stream()
         .filter(entry -> !PROPERTIES.equals(entry.getKey())) // Skip properties field
         .forEach(entry -> target.putIfAbsent(entry.getKey(), entry.getValue()));
@@ -404,7 +413,6 @@ public class ESIndexBuilder {
 
   @SuppressWarnings("unchecked")
   private void mergeStructuredProperties(Map<String, Object> target, Map<String, Object> current) {
-
     Map<String, Object> currentProperties =
         (Map<String, Object>) current.getOrDefault(PROPERTIES, new HashMap<>());
 
@@ -785,10 +793,9 @@ public class ESIndexBuilder {
               tempIndexName);
           reindexTaskCompleted = true;
           break;
-
         } else {
           float progressPercentage =
-              100 * (1.0f * documentCounts.getSecond()) / documentCounts.getFirst();
+              (100 * (1.0f * documentCounts.getSecond())) / documentCounts.getFirst();
           log.warn(
               "Task: {} - Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes",
               parentTaskId,
@@ -1189,7 +1196,6 @@ public class ESIndexBuilder {
 
   private void diff(String indexA, String indexB, long maxDocs) {
     if (maxDocs <= 100) {
-
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
       searchSourceBuilder.size(100);
       searchSourceBuilder.sort(SortBuilders.fieldSort("_id").order(SortOrder.ASC));
