@@ -172,7 +172,7 @@ class MockQueryResults:
         return [{"DDL": "CREATE SEMANTIC VIEW SALES_ANALYTICS AS ..."}]
 
 
-def create_mock_connection(query_results: Dict[str, List[Dict]]):
+def create_mock_connection(query_results: Dict[str, List[Dict]]) -> MagicMock:
     """Create a mock connection that returns appropriate results based on query."""
     mock_conn = MagicMock()
 
@@ -280,6 +280,7 @@ class TestSemanticViewEndToEndFlow:
         data_dict = SnowflakeDataDictionary(connection=mock_conn, report=report)
 
         result = data_dict.get_semantic_views_for_database("TEST_DB")
+        assert result is not None
         sv = result["PUBLIC"][0]
 
         # Find ORDER_ID column
@@ -306,6 +307,7 @@ class TestSemanticViewEndToEndFlow:
         data_dict = SnowflakeDataDictionary(connection=mock_conn, report=report)
 
         result = data_dict.get_semantic_views_for_database("TEST_DB")
+        assert result is not None
         sv = result["PUBLIC"][0]
 
         # Find total_revenue metric
@@ -347,7 +349,11 @@ class TestSemanticViewLineageGeneration:
 
         aggregator = MagicMock()
         # Mock schema resolver to return schema for ORDERS table
-        schema_info = {"order_id": {}, "order_total": {}, "customer_id": {}}
+        schema_info: Dict[str, Any] = {
+            "order_id": {},
+            "order_total": {},
+            "customer_id": {},
+        }
         aggregator._schema_resolver = MagicMock()
         aggregator._schema_resolver._resolve_schema_info.return_value = schema_info
 
