@@ -494,10 +494,12 @@ Reference Links:
 
 ### Consumer Pool Configuration
 
-| Environment Variable               | Default | Description                | Components |
-| ---------------------------------- | ------- | -------------------------- | ---------- |
-| `KAFKA_CONSUMER_POOL_INITIAL_SIZE` | `1`     | Consumer pool initial size | GMS        |
-| `KAFKA_CONSUMER_POOL_MAX_SIZE`     | `5`     | Consumer pool maximum size | GMS        |
+| Environment Variable                                    | Default | Description                                                 | Components |
+| ------------------------------------------------------- | ------- | ----------------------------------------------------------- | ---------- |
+| `KAFKA_CONSUMER_POOL_INITIAL_SIZE`                      | `1`     | Consumer pool initial size                                  | GMS        |
+| `KAFKA_CONSUMER_POOL_MAX_SIZE`                          | `5`     | Consumer pool maximum size                                  | GMS        |
+| `KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS`        | `5`     | Timeout in seconds for validating consumer health           | GMS        |
+| `KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES` | `5`     | Interval in minutes for caching consumer validation results | GMS        |
 
 ### Schema Registry Configuration
 
