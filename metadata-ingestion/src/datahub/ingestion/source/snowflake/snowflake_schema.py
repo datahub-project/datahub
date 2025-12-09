@@ -833,9 +833,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 f"Failed to get semantic views for database - {db_name} using SHOW command: {e}",
                 exc_info=True,
             )
-            # Don't fallback to information_schema - it won't work for semantic views
-            # Return empty dict instead of None so processing can continue
-            return {}
+            # Return None to signal failure and allow fallback to per-schema queries
+            return None
 
     def _populate_semantic_view_definitions(
         self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
@@ -914,10 +913,27 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
             return []
         except (json.JSONDecodeError, TypeError) as e:
+            # Truncate large values to avoid logging sensitive/large data
+            truncated_value = (
+                f"{str(value)[:100]}..." if value and len(str(value)) > 100 else value
+            )
             logger.warning(
-                f"Failed to parse {field_name} as JSON in {context}. Value: {value!r}. Error: {e}"
+                f"Failed to parse {field_name} as JSON in {context}. "
+                f"Value: {truncated_value!r}. Error: {e}"
             )
             return []
+
+    def _get_data_type_with_default(
+        self, row: Dict, subtype: str, col_name: str, default: str
+    ) -> str:
+        """Get data type from row, logging debug message if defaulting."""
+        data_type = row.get("DATA_TYPE")
+        if not data_type:
+            logger.debug(
+                f"No DATA_TYPE for {subtype} column '{col_name}', defaulting to {default}"
+            )
+            return default
+        return data_type
 
     def _populate_semantic_view_base_tables(
         self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
@@ -1120,7 +1136,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 column_data[view_key][col_name_upper].append(
                     {
                         "name": col_name,
-                        "data_type": row.get("DATA_TYPE", "VARCHAR"),
+                        "data_type": self._get_data_type_with_default(
+                            row, "DIMENSION", col_name, "VARCHAR"
+                        ),
                         "comment": row.get("COMMENT"),
                         "subtype": "DIMENSION",
                         "table_name": row.get("TABLE_NAME"),
@@ -1157,7 +1175,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 column_data[view_key][col_name_upper].append(
                     {
                         "name": col_name,
-                        "data_type": row.get("DATA_TYPE", "NUMBER"),
+                        "data_type": self._get_data_type_with_default(
+                            row, "FACT", col_name, "NUMBER"
+                        ),
                         "comment": row.get("COMMENT"),
                         "subtype": "FACT",
                         "table_name": row.get("TABLE_NAME"),
@@ -1194,7 +1214,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 column_data[view_key][col_name_upper].append(
                     {
                         "name": col_name,
-                        "data_type": row.get("DATA_TYPE", "NUMBER"),
+                        "data_type": self._get_data_type_with_default(
+                            row, "METRIC", col_name, "NUMBER"
+                        ),
                         "comment": row.get("COMMENT"),
                         "subtype": "METRIC",
                         "table_name": row.get("TABLE_NAME"),
@@ -1300,8 +1322,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     exc_info=True,
                 )
             # Continue without column information - not critical
-
-            # Continue without relationship information - not critical
 
     def _get_semantic_views_for_database_using_information_schema(
         self, db_name: str

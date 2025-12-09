@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeColumn
@@ -1948,8 +1948,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         logger.debug(f"Looking up schema for table URN: {table_urn}")
 
-        # Get schema from aggregator's schema resolver
-        # SchemaInfo is Dict[str, str] mapping column names to types
+        # Access aggregator's internal schema resolver to verify column existence.
+        # NOTE: This uses private members (_schema_resolver, _resolve_schema_info) which
+        # creates coupling to SqlParsingAggregator internals. Consider exposing a public
+        # method if this pattern is needed more broadly.
         schema_info = self.aggregator._schema_resolver._resolve_schema_info(table_urn)
         if not schema_info:
             # Schema not found - assume column exists (may not be ingested yet)
@@ -2028,6 +2030,86 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return []
 
+    # Maximum recursion depth for resolving chained derived columns
+    _MAX_DERIVATION_DEPTH = 5
+
+    def _resolve_derived_column_sources(
+        self,
+        expression: str,
+        semantic_view: "SnowflakeSemanticView",
+        depth: int = 0,
+        visited: Optional[Set[str]] = None,
+    ) -> List[Tuple[str, str, str, str]]:
+        """
+        Recursively resolve a derived column's expression to physical source columns.
+
+        Args:
+            expression: SQL expression to parse
+            semantic_view: The semantic view containing the column
+            depth: Current recursion depth
+            visited: Set of already-visited column names to detect cycles
+
+        Returns:
+            List of tuples: (source_db, source_schema, source_table, source_col)
+        """
+        if depth > self._MAX_DERIVATION_DEPTH:
+            logger.warning(
+                f"Max derivation depth ({self._MAX_DERIVATION_DEPTH}) reached for expression: {expression}"
+            )
+            return []
+
+        if visited is None:
+            visited = set()
+
+        source_columns = self._extract_columns_from_expression(
+            expression, dialect="snowflake"
+        )
+
+        resolved_sources: List[Tuple[str, str, str, str]] = []
+
+        for table_qualifier, source_col in source_columns:
+            col_key = f"{table_qualifier or ''}.{source_col}"
+
+            # Cycle detection
+            if col_key in visited:
+                logger.debug(f"Cycle detected at {col_key}, skipping")
+                continue
+            visited.add(col_key)
+
+            if not table_qualifier:
+                continue
+
+            physical_table_tuple = semantic_view.logical_to_physical_table.get(
+                table_qualifier
+            )
+            if not physical_table_tuple:
+                continue
+
+            source_db, source_schema, source_table = physical_table_tuple
+
+            # Check if source column exists in physical table
+            if self._verify_column_exists_in_table(
+                source_db, source_schema, source_table, source_col
+            ):
+                resolved_sources.append(
+                    (source_db, source_schema, source_table, source_col)
+                )
+            else:
+                # Check if it's another derived column (chained derivation)
+                for sv_col in semantic_view.columns:
+                    if sv_col.name.upper() == source_col and sv_col.expression:
+                        # Recursively resolve
+                        nested_sources = self._resolve_derived_column_sources(
+                            sv_col.expression,
+                            semantic_view,
+                            depth + 1,
+                            visited.copy(),
+                        )
+                        resolved_sources.extend(nested_sources)
+                        break
+
+        return resolved_sources
+
     def _process_unassociated_columns(
         self,
         semantic_view: SnowflakeSemanticView,
@@ -2076,144 +2158,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 self.snowflake_identifier(col_name_upper),
             )
 
-            source_columns = self._extract_columns_from_expression(
-                column_expression, dialect="snowflake"
+            # Use depth-limited recursive resolution
+            resolved_sources = self._resolve_derived_column_sources(
+                column_expression, semantic_view
             )
 
-            if not source_columns:
-                logger.warning(
-                    f"Could not extract source columns from expression: {column_expression}"
+            if not resolved_sources:
+                logger.debug(
+                    f"No physical sources resolved for column {col_name_upper}"
                 )
                 continue
 
-            logger.debug(
-                f"Extracted {len(source_columns)} source columns from expression: {source_columns}"
-            )
-
-            for table_qualifier, source_col in source_columns:
-                if not table_qualifier:
-                    logger.debug(
-                        f"Source column {source_col} has no table qualifier. "
-                        f"Cannot determine physical table. Skipping lineage."
-                    )
-                    continue
-
-                physical_table_tuple = semantic_view.logical_to_physical_table.get(
-                    table_qualifier
-                )
-                if not physical_table_tuple:
-                    logger.debug(
-                        f"Logical table '{table_qualifier}' not found. "
-                        f"Skipping lineage for {table_qualifier}.{source_col}"
-                    )
-                    continue
-
-                source_db, source_schema, source_table = physical_table_tuple
-                source_table_full_name = f"{source_db}.{source_schema}.{source_table}"
-
-                # Check if source column exists in physical table
-                if not self._verify_column_exists_in_table(
-                    source_db, source_schema, source_table, source_col
-                ):
-                    # Column not in physical table - check if it's another derived column
-                    # in the same semantic view (chained derivation)
-                    logger.debug(
-                        f"Source column {source_col} not found in {source_table_full_name}. "
-                        f"Checking if it's a derived column in the semantic view..."
-                    )
-
-                    # Find if this column exists in the semantic view with an expression
-                    derived_col_expression = None
-                    for sv_col in semantic_view.columns:
-                        if sv_col.name.upper() == source_col:
-                            derived_col_expression = sv_col.expression
-                            break
-
-                    if derived_col_expression:
-                        logger.debug(
-                            f"Found expression for {source_col}: {derived_col_expression}. "
-                            f"Recursively extracting source columns..."
-                        )
-
-                        # Recursively extract columns from the derived column's expression
-                        recursive_sources = self._extract_columns_from_expression(
-                            derived_col_expression, dialect="snowflake"
-                        )
-
-                        for rec_table_qual, rec_col in recursive_sources:
-                            # Resolve the physical table for the recursive source
-                            rec_table_tuple = None
-                            if rec_table_qual:
-                                rec_table_tuple = (
-                                    semantic_view.logical_to_physical_table.get(
-                                        rec_table_qual
-                                    )
-                                )
-                            else:
-                                # If no qualifier, use the original table qualifier
-                                rec_table_tuple = physical_table_tuple
-
-                            if not rec_table_tuple:
-                                logger.warning(
-                                    f"Cannot resolve table for recursive source {rec_col}"
-                                )
-                                continue
-
-                            rec_db, rec_schema, rec_table = rec_table_tuple
-                            rec_table_full = f"{rec_db}.{rec_schema}.{rec_table}"
-
-                            # Verify recursive source exists in its physical table
-                            if not self._verify_column_exists_in_table(
-                                rec_db, rec_schema, rec_table, rec_col
-                            ):
-                                logger.warning(
-                                    f"Recursive source {rec_col} not found in {rec_table_full}"
-                                )
-                                continue
-
-                            if not self._is_table_allowed(
-                                rec_db, rec_schema, rec_table
-                            ):
-                                continue
-
-                            # Create lineage from recursive source to the final derived metric
-                            rec_table_id = self.identifiers.get_dataset_identifier(
-                                rec_table, rec_schema, rec_db
-                            )
-                            rec_table_urn = self.identifiers.gen_dataset_urn(
-                                rec_table_id
-                            )
-                            rec_field_urn = make_schema_field_urn(
-                                rec_table_urn,
-                                self.snowflake_identifier(rec_col),
-                            )
-
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                    upstreams=[rec_field_urn],
-                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                    downstreams=[downstream_field_urn],
-                                )
-                            )
-
-                            logger.debug(
-                                f"Created chained lineage: {rec_col} ({rec_table_full}) -> "
-                                f"{source_col} (derived) -> {col_name_upper} ({semantic_view.name})"
-                            )
-                    else:
-                        logger.warning(
-                            f"Source column {source_col} not found in {source_table_full_name} "
-                            f"and is not a derived column in the semantic view"
-                        )
-
-                    # Skip direct lineage since we handled it recursively (or it doesn't exist)
-                    continue
-
+            for source_db, source_schema, source_table, source_col in resolved_sources:
                 if not self._is_table_allowed(source_db, source_schema, source_table):
-                    logger.debug(
-                        f"Skipping lineage from {source_col} to filtered table {source_table_full_name}"
-                    )
                     continue
 
                 source_table_identifier = self.identifiers.get_dataset_identifier(
@@ -2238,7 +2195,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 logger.debug(
                     f"Created derived column lineage: "
-                    f"{source_col} ({source_table_full_name}) -> "
+                    f"{source_col} ({source_db}.{source_schema}.{source_table}) -> "
                     f"{col_name_upper} ({semantic_view.name})"
                 )
 
@@ -2280,6 +2237,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return []
 
         fine_grained_lineages: List[FineGrainedLineageClass] = []
+        warned_mappings: Set[str] = (
+            set()
+        )  # Track warned mappings to avoid duplicate logs
 
         logger.info(
             f"Generating column lineage for semantic view {semantic_view.name}. "
@@ -2306,15 +2266,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
 
                 if not base_table_tuple:
-                    msg = (
-                        f"Could not find physical table mapping for logical table '{logical_table_name}'. "
-                        f"Available mappings: {list(semantic_view.logical_to_physical_table.keys())}"
-                    )
-                    logger.warning(msg)
-                    self.report.report_warning(
-                        semantic_view.name,
-                        f"Missing logical table mapping: {logical_table_name}",
-                    )
+                    if logical_table_upper not in warned_mappings:
+                        warned_mappings.add(logical_table_upper)
+                        logger.warning(
+                            f"Could not find physical table mapping for logical table '{logical_table_name}'. "
+                            f"Available mappings: {list(semantic_view.logical_to_physical_table.keys())}"
+                        )
+                        self.report.report_warning(
+                            semantic_view.name,
+                            f"Missing logical table mapping: {logical_table_name}",
+                        )
                     continue
 
                 base_db, base_schema, base_table = base_table_tuple

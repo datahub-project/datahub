@@ -364,7 +364,11 @@ WHERE TABLE_CATALOG = '{db_name}'
     def get_semantic_view_ddl(
         db_name: str, schema_name: str, semantic_view_name: str
     ) -> str:
-        """Generate query to get the DDL definition of a semantic view."""
+        """Generate query to get the DDL definition of a semantic view.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
         return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
 
     @staticmethod
