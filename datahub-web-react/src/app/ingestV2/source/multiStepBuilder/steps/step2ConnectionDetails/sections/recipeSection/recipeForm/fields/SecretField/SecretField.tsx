@@ -43,7 +43,10 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
 export function SecretField({ field, updateFormValue }: CommonFieldProps) {
     const { secrets, refetchSecrets } = useSecrets();
 
-    const options = useMemo(() => secrets.map((secret) => ({ value: secret.name, label: secret.name })), [secrets]);
+    const options = useMemo(
+        () => secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name })),
+        [secrets],
+    );
     const apolloClient = useApolloClient();
 
     return (

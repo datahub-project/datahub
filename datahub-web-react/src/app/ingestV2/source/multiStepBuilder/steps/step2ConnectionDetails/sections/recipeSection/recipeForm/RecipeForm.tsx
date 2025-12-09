@@ -7,7 +7,7 @@ import YAML from 'yamljs';
 
 import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { FieldType, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
@@ -15,7 +15,6 @@ import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2Con
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
 import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/FiltersSection';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
-import { decodeSecret, encodeSecret } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/utils';
 import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 
@@ -56,8 +55,6 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
         allFields.forEach((field) => {
             if (field.getValueFromRecipeOverride) {
                 initialValues[field.name] = field.getValueFromRecipeOverride(recipeObj);
-            } else if (field.type === FieldType.SECRET) {
-                initialValues[field.name] = decodeSecret(get(recipeObj, field.fieldPath));
             } else {
                 initialValues[field.name] = get(recipeObj, field.fieldPath);
             }
@@ -96,12 +93,6 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
                 if (recipeField) {
                     if (recipeField.setValueOnRecipeOverride) {
                         updatedValues = recipeField.setValueOnRecipeOverride(updatedValues, allValues[fieldName]);
-                    } else if (recipeField.type === FieldType.SECRET) {
-                        updatedValues = setFieldValueOnRecipe(
-                            updatedValues,
-                            encodeSecret(allValues[fieldName]),
-                            recipeField.fieldPath,
-                        );
                     } else {
                         updatedValues = setFieldValueOnRecipe(
                             updatedValues,
