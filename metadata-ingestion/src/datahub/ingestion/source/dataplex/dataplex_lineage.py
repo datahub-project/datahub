@@ -569,12 +569,11 @@ class DataplexLineageExtractor:
             for entity in entity_list:
                 # Construct dataset URN based on whether this is from Entries API or Entities API
                 if entity.is_entry:
-                    # For entries, use simple naming (just entity_id)
                     import datahub.emitter.mce_builder as builder
 
                     dataset_urn = builder.make_dataset_urn_with_platform_instance(
                         platform=entity.source_platform,
-                        name=entity.entity_id,
+                        name=entity.dataset_id,
                         platform_instance=None,
                         env=self.config.env,
                     )
