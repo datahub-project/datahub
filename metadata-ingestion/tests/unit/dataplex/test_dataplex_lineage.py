@@ -58,7 +58,7 @@ def test_lineage_extractor_initialization(
     assert lineage_extractor.config is not None
     assert lineage_extractor.report is not None
     assert lineage_extractor.lineage_client is not None
-    assert lineage_extractor.platform == "dataplex"
+    # Platform is now passed as a parameter to methods, not stored as instance attribute
     assert isinstance(lineage_extractor.lineage_map, dict)
 
 
@@ -295,7 +295,8 @@ def test_get_lineage_for_table_no_lineage(
     """Test getting lineage for table with no lineage."""
     result = lineage_extractor.get_lineage_for_table(
         "entity-with-no-lineage",
-        "urn:li:dataset:(urn:li:dataPlatform:dataplex,test.entity,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,test.entity,PROD)",
+        "bigquery",
     )
 
     assert result is None
@@ -317,7 +318,8 @@ def test_get_lineage_for_table_with_lineage(
     # Get lineage
     result = lineage_extractor.get_lineage_for_table(
         "test-entity",
-        "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.test-dataset.test-entity,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.test-dataset.test-entity,PROD)",
+        "bigquery",
     )
 
     assert result is not None
@@ -338,7 +340,9 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
 
     # Generate workunits
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.test-dataset.test-entity,PROD)"
-    workunits = list(lineage_extractor.gen_lineage("test-entity", dataset_urn))
+    workunits = list(
+        lineage_extractor.gen_lineage("test-entity", dataset_urn, "bigquery")
+    )
 
     assert len(workunits) == 1
     assert workunits[0].metadata.entityUrn == dataset_urn
@@ -441,7 +445,9 @@ def test_workunit_urn_structure_validation(
 
     # Generate workunit
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,my-project.my-dataset.downstream-table,PROD)"
-    workunits = list(lineage_extractor.gen_lineage("downstream-table", dataset_urn))
+    workunits = list(
+        lineage_extractor.gen_lineage("downstream-table", dataset_urn, "bigquery")
+    )
 
     assert len(workunits) == 1
     workunit = workunits[0]
@@ -478,7 +484,9 @@ def test_workunit_aspect_completeness(
 
     # Generate workunit
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,my-project.my-dataset.target-table,PROD)"
-    workunits = list(lineage_extractor.gen_lineage("target-table", dataset_urn))
+    workunits = list(
+        lineage_extractor.gen_lineage("target-table", dataset_urn, "bigquery")
+    )
 
     assert len(workunits) == 1
     workunit = workunits[0]
@@ -522,21 +530,23 @@ def test_workunit_upstream_urn_format(
     lineage_extractor.lineage_map["analytics_table"] = {edge}
     lineage_extractor.config.env = "PROD"
 
-    # Generate workunit
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,test-project.analytics_dataset.analytics_table,PROD)"
-    workunits = list(lineage_extractor.gen_lineage("analytics_table", dataset_urn))
+    # Generate workunit - using bigquery platform for proper URN alignment
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics_dataset.analytics_table,PROD)"
+    workunits = list(
+        lineage_extractor.gen_lineage("analytics_table", dataset_urn, "bigquery")
+    )
 
     assert len(workunits) == 1
     upstream_urn = workunits[0].metadata.aspect.upstreams[0].dataset
 
-    # Validate upstream URN structure
+    # Validate upstream URN structure - now uses bigquery platform for consistency
     assert upstream_urn.startswith("urn:li:dataset:")
-    assert "urn:li:dataPlatform:dataplex" in upstream_urn
+    assert "urn:li:dataPlatform:bigquery" in upstream_urn
     assert "test-project" in upstream_urn
     assert "customer_table" in upstream_urn
 
     # Parse URN components
-    # Format: urn:li:dataset:(urn:li:dataPlatform:dataplex,{entity_id},PROD)
+    # Format: urn:li:dataset:(urn:li:dataPlatform:bigquery,{entity_id},PROD)
     assert upstream_urn.count("(") == 1
     assert upstream_urn.count(")") == 1
     assert upstream_urn.count(",") == 2
@@ -548,7 +558,9 @@ def test_workunit_generation_with_no_lineage(
     """Test that no workunits are generated when there's no lineage."""
     # Don't add any lineage to the map
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dataplex,my-project.my-dataset.isolated-table,PROD)"
-    workunits = list(lineage_extractor.gen_lineage("isolated-table", dataset_urn))
+    workunits = list(
+        lineage_extractor.gen_lineage("isolated-table", dataset_urn, "bigquery")
+    )
 
     # Should generate no workunits
     assert len(workunits) == 0
@@ -648,7 +660,7 @@ def test_batched_lineage_processing() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_batch_size=2,  # Small batch size to test batching
+        batch_size=2,  # Small batch size to test batching
     )
     report = DataplexReport()
 
@@ -729,7 +741,7 @@ def test_batched_lineage_with_batch_size_larger_than_entities() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_batch_size=100,  # Larger than entity count
+        batch_size=100,  # Larger than entity count
     )
     report = DataplexReport()
 
@@ -766,11 +778,11 @@ def test_batched_lineage_with_batch_size_larger_than_entities() -> None:
 
 
 def test_batched_lineage_with_batching_disabled() -> None:
-    """Test that batching can be disabled by setting batch_size to -1."""
+    """Test that batching can be disabled by setting batch_size to None."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_batch_size=-1,  # Disable batching
+        batch_size=None,  # Disable batching
     )
     report = DataplexReport()
 
@@ -811,7 +823,7 @@ def test_batched_lineage_memory_cleanup() -> None:
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
-        lineage_batch_size=2,  # Process 2 entities per batch
+        batch_size=2,  # Process 2 entities per batch
     )
     report = DataplexReport()
 

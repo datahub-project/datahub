@@ -25,37 +25,35 @@ source:
     #   client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
     #   client_id: "123456678890"
 
+    # Optional: API Selection
+    # include_entries: true   # Extract from Universal Catalog (default: true, recommended)
+    # include_entities: false # Extract from Lakes/Zones (default: false)
+    # include_lineage: true   # Extract lineage (default: true)
+    # include_schema: true    # Extract schema metadata (default: true)
+
     # Optional: Filtering patterns
     # filter_config:
-    #   lake_pattern:
-    #     allow:
-    #       - "retail-.*"
-    #       - "finance-.*"
-    #     deny:
-    #       - ".*-test"
-    #
-    #   zone_pattern:
-    #     allow:
-    #       - ".*"
-    #     deny:
-    #       - "deprecated-.*"
-    #
+    #   # Dataset/table name patterns (applies to both entries and entities)
     #   dataset_pattern:
     #     allow:
-    #       - ".*"
+    #       - "prod_.*"
     #     deny:
-    #       - "temp-.*"
-
-    # Optional: Feature flags (all default to true)
-    # include_lakes: true
-    # include_zones: true
-    # include_assets: true
-    # include_entities: true
-    # include_lineage: true
-
-    # Optional: Sibling relationships
-    # create_sibling_relationships: true
-    # dataplex_is_primary_sibling: false  # If true, Dataplex entity is primary
+    #       - ".*_temp"
+    #
+    #   # Entity-specific filters (only applies when include_entities=true)
+    #   entities:
+    #     lake_pattern:
+    #       allow:
+    #         - "retail-.*"
+    #         - "finance-.*"
+    #       deny:
+    #         - ".*-test"
+    #
+    #     zone_pattern:
+    #       allow:
+    #         - ".*"
+    #       deny:
+    #         - "deprecated-.*"
 
     # Optional: Performance tuning
     # max_workers: 10

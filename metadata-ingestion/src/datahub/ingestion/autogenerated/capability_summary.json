@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-18T18:09:49.190999+00:00",
+  "generated_at": "2025-12-08T22:40:15.320940+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -546,19 +546,31 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Links BigQuery entities to BigQuery dataset containers. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
+          "description": "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
           "subtype_modifier": null,
           "supported": true
         },
         {
-          "capability": "SCHEMA_METADATA",
-          "description": "Extract schema information from discovered entities",
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default when stateful ingestion is configured. Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Extract lineage from Dataplex Lineage API",
+          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
           "subtype_modifier": null,
           "supported": true
         }

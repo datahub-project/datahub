@@ -36,9 +36,102 @@ The connector follows the pattern established by the `bigquery_v2` source:
 - Consistent user experience regardless of discovery method
 - Dataplex context is preserved via custom properties for traceability
 
+### Dual API Architecture
+
+The connector supports extracting metadata from two complementary Google Cloud APIs:
+
+#### 1. **Entries API (Universal Catalog)** - Primary, Default Enabled
+
+The Entries API accesses Google Cloud's Universal Catalog, which provides a centralized view of metadata across Google Cloud resources.
+
+**Key Characteristics:**
+
+- **System-managed entry groups**: `@bigquery`, `@pubsub`, `@datacatalog`, etc.
+- **Comprehensive coverage**: Automatically discovers BigQuery tables, Pub/Sub topics, and other resources
+- **Multi-region access**: Requires multi-region locations (`us`, `eu`, `asia`) to access system entry groups
+- **Richer metadata**: Provides schema information and detailed aspects
+
+**When to use:**
+
+- ✅ Discovering all BigQuery tables across projects
+- ✅ Accessing system-managed resources
+- ✅ Getting the most complete metadata available
+- ✅ **Recommended for most users**
+
+**Configuration:**
+
+```yaml
+include_entries: true # Default
+entries_location: "us" # Multi-region required for system entry groups
+```
+
+#### 2. **Entities API (Lakes/Zones)** - Optional, Default Disabled
+
+The Entities API accesses Dataplex's lake and zone structure, providing entity-level metadata for resources managed through Dataplex.
+
+**Key Characteristics:**
+
+- **Lake/zone hierarchy**: Organized by Dataplex lakes and zones
+- **Discovered assets**: Tables and filesets explicitly added to Dataplex
+- **Regional access**: Uses specific regional locations (`us-central1`, etc.)
+- **Dataplex context**: Direct lake/zone/asset association
+
+**When to use:**
+
+- Use if you need entity-level details specific to lakes/zones not available in Entries API
+- Can be used alongside Entries API (duplicates are automatically handled)
+
+**Configuration:**
+
+```yaml
+include_entities: true # Optional
+location: "us-central1" # Regional location for entities
+```
+
+#### API Coordination
+
+When both APIs are enabled:
+
+1. **Processing Order**: Entities API → Entries API
+2. **Aspect Replacement**: Entries completely replace entity aspects for the same resource (same URN)
+3. **Source of Truth**: Universal Catalog (Entries API) takes precedence
+4. **Data Loss**: Entity custom properties (lake, zone, asset) are LOST when entries overwrite
+
+**⚠️ Important Limitation:**
+
+When the same table is discovered by both APIs, DataHub's aspect-level replacement means:
+
+- ✅ Entry metadata (schema, entry custom properties) is preserved
+- ❌ Entity metadata (lake, zone, asset custom properties) is **completely lost**
+
+This is DataHub's standard behavior (not a bug). Aspects are replaced atomically.
+
+**Recommendation:**
+
+- Use **Entries API only** (default) for most use cases
+- Use **Entities API only** if you need lake/zone organizational context
+- Only use both if APIs discover **non-overlapping datasets**
+
+**Example with both APIs (not recommended for overlapping data):**
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids: ["my-project"]
+
+    # Entries API (primary)
+    include_entries: true
+    entries_location: "us"
+
+    # Entities API (optional - WARNING: overlapping tables lose entity context)
+    include_entities: true
+    location: "us-central1"
+```
+
 ### Key Components
 
-- **[dataplex.py](dataplex.py)**: Main source implementation with extraction logic
+- **[dataplex.py](dataplex.py)**: Main source implementation with dual API extraction logic
 - **[dataplex_config.py](dataplex_config.py)**: Configuration models using Pydantic
 - **[dataplex_report.py](dataplex_report.py)**: Reporting and metrics tracking
 - **[dataplex_helpers.py](dataplex_helpers.py)**: Helper functions for URN generation and type mapping
@@ -140,6 +233,115 @@ Entity extraction is parallelized at the zone level using `ThreadedIteratorExecu
 - Configurable via `max_workers` config option (default: 10)
 - Each zone's entities are processed by a worker thread
 - Thread-safe locks protect shared data structures (asset metadata, zone metadata, entity tracking)
+
+### Entries API Implementation
+
+The Entries API (Universal Catalog) extraction provides comprehensive metadata discovery:
+
+#### Entry Group Discovery
+
+The connector discovers entry groups using the Universal Catalog API:
+
+```python
+# List entry groups in project/location
+parent = f"projects/{project_id}/locations/{entries_location}"
+entry_groups_request = ListEntryGroupsRequest(parent=parent)
+entry_groups = catalog_client.list_entry_groups(request=entry_groups_request)
+```
+
+**System-managed entry groups** (like `@bigquery`, `@pubsub`) contain automatically discovered resources and require multi-region locations (`us`, `eu`, `asia`).
+
+#### Entry Processing
+
+For each entry group, the connector:
+
+1. **Lists entries** in the group
+2. **Fetches full details** with `EntryView.ALL` to get schema and aspects
+3. **Extracts fully qualified name (FQN)** from entry aspects
+4. **Determines source platform** from FQN prefix (e.g., `bigquery:` → platform=`bigquery`)
+5. **Generates source platform URN** for consistency with native connectors
+
+```python
+# Extract FQN from entry aspects
+fqn = entry.fully_qualified_name  # e.g., "bigquery:project.dataset.table"
+
+# Parse platform and resource path
+platform, resource_path = fqn.split(":", 1)  # "bigquery", "project.dataset.table"
+
+# Generate URN using source platform
+dataset_urn = make_dataset_urn_with_platform_instance(
+    platform=platform,
+    name=resource_path,
+    platform_instance=None,
+    env=env,
+)
+```
+
+#### Schema Extraction from Entries
+
+The Entries API provides rich schema metadata through entry aspects:
+
+```python
+# Extract schema from entry aspects
+for aspect in entry.aspects:
+    if aspect.type_ == "schema":
+        # Parse schema aspect data
+        schema_aspect = aspect.value
+        # Convert to DataHub SchemaMetadata
+        schema_metadata = extract_schema_from_entry_aspects(entry, ...)
+```
+
+**Schema fields extracted:**
+
+- Column names and types
+- Column descriptions
+- Nullability constraints
+- Data type mappings (BigQuery → DataHub standard types)
+
+#### Custom Properties from Entry Metadata
+
+Entry metadata is preserved as custom properties:
+
+```python
+custom_properties = {
+    "dataplex_ingested": "true",
+    "dataplex_entry_id": entry_id,
+    "dataplex_entry_group": entry_group_id,
+    "entry_source_system": entry.entry_source.system,
+    "entry_type": entry.entry_type,
+    "fully_qualified_name": fqn,
+}
+```
+
+#### Location Requirements
+
+**Critical**: The `entries_location` config must be a **multi-region location** (`us`, `eu`, `asia`) to access system-managed entry groups:
+
+```yaml
+# ✅ Correct - multi-region for system entry groups
+entries_location: "us"
+
+# ❌ Incorrect - regional locations only have placeholder entries
+entries_location: "us-central1"  # Will miss BigQuery tables!
+```
+
+The connector validates this and warns if a regional location is detected.
+
+#### Memory Optimization
+
+Entries are processed with batched emission to prevent memory issues:
+
+```python
+# Batch entries emission
+if len(cached_entries_mcps) >= batch_size:
+    # Emit batch to DataHub
+    for mcp in cached_entries_mcps:
+        yield mcp.as_workunit()
+    # Clear cache
+    cached_entries_mcps.clear()
+```
+
+This ensures memory usage stays bounded even with 50k+ entries.
 
 ### Lineage Extraction
 

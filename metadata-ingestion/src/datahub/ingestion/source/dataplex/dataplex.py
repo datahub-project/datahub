@@ -10,6 +10,7 @@ This source extracts metadata from Google Dataplex, including:
 Reference implementation based on VertexAI and BigQuery V2 sources.
 """
 
+import json
 import logging
 from threading import Lock
 from typing import Iterable, Optional
@@ -91,23 +92,28 @@ logger = logging.getLogger(__name__)
 @support_status(SupportStatus.INCUBATING)
 @capability(
     SourceCapability.CONTAINERS,
-    "Links BigQuery entities to BigQuery dataset containers. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
+    "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: "
+    "Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. "
+    "Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Extract schema information from discovered entities",
+    "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). "
+    "Schema extraction can be disabled via include_schema config for faster ingestion.",
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Extract lineage from Dataplex Lineage API",
+    "Extract table-level lineage from Dataplex Lineage API. "
+    "Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is configured",
+    "Enabled by default when stateful ingestion is configured. "
+    "Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
 )
 @capability(
     SourceCapability.TEST_CONNECTION,
-    "Verifies connectivity to Dataplex API",
+    "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
 )
 class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex."""
@@ -250,12 +256,19 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         When both are enabled, entries will overwrite entity metadata for the same table,
         making Universal Catalog the source of truth without requiring deduplication tracking.
 
+        IMPORTANT: When both APIs are enabled and discover the same table:
+        - Entry metadata (schema, entry custom properties) REPLACES entity metadata
+        - Entity custom properties (lake, zone, asset) are LOST
+        - This is DataHub's aspect-level replacement behavior (not a bug)
+        - Users should choose ONE API, or use both only for non-overlapping datasets
+        - See documentation for details: docs/sources/dataplex/dataplex_pre.md
+
         Memory optimization: Batched emission prevents memory issues in large deployments
         while maintaining the performance benefit of avoiding duplicate schema extraction.
         """
-        # Determine batch size (-1 means no batching)
+        # Determine batch size (None means no batching)
         batch_size = self.config.batch_size
-        should_batch = batch_size > 0
+        should_batch = batch_size is not None
 
         # Cache MCPs during the first pass
         cached_entities_mcps: list[MetadataChangeProposalWrapper] = []
@@ -321,6 +334,114 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_lineage and self.lineage_extractor:
             yield from self._get_lineage_workunits(project_id)
 
+    def _serialize_field_value(self, field_value) -> str:
+        """Serialize a protobuf field value to string.
+
+        Handles proto MapComposite objects, RepeatedComposite (proto lists), and primitives.
+
+        Args:
+            field_value: Value from protobuf message field
+
+        Returns:
+            JSON string representation for complex types, string for primitives
+        """
+
+        # Handle None
+        if field_value is None:
+            return ""
+
+        # Get the class name for type checking
+        class_name = (
+            str(field_value.__class__) if hasattr(field_value, "__class__") else ""
+        )
+
+        # Handle proto RepeatedComposite (list-like) objects FIRST
+        # This is what contains the list of MapComposite objects
+        if "RepeatedComposite" in class_name or "Repeated" in class_name:
+            try:
+                # RepeatedComposite is iterable, convert items to list
+                serializable_list = []
+                for item in field_value:
+                    item_class = (
+                        str(item.__class__) if hasattr(item, "__class__") else ""
+                    )
+                    if "MapComposite" in item_class:
+                        # Convert MapComposite to regular dict with primitive values
+                        item_dict = {}
+                        for key, value in dict(item).items():
+                            # Recursively handle nested proto objects
+                            if hasattr(value, "__class__") and (
+                                "MapComposite" in str(value.__class__)
+                                or "RepeatedComposite" in str(value.__class__)
+                            ):
+                                # Recursively serialize nested proto objects
+                                item_dict[key] = json.loads(
+                                    self._serialize_field_value(value)
+                                )
+                            else:
+                                # Primitives - keep as is
+                                item_dict[key] = value
+                        serializable_list.append(item_dict)
+                    else:
+                        # Handle primitives in the list
+                        serializable_list.append(item)
+                return json.dumps(serializable_list)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to serialize RepeatedComposite: {e}. Returning length."
+                )
+                try:
+                    return f"[{len(list(field_value))} items]"
+                except Exception:
+                    return "[unknown items]"
+
+        # Handle proto MapComposite (dict-like) objects
+        if "MapComposite" in class_name:
+            try:
+                dict_value = dict(field_value)
+                return json.dumps(dict_value)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to serialize MapComposite to JSON: {e}. Returning type name."
+                )
+                return str(type(field_value).__name__)
+
+        # Handle regular Python lists/tuples
+        if isinstance(field_value, (list, tuple)):
+            # Check if it's a list of proto objects
+            if field_value and hasattr(field_value[0], "__class__"):
+                first_class = str(field_value[0].__class__)
+                if "proto" in first_class.lower() or "MapComposite" in first_class:
+                    # Try to serialize as JSON
+                    try:
+                        # Convert proto objects to dicts if possible
+                        serializable_list = []
+                        for item in field_value:
+                            if hasattr(item, "__class__") and "MapComposite" in str(
+                                item.__class__
+                            ):
+                                serializable_list.append(dict(item))
+                            else:
+                                serializable_list.append(str(item))
+                        return json.dumps(serializable_list)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to serialize list of proto objects: {e}. Returning length."
+                        )
+                        return f"[{len(field_value)} items]"
+            # Regular list of primitives
+            return json.dumps(field_value)
+
+        # Handle primitives (str, int, float, bool)
+        if isinstance(field_value, (str, int, float, bool)):
+            return str(field_value)
+
+        # Fallback: try JSON serialization, then string conversion
+        try:
+            return json.dumps(field_value)
+        except (TypeError, ValueError):
+            return str(field_value)
+
     def _extract_aspects_to_custom_properties(
         self, aspects: dict, custom_properties: dict[str, str]
     ) -> None:
@@ -337,7 +458,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             if hasattr(aspect_value, "data") and aspect_value.data:
                 for field_key, field_value in aspect_value.data.items():
                     property_key = f"dataplex_{aspect_type}_{field_key}"
-                    custom_properties[property_key] = str(field_value)
+                    custom_properties[property_key] = self._serialize_field_value(
+                        field_value
+                    )
 
     def _track_bigquery_container(
         self, project_id: str, dataset_id: str
@@ -609,10 +732,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     platform=source_platform,
                 )
 
-                # Extract schema metadata
-                schema_metadata = self._extract_schema_metadata(
-                    entity_full, dataset_urn, source_platform
-                )
+                # Extract schema metadata (if enabled)
+                schema_metadata = None
+                if self.config.include_schema:
+                    schema_metadata = self._extract_schema_metadata(
+                        entity_full, dataset_urn, source_platform
+                    )
 
                 # Extract custom properties using helper method
                 custom_properties = self._extract_entity_custom_properties(
@@ -681,7 +806,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             for lake in lakes:
                 lake_id = lake.name.split("/")[-1]
 
-                if not self.config.filter_config.lake_pattern.allowed(lake_id):
+                if not self.config.filter_config.entities.lake_pattern.allowed(lake_id):
                     continue
 
                 zones_parent = f"projects/{project_id}/locations/{self.config.location}/lakes/{lake_id}"
@@ -693,7 +818,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     for zone in zones:
                         zone_id = zone.name.split("/")[-1]
 
-                        if not self.config.filter_config.zone_pattern.allowed(zone_id):
+                        if not self.config.filter_config.entities.zone_pattern.allowed(
+                            zone_id
+                        ):
                             continue
 
                         # Store zone type for later use in entity custom properties
@@ -741,7 +868,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         Uses entries_location if specified, otherwise falls back to location.
         For system entry groups (@bigquery, @pubsub), use multi-region locations (us, eu, asia).
         """
-        entries_location = self.config.entries_location or self.config.location
+        # Use configured entries_location (defaults to "us")
+        entries_location = self.config.entries_location
         parent = f"projects/{project_id}/locations/{entries_location}"
 
         try:
@@ -766,8 +894,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     entry_id = entry.name.split("/")[-1]
                     logger.debug(f"Processing entry: {entry_id}")
 
-                    if not self.config.filter_config.entry_pattern.allowed(entry_id):
-                        logger.debug(f"Entry {entry_id} filtered out by pattern")
+                    # Apply dataset_pattern filter to entries
+                    if not self.config.filter_config.dataset_pattern.allowed(entry_id):
+                        logger.debug(
+                            f"Entry {entry_id} filtered out by dataset_pattern"
+                        )
                         with self._report_lock:
                             self.report.report_entry_scanned(entry_id, filtered=True)
                         continue
@@ -911,10 +1042,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             entry, entry_id, entry_group_id
         )
 
-        # Try to extract schema from entry aspects
-        schema_metadata = self._extract_schema_from_entry_aspects(
-            entry, entry_id, source_platform
-        )
+        # Try to extract schema from entry aspects (if enabled)
+        schema_metadata = None
+        if self.config.include_schema:
+            schema_metadata = self._extract_schema_from_entry_aspects(
+                entry, entry_id, source_platform
+            )
 
         # Build aspects list
         aspects = [

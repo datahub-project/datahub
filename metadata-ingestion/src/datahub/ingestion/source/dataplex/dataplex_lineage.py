@@ -167,39 +167,31 @@ class DataplexLineageExtractor:
             )
             return None
 
-    @retry(
-        retry=retry_if_exception_type(
-            (
-                google_exceptions.DeadlineExceeded,
-                google_exceptions.ServiceUnavailable,
-                google_exceptions.TooManyRequests,
-                google_exceptions.InternalServerError,
-            )
-        ),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_attempt(3),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-        reraise=True,
-    )
-    def _search_links_by_target(
+    def _get_retry_decorator(self):
+        """Create a retry decorator with config-based parameters."""
+        return retry(
+            retry=retry_if_exception_type(
+                (
+                    google_exceptions.DeadlineExceeded,
+                    google_exceptions.ServiceUnavailable,
+                    google_exceptions.TooManyRequests,
+                    google_exceptions.InternalServerError,
+                )
+            ),
+            wait=wait_exponential(
+                multiplier=self.config.lineage_retry_backoff_multiplier, min=2, max=10
+            ),
+            stop=stop_after_attempt(self.config.lineage_max_retries),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+
+    def _search_links_by_target_impl(
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
         """
-        Search for lineage links where the entity is a target (to find upstream).
-
-        Note: The Google Cloud Lineage API client automatically handles pagination.
-        The search_links() method returns a SearchLinksPager that fetches all pages
-        transparently when converted to a list, so no manual pagination is needed.
-
-        Args:
-            parent: Parent resource path (projects/{project}/locations/{location})
-            fully_qualified_name: FQN of the entity
-
-        Returns:
-            List of Link objects (all pages automatically retrieved)
-
-        Raises:
-            Exception: If the lineage API call fails
+        Implementation of searching for lineage links where the entity is a target (to find upstream).
+        This method is wrapped with retry logic in _search_links_by_target.
         """
         logger.debug(f"Searching upstream lineage for FQN: {fully_qualified_name}")
         target = EntityReference(fully_qualified_name=fully_qualified_name)
@@ -211,25 +203,34 @@ class DataplexLineageExtractor:
         )
         return results
 
-    @retry(
-        retry=retry_if_exception_type(
-            (
-                google_exceptions.DeadlineExceeded,
-                google_exceptions.ServiceUnavailable,
-                google_exceptions.TooManyRequests,
-                google_exceptions.InternalServerError,
-            )
-        ),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_attempt(3),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-        reraise=True,
-    )
-    def _search_links_by_source(
+    def _search_links_by_target(
         self, parent: str, fully_qualified_name: str
     ) -> Iterable:
         """
-        Search for lineage links where the entity is a source (to find downstream).
+        Search for lineage links where the entity is a target (to find upstream).
+
+        Applies configurable retry logic with exponential backoff for transient errors.
+
+        Args:
+            parent: Parent resource path (projects/{project}/locations/{location})
+            fully_qualified_name: FQN of the entity
+
+        Returns:
+            List of Link objects (all pages automatically retrieved)
+
+        Raises:
+            Exception: If the lineage API call fails after all retries
+        """
+        # Apply retry decorator dynamically based on config
+        retry_decorator = self._get_retry_decorator()
+        retrying_func = retry_decorator(self._search_links_by_target_impl)
+        return retrying_func(parent, fully_qualified_name)
+
+    def _search_links_by_source_impl(
+        self, parent: str, fully_qualified_name: str
+    ) -> Iterable:
+        """
+        Implementation of search for lineage links where the entity is a source (to find downstream).
 
         Note: The Google Cloud Lineage API client automatically handles pagination.
         The search_links() method returns a SearchLinksPager that fetches all pages
@@ -254,6 +255,23 @@ class DataplexLineageExtractor:
             f"Found {len(results)} downstream lineage link(s) for {fully_qualified_name}"
         )
         return results
+
+    def _search_links_by_source(
+        self, parent: str, fully_qualified_name: str
+    ) -> Iterable:
+        """
+        Wrapper that applies configurable retry logic to downstream lineage search.
+
+        Args:
+            parent: Parent resource path (projects/{project}/locations/{location})
+            fully_qualified_name: FQN of the entity
+
+        Returns:
+            List of Link objects (all pages automatically retrieved)
+        """
+        retry_decorator = self._get_retry_decorator()
+        retrying_func = retry_decorator(self._search_links_by_source_impl)
+        return retrying_func(parent, fully_qualified_name)
 
     def _construct_fqn(
         self, platform: str, project_id: str, dataset_id: str, entity_id: str
@@ -516,8 +534,8 @@ class DataplexLineageExtractor:
         entity_list = list(entity_data)
         total_entities = len(entity_list)
 
-        # Check if batching is disabled (-1) or batch size >= total entities
-        if self.config.batch_size == -1 or self.config.batch_size >= total_entities:
+        # Check if batching is disabled (None) or batch size >= total entities
+        if self.config.batch_size is None or self.config.batch_size >= total_entities:
             logger.info(f"Processing all {total_entities} entities in a single batch")
             # Process all entities at once (original behavior)
             self.build_lineage_map(project_id, entity_list)

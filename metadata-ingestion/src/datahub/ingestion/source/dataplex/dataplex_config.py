@@ -19,28 +19,41 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-class DataplexFilterConfig(ConfigModel):
-    """Filter configuration for Dataplex ingestion."""
+class EntitiesFilterConfig(ConfigModel):
+    """Filter configuration specific to Dataplex Entities API (Lakes/Zones).
+
+    These filters only apply when include_entities=True.
+    """
 
     lake_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for lake names to filter in ingestion.",
+        description="Regex patterns for lake names to filter in ingestion. Only applies when include_entities=True.",
     )
 
     zone_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for zone names to filter in ingestion.",
+        description="Regex patterns for zone names to filter in ingestion. Only applies when include_entities=True.",
     )
+
+
+class DataplexFilterConfig(ConfigModel):
+    """Filter configuration for Dataplex ingestion."""
 
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for dataset names to filter in ingestion. "
-        "Applies to both entries (from Universal Catalog) and entities (from Lakes/Zones).",
+        description=(
+            "Regex patterns for dataset/table names to filter in ingestion. "
+            "Applies to both entries (from Universal Catalog) and entities (from Lakes/Zones). "
+            "Filters based on entry_id (for entries) or entity_id (for entities)."
+        ),
     )
 
-    entry_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for entry names to filter in ingestion.",
+    entities: EntitiesFilterConfig = Field(
+        default_factory=EntitiesFilterConfig,
+        description=(
+            "Filters specific to Dataplex Entities API (lakes and zones). "
+            "Only applies when include_entities=True."
+        ),
     )
 
 
@@ -69,16 +82,16 @@ class DataplexConfig(
         "Only used for entities extraction (include_entities=True).",
     )
 
-    entries_location: Optional[str] = Field(
-        default=None,
+    entries_location: str = Field(
+        default="us",
         description="GCP location for Universal Catalog entries extraction. "
-        "Use multi-region locations (us, eu, asia) to access system-managed entry groups like @bigquery. "
-        "If not specified, uses the same value as 'location'. "
-        "Recommended: Set this to multi-region (e.g., 'us') for full BigQuery table coverage.",
+        "Must be a multi-region location (us, eu, asia) to access system-managed entry groups like @bigquery. "
+        "Regional locations (us-central1, etc.) only contain placeholder entries and will miss BigQuery tables. "
+        "Default: 'us' (recommended for most users).",
     )
 
     filter_config: DataplexFilterConfig = Field(
-        default=DataplexFilterConfig(),
+        default_factory=DataplexFilterConfig,
         description="Filters to control which Dataplex resources are ingested.",
     )
 
@@ -92,8 +105,16 @@ class DataplexConfig(
         default=False,
         description="Whether to include Entity metadata from Lakes/Zones (discovered tables/filesets) as Datasets. "
         "This is optional and complements the Entries API data. "
-        "When both include_entries and include_entities are enabled, entities are processed first, "
-        "then entries overwrite any duplicate metadata, making Universal Catalog the source of truth.",
+        "WARNING: When both include_entries and include_entities are enabled and discover the same table, "
+        "entries will completely replace entity metadata including custom properties (lake, zone, asset info will be lost). "
+        "Recommended: Use only ONE API, or ensure APIs discover non-overlapping datasets. See documentation for details.",
+    )
+
+    include_schema: bool = Field(
+        default=True,
+        description="Whether to extract and ingest schema metadata (columns, types, descriptions). "
+        "Set to False to skip schema extraction for faster ingestion when only basic dataset metadata is needed. "
+        "Disabling schema extraction can improve performance for large deployments. Default: True.",
     )
 
     include_lineage: bool = Field(
@@ -103,13 +124,31 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
-    batch_size: int = Field(
+    lineage_max_retries: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum number of retry attempts for lineage API calls when encountering transient errors "
+        "(timeouts, rate limits, service unavailable). Each attempt uses exponential backoff. "
+        "Higher values increase resilience but may slow down ingestion. Default: 3.",
+    )
+
+    lineage_retry_backoff_multiplier: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=10.0,
+        description="Multiplier for exponential backoff between lineage API retry attempts (in seconds). "
+        "Wait time formula: multiplier * (2 ^ attempt_number), capped between 2-10 seconds. "
+        "Higher values reduce API load but increase ingestion time. Default: 1.0.",
+    )
+
+    batch_size: Optional[int] = Field(
         default=1000,
         description="Batch size for metadata emission and lineage extraction. "
         "Entries and entities are emitted in batches to prevent memory issues in large deployments. "
         "Lower values reduce memory usage but may increase processing time. "
-        "Set to -1 to disable batching (process all entities at once). "
-        "Recommended: 1000 for large deployments (>10k entities), -1 for small deployments (<1k entities). Default: 1000.",
+        "Set to None to disable batching (process all entities at once). "
+        "Recommended: 1000 for large deployments (>10k entities), None for small deployments (<1k entities). Default: 1000.",
     )
 
     max_workers: int = Field(
@@ -154,6 +193,31 @@ class DataplexConfig(
                 "At least one project must be specified. "
                 "Please set project_ids or project_id in your configuration."
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_location_configuration(self) -> "DataplexConfig":
+        """Validate location configuration and warn about common mistakes."""
+        # Warn if entries_location appears to be a regional location
+        if self.include_entries and self.entries_location:
+            if "-" in self.entries_location:
+                logger.warning(
+                    f"entries_location='{self.entries_location}' appears to be a regional location (contains '-'). "
+                    "System-managed entry groups like @bigquery require multi-region locations (us, eu, asia). "
+                    "You may miss BigQuery tables and other system resources. "
+                    "Recommended: Change entries_location to 'us', 'eu', or 'asia'."
+                )
+
+        # Warn if location is multi-region but used for entities
+        if self.include_entities and self.location:
+            if self.location in ["us", "eu", "asia"]:
+                logger.warning(
+                    f"location='{self.location}' is a multi-region location. "
+                    "For entities extraction (include_entities=True), you should use a specific regional location "
+                    "like 'us-central1', 'europe-west1', etc. "
+                    "Multi-region locations may not work correctly for entities API."
+                )
+
         return self
 
     def get_credentials(self) -> Optional[Dict[str, str]]:

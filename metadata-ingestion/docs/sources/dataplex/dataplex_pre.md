@@ -112,25 +112,66 @@ This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 **When to use Entities API** (`include_entities: true`):
 
 - Use this if you need entity-level details specific to lakes/zones that aren't available in the Entries API
-- Can be used alongside Entries API (duplicates are automatically skipped)
+- Provides Dataplex organizational context (lake, zone, asset metadata)
+- Can be used alongside Entries API, but see warning below
 
 **Important**: To access system-managed entry groups like `@bigquery` that contain BigQuery tables, you must use **multi-region locations** (`us`, `eu`, `asia`) via the `entries_location` config parameter. Regional locations (`us-central1`, etc.) only contain placeholder entries.
 
+#### ⚠️ Using Both APIs Together - Important Behavior
+
+When both `include_entries` and `include_entities` are enabled and they discover the **same table** (same URN), the metadata behaves as follows:
+
+**What gets preserved:**
+
+- ✅ Schema metadata (from Entries API - most authoritative)
+- ✅ Entry-specific custom properties (`dataplex_entry_id`, `dataplex_entry_group`, `dataplex_fully_qualified_name`, etc.)
+
+**What gets lost:**
+
+- ❌ Entity-specific custom properties (`dataplex_lake`, `dataplex_zone`, `dataplex_zone_type`, `data_path`, `system`, `format`, `asset`)
+
+**Why this happens:** DataHub replaces aspects at the aspect level. When the Entries API emits metadata for a dataset that was already processed by the Entities API, it completely replaces the `datasetProperties` aspect, which contains all custom properties.
+
+**Recommendation:**
+
+- **For most users**: Use Entries API only (default). It provides comprehensive metadata from Universal Catalog.
+- **For lake/zone context**: Use Entities API only with `include_entries: false` if you specifically need Dataplex organizational metadata.
+- **Using both**: Only enable both APIs if you need Entries API for some tables and Entities API for others (non-overlapping datasets). For overlapping tables, entry metadata will take precedence and entity context will be lost.
+
+**Example showing the data loss:**
+
+```yaml
+# Entity metadata (first):
+custom_properties:
+  dataplex_lake: "production-lake"
+  dataplex_zone: "raw-zone"
+  dataplex_zone_type: "RAW"
+  data_path: "gs://bucket/path"
+
+# After Entry metadata (second) - lake/zone info is lost:
+custom_properties:
+  dataplex_entry_id: "abc123"
+  dataplex_entry_group: "@bigquery"
+  dataplex_fully_qualified_name: "bigquery:project.dataset.table"
+```
+
 #### Filtering Configuration
 
-The connector supports filtering at multiple levels:
-
-**Lake and Zone Filtering** (only applies when `include_entities: true`):
-
-- `lake_pattern`: Filter which lakes to process
-- `zone_pattern`: Filter which zones to process
+The connector supports filtering at multiple levels with a clear separation between dataset-level filters and entity-specific filters:
 
 **Dataset Filtering** (applies to both entries and entities):
 
 - `dataset_pattern`: Filter which datasets/tables to ingest by name
-  - Applies to entry names from Universal Catalog
-  - Applies to entity names from lakes/zones
+  - Applies to entry IDs from Universal Catalog (when `include_entries=true`)
+  - Applies to entity IDs from lakes/zones (when `include_entities=true`)
   - Supports regex patterns with allow/deny lists
+
+**Entities API Filtering** (only applies when `include_entities=true`):
+
+- `entities.lake_pattern`: Filter which lakes to process
+- `entities.zone_pattern`: Filter which zones to process
+
+These filters are nested under `filter_config.entities` to make it clear they only apply to the Entities API (Lakes/Zones), not the Entries API (Universal Catalog).
 
 **Example with filtering:**
 
@@ -143,7 +184,7 @@ source:
     entries_location: "us"
 
     filter_config:
-      # Filter datasets by name (applies to entries and entities)
+      # Filter datasets/tables by name (applies to both entries and entities)
       dataset_pattern:
         allow:
           - "prod_.*" # Allow production tables
@@ -152,13 +193,14 @@ source:
           - ".*_test" # Deny test tables
           - ".*_temp" # Deny temporary tables
 
-      # Lake/zone filtering (only for include_entities=true)
-      lake_pattern:
-        allow:
-          - "production-.*"
-      zone_pattern:
-        deny:
-          - ".*-sandbox"
+      # Entity-specific filtering (only applies when include_entities=true)
+      entities:
+        lake_pattern:
+          allow:
+            - "production-.*"
+        zone_pattern:
+          deny:
+            - ".*-sandbox"
 ```
 
 #### Platform Alignment
@@ -231,16 +273,24 @@ When `include_lineage` is enabled and proper permissions are granted, the connec
 
 For more details, see [Dataplex Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
 
-**Lineage and Performance Configuration Options:**
+**Metadata Extraction and Performance Configuration Options:**
 
+- **`include_schema`** (default: `true`): Enable schema metadata extraction (columns, types, descriptions). Set to `false` to skip schema extraction for faster ingestion when only basic dataset metadata is needed. Disabling schema extraction can improve performance for large deployments
 - **`include_lineage`** (default: `true`): Enable table-level lineage extraction. Lineage API calls automatically retry transient errors (timeouts, rate limits, service unavailable) with exponential backoff
-- **`batch_size`** (default: `1000`): Controls batching for metadata emission and lineage extraction. Lower values reduce memory usage but may increase processing time. Set to `-1` to disable batching. Recommended: `1000` for large deployments (>10k entities), `-1` for small deployments (<1k entities)
+- **`batch_size`** (default: `1000`): Controls batching for metadata emission and lineage extraction. Lower values reduce memory usage but may increase processing time. Set to `null` to disable batching. Recommended: `1000` for large deployments (>10k entities), `null` for small deployments (<1k entities)
+
+**Lineage Retry Configuration:**
+
+You can customize how the connector handles transient errors when extracting lineage:
+
+- **`lineage_max_retries`** (default: `3`, range: `1-10`): Maximum number of retry attempts for lineage API calls when encountering transient errors (timeouts, rate limits, service unavailable). Each attempt uses exponential backoff. Higher values increase resilience but may slow down ingestion
+- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-10.0`): Multiplier for exponential backoff between retry attempts (in seconds). Wait time formula: `multiplier * (2 ^ attempt_number)`, capped between 2-10 seconds. Higher values reduce API load but increase ingestion time
 
 **Automatic Retry Behavior:**
 
 The connector automatically handles transient errors when extracting lineage:
 
-**Retried Errors** (with exponential backoff, up to 3 attempts):
+**Retried Errors** (with exponential backoff):
 
 - **Timeouts**: DeadlineExceeded errors from slow API responses
 - **Rate Limiting**: HTTP 429 (TooManyRequests) errors
@@ -257,6 +307,7 @@ The connector automatically handles transient errors when extracting lineage:
 1. **Regional restrictions**: Lineage API requires multi-region location (e.g., `us`, `eu`) rather than specific regions (e.g., `us-central1`). The connector automatically converts your `location` config
 2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects
 3. **No lineage data**: Some entities may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.)
+4. **Rate limiting**: If you encounter persistent rate limiting, increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure
 
 After exhausting retries, the connector logs a warning and continues processing other entities - you'll still get metadata (lakes, zones, assets, entities, schema) even if lineage extraction fails for some entities.
 
@@ -272,15 +323,21 @@ source:
     # Location for lakes/zones/entities (if using include_entities)
     location: "us-central1"
 
-    # Location for entries (Universal Catalog) - use multi-region for system entry groups
-    entries_location: "us" # Required for @bigquery, @pubsub system entries
+    # Location for entries (Universal Catalog) - defaults to "us"
+    # Must be multi-region (us, eu, asia) for system entry groups like @bigquery
+    entries_location: "us" # Default value, can be omitted
 
     # API selection
     include_entries: true # Enable Universal Catalog entries (default: true)
     include_entities: false # Enable lakes/zones entities (default: false)
 
-    # Lineage settings
+    # Metadata extraction settings
+    include_schema: true # Enable schema metadata extraction (default: true)
     include_lineage: true # Enable lineage extraction with automatic retries
+
+    # Lineage retry settings (optional, defaults shown)
+    lineage_max_retries: 3 # Max retry attempts (range: 1-10)
+    lineage_retry_backoff_multiplier: 1.0 # Exponential backoff multiplier (range: 0.1-10.0)
 ```
 
 **Advanced Configuration for Large Deployments:**
@@ -304,7 +361,7 @@ source:
     batch_size:
       1000 # Batch size for metadata emission and lineage extraction
       # Entries/entities are emitted in batches of 1000 to prevent memory issues
-      # Set to -1 to disable batching (only for small deployments <1k entities)
+      # Set to null to disable batching (only for small deployments <1k entities)
     max_workers: 10 # Parallelize entity extraction across zones
 ```
 
