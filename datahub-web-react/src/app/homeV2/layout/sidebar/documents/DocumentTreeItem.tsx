@@ -139,6 +139,8 @@ interface DocumentTreeItemProps {
     onClick: () => void;
     onCreateChild: (parentUrn: string) => void;
     hideActions?: boolean;
+    hideActionsMenu?: boolean; // Hide move/delete menu actions
+    hideCreate?: boolean; // Hide create/add button
     parentUrn?: string | null;
 }
 
@@ -154,6 +156,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     onClick,
     onCreateChild,
     hideActions = false,
+    hideActionsMenu = false,
+    hideCreate = false,
     parentUrn,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
@@ -222,14 +226,22 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
 
             {!hideActions && (
                 <Actions className="tree-item-actions">
-                    <DocumentActionsMenu documentUrn={urn} currentParentUrn={parentUrn} />
-                    <Tooltip title="New context document" placement="bottom" showArrow={false}>
-                        <ActionButton
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                            variant="text"
-                            onClick={handleAddChildClick}
+                    {!hideActionsMenu && (
+                        <DocumentActionsMenu
+                            documentUrn={urn}
+                            currentParentUrn={parentUrn}
+                            shouldNavigateOnDelete={isSelected}
                         />
-                    </Tooltip>
+                    )}
+                    {!hideCreate && (
+                        <Tooltip title="New context document" placement="bottom" showArrow={false}>
+                            <ActionButton
+                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                                variant="text"
+                                onClick={handleAddChildClick}
+                            />
+                        </Tooltip>
+                    )}
                 </Actions>
             )}
         </TreeItemContainer>

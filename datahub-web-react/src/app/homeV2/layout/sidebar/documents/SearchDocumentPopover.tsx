@@ -83,7 +83,6 @@ export const SearchDocumentPopover: React.FC<SearchDocumentPopoverProps> = ({ on
     const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
         query: debouncedSearchQuery || '*',
         states: [DocumentState.Published, DocumentState.Unpublished],
-        includeDrafts: false,
         count: 50,
         fetchPolicy: 'network-only', // Always fetch fresh for search
         includeParentDocuments: true, // Fetch parent documents for breadcrumb display

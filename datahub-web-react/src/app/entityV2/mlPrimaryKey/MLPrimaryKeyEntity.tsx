@@ -231,6 +231,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 }
