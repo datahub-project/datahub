@@ -13,7 +13,6 @@ import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Index convention wrapper that applies the semantic search naming convention by appending
@@ -26,6 +25,7 @@ import org.jetbrains.annotations.NotNull;
  * keyword indices (e.g., datasetindex_v2).
  */
 public class SemanticIndexConvention implements IndexConvention {
+
   private final IndexConvention delegate;
 
   public SemanticIndexConvention(@Nonnull IndexConvention delegate) {
@@ -75,43 +75,43 @@ public class SemanticIndexConvention implements IndexConvention {
     return delegate.getTimeseriesAspectIndexName(entityName, aspectName);
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public String getEntityIndexNameV3(String searchGroup) {
     return delegate.getEntityIndexNameV3(searchGroup);
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public List<String> getAllEntityIndicesPatterns() {
     return delegate.getAllEntityIndicesPatterns();
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public List<String> getV3EntityIndexPatterns() {
     return delegate.getV3EntityIndexPatterns();
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public List<String> getEntityIndicesCleanupPatterns(
-      @NotNull EntityIndexConfiguration entityIndexConfiguration) {
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
     return delegate.getEntityIndicesCleanupPatterns(entityIndexConfiguration);
   }
 
   @Override
-  public boolean isV2EntityIndex(@NotNull String indexName) {
+  public boolean isV2EntityIndex(@Nonnull String indexName) {
     return false;
   }
 
   @Override
-  public boolean isV3EntityIndex(@NotNull String indexName) {
+  public boolean isV3EntityIndex(@Nonnull String indexName) {
     return false;
   }
 
   @Override
-  public boolean isSemanticEntityIndex(@NotNull String indexName) {
+  public boolean isSemanticEntityIndex(@Nonnull String indexName) {
     return delegate.isSemanticEntityIndex(indexName);
   }
 

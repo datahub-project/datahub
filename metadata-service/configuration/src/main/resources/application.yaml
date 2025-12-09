@@ -185,6 +185,7 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
+  semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -444,6 +445,17 @@ elasticsearch:
       embeddingsUpdate:
         batchSize: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_BATCH_SIZE:100}
         maxTextLength: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_MAX_TEXT_LENGTH:8000}
+      # Embedding provider configuration for generating query embeddings
+      # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
+      embeddingProvider:
+        # Provider type: "aws-bedrock" (currently only Bedrock is supported)
+        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
+        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
+        # Maximum text length before truncation (Cohere enforces 2048 character limit)
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
   buildIndices:
     allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}

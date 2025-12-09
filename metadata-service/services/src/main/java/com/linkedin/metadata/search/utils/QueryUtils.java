@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.util.Pair;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,13 +31,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.validation.constraints.Null;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 
+@Slf4j
 public class QueryUtils {
 
   public static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
@@ -62,7 +67,8 @@ public class QueryUtils {
         .setCondition(condition);
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria
+  // and using EQUAL
   // condition (default).
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
@@ -80,8 +86,7 @@ public class QueryUtils {
                 ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
-  // condition (default).
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria
   @Nonnull
   public static Filter newListsFilter(@Nullable Map<String, List<String>> params) {
     if (params == null) {
@@ -90,7 +95,7 @@ public class QueryUtils {
     CriterionArray criteria =
         params.entrySet().stream()
             .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> newCriterion(e.getKey(), e.getValue()))
+            .map(e -> CriterionUtils.buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
             .filter(Objects::nonNull)
             .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
@@ -245,19 +250,56 @@ public class QueryUtils {
   }
 
   public static List<EntitySpec> getQueryByDefaultEntitySpecs(EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            spec ->
-                Pair.of(
-                    spec,
-                    spec.getSearchableFieldSpecs().stream()
-                        .map(SearchableFieldSpec::getSearchableAnnotation)
-                        .collect(Collectors.toList())))
-        .filter(
-            specPair ->
-                specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
-        .map(Pair::getFirst)
-        .collect(Collectors.toList());
+
+    return excludeIngestionSourceEntitySpec(
+        entityRegistry.getEntitySpecs().values().stream()
+            .map(
+                spec ->
+                    Pair.of(
+                        spec,
+                        spec.getSearchableFieldSpecs().stream()
+                            .map(SearchableFieldSpec::getSearchableAnnotation)
+                            .collect(Collectors.toList())))
+            .filter(
+                specPair ->
+                    specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
+            .map(Pair::getFirst)
+            .collect(Collectors.toList()));
+  }
+
+  public static List<String> excludeIngestionSourceEntity(List<String> entities) {
+    return excludeIngestionSourceFromList(entities, Function.identity());
+  }
+
+  public static List<EntitySpec> excludeIngestionSourceEntitySpec(List<EntitySpec> entities) {
+    return excludeIngestionSourceFromList(entities, EntitySpec::getName);
+  }
+
+  private static <T> List<T> excludeIngestionSourceFromList(
+      List<T> items, Function<T, String> nameExtractor) {
+
+    if (items == null || items.size() <= 1) {
+      return items;
+    }
+
+    List<T> filtered =
+        items.stream()
+            .filter(
+                item ->
+                    !nameExtractor
+                        .apply(item)
+                        .equalsIgnoreCase(Constants.INGESTION_SOURCE_ENTITY_NAME))
+            .collect(Collectors.toList());
+
+    if (filtered.size() < items.size()) {
+      log.warn(
+          "Ingestion source entity was excluded from getEntitiesToSearch's response (before: {}; after: {})",
+          items.size(),
+          filtered.size());
+      return filtered;
+    }
+
+    return items;
   }
 
   /**
@@ -275,7 +317,8 @@ public class QueryUtils {
     boolean schemaFieldEnabled =
         appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().isEnabled();
 
-    // Prevent increasing the query size by avoiding querying multiple fields with the
+    // Prevent increasing the query size by avoiding querying multiple fields with
+    // the
     // same URNs
     Criterion urnMatchCriterion =
         buildCriterion(

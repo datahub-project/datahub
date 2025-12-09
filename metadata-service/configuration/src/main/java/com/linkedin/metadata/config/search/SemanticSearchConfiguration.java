@@ -25,4 +25,7 @@ public class SemanticSearchConfiguration {
 
   /** Configuration for semantic embeddings update operations. */
   private EmbeddingsUpdateConfiguration embeddingsUpdate = new EmbeddingsUpdateConfiguration();
+
+  /** Configuration for the embedding provider used to generate query embeddings. */
+  private EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
 }

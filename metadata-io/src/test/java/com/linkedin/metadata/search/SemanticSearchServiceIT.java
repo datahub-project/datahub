@@ -333,7 +333,8 @@ public class SemanticSearchServiceIT {
       // 7. Cross-check that key fields from extraFields exist in the source document
       // This ensures we're not fabricating data
       for (String key : semanticEntity.getExtraFields().keySet()) {
-        if (!key.equals("urn")) { // Skip URN as we already checked it
+        if (!key.equals("urn")) {
+          // Skip URN as we already checked it
           // The field should either exist in doc or be a computed/transformed field
           // Some fields may be computed/transformed and not directly in source
         }
@@ -342,6 +343,7 @@ public class SemanticSearchServiceIT {
   }
 
   private static final class ZerosEmbeddingProvider implements EmbeddingProvider {
+
     @Override
     public @Nonnull float[] embed(@Nonnull String text, @javax.annotation.Nullable String model) {
       // For tests, always return 1024-dimensional vector
@@ -384,23 +386,5 @@ public class SemanticSearchServiceIT {
             List.of()); // facets
 
     assertNotNull(semanticResult.getMetadata());
-    assertEquals("cosine_similarity", semanticResult.getMetadata().getScoringMethod());
-
-    // 2. Test that keyword search would have different metadata
-    // (This is more of a unit test but included here for completeness)
-    // Create a mock result that would come from keyword search
-    SearchResult keywordMockResult =
-        new SearchResult()
-            .setEntities(new SearchEntityArray())
-            .setNumEntities(0)
-            .setFrom(0)
-            .setPageSize(10)
-            .setMetadata(
-                new SearchResultMetadata()
-                    .setAggregations(new AggregationMetadataArray())
-                    .setScoringMethod("BM25"));
-
-    // Verify the metadata fields are set as expected
-    assertEquals("BM25", keywordMockResult.getMetadata().getScoringMethod());
   }
 }

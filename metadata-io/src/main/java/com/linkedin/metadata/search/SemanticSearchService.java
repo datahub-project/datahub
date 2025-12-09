@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class SemanticSearchService {
+
   private final CachingEntitySearchService cachingEntitySearchService;
   private final EntityDocCountCache entityDocCountCache;
   private final SearchServiceConfiguration searchServiceConfig;
@@ -95,7 +96,6 @@ public class SemanticSearchService {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
     if (entitiesToSearch.isEmpty()) {
@@ -128,7 +128,6 @@ public class SemanticSearchService {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
-
     // Single entity semantic search doesn't need facets by default
     return semanticSearchAcrossEntities(
         opContext, entityNames, input, postFilters, sortCriteria, from, size, List.of());
@@ -145,7 +144,6 @@ public class SemanticSearchService {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-
     // Fail-fast gating: ensure semantic search is enabled and service is present
     if (!Boolean.TRUE.equals(searchServiceConfig.isSemanticSearchEnabled())) {
       throw new SemanticSearchDisabledException();
@@ -182,9 +180,7 @@ public class SemanticSearchService {
       semantic =
           semantic
               .copy()
-              .setEntities(
-                  new SearchEntityArray(
-                      new SimpleRanker().rank(opContext, semantic.getEntities())));
+              .setEntities(new SearchEntityArray(new SimpleRanker().rank(semantic.getEntities())));
     } catch (Exception e) {
       log.error("Failed to rank (semantic): {}, exception - {}", semantic, e.toString());
       throw new RuntimeException("Failed to rank " + semantic.toString());

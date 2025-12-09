@@ -81,15 +81,8 @@ public class SemanticSearchAcrossEntitiesResolver
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter inputFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
-          final Filter formFilter =
-              SearchUtils.getFormFilter(
-                  context.getOperationContext(), input.getFormFilter(), _formService);
           final Filter baseFilter =
-              formFilter != null
-                  ? FilterUtils.combineFilters(inputFilter, formFilter)
-                  : inputFilter;
+              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
@@ -117,14 +110,6 @@ public class SemanticSearchAcrossEntitiesResolver
                     ? FilterUtils.combineFilters(
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
-
-            // Note: Semantic search does not support predicate filters for simplicity
-            // If predicate support is needed, it can be added in a future iteration
-            if (input.getPredicateFilter() != null
-                || (input.getConvertToPredicate() != null && input.getConvertToPredicate())) {
-              log.warn(
-                  "Predicate filters are not supported for semantic search, ignoring predicate filter");
-            }
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
