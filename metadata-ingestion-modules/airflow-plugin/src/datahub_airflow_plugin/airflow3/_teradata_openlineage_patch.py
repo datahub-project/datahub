@@ -139,6 +139,18 @@ def _create_teradata_openlineage_wrapper(
     original_get_openlineage_facets_on_complete: Any,
 ) -> Any:
     """Create wrapper function for Teradata operator's OpenLineage method."""
+    # Import OperatorLineage at wrapper creation time to check availability
+    # This avoids runtime import errors that would cause the patch to return None
+    try:
+        from airflow.providers.openlineage.extractors import OperatorLineage
+    except ImportError as e:
+        logger.warning(
+            f"Could not import OperatorLineage for Teradata patch: {e}. "
+            "This may be due to OpenLineage provider compatibility issues. "
+            "Patch will not be applied."
+        )
+        # Return original function if import fails
+        return original_get_openlineage_facets_on_complete
 
     def get_openlineage_facets_on_complete(
         self: Any, task_instance: "TaskInstance"
@@ -180,22 +192,13 @@ def _create_teradata_openlineage_wrapper(
                     "Original OpenLineage returned None for TeradataOperator, "
                     "creating new OperatorLineage for SQL parsing"
                 )
-                try:
-                    from airflow.providers.openlineage.extractors import OperatorLineage
-
-                    operator_lineage = OperatorLineage(  # type: ignore[misc]
-                        inputs=[],
-                        outputs=[],
-                        job_facets={},
-                        run_facets={},
-                    )
-                except ImportError as e:
-                    logger.warning(
-                        f"Could not import OperatorLineage for Teradata operator: {e}. "
-                        "This may be due to OpenLineage provider compatibility issues. "
-                        "Skipping SQL parsing enhancement."
-                    )
-                    return None
+                # OperatorLineage is already imported at wrapper creation time
+                operator_lineage = OperatorLineage(  # type: ignore[misc]
+                    inputs=[],
+                    outputs=[],
+                    job_facets={},
+                    run_facets={},
+                )
 
             logger.debug(
                 f"Original Teradata OpenLineage result: inputs={len(operator_lineage.inputs)}, outputs={len(operator_lineage.outputs)}"
