@@ -2,13 +2,12 @@ package com.linkedin.gms;
 
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
+import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
+import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.SemanticSearchService;
-import com.linkedin.metadata.search.client.CachingEntitySearchService;
-import com.linkedin.metadata.search.embedding.EmbeddingProvider;
-import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -48,14 +47,12 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
 
-  // Mock semantic search beans to avoid needing full configuration
-  @MockBean private EmbeddingProvider embeddingProvider;
+  // Mock semantic search factories to avoid needing full configuration
+  @MockBean private EmbeddingProviderFactory embeddingProviderFactory;
 
-  @MockBean private SemanticEntitySearch semanticEntitySearchService;
+  @MockBean private SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
-  @MockBean private SemanticSearchService semanticSearchService;
-
-  @MockBean private CachingEntitySearchService cachingEntitySearchService;
+  @MockBean private SemanticSearchServiceFactory semanticSearchServiceFactory;
 
   @Test
   public void testTelemetry() {
