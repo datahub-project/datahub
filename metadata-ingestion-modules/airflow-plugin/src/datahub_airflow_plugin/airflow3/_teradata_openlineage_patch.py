@@ -248,6 +248,15 @@ def patch_teradata_operator() -> None:
             original_get_openlineage_facets_on_complete
         )
 
+        # Check if wrapper creation failed (import error)
+        # If wrapper is the same as original, the import failed and we shouldn't apply the patch
+        if wrapper is original_get_openlineage_facets_on_complete:
+            logger.debug(
+                "TeradataOperator patch not applied - OperatorLineage import failed. "
+                "Falling back to original OpenLineage behavior."
+            )
+            return
+
         # Apply the patch (mypy doesn't like dynamic method assignment, but it's necessary for patching)
         TeradataOperator.get_openlineage_facets_on_complete = (  # type: ignore[assignment,method-assign]
             wrapper  # type: ignore[assignment]
