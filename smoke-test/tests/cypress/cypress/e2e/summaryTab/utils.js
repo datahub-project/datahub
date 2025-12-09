@@ -446,7 +446,9 @@ export function ensureDescriptionContainsText(description) {
 }
 
 export function addLink(url, label) {
-  cy.clickOptionWithTestId("add-link-button");
+  // Click the "+" button to open the menu, then click "Add link" menu item
+  cy.clickOptionWithTestId("add-related-button").wait(500);
+  cy.contains("Add link").click().wait(500);
   cy.getWithTestId("url-input").clear().type(url);
   cy.getWithTestId("label-input").clear().type(label);
   cy.clickOptionWithTestId("link-form-modal-submit-button");

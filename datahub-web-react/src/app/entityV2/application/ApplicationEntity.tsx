@@ -244,6 +244,7 @@ export class ApplicationEntity implements Entity<Application> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

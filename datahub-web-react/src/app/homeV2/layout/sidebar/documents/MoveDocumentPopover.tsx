@@ -97,9 +97,15 @@ interface MoveDocumentPopoverProps {
     documentUrn: string;
     currentParentUrn?: string | null;
     onClose: () => void;
+    onMove?: (documentUrn: string) => void;
 }
 
-export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ documentUrn, currentParentUrn, onClose }) => {
+export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
+    documentUrn,
+    currentParentUrn,
+    onClose,
+    onMove,
+}) => {
     const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
     const [movingDocument, setMovingDocument] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -118,7 +124,6 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
     const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
         query: debouncedSearchQuery || '*',
         states: [DocumentState.Published, DocumentState.Unpublished],
-        includeDrafts: false,
         count: 50,
         fetchPolicy: 'network-only', // Always fetch fresh for search
         includeParentDocuments: true, // Fetch parent documents for breadcrumb display
@@ -140,7 +145,10 @@ export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({ docume
         try {
             // Tree mutation handles optimistic move + backend call + rollback on error!
             await moveDocument(documentUrn, selectedParentUrn === undefined ? null : selectedParentUrn);
-            // Success - close popover
+            // Success - call onMove callback if provided, then close popover
+            if (onMove) {
+                onMove(documentUrn);
+            }
             setTimeout(() => {
                 onClose();
             }, 300);
