@@ -1,0 +1,93 @@
+name: Create Linear Ticket for Ingestion PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
+      - "smoke-test/**"
+
+jobs:
+  create-linear-ticket:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check author status
+        id: check-author
+        run: |
+          CORE_INGESTION_TEAM="sgomezvillamor treff7es skrydal askumar27 kyungsoo-datahub"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+
+          # Check if author is core ingestion team → skip entirely
+          if echo "$CORE_INGESTION_TEAM" | grep -qw "$AUTHOR"; then
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️  Skipping - $AUTHOR is from core ingestion team"
+            exit 0
+          fi
+
+          echo "should_skip=false" >> $GITHUB_OUTPUT
+
+          # Check if author is DataHub org member (for info only)
+          ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External Contribution")
+          echo "contributor_type=$ORG_CHECK" >> $GITHUB_OUTPUT
+          echo "✅ Author: $AUTHOR ($ORG_CHECK)"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Create Linear Ticket
+        if: steps.check-author.outputs.should_skip == 'false'
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          CONTRIBUTOR_TYPE="${{ steps.check-author.outputs.contributor_type }}"
+
+          # Hardcoded IDs
+          TEAM_ID="b1c9a278-522e-47cb-81af-8b860ead0c76"  # ING team
+          USER_ID="bb4daa2b-1748-4830-af1f-60198ebd9a63"  # gabe
+
+          DESCRIPTION="Review PR #$PR_NUMBER from @$PR_AUTHOR ($CONTRIBUTOR_TYPE)\n\n$PR_URL"
+          TITLE="[PR Review] $PR_TITLE"
+
+          MUTATION=$(cat <<EOF
+          {
+            "query": "mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }",
+            "variables": {
+              "input": {
+                "teamId": "$TEAM_ID",
+                "title": $(echo "$TITLE" | jq -Rs .),
+                "description": $(echo "$DESCRIPTION" | jq -Rs .),
+                "assigneeId": "$USER_ID"
+              }
+            }
+          }
+          EOF
+          )
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: ${{ secrets.INGESTION_LINEAR_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "$MUTATION")
+
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.data.issueCreate.success')
+          if [ "$SUCCESS" = "true" ]; then
+            ISSUE_ID=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.identifier')
+            ISSUE_URL=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.url')
+            echo "✅ Created Linear ticket: $ISSUE_ID"
+            echo "📎 $ISSUE_URL"
+
+            # Comment on the PR with Linear ticket link
+            gh pr comment $PR_NUMBER --body "📋 Linear ticket created for review tracking: **[$ISSUE_ID]($ISSUE_URL)**"
+          else
+            echo "❌ Failed to create Linear ticket"
+            echo "$RESPONSE" | jq .
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Log skip reason
+        if: steps.check-author.outputs.should_skip == 'true'
+        run: |
+          echo "⏭️  Skipping Linear ticket creation - ${{ github.event.pull_request.user.login }} is from core ingestion team"
