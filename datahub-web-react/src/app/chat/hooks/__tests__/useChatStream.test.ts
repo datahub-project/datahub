@@ -715,4 +715,93 @@ describe('useChatStream', () => {
             agentName: undefined,
         });
     });
+
+    it('should include messageContext in request body when provided', async () => {
+        const mockResponse = {
+            ok: true,
+            body: {
+                getReader: vi.fn().mockReturnValue({
+                    read: vi
+                        .fn()
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode('event: complete\ndata: {}\n\n'),
+                        })
+                        .mockResolvedValueOnce({
+                            done: true,
+                            value: undefined,
+                        }),
+                }),
+            },
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+            }),
+        );
+
+        const messageContext = {
+            text: 'Current step: Configure Recipe',
+            entityUrns: ['urn:li:dataSource:123'],
+        };
+
+        await act(async () => {
+            await result.current.sendMessage('Test message', undefined, messageContext);
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith('/openapi/v1/ai-chat/message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversationUrn: mockConversationUrn,
+                text: 'Test message',
+                context: messageContext,
+            }),
+            signal: expect.any(AbortSignal),
+        });
+    });
+
+    it('should not include context in request body when messageContext not provided', async () => {
+        const mockResponse = {
+            ok: true,
+            body: {
+                getReader: vi.fn().mockReturnValue({
+                    read: vi
+                        .fn()
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode('event: complete\ndata: {}\n\n'),
+                        })
+                        .mockResolvedValueOnce({
+                            done: true,
+                            value: undefined,
+                        }),
+                }),
+            },
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+            }),
+        );
+
+        await act(async () => {
+            await result.current.sendMessage('Test message');
+        });
+
+        const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(requestBody.context).toBeUndefined();
+    });
 });

@@ -35,11 +35,15 @@ const STEPS: IngestionSourceFormStep[] = [
         label: 'Connection Details',
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
+        context:
+            'The Connection Details step includes filling out the information for the ingestion recipe. It also includes setting the source name and source owners. Additionaly, this step incudes handling advanced settings on an ingestion source like setting a remote executor ID.',
     },
     {
         label: 'Sync Schedule ',
         key: 'syncSchedule',
         content: <ScheduleStep />,
+        context:
+            'The Sync Schedule step incudes determining if the user wants this ingestion source to run on a schedule or not, and if so, how often it should be run.',
     },
 ];
 

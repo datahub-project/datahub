@@ -141,6 +141,8 @@ export function IngestionSourceUpdatePage() {
             initialState={mapSourceTypeAliases(
                 removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource),
             )}
+            isEditing
+            sourceUrn={urn}
         />
     );
 }

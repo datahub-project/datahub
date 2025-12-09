@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
-import { useChatStream } from '@app/chat/hooks/useChatStream';
+import { MessageContext, useChatStream } from '@app/chat/hooks/useChatStream';
 import { createUserMessage, emitMessageAnalytics } from '@app/chat/utils/chatMessageUtils';
 import { groupMessages } from '@app/chat/utils/messageGrouping';
 
@@ -21,7 +21,7 @@ export interface UseChatMessagesReturn {
     messageGroups: ReturnType<typeof groupMessages>;
     isStreaming: boolean;
     currentMessage: DataHubAiConversationMessage | null;
-    handleSendMessage: (text: string, convoUrn?: string) => void;
+    handleSendMessage: (text: string, convoUrn?: string, messageContext?: MessageContext) => void;
     handleStopStreaming: () => void;
     messagesEndRef: React.RefObject<HTMLDivElement>;
 }
@@ -106,7 +106,7 @@ export const useChatMessages = ({
         };
     }, [conversationUrn, stopStreaming]);
 
-    const handleSendMessage = (text: string, convoUrn?: string) => {
+    const handleSendMessage = (text: string, convoUrn?: string, messageContext?: MessageContext) => {
         if (!text.trim()) {
             return;
         }
@@ -123,8 +123,8 @@ export const useChatMessages = ({
         // Emit analytics event for message creation
         emitMessageAnalytics(convoUrn || conversationUrn, text, userMessageCount, messages.length);
 
-        // Send the message
-        sendMessage(text, convoUrn);
+        // Send the message with optional message context
+        sendMessage(text, convoUrn, messageContext);
     };
 
     const handleStopStreaming = () => {

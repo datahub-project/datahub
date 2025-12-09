@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { MessageList } from '@app/chat/components/MessageList';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
+import { MessageContext } from '@app/chat/hooks/useChatStream';
 import { ChatFeatureFlags } from '@app/chat/types';
 import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 
@@ -46,18 +47,27 @@ const EmptyState = styled.div`
 `;
 
 interface EmbeddedChatProps {
-    context: string;
+    context?: string;
+    agentName?: string;
     originType: DataHubAiConversationOriginType;
     title?: string;
+    getMessageContext?: () => MessageContext;
 }
 
 /**
  * Simplified chat panel for embedded use in sidebars and panels.
  * - No welcome screen or suggestions
  * - Just messages + input at bottom
- * - Takes context as a prop to pass to conversation creation
+ * - Takes context as a prop to pass to conversation creation (conversation-level context)
+ * - Optionally takes getMessageContext callback to provide dynamic context with each message (message-level context)
  */
-export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ context, originType, title }) => {
+export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
+    context,
+    agentName,
+    originType,
+    title,
+    getMessageContext,
+}) => {
     const userUrn = useGetAuthenticatedUserUrn();
     const [conversationUrn, setConversationUrn] = useState<string | null>(null);
     const [inputValue, setInputValue] = useState('');
@@ -71,7 +81,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ context, originType,
         useChatMessages({
             conversationUrn: conversationUrn || '',
             userUrn,
-            agentName: 'IngestionTroubleshooter',
+            agentName,
         });
 
     const handleSend = async () => {
@@ -82,6 +92,9 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ context, originType,
         const messageText = inputValue;
         setInputValue('');
 
+        // Get message context if callback provided
+        const messageContext = getMessageContext ? getMessageContext() : undefined;
+
         // If conversation doesn't exist yet, create it first
         if (!conversationUrn) {
             try {
@@ -90,9 +103,11 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ context, originType,
                         input: {
                             title: title || null,
                             originType,
-                            context: {
-                                text: context,
-                            },
+                            context: context
+                                ? {
+                                      text: context,
+                                  }
+                                : undefined,
                         },
                     },
                 });
@@ -100,7 +115,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ context, originType,
                 if (result.data?.createDataHubAiConversation) {
                     const newConversationUrn = result.data.createDataHubAiConversation.urn;
                     setConversationUrn(newConversationUrn);
-                    handleSendMessage(messageText, newConversationUrn);
+                    handleSendMessage(messageText, newConversationUrn, messageContext);
                 } else {
                     throw new Error('No conversation URN returned');
                 }
@@ -110,8 +125,8 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({ context, originType,
                 setInputValue(messageText);
             }
         } else {
-            // Conversation already exists, use the hook's handler
-            handleSendMessage(messageText);
+            // Conversation already exists, use the hook's handler with message context
+            handleSendMessage(messageText, undefined, messageContext);
         }
     };
 

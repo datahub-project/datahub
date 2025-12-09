@@ -140,7 +140,7 @@ describe('useChatMessages', () => {
             expect(result.current.messages).toHaveLength(1);
             expect(result.current.messages[0]).toEqual(mockUserMessage);
             expect(mockEmitMessageAnalytics).toHaveBeenCalledWith(mockConversationUrn, 'Test message', 0, 0);
-            expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined);
+            expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
 
         it('should not send empty or whitespace-only messages', () => {
@@ -199,6 +199,41 @@ describe('useChatMessages', () => {
 
             // Should emit analytics
             expect(mockEmitMessageAnalytics).toHaveBeenCalled();
+        });
+
+        it('should pass messageContext through to sendMessage when provided', () => {
+            const { result } = renderHook(() =>
+                useChatMessages({
+                    conversationUrn: mockConversationUrn,
+                    userUrn: mockUserUrn,
+                }),
+            );
+
+            const messageContext = {
+                text: 'Current step: Configure Recipe',
+                entityUrns: ['urn:li:dataSource:123'],
+            };
+
+            act(() => {
+                result.current.handleSendMessage('Test message', undefined, messageContext);
+            });
+
+            expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined, messageContext);
+        });
+
+        it('should not pass messageContext to sendMessage when not provided', () => {
+            const { result } = renderHook(() =>
+                useChatMessages({
+                    conversationUrn: mockConversationUrn,
+                    userUrn: mockUserUrn,
+                }),
+            );
+
+            act(() => {
+                result.current.handleSendMessage('Test message');
+            });
+
+            expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
     });
 

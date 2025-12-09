@@ -6,10 +6,15 @@ import { IngestionSourceForm } from '@app/ingestV2/source/multiStepBuilder/Inges
 import { MultiStepFormProvider } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { MultiStepFormProviderProps } from '@app/sharedV2/forms/multiStepForm/types';
 
-export function IngestionSourceBuilder(props: MultiStepFormProviderProps<SourceBuilderState>) {
+interface IngestionSourceBuilderProps extends MultiStepFormProviderProps<SourceBuilderState> {
+    isEditing?: boolean;
+    sourceUrn?: string;
+}
+
+export function IngestionSourceBuilder({ isEditing, sourceUrn, ...providerProps }: IngestionSourceBuilderProps) {
     return (
-        <MultiStepFormProvider<SourceBuilderState> {...props}>
-            <IngestionSourceBuilderLayout>
+        <MultiStepFormProvider<SourceBuilderState> {...providerProps}>
+            <IngestionSourceBuilderLayout isEditing={isEditing} sourceUrn={sourceUrn}>
                 <IngestionSourceForm />
             </IngestionSourceBuilderLayout>
         </MultiStepFormProvider>

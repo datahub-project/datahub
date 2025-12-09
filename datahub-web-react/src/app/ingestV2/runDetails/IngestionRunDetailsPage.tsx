@@ -85,6 +85,7 @@ export default function IngestionRunDetailsPage() {
             rightPanelContent={
                 <EmbeddedChat
                     context={chatContext}
+                    agentName="IngestionTroubleshooter"
                     originType={DataHubAiConversationOriginType.DatahubUi}
                     title="Ask DataHub - Run Details"
                 />

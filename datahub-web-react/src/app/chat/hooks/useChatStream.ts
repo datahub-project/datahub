@@ -4,6 +4,11 @@ import analytics, { EventType as AnalyticsEventType } from '@app/analytics';
 
 import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
 
+export interface MessageContext {
+    text: string;
+    entityUrns?: string[];
+}
+
 interface StreamState {
     isStreaming: boolean;
     currentMessage: DataHubAiConversationMessage | null;
@@ -258,7 +263,7 @@ export const useChatStream = ({
     });
 
     const abortControllerRef = useRef<AbortController | null>(null);
-    const messageQueueRef = useRef<string[]>([]);
+    const messageQueueRef = useRef<{ text: string; convoUrn?: string; messageContext?: MessageContext }[]>([]);
     const isProcessingRef = useRef(false);
 
     const cleanup = useCallback(() => {
@@ -275,7 +280,7 @@ export const useChatStream = ({
     }, [cleanup]);
 
     const processNextMessage = useCallback(
-        async (messageText: string, convoUrn?: string) => {
+        async (messageText: string, convoUrn?: string, messageContext?: MessageContext) => {
             setState({
                 isStreaming: true,
                 currentMessage: null,
@@ -285,16 +290,30 @@ export const useChatStream = ({
             try {
                 abortControllerRef.current = new AbortController();
 
+                const requestBody: {
+                    conversationUrn: string;
+                    text: string;
+                    agentName?: string;
+                    context?: MessageContext;
+                } = {
+                    conversationUrn: convoUrn || conversationUrn,
+                    text: messageText,
+                };
+
+                if (agentName) {
+                    requestBody.agentName = agentName;
+                }
+
+                if (messageContext) {
+                    requestBody.context = messageContext;
+                }
+
                 const response = await fetch('/openapi/v1/ai-chat/message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        conversationUrn: convoUrn || conversationUrn,
-                        text: messageText,
-                        agentName,
-                    }),
+                    body: JSON.stringify(requestBody),
                     signal: abortControllerRef.current.signal,
                 });
 
@@ -391,8 +410,8 @@ export const useChatStream = ({
     );
 
     const sendMessage = useCallback(
-        async (text: string, convoUrn?: string) => {
-            messageQueueRef.current.push(text);
+        async (text: string, convoUrn?: string, messageContext?: MessageContext) => {
+            messageQueueRef.current.push({ text, convoUrn, messageContext });
 
             if (isProcessingRef.current) {
                 return;
@@ -401,13 +420,13 @@ export const useChatStream = ({
             isProcessingRef.current = true;
 
             const processQueue = async () => {
-                const nextMessage = messageQueueRef.current.shift();
-                if (!nextMessage) {
+                const nextItem = messageQueueRef.current.shift();
+                if (!nextItem) {
                     isProcessingRef.current = false;
                     return;
                 }
 
-                await processNextMessage(nextMessage, convoUrn);
+                await processNextMessage(nextItem.text, nextItem.convoUrn, nextItem.messageContext);
                 await processQueue();
             };
 
