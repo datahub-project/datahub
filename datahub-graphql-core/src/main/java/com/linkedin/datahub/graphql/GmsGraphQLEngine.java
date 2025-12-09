@@ -530,11 +530,8 @@ public class GmsGraphQLEngine {
   public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
   public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
-
     this.graphQLPlugins =
-        List.of(
-            // Add new plugins here
-            );
+        List.of(new com.linkedin.datahub.graphql.plugins.OssSemanticSearchPlugin());
 
     this.graphQLPlugins.forEach(plugin -> plugin.init(args));
 
@@ -741,8 +738,7 @@ public class GmsGraphQLEngine {
     return loadableTypes.stream()
         .collect(
             Collectors.toMap(
-                LoadableType::name,
-                (graphType) -> (context) -> createDataLoader(graphType, context)));
+                LoadableType::name, graphType -> context -> createDataLoader(graphType, context)));
   }
 
   /**
@@ -834,7 +830,7 @@ public class GmsGraphQLEngine {
                 "role",
                 new LoadableTypeResolver<>(
                     roleType,
-                    (env) ->
+                    env ->
                         ((com.linkedin.datahub.graphql.generated.RoleAssociation) env.getSource())
                             .getRole()
                             .getUrn())));
@@ -845,7 +841,7 @@ public class GmsGraphQLEngine {
                 "user",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) ->
+                    env ->
                         ((com.linkedin.datahub.graphql.generated.RoleUser) env.getSource())
                             .getUser()
                             .getUrn())));
@@ -956,12 +952,12 @@ public class GmsGraphQLEngine {
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
-                        (env) -> ((Container) env.getSource()).getPlatform().getUrn()))
+                        env -> ((Container) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher(
                     "container",
                     new LoadableTypeResolver<>(
                         containerType,
-                        (env) -> {
+                        env -> {
                           final Container container = env.getSource();
                           return container.getContainer() != null
                               ? container.getContainer().getUrn()
@@ -972,7 +968,7 @@ public class GmsGraphQLEngine {
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final Container container = env.getSource();
                           return container.getDataPlatformInstance() != null
                               ? container.getDataPlatformInstance().getUrn()
@@ -988,7 +984,7 @@ public class GmsGraphQLEngine {
                 "platform",
                 new LoadableTypeResolver<>(
                     dataPlatformType,
-                    (env) -> ((DataPlatformInstance) env.getSource()).getPlatform().getUrn())));
+                    env -> ((DataPlatformInstance) env.getSource()).getPlatform().getUrn())));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -1052,7 +1048,7 @@ public class GmsGraphQLEngine {
                     "versionedDataset",
                     getResolver(
                         versionedDatasetType,
-                        (env) ->
+                        env ->
                             new VersionedUrn()
                                 .setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
                                 .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
@@ -1161,7 +1157,7 @@ public class GmsGraphQLEngine {
   private DataFetcher getEntitiesResolver() {
     return new BatchGetEntitiesResolver(
         entityTypes,
-        (env) -> {
+        env -> {
           final QueryContext context = env.getContext();
           List<String> urns = env.getArgument(URNS_FIELD_NAME);
           Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
@@ -1172,7 +1168,7 @@ public class GmsGraphQLEngine {
                       ResolverUtils.filterEntitiesForExistence(
                           context.getOperationContext(), urn, entityClient, checkForExistence))
               .map(
-                  (urn) -> {
+                  urn -> {
                     try {
                       return UrnToEntityMapper.map(context, urn);
                     } catch (Exception e) {
@@ -1186,7 +1182,7 @@ public class GmsGraphQLEngine {
   private DataFetcher getEntityResolver() {
     return new EntityTypeResolver(
         entityTypes,
-        (env) -> {
+        env -> {
           try {
             final QueryContext context = env.getContext();
             Urn urn = Urn.createFromString(env.getArgument(URN_FIELD_NAME));
@@ -1511,14 +1507,14 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((SearchResult) env.getSource()).getEntity())))
+                        entityTypes, env -> ((SearchResult) env.getSource()).getEntity())))
         .type(
             "MatchedField",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((MatchedField) env.getSource()).getEntity())))
+                        entityTypes, env -> ((MatchedField) env.getSource()).getEntity())))
         .type(
             "SearchAcrossLineageResult",
             typeWiring ->
@@ -1526,29 +1522,28 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) -> ((SearchAcrossLineageResult) env.getSource()).getEntity())))
+                        env -> ((SearchAcrossLineageResult) env.getSource()).getEntity())))
         .type(
             "AggregationMetadata",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((AggregationMetadata) env.getSource()).getEntity())))
+                        entityTypes, env -> ((AggregationMetadata) env.getSource()).getEntity())))
         .type(
             "RecommendationContent",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes,
-                        (env) -> ((RecommendationContent) env.getSource()).getEntity())))
+                        entityTypes, env -> ((RecommendationContent) env.getSource()).getEntity())))
         .type(
             "BrowseResults",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entities",
                     new EntityTypeBatchResolver(
-                        entityTypes, (env) -> ((BrowseResults) env.getSource()).getEntities())))
+                        entityTypes, env -> ((BrowseResults) env.getSource()).getEntities())))
         .type(
             "ParentDomainsResult",
             typeWiring ->
@@ -1556,7 +1551,7 @@ public class GmsGraphQLEngine {
                     "domains",
                     new EntityTypeBatchResolver(
                         entityTypes,
-                        (env) -> {
+                        env -> {
                           final ParentDomainsResult result = env.getSource();
                           return result != null ? result.getDomains() : null;
                         })))
@@ -1567,28 +1562,28 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) -> ((EntityRelationshipLegacy) env.getSource()).getEntity())))
+                        env -> ((EntityRelationshipLegacy) env.getSource()).getEntity())))
         .type(
             "EntityRelationship",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((EntityRelationship) env.getSource()).getEntity())))
+                        entityTypes, env -> ((EntityRelationship) env.getSource()).getEntity())))
         .type(
             "BrowseResultGroupV2",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((BrowseResultGroupV2) env.getSource()).getEntity())))
+                        entityTypes, env -> ((BrowseResultGroupV2) env.getSource()).getEntity())))
         .type(
             "BrowsePathEntry",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((BrowsePathEntry) env.getSource()).getEntity())))
+                        entityTypes, env -> ((BrowsePathEntry) env.getSource()).getEntity())))
         .type(
             "FacetMetadata",
             typeWiring ->
@@ -1596,7 +1591,7 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) -> {
+                        env -> {
                           FacetMetadata facetMetadata = env.getSource();
                           return facetMetadata.getEntity() != null
                               ? facetMetadata.getEntity()
@@ -1610,12 +1605,12 @@ public class GmsGraphQLEngine {
                         "entity",
                         new EntityTypeResolver(
                             entityTypes,
-                            (env) -> ((LineageRelationship) env.getSource()).getEntity()))
+                            env -> ((LineageRelationship) env.getSource()).getEntity()))
                     .dataFetcher(
                         "createdActor",
                         new EntityTypeResolver(
                             entityTypes,
-                            (env) -> {
+                            env -> {
                               final LineageRelationship relationship = env.getSource();
                               return relationship.getCreatedActor() != null
                                   ? relationship.getCreatedActor()
@@ -1625,7 +1620,7 @@ public class GmsGraphQLEngine {
                         "updatedActor",
                         new EntityTypeResolver(
                             entityTypes,
-                            (env) -> {
+                            env -> {
                               final LineageRelationship relationship = env.getSource();
                               return relationship.getUpdatedActor() != null
                                   ? relationship.getUpdatedActor()
@@ -1638,7 +1633,7 @@ public class GmsGraphQLEngine {
                     "domains",
                     new LoadableTypeBatchResolver<>(
                         domainType,
-                        (env) ->
+                        env ->
                             ((ListDomainsResult) env.getSource())
                                 .getDomains().stream()
                                     .map(Domain::getUrn)
@@ -1650,7 +1645,7 @@ public class GmsGraphQLEngine {
                     "terms",
                     new LoadableTypeBatchResolver<>(
                         glossaryTermType,
-                        (env) ->
+                        env ->
                             ((GetRootGlossaryTermsResult) env.getSource())
                                 .getTerms().stream()
                                     .map(GlossaryTerm::getUrn)
@@ -1662,7 +1657,7 @@ public class GmsGraphQLEngine {
                     "nodes",
                     new LoadableTypeBatchResolver<>(
                         glossaryNodeType,
-                        (env) ->
+                        env ->
                             ((GetRootGlossaryNodesResult) env.getSource())
                                 .getNodes().stream()
                                     .map(GlossaryNode::getUrn)
@@ -1673,8 +1668,7 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "entities",
                     new EntityTypeBatchResolver(
-                        entityTypes,
-                        (env) -> ((AutoCompleteResults) env.getSource()).getEntities())))
+                        entityTypes, env -> ((AutoCompleteResults) env.getSource()).getEntities())))
         .type(
             "AutoCompleteResultForEntity",
             typeWiring ->
@@ -1682,7 +1676,7 @@ public class GmsGraphQLEngine {
                     "entities",
                     new EntityTypeBatchResolver(
                         entityTypes,
-                        (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities())))
+                        env -> ((AutoCompleteResultForEntity) env.getSource()).getEntities())))
         .type(
             "PolicyMatchCriterionValue",
             typeWiring ->
@@ -1690,7 +1684,7 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity())))
+                        env -> ((PolicyMatchCriterionValue) env.getSource()).getEntity())))
         .type(
             "ListTestsResult",
             typeWiring ->
@@ -1698,7 +1692,7 @@ public class GmsGraphQLEngine {
                     "tests",
                     new LoadableTypeBatchResolver<>(
                         testType,
-                        (env) ->
+                        env ->
                             ((ListTestsResult) env.getSource())
                                 .getTests().stream()
                                     .map(Test::getUrn)
@@ -1709,14 +1703,14 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "entity",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((QuickFilter) env.getSource()).getEntity())))
+                        entityTypes, env -> ((QuickFilter) env.getSource()).getEntity())))
         .type(
             "Owner",
             typeWiring ->
                 typeWiring.dataFetcher(
                     "ownershipType",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((Owner) env.getSource()).getOwnershipType())))
+                        entityTypes, env -> ((Owner) env.getSource()).getOwnershipType())))
         .type(
             "StructuredPropertiesEntry",
             typeWiring ->
@@ -1725,7 +1719,7 @@ public class GmsGraphQLEngine {
                         "structuredProperty",
                         new LoadableTypeResolver<>(
                             structuredPropertyType,
-                            (env) ->
+                            env ->
                                 ((StructuredPropertiesEntry) env.getSource())
                                     .getStructuredProperty()
                                     .getUrn()))
@@ -1733,7 +1727,7 @@ public class GmsGraphQLEngine {
                         "valueEntities",
                         new BatchGetEntitiesResolver(
                             entityTypes,
-                            (env) ->
+                            env ->
                                 ((StructuredPropertiesEntry) env.getSource()).getValueEntities())));
   }
 
@@ -1760,12 +1754,12 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                            env -> ((Dataset) env.getSource()).getPlatform().getUrn()))
                     .dataFetcher(
                         "container",
                         new LoadableTypeResolver<>(
                             containerType,
-                            (env) -> {
+                            env -> {
                               final Dataset dataset = env.getSource();
                               return dataset.getContainer() != null
                                   ? dataset.getContainer().getUrn()
@@ -1775,7 +1769,7 @@ public class GmsGraphQLEngine {
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final Dataset dataset = env.getSource();
                               return dataset.getDataPlatformInstance() != null
                                   ? dataset.getDataPlatformInstance().getUrn()
@@ -1829,7 +1823,7 @@ public class GmsGraphQLEngine {
                         "logicalParent",
                         new EntityTypeResolver(
                             entityTypes,
-                            (env) ->
+                            env ->
                                 Optional.ofNullable((Dataset) env.getSource())
                                     .map(Dataset::getLogicalParent)
                                     .orElse(null))))
@@ -1839,7 +1833,7 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "owner",
                     new OwnerTypeResolver<>(
-                        ownerTypes, (env) -> ((Owner) env.getSource()).getOwner())))
+                        ownerTypes, env -> ((Owner) env.getSource()).getOwner())))
         .type(
             "Incident",
             typeWiring ->
@@ -1847,11 +1841,11 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "entity",
                         new EntityTypeResolver(
-                            entityTypes, (env) -> ((Incident) env.getSource()).getEntity()))
+                            entityTypes, env -> ((Incident) env.getSource()).getEntity()))
                     .dataFetcher(
                         "assignees",
                         new OwnerTypeBatchResolver(
-                            ownerTypes, (env) -> ((Incident) env.getSource()).getAssignees())))
+                            ownerTypes, env -> ((Incident) env.getSource()).getAssignees())))
         .type(
             "SchemaField",
             typeWiring ->
@@ -1859,7 +1853,7 @@ public class GmsGraphQLEngine {
                     "schemaFieldEntity",
                     new LoadableTypeResolver<>(
                         schemaFieldType,
-                        (env) -> ((SchemaField) env.getSource()).getSchemaFieldEntity().getUrn())))
+                        env -> ((SchemaField) env.getSource()).getSchemaFieldEntity().getUrn())))
         .type(
             "UserUsageCounts",
             typeWiring ->
@@ -1867,7 +1861,7 @@ public class GmsGraphQLEngine {
                     "user",
                     new LoadableTypeResolver<>(
                         corpUserType,
-                        (env) -> ((UserUsageCounts) env.getSource()).getUser().getUrn())))
+                        env -> ((UserUsageCounts) env.getSource()).getUser().getUrn())))
         .type(
             "ForeignKeyConstraint",
             typeWiring ->
@@ -1875,7 +1869,7 @@ public class GmsGraphQLEngine {
                     "foreignDataset",
                     new LoadableTypeResolver<>(
                         datasetType,
-                        (env) ->
+                        env ->
                             ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn())))
         .type(
             "Deprecation",
@@ -1883,7 +1877,7 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "replacement",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((Deprecation) env.getSource()).getReplacement())))
+                        entityTypes, env -> ((Deprecation) env.getSource()).getReplacement())))
         .type(
             "SiblingProperties",
             typeWiring ->
@@ -1891,7 +1885,7 @@ public class GmsGraphQLEngine {
                     "siblings",
                     new EntityTypeBatchResolver(
                         new ArrayList<>(entityTypes),
-                        (env) -> ((SiblingProperties) env.getSource()).getSiblings())))
+                        env -> ((SiblingProperties) env.getSource()).getSiblings())))
         .type(
             "InstitutionalMemoryMetadata",
             typeWiring ->
@@ -1900,7 +1894,7 @@ public class GmsGraphQLEngine {
                         "author",
                         new LoadableTypeResolver<>(
                             corpUserType,
-                            (env) ->
+                            env ->
                                 ((InstitutionalMemoryMetadata) env.getSource())
                                     .getAuthor()
                                     .getUrn()))
@@ -1908,7 +1902,7 @@ public class GmsGraphQLEngine {
                         "actor",
                         new EntityTypeResolver(
                             this.entityTypes,
-                            (env) ->
+                            env ->
                                 (Entity)
                                     ((InstitutionalMemoryMetadata) env.getSource()).getActor())))
         .type(
@@ -1918,7 +1912,7 @@ public class GmsGraphQLEngine {
                     "topUsersLast30Days",
                     new LoadableTypeBatchResolver<>(
                         corpUserType,
-                        (env) -> {
+                        env -> {
                           DatasetStatsSummary summary = ((DatasetStatsSummary) env.getSource());
                           return summary.getTopUsersLast30Days() != null
                               ? summary.getTopUsersLast30Days().stream()
@@ -1950,7 +1944,7 @@ public class GmsGraphQLEngine {
                 "metadata",
                 new LoadableTypeResolver<>(
                     accessTokenMetadataType,
-                    (env) -> ((AccessToken) env.getSource()).getMetadata().getUrn())));
+                    env -> ((AccessToken) env.getSource()).getMetadata().getUrn())));
     builder.type(
         "ListAccessTokenResult",
         typeWiring ->
@@ -1958,7 +1952,7 @@ public class GmsGraphQLEngine {
                 "tokens",
                 new LoadableTypeBatchResolver<>(
                     accessTokenMetadataType,
-                    (env) ->
+                    env ->
                         ((ListAccessTokenResult) env.getSource())
                             .getTokens().stream()
                                 .map(AccessTokenMetadata::getUrn)
@@ -2002,12 +1996,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "parent",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((SchemaFieldEntity) env.getSource()).getParent()))
+                        entityTypes, env -> ((SchemaFieldEntity) env.getSource()).getParent()))
                 .dataFetcher(
                     "logicalParent",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) ->
+                        env ->
                             Optional.ofNullable((Dataset) env.getSource())
                                 .map(Dataset::getLogicalParent)
                                 .orElse(null)))
@@ -2025,7 +2019,7 @@ public class GmsGraphQLEngine {
             typeWiring.dataFetcher(
                 "path",
                 new BatchGetEntitiesResolver(
-                    entityTypes, (env) -> ((EntityPath) env.getSource()).getPath())));
+                    entityTypes, env -> ((EntityPath) env.getSource()).getPath())));
   }
 
   private void configureResolvedAuditStampResolvers(final RuntimeWiring.Builder builder) {
@@ -2036,7 +2030,7 @@ public class GmsGraphQLEngine {
                 "actor",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
+                    env -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
   }
 
   /**
@@ -2059,8 +2053,7 @@ public class GmsGraphQLEngine {
             typeWiring.dataFetcher(
                 "manager",
                 new LoadableTypeResolver<>(
-                    corpUserType,
-                    (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
+                    corpUserType, env -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
     builder.type(
         "CorpUserHomePageSettings",
         typeWiring ->
@@ -2068,7 +2061,7 @@ public class GmsGraphQLEngine {
                 "pageTemplate",
                 new LoadableTypeResolver<>(
                     dataHubPageTemplateType,
-                    (env) ->
+                    env ->
                         ((CorpUserHomePageSettings) env.getSource()).getPageTemplate() != null
                             ? ((CorpUserHomePageSettings) env.getSource())
                                 .getPageTemplate()
@@ -2081,7 +2074,7 @@ public class GmsGraphQLEngine {
                 "platforms",
                 new LoadableTypeBatchResolver<>(
                     dataPlatformType,
-                    (env) ->
+                    env ->
                         ((CorpUserEditableProperties) env.getSource()).getPlatforms() != null
                             ? ((CorpUserEditableProperties) env.getSource())
                                 .getPlatforms().stream()
@@ -2115,7 +2108,7 @@ public class GmsGraphQLEngine {
                         "admins",
                         new LoadableTypeBatchResolver<>(
                             corpUserType,
-                            (env) ->
+                            env ->
                                 ((CorpGroupInfo) env.getSource())
                                     .getAdmins().stream()
                                         .map(CorpUser::getUrn)
@@ -2124,7 +2117,7 @@ public class GmsGraphQLEngine {
                         "members",
                         new LoadableTypeBatchResolver<>(
                             corpUserType,
-                            (env) ->
+                            env ->
                                 ((CorpGroupInfo) env.getSource())
                                     .getMembers().stream()
                                         .map(CorpUser::getUrn)
@@ -2136,7 +2129,7 @@ public class GmsGraphQLEngine {
                     "groups",
                     new LoadableTypeBatchResolver<>(
                         corpGroupType,
-                        (env) ->
+                        env ->
                             ((ListGroupsResult) env.getSource())
                                 .getGroups().stream()
                                     .map(CorpGroup::getUrn)
@@ -2158,7 +2151,7 @@ public class GmsGraphQLEngine {
                 "tag",
                 new LoadableTypeResolver<>(
                     tagType,
-                    (env) ->
+                    env ->
                         ((com.linkedin.datahub.graphql.generated.TagAssociation) env.getSource())
                             .getTag()
                             .getUrn())));
@@ -2172,7 +2165,7 @@ public class GmsGraphQLEngine {
                 "term",
                 new LoadableTypeResolver<>(
                     glossaryTermType,
-                    (env) -> ((GlossaryTermAssociation) env.getSource()).getTerm().getUrn())));
+                    env -> ((GlossaryTermAssociation) env.getSource()).getTerm().getUrn())));
   }
 
   /**
@@ -2192,13 +2185,13 @@ public class GmsGraphQLEngine {
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
-                        (env) -> ((Notebook) env.getSource()).getPlatform().getUrn()))
+                        env -> ((Notebook) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final Notebook notebook = env.getSource();
                           return notebook.getDataPlatformInstance() != null
                               ? notebook.getDataPlatformInstance().getUrn()
@@ -2227,12 +2220,12 @@ public class GmsGraphQLEngine {
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
-                        (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
+                        env -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final Dashboard dashboard = env.getSource();
                           return dashboard.getDataPlatformInstance() != null
                               ? dashboard.getDataPlatformInstance().getUrn()
@@ -2242,7 +2235,7 @@ public class GmsGraphQLEngine {
                     "container",
                     new LoadableTypeResolver<>(
                         containerType,
-                        (env) -> {
+                        env -> {
                           final Dashboard dashboard = env.getSource();
                           return dashboard.getContainer() != null
                               ? dashboard.getContainer().getUrn()
@@ -2268,7 +2261,7 @@ public class GmsGraphQLEngine {
                 "charts",
                 new LoadableTypeBatchResolver<>(
                     chartType,
-                    (env) ->
+                    env ->
                         ((DashboardInfo) env.getSource())
                             .getCharts().stream()
                                 .map(Chart::getUrn)
@@ -2280,7 +2273,7 @@ public class GmsGraphQLEngine {
                 "user",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> ((DashboardUserUsageCounts) env.getSource()).getUser().getUrn())));
+                    env -> ((DashboardUserUsageCounts) env.getSource()).getUser().getUrn())));
     builder.type(
         "DashboardStatsSummary",
         typeWiring ->
@@ -2288,7 +2281,7 @@ public class GmsGraphQLEngine {
                 "topUsersLast30Days",
                 new LoadableTypeBatchResolver<>(
                     corpUserType,
-                    (env) -> {
+                    env -> {
                       DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
                       return summary.getTopUsersLast30Days() != null
                           ? summary.getTopUsersLast30Days().stream()
@@ -2307,7 +2300,7 @@ public class GmsGraphQLEngine {
                     "valueType",
                     new LoadableTypeResolver<>(
                         dataTypeType,
-                        (env) ->
+                        env ->
                             ((StructuredPropertyDefinition) env.getSource())
                                 .getValueType()
                                 .getUrn()))
@@ -2315,7 +2308,7 @@ public class GmsGraphQLEngine {
                     "entityTypes",
                     new LoadableTypeBatchResolver<>(
                         entityTypeType,
-                        (env) ->
+                        env ->
                             ((StructuredPropertyDefinition) env.getSource())
                                 .getEntityTypes().stream()
                                     .map(entityTypeType.getKeyProvider())
@@ -2327,7 +2320,7 @@ public class GmsGraphQLEngine {
                 "allowedTypes",
                 new LoadableTypeBatchResolver<>(
                     entityTypeType,
-                    (env) ->
+                    env ->
                         ((TypeQualifier) env.getSource())
                             .getAllowedTypes().stream()
                                 .map(entityTypeType.getKeyProvider())
@@ -2357,13 +2350,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
-                        dataPlatformType,
-                        (env) -> ((Chart) env.getSource()).getPlatform().getUrn()))
+                        dataPlatformType, env -> ((Chart) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final Chart chart = env.getSource();
                           return chart.getDataPlatformInstance() != null
                               ? chart.getDataPlatformInstance().getUrn()
@@ -2373,7 +2365,7 @@ public class GmsGraphQLEngine {
                     "container",
                     new LoadableTypeResolver<>(
                         containerType,
-                        (env) -> {
+                        env -> {
                           final Chart chart = env.getSource();
                           return chart.getContainer() != null
                               ? chart.getContainer().getUrn()
@@ -2398,7 +2390,7 @@ public class GmsGraphQLEngine {
                 "inputs",
                 new LoadableTypeBatchResolver<>(
                     datasetType,
-                    (env) ->
+                    env ->
                         ((ChartInfo) env.getSource())
                             .getInputs().stream()
                                 .map(datasetType.getKeyProvider())
@@ -2499,7 +2491,7 @@ public class GmsGraphQLEngine {
                         "source",
                         new LoadableTypeResolver<>(
                             datasetType,
-                            (env) -> {
+                            env -> {
                               final ERModelRelationshipProperties erModelRelationshipProperties =
                                   env.getSource();
                               return erModelRelationshipProperties.getSource() != null
@@ -2510,7 +2502,7 @@ public class GmsGraphQLEngine {
                         "destination",
                         new LoadableTypeResolver<>(
                             datasetType,
-                            (env) -> {
+                            env -> {
                               final ERModelRelationshipProperties erModelRelationshipProperties =
                                   env.getSource();
                               return erModelRelationshipProperties.getDestination() != null
@@ -2523,7 +2515,7 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "owner",
                     new OwnerTypeResolver<>(
-                        ownerTypes, (env) -> ((Owner) env.getSource()).getOwner())))
+                        ownerTypes, env -> ((Owner) env.getSource()).getOwner())))
         .type(
             "InstitutionalMemoryMetadata",
             typeWiring ->
@@ -2531,7 +2523,7 @@ public class GmsGraphQLEngine {
                     "author",
                     new LoadableTypeResolver<>(
                         corpUserType,
-                        (env) ->
+                        env ->
                             ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn())));
   }
 
@@ -2560,7 +2552,7 @@ public class GmsGraphQLEngine {
                         "dataFlow",
                         new LoadableTypeResolver<>(
                             dataFlowType,
-                            (env) -> {
+                            env -> {
                               final DataJob dataJob = env.getSource();
                               return dataJob.getDataFlow() != null
                                   ? dataJob.getDataFlow().getUrn()
@@ -2570,7 +2562,7 @@ public class GmsGraphQLEngine {
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final DataJob dataJob = env.getSource();
                               return dataJob.getDataPlatformInstance() != null
                                   ? dataJob.getDataPlatformInstance().getUrn()
@@ -2580,7 +2572,7 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> {
+                            env -> {
                               final DataJob dataJob = env.getSource();
                               return dataJob != null && dataJob.getPlatform() != null
                                   ? dataJob.getPlatform().getUrn()
@@ -2590,7 +2582,7 @@ public class GmsGraphQLEngine {
                         "container",
                         new LoadableTypeResolver<>(
                             containerType,
-                            (env) -> {
+                            env -> {
                               final DataJob dataJob = env.getSource();
                               return dataJob.getContainer() != null
                                   ? dataJob.getContainer().getUrn()
@@ -2615,7 +2607,7 @@ public class GmsGraphQLEngine {
                         "inputDatasets",
                         new LoadableTypeBatchResolver<>(
                             datasetType,
-                            (env) ->
+                            env ->
                                 ((DataJobInputOutput) env.getSource())
                                     .getInputDatasets().stream()
                                         .map(datasetType.getKeyProvider())
@@ -2624,7 +2616,7 @@ public class GmsGraphQLEngine {
                         "outputDatasets",
                         new LoadableTypeBatchResolver<>(
                             datasetType,
-                            (env) ->
+                            env ->
                                 ((DataJobInputOutput) env.getSource())
                                     .getOutputDatasets().stream()
                                         .map(datasetType.getKeyProvider())
@@ -2633,7 +2625,7 @@ public class GmsGraphQLEngine {
                         "inputDatajobs",
                         new LoadableTypeBatchResolver<>(
                             dataJobType,
-                            (env) ->
+                            env ->
                                 ((DataJobInputOutput) env.getSource())
                                     .getInputDatajobs().stream()
                                         .map(DataJob::getUrn)
@@ -2661,14 +2653,14 @@ public class GmsGraphQLEngine {
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
-                        (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
+                        env -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final DataFlow dataFlow = env.getSource();
                           return dataFlow.getDataPlatformInstance() != null
                               ? dataFlow.getDataPlatformInstance().getUrn()
@@ -2678,7 +2670,7 @@ public class GmsGraphQLEngine {
                     "container",
                     new LoadableTypeResolver<>(
                         containerType,
-                        (env) -> {
+                        env -> {
                           final DataFlow dataFlow = env.getSource();
                           return dataFlow.getContainer() != null
                               ? dataFlow.getContainer().getUrn()
@@ -2721,13 +2713,13 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
+                            env -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final MLFeatureTable entity = env.getSource();
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
@@ -2741,7 +2733,7 @@ public class GmsGraphQLEngine {
                         "mlFeatures",
                         new LoadableTypeBatchResolver<>(
                             mlFeatureType,
-                            (env) ->
+                            env ->
                                 ((MLFeatureTableProperties) env.getSource()).getMlFeatures() != null
                                     ? ((MLFeatureTableProperties) env.getSource())
                                         .getMlFeatures().stream()
@@ -2752,7 +2744,7 @@ public class GmsGraphQLEngine {
                         "mlPrimaryKeys",
                         new LoadableTypeBatchResolver<>(
                             mlPrimaryKeyType,
-                            (env) ->
+                            env ->
                                 ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys()
                                         != null
                                     ? ((MLFeatureTableProperties) env.getSource())
@@ -2767,7 +2759,7 @@ public class GmsGraphQLEngine {
                     "sources",
                     new LoadableTypeBatchResolver<>(
                         datasetType,
-                        (env) -> {
+                        env -> {
                           if (((MLFeatureProperties) env.getSource()).getSources() == null) {
                             return Collections.emptyList();
                           }
@@ -2783,7 +2775,7 @@ public class GmsGraphQLEngine {
                     "sources",
                     new LoadableTypeBatchResolver<>(
                         datasetType,
-                        (env) -> {
+                        env -> {
                           if (((MLPrimaryKeyProperties) env.getSource()).getSources() == null) {
                             return Collections.emptyList();
                           }
@@ -2812,13 +2804,13 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
+                            env -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final MLModel mlModel = env.getSource();
                               return mlModel.getDataPlatformInstance() != null
                                   ? mlModel.getDataPlatformInstance().getUrn()
@@ -2831,7 +2823,7 @@ public class GmsGraphQLEngine {
                     "groups",
                     new LoadableTypeBatchResolver<>(
                         mlModelGroupType,
-                        (env) -> {
+                        env -> {
                           MLModelProperties properties = env.getSource();
                           if (properties.getGroups() != null) {
                             return properties.getGroups().stream()
@@ -2860,14 +2852,14 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
+                            env -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
                     .dataFetcher("exists", new EntityExistsResolver(entityService))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final MLModelGroup entity = env.getSource();
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
@@ -2893,7 +2885,7 @@ public class GmsGraphQLEngine {
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final MLFeature entity = env.getSource();
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
@@ -2919,7 +2911,7 @@ public class GmsGraphQLEngine {
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
                             dataPlatformInstanceType,
-                            (env) -> {
+                            env -> {
                               final MLPrimaryKey entity = env.getSource();
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
@@ -2959,7 +2951,7 @@ public class GmsGraphQLEngine {
                 "domain",
                 new LoadableTypeResolver<>(
                     domainType,
-                    (env) ->
+                    env ->
                         ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource())
                             .getDomain()
                             .getUrn())));
@@ -2988,7 +2980,7 @@ public class GmsGraphQLEngine {
                 "form",
                 new LoadableTypeResolver<>(
                     formType,
-                    (env) ->
+                    env ->
                         ((com.linkedin.datahub.graphql.generated.FormAssociation) env.getSource())
                             .getForm()
                             .getUrn())));
@@ -2999,7 +2991,7 @@ public class GmsGraphQLEngine {
                 "structuredProperty",
                 new LoadableTypeResolver<>(
                     structuredPropertyType,
-                    (env) ->
+                    env ->
                         ((StructuredPropertyParams) env.getSource())
                             .getStructuredProperty()
                             .getUrn())));
@@ -3011,7 +3003,7 @@ public class GmsGraphQLEngine {
                     "users",
                     new LoadableTypeBatchResolver<>(
                         corpUserType,
-                        (env) -> {
+                        env -> {
                           final FormActorAssignment actors = env.getSource();
                           return actors.getUsers() != null
                               ? actors.getUsers().stream()
@@ -3023,7 +3015,7 @@ public class GmsGraphQLEngine {
                     "groups",
                     new LoadableTypeBatchResolver<>(
                         corpGroupType,
-                        (env) -> {
+                        env -> {
                           final FormActorAssignment actors = env.getSource();
                           return actors.getGroups() != null
                               ? actors.getGroups().stream()
@@ -3062,7 +3054,7 @@ public class GmsGraphQLEngine {
                 "application",
                 new LoadableTypeResolver<>(
                     applicationType,
-                    (env) ->
+                    env ->
                         ((com.linkedin.datahub.graphql.generated.ApplicationAssociation)
                                 env.getSource())
                             .getApplication()
@@ -3079,12 +3071,12 @@ public class GmsGraphQLEngine {
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
-                        (env) -> ((Assertion) env.getSource()).getPlatform().getUrn()))
+                        env -> ((Assertion) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher(
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final Assertion assertion = env.getSource();
                           return assertion.getDataPlatformInstance() != null
                               ? assertion.getDataPlatformInstance().getUrn()
@@ -3108,7 +3100,7 @@ public class GmsGraphQLEngine {
                 "assertion",
                 new LoadableTypeResolver<>(
                     getAssertionType(),
-                    (env) -> {
+                    env -> {
                       final FreshnessContract contract = env.getSource();
                       return contract.getAssertion() != null
                           ? contract.getAssertion().getUrn()
@@ -3121,7 +3113,7 @@ public class GmsGraphQLEngine {
                 "assertion",
                 new LoadableTypeResolver<>(
                     getAssertionType(),
-                    (env) -> {
+                    env -> {
                       final DataQualityContract contract = env.getSource();
                       return contract.getAssertion() != null
                           ? contract.getAssertion().getUrn()
@@ -3134,7 +3126,7 @@ public class GmsGraphQLEngine {
                 "assertion",
                 new LoadableTypeResolver<>(
                     getAssertionType(),
-                    (env) -> {
+                    env -> {
                       final SchemaContract contract = env.getSource();
                       return contract.getAssertion() != null
                           ? contract.getAssertion().getUrn()
@@ -3159,7 +3151,7 @@ public class GmsGraphQLEngine {
                     "resolvedUsers",
                     new LoadableTypeBatchResolver<>(
                         corpUserType,
-                        (env) -> {
+                        env -> {
                           final ActorFilter filter = env.getSource();
                           return filter.getUsers();
                         }))
@@ -3167,7 +3159,7 @@ public class GmsGraphQLEngine {
                     "resolvedGroups",
                     new LoadableTypeBatchResolver<>(
                         corpGroupType,
-                        (env) -> {
+                        env -> {
                           final ActorFilter filter = env.getSource();
                           return filter.getGroups();
                         }))
@@ -3175,7 +3167,7 @@ public class GmsGraphQLEngine {
                     "resolvedRoles",
                     new LoadableTypeBatchResolver<>(
                         dataHubRoleType,
-                        (env) -> {
+                        env -> {
                           final ActorFilter filter = env.getSource();
                           return filter.getRoles();
                         }))
@@ -3183,7 +3175,7 @@ public class GmsGraphQLEngine {
                     "resolvedOwnershipTypes",
                     new LoadableTypeBatchResolver<>(
                         ownershipType,
-                        (env) -> {
+                        env -> {
                           final ActorFilter filter = env.getSource();
                           return filter.getResourceOwnersTypes();
                         })));
@@ -3211,7 +3203,7 @@ public class GmsGraphQLEngine {
                     "views",
                     new LoadableTypeBatchResolver<>(
                         dataHubViewType,
-                        (env) ->
+                        env ->
                             ((ListViewsResult) env.getSource())
                                 .getViews().stream()
                                     .map(DataHubView::getUrn)
@@ -3223,7 +3215,7 @@ public class GmsGraphQLEngine {
                     "defaultView",
                     new LoadableTypeResolver<>(
                         dataHubViewType,
-                        (env) -> {
+                        env -> {
                           final CorpUserViewsSettings settings = env.getSource();
                           if (settings.getDefaultView() != null) {
                             return settings.getDefaultView().getUrn();
@@ -3244,7 +3236,7 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> {
+                            env -> {
                               final QueryEntity query = env.getSource();
                               return query.getPlatform() != null
                                   ? query.getPlatform().getUrn()
@@ -3256,7 +3248,7 @@ public class GmsGraphQLEngine {
                 typeWiring.dataFetcher(
                     "origin",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((QueryProperties) env.getSource()).getOrigin())))
+                        entityTypes, env -> ((QueryProperties) env.getSource()).getOrigin())))
         .type(
             "ListQueriesResult",
             typeWiring ->
@@ -3264,7 +3256,7 @@ public class GmsGraphQLEngine {
                     "queries",
                     new LoadableTypeBatchResolver<>(
                         queryType,
-                        (env) ->
+                        env ->
                             ((ListQueriesResult) env.getSource())
                                 .getQueries().stream()
                                     .map(QueryEntity::getUrn)
@@ -3277,12 +3269,12 @@ public class GmsGraphQLEngine {
                         "dataset",
                         new LoadableTypeResolver<>(
                             datasetType,
-                            (env) -> ((QuerySubject) env.getSource()).getDataset().getUrn()))
+                            env -> ((QuerySubject) env.getSource()).getDataset().getUrn()))
                     .dataFetcher(
                         "schemaField",
                         new LoadableTypeResolver<>(
                             schemaFieldType,
-                            (env) ->
+                            env ->
                                 ((QuerySubject) env.getSource()).getSchemaField() != null
                                     ? ((QuerySubject) env.getSource()).getSchemaField().getUrn()
                                     : null)));
@@ -3302,7 +3294,7 @@ public class GmsGraphQLEngine {
                     "ownershipTypes",
                     new LoadableTypeBatchResolver<>(
                         ownershipType,
-                        (env) ->
+                        env ->
                             ((ListOwnershipTypesResult) env.getSource())
                                 .getOwnershipTypes().stream()
                                     .map(OwnershipTypeEntity::getUrn)
@@ -3319,7 +3311,7 @@ public class GmsGraphQLEngine {
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
-                        (env) -> {
+                        env -> {
                           final DataProcessInstance dataProcessInstance = env.getSource();
                           return dataProcessInstance != null
                                   && dataProcessInstance.getPlatform() != null
@@ -3330,7 +3322,7 @@ public class GmsGraphQLEngine {
                     "dataPlatformInstance",
                     new LoadableTypeResolver<>(
                         dataPlatformInstanceType,
-                        (env) -> {
+                        env -> {
                           final DataProcessInstance dataProcessInstance = env.getSource();
                           return dataProcessInstance != null
                                   && dataProcessInstance.getDataPlatformInstance() != null
@@ -3342,7 +3334,7 @@ public class GmsGraphQLEngine {
                     "container",
                     new LoadableTypeResolver<>(
                         containerType,
-                        (env) -> {
+                        env -> {
                           final DataProcessInstance dpi = env.getSource();
                           return dpi.getContainer() != null ? dpi.getContainer().getUrn() : null;
                         }))
@@ -3350,7 +3342,7 @@ public class GmsGraphQLEngine {
                     "parentTemplate",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) -> ((DataProcessInstance) env.getSource()).getParentTemplate()))
+                        env -> ((DataProcessInstance) env.getSource()).getParentTemplate()))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",
@@ -3373,7 +3365,7 @@ public class GmsGraphQLEngine {
                 "test",
                 new LoadableTypeResolver<>(
                     testType,
-                    (env) -> {
+                    env -> {
                       final TestResult testResult = env.getSource();
                       return testResult.getTest() != null ? testResult.getTest().getUrn() : null;
                     })));
@@ -3424,7 +3416,7 @@ public class GmsGraphQLEngine {
                         "platform",
                         new LoadableTypeResolver<>(
                             dataPlatformType,
-                            (env) -> {
+                            env -> {
                               final IngestionSource ingestionSource = env.getSource();
                               return ingestionSource.getPlatform() != null
                                   ? ingestionSource.getPlatform().getUrn()
@@ -3441,7 +3433,7 @@ public class GmsGraphQLEngine {
                     "ingestionSources",
                     new LoadableTypeBatchResolver<>(
                         ingestionSourceType,
-                        (env) -> {
+                        env -> {
                           final ListIngestionSourcesResult listIngestionSourcesResult =
                               env.getSource();
                           return listIngestionSourcesResult.getIngestionSources().stream()
@@ -3459,7 +3451,7 @@ public class GmsGraphQLEngine {
                     "source",
                     new LoadableTypeResolver<>(
                         ingestionSourceType,
-                        (env) -> {
+                        env -> {
                           final ExecutionRequest executionRequest = env.getSource();
 
                           if (executionRequest.getInput() == null) {
@@ -3477,7 +3469,7 @@ public class GmsGraphQLEngine {
                     "executionRequests",
                     new LoadableTypeBatchResolver<>(
                         executionRequestType,
-                        (env) -> {
+                        env -> {
                           final IngestionSourceExecutionRequests executionRequests =
                               env.getSource();
                           return executionRequests.getExecutionRequests().stream()
@@ -3494,7 +3486,7 @@ public class GmsGraphQLEngine {
                 "actor",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> {
+                    env -> {
                       final ExecutionRequestInput executionRequestInput = env.getSource();
                       return executionRequestInput.getActorUrn();
                     })));
@@ -3513,7 +3505,7 @@ public class GmsGraphQLEngine {
                 "source",
                 new LoadableTypeResolver<>(
                     this.assertionType,
-                    (env) -> {
+                    env -> {
                       final IncidentSource incidentSource = env.getSource();
                       return incidentSource.getSource() != null
                           ? incidentSource.getSource().getUrn()
@@ -3565,7 +3557,7 @@ public class GmsGraphQLEngine {
                     "businessAttributes",
                     new LoadableTypeBatchResolver<>(
                         businessAttributeType,
-                        (env) ->
+                        env ->
                             ((ListBusinessAttributesResult) env.getSource())
                                 .getBusinessAttributes().stream()
                                     .map(BusinessAttribute::getUrn)
@@ -3580,7 +3572,7 @@ public class GmsGraphQLEngine {
                 "businessAttribute",
                 new LoadableTypeResolver<>(
                     businessAttributeType,
-                    (env) ->
+                    env ->
                         ((BusinessAttributeAssociation) env.getSource())
                             .getBusinessAttribute()
                             .getUrn())));
@@ -3603,7 +3595,7 @@ public class GmsGraphQLEngine {
                 "platform",
                 new LoadableTypeResolver<>(
                     this.dataPlatformType,
-                    (env) -> {
+                    env -> {
                       final DataHubConnection connection = env.getSource();
                       return connection.getPlatform() != null
                           ? connection.getPlatform().getUrn()
@@ -3618,7 +3610,7 @@ public class GmsGraphQLEngine {
             typeWiring.dataFetcher(
                 "actorEntity",
                 new EntityTypeResolver(
-                    entityTypes, (env) -> ((Deprecation) env.getSource()).getActorEntity())));
+                    entityTypes, env -> ((Deprecation) env.getSource()).getActorEntity())));
   }
 
   private void configureMetadataAttributionResolver(final RuntimeWiring.Builder builder) {
@@ -3629,12 +3621,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "actor",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((MetadataAttribution) env.getSource()).getActor()))
+                        entityTypes, env -> ((MetadataAttribution) env.getSource()).getActor()))
                 .dataFetcher(
                     "source",
                     new EntityTypeResolver(
-                        entityTypes,
-                        (env) -> ((MetadataAttribution) env.getSource()).getSource())));
+                        entityTypes, env -> ((MetadataAttribution) env.getSource()).getSource())));
   }
 
   private void configureVersionPropertiesResolvers(final RuntimeWiring.Builder builder) {
@@ -3645,7 +3636,7 @@ public class GmsGraphQLEngine {
                 "versionSet",
                 new LoadableTypeResolver<>(
                     versionSetType,
-                    (env) -> {
+                    env -> {
                       final VersionProperties versionProperties = env.getSource();
                       return versionProperties != null
                           ? versionProperties.getVersionSet().getUrn()
@@ -3661,7 +3652,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "latestVersion",
                     new EntityTypeResolver(
-                        entityTypes, (env) -> ((VersionSet) env.getSource()).getLatestVersion()))
+                        entityTypes, env -> ((VersionSet) env.getSource()).getLatestVersion()))
                 .dataFetcher(
                     "versionsSearch",
                     new VersionsSearchResolver(this.entityClient, this.viewService)));
@@ -3675,7 +3666,7 @@ public class GmsGraphQLEngine {
                 "defaultTemplate",
                 new LoadableTypeResolver<>(
                     dataHubPageTemplateType,
-                    (env) -> {
+                    env -> {
                       final GlobalHomePageSettings homePageSettings = env.getSource();
                       return homePageSettings.getDefaultTemplate() != null
                           ? homePageSettings.getDefaultTemplate().getUrn()
@@ -3691,7 +3682,7 @@ public class GmsGraphQLEngine {
                 "modules",
                 new LoadableTypeBatchResolver<>(
                     dataHubPageModuleType,
-                    (env) ->
+                    env ->
                         ((DataHubPageTemplateRow) env.getSource())
                             .getModules().stream()
                                 .map(DataHubPageModule::getUrn)
@@ -3703,7 +3694,7 @@ public class GmsGraphQLEngine {
                 "structuredProperty",
                 new LoadableTypeResolver<>(
                     structuredPropertyType,
-                    (env) -> {
+                    env -> {
                       final SummaryElement summaryElement = env.getSource();
                       if (summaryElement != null) {
                         return summaryElement.getStructuredProperty() != null
@@ -3727,7 +3718,7 @@ public class GmsGraphQLEngine {
                     "file",
                     new LoadableTypeResolver<>(
                         dataHubFileType,
-                        (env) -> {
+                        env -> {
                           final CreateDataHubFileResponse response = env.getSource();
                           return response.getFile() != null ? response.getFile().getUrn() : null;
                         })))
@@ -3746,12 +3737,12 @@ public class GmsGraphQLEngine {
                     "referencedByAsset",
                     new EntityTypeResolver(
                         entityTypes,
-                        (env) -> ((DataHubFileInfo) env.getSource()).getReferencedByAsset()))
+                        env -> ((DataHubFileInfo) env.getSource()).getReferencedByAsset()))
                 .dataFetcher(
                     "schemaField",
                     new LoadableTypeResolver<>(
                         schemaFieldType,
-                        (env) -> {
+                        env -> {
                           final DataHubFileInfo fileInfo = env.getSource();
                           return fileInfo.getSchemaField() != null
                               ? fileInfo.getSchemaField().getUrn()
@@ -3767,7 +3758,7 @@ public class GmsGraphQLEngine {
                 "template",
                 new LoadableTypeResolver<>(
                     dataHubPageTemplateType,
-                    (env) -> {
+                    env -> {
                       final AssetSummarySettingsTemplate assetSummarySettingsTemplate =
                           env.getSource();
                       if (assetSummarySettingsTemplate != null) {

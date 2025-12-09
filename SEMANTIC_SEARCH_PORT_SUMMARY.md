@@ -89,6 +89,45 @@ Successfully completed full port of semantic search functionality from DataHub c
 - Added import: `com.linkedin.metadata.search.SemanticSearchService`
 - Added field: `SemanticSearchService semanticSearchService;`
 
+### 3. OssSemanticSearchPlugin.java ✅ (NEW FILE)
+**File:** `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/plugins/OssSemanticSearchPlugin.java`
+
+**Purpose:** Registers semantic search GraphQL schema and resolvers using OSS's plugin system
+
+**Features:**
+- Implements `GmsGraphQLPlugin` interface
+- Conditionally loads semantic search schema file (`semantic-search.acryl.graphql`)
+- Registers GraphQL resolvers:
+  - `semanticSearch` - Single entity type semantic search
+  - `semanticSearchAcrossEntities` - Multi-entity semantic search
+- Gracefully handles missing SemanticSearchService (logs info, doesn't register resolvers)
+- Automatic initialization via plugin system
+
+**Why This Approach:**
+- ✅ Follows OSS's established plugin architecture
+- ✅ Clean separation of concerns
+- ✅ No merge conflicts with core GmsGraphQLEngine
+- ✅ Easy to maintain and extend
+- ✅ Conditionally active based on configuration
+
+### 4. GmsGraphQLEngine.java ✅
+**File:** `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java`
+
+**Changes:**
+- Registered OssSemanticSearchPlugin in the plugins list (line 535):
+  ```java
+  this.graphQLPlugins = List.of(
+      new com.linkedin.datahub.graphql.plugins.OssSemanticSearchPlugin()
+  );
+  ```
+
+**How It Works:**
+1. Plugin is instantiated in GmsGraphQLEngine constructor
+2. Plugin's `init()` method is called with GmsGraphQLEngineArgs
+3. If SemanticSearchService is available, plugin loads schema file
+4. Plugin's `configureExtraResolvers()` registers the GraphQL datafetchers
+5. GraphQL endpoints become available automatically
+
 ## Phase 3: Additional Files and Infrastructure Merges (COMPLETED)
 
 ### 1. application.yaml Configuration ✅
@@ -200,8 +239,11 @@ Copied for embedding backfill functionality:
 - 92 semantic search core files (services, factories, resolvers, tests, docs, POC)
 - 5 upgrade CLI files
 
-### Files Modified: 8 total
-- 2 GraphQL integration files (GraphQLEngineFactory, GmsGraphQLEngineArgs)
+### Files Created: 1 total
+- 1 GraphQL plugin file (OssSemanticSearchPlugin.java)
+
+### Files Modified: 10 total
+- 4 GraphQL integration files (GraphQLEngineFactory, GmsGraphQLEngineArgs, GmsGraphQLEngine, OssSemanticSearchPlugin)
 - 1 configuration file (application.yaml)
 - 5 infrastructure files (IndexConvention, IndexConventionImpl, ESIndexBuilder, ReindexConfig, EntityIndexConfiguration)
 - 2 factory files (MappingsBuilderFactory, SettingsBuilderFactory)
@@ -209,6 +251,8 @@ Copied for embedding backfill functionality:
 ### Git Status:
 ```
 Modified:
+ M SEMANTIC_SEARCH_PORT_SUMMARY.md
+ M datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java
  M metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/ESIndexBuilder.java
  M metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/ReindexConfig.java
  M metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EntityIndexConfiguration.java
@@ -218,10 +262,12 @@ Modified:
  M metadata-utils/src/main/java/com/linkedin/metadata/utils/elasticsearch/IndexConvention.java
  M metadata-utils/src/main/java/com/linkedin/metadata/utils/elasticsearch/IndexConventionImpl.java
 
-New directories:
-?? datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/semanticsearch/
-?? datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/semanticsearch/
-?? (plus ~92 other semantic search files in various directories)
+New files:
+ A datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/plugins/OssSemanticSearchPlugin.java
+ A datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/config/SearchEmbeddingsUpdateConfig.java
+ A datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/semanticsearch/*.java (3 files)
+ A datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/semanticsearch/*.java (2 files)
+ A (plus ~92 other semantic search files in various directories)
 ```
 
 ## System Requirements
