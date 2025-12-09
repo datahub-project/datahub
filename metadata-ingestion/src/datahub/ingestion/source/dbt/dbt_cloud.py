@@ -290,9 +290,31 @@ _DBT_FIELDS_BY_TYPE = {
     compiledSql
     compiledCode
 """,
+    "semanticModels": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    model
+    dependsOn
+    entities {{
+      name
+      type
+      description
+      expr
+    }}
+    dimensions {{
+      name
+      type
+      description
+      expr
+    }}
+    measures {{
+      name
+      aggr
+      description
+      expr
+    }}
+""",
     # Currently unsupported dbt node types:
     # - metrics
-    # - snapshots
     # - exposures
 }
 
@@ -721,6 +743,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             # The code fields are new in dbt 1.3, and replace the sql ones.
             raw_code = node["rawCode"] or node["rawSql"]
             compiled_code = node["compiledCode"] or node["compiledSql"]
+        elif node["resourceType"] == "semantic_model":
+            # Semantic models don't have SQL code
+            raw_code = None
+            compiled_code = None
         else:
             raw_code = None
             compiled_code = None
@@ -735,8 +761,23 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
+        # Handle columns differently for semantic models
         columns = []
-        if "columns" in node and node["columns"] is not None:
+        entities = []
+        dimensions = []
+        measures = []
+
+        if node["resourceType"] == "semantic_model":
+            # For semantic models, extract entities, dimensions, and measures
+            entities = node.get("entities", [])
+            dimensions = node.get("dimensions", [])
+            measures = node.get("measures", [])
+
+            # Convert semantic model fields to columns
+            columns = self._convert_semantic_model_fields_to_columns(
+                entities, dimensions, measures
+            )
+        elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
                 sorted(
@@ -792,6 +833,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     },
                 )
 
+        # Use "semantic_view" node_type for semantic models to match dbt_core.py convention
+        node_type = (
+            "semantic_view"
+            if node["resourceType"] == "semantic_model"
+            else node["resourceType"]
+        )
+
         return DBTNode(
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
@@ -802,7 +850,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
-            node_type=node["resourceType"],
+            node_type=node_type,
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=description,
@@ -821,6 +869,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_info=test_info,
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
         )
 
     def _parse_into_dbt_column(
@@ -839,6 +890,100 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             meta=column["meta"],
             tags=column["tags"],
         )
+
+    def _convert_semantic_model_fields_to_columns(
+        self,
+        entities: List[Dict],
+        dimensions: List[Dict],
+        measures: List[Dict],
+    ) -> List[DBTColumn]:
+        """Convert semantic model entities, dimensions, and measures to DBTColumn objects."""
+        columns: List[DBTColumn] = []
+        tag_prefix = self.config.tag_prefix
+
+        # Process entities
+        for idx, entity in enumerate(entities):
+            entity_name = entity.get("name", "")
+            entity_type = entity.get("type", "")
+            entity_desc = entity.get("description", "")
+            entity_expr = entity.get("expr")
+
+            full_desc = f"{entity_desc}"
+            if entity_type:
+                full_desc = f"[Entity: {entity_type}] {full_desc}"
+            if entity_expr:
+                full_desc = f"{full_desc}\nExpression: {entity_expr}"
+
+            column = DBTColumn(
+                name=entity_name,
+                comment="",
+                description=full_desc.strip(),
+                index=idx,
+                data_type="unknown",
+                meta={},
+                tags=[f"{tag_prefix}entity", f"{tag_prefix}{entity_type}"]
+                if entity_type
+                else [f"{tag_prefix}entity"],
+            )
+            columns.append(column)
+
+        # Process dimensions
+        offset = len(entities)
+        for idx, dimension in enumerate(dimensions):
+            dim_name = dimension.get("name", "")
+            dim_type = dimension.get("type", "")
+            dim_desc = dimension.get("description", "")
+            dim_expr = dimension.get("expr")
+
+            full_desc = f"{dim_desc}"
+            if dim_type:
+                full_desc = f"[Dimension: {dim_type}] {full_desc}"
+            if dim_expr:
+                full_desc = f"{full_desc}\nExpression: {dim_expr}"
+
+            column = DBTColumn(
+                name=dim_name,
+                comment="",
+                description=full_desc.strip(),
+                index=offset + idx,
+                data_type="unknown",
+                meta={},
+                tags=[f"{tag_prefix}dimension", f"{tag_prefix}{dim_type}"]
+                if dim_type
+                else [f"{tag_prefix}dimension"],
+            )
+            columns.append(column)
+
+        # Process measures
+        offset = len(entities) + len(dimensions)
+        for idx, measure in enumerate(measures):
+            measure_name = measure.get("name", "")
+            measure_agg = measure.get(
+                "aggr", ""
+            )  # Note: might be "agg" or "aggr" in API
+            measure_desc = measure.get("description", "")
+            measure_expr = measure.get("expr")
+
+            full_desc = f"{measure_desc}"
+            if measure_agg:
+                full_desc = f"[Measure: {measure_agg}] {full_desc}"
+            if measure_expr:
+                full_desc = f"{full_desc}\nExpression: {measure_expr}"
+
+            column = DBTColumn(
+                name=measure_name,
+                comment="",
+                description=full_desc.strip(),
+                index=offset + idx,
+                data_type="unknown",
+                meta={},
+                tags=[f"{tag_prefix}measure", f"{tag_prefix}{measure_agg}"]
+                if measure_agg
+                else [f"{tag_prefix}measure"],
+            )
+            columns.append(column)
+
+        return columns
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         if self.config.external_url_mode == "explore":

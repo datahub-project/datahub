@@ -189,7 +189,13 @@ class DBTEntitiesEnabled(ConfigModel):
     )
     semantic_views: EmitDirective = Field(
         EmitDirective.YES,
-        description="Emit metadata for dbt semantic views when set to Yes or Only",
+        description=(
+            "Emit metadata for dbt semantic views (semantic_models in manifest.json). "
+            "Semantic views define metrics, dimensions, and entities for business analytics. "
+            "They appear in DataHub as datasets with SEMANTIC_VIEW subtype and include tagged columns "
+            "for entities, dimensions, and measures. Set to YES to include them, NO to exclude, "
+            "or ONLY to emit only semantic views."
+        ),
     )
     test_definitions: EmitDirective = Field(
         EmitDirective.YES,
@@ -2059,7 +2065,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if node.node_type == "semantic_view":
             subtypes: List[str] = [DatasetSubTypes.SEMANTIC_VIEW]
         else:
-            subtypes: List[str] = [node.node_type.capitalize()]
+            subtypes = [node.node_type.capitalize()]
 
         return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,

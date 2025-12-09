@@ -815,3 +815,320 @@ def test_dbt_cloud_source_description_fallback() -> None:
     assert (
         parsed_node.description == "This is the schema-level description for my_schema"
     )
+
+
+def test_dbt_semantic_view_field_conversion() -> None:
+    """
+    Test that semantic view entities, dimensions, and measures are correctly converted to columns.
+    """
+    from datahub.ingestion.source.dbt.dbt_core import (
+        _convert_semantic_view_fields_to_columns,
+    )
+
+    entities = [
+        {
+            "name": "order_id",
+            "type": "primary",
+            "expr": "ORDER_ID",
+            "description": "Unique order identifier",
+        }
+    ]
+    dimensions = [
+        {
+            "name": "order_date",
+            "type": "time",
+            "expr": "ORDER_DATE",
+            "description": "Order timestamp",
+        }
+    ]
+    measures = [
+        {
+            "name": "total_amount",
+            "agg": "sum",
+            "expr": "AMOUNT",
+            "description": "Total order amount",
+        }
+    ]
+
+    columns = _convert_semantic_view_fields_to_columns(
+        entities, dimensions, measures, tag_prefix="dbt:"
+    )
+
+    # Should have 3 columns
+    assert len(columns) == 3
+
+    # Check entity column
+    entity_col = next(col for col in columns if col.name == "order_id")
+    assert "[Entity: primary]" in entity_col.description
+    assert "Unique order identifier" in entity_col.description
+    assert "Expression: ORDER_ID" in entity_col.description
+    assert "dbt:entity" in entity_col.tags
+    assert "dbt:primary" in entity_col.tags
+
+    # Check dimension column
+    dim_col = next(col for col in columns if col.name == "order_date")
+    assert "[Dimension: time]" in dim_col.description
+    assert "Order timestamp" in dim_col.description
+    assert "Expression: ORDER_DATE" in dim_col.description
+    assert "dbt:dimension" in dim_col.tags
+    assert "dbt:time" in dim_col.tags
+
+    # Check measure column
+    measure_col = next(col for col in columns if col.name == "total_amount")
+    assert "[Measure: sum]" in measure_col.description
+    assert "Total order amount" in measure_col.description
+    assert "Expression: AMOUNT" in measure_col.description
+    assert "dbt:measure" in measure_col.tags
+    assert "dbt:sum" in measure_col.tags
+
+
+def test_dbt_semantic_view_field_conversion_empty() -> None:
+    """
+    Test that empty semantic view fields return empty column list.
+    """
+    from datahub.ingestion.source.dbt.dbt_core import (
+        _convert_semantic_view_fields_to_columns,
+    )
+
+    columns = _convert_semantic_view_fields_to_columns([], [], [], tag_prefix="dbt:")
+
+    assert len(columns) == 0
+
+
+def test_dbt_semantic_view_extraction() -> None:
+    """
+    Test that extract_semantic_views correctly parses semantic models from manifest.
+    """
+    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_views
+
+    semantic_models_manifest = {
+        "semantic_model.my_project.sales_analytics": {
+            "name": "sales_analytics",
+            "description": "Sales analytics semantic model",
+            "model": "ref('orders')",
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "expr": "ORDER_ID",
+                }
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "expr": "ORDER_DATE",
+                }
+            ],
+            "measures": [
+                {
+                    "name": "total_amount",
+                    "agg": "sum",
+                    "expr": "AMOUNT",
+                }
+            ],
+            "depends_on": {"nodes": ["model.my_project.orders"]},
+        }
+    }
+
+    all_manifest_entities = {
+        "model.my_project.orders": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "orders",
+        }
+    }
+
+    report = DBTSourceReport()
+
+    semantic_views = extract_semantic_views(
+        semantic_models_manifest,
+        all_manifest_entities,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+        report=report,
+    )
+
+    assert len(semantic_views) == 1
+    sv = semantic_views[0]
+
+    assert sv.name == "sales_analytics"
+    assert sv.node_type == "semantic_view"
+    assert sv.description == "Sales analytics semantic model"
+    assert sv.database == "analytics"
+    assert sv.schema == "public"
+    assert len(sv.entities) == 1
+    assert len(sv.dimensions) == 1
+    assert len(sv.measures) == 1
+    assert len(sv.columns) == 3  # 1 entity + 1 dimension + 1 measure
+
+
+def test_dbt_semantic_view_missing_upstream() -> None:
+    """
+    Test that semantic view extraction handles missing upstream references gracefully.
+    """
+    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_views
+
+    semantic_models_manifest = {
+        "semantic_model.my_project.sales_analytics": {
+            "name": "sales_analytics",
+            "description": "Sales analytics",
+            "model": "ref('missing_model')",
+            "entities": [],
+            "dimensions": [],
+            "measures": [],
+            "depends_on": {"nodes": ["model.my_project.missing_model"]},
+        }
+    }
+
+    all_manifest_entities = {}  # Empty - upstream not found
+
+    report = DBTSourceReport()
+
+    semantic_views = extract_semantic_views(
+        semantic_models_manifest,
+        all_manifest_entities,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+        report=report,
+    )
+
+    assert len(semantic_views) == 1
+    sv = semantic_views[0]
+
+    # Should use defaults when upstream not found
+    assert sv.database is None
+    assert sv.schema is None
+
+
+def test_dbt_cloud_semantic_model_parsing() -> None:
+    """
+    Test that dbt Cloud source correctly parses semantic models from GraphQL.
+    """
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    semantic_model_data: Dict[str, Any] = {
+        "uniqueId": "semantic_model.my_project.sales_analytics",
+        "name": "sales_analytics",
+        "description": "Sales analytics semantic model",
+        "resourceType": "semantic_model",
+        "model": "ref('orders')",
+        "entities": [
+            {
+                "name": "order_id",
+                "type": "primary",
+                "expr": "ORDER_ID",
+                "description": "Order ID",
+            }
+        ],
+        "dimensions": [
+            {
+                "name": "order_date",
+                "type": "time",
+                "expr": "ORDER_DATE",
+                "description": "Order date",
+            }
+        ],
+        "measures": [
+            {
+                "name": "total_amount",
+                "agg": "sum",
+                "expr": "AMOUNT",
+                "description": "Total amount",
+            }
+        ],
+        "dependsOn": ["model.my_project.orders"],
+        "database": "analytics",
+        "schema": "public",
+        "alias": None,
+        "catalogName": None,
+        "meta": {},
+        "tags": [],
+    }
+
+    parsed_node = source._parse_into_dbt_node(semantic_model_data)
+
+    assert parsed_node.name == "sales_analytics"
+    assert parsed_node.node_type == "semantic_view"
+    assert parsed_node.description == "Sales analytics semantic model"
+    assert len(parsed_node.entities) == 1
+    assert len(parsed_node.dimensions) == 1
+    assert len(parsed_node.measures) == 1
+    assert len(parsed_node.columns) == 3
+
+
+def test_dbt_semantic_view_subtype() -> None:
+    """
+    Test that semantic views get the correct SEMANTIC_VIEW subtype.
+    """
+    from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    semantic_view_node = DBTNode(
+        database="analytics",
+        schema="public",
+        name="sales_analytics",
+        alias="sales_analytics",
+        dbt_name="my_project.sales_analytics",
+        dbt_adapter="snowflake",
+        node_type="semantic_view",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="Sales analytics semantic view",
+        dbt_file_path=None,
+        catalog_type=None,
+        language="sql",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner="",
+    )
+
+    subtype_wu = source._create_subType_wu(
+        semantic_view_node,
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.sales_analytics,PROD)",
+    )
+
+    assert subtype_wu is not None
+    aspect = subtype_wu.metadata.aspect
+    assert aspect is not None
+    assert DatasetSubTypes.SEMANTIC_VIEW in aspect.typeNames
+
+
+def test_dbt_entities_enabled_semantic_views() -> None:
+    """
+    Test that DBTEntitiesEnabled correctly handles semantic_views configuration.
+    """
+    from datahub.ingestion.source.dbt.dbt_common import (
+        DBTEntitiesEnabled,
+        EmitDirective,
+    )
+
+    # Test default (YES)
+    entities_enabled = DBTEntitiesEnabled()
+    assert entities_enabled.semantic_views == EmitDirective.YES
+    assert entities_enabled.can_emit_node_type("semantic_view") is True
+
+    # Test NO
+    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.NO)
+    assert entities_enabled.can_emit_node_type("semantic_view") is False
+
+    # Test ONLY
+    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.ONLY)
+    assert entities_enabled.can_emit_node_type("semantic_view") is True
+    assert entities_enabled.can_emit_node_type("model") is False
