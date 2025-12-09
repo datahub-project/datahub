@@ -91,6 +91,12 @@ export function SelectSourceStep() {
         }
         updateState({
             type: platformName,
+            // Reset state of the connection details form
+            isConnectionDetailsValid: false,
+            config: undefined,
+            name: undefined,
+            owners: undefined,
+            schedule: undefined,
         });
         goToNext();
     };

@@ -1,29 +1,14 @@
-import { typography } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
 import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
-import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
 import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
-
-const BorderedSection = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 16px;
-    border: solid ${ANTD_GRAY[4]} 0.5px;
-
-    && .view-line > span > span {
-        font-family: ${typography.fonts.mono} !important;
-        font-size: ${typography.fontSizes.md} !important;
-    }
-`;
 
 interface Props {
     state: MultiStepSourceBuilderState;
@@ -35,13 +20,14 @@ interface Props {
 
 export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe, setIsRecipeValid }: Props) {
     const { type } = state;
+    const isEditing = !!state.isEditing;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
 
     // FYI: We don't have form validation for sources without a form
     useEffect(() => {
-        setIsRecipeValid?.(!hasForm);
-    }, [hasForm, setIsRecipeValid]);
+        setIsRecipeValid?.(!hasForm || isEditing || !!state.isConnectionDetailsValid);
+    }, [hasForm, isEditing, setIsRecipeValid, state.isConnectionDetailsValid]);
 
     const onTabClick = useCallback(
         (activeKey) => {
@@ -83,11 +69,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
             {
                 key: 'yaml',
                 name: 'YAML',
-                component: (
-                    <BorderedSection>
-                        <YamlEditor initialText={displayRecipe} onChange={setStagedRecipe} />
-                    </BorderedSection>
-                ),
+                component: <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />,
             },
         ],
         [displayRecipe, state, sourceConfigs, setStagedRecipe, setIsRecipeValid],
@@ -98,9 +80,5 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
         return <Tabs tabs={tabs} selectedTab={selectedTabKey} onTabClick={onTabClick} destroyInactiveTabPane />;
     }
 
-    return (
-        <BorderedSection>
-            <YamlEditor initialText={displayRecipe} onChange={setStagedRecipe} />
-        </BorderedSection>
-    );
+    return <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />;
 }
