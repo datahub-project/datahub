@@ -298,6 +298,7 @@ class AirbyteSourcePartial(BaseModel):
             "project",  # BigQuery (project = database equivalent)
             "project_id",  # BigQuery alternative
             "catalog",  # Databricks, Trino
+            "keyspace",  # Cassandra, ScyllaDB
         ]
 
         for field in database_fields:
@@ -371,6 +372,7 @@ class AirbyteDestinationPartial(BaseModel):
             "project_id",  # BigQuery alternative
             "catalog",  # Databricks, Trino
             "dataset",  # BigQuery (dataset = schema equivalent, but some use it as database)
+            "keyspace",  # Cassandra, ScyllaDB
         ]
 
         for field in database_fields:

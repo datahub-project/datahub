@@ -75,7 +75,7 @@ class AirbyteAuthenticationError(AirbyteApiError):
     pass
 
 
-class StreamConfigDict(TypedDict):
+class StreamConfigDict(TypedDict, total=False):
     """Type definition for stream configuration returned by _build_stream_config."""
 
     selected: bool
@@ -83,6 +83,10 @@ class StreamConfigDict(TypedDict):
     destinationSyncMode: str
     primaryKey: List[List[str]]
     cursorField: List[str]
+    destinationNamespace: str  # Per-stream destination schema override
+    aliasName: str  # Per-stream table name override
+    selectedFields: List[str]  # Per-stream column selection
+    fieldSelectionEnabled: bool  # Whether field selection is enabled
 
 
 class StreamSchemaDict(TypedDict):
@@ -602,7 +606,7 @@ class AirbyteBaseClient(ABC):
         """
         sync_mode = stream.get("syncMode", "")
 
-        return {
+        config: StreamConfigDict = {
             "selected": True,
             "syncMode": sync_mode.split("_")[0] if sync_mode else "full_refresh",
             "destinationSyncMode": (
@@ -611,6 +615,21 @@ class AirbyteBaseClient(ABC):
             "primaryKey": stream.get("primaryKey", []),
             "cursorField": stream.get("cursorField", []),
         }
+
+        # Preserve per-stream overrides if present
+        if "destinationNamespace" in stream:
+            config["destinationNamespace"] = stream["destinationNamespace"]
+
+        if "aliasName" in stream:
+            config["aliasName"] = stream["aliasName"]
+
+        if "selectedFields" in stream:
+            config["selectedFields"] = stream["selectedFields"]
+
+        if "fieldSelectionEnabled" in stream:
+            config["fieldSelectionEnabled"] = stream["fieldSelectionEnabled"]
+
+        return config
 
     def _get_json_schema_for_stream(
         self,

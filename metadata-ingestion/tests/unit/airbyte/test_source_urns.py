@@ -218,7 +218,6 @@ def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
         sources_to_platform_instance={
             "source-1": PlatformDetail(
                 platform="mysql",
-                database="mydb",
             )
         },
     )
@@ -297,7 +296,6 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
         sources_to_platform_instance={
             "source-1": PlatformDetail(
                 platform="snowflake",
-                database="DW_ANALYTICS",
             )
         },
     )
@@ -372,9 +370,7 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
         host_port="http://localhost:8000",
-        sources_to_platform_instance={
-            "source-1": PlatformDetail(platform="postgres", database="mydb")
-        },
+        sources_to_platform_instance={"source-1": PlatformDetail(platform="postgres")},
     )
     source = AirbyteSource(config, mock_ctx)
 
