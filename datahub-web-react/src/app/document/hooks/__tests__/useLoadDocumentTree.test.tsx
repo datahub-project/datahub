@@ -9,7 +9,6 @@ import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import * as useSearchDocumentsModule from '@app/document/hooks/useSearchDocuments';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
-import { DocumentState } from '@types';
 
 vi.mock('../useSearchDocuments');
 
@@ -305,8 +304,6 @@ describe('useLoadDocumentTree', () => {
                 input: {
                     query: '*',
                     parentDocuments: urns,
-                    states: [DocumentState.Published, DocumentState.Unpublished],
-                    includeDrafts: false,
                     start: 0,
                     count: 200, // 2 * 100
                 },
@@ -441,6 +438,22 @@ describe('useLoadDocumentTree', () => {
         expect(children[0].urn).toBe('urn:li:document:child1'); // Sorted by time DESC
         expect(children[1].urn).toBe('urn:li:document:child2');
         expect(mockSetNodeChildren).toHaveBeenCalledWith(parentUrn, children);
+
+        // Verify the first query call (loadChildren) matches the implementation
+        const queryMock = vi.mocked(mockClient.query);
+        const firstCall = queryMock.mock.calls[0];
+        expect(firstCall[0]).toMatchObject({
+            query: SearchDocumentsDocument,
+            variables: {
+                input: {
+                    query: '*',
+                    parentDocuments: [parentUrn],
+                    start: 0,
+                    count: 100,
+                },
+            },
+            fetchPolicy: 'cache-first',
+        });
     });
 
     it('should handle errors in loadChildren', async () => {
