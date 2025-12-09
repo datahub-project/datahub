@@ -20,7 +20,6 @@ def test_base_model():
     serialized_resource_value = SerializedResourceValue.create(test_base_model)
 
     assert serialized_resource_value.content_type == "JSON"
-    # TODO: This is a bug in the code. The schema_type should not be None.
     assert serialized_resource_value.schema_type == "JSON"
     # Keys should be sorted alphabetically
     assert (
