@@ -103,15 +103,6 @@ class PlatformDetail(ConfigModel):
         default=None,
         description="Environment to use for dataset URNs (e.g., PROD, DEV, STAGING)",
     )
-    database: Optional[str] = Field(
-        default=None,
-        description="Override the database name for all datasets from this source/destination",
-    )
-    default_schema: Optional[str] = Field(
-        default=None,
-        description="Override the default schema name for datasets from this source/destination. "
-        "Note: Per-stream namespace overrides (from Airbyte sync catalog) still take precedence.",
-    )
     include_schema_in_urn: Optional[bool] = Field(
         default=None,
         description="Include schema in the dataset URN when database is present. "

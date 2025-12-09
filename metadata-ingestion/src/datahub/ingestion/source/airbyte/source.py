@@ -998,10 +998,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 table_prefix or "None",
             )
 
-        # Resolve schema name with proper precedence
         schema_name = self._resolve_schema_name(
             stream.namespace,
-            source_details.default_schema,
             source.get_schema,
             stream.stream_name,
             source.source_id,
@@ -1027,9 +1025,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             table_name = table_name.split(".")[-1]
 
-        # Database precedence: config override > source.get_database
-        # Note: Individual streams cannot override database (only schema/namespace)
-        source_database = source_details.database or source.get_database
+        source_database = source.get_database
 
         if not source_database and source.configuration:
             logger.debug(
@@ -1067,17 +1063,15 @@ class AirbyteSource(StatefulIngestionSourceBase):
             platform_instance=source_platform_info.platform_instance,
         )
 
-        # Destination schema/database precedence following Airbyte's namespace rules
         dest_schema = self._resolve_destination_schema(
             stream_config=stream_config,
             connection=connection,
             source_schema=schema_name,
-            dest_details=dest_details,
             destination=destination,
             stream_name=stream.stream_name,
         )
 
-        dest_database = dest_details.database or destination.get_database
+        dest_database = destination.get_database
 
         if not dest_schema and destination.configuration:
             logger.debug(
@@ -1136,12 +1130,16 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _resolve_schema_name(
         self,
         stream_namespace: Optional[str],
-        override_schema: Optional[str],
         config_schema: Optional[str],
         stream_name: str,
         source_id: str,
     ) -> str:
-        """Resolve schema name with proper precedence."""
+        """Resolve schema name following Airbyte's precedence.
+
+        Precedence:
+        1. Per-stream namespace (most specific)
+        2. Source config schema (connector default)
+        """
         if stream_namespace:
             if config_schema and stream_namespace != config_schema:
                 logger.debug(
@@ -1151,23 +1149,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     config_schema,
                 )
             return stream_namespace
-        elif override_schema:
-            if config_schema and override_schema != config_schema:
-                logger.debug(
-                    "Using DataHub config schema override '%s' instead of source config schema '%s'",
-                    override_schema,
-                    config_schema,
-                )
-            return override_schema
-        else:
-            return config_schema or ""
+        return config_schema or ""
 
     def _resolve_destination_schema(
         self,
         stream_config: AirbyteStreamConfig,
         connection: "AirbyteConnectionPartial",
         source_schema: str,
-        dest_details: "PlatformDetail",
         destination: "AirbyteDestinationPartial",
         stream_name: str,
     ) -> str:
@@ -1176,22 +1164,19 @@ class AirbyteSource(StatefulIngestionSourceBase):
         Airbyte's namespace precedence for destinations:
         1. Per-stream destinationNamespace (from stream_config)
         2. Connection-level namespace rules (namespace_definition + namespace_format)
-        3. DataHub config override (dest_details.default_schema)
-        4. Destination default schema (destination.get_schema)
-        5. Fall back to source schema
+        3. Destination default schema (destination.get_schema)
+        4. Fall back to source schema
 
         Args:
             stream_config: Stream configuration from Airbyte sync catalog
             connection: Connection configuration
             source_schema: The resolved source schema
-            dest_details: DataHub configuration for this destination
             destination: Airbyte destination object
             stream_name: Name of the stream for logging
 
         Returns:
             Resolved destination schema name
         """
-        # 1. Per-stream destinationNamespace override
         stream_dest_namespace = stream_config.get_destination_namespace()
         if stream_dest_namespace:
             logger.debug(
@@ -1201,7 +1186,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return stream_dest_namespace
 
-        # 2. Connection-level namespace rules
         namespace_def = connection.get_namespace_definition
 
         if namespace_def:
@@ -1241,15 +1225,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     )
                     return custom_namespace
 
-        # 3. DataHub config override
-        if dest_details.default_schema:
-            logger.debug(
-                "Using DataHub config schema override '%s' for destination",
-                dest_details.default_schema,
-            )
-            return dest_details.default_schema
-
-        # 4. Destination default schema
         dest_config_schema = destination.get_schema
         if dest_config_schema:
             if source_schema and dest_config_schema != source_schema:
@@ -1261,7 +1236,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 )
             return dest_config_schema
 
-        # 5. Fall back to source schema
         logger.debug(
             "No destination schema found, falling back to source schema '%s'",
             source_schema,
