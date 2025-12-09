@@ -6,9 +6,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeColumn
-    from datahub.ingestion.source.snowflake.snowflake_semantic_parser import (
-        SemanticViewDefinition,
-    )
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -1064,15 +1061,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 semantic_view.columns = []
 
-            # If no columns found and we have a parsed definition, generate synthetic columns
-            if not semantic_view.columns and semantic_view.parsed_definition:
-                semantic_view.columns = self._generate_columns_from_parsed_definition(
-                    semantic_view.parsed_definition
-                )
-                logger.info(
-                    f"Generated {len(semantic_view.columns)} synthetic columns for semantic view {semantic_view.name} from parsed definition"
-                )
-
         # Try to get column tags if configured
         if self.config.extract_tags != TagOption.skip:
             try:
@@ -1110,60 +1098,46 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             f"{len([v for v in semantic_view.column_subtypes.values() if v == 'METRIC'])} metrics"
         )
 
-        # Log column-level metadata if parsed definition is available
-        if semantic_view.parsed_definition:
-            parsed = semantic_view.parsed_definition
-            logger.info(
-                f"Semantic view {semantic_view.name} parsed definition has {len(parsed.all_dimensions)} dimensions, "
-                f"{len(parsed.all_facts)} facts, {len(parsed.all_metrics)} metrics"
+        # IMPORTANT: Emit schema FIRST, then lineage
+        # DataHub needs to know about columns before accepting lineage references
+        logger.debug(
+            f"About to check include_technical_schema for {semantic_view.name}: "
+            f"include_technical_schema={self.config.include_technical_schema}"
+        )
+        if self.config.include_technical_schema:
+            logger.debug(f"Generating schema for semantic view {semantic_view.name}")
+            yield from self.gen_dataset_workunits(semantic_view, schema_name, db_name)
+        else:
+            logger.debug(
+                f"Skipping schema for {semantic_view.name} (include_technical_schema=False)"
             )
 
-            # IMPORTANT: Emit schema FIRST, then lineage
-            # DataHub needs to know about columns before accepting lineage references
-            logger.info(
-                f"About to check include_technical_schema for {semantic_view.name}: "
-                f"include_technical_schema={self.config.include_technical_schema}"
-            )
-            if self.config.include_technical_schema:
-                logger.debug(
-                    f"Generating schema for semantic view {semantic_view.name}"
-                )
-                yield from self.gen_dataset_workunits(
-                    semantic_view, schema_name, db_name
-                )
-            else:
-                logger.debug(
-                    f"Skipping schema for {semantic_view.name} (include_technical_schema=False)"
+        # Generate and emit column lineage AFTER schema
+        if self.config.include_semantic_view_column_lineage:
+            try:
+                semantic_view_urn = self.identifiers.gen_dataset_urn(semantic_view_name)
+                column_lineages = self._generate_column_lineage_for_semantic_view(
+                    semantic_view, semantic_view_urn, db_name
                 )
 
-            # Generate and emit column lineage AFTER schema
-            if self.config.include_semantic_view_column_lineage:
-                try:
-                    semantic_view_urn = self.identifiers.gen_dataset_urn(
-                        semantic_view_name
+                # Emit lineage directly as an MCP
+                upstream_urns = semantic_view.resolved_upstream_urns
+                if upstream_urns:
+                    yield from self._emit_semantic_view_lineage(
+                        semantic_view,
+                        semantic_view_urn,
+                        column_lineages,
+                        upstream_urns,
                     )
-                    column_lineages = self._generate_column_lineage_for_semantic_view(
-                        semantic_view, semantic_view_urn, db_name
+                else:
+                    logger.debug(
+                        f"No upstream URNs found for {semantic_view.name}, skipping lineage"
                     )
-
-                    # Emit lineage directly as an MCP
-                    upstream_urns = semantic_view.resolved_upstream_urns
-                    if upstream_urns:
-                        yield from self._emit_semantic_view_lineage(
-                            semantic_view,
-                            semantic_view_urn,
-                            column_lineages,
-                            upstream_urns,
-                        )
-                    else:
-                        logger.debug(
-                            f"No upstream URNs found for {semantic_view.name}, skipping lineage"
-                        )
-                except Exception as e:
-                    logger.error(
-                        f"Failed to generate column lineage for {semantic_view.name}: {e}",
-                        exc_info=True,
-                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to generate column lineage for {semantic_view.name}: {e}",
+                    exc_info=True,
+                )
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         use_sp = self.config.extract_tags_as_structured_properties
@@ -1630,102 +1604,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             self.aggregator.register_schema(urn=dataset_urn, schema=schema_metadata)
 
         return schema_metadata
-
-    def _generate_columns_from_parsed_definition(
-        self, parsed_definition: "SemanticViewDefinition"
-    ) -> List["SnowflakeColumn"]:
-        """
-        Generate synthetic SnowflakeColumn objects from parsed semantic view definition.
-
-        Since semantic views may not exist in information_schema.columns, we create
-        synthetic columns from the parsed DDL.
-
-        Returns:
-            List of SnowflakeColumn objects
-        """
-        from datahub.ingestion.source.snowflake.snowflake_schema import (
-            SnowflakeColumn,
-        )
-
-        columns: List[SnowflakeColumn] = []
-
-        # Add dimensions
-        ordinal = 1
-        for dim in parsed_definition.all_dimensions:
-            columns.append(
-                SnowflakeColumn(
-                    name=dim.name,
-                    ordinal_position=ordinal,
-                    data_type=dim.data_type
-                    or "VARCHAR",  # Default to VARCHAR if unknown
-                    is_nullable=True,  # Assume nullable
-                    comment=dim.comment,
-                    character_maximum_length=None,
-                    numeric_precision=None,
-                    numeric_scale=None,
-                )
-            )
-            ordinal += 1
-
-        # Add facts
-        for fact in parsed_definition.all_facts:
-            columns.append(
-                SnowflakeColumn(
-                    name=fact.name,
-                    ordinal_position=ordinal,
-                    data_type=fact.data_type or "NUMBER",  # Facts are typically numeric
-                    is_nullable=True,
-                    comment=fact.comment,
-                    character_maximum_length=None,
-                    numeric_precision=None,
-                    numeric_scale=None,
-                )
-            )
-            ordinal += 1
-
-        # Add metrics
-        for metric in parsed_definition.all_metrics:
-            columns.append(
-                SnowflakeColumn(
-                    name=metric.name,
-                    ordinal_position=ordinal,
-                    data_type="NUMBER",  # Metrics are aggregations, typically numeric
-                    is_nullable=True,
-                    comment=metric.comment,
-                    character_maximum_length=None,
-                    numeric_precision=None,
-                    numeric_scale=None,
-                )
-            )
-            ordinal += 1
-
-        return columns
-
-    def _get_semantic_view_column_subtypes(
-        self, parsed_definition: "SemanticViewDefinition"
-    ) -> Dict[str, str]:
-        """
-        Extract column subtypes (DIMENSION, FACT, METRIC) from parsed semantic view definition.
-
-        Returns:
-            Dict mapping column name to subtype string
-        """
-
-        column_subtypes: Dict[str, str] = {}
-
-        # Add dimensions
-        for dim in parsed_definition.all_dimensions:
-            column_subtypes[dim.name.upper()] = "DIMENSION"
-
-        # Add facts
-        for fact in parsed_definition.all_facts:
-            column_subtypes[fact.name.upper()] = "FACT"
-
-        # Add metrics
-        for metric in parsed_definition.all_metrics:
-            column_subtypes[metric.name.upper()] = "METRIC"
-
-        return column_subtypes
 
     def _emit_semantic_view_lineage(
         self,

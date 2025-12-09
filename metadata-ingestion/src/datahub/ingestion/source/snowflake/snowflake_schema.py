@@ -4,7 +4,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -18,11 +17,6 @@ from typing import (
 from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.snowflake.snowflake_semantic_parser import (
-        SemanticViewDefinition,
-    )
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
@@ -159,10 +153,6 @@ class SnowflakeSemanticView(BaseView):
     base_tables: List[Tuple[str, str, str]] = field(
         default_factory=list
     )  # List of (db, schema, table) tuples
-    # Parsed semantic view definition (for column-level metadata and lineage)
-    parsed_definition: Optional["SemanticViewDefinition"] = field(
-        default=None, repr=False
-    )
     # Column subtypes mapping: column_name -> "DIMENSION" | "FACT" | "METRIC"
     column_subtypes: Dict[str, str] = field(default_factory=dict)
     # Column to logical table mappings: column_name -> [list of logical table names]
@@ -839,11 +829,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def _populate_semantic_view_definitions(
         self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
     ) -> None:
-        """Fetch and populate semantic view definitions using GET_DDL, then parse them."""
-        from datahub.ingestion.source.snowflake.snowflake_semantic_parser import (
-            SemanticViewParser,
-        )
-
+        """Fetch and populate semantic view definitions using GET_DDL."""
         for schema_name, views in semantic_views.items():
             for semantic_view in views:
                 try:
@@ -860,27 +846,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         if ddl:
                             semantic_view.view_definition = ddl
                             semantic_view.semantic_definition = ddl
-
-                            # Parse the DDL to extract column-level metadata
-                            try:
-                                parsed = SemanticViewParser.parse(ddl)
-                                if parsed:
-                                    semantic_view.parsed_definition = parsed
-                                    logger.debug(
-                                        f"Successfully parsed semantic view {semantic_view.name}: "
-                                        f"{len(parsed.all_dimensions)} dimensions, "
-                                        f"{len(parsed.all_facts)} facts, "
-                                        f"{len(parsed.all_metrics)} metrics"
-                                    )
-                                else:
-                                    logger.warning(
-                                        f"Failed to parse semantic view DDL for {semantic_view.name}"
-                                    )
-                            except Exception as parse_error:
-                                logger.warning(
-                                    f"Error parsing semantic view {semantic_view.name}: {parse_error}",
-                                    exc_info=True,
-                                )
                         break  # Only one row expected
                 except Exception as e:
                     logger.debug(
