@@ -626,4 +626,93 @@ describe('useChatStream', () => {
             }),
         );
     });
+
+    it('should include agentName in request body when provided', async () => {
+        const mockResponse = {
+            ok: true,
+            body: {
+                getReader: vi.fn().mockReturnValue({
+                    read: vi
+                        .fn()
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode('event: complete\ndata: {}\n\n'),
+                        })
+                        .mockResolvedValueOnce({
+                            done: true,
+                            value: undefined,
+                        }),
+                }),
+            },
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+                agentName: 'custom-agent',
+            }),
+        );
+
+        await act(async () => {
+            await result.current.sendMessage('Test message');
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith('/openapi/v1/ai-chat/message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversationUrn: mockConversationUrn,
+                text: 'Test message',
+                agentName: 'custom-agent',
+            }),
+            signal: expect.any(AbortSignal),
+        });
+    });
+
+    it('should not include agentName in request body when not provided', async () => {
+        const mockResponse = {
+            ok: true,
+            body: {
+                getReader: vi.fn().mockReturnValue({
+                    read: vi
+                        .fn()
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode('event: complete\ndata: {}\n\n'),
+                        })
+                        .mockResolvedValueOnce({
+                            done: true,
+                            value: undefined,
+                        }),
+                }),
+            },
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+            }),
+        );
+
+        await act(async () => {
+            await result.current.sendMessage('Test message');
+        });
+
+        const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(requestBody).toEqual({
+            conversationUrn: mockConversationUrn,
+            text: 'Test message',
+            agentName: undefined,
+        });
+    });
 });

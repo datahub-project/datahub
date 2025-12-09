@@ -14,6 +14,7 @@ interface UseChatStreamProps {
     conversationUrn: string;
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
+    agentName?: string;
 }
 
 const processSSELine = (
@@ -244,7 +245,12 @@ const readStream = async (
     return currentStreamingMessage;
 };
 
-export const useChatStream = ({ conversationUrn, onMessageReceived, onStreamComplete }: UseChatStreamProps) => {
+export const useChatStream = ({
+    conversationUrn,
+    onMessageReceived,
+    onStreamComplete,
+    agentName,
+}: UseChatStreamProps) => {
     const [state, setState] = useState<StreamState>({
         isStreaming: false,
         currentMessage: null,
@@ -269,7 +275,7 @@ export const useChatStream = ({ conversationUrn, onMessageReceived, onStreamComp
     }, [cleanup]);
 
     const processNextMessage = useCallback(
-        async (messageText: string) => {
+        async (messageText: string, convoUrn?: string) => {
             setState({
                 isStreaming: true,
                 currentMessage: null,
@@ -285,8 +291,9 @@ export const useChatStream = ({ conversationUrn, onMessageReceived, onStreamComp
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        conversationUrn,
+                        conversationUrn: convoUrn || conversationUrn,
                         text: messageText,
+                        agentName,
                     }),
                     signal: abortControllerRef.current.signal,
                 });
@@ -380,11 +387,11 @@ export const useChatStream = ({ conversationUrn, onMessageReceived, onStreamComp
                 }
             }
         },
-        [conversationUrn, onMessageReceived, onStreamComplete],
+        [conversationUrn, onMessageReceived, onStreamComplete, agentName],
     );
 
     const sendMessage = useCallback(
-        async (text: string) => {
+        async (text: string, convoUrn?: string) => {
             messageQueueRef.current.push(text);
 
             if (isProcessingRef.current) {
@@ -400,7 +407,7 @@ export const useChatStream = ({ conversationUrn, onMessageReceived, onStreamComp
                     return;
                 }
 
-                await processNextMessage(nextMessage);
+                await processNextMessage(nextMessage, convoUrn);
                 await processQueue();
             };
 

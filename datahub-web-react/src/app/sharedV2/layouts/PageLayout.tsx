@@ -11,10 +11,10 @@ const Card = styled.div`
     box-shadow: ${(props) => props.theme.styles['box-shadow-navbar-redesign']};
 `;
 
-const PageWrapper = styled(Card)<{ $hasBottomPanel?: boolean }>`
+const PageWrapper = styled(Card)`
     display: flex;
     width: 100%;
-    height: calc(100vh - ${(props) => (props.$hasBottomPanel ? '156px' : '78px')});
+    height: 100%;
     overflow-y: hidden;
 `;
 
@@ -32,7 +32,10 @@ const Panel = styled(Card)`
 `;
 
 const SidePannel = styled(Panel)`
-    max-width: 30%;
+    width: 33.333%;
+    flex-shrink: 0;
+    height: 100%;
+    padding: 0;
 `;
 
 const BottomPanel = styled(Panel)`
@@ -46,11 +49,12 @@ const VerticalContainer = styled.div`
     gap: 16px;
 `;
 
-const HorizontalContainer = styled.div`
+const HorizontalContainer = styled.div<{ $hasBottomPanel?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: row;
     gap: 16px;
+    max-height: calc(100vh - ${(props) => (props.$hasBottomPanel ? '156px' : '78px')});
 `;
 
 const BreadcrumbContainer = styled.div`
@@ -79,10 +83,10 @@ export function PageLayout({
 }: React.PropsWithChildren<Props>) {
     return (
         <VerticalContainer>
-            <HorizontalContainer>
+            <HorizontalContainer $hasBottomPanel={!!bottomPanelContent}>
                 {leftPanelContent && <SidePannel>{leftPanelContent}</SidePannel>}
 
-                <PageWrapper $hasBottomPanel={!!bottomPanelContent}>
+                <PageWrapper>
                     {topBreadcrumb && <BreadcrumbContainer>{topBreadcrumb}</BreadcrumbContainer>}
                     {title && (
                         <PageTitleWrapper>

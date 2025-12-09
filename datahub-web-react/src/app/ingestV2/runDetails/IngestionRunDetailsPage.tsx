@@ -4,13 +4,14 @@ import React, { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router';
 import styled from 'styled-components';
 
+import { EmbeddedChat } from '@app/chat/EmbeddedChat';
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
-import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
+import { DataHubAiConversationOriginType } from '@types';
 
 const VerticalDivider = styled(Divider)`
     color: ${colors.gray[100]};
@@ -73,8 +74,23 @@ export default function IngestionRunDetailsPage() {
         />
     );
 
+    const chatContext = `The user is viewing ingestion run details for execution request with URN: ${urn}. ${
+        name ? `The ingestion source name is "${name}". ` : ''
+    } This is a troubleshooting context where the user may ask questions about ingestion failures, logs, or execution details.`;
+
     return (
-        <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={<AIChat />} topBreadcrumb={breadCrumb}>
+        <PageLayout
+            title="Run Details"
+            titlePill={titlePill}
+            rightPanelContent={
+                <EmbeddedChat
+                    context={chatContext}
+                    originType={DataHubAiConversationOriginType.DatahubUi}
+                    title="Ask DataHub - Run Details"
+                />
+            }
+            topBreadcrumb={breadCrumb}
+        >
             <RunDetailsContent
                 urn={urn}
                 data={data}
