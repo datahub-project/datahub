@@ -5,8 +5,9 @@ according to their configured cron schedules. It verifies:
 1. Ingestions with schedules have executed at least once
 2. The last execution time is within ±15 minutes of the expected schedule
 3. Reports all ingestions that are late or have never run
-4. Skips checks for ingestions modified after the expected run time
+4. Skips checks for ingestions modified recently (grace period = one schedule interval)
 5. Logs warnings (but does not fail) for unparseable cron schedules
+6. Handles in-progress executions by checking the most recent completed execution
 """
 
 import logging
@@ -295,26 +296,68 @@ def check_schedule_adherence(
             last_modified_time_ms,
         )
 
-    # Skip check if expected run is before ingestion was last modified
-    if last_modified_time_ms and expected_last_run_ms < last_modified_time_ms:
+    # Avoid false failures: long-running ingestions may still be executing
+    # without results yet. Use the most recent completed execution instead
+    # of assuming the latest has finished.
+    completed_execution = None
+    for execution in execution_requests:
+        execution_result = execution.get("result")
+        if execution_result and execution_result.get("startTimeMs") is not None:
+            completed_execution = execution
+            break
+
+    if not completed_execution:
         return (
-            True,
-            f"Ingestion modified after expected run time: {name} ({urn})",
+            False,
+            f"NO COMPLETED EXECUTIONS: {name} ({urn}) - "
+            f"All {len(execution_requests)} execution(s) are "
+            f"in-progress or have no result",
         )
 
-    # Validate latest execution has result and start time
-    is_valid, error_msg, last_run_time_ms = validate_execution_result(
-        execution_requests[0], name, urn
-    )
+    # Extract the actual last run time from the completed execution
+    last_run_time_ms = completed_execution.get("result", {}).get("startTimeMs")
+    assert last_run_time_ms is not None  # Already validated in the loop above
 
-    if not is_valid:
-        assert (
-            error_msg is not None
-        )  # Satisfy mypy: error_msg is str when is_valid is False
-        return False, error_msg
+    # Avoid false failures when schedule intervals increase (e.g., 6h→12h).
+    # The old execution pattern may appear "late" under the new schedule timing.
+    # Grant one full cycle before expecting adherence to the modified schedule.
+    if last_modified_time_ms and last_run_time_ms < last_modified_time_ms:
+        # Calculate time since modification
+        time_since_modification_ms = current_time_ms - last_modified_time_ms
 
-    # At this point, is_valid is True, so last_run_time_ms must be int (not None)
-    assert last_run_time_ms is not None
+        # Calculate the schedule interval (time between runs)
+        try:
+            tz = ZoneInfo(timezone_str)
+            current_dt = datetime.fromtimestamp(current_time_ms // 1000, tz=tz)
+            cron = croniter(cron_interval, current_dt)
+            prev_run_dt = cron.get_prev(datetime)
+            prev_prev_run_dt = croniter(cron_interval, prev_run_dt).get_prev(datetime)
+            schedule_interval_ms = int(
+                (prev_run_dt.timestamp() - prev_prev_run_dt.timestamp()) * 1000
+            )
+
+            # If modification is recent (less than one full interval), skip the check
+            if time_since_modification_ms < schedule_interval_ms:
+                minutes_since_mod = time_since_modification_ms // 1000 // 60
+                minutes_interval = schedule_interval_ms // 1000 // 60
+                return (
+                    True,
+                    f"MODIFIED RECENTLY: {name} ({urn}) - Schedule modified "
+                    f"{minutes_since_mod} minutes ago. Grace period: "
+                    f"{minutes_interval} minutes (one full interval). "
+                    f"Waiting for first run under new schedule.",
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to calculate schedule interval for {name}: {e}. "
+                f"Using simple modification check."
+            )
+            # Fallback: if expected run is before modification, skip check
+            if expected_last_run_ms < last_modified_time_ms:
+                return (
+                    True,
+                    f"Ingestion modified after expected run time: {name} ({urn})",
+                )
 
     # Check if last run is within tolerance of the expected run time
     # Tolerance window: [expected - 15min, expected + 15min]
