@@ -4,7 +4,7 @@
 **Branch:** `semantic-search-port-from-cloud`  
 **Source:** `/Users/alex/work/datahub-fork` (cloud - acryl-main branch)  
 **Target:** `/Users/alex/work/second/datahub-fork` (OSS - oss_master branch)  
-**Status:** ✅ COMPLETE - All compilation successful, AWS Bedrock tests passing (15/15)
+**Status:** ✅ COMPLETE - All compilation successful, all tests passing (66/66 semantic search tests)
 
 ## Summary
 
@@ -702,8 +702,38 @@ python test_graphql_semantic_search_integration.py --query "customer data"
 
 ### Test Results
 - ✅ **15/15 AWS Bedrock unit tests passing**
+- ✅ **40/40 semantic search tests passing** (`:metadata-io:test --tests "*Semantic*"`)
+- ✅ **11/11 GraphQLEngineFactoryTest tests passing** - Fixed by adding semantic search mock beans
 - ✅ **All semantic search tests compile successfully**
 - ✅ **Full project compilation successful**
+
+## Phase 7: GraphQLEngineFactoryTest Fix (COMPLETED) ✅
+
+### Issue
+The `GraphQLEngineFactoryTest` was failing because it tried to autowire `semanticSearchService`, which required `cachingEntitySearchService` and `semanticEntitySearchService` beans, but these were not mocked in the test context.
+
+### Solution
+Added missing mock beans to the test class by comparing with the cloud version:
+
+```java
+@MockitoBean
+@Qualifier("semanticSearchService")
+private com.linkedin.metadata.search.SemanticSearchService semanticSearchService;
+
+@MockitoBean
+@Qualifier("cachingEntitySearchService")
+private com.linkedin.metadata.search.client.CachingEntitySearchService cachingEntitySearchService;
+
+@MockitoBean
+@Qualifier("semanticEntitySearchService")
+private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntitySearchService;
+```
+
+**Location:** `metadata-service/factories/src/test/java/com/linkedin/gms/factory/graphql/GraphQLEngineFactoryTest.java`
+
+### Result
+- ✅ **11/11 GraphQLEngineFactoryTest tests now passing**
+- ✅ Test context properly configured with all required semantic search dependencies
 
 ## Verification Checklist
 
@@ -729,7 +759,8 @@ python test_graphql_semantic_search_integration.py --query "customer data"
 - [x] Full compilation succeeds: `./gradlew compileJava`
 - [x] Unit tests pass: `./gradlew :metadata-io:test --tests "*AwsBedrock*"` - **15/15 passing**
 - [x] GraphQL layer compiles without errors
-- [ ] Run full semantic search test suite
+- [x] Run full semantic search test suite - **40/40 tests passing**
+- [x] Fix GraphQLEngineFactoryTest context configuration - **11/11 tests passing**
 - [ ] Review all copied files for any cloud-specific hardcoded values
 - [ ] Update SAAS_SPECIFIC_FILES.md to reflect that these files are now in OSS
 - [ ] Test with OpenSearch k-NN configured (if available)
