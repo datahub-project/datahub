@@ -1,4 +1,4 @@
-import { Button, Card, Icon, Text, colors } from '@components';
+import { Card, Icon, Text, colors } from '@components';
 import { Dropdown } from 'antd';
 import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -7,7 +7,6 @@ import {
     CardDescription,
     CardTitle,
     Container,
-    DismissButton,
     GetStartedCard,
     GetStartedHeader,
     GetStartedSubtitle,
@@ -21,21 +20,15 @@ import {
     ProgressHeader,
     ProgressLabel,
     ProgressSection,
-    TaskActions,
-    TaskContent,
-    TaskDescription,
-    TaskIconWrapper,
-    TaskItem,
     TaskList,
-    TaskTitle,
 } from '@app/homeV3/freeTrial/FreeTrialContent.styles';
+import { TaskItemComponent } from '@app/homeV3/freeTrial/TaskItemComponent';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
     FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID,
     FREE_TRIAL_ONBOARDING_ID,
     FreeTrialOnboardingConfig,
 } from '@app/onboarding/configV2/FreeTrialConfig';
-import { OnboardingStep } from '@app/onboarding/types';
 import { getStepPropertyByKey } from '@app/onboarding/utils';
 import PageBanner from '@app/sharedV2/PageBanner';
 import { PageRoutes } from '@conf/Global';
@@ -47,38 +40,6 @@ import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 const STEP_STATE_DISMISSED = 'DISMISSED';
 const STEP_STATE_COMPLETE = 'COMPLETE';
 const STEP_STATE_KEY = 'state';
-
-interface TaskItemComponentProps {
-    step: OnboardingStep;
-    isCompleted: boolean;
-    onDismiss: (id: string) => void;
-    onStart: (id: string) => void;
-}
-
-/**
- * Component to render a task item in the free trial content
- */
-const TaskItemComponent = ({ step, isCompleted, onDismiss, onStart }: TaskItemComponentProps) => {
-    return (
-        <TaskItem $isCompleted={isCompleted}>
-            <TaskIconWrapper>
-                <Icon icon={step.icon || 'Star'} color="violet" size="xl" source="phosphor" />
-            </TaskIconWrapper>
-            <TaskContent>
-                <TaskTitle>{step.title}</TaskTitle>
-                <TaskDescription>{step.content}</TaskDescription>
-            </TaskContent>
-            <TaskActions>
-                <DismissButton onClick={() => onDismiss(step.id || '')}>Dismiss</DismissButton>
-                {!isCompleted && (
-                    <Button size="sm" variant="outline" onClick={() => onStart(step.id || '')}>
-                        Start
-                    </Button>
-                )}
-            </TaskActions>
-        </TaskItem>
-    );
-};
 
 /**
  * Component to render the Self serve free trial content
