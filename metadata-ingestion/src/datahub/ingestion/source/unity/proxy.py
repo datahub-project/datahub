@@ -169,7 +169,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def __init__(
         self,
         workspace_url: str,
-        personal_access_token: str,
+        personal_access_token: Optional[str],
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
@@ -195,9 +195,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 "https://", ""
             ),
             "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
-            "access_token": self._workspace_client.config.token,
             "user_agent_entry": "datahub",
         }
+        if self._workspace_client.config.token:
+            self._sql_connection_params["access_token"] = (
+                self._workspace_client.config.token
+            )
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
