@@ -14,9 +14,11 @@ jobs:
     steps:
       - name: Close Linear ticket if PR closed
         if: github.event.action == 'closed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-
           # Find the Linear ticket ID from PR comments
           COMMENTS=$(gh pr view $PR_NUMBER --json comments --jq '.comments[].body')
 
@@ -39,7 +41,7 @@ jobs:
           )
 
           TICKET_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-            -H "Authorization: ${{ secrets.INGESTION_LINEAR_KEY }}" \
+            -H "Authorization: $LINEAR_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$TICKET_QUERY")
 
@@ -62,7 +64,7 @@ jobs:
           )
 
           STATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-            -H "Authorization: ${{ secrets.INGESTION_LINEAR_KEY }}" \
+            -H "Authorization: $LINEAR_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$STATE_QUERY")
 
@@ -82,7 +84,7 @@ jobs:
           )
 
           UPDATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-            -H "Authorization: ${{ secrets.INGESTION_LINEAR_KEY }}" \
+            -H "Authorization: $LINEAR_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$UPDATE_MUTATION")
 
@@ -94,38 +96,41 @@ jobs:
             echo "❌ Failed to close Linear ticket"
             echo "$UPDATE_RESPONSE" | jq .
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Check author status
         if: github.event.action != 'closed'
         id: check-author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           # Skip draft PRs
-          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+          if [ "$PR_DRAFT" = "true" ]; then
             echo "should_skip=true" >> $GITHUB_OUTPUT
             echo "⏭️  Skipping - PR is in draft"
             exit 0
           fi
 
-          AUTHOR="${{ github.event.pull_request.user.login }}"
+          AUTHOR="$PR_AUTHOR"
           echo "should_skip=false" >> $GITHUB_OUTPUT
 
           # Check if author is DataHub org member (for info only)
           ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External Contribution")
           echo "contributor_type=$ORG_CHECK" >> $GITHUB_OUTPUT
           echo "✅ Author: $AUTHOR ($ORG_CHECK)"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Create Linear Ticket
         if: steps.check-author.outputs.should_skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CONTRIBUTOR_TYPE: ${{ steps.check-author.outputs.contributor_type }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          CONTRIBUTOR_TYPE="${{ steps.check-author.outputs.contributor_type }}"
 
           # Fetch detailed PR information
           PR_DATA=$(gh pr view $PR_NUMBER --json body,files,additions,deletions,reviewRequests)
@@ -173,7 +178,7 @@ jobs:
           )
 
           RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
-            -H "Authorization: ${{ secrets.INGESTION_LINEAR_KEY }}" \
+            -H "Authorization: $LINEAR_API_KEY" \
             -H "Content-Type: application/json" \
             -d "$MUTATION")
 
@@ -191,8 +196,6 @@ jobs:
             echo "$RESPONSE" | jq .
             exit 1
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Log skip reason
         if: steps.check-author.outputs.should_skip == 'true'
