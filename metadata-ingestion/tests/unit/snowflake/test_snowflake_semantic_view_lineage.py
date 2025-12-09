@@ -8,6 +8,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Confi
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
+    SnowflakeDataDictionary,
     SnowflakeSchema,
     SnowflakeSemanticView,
 )
@@ -412,10 +413,6 @@ class TestSnowflakeSemanticViewColumnMerging:
     @pytest.fixture
     def data_dict(self):
         """Create a SnowflakeDataDictionary instance for testing."""
-        from datahub.ingestion.source.snowflake.snowflake_schema import (
-            SnowflakeDataDictionary,
-        )
-
         connection = MagicMock()
         report = MagicMock()
         return SnowflakeDataDictionary(connection=connection, report=report)

@@ -4,6 +4,9 @@ import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import sqlglot
+import sqlglot.expressions
+
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -133,11 +136,13 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     DownstreamColumnRef,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
@@ -1720,8 +1725,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
 
         if column_lineage_infos:
-            from datahub.sql_parsing.sql_parsing_common import QueryType
-
             if self.aggregator:
                 self.aggregator.add_known_query_lineage(
                     KnownQueryLineageInfo(
@@ -1817,12 +1820,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             return []
 
         try:
-            # Import DataHub's sqlglot utilities
-            import sqlglot
-            import sqlglot.expressions
-
-            from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
-
             # Parse the expression
             dialect_obj = get_dialect(dialect)
             parsed = parse_statement(expression, dialect=dialect_obj)

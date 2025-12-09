@@ -3,7 +3,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -41,8 +43,6 @@ def test_snowflake_config_includes_semantic_views():
 
 def test_snowflake_config_semantic_view_pattern():
     """Test that SnowflakeV2Config includes semantic view pattern filtering."""
-    from datahub.configuration.common import AllowDenyPattern
-
     config = SnowflakeV2Config.model_validate(
         {
             "account_id": "test_account",
@@ -64,8 +64,6 @@ def test_snowflake_config_semantic_view_pattern():
 
 def test_snowflake_semantic_view_domain():
     """Test that SEMANTIC_VIEW is in SnowflakeObjectDomain."""
-    from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
-
     assert hasattr(SnowflakeObjectDomain, "SEMANTIC_VIEW")
     assert SnowflakeObjectDomain.SEMANTIC_VIEW == "semantic view"
 
