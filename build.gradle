@@ -45,7 +45,7 @@ buildscript {
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.1'
-  ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
+  ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   ext.jacksonVersion = '2.18.4'
   ext.jettyVersion = '12.0.21'
