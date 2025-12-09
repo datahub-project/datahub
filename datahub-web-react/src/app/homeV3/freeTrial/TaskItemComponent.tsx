@@ -43,4 +43,3 @@ export const TaskItemComponent = ({ step, isCompleted, onDismiss, onStart }: Tas
         </TaskItem>
     );
 };
-
