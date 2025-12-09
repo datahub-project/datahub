@@ -2,7 +2,7 @@ name: Create Linear Ticket for Ingestion PR Review
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, ready_for_review]
     paths:
       - "metadata-ingestion/**"
       - "metadata-ingestion-modules/**"
@@ -15,6 +15,13 @@ jobs:
       - name: Check author status
         id: check-author
         run: |
+          # Skip draft PRs
+          if [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️  Skipping - PR is in draft"
+            exit 0
+          fi
+
           CORE_INGESTION_TEAM="sgomezvillamor treff7es skrydal askumar27 kyungsoo-datahub"
           AUTHOR="${{ github.event.pull_request.user.login }}"
 
