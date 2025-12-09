@@ -1923,21 +1923,37 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             FineGrainedLineageUpstreamTypeClass,
         )
 
+        logger.info(
+            f"DEBUG _handle_chained_derivation: source_col={source_col}, "
+            f"col_name_upper={col_name_upper}"
+        )
+
         # Check if source_col is itself a derived column
         derived_col_expression = None
+        logger.info(
+            f"DEBUG: Searching for {source_col} in {len(semantic_view.columns)} columns"
+        )
         for sv_col in semantic_view.columns:
+            logger.info(
+                f"DEBUG: Checking column {sv_col.name.upper()} == {source_col}? "
+                f"has_expression={bool(sv_col.expression)}"
+            )
             if sv_col.name.upper() == source_col and sv_col.expression:
                 derived_col_expression = sv_col.expression
+                logger.info(
+                    f"DEBUG: Found derived expression: {derived_col_expression}"
+                )
                 break
 
         if derived_col_expression:
-            logger.debug(
-                f"Source column {source_col} is a derived column. "
+            logger.info(
+                f"DEBUG: Source column {source_col} is a derived column. "
                 f"Recursively resolving expression: {derived_col_expression}"
             )
             resolved_sources = self._resolve_derived_column_sources(
                 derived_col_expression, semantic_view
             )
+            logger.info(f"DEBUG: Resolved sources: {resolved_sources}")
             for rec_db, rec_schema, rec_table, rec_col in resolved_sources:
                 if not self._is_table_allowed(rec_db, rec_schema, rec_table):
                     continue
@@ -2001,40 +2017,68 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         source_columns = self._extract_columns_from_expression(
             expression, dialect="snowflake"
         )
+        logger.info(
+            f"DEBUG _resolve: expression={expression}, extracted columns={source_columns}"
+        )
+        logger.info(
+            f"DEBUG _resolve: logical_to_physical_table={semantic_view.logical_to_physical_table}"
+        )
 
         resolved_sources: List[Tuple[str, str, str, str]] = []
 
         for table_qualifier, source_col in source_columns:
             col_key = f"{table_qualifier or ''}.{source_col}"
+            logger.info(f"DEBUG _resolve: Processing {col_key}")
 
             # Cycle detection
             if col_key in visited:
-                logger.debug(f"Cycle detected at {col_key}, skipping")
+                logger.info(f"DEBUG _resolve: Cycle detected at {col_key}, skipping")
                 continue
             visited.add(col_key)
 
             if not table_qualifier:
+                logger.info(
+                    f"DEBUG _resolve: No table_qualifier for {source_col}, skipping"
+                )
                 continue
 
             physical_table_tuple = semantic_view.logical_to_physical_table.get(
                 table_qualifier
             )
             if not physical_table_tuple:
+                logger.info(
+                    f"DEBUG _resolve: No physical table for qualifier {table_qualifier}, skipping"
+                )
                 continue
 
             source_db, source_schema, source_table = physical_table_tuple
 
             # Check if source column exists in physical table
-            if self._verify_column_exists_in_table(
+            exists = self._verify_column_exists_in_table(
                 source_db, source_schema, source_table, source_col
-            ):
+            )
+            logger.info(
+                f"DEBUG _resolve: Column {source_col} exists in {source_db}.{source_schema}.{source_table}: {exists}"
+            )
+
+            if exists:
                 resolved_sources.append(
                     (source_db, source_schema, source_table, source_col)
                 )
+                logger.info(
+                    f"DEBUG _resolve: Added physical source: {source_db}.{source_schema}.{source_table}.{source_col}"
+                )
             else:
                 # Check if it's another derived column (chained derivation)
+                logger.info(
+                    f"DEBUG _resolve: Checking if {source_col} is a derived column in semantic view"
+                )
+                found_derived = False
                 for sv_col in semantic_view.columns:
                     if sv_col.name.upper() == source_col and sv_col.expression:
+                        logger.info(
+                            f"DEBUG _resolve: Found derived column {source_col} with expression: {sv_col.expression}"
+                        )
                         # Recursively resolve
                         nested_sources = self._resolve_derived_column_sources(
                             sv_col.expression,
@@ -2042,9 +2086,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             depth + 1,
                             visited.copy(),
                         )
+                        logger.info(
+                            f"DEBUG _resolve: Nested sources for {source_col}: {nested_sources}"
+                        )
                         resolved_sources.extend(nested_sources)
+                        found_derived = True
                         break
+                if not found_derived:
+                    logger.info(
+                        f"DEBUG _resolve: {source_col} not found as derived column either"
+                    )
 
+        logger.info(f"DEBUG _resolve: Final resolved_sources: {resolved_sources}")
         return resolved_sources
 
     def _process_unassociated_columns(
@@ -2067,17 +2120,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
         processed_columns = set(semantic_view.column_table_mappings.keys())
+
+        # DEBUG: Log all columns and their expressions
+        logger.info(f"DEBUG: All columns in {semantic_view.name}:")
+        for col in semantic_view.columns:
+            logger.info(
+                f"  - {col.name}: expression={col.expression}, in_mappings={col.name.upper() in processed_columns}"
+            )
+        logger.info(f"DEBUG: column_table_mappings keys: {list(processed_columns)}")
+
         unprocessed_columns = [
             col
             for col in semantic_view.columns
             if col.name.upper() not in processed_columns and col.expression
         ]
 
-        if unprocessed_columns:
-            logger.debug(
-                f"Found {len(unprocessed_columns)} columns without table associations. "
-                f"Processing their expressions for lineage..."
-            )
+        logger.info(
+            f"DEBUG: Found {len(unprocessed_columns)} unprocessed columns with expressions: "
+            f"{[c.name for c in unprocessed_columns]}"
+        )
 
         for col in unprocessed_columns:
             col_name_upper = col.name.upper()
@@ -2086,8 +2147,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if not column_expression:
                 continue
 
-            logger.debug(
-                f"Processing unassociated column: {col_name_upper}, expression: {column_expression}"
+            logger.info(
+                f"DEBUG: Processing unassociated column: {col_name_upper}, expression: {column_expression}"
             )
 
             downstream_field_urn = make_schema_field_urn(
@@ -2096,13 +2157,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
             # Use depth-limited recursive resolution
+            logger.info(
+                f"DEBUG: Calling _resolve_derived_column_sources for {col_name_upper}"
+            )
             resolved_sources = self._resolve_derived_column_sources(
                 column_expression, semantic_view
             )
+            logger.info(
+                f"DEBUG: Resolved sources for {col_name_upper}: {resolved_sources}"
+            )
 
             if not resolved_sources:
-                logger.debug(
-                    f"No physical sources resolved for column {col_name_upper}"
+                logger.info(
+                    f"DEBUG: No physical sources resolved for column {col_name_upper}"
                 )
                 continue
 
@@ -2183,14 +2250,24 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             f"Total columns with mappings: {len(semantic_view.column_table_mappings)}, "
             f"Total logical tables: {len(semantic_view.logical_to_physical_table)}"
         )
+        logger.info(
+            f"DEBUG: column_table_mappings keys: {list(semantic_view.column_table_mappings.keys())}"
+        )
+        logger.info(
+            f"DEBUG: logical_to_physical_table: {semantic_view.logical_to_physical_table}"
+        )
+        logger.info(
+            f"DEBUG: All columns with expressions: "
+            f"{[(c.name, c.expression) for c in semantic_view.columns if c.expression]}"
+        )
 
         # Iterate through all columns that have table mappings
         for (
             col_name_upper,
             logical_table_names,
         ) in semantic_view.column_table_mappings.items():
-            logger.debug(
-                f"Processing column: {col_name_upper}, logical tables: {logical_table_names}"
+            logger.info(
+                f"DEBUG: Processing column: {col_name_upper}, logical tables: {logical_table_names}"
             )
 
             # For each logical table this column appears in
@@ -2309,10 +2386,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 )
 
                                 # Verify source column exists in the resolved table
+                                logger.info(
+                                    f"DEBUG: Verifying {source_col} exists in {source_db}.{source_schema}.{source_table}"
+                                )
                                 if not self._verify_column_exists_in_table(
                                     source_db, source_schema, source_table, source_col
                                 ):
                                     # Try chained derivation resolution
+                                    logger.info(
+                                        f"DEBUG: Column {source_col} NOT in physical table, trying chained derivation"
+                                    )
                                     self._handle_chained_derivation(
                                         source_col,
                                         source_table_full_name,
