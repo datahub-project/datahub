@@ -74,7 +74,7 @@ if enable_extractors and extract_teradata_operator:
         import importlib.util
         patch_module_path = "datahub_airflow_plugin.airflow3._teradata_openlineage_patch"
         patch_module = importlib.import_module(patch_module_path)
-        patch_teradata_operator = getattr(patch_module, "patch_teradata_operator")
+        patch_teradata_operator = patch_module.patch_teradata_operator
         
         patch_teradata_operator()
         logger.debug("TeradataOperator patch import and call completed")
