@@ -987,7 +987,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             ):
                 logger.warning(
                     f"Cannot access INFORMATION_SCHEMA.SEMANTIC_TABLES for database {db_name}. "
-                    f"This requires Snowflake Enterprise Edition and appropriate permissions. "
+                    f"Semantic views may not be supported in your Snowflake edition or may require additional privileges. "
                     f"Skipping semantic view base table ingestion. Error: {e}"
                 )
             else:
@@ -1288,7 +1288,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             ):
                 logger.warning(
                     f"Cannot access INFORMATION_SCHEMA semantic view system tables for database {db_name}. "
-                    f"This requires Snowflake Enterprise Edition and appropriate permissions. "
+                    f"Semantic views may not be supported in your Snowflake edition or may require additional privileges. "
                     f"Skipping semantic view column ingestion. Error: {e}"
                 )
             else:

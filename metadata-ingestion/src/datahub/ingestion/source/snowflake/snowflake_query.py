@@ -41,7 +41,6 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
         SnowflakeObjectDomain.VIEW.capitalize(),
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
-        # SnowflakeObjectDomain.SEMANTIC_VIEW - Excluded: Not queryable, won't appear in ACCESS_HISTORY
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
         SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),

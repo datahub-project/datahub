@@ -25,9 +25,9 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
--- Note: Semantic views (Enterprise Edition) are covered by the above view grants
+-- Note: Semantic views are covered by the above view grants
 
--- Grant monitor privileges for dynamic tables (Enterprise Edition feature)
+-- Grant monitor privileges for dynamic tables
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -218,13 +218,13 @@ semantic_view_pattern:
 
 #### Requirements
 
-- Semantic views are an **Enterprise Edition** feature in Snowflake
+- Semantic views require appropriate Snowflake edition and privileges
 - Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
 - The semantic view definition (YAML) is extracted when available through the `SHOW SEMANTIC VIEWS` command
 
 ### Caveats
 
-- Some of the features are only available in the Snowflake Enterprise Edition. This includes dynamic tables, semantic views, advanced lineage features, and tags. This doc has notes mentioning where this applies.
+- Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
 - Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
 - Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.

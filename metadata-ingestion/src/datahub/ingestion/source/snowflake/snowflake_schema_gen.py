@@ -1907,6 +1907,66 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
             return []
 
+    def _handle_chained_derivation(
+        self,
+        source_col: str,
+        source_table_full_name: str,
+        semantic_view: "SnowflakeSemanticView",
+        downstream_field_urn: str,
+        col_name_upper: str,
+        fine_grained_lineages: List["FineGrainedLineageClass"],
+    ) -> None:
+        """Handle chained derivation when source column is itself derived."""
+        from datahub.metadata.schema_classes import (
+            FineGrainedLineageClass,
+            FineGrainedLineageDownstreamTypeClass,
+            FineGrainedLineageUpstreamTypeClass,
+        )
+
+        # Check if source_col is itself a derived column
+        derived_col_expression = None
+        for sv_col in semantic_view.columns:
+            if sv_col.name.upper() == source_col and sv_col.expression:
+                derived_col_expression = sv_col.expression
+                break
+
+        if derived_col_expression:
+            logger.debug(
+                f"Source column {source_col} is a derived column. "
+                f"Recursively resolving expression: {derived_col_expression}"
+            )
+            resolved_sources = self._resolve_derived_column_sources(
+                derived_col_expression, semantic_view
+            )
+            for rec_db, rec_schema, rec_table, rec_col in resolved_sources:
+                if not self._is_table_allowed(rec_db, rec_schema, rec_table):
+                    continue
+                rec_table_identifier = self.identifiers.get_dataset_identifier(
+                    rec_table, rec_schema, rec_db
+                )
+                rec_table_urn = self.identifiers.gen_dataset_urn(rec_table_identifier)
+                rec_field_urn = make_schema_field_urn(
+                    rec_table_urn, self.snowflake_identifier(rec_col)
+                )
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[rec_field_urn],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field_urn],
+                    )
+                )
+                logger.debug(
+                    f"Created chained derived lineage: "
+                    f"{rec_col} ({rec_db}.{rec_schema}.{rec_table}) -> "
+                    f"{col_name_upper} ({semantic_view.name})"
+                )
+        else:
+            logger.debug(
+                f"Source column {source_col} not found in {source_table_full_name} "
+                f"and is not a derived column. Skipping lineage."
+            )
+
     # Maximum recursion depth for resolving chained derived columns
     _MAX_DERIVATION_DEPTH = 5
 
@@ -2252,9 +2312,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                                 if not self._verify_column_exists_in_table(
                                     source_db, source_schema, source_table, source_col
                                 ):
-                                    logger.warning(
-                                        f"Source column {source_col} not found in {source_table_full_name}. "
-                                        f"Skipping lineage."
+                                    # Try chained derivation resolution
+                                    self._handle_chained_derivation(
+                                        source_col,
+                                        source_table_full_name,
+                                        semantic_view,
+                                        downstream_field_urn,
+                                        col_name_upper,
+                                        fine_grained_lineages,
                                     )
                                     continue
 
