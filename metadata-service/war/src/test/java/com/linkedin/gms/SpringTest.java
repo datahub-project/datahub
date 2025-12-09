@@ -5,6 +5,10 @@ import static org.testng.AssertJUnit.assertNotNull;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -26,7 +30,7 @@ import org.testng.annotations.Test;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = {
       "telemetry.enabledServer=true",
-      "spring.main.allow-bean-definition-overriding=true"
+      "spring.main.allow-bean-definition-overriding=true",
     })
 @ContextConfiguration(classes = {CommonApplicationConfig.class, SpringTest.TestBeans.class})
 public class SpringTest extends AbstractTestNGSpringContextTests {
@@ -34,12 +38,24 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
   // Mock Beans take precedence, we add these to avoid needing to configure data sources etc. while
   // still testing prod config
   @MockBean private Database database;
+
   @MockBean private BootstrapManager bootstrapManager;
+
   @MockBean private Clock clock;
+
   @MockBean private MetricUtils metricUtils;
 
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
+
+  // Mock semantic search beans to avoid needing full configuration
+  @MockBean private EmbeddingProvider embeddingProvider;
+
+  @MockBean private SemanticEntitySearch semanticEntitySearchService;
+
+  @MockBean private SemanticSearchService semanticSearchService;
+
+  @MockBean private CachingEntitySearchService cachingEntitySearchService;
 
   @Test
   public void testTelemetry() {
@@ -49,6 +65,7 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class TestBeans {
+
     @Bean
     public OperationContext systemOperationContext() {
       return TestOperationContexts.systemContextNoSearchAuthorization();

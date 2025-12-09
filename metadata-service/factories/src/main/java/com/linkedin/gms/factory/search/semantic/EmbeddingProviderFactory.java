@@ -7,7 +7,6 @@ import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -35,13 +34,9 @@ public class EmbeddingProviderFactory {
   /**
    * Creates an EmbeddingProvider bean for generating query embeddings.
    *
-   * <p>This bean is only created when semantic search is enabled
-   * (elasticsearch.index.semanticSearch.enabled=true).
-   *
    * @return EmbeddingProvider instance configured based on application.yaml settings
    */
   @Bean(name = "embeddingProvider")
-  @ConditionalOnProperty(name = "elasticsearch.index.semanticSearch.enabled", havingValue = "true")
   @Nonnull
   protected EmbeddingProvider getInstance() {
     EmbeddingProviderConfiguration config =
