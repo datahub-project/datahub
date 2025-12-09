@@ -913,20 +913,20 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         self.report.report_lineage_extracted()
 
-        # Emit DataJobInputOutput with the child DataJob as an input dependency
-        # This creates a visible lineage edge in the DataHub UI
-        input_datajobs: list[str] = []
+        # Emit DataJobInputOutput on the CHILD's first activity, setting ExecutePipeline as upstream
+        # This creates lineage: ExecutePipeline -> ChildFirstActivity
+        # (The parent activity triggers the child, so parent is upstream of child)
         if child_datajob_urn:
-            input_datajobs.append(str(child_datajob_urn))
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=str(datajob.urn),
-            aspect=DataJobInputOutputClass(
-                inputDatasets=[],
-                outputDatasets=[],
-                inputDatajobs=input_datajobs,
-            ),
-        ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(child_datajob_urn),  # Child's first activity
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=[],
+                    outputDatasets=[],
+                    inputDatajobs=[
+                        str(datajob.urn)
+                    ],  # ExecutePipeline as input/upstream
+                ),
+            ).as_workunit()
 
     def _resolve_dataset_urn(
         self, dataset_name: str, factory_key: str

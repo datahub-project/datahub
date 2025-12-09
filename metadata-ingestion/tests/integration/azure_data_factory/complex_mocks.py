@@ -1192,6 +1192,174 @@ def create_diverse_activities_scenario() -> Dict[str, Any]:
 
 
 # =============================================================================
+# SCENARIO 7: MIXED DEPENDENCIES (Pipeline + Dataset Lineage)
+# =============================================================================
+
+
+def create_mixed_dependencies_scenario() -> Dict[str, Any]:
+    """Create mock data for mixed pipeline and dataset dependencies.
+
+    This scenario tests both types of lineage in a single orchestration:
+    1. Pipeline-to-pipeline lineage (ExecutePipeline activities)
+    2. Dataset lineage (Copy activities with inputs/outputs)
+
+    Structure:
+    - MixedOrchestrationPipeline
+      └── ExecutePipeline: ExtractDataPipeline (child)
+          └── Copy: ExtractFromSource (reads SqlCustomersTable, writes BlobStagingCustomers)
+      └── Copy: TransformInMain (reads BlobStagingCustomers, writes SynapseCustomersDim)
+      └── ExecutePipeline: LoadDataPipeline (child)
+          └── Copy: LoadToDestination (reads SynapseCustomersDim, writes DataLakeCuratedData)
+
+    Expected lineage:
+    - ExecuteExtract -> ExtractFromSource (pipeline lineage)
+    - TransformInMain -> BlobStagingCustomers (dataset input)
+    - TransformInMain -> SynapseCustomersDim (dataset output)
+    - ExecuteLoad -> LoadToDestination (pipeline lineage)
+    """
+    # Child pipeline for extraction
+    extract_pipeline = {
+        "id": _base_resource_id("pipelines", "ExtractDataPipeline"),
+        "name": "ExtractDataPipeline",
+        "type": "Microsoft.DataFactory/factories/pipelines",
+        "properties": {
+            "description": "Child pipeline for extracting data from source",
+            "activities": [
+                {
+                    "name": "ExtractFromSource",
+                    "type": "Copy",
+                    "inputs": [
+                        {
+                            "referenceName": "SqlCustomersTable",
+                            "type": "DatasetReference",
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "referenceName": "BlobStagingCustomers",
+                            "type": "DatasetReference",
+                        }
+                    ],
+                    "typeProperties": {
+                        "source": {"type": "AzureSqlSource"},
+                        "sink": {"type": "DelimitedTextSink"},
+                    },
+                }
+            ],
+        },
+    }
+
+    # Child pipeline for loading
+    load_pipeline = {
+        "id": _base_resource_id("pipelines", "LoadDataPipeline"),
+        "name": "LoadDataPipeline",
+        "type": "Microsoft.DataFactory/factories/pipelines",
+        "properties": {
+            "description": "Child pipeline for loading data to destination",
+            "activities": [
+                {
+                    "name": "LoadToDestination",
+                    "type": "Copy",
+                    "inputs": [
+                        {
+                            "referenceName": "SynapseCustomersDim",
+                            "type": "DatasetReference",
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "referenceName": "DataLakeCuratedData",
+                            "type": "DatasetReference",
+                        }
+                    ],
+                    "typeProperties": {
+                        "source": {"type": "SqlDWSource"},
+                        "sink": {"type": "ParquetSink"},
+                    },
+                }
+            ],
+        },
+    }
+
+    # Main orchestration pipeline with both ExecutePipeline and Copy activities
+    main_pipeline = {
+        "id": _base_resource_id("pipelines", "MixedOrchestrationPipeline"),
+        "name": "MixedOrchestrationPipeline",
+        "type": "Microsoft.DataFactory/factories/pipelines",
+        "properties": {
+            "description": "Pipeline demonstrating both pipeline and dataset dependencies",
+            "activities": [
+                # Step 1: Call child pipeline to extract data
+                {
+                    "name": "ExecuteExtract",
+                    "type": "ExecutePipeline",
+                    "typeProperties": {
+                        "pipeline": {
+                            "referenceName": "ExtractDataPipeline",
+                            "type": "PipelineReference",
+                        },
+                        "waitOnCompletion": True,
+                    },
+                },
+                # Step 2: Transform data in main pipeline (has dataset lineage)
+                {
+                    "name": "TransformInMain",
+                    "type": "Copy",
+                    "dependsOn": [
+                        {
+                            "activity": "ExecuteExtract",
+                            "dependencyConditions": ["Succeeded"],
+                        }
+                    ],
+                    "inputs": [
+                        {
+                            "referenceName": "BlobStagingCustomers",
+                            "type": "DatasetReference",
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "referenceName": "SynapseCustomersDim",
+                            "type": "DatasetReference",
+                        }
+                    ],
+                    "typeProperties": {
+                        "source": {"type": "DelimitedTextSource"},
+                        "sink": {"type": "SqlDWSink"},
+                    },
+                },
+                # Step 3: Call child pipeline to load data
+                {
+                    "name": "ExecuteLoad",
+                    "type": "ExecutePipeline",
+                    "dependsOn": [
+                        {
+                            "activity": "TransformInMain",
+                            "dependencyConditions": ["Succeeded"],
+                        }
+                    ],
+                    "typeProperties": {
+                        "pipeline": {
+                            "referenceName": "LoadDataPipeline",
+                            "type": "PipelineReference",
+                        },
+                        "waitOnCompletion": True,
+                    },
+                },
+            ],
+        },
+    }
+
+    return {
+        "pipelines": [main_pipeline, extract_pipeline, load_pipeline],
+        "expected_dataflows": 3,  # 3 pipelines
+        "expected_datajobs": 5,  # 2 ExecutePipeline + 1 Copy in main + 2 Copy in children
+        "expected_pipeline_lineage": 2,  # 2 ExecutePipeline activities
+        "expected_dataset_lineage": 3,  # TransformInMain (1 in, 1 out) + ExtractFromSource + LoadToDestination
+    }
+
+
+# =============================================================================
 # FACTORY HELPER
 # =============================================================================
 

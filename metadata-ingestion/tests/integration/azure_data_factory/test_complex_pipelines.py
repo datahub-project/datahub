@@ -50,6 +50,7 @@ The mocks simulate real Azure SDK responses, including:
 """
 
 import json
+from pathlib import Path
 from typing import Any, Dict, Iterator, List
 from unittest import mock
 
@@ -1186,23 +1187,292 @@ def test_pipeline_to_pipeline_lineage(tmp_path):
         f"Expected TransformCustomerData as first activity: {first_activities}"
     )
 
-    # Verify DataJobInputOutput aspects have inputDatajobs for pipeline-to-pipeline lineage
-    input_datajobs_found = []
+    # Verify DataJobInputOutput aspects create correct lineage direction
+    # The child's first activity should have the parent ExecutePipeline as inputDatajobs
+    # This creates lineage: ExecutePipeline -> ChildFirstActivity
+    child_activity_inputs = {}
     for io in datajob_io:
+        entity_urn = io.get("entityUrn", "")
         input_jobs = io.get("aspect", {}).get("json", {}).get("inputDatajobs", [])
         if input_jobs:
-            input_datajobs_found.extend(input_jobs)
+            child_activity_inputs[entity_urn] = input_jobs
 
-    # Should have at least 2 inputDatajobs references (one for each ExecutePipeline)
-    assert len(input_datajobs_found) >= 2, (
-        f"Expected at least 2 inputDatajobs for pipeline-to-pipeline lineage, "
-        f"but found: {len(input_datajobs_found)}"
+    # Should have at least 2 child activities with inputDatajobs (one for each ExecutePipeline)
+    assert len(child_activity_inputs) >= 2, (
+        f"Expected at least 2 child activities with inputDatajobs lineage, "
+        f"but found: {len(child_activity_inputs)}"
     )
 
-    # Verify the inputDatajobs point to child pipeline activities
-    assert any("CopyCustomersToStaging" in urn for urn in input_datajobs_found), (
-        f"Expected inputDatajobs to reference CopyCustomersToStaging: {input_datajobs_found}"
+    # Verify the child activities have ExecutePipeline as their input (upstream)
+    # CopyCustomersToStaging should have ExecuteDataMovement as input
+    # TransformCustomerData should have ExecuteTransform as input
+    all_inputs = []
+    for inputs in child_activity_inputs.values():
+        all_inputs.extend(inputs)
+
+    assert any("ExecuteDataMovement" in urn for urn in all_inputs), (
+        f"Expected ExecuteDataMovement as upstream of child activity: {all_inputs}"
     )
-    assert any("TransformCustomerData" in urn for urn in input_datajobs_found), (
-        f"Expected inputDatajobs to reference TransformCustomerData: {input_datajobs_found}"
+    assert any("ExecuteTransform" in urn for urn in all_inputs), (
+        f"Expected ExecuteTransform as upstream of child activity: {all_inputs}"
+    )
+
+
+def test_mixed_pipeline_and_dataset_dependencies(tmp_path: Path) -> None:
+    """Test scenario with both pipeline-to-pipeline and dataset dependencies.
+
+    This test verifies that the connector correctly handles pipelines that have:
+    1. ExecutePipeline activities (pipeline-to-pipeline lineage)
+    2. Copy activities with explicit inputs/outputs (dataset lineage)
+
+    Structure:
+    - MixedOrchestrationPipeline
+      └── ExecuteExtract -> ExtractDataPipeline.ExtractFromSource
+      └── TransformInMain (Copy with dataset I/O)
+      └── ExecuteLoad -> LoadDataPipeline.LoadToDestination
+
+    Expected results:
+    - Pipeline lineage: ExecuteExtract -> ExtractFromSource
+    - Pipeline lineage: ExecuteLoad -> LoadToDestination
+    - Dataset lineage: TransformInMain reads BlobStagingCustomers
+    - Dataset lineage: TransformInMain writes SynapseCustomersDim
+    """
+    from tests.integration.azure_data_factory.complex_mocks import (
+        create_mixed_dependencies_scenario,
+    )
+
+    scenario = create_mixed_dependencies_scenario()
+    output_file = tmp_path / "mixed_deps_output.json"
+
+    # Create mock client using the existing helper
+    mock_client = create_mock_client(
+        pipelines=scenario["pipelines"],
+        datasets=create_complex_datasets(),
+        linked_services=create_complex_linked_services(),
+    )
+
+    config = {
+        "run_id": "mixed_deps_test",
+        "source": {
+            "type": "azure-data-factory",
+            "config": {
+                "subscription_id": SUBSCRIPTION_ID,
+                "resource_group": RESOURCE_GROUP,
+                "credential": {"authentication_method": "default"},
+                "env": "DEV",
+                "include_lineage": True,
+                "include_execution_history": False,
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": str(output_file)}},
+    }
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(config)
+            pipeline.run()
+
+    # Read output
+    with open(output_file) as f:
+        mcps = json.load(f)
+
+    # =========================================================================
+    # Verify Pipeline-to-Pipeline Lineage
+    # =========================================================================
+    # Find DataJobInfo aspects to identify ExecutePipeline activities
+    datajob_infos = [
+        mcp
+        for mcp in mcps
+        if mcp.get("entityType") == "dataJob" and mcp.get("aspectName") == "dataJobInfo"
+    ]
+
+    # Find activities that call child pipelines
+    execute_pipeline_refs = []
+    for info in datajob_infos:
+        custom_props = (
+            info.get("aspect", {}).get("json", {}).get("customProperties", {})
+        )
+        if "calls_pipeline" in custom_props:
+            execute_pipeline_refs.append(
+                {
+                    "activity_urn": info.get("entityUrn", ""),
+                    "calls": custom_props.get("calls_pipeline"),
+                    "child_first_activity": custom_props.get("child_first_activity"),
+                }
+            )
+
+    # Should have 2 ExecutePipeline activities
+    assert len(execute_pipeline_refs) == 2, (
+        f"Expected 2 ExecutePipeline activities, found: {len(execute_pipeline_refs)}"
+    )
+
+    # Verify correct child pipelines are referenced
+    child_pipelines = {ref["calls"] for ref in execute_pipeline_refs}
+    assert "ExtractDataPipeline" in child_pipelines
+    assert "LoadDataPipeline" in child_pipelines
+
+    # Verify first activities of child pipelines
+    first_activities = {ref["child_first_activity"] for ref in execute_pipeline_refs}
+    assert "ExtractFromSource" in first_activities
+    assert "LoadToDestination" in first_activities
+
+    # =========================================================================
+    # Verify Dataset Lineage
+    # =========================================================================
+    # Find DataJobInputOutput aspects
+    datajob_io = [
+        mcp
+        for mcp in mcps
+        if mcp.get("entityType") == "dataJob"
+        and mcp.get("aspectName") == "dataJobInputOutput"
+    ]
+
+    # Build a map of entity URN -> (inputDatasets, outputDatasets)
+    dataset_lineage: dict[str, dict[str, list[str]]] = {}
+    for io in datajob_io:
+        entity_urn = io.get("entityUrn", "")
+        input_datasets = io.get("aspect", {}).get("json", {}).get("inputDatasets", [])
+        output_datasets = io.get("aspect", {}).get("json", {}).get("outputDatasets", [])
+        if input_datasets or output_datasets:
+            dataset_lineage[entity_urn] = {
+                "inputs": input_datasets,
+                "outputs": output_datasets,
+            }
+
+    # Find TransformInMain activity's lineage
+    transform_lineage = None
+    for urn, lineage in dataset_lineage.items():
+        if "TransformInMain" in urn:
+            transform_lineage = lineage
+            break
+
+    assert transform_lineage is not None, (
+        f"TransformInMain activity should have dataset lineage. "
+        f"Available URNs: {list(dataset_lineage.keys())}"
+    )
+
+    # TransformInMain should read from BlobStagingCustomers (blob storage)
+    assert len(transform_lineage["inputs"]) >= 1, (
+        "TransformInMain should have at least 1 input dataset"
+    )
+    # The URN uses platform and dataset path from typeProperties, not the ADF dataset name
+    # BlobStagingCustomers maps to azure_blob_storage platform with path staging/customers
+    assert any(
+        "azure_blob_storage" in urn or "staging" in urn
+        for urn in transform_lineage["inputs"]
+    ), f"TransformInMain should read from blob storage: {transform_lineage['inputs']}"
+
+    # TransformInMain should write to SynapseCustomersDim (synapse)
+    assert len(transform_lineage["outputs"]) >= 1, (
+        "TransformInMain should have at least 1 output dataset"
+    )
+    # SynapseCustomersDim maps to synapse platform with schema Sales.CustomersDim
+    assert any(
+        "synapse" in urn or "Customers" in urn for urn in transform_lineage["outputs"]
+    ), f"TransformInMain should write to synapse: {transform_lineage['outputs']}"
+
+    # =========================================================================
+    # Verify Both Lineage Types Coexist
+    # =========================================================================
+    # We should have at least 3 DataJobInputOutput aspects:
+    # - 2 for child pipelines' first activities (inputDatajobs from pipeline lineage)
+    # - Several for Copy activities (inputDatasets/outputDatasets)
+    assert len(datajob_io) >= 3, (
+        f"Expected at least 3 DataJobInputOutput aspects for mixed lineage, "
+        f"found: {len(datajob_io)}"
+    )
+
+    # Verify pipeline lineage exists (inputDatajobs)
+    pipeline_lineage_count = sum(
+        1
+        for io in datajob_io
+        if io.get("aspect", {}).get("json", {}).get("inputDatajobs", [])
+    )
+    assert pipeline_lineage_count >= 2, (
+        f"Expected at least 2 activities with pipeline lineage (inputDatajobs), "
+        f"found: {pipeline_lineage_count}"
+    )
+
+    # Verify dataset lineage exists (inputDatasets or outputDatasets)
+    dataset_lineage_count = sum(
+        1
+        for io in datajob_io
+        if io.get("aspect", {}).get("json", {}).get("inputDatasets", [])
+        or io.get("aspect", {}).get("json", {}).get("outputDatasets", [])
+    )
+    assert dataset_lineage_count >= 3, (
+        f"Expected at least 3 activities with dataset lineage, "
+        f"found: {dataset_lineage_count}"
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_mixed_dependencies_golden(pytestconfig, tmp_path):
+    """Golden file test for mixed pipeline and dataset dependencies.
+
+    This golden test validates the complete output when a pipeline has both:
+    1. ExecutePipeline activities (pipeline-to-pipeline lineage)
+    2. Copy activities with dataset inputs/outputs (dataset lineage)
+
+    The golden file captures:
+    - Container for the factory
+    - DataFlow entities for all 3 pipelines
+    - DataJob entities for all 5 activities
+    - DataJobInputOutput aspects showing both pipeline and dataset lineage
+    - Browse paths and custom properties
+    """
+    from tests.integration.azure_data_factory.complex_mocks import (
+        create_mixed_dependencies_scenario,
+    )
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
+    scenario = create_mixed_dependencies_scenario()
+
+    output_file = tmp_path / "adf_mixed_deps_events.json"
+    golden_file = test_resources_dir / "adf_mixed_deps_golden.json"
+
+    mock_client = create_mock_client(
+        pipelines=scenario["pipelines"],
+        datasets=create_complex_datasets(),
+        linked_services=create_complex_linked_services(),
+    )
+
+    config = {
+        "run_id": "adf-mixed-deps-test",
+        "source": {
+            "type": "azure-data-factory",
+            "config": {
+                "subscription_id": SUBSCRIPTION_ID,
+                "resource_group": RESOURCE_GROUP,
+                "credential": {"authentication_method": "default"},
+                "env": "DEV",
+                "include_lineage": True,
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": str(output_file)}},
+    }
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(config)
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_file),
+        golden_path=str(golden_file),
     )

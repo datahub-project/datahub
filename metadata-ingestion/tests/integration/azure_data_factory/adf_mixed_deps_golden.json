@@ -25,7 +25,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -41,7 +41,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -59,7 +59,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -75,13 +75,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -91,36 +91,36 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/ParentOrchestrationPipeline",
+                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/MixedOrchestrationPipeline",
                 "factory_name": "complex-data-factory"
             },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ParentOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "ParentOrchestrationPipeline",
-            "description": "Parent orchestration pipeline that calls child pipelines",
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/MixedOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "MixedOrchestrationPipeline",
+            "description": "Pipeline demonstrating both pipeline and dataset dependencies",
             "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -132,13 +132,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -148,13 +148,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -169,13 +169,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteDataMovement)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteExtract)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -185,41 +185,41 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteDataMovement)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteExtract)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {
                 "activity_type": "ExecutePipeline",
-                "calls_pipeline": "ChildDataMovementPipeline",
-                "child_pipeline_urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-                "child_first_activity": "CopyCustomersToStaging"
+                "calls_pipeline": "ExtractDataPipeline",
+                "child_pipeline_urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+                "child_first_activity": "ExtractFromSource"
             },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ParentOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "ExecuteDataMovement",
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/MixedOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "ExecuteExtract",
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
             "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteDataMovement)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteExtract)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -231,13 +231,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteDataMovement)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteExtract)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -248,21 +248,21 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.ParentOrchestrationPipeline",
-                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)"
+                    "id": "complex-data-factory.MixedOrchestrationPipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -270,19 +270,19 @@
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteDataMovement)"
+                "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteExtract)"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteTransform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),TransformInMain)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -292,214 +292,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteTransform)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "activity_type": "ExecutePipeline",
-                "calls_pipeline": "ChildTransformPipeline",
-                "child_pipeline_urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
-                "child_first_activity": "TransformCustomerData"
-            },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ParentOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "ExecuteTransform",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
-            "env": "DEV"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteTransform)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Execute Pipeline"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteTransform)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
-                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
-                },
-                {
-                    "id": "complex-data-factory.ParentOrchestrationPipeline",
-                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV),TransformCustomerData)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteTransform)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:azure-data-factory"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/ChildDataMovementPipeline",
-                "factory_name": "complex-data-factory"
-            },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ChildDataMovementPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "ChildDataMovementPipeline",
-            "description": "Child pipeline for data movement",
-            "env": "DEV"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Pipeline"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
-                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:azure-data-factory"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),TransformInMain)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -507,24 +306,24 @@
             "customProperties": {
                 "activity_type": "Copy"
             },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ChildDataMovementPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "CopyCustomersToStaging",
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/MixedOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "TransformInMain",
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
             "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),TransformInMain)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -536,13 +335,319 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),TransformInMain)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:synapse,DimCustomers,DEV)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),TransformInMain)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+                },
+                {
+                    "id": "complex-data-factory.MixedOrchestrationPipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteLoad)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteLoad)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "ExecutePipeline",
+                "calls_pipeline": "LoadDataPipeline",
+                "child_pipeline_urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
+                "child_first_activity": "LoadToDestination"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/MixedOrchestrationPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "ExecuteLoad",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteLoad)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Execute Pipeline"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteLoad)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+                },
+                {
+                    "id": "complex-data-factory.MixedOrchestrationPipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteLoad)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/ExtractDataPipeline",
+                "factory_name": "complex-data-factory"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ExtractDataPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "ExtractDataPipeline",
+            "description": "Child pipeline for extracting data from source",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Pipeline"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe",
+                    "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Copy"
+            },
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ExtractDataPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "ExtractFromSource",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Copy Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -557,13 +662,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -574,21 +679,21 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.ChildDataMovementPipeline",
-                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)"
+                    "id": "complex-data-factory.ExtractDataPipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -598,36 +703,36 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/ChildTransformPipeline",
+                "azure_resource_id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory/pipelines/LoadDataPipeline",
                 "factory_name": "complex-data-factory"
             },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ChildTransformPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "ChildTransformPipeline",
-            "description": "Child pipeline for data transformation",
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/LoadDataPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "LoadDataPipeline",
+            "description": "Child pipeline for loading data to destination",
             "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -639,13 +744,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -655,13 +760,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -676,13 +781,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV),TransformCustomerData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -692,56 +797,77 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV),TransformCustomerData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "activity_type": "ExecuteDataFlow"
+                "activity_type": "Copy"
             },
-            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/ChildTransformPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
-            "name": "TransformCustomerData",
+            "externalUrl": "https://adf.azure.com/en/authoring/pipeline/LoadDataPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/complex-test-rg/providers/Microsoft.DataFactory/factories/complex-data-factory",
+            "name": "LoadToDestination",
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
             "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV),TransformCustomerData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
             "typeNames": [
-                "Data Flow Activity"
+                "Copy Activity"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV),TransformCustomerData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:synapse,DimCustomers,DEV)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:azure_data_lake,sales_summary,DEV)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -752,15 +878,15 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.ChildTransformPipeline",
-                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)"
+                    "id": "complex-data-factory.LoadDataPipeline",
+                    "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -776,13 +902,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -792,13 +918,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -808,13 +934,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -824,13 +950,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV),CopyCustomersToStaging)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ExtractDataPipeline,DEV),ExtractFromSource)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -840,13 +966,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV),TransformCustomerData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.LoadDataPipeline,DEV),LoadToDestination)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -856,13 +982,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteDataMovement)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteExtract)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -872,13 +998,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV),ExecuteTransform)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),ExecuteLoad)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -888,7 +1014,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
+        "runId": "adf-mixed-deps-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,complex-data-factory.MixedOrchestrationPipeline,DEV),TransformInMain)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "adf-mixed-deps-test",
         "lastRunId": "no-run-id-provided"
     }
 }

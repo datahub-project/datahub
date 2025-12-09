@@ -73,18 +73,21 @@ The connector extracts lineage from:
 
 ### Pipeline-to-Pipeline Lineage
 
-When a pipeline calls another pipeline via an `ExecutePipeline` activity, the connector creates a lineage edge from the calling activity to the first activity in the child pipeline. This enables:
+When a pipeline calls another pipeline via an `ExecutePipeline` activity, the connector creates a lineage edge showing the calling activity as **upstream** of the child pipeline's first activity. This enables:
 
 - Tracing orchestration hierarchies across nested pipelines
 - Impact analysis when modifying child pipelines
 - Understanding dependencies between modular pipelines
+
+**Lineage Direction:** `ExecutePipeline` → `ChildFirstActivity`
 
 The ExecutePipeline activity's DataJob entity will include:
 
 - Custom property `calls_pipeline`: Name of the child pipeline
 - Custom property `child_pipeline_urn`: URN of the child DataFlow
 - Custom property `child_first_activity`: Name of the first activity in the child pipeline
-- Lineage edge to the first DataJob in the child pipeline
+
+The child pipeline's first activity will have the ExecutePipeline as its input/upstream dependency.
 
 ### Supported Linked Service Mappings
 
