@@ -169,6 +169,14 @@ import {
     PRESTO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/presto';
 import {
+    RDF_DIALECT,
+    RDF_ENVIRONMENT,
+    RDF_EXTENSIONS,
+    RDF_FORMAT,
+    RDF_RECURSIVE,
+    RDF_SOURCE,
+} from '@app/ingestV2/source/builder/RecipeForm/rdf';
+import {
     REDSHIFT_DATABASE,
     REDSHIFT_HOST_PORT,
     REDSHIFT_PASSWORD,
@@ -240,6 +248,7 @@ import {
     MYSQL,
     OKTA,
     POWER_BI,
+    RDF,
     SAC,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
@@ -608,6 +617,13 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_DENY,
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
+    [RDF]: {
+        fields: [RDF_SOURCE],
+        filterFields: [],
+        advancedFields: [RDF_FORMAT, RDF_EXTENSIONS, RDF_RECURSIVE, RDF_ENVIRONMENT, RDF_DIALECT],
+        connectionSectionTooltip: 'Configure the RDF source location and basic settings.',
+        advancedSectionTooltip: 'Advanced options for RDF format, file processing, and dialect selection.',
     },
 };
 
