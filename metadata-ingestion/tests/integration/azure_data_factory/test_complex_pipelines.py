@@ -51,13 +51,16 @@ The mocks simulate real Azure SDK responses, including:
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Optional
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.azure_data_factory.adf_source import (
+    AzureDataFactorySource,
+)
 from datahub.testing import mce_helpers
 from tests.integration.azure_data_factory.complex_mocks import (
     RESOURCE_GROUP,
@@ -123,7 +126,7 @@ class MockQueryResponse:
     """
 
     def __init__(
-        self, items: List[Dict[str, Any]], continuation_token: str | None = None
+        self, items: List[Dict[str, Any]], continuation_token: Optional[str] = None
     ):
         self.value = [MockAzureResource(item) for item in items]
         self.continuation_token = continuation_token
@@ -133,9 +136,9 @@ def create_mock_client(
     pipelines: List[Dict[str, Any]],
     datasets: List[Dict[str, Any]],
     linked_services: List[Dict[str, Any]],
-    data_flows: List[Dict[str, Any]] | None = None,
-    triggers: List[Dict[str, Any]] | None = None,
-    pipeline_runs: List[Dict[str, Any]] | None = None,
+    data_flows: Optional[List[Dict[str, Any]]] = None,
+    triggers: Optional[List[Dict[str, Any]]] = None,
+    pipeline_runs: Optional[List[Dict[str, Any]]] = None,
 ) -> mock.MagicMock:
     """Create a mock DataFactoryManagementClient with the given test data.
 
@@ -197,12 +200,12 @@ def create_mock_client(
 
 
 def _run_test_pipeline(
-    tmp_path,
+    tmp_path: Any,
     run_id: str,
     pipelines: List[Dict[str, Any]],
-    datasets: List[Dict[str, Any]] | None = None,
-    linked_services: List[Dict[str, Any]] | None = None,
-    data_flows: List[Dict[str, Any]] | None = None,
+    datasets: Optional[List[Dict[str, Any]]] = None,
+    linked_services: Optional[List[Dict[str, Any]]] = None,
+    data_flows: Optional[List[Dict[str, Any]]] = None,
     include_lineage: bool = True,
 ) -> Pipeline:
     """Helper function to run an ingestion pipeline with mocked Azure data.
@@ -314,6 +317,7 @@ def test_nested_pipeline_creates_all_entities(pytestconfig, tmp_path):
     )
 
     # Verify all pipelines were processed (not filtered out)
+    assert isinstance(pipeline.source, AzureDataFactorySource)
     assert pipeline.source.report.pipelines_scanned == len(scenario["pipelines"])
 
 
@@ -882,6 +886,7 @@ def test_dataflow_lineage_sources_and_sinks(tmp_path):
 
     # Verify that data flows were fetched and processed
     # This confirms the connector is looking up Data Flow definitions
+    assert isinstance(pipeline.source, AzureDataFactorySource)
     assert pipeline.source.report.data_flows_scanned > 0, (
         "Expected data flows to be scanned for lineage extraction"
     )

@@ -5,7 +5,7 @@ produces the expected metadata events.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -25,7 +25,7 @@ def create_mock_factory(
     resource_group: str,
     subscription_id: str,
     location: str = "eastus",
-    tags: Dict[str, str] | None = None,
+    tags: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Create a mock factory response."""
     return {
@@ -46,8 +46,8 @@ def create_mock_pipeline(
     factory_name: str,
     resource_group: str,
     subscription_id: str,
-    activities: List[Dict[str, Any]] | None = None,
-    description: str | None = None,
+    activities: Optional[List[Dict[str, Any]]] = None,
+    description: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a mock pipeline response."""
     return {
@@ -67,10 +67,10 @@ def create_mock_pipeline(
 def create_mock_activity(
     name: str,
     activity_type: str,
-    inputs: List[Dict[str, Any]] | None = None,
-    outputs: List[Dict[str, Any]] | None = None,
-    depends_on: List[Dict[str, Any]] | None = None,
-    description: str | None = None,
+    inputs: Optional[List[Dict[str, Any]]] = None,
+    outputs: Optional[List[Dict[str, Any]]] = None,
+    depends_on: Optional[List[Dict[str, Any]]] = None,
+    description: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a mock activity definition."""
     return {
@@ -93,7 +93,7 @@ def create_mock_dataset(
     subscription_id: str,
     linked_service_name: str,
     dataset_type: str = "AzureBlobDataset",
-    type_properties: Dict[str, Any] | None = None,
+    type_properties: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Create a mock dataset response."""
     return {
@@ -139,7 +139,7 @@ def create_mock_trigger(
     resource_group: str,
     subscription_id: str,
     trigger_type: str = "ScheduleTrigger",
-    pipelines: List[str] | None = None,
+    pipelines: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Create a mock trigger response."""
     pipeline_refs = [
@@ -167,8 +167,8 @@ def create_mock_pipeline_run(
     run_id: str,
     pipeline_name: str,
     status: str = "Succeeded",
-    start_time: datetime | None = None,
-    end_time: datetime | None = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
 ) -> Dict[str, Any]:
     """Create a mock pipeline run response."""
     return {
@@ -215,7 +215,7 @@ class MockQueryResponse:
     """Mock class for query responses with continuation token."""
 
     def __init__(
-        self, items: List[Dict[str, Any]], continuation_token: str | None = None
+        self, items: List[Dict[str, Any]], continuation_token: Optional[str] = None
     ):
         self.value = [MockAzureResource(item) for item in items]
         self.continuation_token = continuation_token
