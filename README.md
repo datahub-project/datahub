@@ -66,7 +66,7 @@ Modern data stacks are fragmented across dozens of tools. DataHub solves this by
 
 - **Built for Scale**: Proven at LinkedIn managing 1,000,000+ datasets, 10M+ daily queries
 - **Real-Time Streaming**: Metadata updates in seconds, not hours or days
-- **Universal Connectors**: [100+ integrations](https://docs.datahub.com/integrations) for warehouses, databases, BI, ML, orchestration
+- **Universal Connectors**: [70+ integrations](https://docs.datahub.com/integrations) for warehouses, databases, BI, ML, orchestration
 - **Developer-First**: Rich APIs (GraphQL, REST), Python SDK, CLI tools
 - **Enterprise Ready**: Battle-tested security, authentication, authorization, and audit trails
 - **Open Source**: [Apache 2.0 licensed](./LICENSE), vendor-neutral, community-driven
