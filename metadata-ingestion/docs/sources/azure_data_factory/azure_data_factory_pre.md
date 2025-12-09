@@ -57,6 +57,7 @@ To set up a service principal:
 | Platform Instance     | ✅     | Enabled by default                          |
 | Containers            | ✅     | Data Factories as containers                |
 | Lineage (Table-level) | ✅     | From activity inputs/outputs and Data Flows |
+| Pipeline-to-Pipeline  | ✅     | ExecutePipeline activities create lineage   |
 | Data Flow Scripts     | ✅     | Stored as transformation logic              |
 | Execution History     | ✅     | Optional, via `include_execution_history`   |
 | Stateful Ingestion    | ✅     | Stale entity removal                        |
@@ -68,6 +69,22 @@ The connector extracts lineage from:
 1. **Copy Activities**: Maps input/output datasets to DataHub datasets
 2. **Data Flow Activities**: Extracts sources and sinks from Data Flow definitions
 3. **Lookup Activities**: Maps lookup datasets as inputs
+4. **ExecutePipeline Activities**: Creates pipeline-to-pipeline lineage to child pipelines
+
+### Pipeline-to-Pipeline Lineage
+
+When a pipeline calls another pipeline via an `ExecutePipeline` activity, the connector creates a lineage edge from the calling activity to the first activity in the child pipeline. This enables:
+
+- Tracing orchestration hierarchies across nested pipelines
+- Impact analysis when modifying child pipelines
+- Understanding dependencies between modular pipelines
+
+The ExecutePipeline activity's DataJob entity will include:
+
+- Custom property `calls_pipeline`: Name of the child pipeline
+- Custom property `child_pipeline_urn`: URN of the child DataFlow
+- Custom property `child_first_activity`: Name of the first activity in the child pipeline
+- Lineage edge to the first DataJob in the child pipeline
 
 ### Supported Linked Service Mappings
 
@@ -194,21 +211,21 @@ The connector automatically includes the factory name in pipeline URNs (e.g., `m
 Pipeline URNs include the factory name for uniqueness across multiple factories:
 
 ```
-urn:li:dataFlow:(azure_data_factory,{factory_name}.{pipeline_name},{env})
+urn:li:dataFlow:(azure-data-factory,{factory_name}.{pipeline_name},{env})
 ```
 
-Example: `urn:li:dataFlow:(azure_data_factory,my-factory.ETL-Pipeline,PROD)`
+Example: `urn:li:dataFlow:(azure-data-factory,my-factory.ETL-Pipeline,PROD)`
 
 Activity URNs reference their parent pipeline:
 
 ```
-urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,{factory_name}.{pipeline_name},{env}),{activity_name})
+urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,{factory_name}.{pipeline_name},{env}),{activity_name})
 ```
 
 With `platform_instance` set, it's prepended to the URN:
 
 ```
-urn:li:dataFlow:(azure_data_factory,{platform_instance}.{factory_name}.{pipeline_name},{env})
+urn:li:dataFlow:(azure-data-factory,{platform_instance}.{factory_name}.{pipeline_name},{env})
 ```
 
-Example: `urn:li:dataFlow:(azure_data_factory,production.my-factory.ETL-Pipeline,PROD)`
+Example: `urn:li:dataFlow:(azure-data-factory,production.my-factory.ETL-Pipeline,PROD)`

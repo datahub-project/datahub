@@ -20,7 +20,7 @@ Usage:
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Iterable, Optional
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -65,13 +65,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     DataProcessTypeClass,
     DataTransformClass,
     DataTransformLogicClass,
     QueryLanguageClass,
     QueryStatementClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DatasetUrn
+from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -79,10 +81,15 @@ from datahub.sdk.datajob import DataJob
 logger = logging.getLogger(__name__)
 
 # Platform identifier for Azure Data Factory
-PLATFORM = "azure_data_factory"
+PLATFORM = "azure-data-factory"
+
+# Constants for pipeline run processing
+MAX_RUN_MESSAGE_LENGTH = 500  # Truncate long error/status messages
+MAX_RUN_PARAMETERS = 10  # Limit number of parameters to store
+MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
 
 # Mapping of ADF linked service types to DataHub platforms
-LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
+LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
     # Azure Storage
     "AzureBlobStorage": "azure_blob_storage",
     "AzureBlobFS": "azure_data_lake",
@@ -142,7 +149,7 @@ LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
 }
 
 # Mapping of ADF activity types to DataHub subtypes
-ACTIVITY_SUBTYPE_MAP: Dict[str, str] = {
+ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
     "Copy": "Copy Activity",
     "DataFlow": "Data Flow Activity",
     "ExecutePipeline": "Execute Pipeline",
@@ -227,20 +234,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             subscription_id=config.subscription_id,
         )
 
-        # Cache for datasets, linked services, data flows, and triggers (per factory)
-        self._datasets_cache: Dict[str, Dict[str, AdfDataset]] = {}
-        self._linked_services_cache: Dict[str, Dict[str, LinkedService]] = {}
-        self._data_flows_cache: Dict[str, Dict[str, AdfDataFlow]] = {}
-        self._triggers_cache: Dict[str, List[Trigger]] = {}
+        # Cache for datasets, linked services, data flows, pipelines, and triggers (per factory)
+        self._datasets_cache: dict[str, dict[str, AdfDataset]] = {}
+        self._linked_services_cache: dict[str, dict[str, LinkedService]] = {}
+        self._data_flows_cache: dict[str, dict[str, AdfDataFlow]] = {}
+        self._pipelines_cache: dict[str, dict[str, Pipeline]] = {}
+        self._triggers_cache: dict[str, list[Trigger]] = {}
 
     @classmethod
     def create(
-        cls, config_dict: Dict, ctx: PipelineContext
+        cls, config_dict: dict, ctx: PipelineContext
     ) -> "AzureDataFactorySource":
         config = AzureDataFactoryConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
             StaleEntityRemovalHandler.create(
@@ -332,7 +340,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
     def _emit_factory(
         self, factory: Factory, resource_group: str
-    ) -> Tuple[Container, Iterable[MetadataWorkUnit]]:
+    ) -> tuple[Container, Iterable[MetadataWorkUnit]]:
         """Emit a Data Factory as a Container.
 
         Returns:
@@ -348,7 +356,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         )
 
         # Build custom properties
-        custom_props: Dict[str, str] = {
+        custom_props: dict[str, str] = {
             "azure_resource_id": factory.id,
             "location": factory.location,
         }
@@ -382,7 +390,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     def _process_pipelines(
         self, factory: Factory, resource_group: str, container: Container
     ) -> Iterable[MetadataWorkUnit]:
-        """Process all pipelines in a factory.
+        """Process all pipelines in a factory using two-pass approach.
+
+        First pass: Fetch and cache all pipelines for the factory.
+        Second pass: Process pipelines and emit entities with proper lineage.
+
+        This two-pass approach enables ExecutePipeline activities to reference
+        child pipelines that may not have been processed yet.
 
         Args:
             factory: The Data Factory
@@ -391,16 +405,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         """
         factory_key = f"{resource_group}/{factory.name}"
 
+        # First pass: Cache all pipelines for this factory
+        self._pipelines_cache[factory_key] = {}
         for pipeline in self.client.get_pipelines(resource_group, factory.name):
             self.report.report_api_call()
+            self._pipelines_cache[factory_key][pipeline.name] = pipeline
 
+        # Second pass: Process pipelines and emit entities
+        for pipeline_name, pipeline in self._pipelines_cache[factory_key].items():
             # Check if pipeline matches pattern
-            if not self.config.pipeline_pattern.allowed(pipeline.name):
-                self.report.report_pipeline_filtered(pipeline.name)
+            if not self.config.pipeline_pattern.allowed(pipeline_name):
+                self.report.report_pipeline_filtered(pipeline_name)
                 continue
 
             self.report.report_pipeline_scanned()
-            logger.debug(f"Processing pipeline: {factory.name}/{pipeline.name}")
+            logger.debug(f"Processing pipeline: {factory.name}/{pipeline_name}")
 
             # Emit pipeline as DataFlow, passing the Container for proper browse paths
             dataflow = self._create_dataflow(
@@ -411,7 +430,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             # Emit activities as DataJobs
             if pipeline.properties is None:
                 logger.warning(
-                    f"Pipeline {pipeline.name} has no properties, skipping activities"
+                    f"Pipeline {pipeline_name} has no properties, skipping activities"
                 )
                 continue
             for activity in pipeline.properties.activities:
@@ -426,6 +445,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 if activity.type == "ExecuteDataFlow":
                     yield from self._emit_data_flow_script(
                         activity, datajob, factory_key
+                    )
+
+                # Emit pipeline-to-pipeline lineage for ExecutePipeline activities
+                if activity.type == "ExecutePipeline":
+                    yield from self._emit_pipeline_lineage(
+                        activity, datajob, factory, factory_key
                     )
 
     def _create_dataflow(
@@ -447,7 +472,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         flow_name = f"{factory.name}.{pipeline.name}"
 
         # Custom properties
-        custom_props: Dict[str, str] = {
+        custom_props: dict[str, str] = {
             "azure_resource_id": pipeline.id,
             "factory_name": factory.name,
         }
@@ -491,7 +516,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
     def _get_pipeline_triggers(
         self, resource_group: str, factory_name: str, pipeline_name: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Get trigger names associated with a pipeline."""
         if not self.config.include_triggers:
             return []
@@ -537,7 +562,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         subtype = ACTIVITY_SUBTYPE_MAP.get(activity.type, activity.type)
 
         # Custom properties
-        custom_props: Dict[str, str] = {
+        custom_props: dict[str, str] = {
             "activity_type": activity.type,
         }
         if activity.description:
@@ -551,8 +576,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 custom_props["retry"] = str(activity.policy["retry"])
 
         # Extract lineage (inlets/outlets)
-        inlets: Optional[List[str]] = None
-        outlets: Optional[List[str]] = None
+        inlets: Optional[list[DatasetUrnOrStr]] = None
+        outlets: Optional[list[DatasetUrnOrStr]] = None
 
         if self.config.include_lineage:
             extracted_inlets = self._extract_activity_inputs(activity, factory_key)
@@ -572,17 +597,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             external_url=self._get_pipeline_url(factory, resource_group, pipeline.name),
             custom_properties=custom_props,
             subtype=subtype,
-            inlets=inlets,  # type: ignore[arg-type]
-            outlets=outlets,  # type: ignore[arg-type]
+            inlets=inlets,
+            outlets=outlets,
         )
 
         return datajob
 
     def _extract_activity_inputs(
         self, activity: Activity, factory_key: str
-    ) -> List[str]:
+    ) -> list[DatasetUrnOrStr]:
         """Extract input dataset URNs from an activity."""
-        inputs: List[str] = []
+        inputs: list[DatasetUrnOrStr] = []
 
         # Process explicit inputs (for Copy activities and others)
         for input_ref in activity.inputs:
@@ -614,9 +639,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
     def _extract_activity_outputs(
         self, activity: Activity, factory_key: str
-    ) -> List[str]:
+    ) -> list[DatasetUrnOrStr]:
         """Extract output dataset URNs from an activity."""
-        outputs: List[str] = []
+        outputs: list[DatasetUrnOrStr] = []
 
         # Process explicit outputs (for Copy activities and others)
         for output_ref in activity.outputs:
@@ -744,22 +769,24 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-    def _extract_data_flow_sources(
-        self, activity: Activity, factory_key: str
-    ) -> List[str]:
-        """Extract source dataset URNs from a Data Flow activity.
+    def _extract_data_flow_endpoints(
+        self, activity: Activity, factory_key: str, endpoint_type: str
+    ) -> list[str]:
+        """Extract source or sink dataset URNs from a Data Flow activity.
 
         Data Flow activities reference a Data Flow definition which contains
-        sources (inputs) and sinks (outputs). This method extracts the sources.
+        sources (inputs) and sinks (outputs). This method extracts either based
+        on the endpoint_type parameter.
 
         Args:
             activity: The ExecuteDataFlow activity
             factory_key: Factory key for cache lookup
+            endpoint_type: "sources" or "sinks"
 
         Returns:
-            List of source dataset URNs
+            List of dataset URNs for the specified endpoint type
         """
-        inputs: List[str] = []
+        urns: list[str] = []
 
         # Get the Data Flow name using our robust lookup
         data_flow_name = self._get_data_flow_name_from_activity(activity, factory_key)
@@ -768,7 +795,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             logger.debug(
                 f"Could not find Data Flow reference for activity: {activity.name}"
             )
-            return inputs
+            return urns
 
         # Look up the Data Flow definition
         data_flows = self._data_flows_cache.get(factory_key, {})
@@ -776,73 +803,130 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         if not data_flow:
             logger.debug(f"Data Flow not found in cache: {data_flow_name}")
-            return inputs
+            return urns
 
-        # Extract sources from the Data Flow
+        # Extract endpoints from the Data Flow
         if data_flow.properties:
-            for source in data_flow.properties.sources:
-                if source.dataset:
+            endpoints = getattr(data_flow.properties, endpoint_type, [])
+            endpoint_label = endpoint_type[:-1]  # "sources" -> "source"
+            for endpoint in endpoints:
+                if endpoint.dataset:
                     dataset_urn = self._resolve_dataset_urn(
-                        source.dataset.reference_name, factory_key
+                        endpoint.dataset.reference_name, factory_key
                     )
                     if dataset_urn:
-                        inputs.append(str(dataset_urn))
+                        urns.append(str(dataset_urn))
                         self.report.report_lineage_extracted()
                         logger.debug(
-                            f"Extracted Data Flow source: {source.name} -> {dataset_urn}"
+                            f"Extracted Data Flow {endpoint_label}: {endpoint.name} -> {dataset_urn}"
                         )
 
-        return inputs
+        return urns
+
+    def _extract_data_flow_sources(
+        self, activity: Activity, factory_key: str
+    ) -> list[str]:
+        """Extract source dataset URNs from a Data Flow activity."""
+        return self._extract_data_flow_endpoints(activity, factory_key, "sources")
 
     def _extract_data_flow_sinks(
         self, activity: Activity, factory_key: str
-    ) -> List[str]:
-        """Extract sink dataset URNs from a Data Flow activity.
+    ) -> list[str]:
+        """Extract sink dataset URNs from a Data Flow activity."""
+        return self._extract_data_flow_endpoints(activity, factory_key, "sinks")
 
-        Data Flow activities reference a Data Flow definition which contains
-        sources (inputs) and sinks (outputs). This method extracts the sinks.
+    def _emit_pipeline_lineage(
+        self,
+        activity: Activity,
+        datajob: DataJob,
+        factory: Factory,
+        factory_key: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit pipeline-to-pipeline lineage for ExecutePipeline activities.
+
+        When a pipeline calls another pipeline via ExecutePipeline activity,
+        we create a DataJob-to-DataJob dependency from the calling activity
+        to the first activity in the child pipeline. This creates visible
+        lineage edges in the DataHub UI.
 
         Args:
-            activity: The ExecuteDataFlow activity
-            factory_key: Factory key for cache lookup
+            activity: The ExecutePipeline activity
+            datajob: The DataJob entity for this activity
+            factory: The parent Data Factory
+            factory_key: Factory key for URN construction
 
-        Returns:
-            List of sink dataset URNs
+        Yields:
+            MetadataWorkUnit for the pipeline dependency
         """
-        outputs: List[str] = []
+        if not activity.type_properties:
+            return
 
-        # Get the Data Flow name using our robust lookup
-        data_flow_name = self._get_data_flow_name_from_activity(activity, factory_key)
+        # Extract the child pipeline reference from typeProperties
+        pipeline_ref = activity.type_properties.get("pipeline", {})
+        child_pipeline_name = pipeline_ref.get("referenceName")
 
-        if not data_flow_name:
+        if not child_pipeline_name:
             logger.debug(
-                f"Could not find Data Flow reference for activity: {activity.name}"
+                f"ExecutePipeline activity {activity.name} has no pipeline reference"
             )
-            return outputs
+            return
 
-        # Look up the Data Flow definition
-        data_flows = self._data_flows_cache.get(factory_key, {})
-        data_flow = data_flows.get(data_flow_name)
+        # Build the child pipeline's DataFlow URN
+        child_flow_id = f"{factory.name}.{child_pipeline_name}"
+        child_flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=PLATFORM,
+            flow_id=child_flow_id,
+            env=self.config.env,
+        )
 
-        if not data_flow:
-            logger.debug(f"Data Flow not found in cache: {data_flow_name}")
-            return outputs
+        # Look up child pipeline from cache to get its first activity
+        pipelines = self._pipelines_cache.get(factory_key, {})
+        child_pipeline = pipelines.get(child_pipeline_name)
 
-        # Extract sinks from the Data Flow
-        if data_flow.properties:
-            for sink in data_flow.properties.sinks:
-                if sink.dataset:
-                    dataset_urn = self._resolve_dataset_urn(
-                        sink.dataset.reference_name, factory_key
-                    )
-                    if dataset_urn:
-                        outputs.append(str(dataset_urn))
-                        self.report.report_lineage_extracted()
-                        logger.debug(
-                            f"Extracted Data Flow sink: {sink.name} -> {dataset_urn}"
-                        )
+        child_datajob_urn: Optional[DataJobUrn] = None
+        first_activity_name: Optional[str] = None
 
-        return outputs
+        if child_pipeline and child_pipeline.properties:
+            activities = child_pipeline.properties.activities
+            if activities:
+                first_activity_name = activities[0].name
+                child_datajob_urn = DataJobUrn.create_from_ids(
+                    data_flow_urn=str(child_flow_urn),
+                    job_id=first_activity_name,
+                )
+                logger.debug(
+                    f"ExecutePipeline {activity.name} -> {child_pipeline_name}."
+                    f"{first_activity_name} (URN: {child_datajob_urn})"
+                )
+        else:
+            logger.debug(
+                f"Child pipeline {child_pipeline_name} not found in cache or has no activities"
+            )
+
+        # Update custom properties to include the child pipeline reference
+        current_props = datajob.custom_properties
+        current_props["calls_pipeline"] = child_pipeline_name
+        current_props["child_pipeline_urn"] = str(child_flow_urn)
+        if first_activity_name:
+            current_props["child_first_activity"] = first_activity_name
+        datajob.set_custom_properties(current_props)
+
+        self.report.report_lineage_extracted()
+
+        # Emit DataJobInputOutput with the child DataJob as an input dependency
+        # This creates a visible lineage edge in the DataHub UI
+        input_datajobs: list[str] = []
+        if child_datajob_urn:
+            input_datajobs.append(str(child_datajob_urn))
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(datajob.urn),
+            aspect=DataJobInputOutputClass(
+                inputDatasets=[],
+                outputDatasets=[],
+                inputDatajobs=input_datajobs,
+            ),
+        ).as_workunit()
 
     def _resolve_dataset_urn(
         self, dataset_name: str, factory_key: str
@@ -980,12 +1064,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         result = self._map_run_status(pipeline_run.status)
 
         # Build custom properties
-        properties: Dict[str, str] = {
+        properties: dict[str, str] = {
             "run_id": pipeline_run.run_id,
             "status": pipeline_run.status,
         }
         if pipeline_run.message:
-            properties["message"] = pipeline_run.message[:500]  # Truncate long messages
+            properties["message"] = pipeline_run.message[:MAX_RUN_MESSAGE_LENGTH]
         if pipeline_run.invoked_by:
             invoker_name = pipeline_run.invoked_by.get("name", "")
             invoker_type = pipeline_run.invoked_by.get("invokedByType", "")
@@ -995,9 +1079,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 properties["invoked_by_type"] = invoker_type
         if pipeline_run.parameters:
             for key, value in list(pipeline_run.parameters.items())[
-                :10
-            ]:  # Limit params
-                properties[f"param:{key}"] = str(value)[:100]
+                :MAX_RUN_PARAMETERS
+            ]:
+                properties[f"param:{key}"] = str(value)[:MAX_PARAMETER_VALUE_LENGTH]
 
         # Create DataProcessInstance
         dpi = DataProcessInstance(

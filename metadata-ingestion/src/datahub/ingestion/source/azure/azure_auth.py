@@ -137,13 +137,19 @@ class AzureCredentialConfig(ConfigModel):
             ValueError: If required credentials are missing for the chosen method.
         """
         if self.authentication_method == AzureAuthenticationMethod.SERVICE_PRINCIPAL:
+            # Validate all required fields (also validated in validate_credentials())
             if not self.client_secret:
                 raise ValueError(
                     "client_secret is required for service_principal authentication"
                 )
-            # These are validated as required in validate_credentials()
-            assert self.tenant_id is not None
-            assert self.client_id is not None
+            if not self.tenant_id:
+                raise ValueError(
+                    "tenant_id is required for service_principal authentication"
+                )
+            if not self.client_id:
+                raise ValueError(
+                    "client_id is required for service_principal authentication"
+                )
             return ClientSecretCredential(
                 tenant_id=self.tenant_id,
                 client_id=self.client_id,

@@ -32,6 +32,9 @@ from datahub.ingestion.source.azure_data_factory.adf_models import (
 
 logger = logging.getLogger(__name__)
 
+# Maximum retention period for activity run queries (Azure limit)
+MAX_ACTIVITY_RUN_RETENTION_DAYS = 90
+
 
 class AzureDataFactoryClient:
     """Client for Azure Data Factory REST API.
@@ -391,7 +394,7 @@ class AzureDataFactoryClient:
         """
         try:
             end_time = datetime.now(timezone.utc)
-            start_time = end_time - timedelta(days=90)  # Max retention
+            start_time = end_time - timedelta(days=MAX_ACTIVITY_RUN_RETENTION_DAYS)
 
             # POST /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.DataFactory/factories/{factoryName}/pipelineruns/{runId}/queryActivityruns
             # Docs: https://learn.microsoft.com/en-us/rest/api/datafactory/activity-runs/query-by-pipeline-run

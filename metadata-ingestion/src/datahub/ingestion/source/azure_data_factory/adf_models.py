@@ -7,9 +7,63 @@ API Documentation: https://learn.microsoft.com/en-us/rest/api/datafactory/
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing_extensions import TypedDict
+
+# Type aliases for common JSON value types in ADF API responses
+# Azure API parameters and variables can contain primitive types
+JsonPrimitive = Union[str, int, float, bool, None]
+
+
+# TypedDict for well-known structures in ADF API responses
+class FolderInfo(TypedDict, total=False):
+    """Folder organization structure used by pipelines, datasets, etc."""
+
+    name: str
+
+
+class InvokedByInfo(TypedDict, total=False):
+    """Information about what triggered a pipeline run."""
+
+    name: str
+    id: str
+    invokedByType: str
+
+
+class UserProperty(TypedDict, total=False):
+    """User-defined property on an activity."""
+
+    name: str
+    value: str
+
+
+class IntegrationRuntimeReference(TypedDict, total=False):
+    """Reference to an integration runtime."""
+
+    referenceName: str
+    type: str
+
+
+class ActivityPolicy(TypedDict, total=False):
+    """Execution policy for an activity."""
+
+    timeout: str
+    retry: int
+    retryIntervalInSeconds: int
+    secureInput: bool
+    secureOutput: bool
+
+
+class SchemaColumn(TypedDict, total=False):
+    """Column definition in a dataset schema."""
+
+    name: str
+    type: str
+    physicalType: str
+    precision: int
+    scale: int
 
 
 class AdfResource(BaseModel):
@@ -70,7 +124,7 @@ class DatasetReference(BaseModel):
 
     reference_name: str = Field(alias="referenceName", description="Dataset name")
     type: str = Field(default="DatasetReference", description="Reference type")
-    parameters: dict[str, Any] = Field(
+    parameters: dict[str, JsonPrimitive] = Field(
         default_factory=dict, description="Dataset parameters"
     )
 
@@ -84,7 +138,7 @@ class LinkedServiceReference(BaseModel):
         alias="referenceName", description="Linked service name"
     )
     type: str = Field(default="LinkedServiceReference", description="Reference type")
-    parameters: dict[str, Any] = Field(
+    parameters: dict[str, JsonPrimitive] = Field(
         default_factory=dict, description="Linked service parameters"
     )
 
@@ -94,7 +148,7 @@ class ActivityInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    # For Copy activities
+    # For Copy activities - source config varies by source type (SQL, Blob, etc.)
     source: Optional[dict[str, Any]] = Field(
         default=None, description="Source configuration"
     )
@@ -110,7 +164,7 @@ class ActivityOutput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    # For Copy activities
+    # For Copy activities - sink config varies by sink type
     sink: Optional[dict[str, Any]] = Field(
         default=None, description="Sink configuration"
     )
@@ -140,7 +194,9 @@ class Activity(BaseModel):
         default_factory=list, alias="dependsOn", description="Activity dependencies"
     )
 
-    # Type-specific properties stored here
+    # Type-specific properties vary by activity type (Copy, DataFlow, ExecutePipeline, etc.)
+    # Contains nested structures like {"pipeline": {"referenceName": "...", "type": "..."}}
+    # Uses Any due to deeply nested and varying structures from Azure API
     type_properties: Optional[dict[str, Any]] = Field(
         default=None, alias="typeProperties", description="Type-specific properties"
     )
@@ -161,12 +217,12 @@ class Activity(BaseModel):
     )
 
     # Policy
-    policy: Optional[dict[str, Any]] = Field(
+    policy: Optional[ActivityPolicy] = Field(
         default=None, description="Activity execution policy"
     )
 
     # User properties
-    user_properties: list[dict[str, Any]] = Field(
+    user_properties: list[UserProperty] = Field(
         default_factory=list,
         alias="userProperties",
         description="User-defined properties",
@@ -182,9 +238,11 @@ class PipelineProperties(BaseModel):
     activities: list[Activity] = Field(
         default_factory=list, description="Pipeline activities"
     )
+    # Parameters have complex structure: {"name": {"type": "String", "defaultValue": ...}}
     parameters: dict[str, Any] = Field(
         default_factory=dict, description="Pipeline parameters"
     )
+    # Variables have complex structure similar to parameters
     variables: dict[str, Any] = Field(
         default_factory=dict, description="Pipeline variables"
     )
@@ -192,7 +250,7 @@ class PipelineProperties(BaseModel):
     annotations: list[str] = Field(
         default_factory=list, description="Pipeline annotations"
     )
-    folder: Optional[dict[str, str]] = Field(
+    folder: Optional[FolderInfo] = Field(
         default=None, description="Folder path for organization"
     )
 
@@ -216,9 +274,11 @@ class Pipeline(AdfResource):
     activities: list[Activity] = Field(
         default_factory=list, description="Pipeline activities"
     )
+    # Parameters have complex structure: {"name": {"type": "String", "defaultValue": ...}}
     parameters: dict[str, Any] = Field(
         default_factory=dict, description="Pipeline parameters"
     )
+    # Variables have complex structure similar to parameters
     variables: dict[str, Any] = Field(
         default_factory=dict, description="Pipeline variables"
     )
@@ -226,7 +286,7 @@ class Pipeline(AdfResource):
     annotations: list[str] = Field(
         default_factory=list, description="Pipeline annotations"
     )
-    folder: Optional[dict[str, str]] = Field(
+    folder: Optional[FolderInfo] = Field(
         default=None, description="Folder path for organization"
     )
 
@@ -256,31 +316,34 @@ class DatasetProperties(BaseModel):
     linked_service_name: LinkedServiceReference = Field(
         alias="linkedServiceName", description="Associated linked service"
     )
+    # Parameters can have complex structure: {"name": {"type": "String"}}
     parameters: dict[str, Any] = Field(
         default_factory=dict, description="Dataset parameters"
     )
     annotations: list[str] = Field(
         default_factory=list, description="Dataset annotations"
     )
-    folder: Optional[dict[str, str]] = Field(
+    folder: Optional[FolderInfo] = Field(
         default=None, description="Folder path for organization"
     )
     type: str = Field(
         description="Dataset type (e.g., AzureBlobDataset, DelimitedTextDataset)"
     )
 
-    # Type-specific properties
+    # Type-specific properties vary by dataset type (AzureBlobDataset, SqlTable, etc.)
+    # Contains nested structures for connection details, file paths, etc.
+    # Uses Any due to deeply nested and varying structures from Azure API
     type_properties: Optional[dict[str, Any]] = Field(
         default=None, alias="typeProperties", description="Type-specific properties"
     )
 
     # Schema (optional) - named schema_definition to avoid conflict with Pydantic's schema method
-    schema_definition: Optional[list[dict[str, Any]]] = Field(
+    schema_definition: Optional[list[SchemaColumn]] = Field(
         default=None, alias="schema", description="Dataset schema definition"
     )
 
     # Structure (legacy schema format)
-    structure: Optional[list[dict[str, Any]]] = Field(
+    structure: Optional[list[SchemaColumn]] = Field(
         default=None, description="Dataset structure (legacy)"
     )
 
@@ -305,13 +368,15 @@ class LinkedServiceProperties(BaseModel):
     type: str = Field(
         description="Linked service type (e.g., AzureBlobStorage, AzureSqlDatabase)"
     )
+    # Type-specific properties vary by linked service type (SQL, Blob, etc.)
+    # Uses Any due to deeply nested and varying structures from Azure API
     type_properties: Optional[dict[str, Any]] = Field(
         default=None, alias="typeProperties", description="Type-specific properties"
     )
     annotations: list[str] = Field(
         default_factory=list, description="Linked service annotations"
     )
-    connect_via: Optional[dict[str, Any]] = Field(
+    connect_via: Optional[IntegrationRuntimeReference] = Field(
         default=None, alias="connectVia", description="Integration runtime reference"
     )
 
@@ -359,6 +424,13 @@ class DataFlowSink(BaseModel):
     )
 
 
+class DataFlowTransformation(TypedDict, total=False):
+    """Transformation step in a data flow."""
+
+    name: str
+    description: str
+
+
 class DataFlowProperties(BaseModel):
     """Properties of a mapping data flow."""
 
@@ -368,13 +440,15 @@ class DataFlowProperties(BaseModel):
         default=None, description="Data flow description"
     )
     type: str = Field(default="MappingDataFlow", description="Data flow type")
+    # Type-specific properties contain sources, sinks, transformations, scripts
+    # Uses Any due to deeply nested and varying structures from Azure API
     type_properties: Optional[dict[str, Any]] = Field(
         default=None, alias="typeProperties", description="Type-specific properties"
     )
     annotations: list[str] = Field(
         default_factory=list, description="Data flow annotations"
     )
-    folder: Optional[dict[str, str]] = Field(
+    folder: Optional[FolderInfo] = Field(
         default=None, description="Folder path for organization"
     )
 
@@ -387,7 +461,7 @@ class DataFlowProperties(BaseModel):
     )
 
     # Transformations and script
-    transformations: list[dict[str, Any]] = Field(
+    transformations: list[DataFlowTransformation] = Field(
         default_factory=list, description="Data flow transformations"
     )
     script_lines: list[str] = Field(
@@ -412,6 +486,13 @@ class DataFlow(AdfResource):
     properties: DataFlowProperties = Field(description="Data flow properties")
 
 
+class TriggerPipelineReference(TypedDict, total=False):
+    """Reference to a pipeline from a trigger."""
+
+    pipelineReference: dict[str, str]
+    parameters: dict[str, str]
+
+
 class TriggerProperties(BaseModel):
     """Properties of a trigger."""
 
@@ -426,13 +507,15 @@ class TriggerProperties(BaseModel):
         alias="runtimeState",
         description="Trigger state (Started, Stopped)",
     )
+    # Type-specific properties vary by trigger type (Schedule, BlobEvents, etc.)
+    # Uses Any due to deeply nested and varying structures from Azure API
     type_properties: Optional[dict[str, Any]] = Field(
         default=None, alias="typeProperties", description="Type-specific properties"
     )
     annotations: list[str] = Field(
         default_factory=list, description="Trigger annotations"
     )
-    pipelines: list[dict[str, Any]] = Field(
+    pipelines: list[TriggerPipelineReference] = Field(
         default_factory=list, description="Pipelines triggered"
     )
 
@@ -470,7 +553,7 @@ class PipelineRun(BaseModel):
     parameters: dict[str, str] = Field(
         default_factory=dict, description="Run parameters"
     )
-    invoked_by: Optional[dict[str, str]] = Field(
+    invoked_by: Optional[InvokedByInfo] = Field(
         default=None,
         alias="invokedBy",
         description="Trigger or user that invoked the run",
@@ -513,6 +596,8 @@ class ActivityRun(BaseModel):
     duration_in_ms: Optional[int] = Field(
         default=None, alias="durationInMs", description="Duration in milliseconds"
     )
+    # Input/output/error contain runtime data that varies by activity type
+    # These can contain deeply nested structures from Azure API
     input: Optional[dict[str, Any]] = Field(default=None, description="Activity input")
     output: Optional[dict[str, Any]] = Field(
         default=None, description="Activity output"
@@ -530,6 +615,7 @@ class ListResponse(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
+    # Resources contain nested structures that vary by type
     value: list[dict[str, Any]] = Field(description="List of resources")
     next_link: Optional[str] = Field(
         default=None, alias="nextLink", description="URL for next page of results"

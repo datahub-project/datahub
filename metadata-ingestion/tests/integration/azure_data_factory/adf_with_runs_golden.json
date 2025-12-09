@@ -1,13 +1,13 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
+    "entityUrn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "platform": "azure_data_factory",
+                "platform": "azure-data-factory",
                 "env": "PROD",
                 "resource_group": "test-resource-group",
                 "factory_name": "test-data-factory",
@@ -31,12 +31,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
+    "entityUrn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -47,7 +47,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
+    "entityUrn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -65,7 +65,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
+    "entityUrn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -81,12 +81,12 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -97,7 +97,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -121,7 +121,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -139,12 +139,12 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+            "container": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
         }
     },
     "systemMetadata": {
@@ -155,15 +155,15 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
-                    "urn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+                    "id": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
+                    "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 }
             ]
         }
@@ -176,12 +176,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -192,7 +192,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -209,7 +209,7 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
             "env": "PROD"
         }
     },
@@ -221,7 +221,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -239,7 +239,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -260,19 +260,19 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
-                    "urn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+                    "id": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
+                    "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
                     "id": "test-data-factory.DataIngestionPipeline",
-                    "urn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)"
+                    "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)"
                 }
             ]
         }
@@ -285,12 +285,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -301,7 +301,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -318,7 +318,7 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
             "env": "PROD"
         }
     },
@@ -330,7 +330,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -348,7 +348,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -367,19 +367,19 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
-                    "urn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+                    "id": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
+                    "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
                     "id": "test-data-factory.DataIngestionPipeline",
-                    "urn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)"
+                    "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)"
                 }
             ]
         }
@@ -392,12 +392,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -408,7 +408,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -425,7 +425,7 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
             "env": "PROD"
         }
     },
@@ -437,7 +437,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -455,19 +455,19 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
-                    "urn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+                    "id": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
+                    "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
                     "id": "test-data-factory.DataIngestionPipeline",
-                    "urn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)"
+                    "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)"
                 }
             ]
         }
@@ -480,12 +480,12 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -496,7 +496,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -519,7 +519,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -537,12 +537,12 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+            "container": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
         }
     },
     "systemMetadata": {
@@ -553,15 +553,15 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
-                    "urn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+                    "id": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
+                    "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 }
             ]
         }
@@ -574,12 +574,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:azure_data_factory"
+            "platform": "urn:li:dataPlatform:azure-data-factory"
         }
     },
     "systemMetadata": {
@@ -590,7 +590,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -607,7 +607,7 @@
             "type": {
                 "string": "COMMAND"
             },
-            "flowUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+            "flowUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
             "env": "PROD"
         }
     },
@@ -619,7 +619,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -637,19 +637,19 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
-                    "urn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93"
+                    "id": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
+                    "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
                     "id": "test-data-factory.DataProcessingPipeline",
-                    "urn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)"
+                    "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)"
                 }
             ]
         }
@@ -662,7 +662,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:01640a3ec425fdac43877636b9eeafba",
+    "entityUrn": "urn:li:dataProcessInstance:7aa70b5e31344dc1946c045ef1df4619",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -690,12 +690,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:01640a3ec425fdac43877636b9eeafba",
+    "entityUrn": "urn:li:dataProcessInstance:7aa70b5e31344dc1946c045ef1df4619",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+            "parentTemplate": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
             "upstreamInstances": []
         }
     },
@@ -707,7 +707,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:01640a3ec425fdac43877636b9eeafba",
+    "entityUrn": "urn:li:dataProcessInstance:7aa70b5e31344dc1946c045ef1df4619",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -725,7 +725,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:01640a3ec425fdac43877636b9eeafba",
+    "entityUrn": "urn:li:dataProcessInstance:7aa70b5e31344dc1946c045ef1df4619",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -746,7 +746,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:01640a3ec425fdac43877636b9eeafba",
+    "entityUrn": "urn:li:dataProcessInstance:7aa70b5e31344dc1946c045ef1df4619",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -771,7 +771,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:346ef377189e5b4227f7687c2d3fc47c",
+    "entityUrn": "urn:li:dataProcessInstance:1f3c62dd3b62b29a83221a57582a9bf3",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -799,12 +799,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:346ef377189e5b4227f7687c2d3fc47c",
+    "entityUrn": "urn:li:dataProcessInstance:1f3c62dd3b62b29a83221a57582a9bf3",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+            "parentTemplate": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
             "upstreamInstances": []
         }
     },
@@ -816,7 +816,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:346ef377189e5b4227f7687c2d3fc47c",
+    "entityUrn": "urn:li:dataProcessInstance:1f3c62dd3b62b29a83221a57582a9bf3",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -834,7 +834,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:346ef377189e5b4227f7687c2d3fc47c",
+    "entityUrn": "urn:li:dataProcessInstance:1f3c62dd3b62b29a83221a57582a9bf3",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -855,7 +855,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:346ef377189e5b4227f7687c2d3fc47c",
+    "entityUrn": "urn:li:dataProcessInstance:1f3c62dd3b62b29a83221a57582a9bf3",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -880,7 +880,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:e94dcdc0d6c440103bda5f316ca28a9e",
+    "entityUrn": "urn:li:dataProcessInstance:a9a82c0897d67213837e8ee52e99bd9b",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -908,12 +908,12 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:e94dcdc0d6c440103bda5f316ca28a9e",
+    "entityUrn": "urn:li:dataProcessInstance:a9a82c0897d67213837e8ee52e99bd9b",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+            "parentTemplate": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
             "upstreamInstances": []
         }
     },
@@ -925,7 +925,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:e94dcdc0d6c440103bda5f316ca28a9e",
+    "entityUrn": "urn:li:dataProcessInstance:a9a82c0897d67213837e8ee52e99bd9b",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -943,7 +943,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:e94dcdc0d6c440103bda5f316ca28a9e",
+    "entityUrn": "urn:li:dataProcessInstance:a9a82c0897d67213837e8ee52e99bd9b",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -964,7 +964,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:e94dcdc0d6c440103bda5f316ca28a9e",
+    "entityUrn": "urn:li:dataProcessInstance:a9a82c0897d67213837e8ee52e99bd9b",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
@@ -989,7 +989,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:0690c0f5c38fc7fe7ad0518a59384f93",
+    "entityUrn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1005,7 +1005,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1021,7 +1021,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD)",
+    "entityUrn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1037,7 +1037,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),CopyBlobToSQL)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1053,7 +1053,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),LookupConfig)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1069,7 +1069,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD),TransformData)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1085,7 +1085,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure_data_factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD),CallStoredProc)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1101,7 +1101,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:01640a3ec425fdac43877636b9eeafba",
+    "entityUrn": "urn:li:dataProcessInstance:1f3c62dd3b62b29a83221a57582a9bf3",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1117,7 +1117,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:346ef377189e5b4227f7687c2d3fc47c",
+    "entityUrn": "urn:li:dataProcessInstance:7aa70b5e31344dc1946c045ef1df4619",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1133,7 +1133,7 @@
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:e94dcdc0d6c440103bda5f316ca28a9e",
+    "entityUrn": "urn:li:dataProcessInstance:a9a82c0897d67213837e8ee52e99bd9b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
