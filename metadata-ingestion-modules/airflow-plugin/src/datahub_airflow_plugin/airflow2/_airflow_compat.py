@@ -72,10 +72,13 @@ if enable_extractors and extract_teradata_operator:
         logger.debug("Attempting to import and apply TeradataOperator patch")
         # Use importlib to safely import the patch module
         import importlib.util
-        patch_module_path = "datahub_airflow_plugin.airflow3._teradata_openlineage_patch"
+
+        patch_module_path = (
+            "datahub_airflow_plugin.airflow3._teradata_openlineage_patch"
+        )
         patch_module = importlib.import_module(patch_module_path)
         patch_teradata_operator = patch_module.patch_teradata_operator
-        
+
         patch_teradata_operator()
         logger.debug("TeradataOperator patch import and call completed")
     except ImportError as e:

@@ -32,8 +32,11 @@ try:
 except Exception as e:
     # Log but don't fail - compatibility patches are optional
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.warning(f"Could not import Airflow 2.x compatibility module: {e}. Some patches may not be applied.")
+    logger.warning(
+        f"Could not import Airflow 2.x compatibility module: {e}. Some patches may not be applied."
+    )
 
 # Conditional import for OpenLineage (may not be installed)
 try:
