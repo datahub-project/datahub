@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict
+from typing import Any, Dict, Iterator, List, Optional, TypedDict
 from urllib.parse import urljoin
 
 import requests
@@ -20,6 +20,8 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbyteSourcePartial,
     AirbyteWorkspacePartial,
+    PropertyFieldPath,
+    StreamIdentifier,
 )
 
 """
@@ -276,7 +278,6 @@ class AirbyteBaseClient(ABC):
         if not items:
             return []
 
-        # If allow_all pattern is used, return all items
         if pattern.allow_all():
             return items
 
@@ -324,7 +325,6 @@ class AirbyteBaseClient(ABC):
             )
         )
 
-        # Filter out disabled connections
         active_connections = [
             conn for conn in connections if conn.get("status") != "inactive"
         ]
@@ -474,12 +474,10 @@ class AirbyteBaseClient(ABC):
         ):
             configurations = connection_data.get("configurations", {})
             if "streams" in configurations:
-                # Fetch column schema information from /streams endpoint
                 stream_property_fields = self._fetch_stream_property_fields(
                     connection_data.get("sourceId")
                 )
 
-                # Build syncCatalog from configurations.streams
                 connection_data["syncCatalog"] = self._build_sync_catalog(
                     configurations["streams"], stream_property_fields
                 )
@@ -488,7 +486,7 @@ class AirbyteBaseClient(ABC):
 
     def _fetch_stream_property_fields(
         self, source_id: Optional[str]
-    ) -> Dict[Tuple[str, str], List[List[str]]]:
+    ) -> Dict[StreamIdentifier, List[PropertyFieldPath]]:
         """
         Fetch propertyFields (column names) from /streams endpoint.
 
@@ -496,8 +494,7 @@ class AirbyteBaseClient(ABC):
             source_id: Source ID to fetch streams for
 
         Returns:
-            Dict mapping (stream_name, namespace) tuple to list of property field paths.
-            Each property field is represented as a list of strings (e.g., [["column_name"]] for simple columns).
+            Dict mapping StreamIdentifier to list of PropertyFieldPath objects.
         """
         if not source_id:
             return {}
@@ -510,13 +507,10 @@ class AirbyteBaseClient(ABC):
                 if not isinstance(stream, dict) or not stream.get("propertyFields"):
                     continue
 
-                # Extract stream name (handle field name variations)
                 stream_name = stream.get("streamName") or stream.get("name")
                 if not stream_name or not isinstance(stream_name, str):
                     continue
 
-                # Extract namespace (handle field name variations)
-                # Default to empty string to match return type Dict[Tuple[str, str], ...]
                 namespace = (
                     stream.get("namespace")
                     or stream.get("streamnamespace")
@@ -526,9 +520,18 @@ class AirbyteBaseClient(ABC):
                 if not isinstance(namespace, str):
                     namespace = ""
 
-                stream_property_fields[(stream_name, namespace)] = stream.get(
-                    "propertyFields", []
+                stream_id = StreamIdentifier(
+                    stream_name=stream_name, namespace=namespace
                 )
+                raw_fields = stream.get("propertyFields", [])
+                property_paths = [
+                    PropertyFieldPath(
+                        path=field if isinstance(field, list) else [field]
+                    )
+                    for field in raw_fields
+                    if field
+                ]
+                stream_property_fields[stream_id] = property_paths
 
             if stream_property_fields:
                 logger.debug(
@@ -547,32 +550,30 @@ class AirbyteBaseClient(ABC):
     def _build_sync_catalog(
         self,
         config_streams: List[Dict[str, Any]],
-        stream_property_fields: Dict[Tuple[str, str], List[List[str]]],
+        stream_property_fields: Dict[StreamIdentifier, List[PropertyFieldPath]],
     ) -> SyncCatalogDict:
         """
         Build syncCatalog structure from configurations.streams.
 
         Args:
             config_streams: List of stream dicts from configurations (raw API response)
-            stream_property_fields: Property fields from /streams endpoint, mapping (stream_name, namespace) to column paths
+            stream_property_fields: Property fields from /streams endpoint, mapping StreamIdentifier to PropertyFieldPath objects
 
         Returns:
             syncCatalog dict with streams array
         """
         streams: List[StreamSyncDict] = []
         for stream in config_streams:
-            # Extract name and namespace with type safety
             name = stream.get("name")
             namespace = stream.get("namespace")
 
-            # Ensure types match TypedDict requirements
             if not isinstance(name, str):
                 name = str(name) if name is not None else ""
             if not isinstance(namespace, str):
                 namespace = str(namespace) if namespace is not None else ""
 
-            # Get property fields using properly typed tuple key
-            property_fields = stream_property_fields.get((name, namespace))
+            stream_id = StreamIdentifier(stream_name=name, namespace=namespace)
+            property_fields = stream_property_fields.get(stream_id)
 
             stream_schema: StreamSchemaDict = {
                 "name": name,
@@ -614,24 +615,22 @@ class AirbyteBaseClient(ABC):
     def _get_json_schema_for_stream(
         self,
         stream: Dict[str, Any],
-        property_fields: Optional[List[List[str]]] = None,
+        property_fields: Optional[List[PropertyFieldPath]] = None,
     ) -> Dict[str, object]:
         """Get jsonSchema for a stream, converting propertyFields if needed.
 
         Args:
             stream: Stream data dict from configurations (raw API response)
-            property_fields: propertyFields from /streams endpoint (if available), where each field is a list of strings representing the path
+            property_fields: Property fields from /streams endpoint (if available)
 
         Returns:
             jsonSchema dict with properties (structure varies by schema), or empty dict if not available
         """
-        # Priority 1: Convert propertyFields from /streams endpoint to jsonSchema format
-        # This is the primary source in modern Airbyte (1.8+) public API
+        # Priority 1: propertyFields from /streams endpoint (Airbyte 1.8+)
         if property_fields:
             properties = {}
-            for field in property_fields:
-                # propertyFields is [[field_name], ...] format
-                field_name = field[0] if isinstance(field, list) and field else field
+            for field_path in property_fields:
+                field_name = field_path.field_name
                 if field_name:
                     properties[field_name] = {
                         "type": ["null", "string"]
@@ -640,14 +639,13 @@ class AirbyteBaseClient(ABC):
             if properties:
                 return {"type": "object", "properties": properties}
 
-        # Priority 2: Check if configurations already has jsonSchema
-        # This is rare/non-existent in public API but may exist in other deployments
+        # Priority 2: jsonSchema from configurations (rare in public API)
         if stream.get("jsonSchema"):
             return stream["jsonSchema"]
         if stream.get("json_schema"):
             return stream["json_schema"]
 
-        # Priority 3: Empty schema (no column-level lineage available)
+        # Priority 3: Empty schema (no column-level lineage)
         return {}
 
     def list_streams(
@@ -786,12 +784,10 @@ class AirbyteCloudClient(AirbyteBaseClient):
         """
         super().__init__(config)
 
-        # Set the workspace ID
         self.workspace_id = config.cloud_workspace_id
         if not self.workspace_id:
             raise ValueError("Workspace ID is required for Airbyte Cloud")
 
-        # Use configurable URLs from config
         self.base_url = config.cloud_api_url
         self.token_url = config.cloud_oauth_token_url
 
@@ -846,10 +842,8 @@ class AirbyteCloudClient(AirbyteBaseClient):
             token_data = response.json()
             self.access_token = token_data.get("access_token")
             expires_in = token_data.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
-            # Store the actual expiry time (buffer applied when checking)
             self.token_expiry = time.time() + expires_in
 
-            # Update session headers with the new token
             self.session.headers.update(
                 {"Authorization": f"Bearer {self.access_token}"}
             )
@@ -876,7 +870,6 @@ class AirbyteCloudClient(AirbyteBaseClient):
                     f"Received {e.response.status_code}, attempting token refresh"
                 )
                 try:
-                    # Refresh token and retry
                     logger.info("Refreshing token after server invalidation")
                     self._refresh_oauth_token()
 

@@ -39,14 +39,19 @@ from datahub.ingestion.source.airbyte.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.airbyte.models import (
+    AirbyteConnectionPartial,
     AirbyteDatasetUrns,
     AirbyteDestinationPartial,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
+    AirbyteStreamConfig,
     AirbyteStreamDetails,
+    AirbyteStreamInfo,
     AirbyteTagInfo,
     DataFlowResult,
     DataJobResult,
+    PlatformInfo,
+    PropertyFieldPath,
     ValidatedPipelineIds,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -158,12 +163,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self._warned_source_ids: set[str] = set()
         self._warned_destination_ids: set[str] = set()
         self.known_urns: set[str] = set()
-        self._source_platform_cache: Dict[
-            str, tuple[str, Optional[str], Optional[str]]
-        ] = {}
-        self._dest_platform_cache: Dict[
-            str, tuple[str, Optional[str], Optional[str]]
-        ] = {}
+        self._source_platform_cache: Dict[str, PlatformInfo] = {}
+        self._dest_platform_cache: Dict[str, PlatformInfo] = {}
 
         logger.debug(
             "Initialized Airbyte source with deployment type: %s",
@@ -177,10 +178,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         config = AirbyteSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def _get_platform_for_source(
-        self, source: AirbyteSourcePartial
-    ) -> tuple[str, Optional[str], Optional[str]]:
-        """Return (platform, platform_instance, env) for source."""
+    def _get_platform_for_source(self, source: AirbyteSourcePartial) -> PlatformInfo:
+        """Return platform information for source."""
         if source.source_id in self._source_platform_cache:
             return self._source_platform_cache[source.source_id]
 
@@ -215,17 +214,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self._warned_source_ids.add(source.source_id)
             platform = ""
 
-        platform_instance = source_details.platform_instance
-        env = source_details.env
-
-        result = (platform, platform_instance, env)
+        result = PlatformInfo(
+            platform=platform,
+            platform_instance=source_details.platform_instance,
+            env=source_details.env,
+        )
         self._source_platform_cache[source.source_id] = result
         return result
 
     def _get_platform_for_destination(
         self, destination: AirbyteDestinationPartial
-    ) -> tuple[str, Optional[str], Optional[str]]:
-        """Return (platform, platform_instance, env) for destination."""
+    ) -> PlatformInfo:
+        """Return platform information for destination."""
         if destination.destination_id in self._dest_platform_cache:
             return self._dest_platform_cache[destination.destination_id]
 
@@ -260,10 +260,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self._warned_destination_ids.add(destination.destination_id)
             platform = ""
 
-        platform_instance = dest_details.platform_instance
-        env = dest_details.env
-
-        result = (platform, platform_instance, env)
+        result = PlatformInfo(
+            platform=platform,
+            platform_instance=dest_details.platform_instance,
+            env=dest_details.env,
+        )
         self._dest_platform_cache[destination.destination_id] = result
         return result
 
@@ -500,7 +501,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         connection_id = pipeline_info.connection.connection_id
         workspace_id = pipeline_info.workspace.workspace_id
 
-        # Use the configured start and end dates for job filtering
         try:
             jobs = self.client.list_jobs(
                 connection_id=connection_id,
@@ -609,7 +609,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
     def _fetch_streams_for_source(
         self, pipeline_info: AirbytePipelineInfo
-    ) -> List[AirbyteStreamDetails]:
+    ) -> List[AirbyteStreamInfo]:
         """Fetch stream details from connection sync catalog.
 
         Note: pipeline_info is validated in _get_pipelines, so source is guaranteed to exist.
@@ -629,7 +629,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return []
 
-        # Extract streams from connection sync catalog
         streams = []
         if not pipeline_info.connection.sync_catalog:
             self.report.warning(
@@ -659,7 +658,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 if not stream_config or not stream_config.stream:
                     logger.debug("Skipping stream_config with no stream")
                     continue
-                # Skip disabled streams
                 if not stream_config.is_enabled():
                     logger.debug(
                         f"Skipping disabled stream: {stream_config.stream.name if stream_config.stream else 'unknown'}"
@@ -667,12 +665,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     continue
 
                 stream = stream_config.stream
-                # Use the namespace from the stream if available, otherwise use source schema
                 namespace = (
                     stream.namespace if stream.namespace else source_schema or ""
                 )
 
-                # Get property fields from the stream's JSON schema
                 properties = {}
                 if stream.json_schema and "properties" in stream.json_schema:
                     properties = stream.json_schema.get("properties", {})
@@ -683,16 +679,17 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
                 property_fields = []
                 for field_name, _field_schema in properties.items():
-                    # Check if field is selected for sync
                     if stream_config.is_field_selected(field_name):
-                        property_fields.append([field_name])
+                        property_fields.append(PropertyFieldPath(path=[field_name]))
 
-                stream_details = {
-                    "streamName": stream.name,
-                    "namespace": namespace,
-                    "propertyFields": property_fields,
-                }
-                streams.append(AirbyteStreamDetails.model_validate(stream_details))
+                stream_details = AirbyteStreamDetails(
+                    stream_name=stream.name,
+                    namespace=namespace,
+                    property_fields=property_fields,
+                )
+                streams.append(
+                    AirbyteStreamInfo(config=stream_config, details=stream_details)
+                )
 
         logger.debug("Using %d streams from connection sync catalog", len(streams))
         return streams
@@ -718,7 +715,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         tags: List[str] = []
         connection_id = pipeline_info.connection.connection_id
 
-        # Find tags associated with this connection
         for tag_info in airbyte_tags:
             if tag_info.resource_id == connection_id and tag_info.name:
                 tags.append(make_tag_urn(tag_info.name))
@@ -742,14 +738,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
         workspace_name = workspace.name or "Unnamed Workspace"
         connection_name = connection.name or "Unnamed Connection"
 
-        # Create the connection DataFlow entity
         connection_dataflow_urn = DataFlowUrn(
             orchestrator=self.platform,
             flow_id=connection_id,
             cluster=self.source_config.env,
         )
 
-        # Create dataflow info
         dataflow_info = DataFlowInfoClass(
             name=connection_name,
             description=f"Airbyte connection from {source_name} to {destination_name}",
@@ -767,10 +761,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
             },
         )
 
-        # Emit work units
         work_units = []
 
-        # Add tags to the dataflow
         if tags:
             dataflow_tags = GlobalTagsClass(
                 tags=[TagAssociationClass(tag=tag) for tag in tags]
@@ -781,7 +773,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 ).as_workunit()
             )
 
-        # Emit the dataflow entity
         work_units.append(
             MetadataChangeProposalWrapper(
                 entityUrn=connection_dataflow_urn.urn(), aspect=dataflow_info
@@ -814,7 +805,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         destination_name = destination.name or "Unknown Destination"
         workspace_id = workspace.workspace_id
 
-        # Create a datajob for this stream
         job_id = f"{connection_id}_{stream_name}"
         datajob_urn = DataJobUrn(flow=connection_dataflow_urn, job_id=job_id)
 
@@ -862,7 +852,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             else None,
         )
 
-        # Emit the datajob entities
         work_units.append(
             MetadataChangeProposalWrapper(
                 entityUrn=datajob_urn.urn(), aspect=datajob_info
@@ -875,7 +864,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
-        # Add tags to the datajob
         if tags:
             job_tags = GlobalTagsClass(
                 tags=[TagAssociationClass(tag=tag) for tag in tags]
@@ -913,10 +901,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         )
                     )
 
-        # Create dataset-level lineage with fine-grained lineages
-        # Only emit lineage for destination if it's in our known URNs
-        # (i.e., destination is also a source in some other Airbyte connection)
-        # This prevents creating phantom destination datasets
+        # Only emit lineage if destination is also a source (prevents phantom datasets)
         if destination_urn in self.known_urns:
             work_units.append(
                 MetadataChangeProposalWrapper(
@@ -950,9 +935,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             return
 
         source = pipeline_info.source
-        source_platform, source_plat_instance, source_env = (
-            self._get_platform_for_source(source)
-        )
+        platform_info = self._get_platform_for_source(source)
 
         source_details = self.source_config.sources_to_platform_instance.get(
             source.source_id, PlatformDetail()
@@ -966,35 +949,32 @@ class AirbyteSource(StatefulIngestionSourceBase):
             schema_name = stream.namespace or ""
             table_name = stream.name
 
-            if source_platform and table_name:
+            if platform_info.platform and table_name:
                 dataset_name = (
                     f"{schema_name}.{table_name}" if schema_name else table_name
                 )
                 if source_details.convert_urns_to_lowercase:
                     dataset_name = dataset_name.lower()
                 source_urn = make_dataset_urn_with_platform_instance(
-                    platform=_sanitize_platform_name(source_platform),
+                    platform=_sanitize_platform_name(platform_info.platform),
                     name=dataset_name,
-                    env=source_env or FabricTypeClass.PROD,
-                    platform_instance=source_plat_instance,
+                    env=platform_info.env or FabricTypeClass.PROD,
+                    platform_instance=platform_info.platform_instance,
                 )
                 self.known_urns.add(source_urn)
 
     def _create_dataset_urns(
         self,
         pipeline_info: AirbytePipelineInfo,
+        stream_config: AirbyteStreamConfig,
         stream: AirbyteStreamDetails,
         platform_instance: Optional[str],
     ) -> AirbyteDatasetUrns:
         source = pipeline_info.source
         destination = pipeline_info.destination
 
-        source_platform, source_plat_instance, source_env = (
-            self._get_platform_for_source(source)
-        )
-        dest_platform, dest_plat_instance, dest_env = (
-            self._get_platform_for_destination(destination)
-        )
+        source_platform_info = self._get_platform_for_source(source)
+        dest_platform_info = self._get_platform_for_destination(destination)
 
         source_details = self.source_config.sources_to_platform_instance.get(
             source.source_id, PlatformDetail()
@@ -1028,7 +1008,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         )
         table_name = stream.stream_name
 
-        # Apply table prefix if configured at connection level
         if table_prefix:
             logger.debug("Applying prefix '%s' to table '%s'", table_prefix, table_name)
             table_name = f"{table_prefix}{table_name}"
@@ -1069,7 +1048,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         )
 
         validated_source_platform = _validate_urn_component(
-            source_platform, "source_platform"
+            source_platform_info.platform, "source_platform"
         )
         validated_source_name = _validate_urn_component(
             source_dataset_name, "source_dataset_name"
@@ -1084,41 +1063,19 @@ class AirbyteSource(StatefulIngestionSourceBase):
         source_urn = make_dataset_urn_with_platform_instance(
             platform=_sanitize_platform_name(validated_source_platform),
             name=normalized_source_name,
-            env=source_env or FabricTypeClass.PROD,
-            platform_instance=source_plat_instance,
+            env=source_platform_info.env or FabricTypeClass.PROD,
+            platform_instance=source_platform_info.platform_instance,
         )
 
-        # Destination schema/database precedence
-        # Note: Destinations typically use the same schema as source, unless overridden
-        dest_override_schema = (
-            dest_details.default_schema
-        )  # Manual DataHub config override
-        dest_config_schema = (
-            destination.get_schema
-        )  # Default from Airbyte destination config
-
-        if dest_override_schema:
-            # Manual override from DataHub config
-            dest_schema = dest_override_schema
-            if schema_name and dest_override_schema != schema_name:
-                logger.debug(
-                    "Using DataHub config schema override '%s' for destination instead of source schema '%s'",
-                    dest_override_schema,
-                    schema_name,
-                )
-        elif dest_config_schema:
-            # Destination has its own schema config
-            dest_schema = dest_config_schema
-            if schema_name and dest_config_schema != schema_name:
-                logger.debug(
-                    "Destination schema '%s' differs from source schema '%s' for stream '%s'",
-                    dest_config_schema,
-                    schema_name,
-                    stream.stream_name,
-                )
-        else:
-            # Fall back to source schema
-            dest_schema = schema_name
+        # Destination schema/database precedence following Airbyte's namespace rules
+        dest_schema = self._resolve_destination_schema(
+            stream_config=stream_config,
+            connection=connection,
+            source_schema=schema_name,
+            dest_details=dest_details,
+            destination=destination,
+            stream_name=stream.stream_name,
+        )
 
         dest_database = dest_details.database or destination.get_database
 
@@ -1151,7 +1108,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         )
 
         validated_dest_platform = _validate_urn_component(
-            dest_platform, "destination_platform"
+            dest_platform_info.platform, "destination_platform"
         )
         validated_dest_name = _validate_urn_component(
             dest_dataset_name, "destination_dataset_name"
@@ -1166,8 +1123,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
         destination_urn = make_dataset_urn_with_platform_instance(
             platform=_sanitize_platform_name(validated_dest_platform),
             name=normalized_dest_name,
-            env=dest_env or FabricTypeClass.PROD,
-            platform_instance=dest_plat_instance,
+            env=dest_platform_info.env or FabricTypeClass.PROD,
+            platform_instance=dest_platform_info.platform_instance,
         )
 
         logger.debug("Created lineage from %s to %s", source_urn, destination_urn)
@@ -1204,6 +1161,112 @@ class AirbyteSource(StatefulIngestionSourceBase):
             return override_schema
         else:
             return config_schema or ""
+
+    def _resolve_destination_schema(
+        self,
+        stream_config: AirbyteStreamConfig,
+        connection: "AirbyteConnectionPartial",
+        source_schema: str,
+        dest_details: "PlatformDetail",
+        destination: "AirbyteDestinationPartial",
+        stream_name: str,
+    ) -> str:
+        """Resolve destination schema following Airbyte's namespace precedence.
+
+        Airbyte's namespace precedence for destinations:
+        1. Per-stream destinationNamespace (from stream_config)
+        2. Connection-level namespace rules (namespace_definition + namespace_format)
+        3. DataHub config override (dest_details.default_schema)
+        4. Destination default schema (destination.get_schema)
+        5. Fall back to source schema
+
+        Args:
+            stream_config: Stream configuration from Airbyte sync catalog
+            connection: Connection configuration
+            source_schema: The resolved source schema
+            dest_details: DataHub configuration for this destination
+            destination: Airbyte destination object
+            stream_name: Name of the stream for logging
+
+        Returns:
+            Resolved destination schema name
+        """
+        # 1. Per-stream destinationNamespace override
+        stream_dest_namespace = stream_config.get_destination_namespace()
+        if stream_dest_namespace:
+            logger.debug(
+                "Stream '%s' has destinationNamespace override: '%s'",
+                stream_name,
+                stream_dest_namespace,
+            )
+            return stream_dest_namespace
+
+        # 2. Connection-level namespace rules
+        namespace_def = connection.get_namespace_definition
+
+        if namespace_def:
+            logger.debug(
+                "Applying connection namespace_definition '%s' for stream '%s'",
+                namespace_def,
+                stream_name,
+            )
+
+            if namespace_def == "source":
+                logger.debug(
+                    "Using source schema '%s' for destination (namespace_definition=source)",
+                    source_schema,
+                )
+                return source_schema
+
+            elif namespace_def == "destination":
+                dest_config_schema = destination.get_schema
+                if dest_config_schema:
+                    logger.debug(
+                        "Using destination default schema '%s' (namespace_definition=destination)",
+                        dest_config_schema,
+                    )
+                    return dest_config_schema
+
+            elif namespace_def == "customformat":
+                namespace_fmt = connection.get_namespace_format
+                if namespace_fmt:
+                    custom_namespace = namespace_fmt.replace(
+                        "${SOURCE_NAMESPACE}", source_schema
+                    )
+                    logger.debug(
+                        "Applied custom namespace format '%s' -> '%s' for stream '%s'",
+                        namespace_fmt,
+                        custom_namespace,
+                        stream_name,
+                    )
+                    return custom_namespace
+
+        # 3. DataHub config override
+        if dest_details.default_schema:
+            logger.debug(
+                "Using DataHub config schema override '%s' for destination",
+                dest_details.default_schema,
+            )
+            return dest_details.default_schema
+
+        # 4. Destination default schema
+        dest_config_schema = destination.get_schema
+        if dest_config_schema:
+            if source_schema and dest_config_schema != source_schema:
+                logger.debug(
+                    "Destination schema '%s' differs from source schema '%s' for stream '%s'",
+                    dest_config_schema,
+                    source_schema,
+                    stream_name,
+                )
+            return dest_config_schema
+
+        # 5. Fall back to source schema
+        logger.debug(
+            "No destination schema found, falling back to source schema '%s'",
+            source_schema,
+        )
+        return source_schema
 
     def _build_dataset_name(
         self,
@@ -1264,19 +1327,12 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return
 
-        # Get tags from Airbyte API
         airbyte_tags = self._fetch_tags_for_workspace(workspace_id)
-
-        # Extract connection-specific tags
         tags = self._extract_connection_tags(pipeline_info, airbyte_tags)
-
-        # Create the connection DataFlow entity
         dataflow_result = self._create_connection_dataflow(pipeline_info, tags)
 
-        # Emit dataflow work units
         yield from dataflow_result.work_units
 
-        # Determine platform instance
         platform_instance = None
         if (
             self.source_config.use_workspace_name_as_platform_instance
@@ -1286,53 +1342,49 @@ class AirbyteSource(StatefulIngestionSourceBase):
         else:
             platform_instance = self.source_config.platform_instance
 
-        # Get stream details
         streams = self._fetch_streams_for_source(pipeline_info)
 
-        # Process each stream to create lineage
-        for stream in streams:
+        for stream_info in streams:
             try:
-                # Create source and destination URNs
                 dataset_urns = self._create_dataset_urns(
-                    pipeline_info, stream, platform_instance
+                    pipeline_info,
+                    stream_info.config,
+                    stream_info.details,
+                    platform_instance,
                 )
 
-                # Create DataJob for this stream
                 datajob_result = self._create_stream_datajob(
                     dataflow_result.dataflow_urn,
                     pipeline_info,
-                    stream,
+                    stream_info.details,
                     dataset_urns.source_urn,
                     dataset_urns.destination_urn,
                     tags,
                 )
 
-                # Emit datajob work units
                 yield from datajob_result.work_units
 
-                # Create job executions for this stream if enabled
                 if self.source_config.include_statuses:
                     yield from self._create_job_executions_workunits(
                         pipeline_info=pipeline_info,
                         datajob_urn=datajob_result.datajob_urn,
-                        stream_name=stream.stream_name,
+                        stream_name=stream_info.details.stream_name,
                     )
 
-                # Create dataset lineage
                 lineage_workunits = self._create_dataset_lineage(
-                    dataset_urns.source_urn, dataset_urns.destination_urn, stream
+                    dataset_urns.source_urn,
+                    dataset_urns.destination_urn,
+                    stream_info.details,
                 )
 
-                # Emit lineage work units
                 yield from lineage_workunits
 
             except Exception as e:
-                # Get connection name for better context
                 conn_name = getattr(pipeline_info.connection, "name", "unknown")
                 ws_id = getattr(pipeline_info.workspace, "workspace_id", "unknown")
                 self.report.report_failure(
                     message="Failed to process stream",
-                    context=f"workspace-{ws_id}/connection-{connection_id}/{conn_name}/stream-{stream.stream_name}",
+                    context=f"workspace-{ws_id}/connection-{connection_id}/{conn_name}/stream-{stream_info.details.stream_name}",
                     exc=e,
                 )
 

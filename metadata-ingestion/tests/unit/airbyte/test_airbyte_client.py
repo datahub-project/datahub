@@ -16,6 +16,10 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
 )
+from datahub.ingestion.source.airbyte.models import (
+    PropertyFieldPath,
+    StreamIdentifier,
+)
 
 
 class TestCreateAirbyteClient:
@@ -654,7 +658,13 @@ class TestClientBuildSyncCatalog:
             }
         ]
 
-        stream_property_fields = {("users", "public"): [["id"], ["name"], ["email"]]}
+        stream_property_fields = {
+            StreamIdentifier(stream_name="users", namespace="public"): [
+                PropertyFieldPath(path=["id"]),
+                PropertyFieldPath(path=["name"]),
+                PropertyFieldPath(path=["email"]),
+            ]
+        }
 
         result = client._build_sync_catalog(config_streams, stream_property_fields)
 
@@ -717,7 +727,11 @@ class TestClientBuildSyncCatalog:
         client = AirbyteOSSClient(config)
 
         stream = {"name": "users"}
-        property_fields = [["id"], ["name"], ["email"]]
+        property_fields = [
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+            PropertyFieldPath(path=["email"]),
+        ]
 
         result = client._get_json_schema_for_stream(stream, property_fields)
 
@@ -877,10 +891,20 @@ class TestFetchStreamPropertyFields:
 
         result = client._fetch_stream_property_fields("source-id-123")
 
-        assert ("users", "public") in result
-        assert ("orders", "sales") in result
-        assert result[("users", "public")] == [["id"], ["name"], ["email"]]
-        assert result[("orders", "sales")] == [["order_id"], ["amount"]]
+        users_stream = StreamIdentifier(stream_name="users", namespace="public")
+        orders_stream = StreamIdentifier(stream_name="orders", namespace="sales")
+
+        assert users_stream in result
+        assert orders_stream in result
+        assert result[users_stream] == [
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+            PropertyFieldPath(path=["email"]),
+        ]
+        assert result[orders_stream] == [
+            PropertyFieldPath(path=["order_id"]),
+            PropertyFieldPath(path=["amount"]),
+        ]
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_property_fields_no_source_id(self, mock_list_streams):

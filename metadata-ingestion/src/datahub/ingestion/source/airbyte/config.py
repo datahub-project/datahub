@@ -241,7 +241,6 @@ class AirbyteSourceConfig(
         description="Extract column-level lineage",
     )
 
-    # Filters using standard DataHub allow/deny patterns
     workspace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter workspaces. Use the pattern format as in other DataHub sources.",
@@ -325,7 +324,6 @@ class AirbyteSourceConfig(
     @classmethod
     def set_default_start_date(cls, v: Optional[str]) -> str:
         if v is None:
-            # Default to 7 days ago
             seven_days_ago = datetime.datetime.now() - datetime.timedelta(days=7)
             return seven_days_ago.strftime("%Y-%m-%dT%H:%M:%SZ")
         return v
@@ -334,6 +332,5 @@ class AirbyteSourceConfig(
     @classmethod
     def set_default_end_date(cls, v: Optional[str]) -> str:
         if v is None:
-            # Default to current time
             return datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
         return v
