@@ -18,7 +18,6 @@ import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/inges
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 const StepContainer = styled.div`
-    padding: 0 20px 20px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
