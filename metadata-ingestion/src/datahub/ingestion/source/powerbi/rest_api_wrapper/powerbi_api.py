@@ -685,3 +685,70 @@ class PowerBiAPI:
         for workspace in workspaces:
             self._fill_regular_metadata_detail(workspace=workspace)
         return workspaces
+
+    def export_report_to_pbix(
+        self, workspace_id: str, report_id: str, output_path: str
+    ) -> Optional[str]:
+        """
+        Export a Power BI report to .pbix file using Export Report API.
+        Returns the file path if successful, None on failure.
+        
+        Note: The Export Report API uses a simple GET request to download the PBIX file directly.
+        
+        Args:
+            workspace_id: Power BI workspace/group ID
+            report_id: Power BI report ID
+            output_path: Path where the .pbix file should be saved
+            
+        Returns:
+            Path to the downloaded .pbix file if successful, None otherwise
+        """
+        import os
+        
+        logger.info(f"Exporting report {report_id} to PBIX file")
+        self.reporter.pbix_export_attempts += 1
+        
+        try:
+            # Get access token
+            access_token = self._get_resolver().get_access_token()
+            
+            # Export Report API: Direct GET request to download PBIX
+            # Include workspace/group ID for workspace-scoped reports
+            export_url = f"{data_resolver.DataResolverBase.MY_ORG_URL}/groups/{workspace_id}/reports/{report_id}/Export"
+            
+            # Note: access_token already includes "Bearer " prefix
+            headers = {
+                Constant.Authorization: access_token,
+            }
+            
+            logger.debug(f"Downloading PBIX file via GET from {export_url}")
+            
+            # Make the GET request with streaming enabled
+            export_response = self._get_resolver()._request_session.get(
+                export_url, headers=headers, stream=True
+            )
+            
+            if data_resolver.is_http_failure(
+                export_response, f"Failed to export PBIX for report {report_id}"
+            ):
+                self.reporter.pbix_export_failures += 1
+                return None
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            # Write file to disk
+            logger.debug(f"Writing PBIX file to {output_path}")
+            with open(output_path, "wb") as f:
+                for chunk in export_response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            
+            logger.info(f"Successfully exported report {report_id} to {output_path}")
+            self.reporter.pbix_export_successes += 1
+            return output_path
+            
+        except Exception as e:
+            logger.warning(f"Error exporting report {report_id} to PBIX: {e}", exc_info=True)
+            self.reporter.pbix_export_failures += 1
+            return None

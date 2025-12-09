@@ -223,6 +223,13 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
 
+    pbix_export_attempts: int = 0
+    pbix_export_successes: int = 0
+    pbix_export_failures: int = 0
+    dax_parse_attempts: int = 0
+    dax_parse_successes: int = 0
+    dax_parse_failures: int = 0
+
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
 
@@ -418,6 +425,12 @@ class PowerBiDashboardSourceConfig(
         default=True,
         description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled",
     )
+    # Enable/Disable extracting dataset to report lineage
+    extract_dataset_to_report_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to extract lineage between datasets and reports (shown as datasetEdges in DashboardInfo). "
+        "If disabled, reports will not show direct lineage to their source datasets.",
+    )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
@@ -538,6 +551,13 @@ class PowerBiDashboardSourceConfig(
     metadata_api_timeout: HiddenFromDocs[int] = pydantic.Field(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
+    )
+
+    extract_from_pbix_file: bool = pydantic.Field(
+        default=False,
+        description="Extract report and dataset metadata from .pbix files using ExportTo API. "
+        "When enabled, report metadata (pages, visualizations, column-level lineage) will be extracted "
+        "from downloaded .pbix files instead of using REST API. Falls back to skipping report if download fails.",
     )
 
     @model_validator(mode="after")
