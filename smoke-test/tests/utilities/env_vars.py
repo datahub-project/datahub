@@ -164,6 +164,11 @@ def get_elasticsearch_refresh_interval_seconds() -> int:
     return int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", "3"))
 
 
+def get_use_kafka_api_for_lag() -> bool:
+    """Use Kafka API for lag monitoring instead of docker exec (enabled by default)."""
+    return os.getenv("USE_KAFKA_API_FOR_LAG", "true").lower() in ["true", "yes"]
+
+
 def get_kafka_bootstrap_server() -> str:
     """Kafka bootstrap server for smoke tests."""
     return str(os.getenv("KAFKA_BOOTSTRAP_SERVER", "broker:29092"))
