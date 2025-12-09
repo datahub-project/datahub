@@ -121,5 +121,5 @@ export const getStepPropertyByKey = (
     const stepResult = educationSteps.find((step) => step.id === stepId);
     if (!stepResult) return null;
     const entry = stepResult.properties.find((prop) => prop.key === propKey);
-    return entry?.value || null;
+    return entry?.value ?? null;
 };
