@@ -62,14 +62,15 @@ export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     }, []);
 
     const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
-
-    const getCurrentStep = useCallback(() => {
+        const getCurrentStep = useCallback(() => {
         const currentStep = steps?.[currentStepIndex];
 
-        if (currentStep) setVisitedSteps((currentVisitedSteps) => new Set([...currentVisitedSteps, currentStep?.key]));
+        if (currentStep && !visitedSteps.has(currentStep.key)) {
+            setVisitedSteps((currentVisitedSteps) => new Set([...currentVisitedSteps, currentStep?.key]));
+        }
 
         return currentStep;
-    }, [currentStepIndex, steps]);
+    }, [currentStepIndex, steps, visitedSteps]);
 
     const canGoToNext = useCallback(() => {
         return currentStepIndex < totalSteps - 1;
