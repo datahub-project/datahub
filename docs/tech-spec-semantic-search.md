@@ -2,9 +2,14 @@
 
 - Author: Alex Skurikhin
 - Stakeholders/Reviewers: GMS, Search, Frontend, Infra, Docs
-- Status: ~~Draft~~ **Implementation Phase 1 Complete**
-- Last Updated: ~~2025-08-08~~ **2025-08-27**
+- Status: ~~Draft~~ **Implementation Phase 1 Complete - Now Available in OSS**
+- Last Updated: ~~2025-08-08~~ **2025-12-08**
 - Template reference: "Tech Spec — Billing Metrics" on Notion ([Notion template link](https://www.notion.so/acryldata/Tech-Spec-Billing-Metrics-22cfc6a642778025a872fbbd2093ffa1))
+
+> **🎉 OSS Availability (2025-12-08)**
+>
+> Semantic search has been ported to open-source DataHub! This feature is now available in both DataHub Cloud and OSS.
+> OSS users can enable semantic search with OpenSearch 2.17+ (k-NN plugin) and a configured embedding provider.
 
 > **📢 Important Architecture Update (2025-08-27)**
 >

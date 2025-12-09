@@ -45,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class OssSemanticSearchPlugin implements GmsGraphQLPlugin {
 
-  private static final String SEMANTIC_SEARCH_SCHEMA_FILE = "semantic-search.acryl.graphql";
+  private static final String SEMANTIC_SEARCH_SCHEMA_FILE = "semantic-search.graphql";
 
   private SemanticSearchService semanticSearchService;
   private ViewService viewService;
