@@ -157,21 +157,22 @@ custom_properties:
 
 #### Filtering Configuration
 
-The connector supports filtering at multiple levels with a clear separation between dataset-level filters and entity-specific filters:
+The connector supports filtering at multiple levels with clear separation between Entries API and Entities API filters:
 
-**Dataset Filtering** (applies to both entries and entities):
+**Entries API Filtering** (only applies when `include_entries=true`):
 
-- `dataset_pattern`: Filter which datasets/tables to ingest by name
-  - Applies to entry IDs from Universal Catalog (when `include_entries=true`)
-  - Applies to entity IDs from lakes/zones (when `include_entities=true`)
+- `entries.dataset_pattern`: Filter which entry IDs to ingest from Universal Catalog
   - Supports regex patterns with allow/deny lists
+  - Applies to entries discovered from system-managed entry groups like `@bigquery`
 
 **Entities API Filtering** (only applies when `include_entities=true`):
 
 - `entities.lake_pattern`: Filter which lakes to process
 - `entities.zone_pattern`: Filter which zones to process
+- `entities.dataset_pattern`: Filter which entity IDs (tables/filesets) to ingest from lakes/zones
+  - Supports regex patterns with allow/deny lists
 
-These filters are nested under `filter_config.entities` to make it clear they only apply to the Entities API (Lakes/Zones), not the Entries API (Universal Catalog).
+These filters are nested under `filter_config.entries` and `filter_config.entities` to make it clear which API each filter applies to. This allows you to have different filtering rules for each API when both are enabled.
 
 **Example with filtering:**
 
@@ -182,25 +183,34 @@ source:
     project_ids:
       - "my-gcp-project"
     entries_location: "us"
+    include_entries: true
+    include_entities: true
 
     filter_config:
-      # Filter datasets/tables by name (applies to both entries and entities)
-      dataset_pattern:
-        allow:
-          - "prod_.*" # Allow production tables
-          - "analytics_.*" # Allow analytics tables
-        deny:
-          - ".*_test" # Deny test tables
-          - ".*_temp" # Deny temporary tables
+      # Entries API filtering (Universal Catalog)
+      entries:
+        dataset_pattern:
+          allow:
+            - "bq_.*" # Allow BigQuery entries starting with bq_
+            - "pubsub_.*" # Allow Pub/Sub entries
+          deny:
+            - ".*_test" # Deny test entries
+            - ".*_temp" # Deny temporary entries
 
-      # Entity-specific filtering (only applies when include_entities=true)
+      # Entities API filtering (Lakes/Zones)
       entities:
         lake_pattern:
           allow:
-            - "production-.*"
+            - "production-.*" # Only production lakes
         zone_pattern:
           deny:
-            - ".*-sandbox"
+            - ".*-sandbox" # Exclude sandbox zones
+        dataset_pattern:
+          allow:
+            - "table_.*" # Allow entities starting with table_
+            - "fileset_.*" # Allow filesets
+          deny:
+            - ".*_backup" # Exclude backups
 ```
 
 #### Platform Alignment

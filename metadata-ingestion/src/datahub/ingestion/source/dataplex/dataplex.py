@@ -641,8 +641,12 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     continue
 
-                if not self.config.filter_config.dataset_pattern.allowed(entity_id):
-                    logger.debug(f"Entity {entity_id} filtered out by dataset_pattern")
+                if not self.config.filter_config.entities.dataset_pattern.allowed(
+                    entity_id
+                ):
+                    logger.debug(
+                        f"Entity {entity_id} filtered out by entities.dataset_pattern"
+                    )
                     with self._report_lock:
                         self.report.report_entity_scanned(entity_id, filtered=True)
                     continue
@@ -895,9 +899,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     logger.debug(f"Processing entry: {entry_id}")
 
                     # Apply dataset_pattern filter to entries
-                    if not self.config.filter_config.dataset_pattern.allowed(entry_id):
+                    if not self.config.filter_config.entries.dataset_pattern.allowed(
+                        entry_id
+                    ):
                         logger.debug(
-                            f"Entry {entry_id} filtered out by dataset_pattern"
+                            f"Entry {entry_id} filtered out by entries.dataset_pattern"
                         )
                         with self._report_lock:
                             self.report.report_entry_scanned(entry_id, filtered=True)
@@ -950,8 +956,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         logger.debug(f"Processing entry with FQN: {fqn}")
 
         # Apply dataset pattern filter to entry_id
-        if not self.config.filter_config.dataset_pattern.allowed(entry_id):
-            logger.debug(f"Entry {entry_id} filtered out by dataset_pattern")
+        if not self.config.filter_config.entries.dataset_pattern.allowed(entry_id):
+            logger.debug(f"Entry {entry_id} filtered out by entries.dataset_pattern")
             return
 
         # Parse the FQN to determine platform and dataset_id

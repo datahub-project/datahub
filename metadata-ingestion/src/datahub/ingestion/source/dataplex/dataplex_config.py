@@ -35,24 +35,40 @@ class EntitiesFilterConfig(ConfigModel):
         description="Regex patterns for zone names to filter in ingestion. Only applies when include_entities=True.",
     )
 
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for entity IDs (tables/filesets) to filter in ingestion. Only applies when include_entities=True.",
+    )
+
+
+class EntriesFilterConfig(ConfigModel):
+    """Filter configuration specific to Dataplex Entries API (Universal Catalog).
+
+    These filters only apply when include_entries=True.
+    """
+
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for entry IDs to filter in ingestion. Only applies when include_entries=True.",
+    )
+
 
 class DataplexFilterConfig(ConfigModel):
     """Filter configuration for Dataplex ingestion."""
 
-    dataset_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description=(
-            "Regex patterns for dataset/table names to filter in ingestion. "
-            "Applies to both entries (from Universal Catalog) and entities (from Lakes/Zones). "
-            "Filters based on entry_id (for entries) or entity_id (for entities)."
-        ),
-    )
-
     entities: EntitiesFilterConfig = Field(
         default_factory=EntitiesFilterConfig,
         description=(
-            "Filters specific to Dataplex Entities API (lakes and zones). "
+            "Filters specific to Dataplex Entities API (lakes, zones, and entity datasets). "
             "Only applies when include_entities=True."
+        ),
+    )
+
+    entries: EntriesFilterConfig = Field(
+        default_factory=EntriesFilterConfig,
+        description=(
+            "Filters specific to Dataplex Entries API (Universal Catalog). "
+            "Only applies when include_entries=True."
         ),
     )
 

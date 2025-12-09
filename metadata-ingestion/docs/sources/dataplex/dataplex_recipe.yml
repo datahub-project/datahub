@@ -33,14 +33,17 @@ source:
 
     # Optional: Filtering patterns
     # filter_config:
-    #   # Dataset/table name patterns (applies to both entries and entities)
-    #   dataset_pattern:
-    #     allow:
-    #       - "prod_.*"
-    #     deny:
-    #       - ".*_temp"
+    #   # Entries API filters (only applies when include_entries=true)
+    #   entries:
+    #     dataset_pattern:
+    #       allow:
+    #         - "bq_.*"      # Allow BigQuery entries
+    #         - "pubsub_.*"  # Allow Pub/Sub entries
+    #       deny:
+    #         - ".*_test"    # Deny test entries
+    #         - ".*_temp"    # Deny temporary entries
     #
-    #   # Entity-specific filters (only applies when include_entities=true)
+    #   # Entities API filters (only applies when include_entities=true)
     #   entities:
     #     lake_pattern:
     #       allow:
@@ -48,12 +51,17 @@ source:
     #         - "finance-.*"
     #       deny:
     #         - ".*-test"
-    #
     #     zone_pattern:
     #       allow:
     #         - ".*"
     #       deny:
     #         - "deprecated-.*"
+    #     dataset_pattern:
+    #       allow:
+    #         - "table_.*"   # Allow tables
+    #         - "fileset_.*" # Allow filesets
+    #       deny:
+    #         - ".*_backup"  # Exclude backups
 
     # Optional: Performance tuning
     # max_workers: 10

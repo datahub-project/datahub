@@ -7,6 +7,7 @@ from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
     DataplexFilterConfig,
     EntitiesFilterConfig,
+    EntriesFilterConfig,
 )
 
 
@@ -17,15 +18,17 @@ class TestDataplexFilterConfig:
         """Test that EntitiesFilterConfig has correct defaults."""
         config = EntitiesFilterConfig()
 
-        # Both patterns should allow everything by default
+        # All patterns should allow everything by default
         assert config.lake_pattern.allowed("any-lake")
         assert config.zone_pattern.allowed("any-zone")
+        assert config.dataset_pattern.allowed("any-dataset")
 
     def test_entities_filter_config_with_patterns(self):
         """Test EntitiesFilterConfig with custom patterns."""
         config = EntitiesFilterConfig(
             lake_pattern={"allow": ["prod-.*"], "deny": [".*-test"]},
             zone_pattern={"allow": ["raw", "curated"]},
+            dataset_pattern={"allow": ["table_.*"]},
         )
 
         # Lake filtering
@@ -38,37 +41,66 @@ class TestDataplexFilterConfig:
         assert config.zone_pattern.allowed("curated")
         assert not config.zone_pattern.allowed("sandbox")
 
+        # Dataset filtering
+        assert config.dataset_pattern.allowed("table_customers")
+        assert not config.dataset_pattern.allowed("view_summary")
+
+    def test_entries_filter_config_defaults(self):
+        """Test that EntriesFilterConfig has correct defaults."""
+        config = EntriesFilterConfig()
+
+        # Dataset pattern should allow everything by default
+        assert config.dataset_pattern.allowed("any-entry")
+
+    def test_entries_filter_config_with_patterns(self):
+        """Test EntriesFilterConfig with custom patterns."""
+        config = EntriesFilterConfig(
+            dataset_pattern={"allow": ["bq_.*"], "deny": [".*_test"]},
+        )
+
+        # Dataset filtering
+        assert config.dataset_pattern.allowed("bq_customers")
+        assert not config.dataset_pattern.allowed("bq_customers_test")
+        assert not config.dataset_pattern.allowed("gcs_files")
+
     def test_dataplex_filter_config_defaults(self):
         """Test that DataplexFilterConfig has correct defaults."""
         config = DataplexFilterConfig()
-
-        # Dataset pattern should allow everything by default
-        assert config.dataset_pattern.allowed("any-dataset")
 
         # Entities sub-config should exist with defaults
         assert config.entities is not None
         assert config.entities.lake_pattern.allowed("any-lake")
         assert config.entities.zone_pattern.allowed("any-zone")
+        assert config.entities.dataset_pattern.allowed("any-dataset")
+
+        # Entries sub-config should exist with defaults
+        assert config.entries is not None
+        assert config.entries.dataset_pattern.allowed("any-entry")
 
     def test_dataplex_filter_config_with_nested_patterns(self):
-        """Test DataplexFilterConfig with nested entities patterns."""
+        """Test DataplexFilterConfig with nested entities and entries patterns."""
         config = DataplexFilterConfig(
-            dataset_pattern={"allow": ["prod_.*"]},
             entities={
                 "lake_pattern": {"allow": ["production-.*"]},
                 "zone_pattern": {"deny": [".*-sandbox"]},
+                "dataset_pattern": {"allow": ["entity_.*"]},
+            },
+            entries={
+                "dataset_pattern": {"allow": ["entry_.*"]},
             },
         )
-
-        # Dataset filtering
-        assert config.dataset_pattern.allowed("prod_table")
-        assert not config.dataset_pattern.allowed("dev_table")
 
         # Entities filtering
         assert config.entities.lake_pattern.allowed("production-lake")
         assert not config.entities.lake_pattern.allowed("dev-lake")
         assert not config.entities.zone_pattern.allowed("zone-sandbox")
         assert config.entities.zone_pattern.allowed("zone-prod")
+        assert config.entities.dataset_pattern.allowed("entity_table")
+        assert not config.entities.dataset_pattern.allowed("entry_table")
+
+        # Entries filtering
+        assert config.entries.dataset_pattern.allowed("entry_table")
+        assert not config.entries.dataset_pattern.allowed("entity_table")
 
 
 class TestDataplexConfig:
@@ -89,19 +121,25 @@ class TestDataplexConfig:
         config = DataplexConfig(
             project_ids=["test-project"],
             filter_config={
-                "dataset_pattern": {"allow": ["prod_.*"], "deny": [".*_temp"]},
                 "entities": {
+                    "dataset_pattern": {"allow": ["prod_.*"], "deny": [".*_temp"]},
                     "lake_pattern": {"allow": ["prod-.*"]},
                     "zone_pattern": {"deny": [".*-dev"]},
+                },
+                "entries": {
+                    "dataset_pattern": {"allow": ["entry_.*"]},
                 },
             },
         )
 
         # Verify filter config is properly structured
-        assert config.filter_config.dataset_pattern.allowed("prod_table")
-        assert not config.filter_config.dataset_pattern.allowed("prod_table_temp")
+        assert config.filter_config.entities.dataset_pattern.allowed("prod_table")
+        assert not config.filter_config.entities.dataset_pattern.allowed(
+            "prod_table_temp"
+        )
         assert config.filter_config.entities.lake_pattern.allowed("prod-lake")
         assert not config.filter_config.entities.zone_pattern.allowed("zone-dev")
+        assert config.filter_config.entries.dataset_pattern.allowed("entry_table")
 
     def test_config_entries_only(self):
         """Test configuration for entries-only mode."""
@@ -110,15 +148,21 @@ class TestDataplexConfig:
             entries_location="us",
             include_entries=True,
             include_entities=False,
-            filter_config={"dataset_pattern": {"allow": ["prod_.*"]}},
+            filter_config={
+                "entries": {
+                    "dataset_pattern": {"allow": ["prod_.*"]},
+                }
+            },
         )
 
         assert config.include_entries is True
         assert config.include_entities is False
         assert config.entries_location == "us"
-        assert config.filter_config.dataset_pattern.allowed("prod_table")
+        assert config.filter_config.entries.dataset_pattern.allowed("prod_table")
+        assert not config.filter_config.entries.dataset_pattern.allowed("dev_table")
         # Entities filters should still exist with defaults (not used but safe)
         assert config.filter_config.entities.lake_pattern.allowed("any-lake")
+        assert config.filter_config.entities.dataset_pattern.allowed("any-table")
 
     def test_config_both_apis(self):
         """Test configuration with both APIs enabled."""
@@ -129,10 +173,13 @@ class TestDataplexConfig:
             include_entries=True,
             include_entities=True,
             filter_config={
-                "dataset_pattern": {"allow": ["prod_.*"]},
                 "entities": {
+                    "dataset_pattern": {"allow": ["entity_.*"]},
                     "lake_pattern": {"allow": ["production-.*"]},
                     "zone_pattern": {"allow": ["raw", "curated"]},
+                },
+                "entries": {
+                    "dataset_pattern": {"allow": ["entry_.*"]},
                 },
             },
         )
@@ -142,11 +189,15 @@ class TestDataplexConfig:
         assert config.location == "us-central1"
         assert config.entries_location == "us"
 
-        # Dataset filtering applies to both
-        assert config.filter_config.dataset_pattern.allowed("prod_table")
-        assert not config.filter_config.dataset_pattern.allowed("dev_table")
+        # Entity dataset filtering
+        assert config.filter_config.entities.dataset_pattern.allowed("entity_table")
+        assert not config.filter_config.entities.dataset_pattern.allowed("entry_table")
 
-        # Entity-specific filtering
+        # Entry dataset filtering
+        assert config.filter_config.entries.dataset_pattern.allowed("entry_table")
+        assert not config.filter_config.entries.dataset_pattern.allowed("entity_table")
+
+        # Entity-specific filtering (lakes/zones)
         assert config.filter_config.entities.lake_pattern.allowed("production-lake")
         assert config.filter_config.entities.zone_pattern.allowed("raw")
         assert not config.filter_config.entities.zone_pattern.allowed("sandbox")
@@ -189,24 +240,30 @@ class TestDataplexConfig:
         assert config.entries_location == "us"  # New default
 
         # Filter defaults (should allow all)
-        assert config.filter_config.dataset_pattern.allowed("any-dataset")
+        assert config.filter_config.entities.dataset_pattern.allowed("any-dataset")
         assert config.filter_config.entities.lake_pattern.allowed("any-lake")
         assert config.filter_config.entities.zone_pattern.allowed("any-zone")
+        assert config.filter_config.entries.dataset_pattern.allowed("any-entry")
 
-    def test_filter_config_only_dataset_pattern(self):
-        """Test configuration with only dataset_pattern (common case)."""
+    def test_filter_config_only_entries_dataset_pattern(self):
+        """Test configuration with only entries dataset_pattern (common case)."""
         config = DataplexConfig(
             project_ids=["test-project"],
-            filter_config={"dataset_pattern": {"allow": ["analytics_.*"]}},
+            filter_config={
+                "entries": {
+                    "dataset_pattern": {"allow": ["analytics_.*"]},
+                }
+            },
         )
 
-        # Dataset filtering works
-        assert config.filter_config.dataset_pattern.allowed("analytics_table")
-        assert not config.filter_config.dataset_pattern.allowed("prod_table")
+        # Entry dataset filtering works
+        assert config.filter_config.entries.dataset_pattern.allowed("analytics_table")
+        assert not config.filter_config.entries.dataset_pattern.allowed("prod_table")
 
         # Entities filters exist with defaults
         assert config.filter_config.entities.lake_pattern.allowed("any-lake")
         assert config.filter_config.entities.zone_pattern.allowed("any-zone")
+        assert config.filter_config.entities.dataset_pattern.allowed("any-table")
 
     def test_filter_config_only_entities_patterns(self):
         """Test configuration with only entity-specific patterns."""
@@ -217,24 +274,31 @@ class TestDataplexConfig:
                 "entities": {
                     "lake_pattern": {"allow": ["prod-.*"]},
                     "zone_pattern": {"allow": ["raw"]},
+                    "dataset_pattern": {"allow": ["table_.*"]},
                 }
             },
         )
-
-        # Dataset pattern has default (allow all)
-        assert config.filter_config.dataset_pattern.allowed("any-table")
 
         # Entities filters work
         assert config.filter_config.entities.lake_pattern.allowed("prod-lake")
         assert not config.filter_config.entities.lake_pattern.allowed("dev-lake")
         assert config.filter_config.entities.zone_pattern.allowed("raw")
         assert not config.filter_config.entities.zone_pattern.allowed("curated")
+        assert config.filter_config.entities.dataset_pattern.allowed("table_customers")
+        assert not config.filter_config.entities.dataset_pattern.allowed("view_summary")
+
+        # Entries filters have defaults
+        assert config.filter_config.entries.dataset_pattern.allowed("any-entry")
 
     def test_multiple_projects(self):
         """Test configuration with multiple projects."""
         config = DataplexConfig(
             project_ids=["project-1", "project-2", "project-3"],
-            filter_config={"dataset_pattern": {"allow": ["prod_.*"]}},
+            filter_config={
+                "entries": {
+                    "dataset_pattern": {"allow": ["prod_.*"]},
+                }
+            },
         )
 
         assert len(config.project_ids) == 3
