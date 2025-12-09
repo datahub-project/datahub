@@ -149,23 +149,27 @@ def _create_teradata_openlineage_wrapper(
     # Try multiple import paths for compatibility with different Airflow versions
     # Airflow 3.x: from airflow.providers.openlineage.extractors
     # Airflow 2.x provider: from airflow.providers.openlineage.extractors.base
-    OperatorLineage = None
+    OperatorLineageClass: Any = None
     import_error = None
     try:
         # Try Airflow 3.x import path first
-        from airflow.providers.openlineage.extractors import OperatorLineage
+        from airflow.providers.openlineage.extractors import (
+            OperatorLineage as OperatorLineageClass,
+        )
     except (ImportError, ModuleNotFoundError) as e:
         import_error = e
         try:
             # Fallback for Airflow 2.x provider mode compatibility
-            from airflow.providers.openlineage.extractors.base import OperatorLineage
+            from airflow.providers.openlineage.extractors.base import (
+                OperatorLineage as OperatorLineageClass,
+            )
 
             import_error = None  # Success, clear the error
         except (ImportError, ModuleNotFoundError) as e2:
             # Both imports failed - log the more specific error
             import_error = e2 if "Operator" not in str(e) else e
 
-    if OperatorLineage is None or import_error is not None:
+    if OperatorLineageClass is None or import_error is not None:
         # Log warning but don't fail - this is expected in some environments
         error_msg = str(import_error) if import_error else "Unknown import error"
         logger.warning(
@@ -216,8 +220,8 @@ def _create_teradata_openlineage_wrapper(
                     "Original OpenLineage returned None for TeradataOperator, "
                     "creating new OperatorLineage for SQL parsing"
                 )
-                # OperatorLineage is already imported at wrapper creation time
-                operator_lineage = OperatorLineage(  # type: ignore[misc]
+                # OperatorLineageClass is already imported at wrapper creation time
+                operator_lineage = OperatorLineageClass(  # type: ignore[misc]
                     inputs=[],
                     outputs=[],
                     job_facets={},
