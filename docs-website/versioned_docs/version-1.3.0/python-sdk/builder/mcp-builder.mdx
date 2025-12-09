@@ -1,0 +1,896 @@
+---
+title: MCP Builder
+---
+<div className="sphinx-api-docs">
+<a id="mcp-builder"></a>
+
+
+These classes and methods make it easier to construct MetadataChangeProposals.
+
+
+
+### <span className="visually-hidden">MetadataChangeProposalWrapper</span> {#datahub.emitter.mcp.MetadataChangeProposalWrapper}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp.</span><span class="class-name">MetadataChangeProposalWrapper</span>(<span class="arg-name">entityType</span> = <span class="arg-default">'ENTITY_TYPE_UNSET'</span>, <span class="arg-name">changeType</span> = <span class="arg-default">'UPSERT'</span>, <span class="arg-name">entityUrn</span> = <span class="arg-default">None</span>, <span class="arg-name">entityKeyAspect</span> = <span class="arg-default">None</span>, <span class="arg-name">auditHeader</span> = <span class="arg-default">None</span>, <span class="arg-name">aspectName</span> = <span class="arg-default">None</span>, <span class="arg-name">aspect</span> = <span class="arg-default">None</span>, <span class="arg-name">systemMetadata</span> = <span class="arg-default">None</span>, <span class="arg-name">headers</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mcp.MetadataChangeProposalWrapper" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  * **entityType** (`str`)
+  * **changeType** (`Union`[`str`, [`ChangeTypeClass`](../models.mdx#datahub.metadata.schema_classes.ChangeTypeClass)]) – 
+  * **entityUrn** (`Optional`[`str`])
+  * **entityKeyAspect** (`Optional`[`_Aspect`])
+  * **auditHeader** (`Optional`[[`KafkaAuditHeaderClass`](../models.mdx#datahub.metadata.schema_classes.KafkaAuditHeaderClass)]) – 
+  * **aspectName** (`Optional`[`str`])
+  * **aspect** (`Optional`[`_Aspect`])
+  * **systemMetadata** (`Optional`[[`SystemMetadataClass`](../models.mdx#datahub.metadata.schema_classes.SystemMetadataClass)]) – 
+  * **headers** (`Optional`[`Dict`[`str`, `str`]])
+#### as_workunit(\*, treat_errors_as_warnings=False, is_primary_source=True)
+
+* **Parameters:**
+  * **treat_errors_as_warnings** (`bool`)
+  * **is_primary_source** (`bool`)
+* **Return type:**
+  `MetadataWorkUnit`
+
+#### aspect *: `Optional`[`_Aspect`]* *= None*
+
+#### aspectName *: `Optional`[`str`]* *= None*
+
+#### auditHeader *: `Optional`[[`KafkaAuditHeaderClass`](../models.mdx#datahub.metadata.schema_classes.KafkaAuditHeaderClass)]* *= None*
+
+#### changeType *: `Union`[`str`, [`ChangeTypeClass`](../models.mdx#datahub.metadata.schema_classes.ChangeTypeClass)]* *= 'UPSERT'*
+
+#### *classmethod* construct_many(entityUrn, aspects)
+
+* **Parameters:**
+  * **entityUrn** (`str`)
+  * **aspects** (`Sequence`[`Optional`[`_Aspect`]])
+* **Return type:**
+  `List`[[`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper)]
+
+#### entityKeyAspect *: `Optional`[`_Aspect`]* *= None*
+
+#### entityType *: `str`* *= 'ENTITY_TYPE_UNSET'*
+
+#### entityUrn *: `Optional`[`str`]* *= None*
+
+#### *classmethod* from_obj(obj, tuples=False)
+
+Attempt to deserialize into an MCPW, but fall back
+to a standard MCP if we’re missing codegen’d classes for the
+entity key or aspect.
+
+* **Parameters:**
+  * **obj** (`dict`)
+  * **tuples** (`bool`)
+* **Return type:**
+  `Union`[[`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper), [`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass)]
+
+#### *classmethod* from_obj_require_wrapper(obj, tuples=False)
+
+* **Parameters:**
+  * **obj** (`dict`)
+  * **tuples** (`bool`)
+* **Return type:**
+  [`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper)
+
+#### headers *: `Optional`[`Dict`[`str`, `str`]]* *= None*
+
+#### make_mcp()
+
+* **Return type:**
+  [`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass)
+
+#### systemMetadata *: `Optional`[[`SystemMetadataClass`](../models.mdx#datahub.metadata.schema_classes.SystemMetadataClass)]* *= None*
+
+#### to_obj(tuples=False, simplified_structure=False)
+
+* **Parameters:**
+  * **tuples** (`bool`)
+  * **simplified_structure** (`bool`)
+* **Return type:**
+  `dict`
+
+#### *classmethod* try_from_mcl(mcl)
+
+* **Parameters:**
+  **mcl** ([`MetadataChangeLogClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeLogClass)) – 
+* **Return type:**
+  `Union`[[`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper), [`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass)]
+
+#### *classmethod* try_from_mcpc(mcpc)
+
+Attempts to create a MetadataChangeProposalWrapper from a MetadataChangeProposalClass.
+Neatly handles unsupported, expected cases, such as unknown aspect types or non-json content type.
+
+* **Raises:**
+  **Exception if the generic aspect is invalid****,** **e.g. contains invalid json.** – 
+* **Parameters:**
+  **mcpc** ([`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass)) – 
+* **Return type:**
+  `Optional`[[`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper)]
+
+#### validate()
+
+* **Return type:**
+  `bool`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">BigQueryDatasetKey</span> {#datahub.emitter.mcp_builder.BigQueryDatasetKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">BigQueryDatasetKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.BigQueryDatasetKey" class="hash-link"></a></div>
+
+
+Bases: [`ProjectIdKey`](#datahub.emitter.mcp_builder.ProjectIdKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **project_id** (*str*)
+  * **dataset_id** (*str*)
+#### dataset_id *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">BucketKey</span> {#datahub.emitter.mcp_builder.BucketKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">BucketKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.BucketKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **bucket_name** (*str*)
+#### bucket_name *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">CatalogKey</span> {#datahub.emitter.mcp_builder.CatalogKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">CatalogKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.CatalogKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **catalog** (*str*)
+#### catalog *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">CatalogKeyWithMetastore</span> {#datahub.emitter.mcp_builder.CatalogKeyWithMetastore}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">CatalogKeyWithMetastore</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.CatalogKeyWithMetastore" class="hash-link"></a></div>
+
+
+Bases: [`MetastoreKey`](#datahub.emitter.mcp_builder.MetastoreKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **metastore** (*str*)
+  * **catalog** (*str*)
+#### catalog *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">ContainerKey</span> {#datahub.emitter.mcp_builder.ContainerKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">ContainerKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.ContainerKey" class="hash-link"></a></div>
+
+
+Bases: [`DatahubKey`](#datahub.emitter.mcp_builder.DatahubKey)
+
+Base class for container guid keys. Most users should use one of the subclasses instead.
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+#### as_urn()
+
+* **Return type:**
+  `str`
+
+#### as_urn_typed()
+
+* **Return type:**
+  [`ContainerUrn`](../urns.mdx#datahub.metadata.urns.ContainerUrn)
+
+#### backcompat_env_as_instance *: `bool`*
+
+#### env *: `Optional`[`str`]*
+
+#### guid_dict()
+
+* **Return type:**
+  `Dict`[`str`, `str`]
+
+#### instance *: `Optional`[`str`]*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### parent_key()
+
+* **Return type:**
+  `Optional`[[`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)]
+
+#### platform *: `str`*
+
+#### property_dict()
+
+* **Return type:**
+  `Dict`[`str`, `str`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DatabaseKey</span> {#datahub.emitter.mcp_builder.DatabaseKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">DatabaseKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.DatabaseKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **database** (*str*)
+#### database *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DatahubKey</span> {#datahub.emitter.mcp_builder.DatahubKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">DatahubKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.DatahubKey" class="hash-link"></a></div>
+
+
+Bases: `BaseModel`
+
+* **Parameters:**
+  **data** (`Any`)
+#### guid()
+
+* **Return type:**
+  `str`
+
+#### guid_dict()
+
+* **Return type:**
+  `Dict`[`str`, `str`]
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">ExperimentKey</span> {#datahub.emitter.mcp_builder.ExperimentKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">ExperimentKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.ExperimentKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **id** (*str*)
+#### id *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">FolderKey</span> {#datahub.emitter.mcp_builder.FolderKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">FolderKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.FolderKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **folder_abs_path** (*str*)
+#### folder_abs_path *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">MetastoreKey</span> {#datahub.emitter.mcp_builder.MetastoreKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">MetastoreKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.MetastoreKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **metastore** (*str*)
+#### metastore *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">NamespaceKey</span> {#datahub.emitter.mcp_builder.NamespaceKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">NamespaceKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.NamespaceKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+For Iceberg namespaces (databases/schemas)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **namespace** (*str*)
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### namespace *: `str`*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">NotebookKey</span> {#datahub.emitter.mcp_builder.NotebookKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">NotebookKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.NotebookKey" class="hash-link"></a></div>
+
+
+Bases: [`DatahubKey`](#datahub.emitter.mcp_builder.DatahubKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **notebook_id** (*int*)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+#### as_urn()
+
+* **Return type:**
+  `str`
+
+#### instance *: `Optional`[`str`]*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### notebook_id *: `int`*
+
+#### platform *: `str`*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">PlatformKey</span> {#datahub.emitter.mcp_builder.PlatformKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">PlatformKey</span>()<a href="#datahub.emitter.mcp_builder.PlatformKey" class="hash-link"></a></div>
+
+
+alias of [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">ProjectIdKey</span> {#datahub.emitter.mcp_builder.ProjectIdKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">ProjectIdKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.ProjectIdKey" class="hash-link"></a></div>
+
+
+Bases: [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **project_id** (*str*)
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### project_id *: `str`*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">SchemaKey</span> {#datahub.emitter.mcp_builder.SchemaKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">SchemaKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.SchemaKey" class="hash-link"></a></div>
+
+
+Bases: [`DatabaseKey`](#datahub.emitter.mcp_builder.DatabaseKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **database** (*str*)
+  * **schema** (*str*)
+#### db_schema *: `str`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">UnitySchemaKey</span> {#datahub.emitter.mcp_builder.UnitySchemaKey}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">UnitySchemaKey</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.UnitySchemaKey" class="hash-link"></a></div>
+
+
+Bases: [`CatalogKey`](#datahub.emitter.mcp_builder.CatalogKey)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **catalog** (*str*)
+  * **unity_schema** (*str*)
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### unity_schema *: `str`*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">UnitySchemaKeyWithMetastore</span> {#datahub.emitter.mcp_builder.UnitySchemaKeyWithMetastore}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">UnitySchemaKeyWithMetastore</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.mcp_builder.UnitySchemaKeyWithMetastore" class="hash-link"></a></div>
+
+
+Bases: [`CatalogKeyWithMetastore`](#datahub.emitter.mcp_builder.CatalogKeyWithMetastore)
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **platform** (*str*)
+  * **instance** (*str* *|* *None*)
+  * **env** (*str* *|* *None*)
+  * **backcompat_env_as_instance** (*bool*)
+  * **metastore** (*str*)
+  * **catalog** (*str*)
+  * **unity_schema** (*str*)
+#### model_config *: ClassVar[ConfigDict]* *= {}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### unity_schema *: `str`*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">add_dataset_to_container</span> {#datahub.emitter.mcp_builder.add_dataset_to_container}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">add_dataset_to_container</span>(<span class="arg-name">container_key</span>, <span class="arg-name">dataset_urn</span>)<a href="#datahub.emitter.mcp_builder.add_dataset_to_container" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **container_key** (`TypeVar`(`KeyType`, bound= [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey))) – 
+  * **dataset_urn** (`str`)
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">add_domain_to_entity_wu</span> {#datahub.emitter.mcp_builder.add_domain_to_entity_wu}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">add_domain_to_entity_wu</span>(<span class="arg-name">entity_urn</span>, <span class="arg-name">domain_urn</span>)<a href="#datahub.emitter.mcp_builder.add_domain_to_entity_wu" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **domain_urn** (`str`)
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">add_entity_to_container</span> {#datahub.emitter.mcp_builder.add_entity_to_container}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">add_entity_to_container</span>(<span class="arg-name">container_key</span>, <span class="arg-name">entity_type</span>, <span class="arg-name">entity_urn</span>)<a href="#datahub.emitter.mcp_builder.add_entity_to_container" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **container_key** (`TypeVar`(`KeyType`, bound= [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey))) – 
+  * **entity_type** (`str`)
+  * **entity_urn** (`str`)
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">add_owner_to_entity_wu</span> {#datahub.emitter.mcp_builder.add_owner_to_entity_wu}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">add_owner_to_entity_wu</span>(<span class="arg-name">entity_type</span>, <span class="arg-name">entity_urn</span>, <span class="arg-name">owner_urn</span>)<a href="#datahub.emitter.mcp_builder.add_owner_to_entity_wu" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **entity_type** (`str`)
+  * **entity_urn** (`str`)
+  * **owner_urn** (`str`)
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">add_structured_properties_to_entity_wu</span> {#datahub.emitter.mcp_builder.add_structured_properties_to_entity_wu}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">add_structured_properties_to_entity_wu</span>(<span class="arg-name">entity_urn</span>, <span class="arg-name">structured_properties</span>)<a href="#datahub.emitter.mcp_builder.add_structured_properties_to_entity_wu" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **structured_properties** (`Dict`[[`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn), `str`]) – 
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">add_tags_to_entity_wu</span> {#datahub.emitter.mcp_builder.add_tags_to_entity_wu}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">add_tags_to_entity_wu</span>(<span class="arg-name">entity_type</span>, <span class="arg-name">entity_urn</span>, <span class="arg-name">tags</span>)<a href="#datahub.emitter.mcp_builder.add_tags_to_entity_wu" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **entity_type** (`str`)
+  * **entity_urn** (`str`)
+  * **tags** (`List`[`str`])
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">create_embed_mcp</span> {#datahub.emitter.mcp_builder.create_embed_mcp}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">create_embed_mcp</span>(<span class="arg-name">urn</span>, <span class="arg-name">embed_url</span>)<a href="#datahub.emitter.mcp_builder.create_embed_mcp" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **embed_url** (`str`)
+* **Return type:**
+  [`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">entity_supports_aspect</span> {#datahub.emitter.mcp_builder.entity_supports_aspect}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">entity_supports_aspect</span>(<span class="arg-name">entity_type</span>, <span class="arg-name">aspect_type</span>)<a href="#datahub.emitter.mcp_builder.entity_supports_aspect" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **entity_type** (`str`)
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `bool`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">gen_containers</span> {#datahub.emitter.mcp_builder.gen_containers}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">gen_containers</span>(<span class="arg-name">container_key</span>, <span class="arg-name">name</span>, <span class="arg-name">sub_types</span>, <span class="arg-name">parent_container_key</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">domain_urn</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">owner_urn</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">qualified_name</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mcp_builder.gen_containers" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **container_key** (`TypeVar`(`KeyType`, bound= [`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey))) – 
+  * **name** (`str`)
+  * **sub_types** (`List`[`str`])
+  * **parent_container_key** (`Optional`[[`ContainerKey`](#datahub.emitter.mcp_builder.ContainerKey)]) – 
+  * **extra_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **structured_properties** (`Optional`[`Dict`[[`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn), `str`]]) – 
+  * **domain_urn** (`Optional`[`str`])
+  * **description** (`Optional`[`str`])
+  * **owner_urn** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **tags** (`Optional`[`List`[`str`]])
+  * **qualified_name** (`Optional`[`str`])
+  * **created** (`Optional`[`int`])
+  * **last_modified** (`Optional`[`int`])
+* **Return type:**
+  `Iterable`[`MetadataWorkUnit`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">mcps_from_mce</span> {#datahub.emitter.mcp_builder.mcps_from_mce}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mcp_builder.</span><span class="class-name">mcps_from_mce</span>(<span class="arg-name">mce</span>)<a href="#datahub.emitter.mcp_builder.mcps_from_mce" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+* **Return type:**
+  `Iterable`[[`MetadataChangeProposalWrapper`](#datahub.emitter.mcp.MetadataChangeProposalWrapper)]
+
+
+</div>
+</div>

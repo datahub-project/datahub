@@ -1,0 +1,754 @@
+---
+title: Graph Client
+---
+<div className="sphinx-api-docs">
+<a id="graph-client"></a>
+
+
+The DataHub graph client extends the Rest emitter with additional functionality.
+
+
+
+### <span className="visually-hidden">DataHubGraph</span> {#datahub.ingestion.graph.client.DataHubGraph}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.ingestion.graph.client.</span><span class="class-name">DataHubGraph</span>(<span class="arg-name">config</span>)<a href="#datahub.ingestion.graph.client.DataHubGraph" class="hash-link"></a></div>
+
+
+Bases: [`DataHubRestEmitter`](rest-emitter.mdx#datahub.emitter.rest_emitter.DataHubRestEmitter), `EntityVersioningAPI`
+
+* **Parameters:**
+  **config** (`DatahubClientConfig`)
+#### *class* RelationshipDirection(value, names=None, \*, module=None, qualname=None, type=None, start=1, boundary=None)
+
+Bases: `StrEnum`
+
+#### INCOMING *= 'INCOMING'*
+
+#### OUTGOING *= 'OUTGOING'*
+
+#### close()
+
+* **Return type:**
+  `None`
+
+#### create_tag(tag_name)
+
+* **Parameters:**
+  **tag_name** (`str`)
+* **Return type:**
+  `str`
+
+#### delete_entity(urn, hard=False)
+
+Delete an entity by urn.
+
+* **Parameters:**
+  * **urn** (`str`) – The urn of the entity to delete.
+  * **hard** (`bool`) – Whether to hard delete the entity. If False (default), the entity will be soft deleted.
+* **Return type:**
+  `None`
+
+#### delete_references_to_urn(urn, dry_run=False)
+
+Delete references to a given entity.
+
+This is useful for cleaning up references to an entity that is about to be deleted.
+For example, when deleting a tag, you might use this to remove that tag from all other
+entities that reference it.
+
+This does not delete the entity itself.
+
+* **Parameters:**
+  * **urn** (`str`) – The urn of the entity to delete references to.
+  * **dry_run** (`bool`) – If True, do not actually delete the references, just return the count of
+    references and the list of related aspects.
+* **Return type:**
+  `Tuple`[`int`, `List`[`Dict`]]
+* **Returns:**
+  A tuple of (reference_count, sample of related_aspects).
+
+#### emit_all(items, run_id='_\_datahub-graph-client')
+
+Emit all items in the iterable using multiple threads.
+
+* **Parameters:**
+  * **items** (`Iterable`[`Union`[[`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass), [`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass), [`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper)]]) – 
+  * **run_id** (`str`)
+* **Return type:**
+  `None`
+
+#### execute_graphql(query, variables=None, operation_name=None, format_exception=True)
+
+* **Parameters:**
+  * **query** (`str`)
+  * **variables** (`Optional`[`Dict`])
+  * **operation_name** (`Optional`[`str`])
+  * **format_exception** (`bool`)
+* **Return type:**
+  `Dict`
+
+#### exists(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `bool`
+
+#### *classmethod* from_emitter(emitter)
+
+* **Parameters:**
+  **emitter** ([`DataHubRestEmitter`](rest-emitter.mdx#datahub.emitter.rest_emitter.DataHubRestEmitter)) – 
+* **Return type:**
+  [`DataHubGraph`](#datahub.ingestion.graph.client.DataHubGraph)
+
+#### *property* frontend_base_url *: str*
+
+Get the public-facing base url of the frontend
+
+This url can be used to construct links to the frontend. The url will not include a trailing slash.
+
+Note: Only supported with DataHub Cloud.
+
+#### get_aspect(entity_urn, aspect_type, version=0)
+
+Get an aspect for an entity.
+
+* **Parameters:**
+  * **entity_urn** (`str`) – The urn of the entity
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
+  * **version** (`int`) – The version of the aspect to retrieve. The default of 0 means latest. Versions > 0 go from oldest to newest, so 1 is the oldest.
+* **Return type:**
+  `Optional`[`TypeVar`(`Aspect`, bound= `_Aspect`)]
+* **Returns:**
+  the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
+* **Raises:**
+  * **TypeError** – if the aspect type is a timeseries aspect
+  * **HttpError** – if the HTTP response is not a 200 or a 404
+
+#### get_aspect_counts(aspect, urn_like=None)
+
+* **Parameters:**
+  * **aspect** (`str`)
+  * **urn_like** (`Optional`[`str`])
+* **Return type:**
+  `int`
+
+#### get_aspect_v2(entity_urn, aspect_type, aspect, aspect_type_name=None, version=0)
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+  * **aspect** (`str`)
+  * **aspect_type_name** (`Optional`[`str`])
+  * **version** (`int`)
+* **Return type:**
+  `Optional`[`TypeVar`(`Aspect`, bound= `_Aspect`)]
+
+#### get_aspects_for_entity(entity_urn, aspects, aspect_types)
+
+Get multiple aspects for an entity.
+
+Deprecated in favor of get_aspect (single aspect) or get_entity_semityped (full
+entity without manually specifying a list of aspects).
+
+Warning: Do not use this method to determine if an entity exists!
+This method will always return an entity, even if it doesn’t exist. This is an issue with how DataHub server
+responds to these calls, and will be fixed automatically when the server-side issue is fixed.
+
+* **Parameters:**
+  * **entity_urn** (`str`) – The urn of the entity
+  * **aspects** (`List`[`str`]) – List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+  * **aspect_types** (`List`[`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
+  * **entity_urn** – 
+* **Return type:**
+  `Dict`[`str`, `Optional`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]
+* **Returns:**
+  Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
+* **Raises:**
+  **HttpError** – if the HTTP response is not a 200
+
+#### get_browse_path(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`BrowsePathsClass`](../models.mdx#datahub.metadata.schema_classes.BrowsePathsClass)]
+
+#### get_config()
+
+* **Return type:**
+  `Dict`[`str`, `Any`]
+
+#### get_connection_json(urn)
+
+Retrieve a connection config.
+
+This is only supported with DataHub Cloud.
+
+* **Parameters:**
+  **urn** (`str`) – The urn of the connection.
+* **Return type:**
+  `Optional`[`dict`]
+* **Returns:**
+  The connection config as a dictionary, or None if the connection was not found.
+
+#### get_container_urns_by_filter(env=None, search_query='\*')
+
+Return container urns that match based on query
+
+* **Parameters:**
+  * **env** (`Optional`[`str`])
+  * **search_query** (`str`)
+* **Return type:**
+  `Iterable`[`str`]
+
+#### get_dataset_properties(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`DatasetPropertiesClass`](../models.mdx#datahub.metadata.schema_classes.DatasetPropertiesClass)]
+
+#### get_domain(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`DomainsClass`](../models.mdx#datahub.metadata.schema_classes.DomainsClass)]
+
+#### get_domain_properties(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`DomainPropertiesClass`](../models.mdx#datahub.metadata.schema_classes.DomainPropertiesClass)]
+
+#### get_domain_urn_by_name(domain_name)
+
+Retrieve a domain urn based on its name. Returns None if there is no match found
+
+* **Parameters:**
+  **domain_name** (`str`)
+* **Return type:**
+  `Optional`[`str`]
+
+#### get_entities(entity_name, urns, aspects=None, with_system_metadata=False)
+
+Get entities using the OpenAPI v3 endpoint, deserializing aspects into typed objects.
+
+* **Parameters:**
+  * **entity_name** (`str`) – The entity type name
+  * **urns** (`List`[`str`]) – List of entity URNs to fetch
+  * **aspects** (`Optional`[`List`[`str`]]) – Optional list of aspect names to fetch. If None, all aspects will be fetched.
+  * **with_system_metadata** (`bool`) – If True, return system metadata along with each aspect.
+* **Return type:**
+  `Dict`[`str`, `Dict`[`str`, `Tuple`[`_Aspect`, `Optional`[[`SystemMetadataClass`](../models.mdx#datahub.metadata.schema_classes.SystemMetadataClass)]]]]
+* **Returns:**
+  A dictionary mapping URNs to a dictionary of aspect name to tuples of
+  (typed aspect object, system metadata). If with_system_metadata is False,
+  the system metadata in the tuple will be None.
+
+#### get_entities_v2(entity_name, urns, aspects=None, with_system_metadata=False)
+
+* **Parameters:**
+  * **entity_name** (`str`)
+  * **urns** (`List`[`str`])
+  * **aspects** (`Optional`[`List`[`str`]])
+  * **with_system_metadata** (`bool`)
+* **Return type:**
+  `Dict`[`str`, `Any`]
+
+#### get_entity_as_mcps(entity_urn, aspects=None)
+
+Get all non-timeseries aspects for an entity.
+
+By formatting the entity’s aspects as MCPWs, we can also include SystemMetadata.
+
+Warning: Do not use this method to determine if an entity exists! This method will always return
+something, even if the entity doesn’t actually exist in DataHub.
+
+* **Parameters:**
+  * **entity_urn** (`str`) – The urn of the entity
+  * **aspects** (`Optional`[`List`[`str`]]) – Optional list of aspect names being requested (e.g. [“schemaMetadata”, “datasetProperties”])
+* **Return type:**
+  `List`[[`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper)]
+* **Returns:**
+  A list of MCPWs.
+
+#### get_entity_raw(entity_urn, aspects=None)
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **aspects** (`Optional`[`List`[`str`]])
+* **Return type:**
+  `Dict`
+
+#### get_entity_semityped(entity_urn, aspects=None)
+
+Get (all) non-timeseries aspects for an entity.
+
+This method is called “semityped” because it returns aspects as a dictionary of
+properly typed objects. While the returned dictionary is constrained using a TypedDict,
+the return type is still fairly loose.
+
+Warning: Do not use this method to determine if an entity exists! This method will always return
+something, even if the entity doesn’t actually exist in DataHub.
+
+* **Parameters:**
+  * **entity_urn** (`str`) – The urn of the entity
+  * **aspects** (`Optional`[`List`[`str`]]) – Optional list of aspect names being requested (e.g. [“schemaMetadata”, “datasetProperties”])
+* **Return type:**
+  [`AspectBag`](../models.mdx#datahub.metadata.schema_classes.AspectBag)
+* **Returns:**
+  A dictionary of aspect name to aspect value. If an aspect is not found, it will
+  not be present in the dictionary. The entity’s key aspect will always be present.
+
+#### get_glossary_terms(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`GlossaryTermsClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermsClass)]
+
+#### get_kafka_consumer_offsets()
+
+Get Kafka consumer offsets from the DataHub API.
+
+* **Parameters:**
+  **graph** ([*DataHubGraph*](#datahub.ingestion.graph.client.DataHubGraph)) – The DataHub graph client
+* **Return type:**
+  `dict`
+
+#### get_latest_pipeline_checkpoint(pipeline_name, platform)
+
+* **Parameters:**
+  * **pipeline_name** (`str`)
+  * **platform** (`str`)
+* **Return type:**
+  `Optional`[`Checkpoint`[`GenericCheckpointState`]]
+
+#### get_latest_timeseries_value(entity_urn, aspect_type, filter_criteria_map)
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+  * **filter_criteria_map** (`Dict`[`str`, `str`])
+* **Return type:**
+  `Optional`[`TypeVar`(`Aspect`, bound= `_Aspect`)]
+
+#### get_ownership(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`OwnershipClass`](../models.mdx#datahub.metadata.schema_classes.OwnershipClass)]
+
+#### get_related_entities(entity_urn, relationship_types, direction)
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **relationship_types** (`List`[`str`])
+  * **direction** ([`RelationshipDirection`](#datahub.ingestion.graph.client.DataHubGraph.RelationshipDirection)) – 
+* **Return type:**
+  `Iterable`[[`RelatedEntity`](#datahub.ingestion.graph.client.RelatedEntity)]
+
+#### get_results_by_filter(\*, entity_types=None, platform=None, platform_instance=None, env=None, query=None, container=None, status=RemovedStatusFilter.NOT_SOFT_DELETED, batch_size=5000, extra_and_filters=None, extra_or_filters=None, extra_source_fields=None, skip_cache=False)
+
+Fetch all results that match all of the given filters.
+
+Note: Only supported with DataHub Cloud.
+
+Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+The same goes for the env filter.
+
+* **Parameters:**
+  * **entity_types** (`Optional`[`List`[`str`]]) – List of entity types to include. If None, all entity types will be returned.
+  * **platform** (`Optional`[`str`]) – Platform to filter on. If None, all platforms will be returned.
+  * **platform_instance** (`Optional`[`str`]) – Platform instance to filter on. If None, all platform instances will be returned.
+  * **env** (`Optional`[`str`]) – Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+  * **query** (`Optional`[`str`]) – Query string to filter on. If None, all entities will be returned.
+  * **container** (`Optional`[`str`]) – A container urn that entities must be within.
+    This works recursively, so it will include entities within sub-containers as well.
+    If None, all entities will be returned.
+    Note that this requires browsePathV2 aspects (added in 0.10.4+).
+  * **status** (`RemovedStatusFilter`) – Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+  * **extra_and_filters** (`Optional`[`List`[`Dict`[`str`, `Union`[`str`, `bool`, `List`[`str`]]]]]) – Additional filters to apply. If specified, the
+    results will match all of the filters.
+  * **extra_or_filters** (`Optional`[`List`[`Dict`[`Literal`[`'and'`], `List`[`Dict`[`str`, `Union`[`str`, `bool`, `List`[`str`]]]]]]]) – Additional filters to apply. If specified, the
+    results will match any of the filters.
+  * **batch_size** (`int`)
+  * **extra_source_fields** (`Optional`[`List`[`str`]])
+  * **skip_cache** (`bool`)
+* **Return type:**
+  `Iterable`[`dict`]
+* **Returns:**
+  An iterable of urns that match the filters.
+
+#### get_schema_metadata(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`SchemaMetadataClass`](../models.mdx#datahub.metadata.schema_classes.SchemaMetadataClass)]
+
+#### get_search_results(start=0, count=1, entity='dataset')
+
+* **Parameters:**
+  * **start** (`int`)
+  * **count** (`int`)
+  * **entity** (`str`)
+* **Return type:**
+  `Dict`
+
+#### get_tags(entity_urn)
+
+* **Parameters:**
+  **entity_urn** (`str`)
+* **Return type:**
+  `Optional`[[`GlobalTagsClass`](../models.mdx#datahub.metadata.schema_classes.GlobalTagsClass)]
+
+#### get_timeseries_values(entity_urn, aspect_type, filter, limit=10)
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+  * **filter** (`Dict`[`str`, `Any`])
+  * **limit** (`int`)
+* **Return type:**
+  `List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]
+
+#### get_urns_by_filter(\*, entity_types=None, platform=None, platform_instance=None, env=None, query=None, container=None, status=RemovedStatusFilter.NOT_SOFT_DELETED, batch_size=5000, extraFilters=None, extra_or_filters=None, skip_cache=False)
+
+Fetch all urns that match all of the given filters.
+
+Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
+Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
+The same goes for the env filter.
+
+* **Parameters:**
+  * **entity_types** (`Optional`[`Sequence`[`str`]]) – List of entity types to include. If None, all entity types will be returned.
+  * **platform** (`Optional`[`str`]) – Platform to filter on. If None, all platforms will be returned.
+  * **platform_instance** (`Optional`[`str`]) – Platform instance to filter on. If None, all platform instances will be returned.
+  * **env** (`Optional`[`str`]) – Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+  * **query** (`Optional`[`str`]) – Query string to filter on. If None, all entities will be returned.
+  * **container** (`Optional`[`str`]) – A container urn that entities must be within.
+    This works recursively, so it will include entities within sub-containers as well.
+    If None, all entities will be returned.
+    Note that this requires browsePathV2 aspects (added in 0.10.4+).
+  * **status** (`Optional`[`RemovedStatusFilter`]) – Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+  * **extraFilters** (`Optional`[`List`[`Dict`[`str`, `Union`[`str`, `bool`, `List`[`str`]]]]]) – Additional filters to apply. If specified, the results will match all of the filters.
+  * **skip_cache** (`bool`) – Whether to bypass caching. Defaults to False.
+  * **batch_size** (`int`)
+  * **extra_or_filters** (`Optional`[`List`[`Dict`[`Literal`[`'and'`], `List`[`Dict`[`str`, `Union`[`str`, `bool`, `List`[`str`]]]]]]])
+* **Return type:**
+  `Iterable`[`str`]
+* **Returns:**
+  An iterable of urns that match the filters.
+
+#### get_usage_aspects_from_urn(entity_urn, start_timestamp, end_timestamp)
+
+* **Parameters:**
+  * **entity_urn** (`str`)
+  * **start_timestamp** (`int`)
+  * **end_timestamp** (`int`)
+* **Return type:**
+  `Optional`[`List`[[`DatasetUsageStatisticsClass`](../models.mdx#datahub.metadata.schema_classes.DatasetUsageStatisticsClass)]]
+
+#### hard_delete_entity(urn)
+
+Hard delete an entity by urn.
+
+* **Parameters:**
+  **urn** (`str`) – The urn of the entity to hard delete.
+* **Return type:**
+  `Tuple`[`int`, `int`]
+* **Returns:**
+  A tuple of (rows_affected, timeseries_rows_affected).
+
+#### hard_delete_timeseries_aspect(urn, aspect_name, start_time, end_time)
+
+Hard delete timeseries aspects of an entity.
+
+* **Parameters:**
+  * **urn** (`str`) – The urn of the entity.
+  * **aspect_name** (`str`) – The name of the timeseries aspect to delete.
+  * **start_time** (`Optional`[`datetime`]) – The start time of the timeseries data to delete. If not specified, defaults to the beginning of time.
+  * **end_time** (`Optional`[`datetime`]) – The end time of the timeseries data to delete. If not specified, defaults to the end of time.
+* **Return type:**
+  `int`
+* **Returns:**
+  The number of timeseries rows affected.
+
+#### initialize_schema_resolver_from_datahub(platform, platform_instance, env, batch_size=100)
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+  * **batch_size** (`int`)
+* **Return type:**
+  `SchemaResolver`
+
+#### list_all_entity_urns(entity_type, start, count)
+
+* **Parameters:**
+  * **entity_type** (`str`)
+  * **start** (`int`)
+  * **count** (`int`)
+* **Return type:**
+  `Optional`[`List`[`str`]]
+
+#### make_rest_sink(run_id='_\_datahub-graph-client', extra_sink_config=None)
+
+* **Parameters:**
+  * **run_id** (`str`)
+  * **extra_sink_config** (`Optional`[`Dict`])
+* **Return type:**
+  `Iterator`[`DatahubRestSink`]
+
+#### parse_sql_lineage(sql, \*, platform, platform_instance=None, env='PROD', default_db=None, default_schema=None, override_dialect=None)
+
+* **Parameters:**
+  * **sql** (`str`)
+  * **platform** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+  * **default_db** (`Optional`[`str`])
+  * **default_schema** (`Optional`[`str`])
+  * **override_dialect** (`Optional`[`str`])
+* **Return type:**
+  `SqlParsingResult`
+
+#### remove_tag(tag_urn, resource_urn)
+
+* **Parameters:**
+  * **tag_urn** (`str`)
+  * **resource_urn** (`str`)
+* **Return type:**
+  `bool`
+
+#### report_assertion_result(urn, timestamp_millis, type, properties=None, external_url=None, error_type=None, error_message=None)
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **timestamp_millis** (`int`)
+  * **type** (`Literal`[`'SUCCESS'`, `'FAILURE'`, `'ERROR'`, `'INIT'`])
+  * **properties** (`Optional`[`List`[`Dict`[`str`, `str`]]])
+  * **external_url** (`Optional`[`str`])
+  * **error_type** (`Optional`[`str`])
+  * **error_message** (`Optional`[`str`])
+* **Return type:**
+  `bool`
+
+#### restore_indices(urn_pattern=None, aspect=None, start=None, batch_size=None, file=None)
+
+Restore the indices for a given urn or urn-like pattern.
+
+* **Parameters:**
+  * **urn_pattern** (`Optional`[`str`]) – The exact URN or a pattern (with % for wildcard) to match URNs. If not provided, will restore indices from the file.
+  * **aspect** (`Optional`[`str`]) – Optional aspect string to restore indices for a specific aspect.
+  * **start** (`Optional`[`int`]) – Optional integer to decide which row number of sql store to restore from. Default: 0. Ignored in case file is provided.
+  * **batch_size** (`Optional`[`int`]) – Optional integer to decide how many rows to restore. Default: 10. Ignored in case file is provided.
+  * **file** (`Optional`[`str`]) – Optional file path to a file containing URNs to restore indices for.
+* **Return type:**
+  `None`
+* **Returns:**
+  A string containing the result of the restore indices operation. This format is subject to change.
+
+#### run_assertion(urn, save_result=True, parameters=None, async_flag=False)
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **save_result** (`bool`)
+  * **parameters** (`Optional`[`Dict`[`str`, `str`]])
+  * **async_flag** (`bool`)
+* **Return type:**
+  `Dict`
+
+#### run_assertions(urns, save_result=True, parameters=None, async_flag=False)
+
+* **Parameters:**
+  * **urns** (`List`[`str`])
+  * **save_result** (`bool`)
+  * **parameters** (`Optional`[`Dict`[`str`, `str`]])
+  * **async_flag** (`bool`)
+* **Return type:**
+  `Dict`
+
+#### run_assertions_for_asset(urn, tag_urns=None, parameters=None, async_flag=False)
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **tag_urns** (`Optional`[`List`[`str`]])
+  * **parameters** (`Optional`[`Dict`[`str`, `str`]])
+  * **async_flag** (`bool`)
+* **Return type:**
+  `Dict`
+
+#### set_connection_json(urn, \*, platform_urn, config, name=None)
+
+Set a connection config.
+
+This is only supported with DataHub Cloud.
+
+* **Parameters:**
+  * **urn** (`str`) – The urn of the connection.
+  * **platform_urn** (`str`) – The urn of the platform.
+  * **config** (`Union`[`ConfigModel`, `BaseModel`, `dict`]) – The connection config as a dictionary or a ConfigModel.
+  * **name** (`Optional`[`str`]) – The name of the connection.
+* **Return type:**
+  `None`
+
+#### set_soft_delete_status(urn, delete, run_id='_\_datahub-graph-client', deletion_timestamp=None)
+
+Change status of soft-delete an entity by urn.
+
+* **Parameters:**
+  * **urn** (`str`) – The urn of the entity to soft-delete.
+  * **delete** (`bool`)
+  * **run_id** (`str`)
+  * **deletion_timestamp** (`Optional`[`int`])
+* **Return type:**
+  `None`
+
+#### soft_delete_entity(urn, run_id='_\_datahub-graph-client', deletion_timestamp=None)
+
+Soft-delete an entity by urn.
+
+* **Parameters:**
+  * **urn** (`str`) – The urn of the entity to soft-delete.
+  * **run_id** (`str`)
+  * **deletion_timestamp** (`Optional`[`int`])
+* **Return type:**
+  `None`
+
+#### test_connection()
+
+* **Return type:**
+  `None`
+
+#### upsert_custom_assertion(urn, entity_urn, type, description, platform_name=None, platform_urn=None, field_path=None, external_url=None, logic=None)
+
+* **Parameters:**
+  * **urn** (`Optional`[`str`])
+  * **entity_urn** (`str`)
+  * **type** (`str`)
+  * **description** (`str`)
+  * **platform_name** (`Optional`[`str`])
+  * **platform_urn** (`Optional`[`str`])
+  * **field_path** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **logic** (`Optional`[`str`])
+* **Return type:**
+  `Dict`
+
+#### url_for(entity_urn)
+
+Get the UI url for an entity.
+
+Note: Only supported with DataHub Cloud.
+
+* **Parameters:**
+  **entity_urn** (`Union`[`str`, [`Urn`](../urns.mdx#datahub.metadata.urns.Urn)]) – The urn of the entity to get the url for.
+* **Return type:**
+  `str`
+* **Returns:**
+  The public-facing url for the entity.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">RelatedEntity</span> {#datahub.ingestion.graph.client.RelatedEntity}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.ingestion.graph.client.</span><span class="class-name">RelatedEntity</span>(<span class="arg-name">urn</span>, <span class="arg-name">relationship_type</span>, <span class="arg-name">via</span> = <span class="arg-default">None</span>)<a href="#datahub.ingestion.graph.client.RelatedEntity" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **relationship_type** (`str`)
+  * **via** (`Optional`[`str`])
+#### relationship_type *: `str`*
+
+#### urn *: `str`*
+
+#### via *: `Optional`[`str`]* *= None*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">entity_type_to_graphql</span> {#datahub.ingestion.graph.client.entity_type_to_graphql}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.ingestion.graph.client.</span><span class="class-name">entity_type_to_graphql</span>(<span class="arg-name">entity_type</span>)<a href="#datahub.ingestion.graph.client.entity_type_to_graphql" class="hash-link"></a></div>
+
+
+Convert the entity types into GraphQL “EntityType” enum values.
+
+* **Parameters:**
+  **entity_type** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">flexible_entity_type_to_graphql</span> {#datahub.ingestion.graph.client.flexible_entity_type_to_graphql}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.ingestion.graph.client.</span><span class="class-name">flexible_entity_type_to_graphql</span>(<span class="arg-name">entity_type</span>)<a href="#datahub.ingestion.graph.client.flexible_entity_type_to_graphql" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **entity_type** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">get_default_graph</span> {#datahub.ingestion.graph.client.get_default_graph}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.ingestion.graph.client.</span><span class="class-name">get_default_graph</span>(<span class="arg-name">client_mode</span> = <span class="arg-default">None</span>, <span class="arg-name">datahub_component</span> = <span class="arg-default">None</span>)<a href="#datahub.ingestion.graph.client.get_default_graph" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **client_mode** (`Optional`[`ClientMode`])
+  * **datahub_component** (`Optional`[`str`])
+* **Return type:**
+  [`DataHubGraph`](#datahub.ingestion.graph.client.DataHubGraph)
+
+
+</div>
+</div>
