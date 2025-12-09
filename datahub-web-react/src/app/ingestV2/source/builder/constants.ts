@@ -1,6 +1,6 @@
 import athenaLogo from '@images/awsathenalogo.png';
-import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import azureLogo from '@images/azure-ad.png';
+import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
