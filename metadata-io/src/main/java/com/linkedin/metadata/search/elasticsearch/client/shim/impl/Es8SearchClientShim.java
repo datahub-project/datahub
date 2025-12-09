@@ -1443,6 +1443,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     org.elasticsearch.client.Request esRequest =
         new org.elasticsearch.client.Request(request.getMethod(), request.getEndpoint());
     esRequest.addParameters(request.getParameters());
+    esRequest.setEntity(request.getEntity());
     org.elasticsearch.client.Response esResponse =
         ((RestClientTransport) client._transport()).restClient().performRequest(esRequest);
 
