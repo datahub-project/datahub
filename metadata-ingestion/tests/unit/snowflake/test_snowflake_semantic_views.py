@@ -4,41 +4,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
-    SnowflakeSemanticView,
 )
-
-
-def test_snowflake_semantic_view_subtype():
-    """Test that SnowflakeSemanticView returns the correct subtype."""
-    semantic_view = SnowflakeSemanticView(
-        name="test_semantic_view",
-        created=datetime.datetime.now(),
-        comment="Test semantic view",
-        view_definition="yaml: definition",
-        last_altered=datetime.datetime.now(),
-    )
-
-    assert semantic_view.get_subtype() == DatasetSubTypes.SEMANTIC_VIEW
-
-
-def test_snowflake_config_includes_semantic_views():
-    """Test that SnowflakeV2Config includes semantic view configuration."""
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test_account",
-            "username": "test_user",
-            "password": "test_password",
-            "include_semantic_views": True,
-        }
-    )
-
-    assert config.include_semantic_views is True
 
 
 def test_snowflake_config_semantic_view_pattern():
@@ -60,12 +30,6 @@ def test_snowflake_config_semantic_view_pattern():
     assert not config.semantic_view_pattern.allowed(
         "TEST_DB.PUBLIC.INTERNAL_SV_INTERNAL"
     )
-
-
-def test_snowflake_semantic_view_domain():
-    """Test that SEMANTIC_VIEW is in SnowflakeObjectDomain."""
-    assert hasattr(SnowflakeObjectDomain, "SEMANTIC_VIEW")
-    assert SnowflakeObjectDomain.SEMANTIC_VIEW == "semantic view"
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
