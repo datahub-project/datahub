@@ -169,10 +169,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                 <Input
                     label=""
                     value={searchQuery}
-                    setValue={(value) => {
-                        const newValue = typeof value === 'function' ? value(searchQuery) : value;
-                        handleSearchChange(newValue);
-                    }}
+                    setValue={handleSearchChange}
                     placeholder={placeholder}
                     icon={{ icon: 'Search' }}
                     data-testid="entity-search-select-input"
