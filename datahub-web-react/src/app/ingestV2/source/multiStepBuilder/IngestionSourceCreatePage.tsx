@@ -12,6 +12,7 @@ import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/st
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
@@ -45,6 +46,7 @@ const STEPS: IngestionSourceFormStep[] = [
         label: 'Sync Schedule ',
         key: 'syncSchedule',
         content: <ScheduleStep />,
+        subTitle: 'Configure an ingestion schedule',
     },
 ];
 
@@ -55,6 +57,12 @@ export function IngestionSourceCreatePage() {
     const createIngestionSource = useCreateSource();
 
     const { defaultOwnershipType } = useOwnershipTypes();
+
+    const initialState = {
+        schedule: {
+            interval: DAILY_MIDNIGHT_CRON_INTERVAL,
+        },
+    };
 
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
@@ -117,5 +125,5 @@ export function IngestionSourceCreatePage() {
         history.push(PageRoutes.INGESTION);
     }, [history]);
 
-    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} />;
+    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />;
 }
