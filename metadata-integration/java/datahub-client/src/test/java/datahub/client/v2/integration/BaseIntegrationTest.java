@@ -52,8 +52,8 @@ public abstract class BaseIntegrationTest {
   protected static DataHubClientV2 client;
 
   private static final String DEFAULT_SERVER = "http://localhost:8080";
-  private static final String DEFAULT_USERNAME = "admin";
-  private static final String DEFAULT_PASSWORD = "mypass";
+  private static final String DEFAULT_USERNAME = "datahub";
+  private static final String DEFAULT_PASSWORD = "datahub";
   private static final String DEFAULT_FRONTEND_PORT = "9002";
 
   // Only use defaults for local dev - CI should explicitly set DATAHUB_SERVER or tests skip

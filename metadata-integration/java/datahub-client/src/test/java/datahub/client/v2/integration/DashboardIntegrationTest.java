@@ -9,7 +9,6 @@ import datahub.client.v2.entity.Dashboard;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -121,7 +120,6 @@ public class DashboardIntegrationTest extends BaseIntegrationTest {
     assertNotNull(dashboard.getUrn());
   }
 
-  @Ignore("Failing in CI")
   @Test
   public void testDashboardWithInputDatasets() throws Exception {
     Dashboard dashboard =
