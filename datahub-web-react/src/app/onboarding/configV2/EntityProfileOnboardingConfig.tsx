@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const ENTITY_PROFILE_V2_COLUMNS_ID = 'entity-profile-v2-columns';
 export const ENTITY_PROFILE_V2_CONTENTS_ID = 'entity-profile-v2-contents';

@@ -3,7 +3,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 import BulkTypeComparions from '@images/bulk-form-type-comparison.svg';
 

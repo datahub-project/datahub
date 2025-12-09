@@ -7,8 +7,21 @@ export type OnboardingStep = {
     id?: string;
     prerequisiteStepId?: string;
     title?: string | ReactNode;
-    content?: ReactNode;
+    content?: string | ReactNode;
+    icon?: string;
     selector?: string;
     style?: any;
     isActionStep?: boolean; // hide this step until some action is taken to display it
+};
+
+/**
+ * Configuration for onboarding tasks.
+ * This is a collection of steps that are part of an onboarding task.
+ */
+export type OnboardingTasks = {
+    id?: string;
+    title?: string;
+    content?: string;
+    showProgress?: boolean;
+    steps: OnboardingStep[];
 };

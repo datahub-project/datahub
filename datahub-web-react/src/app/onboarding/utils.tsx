@@ -3,7 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { OnboardingConfig } from '@app/onboarding/OnboardingConfig';
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { getFreeTrialOnboardingIds } from '@app/onboarding/configV2/FreeTrialConfig';
+import { OnboardingStep } from '@app/onboarding/types';
 
 import { StepStateResult } from '@types';
 
@@ -14,7 +15,21 @@ export function convertStepId(stepId: string, userUrn: string) {
 
 // used to get all of the steps on our initial fetch
 export function getStepIds(userUrn: string) {
+    return getUserSpecificStepIds(userUrn).concat(getInstanceLevelOnboardingStepIds());
+}
+
+/**
+ * Get all of the steps that are specific to the user
+ */
+export function getUserSpecificStepIds(userUrn: string) {
     return OnboardingConfig.map((step) => `${userUrn}-${step.id}`);
+}
+
+/**
+ * Get all of the steps that are on the instance level (not user specific)
+ */
+export function getInstanceLevelOnboardingStepIds() {
+    return getFreeTrialOnboardingIds();
 }
 
 // if the user just saw the prerequisiteStepId (in stepIdsToAdd) of a conditional step, we need to add this conditional step
@@ -93,3 +108,18 @@ export function getStepsToRender(
 export function getInitialAllowListIds() {
     return OnboardingConfig.filter((config) => !config.isActionStep).map((config) => config.id as string);
 }
+
+/**
+ * Helper to get a step's property value by key from educationSteps
+ */
+export const getStepPropertyByKey = (
+    educationSteps: StepStateResult[] | null,
+    stepId: string,
+    propKey: string,
+): string | null => {
+    if (!educationSteps) return null;
+    const stepResult = educationSteps.find((step) => step.id === stepId);
+    if (!stepResult) return null;
+    const entry = stepResult.properties.find((prop) => prop.key === propKey);
+    return entry?.value ?? null;
+};
