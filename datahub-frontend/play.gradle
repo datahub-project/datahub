@@ -103,6 +103,11 @@ dependencies {
   testImplementation externalDependency.junitJupiterApi
   testRuntimeOnly externalDependency.junitJupiterEngine
 
+  // Ensure MockWebServer version matches OkHttp version to avoid internal API incompatibilities
+  testImplementation('com.squareup.okhttp3:mockwebserver:5.0.0-alpha.14') {
+    because("MockWebServer 4.x is incompatible with OkHttp 5.x internal APIs")
+  }
+
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.guicePlay
