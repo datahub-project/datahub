@@ -1992,6 +1992,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_view: "SnowflakeSemanticView",
         depth: int = 0,
         visited: Optional[Set[str]] = None,
+        context_table: Optional[str] = None,
     ) -> List[Tuple[str, str, str, str]]:
         """
         Recursively resolve a derived column's expression to physical source columns.
@@ -2001,6 +2002,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             semantic_view: The semantic view containing the column
             depth: Current recursion depth
             visited: Set of already-visited column names to detect cycles
+            context_table: The logical table name to use for unqualified columns
 
         Returns:
             List of tuples: (source_db, source_schema, source_table, source_col)
@@ -2018,7 +2020,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             expression, dialect="snowflake"
         )
         logger.info(
-            f"DEBUG _resolve: expression={expression}, extracted columns={source_columns}"
+            f"DEBUG _resolve: expression={expression}, extracted columns={source_columns}, context_table={context_table}"
         )
         logger.info(
             f"DEBUG _resolve: logical_to_physical_table={semantic_view.logical_to_physical_table}"
@@ -2027,8 +2029,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         resolved_sources: List[Tuple[str, str, str, str]] = []
 
         for table_qualifier, source_col in source_columns:
-            col_key = f"{table_qualifier or ''}.{source_col}"
-            logger.info(f"DEBUG _resolve: Processing {col_key}")
+            # Use context_table for unqualified columns
+            effective_table = table_qualifier if table_qualifier else context_table
+            col_key = f"{effective_table or ''}.{source_col}"
+            logger.info(
+                f"DEBUG _resolve: Processing {col_key} (original qualifier: {table_qualifier}, effective: {effective_table})"
+            )
 
             # Cycle detection
             if col_key in visited:
@@ -2036,18 +2042,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 continue
             visited.add(col_key)
 
-            if not table_qualifier:
+            if not effective_table:
                 logger.info(
-                    f"DEBUG _resolve: No table_qualifier for {source_col}, skipping"
+                    f"DEBUG _resolve: No table_qualifier and no context_table for {source_col}, skipping"
                 )
                 continue
 
             physical_table_tuple = semantic_view.logical_to_physical_table.get(
-                table_qualifier
+                effective_table
             )
             if not physical_table_tuple:
                 logger.info(
-                    f"DEBUG _resolve: No physical table for qualifier {table_qualifier}, skipping"
+                    f"DEBUG _resolve: No physical table for qualifier {effective_table}, skipping"
                 )
                 continue
 
@@ -2079,12 +2085,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         logger.info(
                             f"DEBUG _resolve: Found derived column {source_col} with expression: {sv_col.expression}"
                         )
-                        # Recursively resolve
+                        # Recursively resolve, passing effective_table as context
                         nested_sources = self._resolve_derived_column_sources(
                             sv_col.expression,
                             semantic_view,
                             depth + 1,
                             visited.copy(),
+                            context_table=effective_table,
                         )
                         logger.info(
                             f"DEBUG _resolve: Nested sources for {source_col}: {nested_sources}"
