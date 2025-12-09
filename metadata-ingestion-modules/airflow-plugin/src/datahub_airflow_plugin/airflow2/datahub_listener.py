@@ -26,7 +26,14 @@ from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
 
 # Import Airflow 2.x compatibility and patches before any Airflow imports
-from datahub_airflow_plugin.airflow2 import _airflow_compat  # noqa: F401
+# Wrap in try-except to ensure listener can still load if compatibility module has issues
+try:
+    from datahub_airflow_plugin.airflow2 import _airflow_compat  # noqa: F401
+except Exception as e:
+    # Log but don't fail - compatibility patches are optional
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Could not import Airflow 2.x compatibility module: {e}. Some patches may not be applied.")
 
 # Conditional import for OpenLineage (may not be installed)
 try:

@@ -25,7 +25,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-if importlib.util.find_spec("airflow.providers.openlineage.sqlparser") is not None:
+# Check if OpenLineage provider package is available
+# Use try-except because find_spec can raise ModuleNotFoundError if parent module doesn't exist
+try:
+    has_openlineage_provider = (
+        importlib.util.find_spec("airflow.providers.openlineage.sqlparser") is not None
+    )
+except (ModuleNotFoundError, ImportError, ValueError):
+    # Parent module doesn't exist or other import error
+    has_openlineage_provider = False
+
+if has_openlineage_provider:
     # Provider package detected - apply SQL parser patch
     from datahub_airflow_plugin.airflow2._airflow2_sql_parser_patch import (
         patch_sqlparser,
@@ -53,22 +63,27 @@ except Exception:
 if enable_extractors and extract_teradata_operator:
     # TeradataOperator patch - works for both Airflow 2.x provider mode and Airflow 3.x
     # The patch checks for method existence, so it's safe to import from airflow3 module
+    # Note: We defer the import to avoid potential issues with Airflow 3.x specific imports
+    # in Airflow 2.x environments. The patch function itself handles version compatibility.
     import logging
 
     logger = logging.getLogger(__name__)
     try:
-        logger.info("Attempting to import and apply TeradataOperator patch")
-        from datahub_airflow_plugin.airflow3._teradata_openlineage_patch import (
-            patch_teradata_operator,
-        )
-
+        logger.debug("Attempting to import and apply TeradataOperator patch")
+        # Use importlib to safely import the patch module
+        import importlib.util
+        patch_module_path = "datahub_airflow_plugin.airflow3._teradata_openlineage_patch"
+        patch_module = importlib.import_module(patch_module_path)
+        patch_teradata_operator = getattr(patch_module, "patch_teradata_operator")
+        
         patch_teradata_operator()
-        logger.info("TeradataOperator patch import and call completed")
+        logger.debug("TeradataOperator patch import and call completed")
     except ImportError as e:
         # Teradata provider not installed or patch not available
-        logger.warning(f"Could not import TeradataOperator patch: {e}")
+        logger.debug(f"Could not import TeradataOperator patch: {e}")
     except Exception as e:
-        logger.error(f"Error applying TeradataOperator patch: {e}", exc_info=True)
+        # Log error but don't fail - this is optional functionality
+        logger.warning(f"Error applying TeradataOperator patch: {e}", exc_info=True)
 
 AIRFLOW_PATCHED = True
 
