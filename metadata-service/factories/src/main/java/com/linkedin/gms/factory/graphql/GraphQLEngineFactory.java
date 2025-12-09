@@ -23,6 +23,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
@@ -80,9 +82,11 @@ import org.springframework.context.annotation.Import;
   GitVersionFactory.class,
   SiblingGraphServiceFactory.class,
   AssertionServiceFactory.class,
-  DocumentServiceFactory.class
+  DocumentServiceFactory.class,
+  SemanticSearchServiceFactory.class,
 })
 public class GraphQLEngineFactory {
+
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
@@ -234,6 +238,10 @@ public class GraphQLEngineFactory {
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
 
+  @Autowired
+  @Qualifier("semanticSearchService")
+  private SemanticSearchService semanticSearchService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -303,6 +311,7 @@ public class GraphQLEngineFactory {
     args.setDocumentService(documentService);
     args.setMetricUtils(metricUtils);
     args.setS3Util(s3Util);
+    args.setSemanticSearchService(semanticSearchService);
 
     return new GmsGraphQLEngine(args).builder().build();
   }

@@ -1,0 +1,361 @@
+Processing 5 entities...
+
+Processing entity 1/5: pet_status_history...
+
+====================================================================================================
+ENTITY 1: PET_STATUS_HISTORY
+Incremental table containing all historical statuses of a pet
+====================================================================================================
+
+1. GENERATED TEXTS:
+
+A) Pipe Concatenation (57 words, 622 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ pet_status_history | Incremental table containing all historical statuses of a pet | urn:li:tag:business_critical | urn:li:tag:prod_model |             │
+│ urn:li:glossaryTerm:9afa9a59-93b2-47cb-9094-aa342eec24ad | owner=shannon@longtail.com | materialization=incremental | business_critical=True |          │
+│ language=sql | account_id=107298 | node_type=model | model_maturity=prod | contains_pii=False | project_id=241624 | job_id=279117 | catalog_type=BASE   │
+│ TABLE | domain=Pet Adoptions | dbt_unique_id=model.long_tail_companions.pet_status_history | glossary_term=return_rate.md | profile_id | status |       │
+│ as_of_date | urn:li:dataPlatform:dbt | PROD                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+B) Natural Language V2 (72 words, 680 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Incremental table containing all historical statuses of a pet. The "pet_status_history" table. Contains fields: "profile_id", "status", "as_of_date".   │
+│ Part of the Pet Adoptions domain. Maintained by shannon@longtail.com. This is a production-ready model. This is a business-critical dataset. Uses       │
+│ incremental materialization and built with SQL. Glossary terms: 9afa9a59-93b2-47cb-9094-aa342eec24ad. Tagged as: "prod_model". Stored in dbt.           │
+│ Additional metadata - account_id: 107298, node_type: "model", contains_pii: False, project_id: 241624, job_id: 279117, catalog_type: "BASE TABLE",      │
+│ dbt_unique_id: "model.long_tail_companions.pet_status_history", glossary_term: "return_rate.md"                                                         │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+C) V3 Hybrid [NEW] (73 words, 568 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Incremental table containing all historical statuses of a pet. The pet status history table. Enabling historical analysis and trend tracking and        │
+│ tracking state transitions and workflow analysis. Tracks identifiers, status, and timestamps; e.g., profile_id, status, as_of_date. Part of the Pet     │
+│ Adoptions domain. Maintained by shannon@longtail.com. This is a business-critical, production-ready dataset. Uses incremental materialization and built │
+│ with SQL. Does not contain personal information. Stored in dbt. From production environment. Related concepts: return rate.                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+D) LLM-Style Description (56 words, 356 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ This dataset tracks the complete historical record of status changes for pets in an adoption system, capturing each pet's status transitions over time  │
+│ along with the dates when those changes occurred. The data is used for production models in the pet adoption domain and is considered business critical │
+│ for analyzing pet adoption patterns and return rates.                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+2. QUERY MATCHING SCORES:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Query                                    ┃   Pipe   ┃    V2    ┃ V3 Hybrid  ┃   LLM    ┃    Winner    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Find pet adoption records and status     │  0.627   │  0.625   │   0.615    │  0.706   │     LLM      │
+│ Show animal health and medical history   │  0.421   │  0.395   │   0.381    │  0.359   │     PIPE     │
+│ Where are pet profiles and characteri... │  0.363   │  0.442   │   0.444    │  0.404   │      V3      │
+│ Pet availability and adoption metrics    │  0.482   │  0.453   │   0.432    │  0.557   │     LLM      │
+│ Track pet status changes over time       │  0.541   │  0.590   │   0.617    │  0.661   │     LLM      │
+│ Historical pet adoption data             │  0.594   │  0.580   │   0.574    │  0.673   │     LLM      │
+└──────────────────────────────────────────┴──────────┴──────────┴────────────┴──────────┴──────────────┘
+
+Average Relevant Scores:
+  Pipe: 0.5047
+  Natural V2: 0.5142 (+1.9% vs pipe)
+  V3 Hybrid [NEW]: 0.5105 (+1.2% vs pipe)
+  LLM: 0.5601 (+11.0% vs pipe)
+
+3. UNRELATED QUERY SCORES (should be low):
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Unrelated Query                     ┃   Pipe   ┃    V2    ┃    V3    ┃   LLM    ┃    Max     ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ Weather forecast for tomorrow in... │  0.028   │  0.021   │  0.016   │  0.084   │  0.084 ✓   │
+│ How to cook pasta carbonara recipe  │  0.079   │  0.068   │  0.073   │  0.021   │  0.079 ✓   │
+│ Latest NBA basketball game scores   │  0.166   │  0.148   │  0.124   │  0.135   │  0.166 ✓   │
+│ Python programming tutorial for ... │  0.078   │  0.087   │  0.098   │  0.063   │  0.098 ✓   │
+└─────────────────────────────────────┴──────────┴──────────┴──────────┴──────────┴────────────┘
+
+WINNER: LLM
+Discrimination Gap: 0.4530
+Processing entity 2/5: product...
+
+====================================================================================================
+ENTITY 2: PRODUCT
+====================================================================================================
+
+1. GENERATED TEXTS:
+
+A) Pipe Concatenation (11 words, 99 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ product | looker.file.path=views/product.view.lkml | pk | count | urn:li:dataPlatform:looker | PROD                                                     │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+B) Natural Language V2 (20 words, 175 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ This is the "product" dataset. Contains fields: "pk", "count". Stored in Looker. From production environment. Additional metadata - looker.file.path:   │
+│ "views/product.view.lkml"                                                                                                                               │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+C) V3 Hybrid [NEW] (19 words, 146 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ The product table. Supporting product catalog and inventory management. Contains fields: pk, count. Stored in Looker. From production environment.      │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+D) LLM-Style Description (29 words, 215 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ This dataset contains product information from a Looker analytics platform view, including primary key identifiers and count metrics used for business  │
+│ intelligence and data visualization in a production environment.                                                                                        │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+2. QUERY MATCHING SCORES:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Query                                    ┃   Pipe   ┃    V2    ┃ V3 Hybrid  ┃   LLM    ┃    Winner    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Product catalog and specifications       │  0.317   │  0.367   │   0.443    │  0.382   │      V3      │
+│ Inventory levels and stock management    │  0.186   │  0.229   │   0.386    │  0.251   │      V3      │
+│ Product categories and classifications   │  0.303   │  0.339   │   0.360    │  0.351   │      V3      │
+│ Item availability and supply data        │  0.304   │  0.387   │   0.424    │  0.414   │      V3      │
+│ Product pricing and cost analysis        │  0.277   │  0.313   │   0.328    │  0.377   │     LLM      │
+│ Stock movement and turnover metrics      │  0.147   │  0.206   │   0.237    │  0.306   │     LLM      │
+└──────────────────────────────────────────┴──────────┴──────────┴────────────┴──────────┴──────────────┘
+
+Average Relevant Scores:
+  Pipe: 0.2558
+  Natural V2: 0.3068 (+19.9% vs pipe)
+  V3 Hybrid [NEW]: 0.3630 (+41.9% vs pipe)
+  LLM: 0.3468 (+35.6% vs pipe)
+
+3. UNRELATED QUERY SCORES (should be low):
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Unrelated Query                     ┃   Pipe   ┃    V2    ┃    V3    ┃   LLM    ┃    Max     ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ Weather forecast for tomorrow in... │  0.031   │  0.050   │  0.016   │  0.054   │  0.054 ✓   │
+│ How to cook pasta carbonara recipe  │  0.154   │  0.091   │  0.064   │  0.041   │  0.154 ✓   │
+│ Latest NBA basketball game scores   │  0.217   │  0.156   │  0.093   │  0.171   │  0.217 ⚠   │
+│ Python programming tutorial for ... │  0.106   │  0.076   │  0.072   │  0.082   │  0.106 ✓   │
+└─────────────────────────────────────┴──────────┴──────────┴──────────┴──────────┴────────────┘
+
+WINNER: V3
+Discrimination Gap: 0.2305
+Processing entity 3/5: PET_PROFILES...
+
+====================================================================================================
+ENTITY 3: PET_PROFILES
+this table contains profile details of all pets
+====================================================================================================
+
+1. GENERATED TEXTS:
+
+A) Pipe Concatenation (46 words, 351 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ PET_PROFILES | this table contains profile details of all pets | long_tail_companions.adoption.pet_profiles |                                           │
+│ urn:li:glossaryTerm:9afa9a59-93b2-47cb-9094-aa342eec24ad | profile_id | species | breed | sex | color | coat_type | name | age_m | age_y |              │
+│ spay_neutered | temperament | created | updated_at | created_at | urn:li:dataPlatform:snowflake | PROD                                                  │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+B) Natural Language V2 (30 words, 295 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ this table contains profile details of all pets. The "PET_PROFILES" table. Located at long_tail_companions.adoption.pet_profiles. Contains 14 fields    │
+│ including "profile_id", "species", "breed". Glossary terms: 9afa9a59-93b2-47cb-9094-aa342eec24ad. Stored in Snowflake. From production environment      │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+C) V3 Hybrid [NEW] (36 words, 269 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ this table contains profile details of all pets. The PET PROFILES table. Enabling historical analysis and trend tracking. Tracks identifiers,           │
+│ timestamps, and names; e.g., profile_id, species, breed. Maintained by admin. Stored in Snowflake. From production environment.                         │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+D) LLM-Style Description (55 words, 394 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ This dataset contains comprehensive profile information for pets available for adoption, including their physical characteristics like species, breed,  │
+│ color, and coat type, along with behavioral details such as temperament, age, sex, and spay/neuter status. The data is used to match potential adopters │
+│ with suitable companion animals based on their preferences and the pets' individual traits.                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+2. QUERY MATCHING SCORES:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Query                                    ┃   Pipe   ┃    V2    ┃ V3 Hybrid  ┃   LLM    ┃    Winner    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Find pet adoption records and status     │  0.487   │  0.591   │   0.504    │  0.582   │   NATURAL    │
+│ Show animal health and medical history   │  0.254   │  0.277   │   0.305    │  0.287   │      V3      │
+│ Where are pet profiles and characteri... │  0.374   │  0.511   │   0.515    │  0.491   │      V3      │
+│ Pet availability and adoption metrics    │  0.372   │  0.455   │   0.351    │  0.555   │     LLM      │
+│ Track pet status changes over time       │  0.343   │  0.396   │   0.485    │  0.376   │      V3      │
+│ Historical pet adoption data             │  0.402   │  0.472   │   0.397    │  0.548   │     LLM      │
+└──────────────────────────────────────────┴──────────┴──────────┴────────────┴──────────┴──────────────┘
+
+Average Relevant Scores:
+  Pipe: 0.3719
+  Natural V2: 0.4504 (+21.1% vs pipe)
+  V3 Hybrid [NEW]: 0.4262 (+14.6% vs pipe)
+  LLM: 0.4732 (+27.3% vs pipe)
+
+3. UNRELATED QUERY SCORES (should be low):
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Unrelated Query                     ┃   Pipe   ┃    V2    ┃    V3    ┃   LLM    ┃    Max     ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ Weather forecast for tomorrow in... │  0.050   │  0.015   │  0.028   │  0.087   │  0.087 ✓   │
+│ How to cook pasta carbonara recipe  │  0.087   │  0.067   │  0.081   │  0.048   │  0.087 ✓   │
+│ Latest NBA basketball game scores   │  0.123   │  0.136   │  0.127   │  0.114   │  0.136 ✓   │
+│ Python programming tutorial for ... │  0.062   │  0.071   │  0.085   │  0.077   │  0.085 ✓   │
+└─────────────────────────────────────┴──────────┴──────────┴──────────┴──────────┴────────────┘
+
+WINNER: LLM
+Discrimination Gap: 0.3747
+Processing entity 4/5: pet_status_history...
+
+====================================================================================================
+ENTITY 4: PET_STATUS_HISTORY
+Incremental table containing all historical statuses of a pet
+====================================================================================================
+
+1. GENERATED TEXTS:
+
+A) Pipe Concatenation (57 words, 622 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ pet_status_history | Incremental table containing all historical statuses of a pet | urn:li:tag:business_critical | urn:li:tag:prod_model |             │
+│ urn:li:glossaryTerm:9afa9a59-93b2-47cb-9094-aa342eec24ad | owner=shannon@longtail.com | materialization=incremental | business_critical=True |          │
+│ language=sql | account_id=107298 | node_type=model | model_maturity=prod | contains_pii=False | project_id=241624 | job_id=279117 | catalog_type=BASE   │
+│ TABLE | domain=Pet Adoptions | dbt_unique_id=model.long_tail_companions.pet_status_history | glossary_term=return_rate.md | profile_id | status |       │
+│ as_of_date | urn:li:dataPlatform:dbt | PROD                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+B) Natural Language V2 (72 words, 680 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Incremental table containing all historical statuses of a pet. The "pet_status_history" table. Contains fields: "profile_id", "status", "as_of_date".   │
+│ Part of the Pet Adoptions domain. Maintained by shannon@longtail.com. This is a production-ready model. This is a business-critical dataset. Uses       │
+│ incremental materialization and built with SQL. Glossary terms: 9afa9a59-93b2-47cb-9094-aa342eec24ad. Tagged as: "prod_model". Stored in dbt.           │
+│ Additional metadata - account_id: 107298, node_type: "model", contains_pii: False, project_id: 241624, job_id: 279117, catalog_type: "BASE TABLE",      │
+│ dbt_unique_id: "model.long_tail_companions.pet_status_history", glossary_term: "return_rate.md"                                                         │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+C) V3 Hybrid [NEW] (73 words, 568 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Incremental table containing all historical statuses of a pet. The pet status history table. Enabling historical analysis and trend tracking and        │
+│ tracking state transitions and workflow analysis. Tracks identifiers, status, and timestamps; e.g., profile_id, status, as_of_date. Part of the Pet     │
+│ Adoptions domain. Maintained by shannon@longtail.com. This is a business-critical, production-ready dataset. Uses incremental materialization and built │
+│ with SQL. Does not contain personal information. Stored in dbt. From production environment. Related concepts: return rate.                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+D) LLM-Style Description (56 words, 356 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ This dataset tracks the complete historical record of status changes for pets in an adoption system, capturing each pet's status transitions over time  │
+│ along with the dates when those changes occurred. The data is used for production models in the pet adoption domain and is considered business critical │
+│ for analyzing pet adoption patterns and return rates.                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+2. QUERY MATCHING SCORES:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Query                                    ┃   Pipe   ┃    V2    ┃ V3 Hybrid  ┃   LLM    ┃    Winner    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Find pet adoption records and status     │  0.627   │  0.625   │   0.615    │  0.706   │     LLM      │
+│ Show animal health and medical history   │  0.421   │  0.395   │   0.381    │  0.359   │     PIPE     │
+│ Where are pet profiles and characteri... │  0.363   │  0.442   │   0.444    │  0.404   │      V3      │
+│ Pet availability and adoption metrics    │  0.482   │  0.453   │   0.432    │  0.557   │     LLM      │
+│ Track pet status changes over time       │  0.541   │  0.590   │   0.617    │  0.661   │     LLM      │
+│ Historical pet adoption data             │  0.594   │  0.580   │   0.574    │  0.673   │     LLM      │
+└──────────────────────────────────────────┴──────────┴──────────┴────────────┴──────────┴──────────────┘
+
+Average Relevant Scores:
+  Pipe: 0.5047
+  Natural V2: 0.5142 (+1.9% vs pipe)
+  V3 Hybrid [NEW]: 0.5105 (+1.2% vs pipe)
+  LLM: 0.5601 (+11.0% vs pipe)
+
+3. UNRELATED QUERY SCORES (should be low):
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Unrelated Query                     ┃   Pipe   ┃    V2    ┃    V3    ┃   LLM    ┃    Max     ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ Weather forecast for tomorrow in... │  0.028   │  0.021   │  0.016   │  0.084   │  0.084 ✓   │
+│ How to cook pasta carbonara recipe  │  0.079   │  0.068   │  0.073   │  0.021   │  0.079 ✓   │
+│ Latest NBA basketball game scores   │  0.166   │  0.148   │  0.124   │  0.135   │  0.166 ✓   │
+│ Python programming tutorial for ... │  0.078   │  0.087   │  0.098   │  0.063   │  0.098 ✓   │
+└─────────────────────────────────────┴──────────┴──────────┴──────────┴──────────┴────────────┘
+
+WINNER: LLM
+Discrimination Gap: 0.4530
+Processing entity 5/5: customer_last_purchase_date...
+
+====================================================================================================
+ENTITY 5: CUSTOMER_LAST_PURCHASE_DATE
+Calculates the last date a customer made a purchase
+====================================================================================================
+
+1. GENERATED TEXTS:
+
+A) Pipe Concatenation (54 words, 594 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ customer_last_purchase_date | Calculates the last date a customer made a purchase | urn:li:tag:business_critical | urn:li:tag:prod_model |              │
+│ urn:li:glossaryTerm:9afa9a59-93b2-47cb-9094-aa342eec24ad | owner=shannon@longtail.com | materialization=table | business_critical=True | language=sql | │
+│ node_type=model | account_id=107298 | model_maturity=prod | contains_pii=False | project_id=241624 | job_id=279117 | catalog_type=BASE TABLE |          │
+│ domain=E-Commerce | dbt_unique_id=model.long_tail_companions.customer_last_purchase_date | user_fk | email | last_purchase_date |                       │
+│ urn:li:dataPlatform:dbt | PROD                                                                                                                          │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+B) Natural Language V2 (69 words, 650 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Calculates the last date a customer made a purchase. The "customer_last_purchase_date" table. Contains fields: "user_fk", "email",                      │
+│ "last_purchase_date". Part of the E-Commerce domain. Maintained by shannon@longtail.com. This is a production-ready model. This is a business-critical  │
+│ dataset. Uses table materialization and built with SQL. Glossary terms: 9afa9a59-93b2-47cb-9094-aa342eec24ad. Tagged as: "prod_model". Stored in dbt.   │
+│ Additional metadata - node_type: "model", account_id: 107298, contains_pii: False, project_id: 241624, job_id: 279117, catalog_type: "BASE TABLE",      │
+│ dbt_unique_id: "model.long_tail_companions.customer_last_purchase_date"                                                                                 │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+C) V3 Hybrid [NEW] (64 words, 492 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Calculates the last date a customer made a purchase. The customer last purchase date table. Enabling customer analytics and segmentation and supporting │
+│ sales and revenue analysis. Tracks timestamps; e.g., user_fk, email, last_purchase_date. Part of the E-Commerce domain. Maintained by                   │
+│ shannon@longtail.com. This is a business-critical, production-ready dataset. Uses table materialization and built with SQL. Does not contain personal   │
+│ information. Stored in dbt. From production environment.                                                                                                │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+D) LLM-Style Description (46 words, 334 chars):
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ This dataset contains customer purchase tracking information that calculates the most recent purchase date for each customer in an e-commerce system.   │
+│ The data includes customer identifiers, email addresses, and their last purchase dates, and is used as a production model for business-critical         │
+│ analytics and decision-making processes.                                                                                                                │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+2. QUERY MATCHING SCORES:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Query                                    ┃   Pipe   ┃    V2    ┃ V3 Hybrid  ┃   LLM    ┃    Winner    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ Show customer purchase history           │  0.510   │  0.544   │   0.543    │  0.561   │     LLM      │
+│ Find customer transaction data           │  0.447   │  0.490   │   0.494    │  0.559   │     LLM      │
+│ Where is customer buying behavior tra... │  0.405   │  0.453   │   0.475    │  0.564   │     LLM      │
+│ Customer engagement and retention met... │  0.318   │  0.332   │   0.346    │  0.408   │     LLM      │
+│ Customer lifetime value analysis         │  0.417   │  0.410   │   0.389    │  0.402   │     PIPE     │
+│ User demographics and segmentation       │  0.214   │  0.231   │   0.267    │  0.331   │     LLM      │
+└──────────────────────────────────────────┴──────────┴──────────┴────────────┴──────────┴──────────────┘
+
+Average Relevant Scores:
+  Pipe: 0.3853
+  Natural V2: 0.4100 (+6.4% vs pipe)
+  V3 Hybrid [NEW]: 0.4189 (+8.7% vs pipe)
+  LLM: 0.4708 (+22.2% vs pipe)
+
+3. UNRELATED QUERY SCORES (should be low):
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Unrelated Query                     ┃   Pipe   ┃    V2    ┃    V3    ┃   LLM    ┃    Max     ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ Weather forecast for tomorrow in... │  0.074   │  0.099   │  0.077   │  0.075   │  0.099 ✓   │
+│ How to cook pasta carbonara recipe  │  0.093   │  0.065   │  0.071   │  0.025   │  0.093 ✓   │
+│ Latest NBA basketball game scores   │  0.210   │  0.193   │  0.180   │  0.199   │  0.210 ⚠   │
+│ Python programming tutorial for ... │  0.102   │  0.093   │  0.087   │  0.077   │  0.102 ✓   │
+└─────────────────────────────────────┴──────────┴──────────┴──────────┴──────────┴────────────┘
+
+WINNER: LLM
+Discrimination Gap: 0.3449
+
+====================================================================================================
+OVERALL SUMMARY
+====================================================================================================
+
+Entity-Level Winners:
+  PIPE: 0/5 (0%)
+  NATURAL: 0/5 (0%)
+  V3: 1/5 (20%)
+  LLM: 4/5 (80%)
+
+Average Scores Across All Entities:
+  PIPE: 0.4045
+  NATURAL: 0.4391 (+8.6% vs pipe)
+  V3: 0.4458 (+10.2% vs pipe)
+  LLM: 0.4822 (+19.2% vs pipe)
+
+BEST OVERALL APPROACH: LLM (score: 0.4822)
