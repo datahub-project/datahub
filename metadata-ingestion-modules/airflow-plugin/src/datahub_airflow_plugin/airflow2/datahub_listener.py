@@ -25,6 +25,9 @@ import packaging.version
 from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
 
+# Import Airflow 2.x compatibility and patches before any Airflow imports
+from datahub_airflow_plugin.airflow2 import _airflow_compat  # noqa: F401
+
 # Conditional import for OpenLineage (may not be installed)
 try:
     from openlineage.client.serde import Serde
@@ -61,7 +64,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
-from datahub_airflow_plugin._constants import SQL_PARSING_RESULT_KEY
+from datahub_airflow_plugin._constants import (
+    DATAHUB_SQL_PARSING_RESULT_KEY,
+    SQL_PARSING_RESULT_KEY,
+)
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.airflow2._extractors import ExtractorManager
@@ -378,6 +384,15 @@ class DataHubListener:
         # are serialized as OpenLineage facets later, they don't include DataHub-specific
         # additions. This keeps the OpenLineage facets clean and standards-compliant.
         sql_parsing_result = task_metadata.run_facets.pop(SQL_PARSING_RESULT_KEY, None)
+        # Also check for DATAHUB_SQL_PARSING_RESULT_KEY (used by provider mode patches)
+        if DATAHUB_SQL_PARSING_RESULT_KEY in task_metadata.run_facets:
+            if sql_parsing_result is None:
+                sql_parsing_result = task_metadata.run_facets.pop(
+                    DATAHUB_SQL_PARSING_RESULT_KEY, None
+                )
+            else:
+                # If both keys exist, prefer DATAHUB_SQL_PARSING_RESULT_KEY and remove the other
+                task_metadata.run_facets.pop(DATAHUB_SQL_PARSING_RESULT_KEY, None)
 
         return input_urns, output_urns, sql_parsing_result, task_metadata
 
@@ -524,6 +539,13 @@ class DataHubListener:
                 )
 
             for k, v in task_metadata.run_facets.items():
+                # Skip DataHub-specific keys that can't be serialized by OpenLineage's Serde
+                # These are SqlParsingResult objects, not attrs-decorated classes
+                if k in (SQL_PARSING_RESULT_KEY, DATAHUB_SQL_PARSING_RESULT_KEY):
+                    logger.debug(
+                        f"Skipping serialization of DataHub-specific run_facet key: {k}"
+                    )
+                    continue
                 # Redaction is only available with legacy openlineage-airflow package
                 value_to_serialize = (
                     redact_with_exclusions(v)

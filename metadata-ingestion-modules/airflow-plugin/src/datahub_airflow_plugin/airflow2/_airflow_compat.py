@@ -53,15 +53,22 @@ except Exception:
 if enable_extractors and extract_teradata_operator:
     # TeradataOperator patch - works for both Airflow 2.x provider mode and Airflow 3.x
     # The patch checks for method existence, so it's safe to import from airflow3 module
+    import logging
+
+    logger = logging.getLogger(__name__)
     try:
+        logger.info("Attempting to import and apply TeradataOperator patch")
         from datahub_airflow_plugin.airflow3._teradata_openlineage_patch import (
             patch_teradata_operator,
         )
 
         patch_teradata_operator()
-    except ImportError:
+        logger.info("TeradataOperator patch import and call completed")
+    except ImportError as e:
         # Teradata provider not installed or patch not available
-        pass
+        logger.warning(f"Could not import TeradataOperator patch: {e}")
+    except Exception as e:
+        logger.error(f"Error applying TeradataOperator patch: {e}", exc_info=True)
 
 AIRFLOW_PATCHED = True
 

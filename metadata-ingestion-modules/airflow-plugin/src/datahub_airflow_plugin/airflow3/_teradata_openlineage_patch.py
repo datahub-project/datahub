@@ -23,9 +23,14 @@ logger = logging.getLogger(__name__)
 def _should_patch_teradata_operator(operator_class: Any) -> bool:
     """Check if Teradata operator should be patched."""
     if not hasattr(operator_class, "get_openlineage_facets_on_complete"):
-        logger.debug(
-            "TeradataOperator.get_openlineage_facets_on_complete not found - "
-            "skipping patch"
+        openlineage_methods = [
+            m
+            for m in dir(operator_class)
+            if "openlineage" in m.lower() or "facet" in m.lower()
+        ]
+        logger.warning(
+            f"TeradataOperator.get_openlineage_facets_on_complete not found - "
+            f"skipping patch. Available OpenLineage-related methods: {openlineage_methods}"
         )
         return False
     if hasattr(operator_class, "_datahub_openlineage_patched"):
@@ -141,11 +146,30 @@ def _create_teradata_openlineage_wrapper(
     """Create wrapper function for Teradata operator's OpenLineage method."""
     # Import OperatorLineage at wrapper creation time to check availability
     # This avoids runtime import errors that would cause the patch to return None
+    # Try multiple import paths for compatibility with different Airflow versions
+    # Airflow 3.x: from airflow.providers.openlineage.extractors
+    # Airflow 2.x provider: from airflow.providers.openlineage.extractors.base
+    OperatorLineage = None
+    import_error = None
     try:
+        # Try Airflow 3.x import path first
         from airflow.providers.openlineage.extractors import OperatorLineage
-    except ImportError as e:
+    except (ImportError, ModuleNotFoundError) as e:
+        import_error = e
+        try:
+            # Fallback for Airflow 2.x provider mode compatibility
+            from airflow.providers.openlineage.extractors.base import OperatorLineage
+
+            import_error = None  # Success, clear the error
+        except (ImportError, ModuleNotFoundError) as e2:
+            # Both imports failed - log the more specific error
+            import_error = e2 if "Operator" not in str(e) else e
+
+    if OperatorLineage is None or import_error is not None:
+        # Log warning but don't fail - this is expected in some environments
+        error_msg = str(import_error) if import_error else "Unknown import error"
         logger.warning(
-            f"Could not import OperatorLineage for Teradata patch: {e}. "
+            f"Could not import OperatorLineage for Teradata patch: {error_msg}. "
             "This may be due to OpenLineage provider compatibility issues. "
             "Patch will not be applied."
         )
@@ -233,10 +257,17 @@ def patch_teradata_operator() -> None:
     which provides column-level lineage extraction for Teradata operators.
     """
     try:
+        logger.info("Attempting to patch TeradataOperator for OpenLineage")
         from airflow.providers.teradata.operators.teradata import TeradataOperator
 
+        logger.info(f"Successfully imported TeradataOperator: {TeradataOperator}")
+
         if not _should_patch_teradata_operator(TeradataOperator):
+            logger.warning(
+                "TeradataOperator patch check failed - patch will not be applied"
+            )
             return
+        logger.info("TeradataOperator patch check passed - proceeding with patch")
 
         # Store original method
         original_get_openlineage_facets_on_complete = (
@@ -263,8 +294,8 @@ def patch_teradata_operator() -> None:
         )
         TeradataOperator._datahub_openlineage_patched = True  # type: ignore[attr-defined]
 
-        logger.debug(
-            "Patched TeradataOperator.get_openlineage_facets_on_complete to use DataHub SQL parser"
+        logger.info(
+            "Successfully patched TeradataOperator.get_openlineage_facets_on_complete to use DataHub SQL parser"
         )
 
     except ImportError as e:
