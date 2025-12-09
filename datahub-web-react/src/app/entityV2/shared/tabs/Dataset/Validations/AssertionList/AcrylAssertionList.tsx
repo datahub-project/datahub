@@ -204,6 +204,9 @@ export const AcrylAssertionList = () => {
                         sortOrder: sortOrder || DEFAULT_SORT_ORDER,
                     },
                 },
+                searchFlags: {
+                    skipCache: true,
+                },
             },
             runEventsLimit: 1, // Only need a single run event
         },

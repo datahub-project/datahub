@@ -252,3 +252,15 @@ DATAHUB_EXECUTOR_SERVER_CONFIG_REFRESH_INTERVAL = env_to_int(
 DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE = string_to_bool(
     os.getenv("DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE", "True")
 )
+
+# Config fetcher retry configuration
+# Maximum duration (in seconds) to retry fetching executor configs before giving up
+# Default: 24 hours (86400 seconds)
+DATAHUB_EXECUTOR_CONFIG_FETCHER_MAX_RETRY_DURATION_SECONDS = env_to_int(
+    "DATAHUB_EXECUTOR_CONFIG_FETCHER_MAX_RETRY_DURATION_SECONDS", 86400
+)
+# Maximum number of retry attempts before giving up
+# Default: 5 attempts
+DATAHUB_EXECUTOR_CONFIG_FETCHER_MAX_RETRIES = env_to_int(
+    "DATAHUB_EXECUTOR_CONFIG_FETCHER_MAX_RETRIES", 5
+)

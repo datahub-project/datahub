@@ -85,9 +85,15 @@ class TestApplyRemoteMonitorTraining(unittest.TestCase):
         # Assert the results
         self.assertEqual(result, self.sample_exec_id)
         mock_logger.info.assert_called_once()
-        mock_update_credentials.assert_called_once_with(
-            remote.app, False, self.executor_id
-        )
+        # Verify update_celery_credentials was called with resolver parameter
+        mock_update_credentials.assert_called_once()
+        call_args = mock_update_credentials.call_args
+        self.assertEqual(call_args[0][0], remote.app)
+        self.assertEqual(call_args[0][1], False)
+        self.assertEqual(call_args[0][2], self.executor_id)
+        # Verify resolver was passed as 4th argument
+        self.assertEqual(len(call_args[0]), 4)
+        self.assertIsNotNone(call_args[0][3])  # resolver should be passed
 
         # Verify apply_async was called with the correct arguments
         mock_apply_async.assert_called_once_with(

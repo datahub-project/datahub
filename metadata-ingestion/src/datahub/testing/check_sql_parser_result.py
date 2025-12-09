@@ -46,7 +46,7 @@ def assert_sql_result_with_resolver(
             exc_info=res.debug_info.column_error,
         )
 
-    txt = res.json(indent=4)
+    txt = res.model_dump_json(indent=4)
     if settings.update_golden:
         expected_file.write_text(txt)
         return

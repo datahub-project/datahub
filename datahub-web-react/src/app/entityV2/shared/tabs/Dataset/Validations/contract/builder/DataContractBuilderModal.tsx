@@ -1,4 +1,4 @@
-import { Modal, Typography, message } from 'antd';
+import { Modal as AntdModal, message } from 'antd';
 import React, { useState } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -9,6 +9,8 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
 import { buildProposeDataContractMutationVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Modal } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { useAppConfig } from '@src/app/useAppConfig';
@@ -58,9 +60,10 @@ export const DataContractBuilderModal = ({
     const [showProposeModal, setShowProposeModal] = useState(false);
     const { config } = useAppConfig();
     const { showTaskCenterRedesign } = config.featureFlags;
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     const modalClosePopup = () => {
-        Modal.confirm({
+        AntdModal.confirm({
             title: 'Exit Editor',
             content: `Are you sure you want to exit the editor? All changes will be lost`,
             onOk() {
@@ -122,12 +125,11 @@ export const DataContractBuilderModal = ({
                 <Modal
                     wrapClassName="data-contract-builder-modal"
                     width={800}
-                    footer={null}
-                    title={<Typography.Text>{titleText}</Typography.Text>}
+                    buttons={[]}
+                    title={titleText}
                     style={modalStyle}
                     bodyStyle={modalBodyStyle}
-                    visible
-                    onCancel={onCancel}
+                    onCancel={() => setShowConfirmationModal(true)}
                 >
                     <DataContractBuilder
                         entityUrn={entityUrn}
@@ -147,6 +149,13 @@ export const DataContractBuilderModal = ({
                     onCancel={() => setShowProposeModal(false)}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle="Exit Editor"
+                modalText="Are you sure you want to exit the editor? All changes will be lost"
+            />
         </ClickOutside>
     );
 };

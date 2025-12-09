@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
@@ -41,7 +43,9 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.timeseries.CalendarInterval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeTest;
@@ -517,6 +521,69 @@ public class AssertionsSummaryHookTest {
         .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
+  @Test
+  public void testAddAssertionToSummaryWithNullSummary() throws Exception {
+    // Test the case where batchGetAssertionsSummary returns null, causing addAssertionToSummary
+    // to be called with null summary parameter, which then fetches it via getAssertionsSummary
+    AssertionService service = Mockito.mock(AssertionService.class);
+
+    final AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL))
+            .setDatasetAssertion(new DatasetAssertionInfo().setDataset(TEST_DATASET_URN));
+
+    final AssertionRunEvent runEvent =
+        mockAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS);
+
+    // Mock getAssertionInfo
+    Mockito.when(service.getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN)))
+        .thenReturn(info);
+
+    // Mock batchGetAssertionsSummary to return null for the entity (entity has no summary yet)
+    Map<Urn, AssertionsSummary> summariesMap = new HashMap<>();
+    summariesMap.put(TEST_DATASET_URN, null);
+    Mockito.when(
+            service.batchGetAssertionsSummary(
+                any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN))))
+        .thenReturn(summariesMap);
+
+    // Mock getAssertionsSummary to return null (will be called when summary parameter is null)
+    Mockito.when(service.getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN)))
+        .thenReturn(null);
+
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+
+    hook.invoke(event);
+
+    // Verify batchGetAssertionsSummary was called (returns null)
+    Mockito.verify(service, Mockito.times(1))
+        .batchGetAssertionsSummary(
+            any(OperationContext.class), eq(ImmutableSet.of(TEST_DATASET_URN)));
+
+    // Verify getAssertionsSummary was called when summary is null
+    Mockito.verify(service, Mockito.times(1))
+        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+
+    // Verify patch was created correctly
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromErroringAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.addPassingAssertionDetails(
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
+    patchBuilder.addOverallLastAssertionResultAt(runEvent.getTimestampMillis());
+
+    Mockito.verify(service, Mockito.times(1))
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
+  }
+
   private AssertionRunEvent mockAssertionRunEvent(
       final Urn urn, final AssertionRunStatus status, final AssertionResultType resultType) {
     return mockAssertionRunEventWithTSMillis(urn, status, resultType, 1L);
@@ -576,12 +643,20 @@ public class AssertionsSummaryHookTest {
   private AssertionService mockAssertionService(AssertionsSummary summary) {
     AssertionService mockService = Mockito.mock(AssertionService.class);
 
+    AssertionInfo testAssertionInfo =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL))
+            .setDatasetAssertion(new DatasetAssertionInfo().setDataset(TEST_DATASET_URN));
+
     Mockito.when(mockService.getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN)))
-        .thenReturn(
-            new AssertionInfo()
-                .setType(AssertionType.DATASET)
-                .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL))
-                .setDatasetAssertion(new DatasetAssertionInfo().setDataset(TEST_DATASET_URN)));
+        .thenReturn(testAssertionInfo);
+
+    // Mock batchGetAssertionInfo for handleMonitorDisabled (used when monitor is disabled)
+    Mockito.when(
+            mockService.batchGetAssertionInfo(
+                any(OperationContext.class), eq(ImmutableSet.of(TEST_ASSERTION_URN))))
+        .thenReturn(ImmutableMap.of(TEST_ASSERTION_URN, testAssertionInfo));
 
     Mockito.when(
             mockService.getAssertionInfo(

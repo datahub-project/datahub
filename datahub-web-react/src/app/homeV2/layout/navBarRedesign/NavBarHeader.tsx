@@ -98,7 +98,12 @@ export default function NavBarHeader({ logotype }: Props) {
 
     return (
         <Container>
-            <StyledLink to="/" onClick={handleLogoClick} $gap={hasLetterLogo ? LETTER_LOGO_GAP : undefined}>
+            <StyledLink
+                to="/"
+                onClick={handleLogoClick}
+                $gap={hasLetterLogo ? LETTER_LOGO_GAP : undefined}
+                data-testid="nav-bar-home-logo"
+            >
                 <Logotype $margin={hasLetterLogo ? LETTER_LOGO_MARGIN : undefined}>{logotype}</Logotype>
                 {!isCollapsed && !customName && <DatahubCloudLogo />}
                 {!isCollapsed && customName && (

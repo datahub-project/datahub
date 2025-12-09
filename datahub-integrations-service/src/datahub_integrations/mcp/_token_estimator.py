@@ -104,3 +104,12 @@ class TokenCountEstimator:
         chars = _count_chars(obj, depth=0)
         # Use same formula as estimate_tokens for consistency
         return int(1.3 * chars / 4)
+
+
+def get_token_limit(model: str) -> int:
+    if "claude" in model:
+        return int(200e3)
+    elif "gemini" in model:
+        return int(1048e3)
+    else:
+        return int(100e3)

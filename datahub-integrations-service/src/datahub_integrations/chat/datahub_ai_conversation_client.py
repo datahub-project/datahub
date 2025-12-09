@@ -57,6 +57,10 @@ query GetDataHubAiConversation($urn: String!) {
     getDataHubAiConversation(urn: $urn) {
         urn
         originType
+        context {
+            text
+            entityUrns
+        }
         messages {
             type
             time
@@ -67,6 +71,7 @@ query GetDataHubAiConversation($urn: String!) {
             content {
                 text
             }
+            agentName
         }
     }
 }
@@ -241,24 +246,33 @@ class DataHubAiConversationClient:
 
     def load_conversation_with_metadata(
         self, conversation_urn: str
-    ) -> tuple[ChatHistory, ChatType]:
+    ) -> tuple[ChatHistory, ChatType, Optional[str]]:
         """
-        Load chat history and origin type from Java server state store via GraphQL.
+        Load chat history, origin type, and context from Java server state store via GraphQL.
 
         Args:
             conversation_urn: URN of the conversation to load
 
         Returns:
-            Tuple of (ChatHistory, ChatType) or (empty ChatHistory, DEFAULT) if not found/error
+            Tuple of (ChatHistory, ChatType, context_text) or (empty ChatHistory, DEFAULT, None) if not found/error
         """
         conversation = self._fetch_conversation_from_graphql(conversation_urn)
 
         if not conversation:
-            return ChatHistory(messages=[]), ChatType.DEFAULT
+            return ChatHistory(messages=[]), ChatType.DEFAULT, None
 
         # Extract origin type and map to ChatType
         origin_type = conversation.get("originType")
         chat_type = map_origin_type_to_chat_type(origin_type)
+
+        # Extract context text
+        context_text = None
+        context = conversation.get("context")
+        if context and context.get("text"):
+            context_text = context.get("text")
+            logger.info(
+                f"Conversation {conversation_urn} has context: {context_text[:100]}..."
+            )
 
         logger.info(
             f"Conversation {conversation_urn} has originType: {origin_type} -> ChatType: {chat_type}"
@@ -272,7 +286,7 @@ class DataHubAiConversationClient:
             f"Loaded conversation {conversation_urn} with {len(chat_history.messages)} messages and type {chat_type}"
         )
 
-        return chat_history, chat_type
+        return chat_history, chat_type, context_text
 
     def load_chat_history(self, conversation_urn: str) -> ChatHistory:
         """
@@ -305,6 +319,7 @@ class DataHubAiConversationClient:
         message_type: DataHubAiConversationMessageTypeClass,
         text: str,
         timestamp: int,
+        agent_name: str | None = None,
     ) -> None:
         """
         Save a message to the conversation aspect.
@@ -381,6 +396,10 @@ class DataHubAiConversationClient:
                     "text": text,
                 },
             }
+
+            # Add agent name if provided
+            if agent_name is not None:
+                new_message_dict["agentName"] = agent_name
 
             # Append new message to existing messages
             aspect_dict["messages"] = existing_messages_dicts + [new_message_dict]

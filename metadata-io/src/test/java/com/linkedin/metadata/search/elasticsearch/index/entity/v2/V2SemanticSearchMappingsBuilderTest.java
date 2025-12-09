@@ -138,12 +138,35 @@ public class V2SemanticSearchMappingsBuilderTest {
       assertTrue(chunksProperties.containsKey("vector"), "Should have vector field");
       assertTrue(chunksProperties.containsKey("text"), "Should have text field");
       assertTrue(chunksProperties.containsKey("position"), "Should have position field");
+      assertTrue(
+          chunksProperties.containsKey("character_offset"), "Should have character_offset field");
+      assertTrue(
+          chunksProperties.containsKey("character_length"), "Should have character_length field");
+      assertTrue(chunksProperties.containsKey("token_count"), "Should have token_count field");
 
       // Verify vector field configuration
       @SuppressWarnings("unchecked")
       Map<String, Object> vectorField = (Map<String, Object>) chunksProperties.get("vector");
       assertEquals(vectorField.get("type"), "knn_vector", "Vector should be knn_vector type");
       assertEquals(vectorField.get("dimension"), 1024, "Cohere model should have 1024 dimensions");
+
+      // Verify character metadata fields
+      @SuppressWarnings("unchecked")
+      Map<String, Object> characterOffsetField =
+          (Map<String, Object>) chunksProperties.get("character_offset");
+      assertEquals(
+          characterOffsetField.get("type"), "integer", "character_offset should be integer type");
+
+      @SuppressWarnings("unchecked")
+      Map<String, Object> characterLengthField =
+          (Map<String, Object>) chunksProperties.get("character_length");
+      assertEquals(
+          characterLengthField.get("type"), "integer", "character_length should be integer type");
+
+      @SuppressWarnings("unchecked")
+      Map<String, Object> tokenCountField =
+          (Map<String, Object>) chunksProperties.get("token_count");
+      assertEquals(tokenCountField.get("type"), "integer", "token_count should be integer type");
 
       @SuppressWarnings("unchecked")
       Map<String, Object> method = (Map<String, Object>) vectorField.get("method");

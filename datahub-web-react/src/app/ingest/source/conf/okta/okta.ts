@@ -30,6 +30,8 @@ source:
         # Optional: Include deprovisioned or suspended Okta users in the ingestion.
         # include_deprovisioned_users = False
         # include_suspended_users = False
+        stateful_ingestion:
+            enabled: true
 `;
 
 const oktaConfig: SourceConfig = {

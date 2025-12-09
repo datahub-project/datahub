@@ -76,3 +76,11 @@ export function useIsFreeTrialInstance() {
     const appConfig = useAppConfig();
     return appConfig.config.trialConfig.trialEnabled;
 }
+
+/**
+ * Hook to check if Context Documents feature is enabled.
+ */
+export function useIsContextDocumentsEnabled(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.contextDocumentsEnabled;
+}

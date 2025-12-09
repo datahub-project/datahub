@@ -87,6 +87,12 @@ This document describes the exact OpenSearch schema and data structure used in t
                     "type": "text",
                     "index": false
                   },
+                  "character_offset": {
+                    "type": "integer"
+                  },
+                  "character_length": {
+                    "type": "integer"
+                  },
                   "token_count": {
                     "type": "integer"
                   },

@@ -95,6 +95,7 @@ query getMe {
             proposeCreateGlossaryNode
             canViewIngestionPage
             createSupportTickets
+            manageDocuments
         }
     }
 }

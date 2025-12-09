@@ -477,6 +477,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.isFreeTrialInstance",
+          "datahub.readOnly",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
@@ -515,6 +516,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
           "featureFlags.showIngestionPageRedesign",
+          "featureFlags.ingestionOnboardingRedesignV1",
           "featureFlags.showIntroducePage",
           "featureFlags.showLineageExpandMore",
           "featureFlags.showManageStructuredProperties",

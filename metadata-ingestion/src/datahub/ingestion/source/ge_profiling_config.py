@@ -265,7 +265,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     def any_field_level_metrics_enabled(self) -> bool:
         return any(
             getattr(self, field_name)
-            for field_name in self.model_fields
+            for field_name in self.__class__.model_fields
             if field_name.startswith("include_field_")
         )
 

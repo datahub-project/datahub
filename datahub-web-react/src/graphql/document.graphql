@@ -1,0 +1,229 @@
+#import "./preview.graphql"
+
+query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
+    document(urn: $urn) {
+        urn
+        type
+        subType
+        settings {
+            showInGlobalContext
+        }
+        info {
+            title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
+            status {
+                state
+            }
+            contents {
+                text
+            }
+            created {
+                time
+                actor
+            }
+            lastModified {
+                time
+                actor
+            }
+            relatedAssets {
+                asset {
+                    ...entityPreview
+                }
+            }
+            relatedDocuments {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            parentDocument {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            draftOf {
+                document {
+                    ...documentPreviewFields
+                }
+            }
+            customProperties {
+                key
+                value
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        exists
+        drafts {
+            ...documentPreviewFields
+        }
+        parentDocuments @include(if: $includeParentDocuments) {
+            count
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
+}
+
+fragment documentPreviewFields on Document {
+    urn
+    type
+    subType
+    info {
+        title
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+        parentDocument {
+            document {
+                urn
+            }
+        }
+    }
+}
+
+fragment documentSidebarFields on Document {
+    urn
+    type
+    subType
+    info {
+        title
+        status {
+            state
+        }
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+        parentDocument {
+            document {
+                urn
+                info {
+                    title
+                }
+            }
+        }
+    }
+}
+
+query searchDocuments($input: SearchDocumentsInput!, $includeParentDocuments: Boolean = false) {
+    searchDocuments(input: $input) {
+        start
+        count
+        total
+        documents {
+            ...documentSidebarFields
+            parentDocuments @include(if: $includeParentDocuments) {
+                count
+                documents {
+                    urn
+                    type
+                    info {
+                        title
+                    }
+                }
+            }
+        }
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+mutation createDocument($input: CreateDocumentInput!) {
+    createDocument(input: $input)
+}
+
+mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
+    updateDocumentContents(input: $input)
+}
+
+mutation updateDocumentStatus($input: UpdateDocumentStatusInput!) {
+    updateDocumentStatus(input: $input)
+}
+
+mutation updateDocumentSubType($input: UpdateDocumentSubTypeInput!) {
+    updateDocumentSubType(input: $input)
+}
+
+mutation updateDocumentRelatedEntities($input: UpdateDocumentRelatedEntitiesInput!) {
+    updateDocumentRelatedEntities(input: $input)
+}
+
+mutation moveDocument($input: MoveDocumentInput!) {
+    moveDocument(input: $input)
+}
+
+mutation deleteDocument($urn: String!) {
+    deleteDocument(urn: $urn)
+}
+
+mutation mergeDraft($input: MergeDraftInput!) {
+    mergeDraft(input: $input)
+}
+
+mutation updateDocumentSettings($input: UpdateDocumentSettingsInput!) {
+    updateDocumentSettings(input: $input)
+}
+
+query getDocumentChangeHistory($urn: String!, $startTimeMillis: Long, $endTimeMillis: Long, $limit: Int) {
+    document(urn: $urn) {
+        urn
+        changeHistory(startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis, limit: $limit) {
+            changeType
+            description
+            actor {
+                urn
+                type
+                info {
+                    displayName
+                    firstName
+                    lastName
+                }
+                editableProperties {
+                    pictureLink
+                }
+            }
+            timestamp
+            details {
+                key
+                value
+            }
+        }
+    }
+}

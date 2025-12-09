@@ -1,6 +1,7 @@
 import { ArrowRight } from '@phosphor-icons/react';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -15,6 +16,7 @@ import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
@@ -157,6 +159,10 @@ export const SearchHeader = ({
     const isHomePage = useIsHomePage();
     const hideNavToggler = showHomepageRedesign && isHomePage;
     const styles = getStyles(isShowNavBarRedesign);
+    const location = useLocation();
+
+    // Hide recommendations on analytics page since they are not displayed
+    const isAnalyticsPage = location.pathname === PageRoutes.ANALYTICS;
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
@@ -188,6 +194,7 @@ export const SearchHeader = ({
                                 setIsSearchBarFocused={setIsSearchBarFocused}
                                 viewsEnabled={viewsEnabled}
                                 isShowNavBarRedesign={isShowNavBarRedesign}
+                                hideRecommendations={isAnalyticsPage}
                                 combineSiblings
                                 fixAutoComplete
                                 showQuickFilters

@@ -171,7 +171,9 @@ GET datasetindex_v2/_search
         "size": 1,
         "_source": [
           "embeddings.cohere_embed_v3.chunks.text",
-          "embeddings.cohere_embed_v3.chunks.position"
+          "embeddings.cohere_embed_v3.chunks.position",
+          "embeddings.cohere_embed_v3.chunks.character_offset",
+          "embeddings.cohere_embed_v3.chunks.character_length"
         ],
         "sort": [{ "_score": "desc" }]
       },
@@ -518,6 +520,8 @@ PUT datasetindex_v2
                   },
                   "text": { "type": "text", "index": false },
                   "position": { "type": "integer" },
+                  "character_offset": { "type": "integer" },
+                  "character_length": { "type": "integer" },
                   "token_count": { "type": "integer" }
                 }
               },

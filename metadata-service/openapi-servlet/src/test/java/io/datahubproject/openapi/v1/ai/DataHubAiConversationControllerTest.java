@@ -9,6 +9,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -16,6 +17,8 @@ import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.integration.StreamingChatClient.SseEvent;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.springframework.web.server.ResponseStatusException;
@@ -36,6 +39,8 @@ public class DataHubAiConversationControllerTest {
   private StreamingChatClient mockStreamingClient;
   private DataHubAiConversationService mockConversationService;
   private OperationContext mockOperationContext;
+  private AuthorizerChain mockAuthorizerChain;
+  private HttpServletRequest mockHttpServletRequest;
   private DataHubAiConversationController controller;
 
   @BeforeMethod
@@ -43,9 +48,16 @@ public class DataHubAiConversationControllerTest {
     mockIntegrationsService = mock(IntegrationsService.class);
     mockStreamingClient = mock(StreamingChatClient.class);
     mockConversationService = mock(DataHubAiConversationService.class);
-    mockOperationContext = mock(OperationContext.class);
+    mockAuthorizerChain = mock(AuthorizerChain.class);
+    mockHttpServletRequest = mock(HttpServletRequest.class);
+
+    // Create a real system operation context using TestOperationContexts
+    mockOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     when(mockIntegrationsService.getStreamingChatClient()).thenReturn(mockStreamingClient);
+
+    // Mock HttpServletRequest to provide required fields for RequestContext.buildOpenapi
+    when(mockHttpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
 
     // By default, authorize the user to access the conversation
     when(mockConversationService.canAccessConversation(
@@ -54,7 +66,10 @@ public class DataHubAiConversationControllerTest {
 
     controller =
         new DataHubAiConversationController(
-            mockIntegrationsService, mockConversationService, mockOperationContext);
+            mockIntegrationsService,
+            mockConversationService,
+            mockOperationContext,
+            mockAuthorizerChain);
 
     // Set up authentication context for all tests
     Authentication mockAuth = mock(Authentication.class);
@@ -73,11 +88,15 @@ public class DataHubAiConversationControllerTest {
   public void testStreamChatSuccess() throws Exception {
     // Mock the streaming client to call the callback with SSE events
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(Authentication.class),
+            any(Consumer.class)))
         .thenAnswer(
             invocation -> {
               // Simulate Python service returning SSE events with event names
-              Consumer<SseEvent> callback = invocation.getArgument(3);
+              Consumer<SseEvent> callback = invocation.getArgument(4);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -96,7 +115,7 @@ public class DataHubAiConversationControllerTest {
     request.setText(TEST_MESSAGE_TEXT);
 
     // Call the streaming endpoint
-    SseEmitter emitter = controller.streamChat(request);
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
 
     // Verify emitter is created
     assertNotNull(emitter);
@@ -112,7 +131,7 @@ public class DataHubAiConversationControllerTest {
     request.setText(TEST_MESSAGE_TEXT);
     // conversationUrn is missing (userUrn comes from auth context)
 
-    controller.streamChat(request);
+    controller.streamChat(mockHttpServletRequest, request);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -122,14 +141,18 @@ public class DataHubAiConversationControllerTest {
     request.setConversationUrn(TEST_CONVERSATION_URN.toString());
     // text is missing (userUrn comes from auth context)
 
-    controller.streamChat(request);
+    controller.streamChat(mockHttpServletRequest, request);
   }
 
   @Test
   public void testStreamChatWithError() throws Exception {
     // Mock streaming client to throw an exception
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(Authentication.class),
+            any(Consumer.class)))
         .thenReturn(
             CompletableFuture.failedFuture(new RuntimeException("Integration service error")));
 
@@ -139,7 +162,7 @@ public class DataHubAiConversationControllerTest {
     request.setText(TEST_MESSAGE_TEXT);
 
     // Should not throw - errors are handled within the async thread
-    SseEmitter emitter = controller.streamChat(request);
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
     assertNotNull(emitter);
 
     // Give the async thread time to handle the error
@@ -153,10 +176,14 @@ public class DataHubAiConversationControllerTest {
     final String testSseData2 = "{\"message_type\":\"TEXT\",\"text\":\"Final response\"}";
 
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(Authentication.class),
+            any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(3);
+              Consumer<SseEvent> callback = invocation.getArgument(4);
               if (callback != null) {
                 // Simulate Python service streaming responses with event names
                 callback.accept(new SseEvent("message", testSseData1));
@@ -170,7 +197,7 @@ public class DataHubAiConversationControllerTest {
     request.setConversationUrn(TEST_CONVERSATION_URN.toString());
     request.setText(TEST_MESSAGE_TEXT);
 
-    SseEmitter emitter = controller.streamChat(request);
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
     assertNotNull(emitter);
 
     // Give the async thread time to complete
@@ -181,10 +208,14 @@ public class DataHubAiConversationControllerTest {
   public void testStreamChatWithErrorEvent() throws Exception {
     // Verify that error events are properly forwarded with "error" event name
     when(mockStreamingClient.sendStreamingMessage(
-            any(String.class), any(String.class), any(Authentication.class), any(Consumer.class)))
+            any(String.class),
+            any(String.class),
+            any(String.class),
+            any(Authentication.class),
+            any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(3);
+              Consumer<SseEvent> callback = invocation.getArgument(4);
               if (callback != null) {
                 // Simulate Python service returning an error event
                 callback.accept(
@@ -198,7 +229,7 @@ public class DataHubAiConversationControllerTest {
     request.setConversationUrn(TEST_CONVERSATION_URN.toString());
     request.setText(TEST_MESSAGE_TEXT);
 
-    SseEmitter emitter = controller.streamChat(request);
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
     assertNotNull(emitter);
 
     // Give the async thread time to complete
@@ -218,7 +249,7 @@ public class DataHubAiConversationControllerTest {
     request.setText(TEST_MESSAGE_TEXT);
 
     // Should throw ResponseStatusException with FORBIDDEN status
-    controller.streamChat(request);
+    controller.streamChat(mockHttpServletRequest, request);
   }
 
   @Test(expectedExceptions = ResponseStatusException.class)
@@ -234,7 +265,7 @@ public class DataHubAiConversationControllerTest {
     request.setText(TEST_MESSAGE_TEXT);
 
     // Should throw ResponseStatusException
-    controller.streamChat(request);
+    controller.streamChat(mockHttpServletRequest, request);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -245,6 +276,6 @@ public class DataHubAiConversationControllerTest {
     request.setText(TEST_MESSAGE_TEXT);
 
     // Should throw IllegalArgumentException for invalid URN
-    controller.streamChat(request);
+    controller.streamChat(mockHttpServletRequest, request);
   }
 }

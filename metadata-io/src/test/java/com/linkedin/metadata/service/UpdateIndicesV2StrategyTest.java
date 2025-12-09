@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
@@ -21,6 +22,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -28,6 +30,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
@@ -35,6 +38,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -101,7 +105,9 @@ public class UpdateIndicesV2StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5");
+            "MD5",
+            null, // No semantic search config for basic tests
+            mock(IndexConvention.class));
   }
 
   @Test
@@ -349,5 +355,267 @@ public class UpdateIndicesV2StrategyTest {
     // Verify - should return mappings from LegacyMappingsBuilder
     assertTrue(mappings instanceof Collection);
     // Note: The actual content depends on the LegacyMappingsBuilder implementation
+  }
+
+  // ==================== Semantic Search Dual-Write Tests ====================
+
+  @Test
+  public void testShouldWriteToSemanticIndex_SemanticSearchDisabled() {
+    // Strategy created without semantic config should not write to semantic index
+    assertFalse(strategy.shouldWriteToSemanticIndex(operationContext, "dataset"));
+  }
+
+  @Test
+  public void testShouldWriteToSemanticIndex_SemanticSearchNotEnabled() {
+    // Setup: Create semantic config with enabled=false
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(false);
+    IndexConvention indexConvention = mock(IndexConvention.class);
+
+    UpdateIndicesV2Strategy strategyWithDisabledSemantic =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Verify: Should not write to semantic index when not enabled
+    assertFalse(
+        strategyWithDisabledSemantic.shouldWriteToSemanticIndex(operationContext, "dataset"));
+  }
+
+  @Test
+  public void testShouldWriteToSemanticIndex_EntityNotInEnabledList() {
+    // Setup: Create semantic config with enabled=true but entity not in list
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("document")); // Only document
+    IndexConvention indexConvention = mock(IndexConvention.class);
+
+    UpdateIndicesV2Strategy strategyWithLimitedEntities =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Verify: Should not write to semantic index for dataset (not in enabled list)
+    assertFalse(
+        strategyWithLimitedEntities.shouldWriteToSemanticIndex(operationContext, "dataset"));
+  }
+
+  @Test
+  public void testShouldWriteToSemanticIndex_IndexDoesNotExist() {
+    // Setup: Semantic config enabled, entity in list, but index doesn't exist
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(false);
+
+    UpdateIndicesV2Strategy strategyWithMissingIndex =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Verify: Should not write to semantic index when index doesn't exist
+    assertFalse(strategyWithMissingIndex.shouldWriteToSemanticIndex(operationContext, "dataset"));
+  }
+
+  @Test
+  public void testShouldWriteToSemanticIndex_AllConditionsMet() {
+    // Setup: All conditions met
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithAllConditions =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Verify: Should write to semantic index when all conditions are met
+    assertTrue(strategyWithAllConditions.shouldWriteToSemanticIndex(operationContext, "dataset"));
+  }
+
+  @Test
+  public void testShouldWriteToSemanticIndex_CachesIndexExistsResult() {
+    // Setup: All conditions met
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithCaching =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Call shouldWriteToSemanticIndex multiple times
+    assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
+    assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
+    assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
+
+    // Verify: indexExists should only be called once due to caching
+    verify(elasticSearchService, times(1)).indexExists("datasetindex_v2_semantic");
+  }
+
+  @Test
+  public void testUpdateSearchIndices_DualWriteToSemanticIndex() throws Exception {
+    // Setup: Create strategy with semantic search enabled
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithSemantic =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Setup mocks for document transformation
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+    when(mockSearchDocument.toString()).thenReturn("{\"test\": \"document\"}");
+    when(mockSearchDocument.isEmpty()).thenReturn(false);
+
+    // Mock the previous search document to be different to avoid diff mode skip
+    ObjectNode mockPreviousDoc = mock(ObjectNode.class);
+    when(mockPreviousDoc.toString()).thenReturn("{\"previous\": \"document\"}");
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockPreviousAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(mockPreviousDoc));
+
+    // Execute
+    strategyWithSemantic.updateSearchIndices(
+        operationContext, Collections.singletonList(mockEvent));
+
+    // Verify: Both V2 and semantic index should be written to
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(eq("datasetindex_v2_semantic"), anyString(), anyString());
+  }
+
+  @Test
+  public void testUpdateSearchIndices_NoSemanticWriteWhenDisabled() throws Exception {
+    // Use the default strategy without semantic search
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+    when(mockSearchDocument.toString()).thenReturn("{\"test\": \"document\"}");
+    when(mockSearchDocument.isEmpty()).thenReturn(false);
+
+    // Mock the previous search document to be different
+    ObjectNode mockPreviousDoc = mock(ObjectNode.class);
+    when(mockPreviousDoc.toString()).thenReturn("{\"previous\": \"document\"}");
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockPreviousAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(mockPreviousDoc));
+
+    // Execute
+    strategy.updateSearchIndices(operationContext, Collections.singletonList(mockEvent));
+
+    // Verify: Only V2 index should be written to (no semantic write)
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(elasticSearchService, never())
+        .upsertDocumentByIndexName(anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testDeleteSearchData_DualDeleteFromSemanticIndex() throws Exception {
+    // Setup: Create strategy with semantic search enabled
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic("dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists("datasetindex_v2_semantic")).thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithSemantic =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention);
+
+    // Execute with isKeyAspect = true (full delete)
+    strategyWithSemantic.deleteSearchData(
+        operationContext,
+        testUrn,
+        "dataset",
+        mockAspectSpec,
+        mockAspect,
+        true, // isKeyAspect
+        mockAuditStamp);
+
+    // Verify: Both V2 and semantic index should have documents deleted
+    verify(elasticSearchService).deleteDocument(eq(operationContext), eq("dataset"), anyString());
+    verify(elasticSearchService)
+        .deleteDocumentByIndexName(eq("datasetindex_v2_semantic"), anyString());
   }
 }

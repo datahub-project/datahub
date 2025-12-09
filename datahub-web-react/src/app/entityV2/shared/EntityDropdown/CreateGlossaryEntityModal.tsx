@@ -1,7 +1,7 @@
 import { EditOutlined } from '@ant-design/icons';
 import { Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -32,13 +32,6 @@ const OptionalWrapper = styled.span`
     font-weight: normal;
 `;
 
-const ButtonContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    gap: 16px;
-`;
-
 interface Props {
     entityType: EntityType;
     onClose: () => void;
@@ -46,6 +39,7 @@ interface Props {
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     canSelectParentUrn?: boolean;
+    isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
@@ -56,7 +50,7 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
-    const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
+    const [selectedParentUrn, setSelectedParentUrn] = useState(props.isCloning ? '' : entityData.urn);
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
@@ -74,6 +68,21 @@ function CreateGlossaryEntityModal(props: Props) {
     const user = useUserContext();
     const canProposeCreateTerm = user?.platformPrivileges?.proposeCreateGlossaryTerm;
     const canProposeCreateNode = user.platformPrivileges?.proposeCreateGlossaryNode;
+
+    useEffect(() => {
+        if (props.isCloning && entityData.entityData) {
+            const { properties } = entityData.entityData;
+
+            if (properties?.name) {
+                setStagedName(`${properties.name} (copy)`);
+                form.setFieldValue('name', `${properties.name} (copy)`);
+            }
+
+            if (properties?.description) {
+                setDocumentation(properties.description);
+            }
+        }
+    }, [props.isCloning, entityData.entityData, form]);
 
     function createGlossaryEntity() {
         const mutation =
@@ -186,35 +195,29 @@ function CreateGlossaryEntityModal(props: Props) {
                             ? 'Glossary'
                             : entityRegistry.getEntityName(entityType)
                     }`}
-                    visible
+                    buttons={[
+                        {
+                            text: 'Cancel',
+                            variant: 'text',
+                            onClick: onClose,
+                        },
+                        {
+                            text: 'Propose',
+                            variant: 'outline',
+                            onClick: handlePropose,
+                            disabled:
+                                createButtonDisabled ||
+                                !(entityType === EntityType.GlossaryTerm ? canProposeCreateTerm : canProposeCreateNode),
+                        },
+                        {
+                            text: 'Create',
+                            onClick: createGlossaryEntity,
+                            variant: 'filled',
+                            disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                            buttonDataTestId: 'glossary-entity-modal-create-button',
+                        },
+                    ]}
                     onCancel={onClose}
-                    footer={
-                        <ButtonContainer>
-                            <Button color="gray" type="button" onClick={onClose} variant="text">
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="outline"
-                                type="button"
-                                onClick={handlePropose}
-                                disabled={
-                                    createButtonDisabled ||
-                                    !(entityType === EntityType.GlossaryTerm
-                                        ? canProposeCreateTerm
-                                        : canProposeCreateNode)
-                                }
-                            >
-                                Propose
-                            </Button>
-                            <Button
-                                data-testid="glossary-entity-modal-create-button"
-                                onClick={createGlossaryEntity}
-                                disabled={createButtonDisabled || !canCreateGlossaryEntity}
-                            >
-                                Create
-                            </Button>
-                        </ButtonContainer>
-                    }
                 >
                     <Form
                         form={form}

@@ -169,6 +169,21 @@ def get_test_datahub_version() -> Optional[str]:
     return os.getenv("TEST_DATAHUB_VERSION")
 
 
+def get_system_source_execution_timeout_minutes() -> int:
+    """Timeout in minutes for system source execution completion."""
+    return int(os.getenv("SYSTEM_SOURCE_EXECUTION_TIMEOUT_MINUTES", "60"))
+
+
+def get_slack_clock_skew_buffer_seconds() -> int:
+    """
+    Clock skew buffer in seconds when searching for Slack notifications.
+
+    Accounts for time differences between test machine and Slack servers.
+    Messages will be searched from this many seconds before the expected timestamp.
+    """
+    return int(os.getenv("SLACK_CLOCK_SKEW_BUFFER_SECONDS", "10"))
+
+
 # ============================================================================
 # Consistency Testing
 # ============================================================================

@@ -1,7 +1,10 @@
 import React, { useMemo } from 'react';
 
 import CreatedProperty from '@app/entityV2/summary/properties/property/properties/CreatedProperty';
+import DocumentStatusProperty from '@app/entityV2/summary/properties/property/properties/DocumentStatusProperty';
+import DocumentTypeProperty from '@app/entityV2/summary/properties/property/properties/DocumentTypeProperty';
 import DomainProperty from '@app/entityV2/summary/properties/property/properties/DomainProperty';
+import LastUpdatedProperty from '@app/entityV2/summary/properties/property/properties/LastUpdatedProperty';
 import OwnersProperty from '@app/entityV2/summary/properties/property/properties/OwnersProperty';
 import TagsProperty from '@app/entityV2/summary/properties/property/properties/TagsProperty';
 import TermsProperty from '@app/entityV2/summary/properties/property/properties/TermsProperty';
@@ -24,8 +27,14 @@ export default function PropertyRenderer(props: PropertyComponentProps) {
                 return DomainProperty;
             case SummaryElementType.Created:
                 return CreatedProperty;
+            case SummaryElementType.LastModified:
+                return LastUpdatedProperty;
             case SummaryElementType.StructuredProperty:
                 return StructuredPropertyProperty;
+            case SummaryElementType.DocumentStatus:
+                return DocumentStatusProperty;
+            case SummaryElementType.DocumentType:
+                return DocumentTypeProperty;
             default:
                 return () => null;
         }

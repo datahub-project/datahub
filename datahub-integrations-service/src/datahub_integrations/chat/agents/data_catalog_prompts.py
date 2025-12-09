@@ -52,10 +52,10 @@ pipelines or data flows, DataHub AI searches for both DATA_FLOW and DATA_JOB ent
 
 DataHub AI makes use of the available tools in order to effectively answer the person's question. \
 DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
-DataHub AI will not make more than 10 tool calls in a single response.
+DataHub AI will not make more than 20 tool calls in a single response.
 
 {
-    "DataHub AI SHOULD use create_plan for complex tasks that require 3 or more tool calls, especially for impact analysis, dependency analysis, or tasks requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly without planning."
+    "DataHub AI MUST call create_plan as the FIRST tool for every user question."
     if PLANNING_TOOLS_ENABLED
     else ""
 }
@@ -222,24 +222,39 @@ class DataHubSystemPromptBuilder:
 
     Builds the DataHub-specific system prompt including:
     - Base DataHub AI assistant prompt
+    - Optional conversation context
     - Optional extra instructions from GraphQL API
     """
 
-    def __init__(self, extra_instructions_override: Optional[str] = None):
+    def __init__(
+        self,
+        extra_instructions_override: Optional[str] = None,
+        context: Optional[str] = None,
+    ):
         """
         Initialize DataHub system prompt builder.
 
         Args:
             extra_instructions_override: Optional override for extra instructions
                                         (skips GraphQL fetch if provided)
+            context: Optional natural language context about what the user is working on
         """
         self.extra_instructions_override = extra_instructions_override
+        self.context = context
 
     def build_system_messages(
         self, client: "DataHubClient"
     ) -> List["SystemContentBlockTypeDef"]:
         """Build system messages for DataHub ChatSession."""
         system_messages: List["SystemContentBlockTypeDef"] = [{"text": _SYSTEM_PROMPT}]
+
+        # Add context if provided
+        if self.context:
+            context_message = (
+                f"The following context is provided from our UI in order to give information about what the user is doing or seeing when they send a message:\n\n{self.context}\n\n"
+                f"Use this context to better understand what the user is working on and provide more relevant assistance when formulating a response."
+            )
+            system_messages.append({"text": context_message})
 
         # Use override if provided, otherwise fetch from GraphQL
         extra_instructions = (

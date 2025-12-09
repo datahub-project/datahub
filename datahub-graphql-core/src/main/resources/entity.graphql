@@ -1434,6 +1434,11 @@ enum EntityType {
   APPLICATION
 
   """
+  A Knowledge Article
+  """
+  DOCUMENT
+
+  """
   An DataHub Page Template
   """
   DATAHUB_PAGE_TEMPLATE
@@ -3214,12 +3219,12 @@ enum FabricType {
   SANDBOX
 
   """
-  SAAS ONLY Designates alternative spelling PROD
+  Designates alternative spelling PROD
   """
   PRD
 
   """
-  SAAS ONLY Designates alternative spelling TEST
+  Designates alternative spelling TEST
   """
   TST
 }

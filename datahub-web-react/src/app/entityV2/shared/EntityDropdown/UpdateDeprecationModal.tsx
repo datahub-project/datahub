@@ -1,4 +1,4 @@
-import { DatePicker, Form, Modal, Select, Skeleton, message } from 'antd';
+import { DatePicker, Form, Select, Skeleton, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
@@ -13,8 +13,7 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
@@ -98,18 +97,21 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }:
         <Modal
             title="Set as Deprecated"
             visible
+            zIndex={10}
             onCancel={handleClose}
             keyboard
-            footer={
-                <ModalButtonContainer>
-                    <Button onClick={handleClose} variant="text">
-                        Cancel
-                    </Button>
-                    <Button data-testid="add" form="addDeprecationForm" key="submit">
-                        Save
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: handleClose,
+                },
+                {
+                    buttonDataTestId: 'add',
+                    text: 'Save',
+                    onClick: form.submit,
+                },
+            ]}
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
                 <Form.Item name="note" label="Reason" rules={[{ whitespace: true }, { min: 0, max: 1000 }]}>
@@ -143,6 +145,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }:
                             title="Select Replacement"
                             onCancel={() => setIsReplacementModalVisible(false)}
                             onOk={() => setIsReplacementModalVisible(false)}
+                            buttons={[]}
                         >
                             <Select
                                 style={{ width: 250 }}

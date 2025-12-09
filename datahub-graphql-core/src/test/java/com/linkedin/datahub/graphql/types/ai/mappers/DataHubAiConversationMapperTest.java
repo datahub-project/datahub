@@ -389,4 +389,88 @@ public class DataHubAiConversationMapperTest {
         result.getOriginType(),
         com.linkedin.datahub.graphql.generated.DataHubAiConversationOriginType.DATAHUB_UI);
   }
+
+  @Test
+  public void testMapConversationWithContext() throws Exception {
+    // Create conversation with context
+    DataHubAiConversationInfo conversationInfo = new DataHubAiConversationInfo();
+
+    AuditStamp created = new AuditStamp();
+    created.setTime(TEST_TIME);
+    created.setActor(UrnUtils.getUrn(TEST_USER_URN));
+    conversationInfo.setCreated(created);
+
+    // Set context
+    com.linkedin.conversation.DataHubAiConversationContext context =
+        new com.linkedin.conversation.DataHubAiConversationContext();
+    context.setText("You are helping troubleshoot a failed Snowflake ingestion run.");
+    com.linkedin.common.UrnArray urnArray = new com.linkedin.common.UrnArray();
+    urnArray.add(UrnUtils.getUrn("urn:li:dataHubExecutionRequest:123"));
+    urnArray.add(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)"));
+    context.setEntityUrns(urnArray);
+    conversationInfo.setContext(context);
+
+    // Map the conversation
+    DataHubAiConversation result =
+        DataHubAiConversationMapper.map(null, conversationInfo, TEST_CONVERSATION_URN);
+
+    // Verify context is mapped correctly
+    assertNotNull(result);
+    assertNotNull(result.getContext());
+    assertEquals(
+        result.getContext().getText(),
+        "You are helping troubleshoot a failed Snowflake ingestion run.");
+    assertNotNull(result.getContext().getEntityUrns());
+    assertEquals(result.getContext().getEntityUrns().size(), 2);
+    assertEquals(result.getContext().getEntityUrns().get(0), "urn:li:dataHubExecutionRequest:123");
+    assertEquals(
+        result.getContext().getEntityUrns().get(1),
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)");
+  }
+
+  @Test
+  public void testMapConversationWithContextTextOnly() throws Exception {
+    // Create conversation with context that only has text (no entityUrn)
+    DataHubAiConversationInfo conversationInfo = new DataHubAiConversationInfo();
+
+    AuditStamp created = new AuditStamp();
+    created.setTime(TEST_TIME);
+    created.setActor(UrnUtils.getUrn(TEST_USER_URN));
+    conversationInfo.setCreated(created);
+
+    // Set context with only text
+    com.linkedin.conversation.DataHubAiConversationContext context =
+        new com.linkedin.conversation.DataHubAiConversationContext();
+    context.setText("The user is configuring a DBT ingestion source.");
+    conversationInfo.setContext(context);
+
+    // Map the conversation
+    DataHubAiConversation result =
+        DataHubAiConversationMapper.map(null, conversationInfo, TEST_CONVERSATION_URN);
+
+    // Verify context is mapped correctly
+    assertNotNull(result);
+    assertNotNull(result.getContext());
+    assertEquals(result.getContext().getText(), "The user is configuring a DBT ingestion source.");
+    assertNull(result.getContext().getEntityUrns());
+  }
+
+  @Test
+  public void testMapConversationWithoutContext() throws Exception {
+    // Create conversation without context
+    DataHubAiConversationInfo conversationInfo = new DataHubAiConversationInfo();
+
+    AuditStamp created = new AuditStamp();
+    created.setTime(TEST_TIME);
+    created.setActor(UrnUtils.getUrn(TEST_USER_URN));
+    conversationInfo.setCreated(created);
+
+    // Map the conversation
+    DataHubAiConversation result =
+        DataHubAiConversationMapper.map(null, conversationInfo, TEST_CONVERSATION_URN);
+
+    // Verify context is null when not set
+    assertNotNull(result);
+    assertNull(result.getContext());
+  }
 }

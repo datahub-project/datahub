@@ -76,6 +76,7 @@ def test_mixpanel_failures_do_not_break_logic() -> None:
         response_generation_duration_sec=1.5,
         full_history='{"messages": ["very long conversation history..."] * 1000}',
         reduction_sequence='{"reductions": ["large json data..."] * 500}',
+        is_followup_question=False,
     )
 
     # Mock the telemetry client to raise an exception
@@ -130,6 +131,7 @@ def test_full_history_not_sent_to_mixpanel() -> None:
         response_generation_duration_sec=1.5,
         full_history='{"messages": ["very long conversation history..."] * 1000}',
         reduction_sequence='{"reductions": ["large json data..."] * 500}',
+        is_followup_question=False,
     )
 
     with (

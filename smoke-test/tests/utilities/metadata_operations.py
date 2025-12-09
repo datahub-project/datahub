@@ -2,11 +2,24 @@
 # ABOUTME: Reduces boilerplate GraphQL code in smoke tests.
 
 import logging
-from typing import Any, Dict, Optional
+import time
+from typing import Any, Dict, List, Optional
 
+from datahub.cli.cli_utils import get_entity as get_entity_cli
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+
+def get_entity(
+    auth_session,
+    urn: str,
+) -> Dict[str, Any]:
+    return get_entity_cli(
+        session=auth_session,
+        gms_host=auth_session.gms_url(),
+        urn=urn,
+    )
 
 
 def add_tag(
@@ -144,6 +157,7 @@ def get_search_results(auth_session, entity_type: str) -> Dict[str, Any]:
         "dashboard": "DASHBOARD",
         "dataJob": "DATA_JOB",
         "dataFlow": "DATA_FLOW",
+        "dataProduct": "DATA_PRODUCT",
         "container": "CONTAINER",
         "tag": "TAG",
         "corpUser": "CORP_USER",
@@ -254,6 +268,68 @@ def list_ingestion_sources_with_filter(
     variables: Dict[str, Any] = {"input": {"start": start, "count": count}}
     if filters:
         variables["input"]["filters"] = filters
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["listIngestionSources"]
+
+
+@with_test_retry()
+def list_scheduled_ingestion_sources(
+    auth_session,
+    start: int = 0,
+    count: int = 100,
+) -> Dict[str, Any]:
+    """List ingestion sources with schedules and execution history.
+
+    This helper fetches ingestion sources that have cron schedules along with:
+    - Schedule configuration (cron interval and timezone)
+    - Recent execution history (up to 10 executions)
+    - Source metadata (URN, name, type)
+
+    Args:
+        auth_session: The authenticated session
+        start: Starting offset for pagination
+        count: Number of sources to retrieve
+
+    Returns:
+        Dictionary containing:
+        - total: Total count of scheduled ingestion sources
+        - ingestionSources: List of sources with schedules and executions
+    """
+    query = """
+        query listIngestionSources($input: ListIngestionSourcesInput!) {
+            listIngestionSources(input: $input) {
+                total
+                ingestionSources {
+                    urn
+                    name
+                    type
+                    schedule {
+                        interval
+                        timezone
+                    }
+                    executions(start: 0, count: 10) {
+                        executionRequests {
+                            urn
+                            input {
+                                requestedAt
+                                source {
+                                    type
+                                }
+                            }
+                            result {
+                                status
+                                startTimeMs
+                                durationMs
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+
+    variables: Dict[str, Any] = {"input": {"start": start, "count": count}}
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["listIngestionSources"]
@@ -496,6 +572,44 @@ def get_default_channel_name(auth_session) -> str | None:
     return slack_settings.get("defaultChannelName")
 
 
+def _get_entity_type_from_urn(urn: str) -> str:
+    """Extract entity type from URN for GraphQL queries.
+
+    Args:
+        urn: Entity URN (e.g., urn:li:dataset:(...), urn:li:dataJob:(...))
+
+    Returns:
+        Entity type string for GraphQL (e.g., 'dataset', 'dataJob')
+
+    Raises:
+        ValueError: If URN format is invalid or entity type not supported
+    """
+    if not urn.startswith("urn:li:"):
+        raise ValueError(f"Invalid URN format: {urn}")
+
+    parts = urn.split(":")
+    if len(parts) < 3:
+        raise ValueError(f"Invalid URN format: {urn}")
+
+    entity_type = parts[2]
+
+    supported_types = {
+        "dataset": "dataset",
+        "dataJob": "dataJob",
+        "dataFlow": "dataFlow",
+        "dashboard": "dashboard",
+        "chart": "chart",
+    }
+
+    if entity_type not in supported_types:
+        raise ValueError(
+            f"Entity type '{entity_type}' does not support incidents. "
+            f"Supported types: {list(supported_types.keys())}"
+        )
+
+    return supported_types[entity_type]
+
+
 @with_test_retry()
 def list_incidents(
     auth_session,
@@ -508,17 +622,21 @@ def list_incidents(
 
     Args:
         auth_session: The authenticated session
-        resource_urn: URN of the resource (e.g., dataset URN)
+        resource_urn: URN of the resource (e.g., dataset URN, dataJob URN)
         state: Incident state filter (ACTIVE, RESOLVED, or ALL)
         start: Starting offset for pagination
         count: Number of incidents to retrieve
 
     Returns:
         Dictionary containing incidents data with keys: start, count, total, incidents
+
+    Raises:
+        ValueError: If resource URN is invalid or entity type doesn't support incidents
     """
+    entity_type = _get_entity_type_from_urn(resource_urn)
     state_filter = f"state: {state}, " if state != "ALL" else ""
-    query = f"""query dataset($urn: String!) {{
-        dataset(urn: $urn) {{
+    query = f"""query entity($urn: String!) {{
+        {entity_type}(urn: $urn) {{
           incidents({state_filter}start: {start}, count: {count}) {{
             start
             count
@@ -563,7 +681,33 @@ def list_incidents(
     variables: Dict[str, Any] = {"urn": resource_urn}
 
     res_data = execute_graphql(auth_session, query, variables)
-    return res_data["data"]["dataset"]["incidents"]
+    return res_data["data"][entity_type]["incidents"]
+
+
+def list_incidents_by_title(
+    auth_session,
+    resource_urn: str,
+    title: str,
+    state: str = "ACTIVE",
+) -> List[Dict[str, Any]]:
+    """List incidents for a resource filtered by title.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataJob URN)
+        title: Incident title to filter by (exact match)
+        state: Incident state filter (ACTIVE, RESOLVED, or ALL)
+
+    Returns:
+        List of incidents matching the title
+    """
+    result = list_incidents(auth_session, resource_urn, state=state, start=0, count=100)
+
+    matching_incidents = [
+        incident for incident in result["incidents"] if incident.get("title") == title
+    ]
+
+    return matching_incidents
 
 
 def raise_incident(
@@ -603,6 +747,55 @@ def raise_incident(
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["raiseIncident"]
+
+
+def resolve_incidents_by_title(
+    auth_session,
+    resource_urn: str,
+    title: str,
+    resolution_message: str = "Auto-resolved by newer incident",
+    exclude_incident_urn: Optional[str] = None,
+) -> int:
+    """Resolve all active incidents on a resource with a specific title.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataJob URN)
+        title: Incident title to match (exact match)
+        resolution_message: Message to include when resolving incidents
+        exclude_incident_urn: Optional incident URN to exclude from resolution
+
+    Returns:
+        Number of incidents resolved
+    """
+    incidents = list_incidents_by_title(
+        auth_session, resource_urn, title, state="ACTIVE"
+    )
+
+    if exclude_incident_urn:
+        incidents = [
+            incident
+            for incident in incidents
+            if incident["urn"] != exclude_incident_urn
+        ]
+
+    resolved_count = 0
+    for incident in incidents:
+        incident_urn = incident["urn"]
+        try:
+            success = update_incident_status(
+                auth_session,
+                incident_urn,
+                state="RESOLVED",
+                message=resolution_message,
+            )
+            if success:
+                resolved_count += 1
+                logger.info(f"Resolved incident {incident_urn} with title '{title}'")
+        except Exception as e:
+            logger.warning(f"Failed to resolve incident {incident_urn}: {e}")
+
+    return resolved_count
 
 
 def update_incident_status(
@@ -692,3 +885,662 @@ def search_datasets_by_assertions(auth_session) -> Dict[str, Any]:
 
     res_data = execute_graphql(auth_session, query, variables)
     return res_data["data"]["searchAcrossEntities"]
+
+
+@with_test_retry()
+def get_data_product(auth_session, urn: str) -> Optional[Dict[str, Any]]:
+    """Get a data product by URN."""
+    query = """
+        query getDataProduct($urn: String!) {
+            dataProduct(urn: $urn) {
+                urn
+                type
+                properties {
+                    name
+                    description
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataProduct"]
+
+
+@with_test_retry()
+def search_across_lineage(
+    auth_session,
+    urn: str,
+    direction: str = "UPSTREAM",
+    query: str = "*",
+    count: int = 10,
+) -> Dict[str, Any]:
+    """Search across lineage from a given entity."""
+    graphql_query = """
+        query searchAcrossLineage($input: SearchAcrossLineageInput!) {
+            searchAcrossLineage(input: $input) {
+                start
+                count
+                total
+                searchResults {
+                    entity {
+                        urn
+                    }
+                    paths {
+                        path {
+                            urn
+                        }
+                    }
+                    degree
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "urn": urn,
+            "direction": direction,
+            "query": query,
+            "count": count,
+        }
+    }
+
+    res_data = execute_graphql(auth_session, graphql_query, variables)
+    return res_data["data"]["searchAcrossLineage"]
+
+
+@with_test_retry()
+def scroll_across_lineage(
+    auth_session,
+    urn: str,
+    direction: str = "UPSTREAM",
+    scroll_id: Optional[str] = None,
+    query: str = "*",
+    keep_alive: str = "5m",
+    count: int = 10,
+) -> Dict[str, Any]:
+    """Scroll across lineage from a given entity."""
+    graphql_query = """
+        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
+            scrollAcrossLineage(input: $input) {
+                nextScrollId
+                count
+                total
+                searchResults {
+                    entity {
+                        urn
+                    }
+                    paths {
+                        path {
+                            urn
+                        }
+                    }
+                    degree
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "urn": urn,
+            "direction": direction,
+            "query": query,
+            "count": count,
+            "keepAlive": keep_alive,
+        }
+    }
+    if scroll_id:
+        variables["input"]["scrollId"] = scroll_id
+
+    res_data = execute_graphql(auth_session, graphql_query, variables)
+    return res_data["data"]["scrollAcrossLineage"]
+
+
+def create_tag_proposal(
+    auth_session,
+    resource_urn: str,
+    tag_urns: list[str],
+    description: str,
+) -> str:
+    """Create a tag proposal on a resource.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource to propose tags for
+        tag_urns: List of tag URNs to propose
+        description: Proposal description/context
+
+    Returns:
+        URN of the newly created proposal (ActionRequest URN)
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "resourceUrn": resource_urn,
+            "tagUrns": tag_urns,
+            "description": description,
+        }
+    }
+
+    query = """mutation proposeTags($input: ProposeTagsInput!) {
+        proposeTags(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["proposeTags"]
+
+
+@with_test_retry()
+def list_proposals(
+    auth_session,
+    resource_urn: str,
+    proposal_type: str = "TAG_ASSOCIATION",
+    status: str = "PENDING",
+    start: int = 0,
+    count: int = 10,
+) -> Dict[str, Any]:
+    """List proposals (action requests) for a resource.
+
+    Args:
+        auth_session: The authenticated session
+        resource_urn: URN of the resource (e.g., dataset URN)
+        proposal_type: Type of proposal (TAG_ASSOCIATION, TERM_ASSOCIATION, etc.)
+        status: Proposal status filter (PENDING, COMPLETED)
+        start: Starting offset for pagination
+        count: Number of proposals to retrieve
+
+    Returns:
+        Dictionary containing proposals data with keys: start, count, total, actionRequests
+    """
+    query = """query listActionRequests($input: ListActionRequestsInput!) {
+        listActionRequests(input: $input) {
+            start
+            count
+            total
+            actionRequests {
+                urn
+                type
+                description
+                status
+                result
+                entity {
+                    urn
+                }
+                params {
+                    tagProposal {
+                        tags {
+                            urn
+                            properties {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }"""
+
+    variables: Dict[str, Any] = {
+        "input": {
+            "resourceUrn": resource_urn,
+            "type": proposal_type,
+            "status": status,
+            "start": start,
+            "count": count,
+        }
+    }
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["listActionRequests"]
+
+
+def accept_proposal(
+    auth_session,
+    proposal_urn: str,
+    note: str = "",
+) -> bool:
+    """Accept a proposal.
+
+    Args:
+        auth_session: The authenticated session
+        proposal_urn: URN of the proposal to accept
+        note: Optional note explaining the acceptance
+
+    Returns:
+        True if the acceptance was successful
+    """
+    variables: Dict[str, Any] = {
+        "urns": [proposal_urn],
+        "note": note,
+    }
+
+    query = """mutation acceptProposals($urns: [String!]!, $note: String) {
+        acceptProposals(urns: $urns, note: $note)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["acceptProposals"]
+
+
+def reject_proposal(
+    auth_session,
+    proposal_urn: str,
+    note: str = "",
+) -> bool:
+    """Reject a proposal.
+
+    Args:
+        auth_session: The authenticated session
+        proposal_urn: URN of the proposal to reject
+        note: Optional note explaining the rejection
+
+    Returns:
+        True if the rejection was successful
+    """
+    variables: Dict[str, Any] = {
+        "urns": [proposal_urn],
+        "note": note,
+    }
+
+    query = """mutation rejectProposals($urns: [String!]!, $note: String) {
+        rejectProposals(urns: $urns, note: $note)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["rejectProposals"]
+
+
+def add_owner(
+    auth_session,
+    resource_urn: str,
+    owner_urn: str,
+    owner_entity_type: str = "CORP_USER",
+    ownership_type: str = "TECHNICAL_OWNER",
+    ownership_type_urn: Optional[str] = None,
+) -> bool:
+    """Add an owner to a resource.
+
+    Args:
+        auth_session: Authenticated session
+        resource_urn: URN of the resource (e.g., dataset)
+        owner_urn: URN of the owner (user or group)
+        owner_entity_type: Either CORP_USER or CORP_GROUP
+        ownership_type: Type of ownership (TECHNICAL_OWNER, BUSINESS_OWNER, etc.)
+        ownership_type_urn: Optional custom ownership type URN
+
+    Returns:
+        True if successful
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "ownerUrn": owner_urn,
+            "ownerEntityType": owner_entity_type,
+            "resourceUrn": resource_urn,
+        }
+    }
+
+    if ownership_type_urn:
+        variables["input"]["ownershipTypeUrn"] = ownership_type_urn
+        variables["input"]["type"] = "CUSTOM"
+    else:
+        variables["input"]["type"] = ownership_type
+
+    query = """mutation addOwner($input: AddOwnerInput!) {
+        addOwner(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["addOwner"]
+
+
+def remove_owner(
+    auth_session,
+    resource_urn: str,
+    owner_urn: str,
+    ownership_type_urn: Optional[str] = None,
+) -> bool:
+    """Remove an owner from a resource.
+
+    Args:
+        auth_session: Authenticated session
+        resource_urn: URN of the resource (e.g., dataset)
+        owner_urn: URN of the owner to remove
+        ownership_type_urn: Optional - specific ownership type to remove
+
+    Returns:
+        True if successful
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "ownerUrn": owner_urn,
+            "resourceUrn": resource_urn,
+        }
+    }
+
+    if ownership_type_urn:
+        variables["input"]["ownershipTypeUrn"] = ownership_type_urn
+
+    query = """mutation removeOwner($input: RemoveOwnerInput!) {
+        removeOwner(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["removeOwner"]
+
+
+@with_test_retry()
+def get_dataset_owners(auth_session, dataset_urn: str) -> Dict[str, Any]:
+    """Get ownership information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing ownership data with 'owners' array
+    """
+    query = """
+        query getDatasetOwners($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                ownership {
+                    owners {
+                        owner {
+                            ... on CorpUser {
+                                urn
+                                properties {
+                                    email
+                                }
+                            }
+                            ... on CorpGroup {
+                                urn
+                                properties {
+                                    displayName
+                                }
+                            }
+                        }
+                        type
+                        ownershipType {
+                            urn
+                            info {
+                                name
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["ownership"]
+
+
+@with_test_retry()
+def get_dataset_tags(auth_session, dataset_urn: str) -> Dict[str, Any]:
+    """Get tag information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing tags data with 'tags' array
+    """
+    query = """
+        query getDatasetTags($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["globalTags"]
+
+
+@with_test_retry()
+def get_dataset_terms(auth_session, dataset_urn: str) -> Dict[str, Any]:
+    """Get glossary term information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing terms data with 'terms' array
+    """
+    query = """
+        query getDatasetTerms($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                glossaryTerms {
+                    terms {
+                        term {
+                            urn
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["glossaryTerms"]
+
+
+def update_deprecation(
+    auth_session,
+    resource_urn: str,
+    deprecated: bool,
+    note: str = "",
+    decommission_time: Optional[int] = None,
+) -> bool:
+    """Update deprecation status of a resource."""
+    variables: Dict[str, Any] = {
+        "input": {"urn": resource_urn, "deprecated": deprecated, "note": note}
+    }
+    if decommission_time is not None:
+        variables["input"]["decommissionTime"] = decommission_time
+
+    query = """mutation updateDeprecation($input: UpdateDeprecationInput!) {
+        updateDeprecation(input: $input)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["updateDeprecation"]
+
+
+@with_test_retry()
+def get_dataset_deprecation(auth_session, dataset_urn: str) -> Optional[Dict[str, Any]]:
+    """Get deprecation information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing deprecation data with 'deprecated', 'note', etc., or None if not deprecated
+    """
+    query = """
+        query getDatasetDeprecation($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                deprecation {
+                    deprecated
+                    note
+                    decommissionTime
+                    actor
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["deprecation"]
+
+
+def create_ingestion_execution_request(auth_session, ingestion_source_urn: str) -> str:
+    """Submit execution request for an ingestion source.
+
+    Returns: execution request URN
+    """
+    query = """
+        mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequestInput!) {
+            createIngestionExecutionRequest(input: $input)
+        }
+    """
+    variables: Dict[str, Any] = {"input": {"ingestionSourceUrn": ingestion_source_urn}}
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["createIngestionExecutionRequest"]
+
+
+def get_execution_request_status(
+    auth_session, execution_request_urn: str
+) -> Optional[Dict[str, Any]]:
+    """Get execution request result.
+
+    Returns: None if not completed yet, or dict with:
+        - status: "SUCCESS", "FAILURE", "CANCELLED", "DUPLICATE", "ABORTED"
+        - startTimeMs: timestamp
+        - durationMs: duration in milliseconds
+    """
+    # Terminal statuses that indicate execution is complete
+    TERMINAL_STATUSES = {"SUCCESS", "FAILURE", "CANCELLED", "DUPLICATE", "ABORTED"}
+
+    query = """
+        query executionRequest($urn: String!) {
+            executionRequest(urn: $urn) {
+                result {
+                    status
+                    startTimeMs
+                    durationMs
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": execution_request_urn}
+    res_data = execute_graphql(auth_session, query, variables)
+    result = res_data["data"]["executionRequest"]["result"]
+
+    # Only return result if status is terminal, otherwise return None to continue polling
+    if result and result.get("status") in TERMINAL_STATUSES:
+        return result
+    return None
+
+
+def poll_execution_requests(
+    auth_session,
+    execution_tracking: Dict[str, Dict[str, str]],
+    timeout_minutes: int,
+    poll_interval_seconds: int = 5,
+) -> Dict[str, Dict[str, Any]]:
+    """Poll multiple execution requests until all complete or timeout.
+
+    Args:
+        auth_session: Authenticated session
+        execution_tracking: Dict mapping source_name to {
+            "source_urn": str,
+            "execution_urn": str
+        }
+        timeout_minutes: Maximum time to wait
+        poll_interval_seconds: Seconds between polls
+
+    Returns: Dict mapping source_name to {
+        "source_urn": str,
+        "execution_urn": str,
+        "status": str,  # "SUCCESS", "FAILURE", "TIMEOUT", etc.
+        "startTimeMs": int,
+        "durationMs": int
+    }
+    """
+    timeout_seconds = timeout_minutes * 60
+    start_time = time.time()
+    results = {}
+
+    pending = set(execution_tracking.keys())
+
+    while pending and (time.time() - start_time) < timeout_seconds:
+        elapsed_minutes = (time.time() - start_time) / 60
+        logger.info(
+            f"Polling {len(pending)} pending executions "
+            f"({elapsed_minutes:.1f}/{timeout_minutes} min elapsed)"
+        )
+
+        for source_name in list(pending):
+            tracking_info = execution_tracking[source_name]
+            execution_urn = tracking_info["execution_urn"]
+
+            result = get_execution_request_status(auth_session, execution_urn)
+
+            if result is not None:
+                status = result["status"]
+                logger.info(f"Source '{source_name}' completed with status: {status}")
+
+                results[source_name] = {
+                    "source_urn": tracking_info["source_urn"],
+                    "execution_urn": execution_urn,
+                    "status": status,
+                    "startTimeMs": result.get("startTimeMs"),
+                    "durationMs": result.get("durationMs"),
+                }
+                pending.remove(source_name)
+
+        if pending:
+            time.sleep(poll_interval_seconds)
+
+    for source_name in pending:
+        tracking_info = execution_tracking[source_name]
+        logger.warning(
+            f"Source '{source_name}' timed out after {timeout_minutes} minutes"
+        )
+        results[source_name] = {
+            "source_urn": tracking_info["source_urn"],
+            "execution_urn": tracking_info["execution_urn"],
+            "status": "TIMEOUT",
+            "startTimeMs": None,
+            "durationMs": None,
+        }
+
+    return results
+
+
+def get_prometheus_metrics(auth_session, gms_url: str) -> str:
+    """Get Prometheus metrics from GMS actuator endpoint.
+
+    Uses Bearer token authentication which works in both cloud (required) and
+    CI/local environments (headers ignored if not needed).
+
+    Args:
+        auth_session: Authenticated session with gms_token()
+        gms_url: Base GMS URL
+
+    Returns:
+        Raw Prometheus metrics text
+
+    Raises:
+        HTTPError: If the request fails
+    """
+    import requests
+
+    prometheus_url = f"{gms_url}/actuator/prometheus"
+    headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
+
+    response = requests.get(prometheus_url, headers=headers)
+    response.raise_for_status()
+
+    return response.text

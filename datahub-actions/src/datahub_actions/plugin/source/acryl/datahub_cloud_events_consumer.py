@@ -4,7 +4,12 @@ from typing import List, Optional
 
 import requests
 from pydantic import BaseModel, Field
-from requests.exceptions import ConnectionError, HTTPError
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ConnectionError,
+    HTTPError,
+    Timeout,
+)
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -79,7 +84,9 @@ class DataHubEventsConsumer:
             logger.debug("Starting DataHub Events Consumer with no consumer ID.")
 
     @retry(
-        retry=retry_if_exception_type((HTTPError, ConnectionError)),
+        retry=retry_if_exception_type(
+            (HTTPError, ConnectionError, ChunkedEncodingError, Timeout)
+        ),
         wait=wait_exponential(multiplier=1, min=2, max=30),
         stop=stop_after_attempt(3),
         reraise=True,

@@ -614,6 +614,92 @@ class TestGenerateNextMessage:
         assert isinstance(result, ToolResult)
         assert result.tool_request.tool_name == "special_tool"
 
+    @patch("datahub_integrations.chat.agent.agent_runner.is_mlflow_enabled")
+    @patch("datahub_integrations.chat.agent.agent_runner.get_llm_client")
+    @patch("datahub_integrations.chat.agent.agent_runner.mlflow")
+    def test_malformed_function_call_continues_loop_not_returns_to_user(
+        self,
+        mock_mlflow: Mock,
+        mock_get_llm: Mock,
+        mock_mlflow_enabled: Mock,
+    ) -> None:
+        # Test that when MALFORMED_FUNCTION_CALL is correctly converted to stopReason="tool_use"
+        # (by the LLM wrapper conversion layer), the agent continues the loop instead of
+        # returning the error message to the user.
+        # This test verifies the agent runner's behavior after the conversion fix is applied.
+        # The conversion layer tests verify that MALFORMED_FUNCTION_CALL gets converted correctly.
+        mock_mlflow_enabled.return_value = False
+
+        config = AgentConfig(
+            model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+            system_prompt_builder=StaticPromptBuilder("Test"),
+            tools=[],
+            plannable_tools=[],
+            max_tool_calls=5,
+            context_reducers=[],
+            use_prompt_caching=False,
+        )
+        mock_client = Mock()
+        agent = AgentRunner(config=config, client=mock_client)
+        agent.history.add_message(HumanMessage(text="Test query"))
+
+        # Mock mlflow
+        mock_span = Mock()
+        mock_mlflow.start_span.return_value.__enter__.return_value = mock_span
+        mock_mlflow.start_span.return_value.__exit__.return_value = None
+
+        # Mock LLM to return malformed function call scenario:
+        # stopReason="tool_use" with text content but no tool calls
+        # This simulates MALFORMED_FUNCTION_CALL being converted to tool_use
+        mock_llm_client = Mock()
+        mock_get_llm.return_value = mock_llm_client
+
+        # First call: malformed function call (stopReason="tool_use" with text, no tool calls)
+        # Second call: successful response (stopReason="end_turn" with text)
+        mock_llm_client.converse.side_effect = [
+            {
+                "output": {
+                    "message": {
+                        "content": [
+                            {
+                                "text": "I encountered an error with the tool call parameters. Please retry with corrected parameters."
+                            }
+                        ]
+                    }
+                },
+                "stopReason": "tool_use",  # This should cause agent to continue, not return to user
+                "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
+            },
+            {
+                "output": {
+                    "message": {
+                        "content": [{"text": "Here's the answer to your question."}]
+                    }
+                },
+                "stopReason": "end_turn",
+                "usage": {"inputTokens": 10, "outputTokens": 5, "totalTokens": 15},
+            },
+        ]
+
+        # Execute - should complete after second call, not first
+        result = agent.generate_next_message()
+
+        # Verify agent made 2 LLM calls (continued after first malformed call)
+        assert mock_llm_client.converse.call_count == 2
+
+        # Verify the final result is the successful response, not the error message
+        assert isinstance(result, AssistantMessage)
+        assert result.text == "Here's the answer to your question."
+        assert "error" not in result.text.lower()
+
+        # Verify the error message became a ReasoningMessage (not returned to user)
+        reasoning_messages = [
+            msg for msg in agent.history.messages if isinstance(msg, ReasoningMessage)
+        ]
+        assert len(reasoning_messages) == 1
+        assert "error" in reasoning_messages[0].text.lower()
+        assert "retry" in reasoning_messages[0].text.lower()
+
 
 class TestProgressCallback:
     """Test progress callback functionality."""

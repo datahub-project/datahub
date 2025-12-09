@@ -29,11 +29,9 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -45,6 +43,7 @@ import io.datahubproject.test.util.Neo4jTestServerBuilder;
 import io.ebean.Database;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.SessionConfig;
@@ -113,10 +112,11 @@ public class ScimpleSpringTestApp {
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(graphService),
             mock(ElasticSearchService.class),
-            mock(TimeseriesAspectService.class),
             mock(SystemMetadataService.class),
-            mock(SearchDocumentTransformer.class),
-            systemOperationContext.getSearchContext().getIndexConvention().getIdHashAlgo());
+            Collections.emptyList(),
+            false,
+            false,
+            false);
 
     EventProducer _mockProducer = mock(EventProducer.class);
     when(_mockProducer.produceMetadataChangeLog(any(OperationContext.class), any(), any(), any()))

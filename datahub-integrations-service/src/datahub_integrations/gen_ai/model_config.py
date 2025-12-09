@@ -40,21 +40,24 @@ class BedrockModel(enum.Enum):
 
 
 def get_bedrock_model_env_variable(
-    env_var: str, default_model: BedrockModel, alternate_env_var: Optional[str] = None
+    env_var: str, default_model: BedrockModel
 ) -> BedrockModel | str:
     """Get model from environment variable with Pydantic validation (for legacy compatibility)."""
     model_value = os.getenv(env_var)
-    if model_value is None and alternate_env_var is not None:
-        model_value = os.getenv(alternate_env_var, default_model.value)
-    else:
-        model_value = model_value or default_model.value
+    model_value = model_value or default_model.value
     # This safely handles accidental litellm style model config in helm
     if model_value.startswith("bedrock/"):
         model_value = model_value[len("bedrock/") :]
     return pydantic.TypeAdapter(BedrockModel | str).validate_python(model_value)
 
 
-class LiteLLMModel(enum.Enum):
+class ModelIdentifier(enum.Enum):
+    """Model identifier enum supporting multiple providers (Bedrock, OpenAI, Gemini).
+
+    Model identifiers use provider prefixes (bedrock/, openai/, google_vertexai/)
+    to support the LLM wrapper system with langchain.
+    """
+
     # These are the system-defined inference profile name, not the raw model ID.
     # Cross-region inference profiles allow higher request and token quota.
     # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
@@ -102,23 +105,43 @@ class CustomModelProvider(BaseModel):
         return hash((self.base_url, self.api_key, self.cert_file, self.key_file))
 
 
-def get_litellm_model_env_variable(
-    env_var: str, default_model: LiteLLMModel, alternate_env_var: Optional[str] = None
-) -> LiteLLMModel | str:
+def get_model_env_variable(
+    env_var: str, default_model: ModelIdentifier
+) -> ModelIdentifier | str:
+    """Get model identifier from environment variable with Pydantic validation.
+
+    The model identifier format uses provider prefixes (e.g., "bedrock/...", "openai/...")
+    to work with the LLM wrapper system. If no provider prefix is present, automatically
+    prefixes with "bedrock/" for backward compatibility.
+
+    Args:
+        env_var: Environment variable name
+        default_model: Default model identifier if env var is not set
+
+    Returns:
+        ModelIdentifier enum value or validated string
+    """
     model_value = os.getenv(env_var)
-    if model_value is None and alternate_env_var is not None:
-        model_value = os.getenv(alternate_env_var, default_model.value)
-    else:
-        model_value = model_value or default_model.value
-    if not model_value.startswith(("bedrock/", "gemini/", "vertex_ai/")):
-        logger.warning(
-            f"Invalid model value for {env_var}: {model_value}, using default model: {default_model.value}"
+    if not model_value:
+        logger.info(
+            "Model config: {} not set, using default {}",
+            env_var,
+            default_model.value,
         )
         model_value = default_model.value
-    return pydantic.TypeAdapter(LiteLLMModel | str).validate_python(model_value)
+    else:
+        logger.info("Model config: {}={}", env_var, model_value)
+
+    resolved_value: ModelIdentifier | str = pydantic.TypeAdapter(
+        ModelIdentifier | str
+    ).validate_python(model_value)
+    logger.info(
+        "Model config: resolved {} -> {}", env_var, _get_model_value(resolved_value)
+    )
+    return resolved_value
 
 
-def _get_model_value(model: LiteLLMModel | BedrockModel | str) -> str:
+def _get_model_value(model: ModelIdentifier | BedrockModel | str) -> str:
     """Convert a model to its string representation."""
     return str(model)
 
@@ -193,24 +216,29 @@ def get_model_config() -> ModelConfig:
 
 
 def get_docs_ai_config() -> DocumentationAIConfig:
+    logger.info("Resolving docs AI config: checking DESCRIPTION_GENERATION_MODEL")
     doc_model = _get_model_value(
-        get_litellm_model_env_variable(
+        get_model_env_variable(
             "DESCRIPTION_GENERATION_MODEL",
-            LiteLLMModel.CLAUDE_3_HAIKU,
-            "DESCRIPTION_GENERATION_BEDROCK_MODEL",
+            ModelIdentifier.CLAUDE_3_HAIKU,
         )
     )
 
     # Query Description Generation AI Configuration
+    logger.info("Resolving docs AI config: checking QUERY_DESCRIPTION_GENERATION_MODEL")
     query_desc_model = _get_model_value(
-        get_litellm_model_env_variable(
+        get_model_env_variable(
             "QUERY_DESCRIPTION_GENERATION_MODEL",
-            LiteLLMModel.CLAUDE_45_SONNET,
-            "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL",
+            ModelIdentifier.CLAUDE_45_SONNET,
         )
     )
     docs_ai_config = DocumentationAIConfig(
         model=doc_model, query_description_model=query_desc_model
+    )
+    logger.info(
+        "Docs AI config resolved: model={}, query_description_model={}",
+        doc_model,
+        query_desc_model,
     )
 
     return docs_ai_config
@@ -218,10 +246,9 @@ def get_docs_ai_config() -> DocumentationAIConfig:
 
 def get_term_suggestion_config() -> TermSuggestionConfig:
     term_suggestion_model = _get_model_value(
-        get_litellm_model_env_variable(
+        get_model_env_variable(
             "TERM_SUGGESTION_MODEL",
-            LiteLLMModel.CLAUDE_45_SONNET,
-            "TERM_SUGGESTION_GENERATION_BEDROCK_MODEL",
+            ModelIdentifier.CLAUDE_45_SONNET,
         )
     )
     terms_suggestion_config = TermSuggestionConfig(model=term_suggestion_model)
@@ -229,19 +256,16 @@ def get_term_suggestion_config() -> TermSuggestionConfig:
 
 
 def get_chat_assistant_config() -> ChatAssistantAIConfig:
-    # We will update CHATBOT_MODEL, CHAT_SUMMARIZATION_MODEL and TERM_SUGGESTION_MODEL
-    # when these usecases are implemented with litellm and then populate them
-    # in datahub-helm-fork and datahub-apps
     chat_model = _get_model_value(
-        get_litellm_model_env_variable(
+        get_model_env_variable(
             "CHATBOT_MODEL",
-            LiteLLMModel.CLAUDE_45_SONNET,
+            ModelIdentifier.CLAUDE_45_SONNET,
         )
     )
     chat_summary_model = _get_model_value(
-        get_litellm_model_env_variable(
+        get_model_env_variable(
             "CHAT_SUMMARIZATION_MODEL",
-            LiteLLMModel.CLAUDE_45_SONNET,
+            ModelIdentifier.CLAUDE_45_SONNET,
         )
     )
 

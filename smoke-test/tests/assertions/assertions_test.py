@@ -1,4 +1,5 @@
 import json
+import logging
 import urllib
 from random import randint
 
@@ -25,6 +26,8 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urns_from_file, ingest_file_via_rest, with_test_retry
+
+logger = logging.getLogger(__name__)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -228,12 +231,12 @@ def create_test_data(test_file):
 @pytest.fixture(scope="module")
 def generate_test_data(graph_client, tmp_path_factory):
     """Generates metadata events data and stores into a test file"""
-    print("generating assertions test data")
+    logger.info("generating assertions test data")
     dir_name = tmp_path_factory.mktemp("test_dq_events")
     file_name = dir_name / "test_dq_events.json"
     create_test_data(test_file=str(file_name))
     yield str(file_name)
-    print("removing assertions test data")
+    logger.info("removing assertions test data")
     delete_urns_from_file(graph_client, str(file_name))
     graph_client.delete_entity(TEST_DATASET_URN, hard=True)
 

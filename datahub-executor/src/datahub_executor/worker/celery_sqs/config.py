@@ -173,15 +173,22 @@ def update_celery_config(
     return config
 
 
-def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) -> bool:
-    executor_config_resolver = ExecutorConfigResolver()
+def update_celery_credentials(
+    app: Celery, is_startup: bool, queue_name: str, resolver: ExecutorConfigResolver
+) -> bool:
+    """
+    Update Celery credentials from the executor config resolver.
 
+    Thread-safe: All resolver methods called here (get_executor_configs,
+    fetch_executor_configs, refresh_executor_configs) are protected by locks
+    in ExecutorConfigResolver, so this function is safe to call from multiple threads.
+    """
     if is_startup:
         METRIC(
             "WORKER_CREDENTIALS_REFRESH_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID
         ).inc()
 
-        executor_configs = executor_config_resolver.get_executor_configs()
+        executor_configs = resolver.get_executor_configs()
         config = update_celery_config(CeleryConfig(), executor_configs)
         app.config_from_object(config)
     else:
@@ -193,12 +200,12 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
         # if we don't know about this queue, we force a refresh of the config
         if queue_name and queue_name not in current_queues:
             did_refresh = True
-            executor_configs = executor_config_resolver.fetch_executor_configs()
+            executor_configs = resolver.fetch_executor_configs()
         else:
             (
                 did_refresh,
                 executor_configs,
-            ) = executor_config_resolver.refresh_executor_configs()
+            ) = resolver.refresh_executor_configs()
 
         if did_refresh:
             METRIC(

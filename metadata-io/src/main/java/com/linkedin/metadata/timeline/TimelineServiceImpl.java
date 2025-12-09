@@ -17,6 +17,7 @@ import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.eventgenerator.ContainerPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableContainerPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
@@ -267,10 +268,37 @@ public class TimelineServiceImpl implements TimelineService {
       containerElementAspectRegistry.put(elementName, aspects);
     }
 
+    // Document registry
+    HashMap<ChangeCategory, Set<String>> documentElementAspectRegistry = new HashMap<>();
+    String entityTypeDocument = DOCUMENT_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case LIFECYCLE:
+        case DOCUMENTATION:
+        case PARENT:
+        case RELATED_ENTITIES:
+          {
+            // DocumentInfo handles all these categories
+            aspects.add(DOCUMENT_INFO_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDocument,
+                elementName,
+                DOCUMENT_INFO_ASPECT_NAME,
+                new DocumentInfoChangeEventGenerator());
+          }
+          break;
+        default:
+          break;
+      }
+      documentElementAspectRegistry.put(elementName, aspects);
+    }
+
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
     entityTypeElementAspectRegistry.put(
         GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
     entityTypeElementAspectRegistry.put(CONTAINER_ENTITY_NAME, containerElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(DOCUMENT_ENTITY_NAME, documentElementAspectRegistry);
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {

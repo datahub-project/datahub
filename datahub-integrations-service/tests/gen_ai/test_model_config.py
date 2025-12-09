@@ -158,7 +158,7 @@ def test_all_env_vars_set_legacy() -> None:
 
 
 def test_current_env_vars_setup() -> None:
-    # Test that new environment variables work correctly with LiteLLM format
+    # Test that new environment variables work correctly with provider-prefixed format
     # Current state
     env_vars = {
         "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX": "us",
@@ -176,7 +176,7 @@ def test_current_env_vars_setup() -> None:
         importlib.reload(datahub_integrations.gen_ai.model_config)
         new_model_config = datahub_integrations.gen_ai.model_config.model_config
 
-        # Test that new env vars are used with LiteLLM format
+        # Test that new env vars are used with provider-prefixed format
         assert (
             new_model_config.documentation_ai.model
             == "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -197,7 +197,7 @@ def test_current_env_vars_setup() -> None:
 
 
 def test_ideal_env_vars_setup() -> None:
-    # Test that new environment variables work correctly with LiteLLM format
+    # Test that new environment variables work correctly with provider-prefixed format
     # Future/Ideal state
     env_vars = {
         "DESCRIPTION_GENERATION_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0",
@@ -214,7 +214,7 @@ def test_ideal_env_vars_setup() -> None:
         importlib.reload(datahub_integrations.gen_ai.model_config)
         new_model_config = datahub_integrations.gen_ai.model_config.model_config
 
-        # Test that new env vars are used with LiteLLM format
+        # Test that new env vars are used with provider-prefixed format
         assert (
             new_model_config.documentation_ai.model
             == "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -269,7 +269,7 @@ def test_planning_mode_disabled_explicitly() -> None:
 
 
 def test_custom_model_provider_config() -> None:
-    # Test that new environment variables work correctly with custom model provider format
+    # Test that new environment variables work correctly with custom model provider
     # Current state
     env_vars = {
         "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX": "us",
@@ -291,7 +291,7 @@ def test_custom_model_provider_config() -> None:
         importlib.reload(datahub_integrations.gen_ai.model_config)
         new_model_config = datahub_integrations.gen_ai.model_config.model_config
 
-        # Test that new env vars are used with LiteLLM format
+        # Test that new env vars are used correctly
         assert new_model_config.custom_model_provider is not None
         assert new_model_config.custom_model_provider.base_url == "https://test_url.com"
         assert new_model_config.custom_model_provider.api_key == "1234"

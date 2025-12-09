@@ -93,6 +93,7 @@ public class StreamingChatClient {
   public CompletableFuture<Void> sendStreamingMessage(
       @Nonnull final String conversationUrn,
       @Nonnull final String messageText,
+      @Nullable final String agentName,
       @Nonnull final Authentication authentication,
       @Nullable final Consumer<SseEvent> progressCallback) {
 
@@ -127,6 +128,9 @@ public class StreamingChatClient {
             requestBody.put("conversation_urn", conversationUrn);
             requestBody.put("user_urn", userUrn);
             requestBody.put("text", messageText);
+            if (agentName != null) {
+              requestBody.put("agent_name", agentName);
+            }
             final String requestJson = objectMapper.writeValueAsString(requestBody);
             messageRequest.setEntity(new StringEntity(requestJson, StandardCharsets.UTF_8));
 

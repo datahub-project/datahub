@@ -10,6 +10,7 @@ const PATH_FRAGMENT_TO_TITLE_OVERRIDES = {
     sso: 'SSO',
     oidc: 'OIDC',
     ai: 'AI',
+    'ai-chat': 'AI Chat',
 };
 
 export default function DataHubTitle() {

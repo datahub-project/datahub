@@ -1,6 +1,5 @@
 import { NodeViewComponentProps } from '@remirror/react';
-import { Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
@@ -11,18 +10,11 @@ import {
     FileNodeAttributes,
     TEXT_FILE_TYPES_TO_PREVIEW,
     getExtensionFromFileName,
-    getFileIconFromExtension,
     getFileTypeFromFilename,
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
-import { Icon } from '@components/components/Icon';
+import { FileNode } from '@components/components/FileNode/FileNode';
 import { colors } from '@components/theme';
-
-import Loading from '@app/shared/Loading';
-
-const StyledIcon = styled(Icon)`
-    flex-shrink: 0;
-`;
 
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;
@@ -47,21 +39,8 @@ const FileContainer = styled.div<{ $isInline?: boolean }>`
     color: ${({ theme }) => theme.styles['primary-color']};
 `;
 
-const FileDetails = styled.span`
+const StyledFileNode = styled(FileNode)`
     max-width: 350px;
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    font-weight: 600;
-    width: max-content;
-    padding: 4px;
-`;
-
-const FileName = styled(Typography.Text)`
-    color: ${({ theme }) => theme.styles['primary-color']};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 `;
 
 const StyledSyntaxHighlighter = styled(SyntaxHighlighter)`
@@ -127,7 +106,6 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     const { url, name, type, size, id } = node.attrs;
     const extension = getExtensionFromFileName(name);
     const fileType = type || getFileTypeFromFilename(name);
-    const icon = getFileIconFromExtension(extension || '');
     const shouldWrap = extension === 'txt';
     const isPdf = fileType === 'application/pdf';
     const isVideo = fileType.startsWith('video/');
@@ -184,39 +162,32 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
         }
     }, [url, hasError, shouldShowPreview, isTextFile]);
 
+    const clickHandler = useCallback(() => {
+        onFileDownloadView?.(fileType, size);
+        handleFileDownload(url, name);
+    }, [fileType, size, url, name, onFileDownloadView]);
+
     // Show loading state if no URL yet (file is being uploaded)
     if (!url) {
         return (
             <FileContainer {...containerProps} $isInline>
-                <FileDetails>
-                    <Loading height={18} width={20} marginTop={0} />
-                    <FileName>Uploading {name}...</FileName>
-                </FileDetails>
+                <StyledFileNode fileName={name} loading />
             </FileContainer>
         );
     }
 
-    const fileNode = (
-        <FileDetails
-            onClick={(e) => {
-                e.stopPropagation();
-                // Track file download/view event
-                onFileDownloadView?.(fileType, size);
-                handleFileDownload(url, name);
-            }}
-        >
-            <StyledIcon icon={icon} size="lg" source="phosphor" />
-            <FileName ellipsis={{ tooltip: name }}>{name}</FileName>
-        </FileDetails>
-    );
-
     const fileNodeWithButton = (
         <FileNameButtonWrapper>
-            {fileNode}
-            <Button
-                icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretRight' }}
-                variant="text"
-                onClick={() => setIsPreviewVisible(!isPreviewVisible)}
+            <StyledFileNode
+                fileName={name}
+                onClick={clickHandler}
+                extraRightContent={
+                    <Button
+                        icon={{ source: 'phosphor', icon: isPreviewVisible ? 'CaretDown' : 'CaretRight' }}
+                        variant="text"
+                        onClick={() => setIsPreviewVisible(!isPreviewVisible)}
+                    />
+                }
             />
         </FileNameButtonWrapper>
     );
@@ -284,7 +255,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     // Other files
     return (
         <FileContainer {...containerProps} $isInline>
-            {fileNode}
+            <StyledFileNode fileName={name} onClick={clickHandler} />
         </FileContainer>
     );
 };

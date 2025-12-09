@@ -79,7 +79,7 @@ class DataLakeProfilerConfig(ConfigModel):
 
         # Disable all field-level metrics.
         if self.profile_table_level_only:
-            for field_name in self.model_fields:
+            for field_name in self.__class__.model_fields:
                 if field_name.startswith("include_field_"):
                     setattr(self, field_name, False)
 

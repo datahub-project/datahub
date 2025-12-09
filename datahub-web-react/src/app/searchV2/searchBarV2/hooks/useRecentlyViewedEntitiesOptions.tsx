@@ -5,8 +5,8 @@ import SectionHeader from '@app/searchV2/searchBarV2/components/SectionHeader';
 import useRecentlyViewedEntities from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntities';
 import { SectionOption } from '@app/searchV2/searchBarV2/types';
 
-export default function useRecentlyViewedEntitiesOptions(): SectionOption[] {
-    const { entities: recentlyViewedEntities } = useRecentlyViewedEntities();
+export default function useRecentlyViewedEntitiesOptions(skip?: boolean): SectionOption[] {
+    const { entities: recentlyViewedEntities } = useRecentlyViewedEntities(skip);
 
     const recentlyViewedEntitiesOptions = useMemo(
         () =>

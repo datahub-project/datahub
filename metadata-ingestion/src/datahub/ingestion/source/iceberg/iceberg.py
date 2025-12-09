@@ -340,6 +340,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                     context=dataset_name,
                     exc=e,
                 )
+            except OSError as e:
+                self.report.warning(
+                    title="Can't read manifest",
+                    message="Provided manifest path appeared impossible to read",
+                    context=dataset_name,
+                    exc=e,
+                )
             except ValueError as e:
                 if "Could not initialize FileIO" not in str(e):
                     raise

@@ -1,8 +1,9 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
 import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
@@ -10,7 +11,7 @@ import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import OwnersSection from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
-import { Entity } from '@types';
+import { Entity, Owner } from '@types';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -35,9 +36,16 @@ export const NameSourceStep = ({
     isEditing,
     selectedSource,
 }: StepProps) => {
+    const me = useUserContext();
     const [searchPoolQuery, setSearchPoolQuery] = useState('');
-    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
+    const defaultActors = useMemo(() => {
+        if (!isEditing && me.user) {
+            return [me.user];
+        }
+        return existingOwners.map((owner) => owner.owner);
+    }, [existingOwners, isEditing, me.user]);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(defaultActors.map((actor) => actor.urn));
     const canEditSource = !selectedSource || selectedSource.privileges?.canEdit;
     const canExecuteSource = !selectedSource || selectedSource.privileges?.canExecute;
 
@@ -53,13 +61,16 @@ export const NameSourceStep = ({
         updateState(newState);
     };
 
-    const setOwners = (newOwners: Entity[]) => {
-        const newState: SourceBuilderState = {
-            ...state,
-            owners: newOwners,
-        };
-        updateState(newState);
-    };
+    const setOwners = useCallback(
+        (newOwners: Entity[]) => {
+            const newState: SourceBuilderState = {
+                ...state,
+                owners: newOwners,
+            };
+            updateState(newState);
+        },
+        [updateState, state],
+    );
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {

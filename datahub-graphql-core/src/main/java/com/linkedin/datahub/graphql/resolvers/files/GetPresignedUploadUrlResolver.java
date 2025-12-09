@@ -11,7 +11,10 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -29,10 +32,13 @@ public class GetPresignedUploadUrlResolver
 
   private final S3Util s3Util;
   private final S3Configuration s3Configuration;
+  private final EntityClient _entityClient;
 
-  public GetPresignedUploadUrlResolver(S3Util s3Util, S3Configuration s3Configuration) {
+  public GetPresignedUploadUrlResolver(
+      S3Util s3Util, S3Configuration s3Configuration, EntityClient entityClient) {
     this.s3Util = s3Util;
     this.s3Configuration = s3Configuration;
+    this._entityClient = entityClient;
   }
 
   @Override
@@ -83,6 +89,10 @@ public class GetPresignedUploadUrlResolver
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       validateInputForAssetDocumentationScenario(context, input);
     }
+
+    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
+      validateInputForAssetDocumentationLinksScenario(context, input);
+    }
   }
 
   private void validateInputForAssetDocumentationScenario(
@@ -112,6 +122,21 @@ public class GetPresignedUploadUrlResolver
     }
   }
 
+  private void validateInputForAssetDocumentationLinksScenario(
+      final QueryContext context, final GetPresignedUploadUrlInput input) {
+    String assetUrnString = input.getAssetUrn();
+
+    if (assetUrnString == null) {
+      throw new IllegalArgumentException("assetUrn is required for ASSET_DOCUMENTATION scenario");
+    }
+
+    Urn assetUrn = UrnUtils.getUrn(assetUrnString);
+    if (!LinkUtils.isAuthorizedToUpdateLinks(context, assetUrn)
+        && !GlossaryUtils.canUpdateGlossaryEntity(assetUrn, context, _entityClient)) {
+      throw new AuthorizationException("Unauthorized to edit links for asset: " + assetUrnString);
+    }
+  }
+
   private String generateNewFileId(final GetPresignedUploadUrlInput input) {
     return String.format(
         "%s%s%s",
@@ -124,8 +149,12 @@ public class GetPresignedUploadUrlResolver
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
-    } else {
-      throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
     }
+
+    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
+      return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
+    }
+
+    throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
   }
 }

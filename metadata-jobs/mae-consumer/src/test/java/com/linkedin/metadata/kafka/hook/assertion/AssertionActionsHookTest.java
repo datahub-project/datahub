@@ -230,19 +230,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion actions correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
@@ -303,19 +299,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion actions correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -393,19 +385,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion info correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             nullable(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -470,19 +458,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion actions correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Verify that nothing was ingested in this case -- no anomalies to ingest since it was a
     // success.
@@ -529,19 +513,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion actions correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
@@ -611,19 +591,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion actions correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -722,19 +698,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion info correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -790,19 +762,15 @@ public class AssertionActionsHookTest {
 
     hook.invoke(event);
 
-    // Ensure that we looked up the assertion info correctly.
-    Mockito.verify(entityClient, Mockito.times(2))
-        .getV2(
+    // Ensure that we looked up the assertion info and actions in a single batch call.
+    // The hook now uses getAssertionInfoAndActions which uses batchGetV2 with both aspects.
+    Mockito.verify(entityClient, Mockito.times(1))
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
   }
 
   @Test
@@ -981,28 +949,35 @@ public class AssertionActionsHookTest {
                     .setDataset(TEST_DATASET_URN)
                     .setScope(DatasetAssertionScope.DATASET_COLUMN));
 
-    when(entityClient.getV2(
+    // Mock batchGetV2 for getAssertionInfoAndActions (both aspects in one call)
+    when(entityClient.batchGetV2(
             any(OperationContext.class),
             eq(ASSERTION_ENTITY_NAME),
-            eq(TEST_ASSERTION_URN),
-            eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
+            eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            any()))
         .thenReturn(
-            new EntityResponse()
-                .setUrn(TEST_ASSERTION_URN)
-                .setEntityName(ASSERTION_ENTITY_NAME)
-                .setAspects(
-                    new EnvelopedAspectMap(
-                        ImmutableMap.of(
-                            ASSERTION_INFO_ASPECT_NAME,
-                            new EnvelopedAspect()
-                                .setName(ASSERTION_INFO_ASPECT_NAME)
-                                .setValue(new Aspect(assertionInfo.data()))))));
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setName(ASSERTION_INFO_ASPECT_NAME)
+                                    .setValue(new Aspect(assertionInfo.data())),
+                                ASSERTION_ACTIONS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setName(ASSERTION_ACTIONS_ASPECT_NAME)
+                                    .setValue(
+                                        new Aspect(
+                                            new AssertionActions()
+                                                .setOnFailure(new AssertionActionArray())
+                                                .setOnSuccess(new AssertionActionArray())
+                                                .data())))))));
 
     // Create a mock graph client that will return our test monitor URN
     GraphClient mockGraphClient = mock(GraphClient.class);
@@ -1014,13 +989,14 @@ public class AssertionActionsHookTest {
     relationships.setRelationships(new EntityRelationshipArray(ImmutableList.of(relationship)));
 
     // Setup mock to return the relationship when queried
+    // Note: The assertion service calls getRelatedEntities with the actor URN from opContext
     when(mockGraphClient.getRelatedEntities(
             eq(TEST_ASSERTION_URN.toString()),
             eq(ImmutableSet.of("Evaluates")),
             eq(RelationshipDirection.INCOMING),
             eq(0),
             eq(1),
-            anyString()))
+            anyString())) // Use anyString() to match any string (actor URN from opContext)
         .thenReturn(relationships);
 
     // Create a failure event for the inferred assertion with a metric value
@@ -1056,7 +1032,7 @@ public class AssertionActionsHookTest {
             eq(RelationshipDirection.INCOMING),
             eq(0),
             eq(1),
-            anyString());
+            anyString()); // Use anyString() to match any string (actor URN from opContext)
 
     // Verify that a monitor anomaly event was created
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
@@ -1108,28 +1084,35 @@ public class AssertionActionsHookTest {
                     .setDataset(TEST_DATASET_URN)
                     .setScope(DatasetAssertionScope.DATASET_COLUMN));
 
-    when(entityClient.getV2(
+    // Mock batchGetV2 for getAssertionInfoAndActions (both aspects in one call)
+    when(entityClient.batchGetV2(
             any(OperationContext.class),
             eq(ASSERTION_ENTITY_NAME),
-            eq(TEST_ASSERTION_URN),
-            eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
+            eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            any()))
         .thenReturn(
-            new EntityResponse()
-                .setUrn(TEST_ASSERTION_URN)
-                .setEntityName(ASSERTION_ENTITY_NAME)
-                .setAspects(
-                    new EnvelopedAspectMap(
-                        ImmutableMap.of(
-                            ASSERTION_INFO_ASPECT_NAME,
-                            new EnvelopedAspect()
-                                .setName(ASSERTION_INFO_ASPECT_NAME)
-                                .setValue(new Aspect(assertionInfo.data()))))));
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setName(ASSERTION_INFO_ASPECT_NAME)
+                                    .setValue(new Aspect(assertionInfo.data())),
+                                ASSERTION_ACTIONS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setName(ASSERTION_ACTIONS_ASPECT_NAME)
+                                    .setValue(
+                                        new Aspect(
+                                            new AssertionActions()
+                                                .setOnFailure(new AssertionActionArray())
+                                                .setOnSuccess(new AssertionActionArray())
+                                                .data())))))));
 
     // Mock graph client but it should not be used for non-inferred assertions
     GraphClient mockGraphClient = mock(GraphClient.class);
@@ -1151,19 +1134,14 @@ public class AssertionActionsHookTest {
     // Invoke the hook with our event
     hook.invoke(event);
 
-    // Verify that we looked up the assertion info
-    verify(entityClient, times(2))
-        .getV2(
+    // Verify that we looked up the assertion info and actions in a single batch call
+    verify(entityClient, times(1))
+        .batchGetV2(
             any(OperationContext.class),
             eq(ASSERTION_ENTITY_NAME),
-            eq(TEST_ASSERTION_URN),
-            eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            any());
 
     // Verify that the graph client was NOT called since this is not an inferred assertion
     verify(mockGraphClient, times(0))
@@ -1201,28 +1179,35 @@ public class AssertionActionsHookTest {
                     .setDataset(TEST_DATASET_URN)
                     .setScope(DatasetAssertionScope.DATASET_COLUMN));
 
-    when(entityClient.getV2(
+    // Mock batchGetV2 for getAssertionInfoAndActions (both aspects in one call)
+    when(entityClient.batchGetV2(
             any(OperationContext.class),
             eq(ASSERTION_ENTITY_NAME),
-            eq(TEST_ASSERTION_URN),
-            eq(
-                ImmutableSet.of(
-                    ASSERTION_INFO_ASPECT_NAME,
-                    ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
+            eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            eq(ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+            any()))
         .thenReturn(
-            new EntityResponse()
-                .setUrn(TEST_ASSERTION_URN)
-                .setEntityName(ASSERTION_ENTITY_NAME)
-                .setAspects(
-                    new EnvelopedAspectMap(
-                        ImmutableMap.of(
-                            ASSERTION_INFO_ASPECT_NAME,
-                            new EnvelopedAspect()
-                                .setName(ASSERTION_INFO_ASPECT_NAME)
-                                .setValue(new Aspect(assertionInfo.data()))))));
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setName(ASSERTION_INFO_ASPECT_NAME)
+                                    .setValue(new Aspect(assertionInfo.data())),
+                                ASSERTION_ACTIONS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setName(ASSERTION_ACTIONS_ASPECT_NAME)
+                                    .setValue(
+                                        new Aspect(
+                                            new AssertionActions()
+                                                .setOnFailure(new AssertionActionArray())
+                                                .setOnSuccess(new AssertionActionArray())
+                                                .data())))))));
 
     // Create a mock graph client that will return an empty relationship list
     GraphClient mockGraphClient = mock(GraphClient.class);
@@ -1302,32 +1287,31 @@ public class AssertionActionsHookTest {
     }
 
     if (assertionUrn != null) {
-      when(mockClient.getV2(
+      // Mock batchGetV2 for getAssertionInfoAndActions (both aspects in one call)
+      when(mockClient.batchGetV2(
               any(OperationContext.class),
               Mockito.eq(ASSERTION_ENTITY_NAME),
-              Mockito.eq(assertionUrn),
+              Mockito.eq(ImmutableSet.of(assertionUrn)),
               Mockito.eq(
-                  ImmutableSet.of(
-                      ASSERTION_INFO_ASPECT_NAME,
-                      ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                      GLOBAL_TAGS_ASPECT_NAME,
-                      ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
+                  ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+              Mockito.any()))
           .thenReturn(
-              new EntityResponse()
-                  .setUrn(assertionUrn)
-                  .setEntityName(ASSERTION_ENTITY_NAME)
-                  .setAspects(
-                      new EnvelopedAspectMap(
-                          ImmutableMap.of(
-                              ASSERTION_INFO_ASPECT_NAME,
-                              new EnvelopedAspect()
-                                  .setName(ASSERTION_INFO_ASPECT_NAME)
-                                  .setValue(new Aspect(assertionInfo.data())),
-                              ASSERTION_ACTIONS_ASPECT_NAME,
-                              new EnvelopedAspect()
-                                  .setName(ASSERTION_ACTIONS_ASPECT_NAME)
-                                  .setValue(new Aspect(assertionActions.data()))))));
+              ImmutableMap.of(
+                  assertionUrn,
+                  new EntityResponse()
+                      .setUrn(assertionUrn)
+                      .setEntityName(ASSERTION_ENTITY_NAME)
+                      .setAspects(
+                          new EnvelopedAspectMap(
+                              ImmutableMap.of(
+                                  ASSERTION_INFO_ASPECT_NAME,
+                                  new EnvelopedAspect()
+                                      .setName(ASSERTION_INFO_ASPECT_NAME)
+                                      .setValue(new Aspect(assertionInfo.data())),
+                                  ASSERTION_ACTIONS_ASPECT_NAME,
+                                  new EnvelopedAspect()
+                                      .setName(ASSERTION_ACTIONS_ASPECT_NAME)
+                                      .setValue(new Aspect(assertionActions.data())))))));
     }
 
     SearchEntityArray searchEntities =
@@ -1358,28 +1342,27 @@ public class AssertionActionsHookTest {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     if (assertionUrn != null) {
-      when(mockClient.getV2(
+      // Mock batchGetV2 for getAssertionInfoAndActions (both aspects in one call)
+      when(mockClient.batchGetV2(
               any(OperationContext.class),
               Mockito.eq(ASSERTION_ENTITY_NAME),
-              Mockito.eq(assertionUrn),
+              Mockito.eq(ImmutableSet.of(assertionUrn)),
               Mockito.eq(
-                  ImmutableSet.of(
-                      ASSERTION_INFO_ASPECT_NAME,
-                      ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                      GLOBAL_TAGS_ASPECT_NAME,
-                      ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
+                  ImmutableSet.of(ASSERTION_INFO_ASPECT_NAME, ASSERTION_ACTIONS_ASPECT_NAME)),
+              Mockito.any()))
           .thenReturn(
-              new EntityResponse()
-                  .setUrn(assertionUrn)
-                  .setEntityName(ASSERTION_ENTITY_NAME)
-                  .setAspects(
-                      new EnvelopedAspectMap(
-                          ImmutableMap.of(
-                              ASSERTION_INFO_ASPECT_NAME,
-                              new EnvelopedAspect()
-                                  .setName(ASSERTION_INFO_ASPECT_NAME)
-                                  .setValue(new Aspect(assertionInfo.data()))))));
+              ImmutableMap.of(
+                  assertionUrn,
+                  new EntityResponse()
+                      .setUrn(assertionUrn)
+                      .setEntityName(ASSERTION_ENTITY_NAME)
+                      .setAspects(
+                          new EnvelopedAspectMap(
+                              ImmutableMap.of(
+                                  ASSERTION_INFO_ASPECT_NAME,
+                                  new EnvelopedAspect()
+                                      .setName(ASSERTION_INFO_ASPECT_NAME)
+                                      .setValue(new Aspect(assertionInfo.data())))))));
     }
 
     return mockClient;

@@ -147,34 +147,26 @@ public class AssertionServiceTest {
     // Case 1: Info exists
     AssertionInfo info = service.getAssertionInfo(opContext, TEST_ASSERTION_URN);
     Assert.assertEquals(info, mockAssertionInfo());
+    // Verify batchGetV2 is called with only ASSERTION_INFO_ASPECT_NAME (single-URN methods delegate
+    // to batch)
     Mockito.verify(mockClient, Mockito.times(1))
-        .getV2(
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    Constants.ASSERTION_INFO_ASPECT_NAME,
-                    Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
+            Mockito.any());
 
     // Case 2: Info does not exist
     info = service.getAssertionInfo(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
     Assert.assertNull(info);
     Mockito.verify(mockClient, Mockito.times(1))
-        .getV2(
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_NON_EXISTENT_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    Constants.ASSERTION_INFO_ASPECT_NAME,
-                    Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
+            Mockito.any());
   }
 
   @Test
@@ -188,34 +180,25 @@ public class AssertionServiceTest {
     DataPlatformInstance instance =
         service.getAssertionDataPlatformInstance(opContext, TEST_ASSERTION_URN);
     Assert.assertEquals(instance, mockDataPlatformInstance());
+    // Verify batchGetV2 is called with only DATA_PLATFORM_INSTANCE_ASPECT_NAME
     Mockito.verify(mockClient, Mockito.times(1))
-        .getV2(
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    Constants.ASSERTION_INFO_ASPECT_NAME,
-                    Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+            Mockito.any());
 
     // Case 2: data platform info does not exist
     instance = service.getAssertionDataPlatformInstance(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
     Assert.assertNull(instance);
     Mockito.verify(mockClient, Mockito.times(1))
-        .getV2(
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
-            Mockito.eq(TEST_NON_EXISTENT_ASSERTION_URN),
-            Mockito.eq(
-                ImmutableSet.of(
-                    Constants.ASSERTION_INFO_ASPECT_NAME,
-                    Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME,
-                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+            Mockito.any());
   }
 
   @Test
@@ -228,22 +211,25 @@ public class AssertionServiceTest {
     // Case 1: Summary exists
     AssertionsSummary summary = service.getAssertionsSummary(opContext, TEST_DATASET_URN);
     Assert.assertEquals(summary, mockAssertionSummary());
+    // Verify batchGetV2 is called with only ASSERTIONS_SUMMARY_ASPECT_NAME
     Mockito.verify(mockClient, Mockito.times(1))
-        .getV2(
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
-            Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(ImmutableSet.of(ASSERTIONS_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_DATASET_URN)),
+            Mockito.eq(ImmutableSet.of(ASSERTIONS_SUMMARY_ASPECT_NAME)),
+            Mockito.any());
 
     // Case 2: Summary does not exist
     summary = service.getAssertionsSummary(opContext, TEST_NON_EXISTENT_DATASET_URN);
     Assert.assertNull(summary);
     Mockito.verify(mockClient, Mockito.times(1))
-        .getV2(
+        .batchGetV2(
             any(OperationContext.class),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
-            Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)));
+            Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_DATASET_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
+            Mockito.any());
   }
 
   @Test
@@ -256,10 +242,25 @@ public class AssertionServiceTest {
     // Case 1: Summary exists
     AssertionRunSummary summary = service.getAssertionRunSummary(opContext, TEST_ASSERTION_URN);
     Assert.assertEquals(summary, mockAssertionRunSummary());
+    // Verify batchGetV2 is called with only ASSERTION_RUN_SUMMARY_ASPECT_NAME
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)),
+            Mockito.any());
 
     // Case 2: Summary does not exist
     summary = service.getAssertionRunSummary(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
     Assert.assertNull(summary);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_ASSERTION_URN)),
+            Mockito.eq(ImmutableSet.of(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)),
+            Mockito.any());
   }
 
   @Test
@@ -1676,20 +1677,24 @@ public class AssertionServiceTest {
     assertionInfo.setEntityUrn(TEST_DATASET_URN);
 
     Mockito.when(
-            mockClient.getV2(
+            mockClient.batchGetV2(
                 any(OperationContext.class),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
-                Mockito.eq(TEST_ASSERTION_URN),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
                 Mockito.any()))
         .thenReturn(
-            new EntityResponse()
-                .setUrn(TEST_ASSERTION_URN)
-                .setEntityName(ASSERTION_ENTITY_NAME)
-                .setAspects(
-                    new EnvelopedAspectMap(
-                        ImmutableMap.of(
-                            ASSERTION_INFO_ASPECT_NAME,
-                            new EnvelopedAspect().setValue(new Aspect(assertionInfo.data()))))));
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(assertionInfo.data())))))));
 
     final AssertionService service =
         new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
@@ -1699,6 +1704,266 @@ public class AssertionServiceTest {
 
     // Assert result
     Assert.assertEquals(entityUrn, TEST_DATASET_URN);
+  }
+
+  @Test
+  public void testGetAssertionInfoAndActions() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    // Test that both aspects are fetched in a single batch call
+    final com.linkedin.util.Pair<AssertionInfo, AssertionActions> result =
+        service.getAssertionInfoAndActions(opContext, TEST_ASSERTION_URN);
+
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.getFirst(), mockAssertionInfo());
+    Assert.assertEquals(result.getSecond(), mockAssertionActions());
+
+    // Verify batchGetV2 is called once with both aspects
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+            Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+            Mockito.eq(
+                ImmutableSet.of(
+                    Constants.ASSERTION_INFO_ASPECT_NAME, Constants.ASSERTION_ACTIONS_ASPECT_NAME)),
+            Mockito.any());
+  }
+
+  @Test
+  public void testBatchGetAssertionInfo() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    final Urn assertionUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
+
+    // Setup mock for batch call with 2 URNs
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN, assertionUrn2)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionInfo().data()))))),
+                assertionUrn2,
+                new EntityResponse()
+                    .setUrn(assertionUrn2)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    final Map<Urn, AssertionInfo> result =
+        service.batchGetAssertionInfo(
+            opContext, ImmutableSet.of(TEST_ASSERTION_URN, assertionUrn2));
+
+    Assert.assertEquals(result.size(), 2);
+    Assert.assertEquals(result.get(TEST_ASSERTION_URN), mockAssertionInfo());
+    Assert.assertNull(result.get(assertionUrn2));
+  }
+
+  @Test
+  public void testBatchGetAssertionsSummary() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    final Urn datasetUrn2 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+
+    // Setup mock for batch call with 2 URNs
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(DATASET_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_DATASET_URN, datasetUrn2)),
+                Mockito.eq(ImmutableSet.of(ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_DATASET_URN,
+                new EntityResponse()
+                    .setUrn(TEST_DATASET_URN)
+                    .setEntityName(DATASET_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTIONS_SUMMARY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionSummary().data()))))),
+                datasetUrn2,
+                new EntityResponse()
+                    .setUrn(datasetUrn2)
+                    .setEntityName(DATASET_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    final Map<Urn, AssertionsSummary> result =
+        service.batchGetAssertionsSummary(
+            opContext, ImmutableSet.of(TEST_DATASET_URN, datasetUrn2));
+
+    Assert.assertEquals(result.size(), 2);
+    Assert.assertEquals(result.get(TEST_DATASET_URN), mockAssertionSummary());
+    Assert.assertNull(result.get(datasetUrn2));
+  }
+
+  @Test
+  public void testBatchGetAssertionInfoEmptySet() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    final Map<Urn, AssertionInfo> result =
+        service.batchGetAssertionInfo(opContext, Collections.emptySet());
+
+    Assert.assertTrue(result.isEmpty());
+    // Verify batchGetV2 is not called for empty set
+    Mockito.verify(mockClient, Mockito.never())
+        .batchGetV2(any(OperationContext.class), anyString(), any(), any(), any());
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testGetAssertionInfoNullUrn() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    service.getAssertionInfo(opContext, null);
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testGetAssertionInfoAndActionsNullUrn() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    service.getAssertionInfoAndActions(opContext, null);
+  }
+
+  @Test
+  public void testGetAssertionInfoAndActionsNullResponse() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    // Mock batchGetV2 to return empty map (null response)
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.ASSERTION_INFO_ASPECT_NAME,
+                        Constants.ASSERTION_ACTIONS_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(Collections.emptyMap());
+
+    final com.linkedin.util.Pair<AssertionInfo, AssertionActions> result =
+        service.getAssertionInfoAndActions(opContext, TEST_ASSERTION_URN);
+
+    Assert.assertNotNull(result);
+    Assert.assertNull(result.getFirst());
+    Assert.assertNull(result.getSecond());
+  }
+
+  @Test
+  public void testGetAssertionInfoAndActionsMissingAspects() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    // Mock batchGetV2 to return response with no aspects
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.ASSERTION_INFO_ASPECT_NAME,
+                        Constants.ASSERTION_ACTIONS_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    final com.linkedin.util.Pair<AssertionInfo, AssertionActions> result =
+        service.getAssertionInfoAndActions(opContext, TEST_ASSERTION_URN);
+
+    Assert.assertNotNull(result);
+    Assert.assertNull(result.getFirst());
+    Assert.assertNull(result.getSecond());
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testBatchGetAssertionsSummaryNullUrns() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    service.batchGetAssertionsSummary(opContext, null);
+  }
+
+  @Test
+  public void testBatchGetAssertionsSummaryEmptySet() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    final Map<Urn, AssertionsSummary> result =
+        service.batchGetAssertionsSummary(opContext, Collections.emptySet());
+
+    Assert.assertTrue(result.isEmpty());
+    // Verify batchGetV2 is not called for empty set
+    Mockito.verify(mockClient, Mockito.never())
+        .batchGetV2(any(OperationContext.class), anyString(), any(), any(), any());
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testBatchGetAssertionInfoNullUrns() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    service.batchGetAssertionInfo(opContext, null);
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testBatchGetAssertionInfoNullOpContext() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    service.batchGetAssertionInfo(null, ImmutableSet.of(TEST_ASSERTION_URN));
   }
 
   @Test
@@ -1905,7 +2170,143 @@ public class AssertionServiceTest {
   private static SystemEntityClient createMockEntityClient() throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    // Init for assertion info
+    // Mock batchGetV2 for single-URN calls (used by getAssertionInfo, getAssertionRunSummary, etc.)
+    // Mock for ASSERTION_INFO_ASPECT_NAME
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionInfo().data())))))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_NON_EXISTENT_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_NON_EXISTENT_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    // Mock for ASSERTION_RUN_SUMMARY_ASPECT_NAME
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_RUN_SUMMARY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionRunSummary().data())))))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_NON_EXISTENT_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_NON_EXISTENT_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    // Mock for DATA_PLATFORM_INSTANCE_ASPECT_NAME
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockDataPlatformInstance().data())))))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_ASSERTION_URN)),
+                Mockito.eq(ImmutableSet.of(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_NON_EXISTENT_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_NON_EXISTENT_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    // Mock for getAssertionInfoAndActions (both aspects in one call)
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ASSERTION_URN)),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.ASSERTION_INFO_ASPECT_NAME,
+                        Constants.ASSERTION_ACTIONS_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_ASSERTION_URN,
+                new EntityResponse()
+                    .setUrn(TEST_ASSERTION_URN)
+                    .setEntityName(ASSERTION_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionInfo().data())),
+                                ASSERTION_ACTIONS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionActions().data())))))));
+
+    // Keep old getV2 mocks for backward compatibility with other tests
     Mockito.when(
             mockClient.getV2(
                 any(OperationContext.class),
@@ -2017,7 +2418,42 @@ public class AssertionServiceTest {
                             new EnvelopedAspect()
                                 .setValue(new Aspect(mockSqlAssertionInfo().data()))))));
 
-    // Init for assertions summary
+    // Init for assertions summary (using batchGetV2)
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(DATASET_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_DATASET_URN,
+                new EntityResponse()
+                    .setUrn(TEST_DATASET_URN)
+                    .setEntityName(DATASET_ENTITY_NAME)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                ASSERTIONS_SUMMARY_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(mockAssertionSummary().data())))))));
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(DATASET_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_NON_EXISTENT_DATASET_URN)),
+                Mockito.eq(ImmutableSet.of(ASSERTIONS_SUMMARY_ASPECT_NAME)),
+                Mockito.any()))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_NON_EXISTENT_DATASET_URN,
+                new EntityResponse()
+                    .setUrn(TEST_NON_EXISTENT_DATASET_URN)
+                    .setEntityName(DATASET_ENTITY_NAME)
+                    .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
+
+    // Keep old getV2 mocks for backward compatibility
     Mockito.when(
             mockClient.getV2(
                 any(OperationContext.class),

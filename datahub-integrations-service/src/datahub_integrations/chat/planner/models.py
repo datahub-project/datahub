@@ -2,11 +2,27 @@
 Data models for planning system.
 
 Based on Rev 7 specification with natural-language acceptance criteria.
+
+Plan Types:
+-----------
+1. Full Plan (create_execution_plan): Custom multi-step plan generated from scratch
+2. Noop Plan (create_noop_plan): Signal to skip planning and execute directly
+3. Templated Plan (create_templated_plan): Plan built from a reusable template
+
+Noop Plans:
+-----------
+A noop plan has metadata["noop"] = True and indicates the task is simple enough
+to execute directly without multi-step planning. The executor should check
+plan.is_noop and handle accordingly.
 """
 
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+# =============================================================================
+# Core Plan Models
+# =============================================================================
 
 
 class Binding(BaseModel):
@@ -116,6 +132,41 @@ class Step(BaseModel):
     )
 
 
+class PlanTemplate(BaseModel):
+    """
+    Reusable plan template for common task patterns.
+
+    Templates define the structure (steps with descriptions and done_when criteria)
+    using regular Step objects with tool/param_hints left empty. When the LLM uses
+    a template, it provides step_overrides with the tool bindings and param_hints.
+
+    This allows ~50-60% reduction in LLM output tokens compared to full plan generation.
+
+    Example templates:
+    - simple-search: Single search with response (1-2 steps)
+    - entity-details: Get entity by URN and present details
+    - lineage-basic: Single-hop lineage query
+    - search-then-examine: Search + get details pattern
+    """
+
+    id: str = Field(
+        ..., description="Unique template identifier (e.g., 'simple-search')"
+    )
+    name: str = Field(..., description="Human-readable template name")
+    description: str = Field(
+        ...,
+        description="When to use this template - helps LLM decide if template applies",
+    )
+    steps: List[Step] = Field(
+        ...,
+        description="Pre-defined step structure (tool/param_hints typically empty)",
+    )
+    expected_deliverable_template: str = Field(
+        ...,
+        description="Template for expected deliverable",
+    )
+
+
 class Constraints(BaseModel):
     """Global constraints for plan execution."""
 
@@ -165,6 +216,32 @@ class Plan(BaseModel):
         description=(
             "Optional metadata for the plan. "
             "Examples: {'created_by': 'user_id', 'task_type': 'impact_analysis', "
-            "'original_query': '...', 'recipe_used': 'deprecation-impact'}"
+            "'original_query': '...', 'recipe_used': 'deprecation-impact'}. "
+            "For noop plans: {'noop': True, 'reason': 'Simple single-search task'}"
         ),
     )
+
+    @property
+    def is_noop(self) -> bool:
+        """
+        Check if this is a noop plan (task is simple, skip multi-step planning).
+
+        Noop plans have metadata["noop"] = True. The executor should check this
+        and execute the task directly without following the plan steps.
+
+        Returns:
+            True if this is a noop plan, False otherwise
+        """
+        return self.metadata.get("noop", False) is True
+
+    @property
+    def noop_reason(self) -> Optional[str]:
+        """
+        Get the reason why this was marked as a noop plan.
+
+        Returns:
+            The reason string if this is a noop plan, None otherwise
+        """
+        if self.is_noop:
+            return self.metadata.get("reason")
+        return None

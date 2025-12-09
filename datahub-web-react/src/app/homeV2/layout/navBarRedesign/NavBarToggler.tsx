@@ -37,7 +37,7 @@ export default function NavBarToggler() {
     }
 
     return (
-        <Toggler onClick={handleToggle} aria-label="Navbar toggler">
+        <Toggler onClick={handleToggle} aria-label="Navbar toggler" data-testid="nav-bar-toggler">
             <Sidebar />
         </Toggler>
     );

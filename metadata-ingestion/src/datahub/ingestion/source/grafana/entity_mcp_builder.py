@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional, Tuple
+import logging
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
@@ -10,20 +11,55 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.source.grafana.models import Dashboard, Panel
+from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel
+from datahub.ingestion.source.grafana.grafana_config import GrafanaSourceConfig
+from datahub.ingestion.source.grafana.lineage import LineageExtractor
+from datahub.ingestion.source.grafana.models import Dashboard, Panel, QueryInfo
+from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 from datahub.ingestion.source.grafana.types import CHART_TYPE_MAPPINGS
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     ChartInfoClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     GlobalTagsClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SchemaMetadataClass,
     StatusClass,
+    SubTypesClass,
     TagAssociationClass,
+    ViewPropertiesClass,
 )
+from datahub.sql_parsing.sqlglot_utils import try_format_query
+
+# Mapping of Grafana datasource types to their query languages
+DATASOURCE_TO_QUERY_LANGUAGE: Dict[str, str] = {
+    "prometheus": "PromQL",
+    "postgres": "SQL",
+    "mysql": "SQL",
+    "mssql": "SQL",
+    "athena": "SQL",
+    "cloudwatch": "CloudWatch Metrics",
+    "elasticsearch": "Lucene",
+    "influxdb": "InfluxQL",
+    "graphite": "Graphite",
+}
+
+# Mapping of Grafana datasource types to DataHub platform names for SQL formatting
+DATASOURCE_TO_PLATFORM: Dict[str, str] = {
+    "postgres": "postgres",
+    "mysql": "mysql",
+    "mssql": "mssql",
+    "athena": "athena",
+}
 
 
 def build_chart_mcps(
@@ -69,14 +105,14 @@ def build_chart_mcps(
         )
     )
 
-    # Get input datasets
+    # Get input datasets (per-panel with global uniqueness)
     input_datasets = []
     if panel.datasource_ref:
         ds_type = panel.datasource_ref.type or "unknown"
         ds_uid = panel.datasource_ref.uid or "unknown"
 
-        # Add Grafana dataset
-        dataset_name = f"{ds_type}.{ds_uid}.{panel.id}"
+        # Add Grafana per-panel dataset (globally unique)
+        dataset_name = f"{ds_type}.{ds_uid}.{dashboard.uid}.{panel.id}"
         ds_urn = make_dataset_urn_with_platform_instance(
             platform=platform,
             name=dataset_name,
@@ -201,6 +237,100 @@ def build_dashboard_mcps(
     return dashboard_urn, mcps
 
 
+def _format_sql_query(query: str, datasource_type: Optional[str]) -> str:
+    """
+    Format SQL query using sqlglot if possible.
+
+    This is for DISPLAY purposes only (ViewProperties). The original query with
+    Grafana template variables is preserved. For lineage parsing, variables are
+    cleaned separately in the LineageExtractor.
+
+    Args:
+        query: The SQL query to format
+        datasource_type: The Grafana datasource type (e.g., 'postgres', 'athena')
+
+    Returns:
+        Formatted SQL query, or original query if formatting fails
+    """
+    if not datasource_type:
+        return query
+
+    platform = DATASOURCE_TO_PLATFORM.get(datasource_type.lower())
+    if not platform:
+        return query
+
+    # DON'T clean template variables here - preserve original for display
+    # Use sqlglot to format the query with proper indentation
+    return try_format_query(query, platform, raises=False)
+
+
+def _extract_query_from_panel(panel: Panel) -> Optional[QueryInfo]:
+    """
+    Extract query logic from panel targets.
+
+    Returns:
+        QueryInfo object containing query text and language, or None if no query found.
+        Supported languages: SQL, PromQL, etc.
+    """
+    if not panel.query_targets:
+        return None
+
+    ds_type = panel.datasource_ref.type if panel.datasource_ref else None
+
+    for target in panel.query_targets:
+        # Check for SQL queries (case-insensitive)
+        for key, value in target.items():
+            if key.lower() == "rawsql" and value:
+                sql_query = str(value).strip()
+                if not sql_query:  # Skip empty queries
+                    continue
+                # Format SQL query for better readability
+                formatted_query = _format_sql_query(sql_query, ds_type)
+                try:
+                    return QueryInfo(query=formatted_query, language="SQL")
+                except ValueError as e:
+                    logging.getLogger(__name__).warning(
+                        f"Invalid SQL query in panel: {e}"
+                    )
+                    continue
+
+        # Check for Prometheus queries
+        expr = target.get("expr")
+        if expr:
+            expr_str = str(expr).strip()
+            if not expr_str:  # Skip empty queries
+                continue
+            try:
+                return QueryInfo(query=expr_str, language="PromQL")
+            except ValueError as e:
+                logging.getLogger(__name__).warning(
+                    f"Invalid PromQL query in panel: {e}"
+                )
+                continue
+
+        # Check for other common query fields
+        query = target.get("query")
+        if query and isinstance(query, str):
+            query_str = str(query).strip()
+            if not query_str:  # Skip empty queries
+                continue
+            # Try to detect the query language from datasource type
+            if ds_type:
+                query_lang = DATASOURCE_TO_QUERY_LANGUAGE.get(ds_type.lower(), "Query")
+                # Format SQL queries
+                if query_lang == "SQL":
+                    query_str = _format_sql_query(query_str, ds_type)
+            else:
+                query_lang = "Query"
+            try:
+                return QueryInfo(query=query_str, language=query_lang)
+            except ValueError as e:
+                logging.getLogger(__name__).warning(f"Invalid query in panel: {e}")
+                continue
+
+    return None
+
+
 def _build_custom_properties(panel: Panel) -> Dict[str, str]:
     """Build custom properties for chart"""
     props = {}
@@ -270,3 +400,154 @@ def _build_ownership(dashboard: Dashboard) -> Optional[OwnershipClass]:
         )
 
     return OwnershipClass(owners=owners) if owners else None
+
+
+def build_datasource_mcps(
+    dashboard: Dashboard,
+    dashboard_container_key: ContainerKey,
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    connection_to_platform_map: Dict[str, Any],
+    graph: Optional[DataHubGraph],
+    report: GrafanaSourceReport,
+    config: GrafanaSourceConfig,
+    lineage_extractor: Optional[LineageExtractor],
+    logger: logging.Logger,
+    add_dataset_to_container_fn: Callable[
+        [ContainerKey, str], Iterable[MetadataWorkUnit]
+    ],
+) -> Iterable[MetadataWorkUnit]:
+    """Build per-panel dataset MCPs with globally unique URNs."""
+    for panel in dashboard.panels:
+        if not panel.datasource_ref:
+            continue
+
+        ds_type = panel.datasource_ref.type or "unknown"
+        ds_uid = panel.datasource_ref.uid or "unknown"
+
+        if ds_type == "unknown" or ds_uid == "unknown":
+            report.report_datasource_warning()
+            continue
+
+        # Global uniqueness: include dashboard_uid and panel_id
+        dataset_name = f"{ds_type}.{ds_uid}.{dashboard.uid}.{panel.id}"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=dataset_name,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=make_data_platform_urn(platform),
+                instance=make_dataplatform_instance_urn(
+                    platform=platform,
+                    instance=platform_instance,
+                )
+                if platform_instance
+                else None,
+            ),
+        ).as_workunit()
+
+        panel_title = panel.title or f"Panel {panel.id}"
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=panel_title,
+                description=f"Grafana panel '{panel_title}' in dashboard '{dashboard.title}' using datasource {ds_uid}",
+                customProperties={
+                    "type": ds_type,
+                    "datasource_uid": ds_uid,
+                    "panel_id": str(panel.id),
+                    "dashboard_uid": dashboard.uid,
+                    "dashboard_title": dashboard.title,
+                },
+            ),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        # Extract query logic if available
+        query_info = _extract_query_from_panel(panel)
+        if query_info:
+            # Emit VIEW subtype when we have query logic
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(
+                    typeNames=[DatasetSubTypes.GRAFANA_DATASET, DatasetSubTypes.VIEW]
+                ),
+            ).as_workunit()
+
+            # Emit ViewProperties with the query
+            # QueryInfo fields are guaranteed to be non-empty due to Pydantic validation
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage=query_info.language,
+                    viewLogic=query_info.query,
+                ),
+            ).as_workunit()
+        else:
+            # No query logic available, just emit GRAFANA_DATASET subtype
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.GRAFANA_DATASET]),
+            ).as_workunit()
+
+        # Extract schema from this specific panel
+        schema_fields = extract_fields_from_panel(
+            panel,
+            connection_to_platform_map,
+            graph,
+            report,
+        )
+        if schema_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SchemaMetadataClass(
+                    schemaName=f"{ds_type}.{ds_uid}.{panel.id}",
+                    platform=make_data_platform_urn(platform),
+                    version=0,
+                    fields=schema_fields,
+                    hash="",
+                    platformSchema=OtherSchemaClass(rawSchema=""),
+                ),
+            ).as_workunit()
+
+        if config.ingest_tags and dashboard.tags:
+            tags = []
+            for tag in dashboard.tags:
+                tags.append(TagAssociationClass(tag=make_tag_urn(tag)))
+
+            if tags:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(tags=tags),
+                ).as_workunit()
+
+        report.report_dataset_scanned()
+
+        yield from add_dataset_to_container_fn(
+            dashboard_container_key,
+            dataset_urn,
+        )
+
+        # Extract lineage for this specific panel
+        if config.include_lineage and lineage_extractor:
+            try:
+                lineage = lineage_extractor.extract_panel_lineage(panel, dashboard.uid)
+                if lineage:
+                    yield lineage.as_workunit()
+                    report.report_lineage_extracted()
+                else:
+                    report.report_no_lineage()
+            except Exception as e:
+                logger.warning(f"Failed to extract lineage for panel {panel.id}: {e}")
+                report.report_lineage_extraction_failure()

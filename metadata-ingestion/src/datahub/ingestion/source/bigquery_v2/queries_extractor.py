@@ -245,12 +245,18 @@ class BigQueryQueriesExtractor(Closeable):
             #   1. this name would be allowed by the dataset patterns, and
             #   2. we have a list of discovered tables, and
             #   3. it's not in the discovered tables list
+
             if (
                 self.filters.is_allowed(table)
                 and self.discovered_tables
-                and str(BigQueryTableRef(table)) not in self.discovered_tables
+                and self.identifiers.standardize_identifier_case(
+                    str(BigQueryTableRef(table))
+                )
+                not in self.discovered_tables
             ):
-                logger.debug(f"inferred as temp table {name}")
+                logger.debug(
+                    f"Inferred as temp table {name} (is_allowed?{self.filters.is_allowed(table)})"
+                )
                 self.report.inferred_temp_tables.add(name)
                 return True
 
@@ -263,7 +269,10 @@ class BigQueryQueriesExtractor(Closeable):
             table = BigqueryTableIdentifier.from_string_name(name)
             if (
                 self.discovered_tables
-                and str(BigQueryTableRef(table)) not in self.discovered_tables
+                and self.identifiers.standardize_identifier_case(
+                    str(BigQueryTableRef(table))
+                )
+                not in self.discovered_tables
             ):
                 logger.debug(f"not allowed table {name}")
                 return False

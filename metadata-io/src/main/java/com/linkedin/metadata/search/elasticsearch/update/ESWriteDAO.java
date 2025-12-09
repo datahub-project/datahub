@@ -1,11 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLICES;
 import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLICES_VALUE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -13,17 +15,20 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
@@ -36,17 +41,29 @@ import org.opensearch.client.tasks.TaskId;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
+  private boolean canWrite = true;
+
+  public ESWriteDAO(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> searchClient,
+      ESBulkProcessor bulkProcessor) {
+    this.config = config;
+    this.searchClient = searchClient;
+    this.bulkProcessor = bulkProcessor;
+  }
+
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
 
   /** Result of a delete by query operation */
   @Data
@@ -72,6 +89,10 @@ public class ESWriteDAO {
       @Nonnull String entityName,
       @Nonnull String document,
       @Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
@@ -92,6 +113,10 @@ public class ESWriteDAO {
    */
   public void upsertDocumentByIndexName(
       @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(indexName, docId)
             .detectNoop(false)
@@ -110,6 +135,10 @@ public class ESWriteDAO {
    */
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
@@ -121,7 +150,26 @@ public class ESWriteDAO {
    * @param docId the ID of the document to delete
    */
   public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+  }
+
+  /**
+   * Checks if the given index exists in OpenSearch.
+   *
+   * @param indexName name of the index to check
+   * @return true if the index exists, false otherwise
+   */
+  public boolean indexExists(@Nonnull String indexName) {
+    try {
+      return searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.warn("Error checking if index {} exists: {}", indexName, e.getMessage());
+      return false;
+    }
   }
 
   /**
@@ -138,6 +186,10 @@ public class ESWriteDAO {
       @Nonnull String searchGroup,
       @Nonnull String document,
       @Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     final UpdateRequest updateRequest =
         new UpdateRequest(toIndexNameV3(opContext, searchGroup), docId)
             .detectNoop(false)
@@ -159,6 +211,10 @@ public class ESWriteDAO {
    */
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     // Use URN-aware routing for entity document consistency
     bulkProcessor.add(new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
@@ -171,6 +227,30 @@ public class ESWriteDAO {
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
+    applyScriptUpdateByIndexName(
+        toIndexName(opContext, entityName), docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
+   * Applies a script to a particular document in a specific index. This method works directly with
+   * index names, useful for applying script updates to semantic indices.
+   *
+   * @param indexName the name of the index
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateByIndexName(
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     // Create a properly parameterized script
     Script script =
         new Script(
@@ -180,7 +260,7 @@ public class ESWriteDAO {
             scriptParams // The parameters map
             );
     UpdateRequest updateRequest =
-        new UpdateRequest(toIndexName(opContext, entityName), docId)
+        new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
@@ -189,8 +269,18 @@ public class ESWriteDAO {
     bulkProcessor.add(updateRequest);
   }
 
-  /** Clear all documents in all the indices */
-  public void clear(@Nonnull OperationContext opContext) {
+  /**
+   * Delete the index
+   *
+   * @param opContext the operation context
+   * @return set of index names that were deleted
+   */
+  @Nonnull
+  public Set<String> clear(@Nonnull OperationContext opContext) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return Collections.emptySet();
+    }
     List<String> patterns =
         opContext
             .getSearchContext()
@@ -200,7 +290,31 @@ public class ESWriteDAO {
     for (String pattern : patterns) {
       allIndices.addAll(Arrays.asList(getIndices(pattern)));
     }
-    bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), allIndices.toArray(new String[0]));
+
+    // Track which indices (aliases or concrete) were deleted so the caller can recreate them
+    Set<String> deletedIndexNames = new HashSet<>();
+
+    // Instead of deleting all documents (inefficient), delete the indices themselves
+    for (String indexName : allIndices) {
+      try {
+        String nameToTrack = IndexDeletionUtils.deleteIndex(searchClient, indexName);
+        if (nameToTrack != null) {
+          deletedIndexNames.add(nameToTrack);
+        }
+      } catch (IOException e) {
+        log.error("Failed to delete index {} during clear operation", indexName, e);
+        throw new RuntimeException("Failed to clear index: " + indexName, e);
+      }
+    }
+
+    if (deletedIndexNames.isEmpty()) {
+      log.info("No indices were deleted");
+    } else {
+      log.info(
+          "Deleted {} indices. Caller should recreate them if needed.", deletedIndexNames.size());
+    }
+
+    return deletedIndexNames;
   }
 
   private String[] getIndices(String pattern) {
@@ -209,8 +323,24 @@ public class ESWriteDAO {
           searchClient.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
-      log.error("Failed to get indices using pattern {}", pattern);
-      return new String[] {};
+      // Only treat index_not_found_exception as "no indices"
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      // For real errors (ES down, network issues, etc.), propagate the exception
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      throw new RuntimeException(
+          "Failed to communicate with Elasticsearch for pattern: " + pattern, e);
+    } catch (Exception e) {
+      // Handle OpenSearchStatusException and similar
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found_exception")) {
+        log.debug("No indices found matching pattern {}", pattern);
+        return new String[] {};
+      }
+      log.error("Failed to get indices using pattern {}", pattern, e);
+      throw new RuntimeException(
+          "Failed to communicate with Elasticsearch for pattern: " + pattern, e);
     }
   }
 
@@ -223,6 +353,10 @@ public class ESWriteDAO {
       @Nonnull String indexName,
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(StringUtils.EMPTY);
+    }
 
     final BulkDeleteConfiguration finalConfig =
         overrideConfig != null ? overrideConfig : config.getBulkDelete();
@@ -255,6 +389,10 @@ public class ESWriteDAO {
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
 
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return DeleteByQueryResult.builder().build();
+    }
     final BulkDeleteConfiguration finalConfig =
         overrideConfig != null ? overrideConfig : config.getBulkDelete();
 

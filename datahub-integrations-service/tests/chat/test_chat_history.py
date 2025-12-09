@@ -199,3 +199,28 @@ def test_chat_history_reducer_properties() -> None:
     assert len(reducers_data) == 2
     assert reducers_data[0]["reducer_name"] == "ConversationSummarizer"
     assert reducers_data[1]["reducer_name"] == "ConversationSummarizer"
+
+
+def test_chat_history_followup_flag() -> None:
+    """Follow-up flag should flip once the assistant has responded in the thread."""
+    chat_history = ChatHistory(messages=[HumanMessage(text="First question?")])
+    assert chat_history.is_followup_datahub_ask_question is False
+
+    chat_history.add_message(AssistantMessage(text="First answer."))
+    assert chat_history.is_followup_datahub_ask_question is False
+
+    chat_history.add_message(HumanMessage(text="Second question?"))
+    assert chat_history.is_followup_datahub_ask_question is True
+
+
+def test_chat_history_followup_flag_limited_history() -> None:
+    """Limited histories should surface `None` for unknown prior answers."""
+    chat_history = ChatHistory(
+        messages=[HumanMessage(text="Question without context?")],
+        extra_properties={"is_limited_history": True},
+    )
+    assert chat_history.is_followup_datahub_ask_question is None
+
+    chat_history.add_message(AssistantMessage(text="Known answer."))
+    chat_history.add_message(HumanMessage(text="Another question?"))
+    assert chat_history.is_followup_datahub_ask_question is True
