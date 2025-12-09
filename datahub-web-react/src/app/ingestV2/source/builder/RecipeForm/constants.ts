@@ -322,7 +322,6 @@ export const RECIPE_FIELDS: RecipeFields = {
             BIGQUERY_PRIVATE_KEY_ID,
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
-            // ...testingFields,
         ],
         advancedFields: [
             INCLUDE_TABLES,
