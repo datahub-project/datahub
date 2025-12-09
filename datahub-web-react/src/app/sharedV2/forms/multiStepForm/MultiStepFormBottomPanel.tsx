@@ -1,5 +1,5 @@
 import { Button, Text } from '@components';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -45,6 +45,17 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>() {
         isCurrentStepCompleted,
     } = useMultiStepContext<TState, TStep>();
 
+    const [isSubmitInProgress, setIsSubmitInProgress] = useState<boolean>(false);
+
+    const onSubmit = useCallback(async () => {
+        setIsSubmitInProgress(true);
+        try {
+            await submit?.();
+        } finally {
+            setIsSubmitInProgress(false);
+        }
+    }, [submit]);
+
     return (
         <Container>
             <LeftButtonGroup>
@@ -71,7 +82,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>() {
                     </Button>
                 ) : null}
                 {isFinalStep() ? (
-                    <Button size="sm" disabled={!isCurrentStepCompleted()} onClick={submit}>
+                    <Button size="sm" disabled={!isCurrentStepCompleted() || isSubmitInProgress} onClick={onSubmit}>
                         Submit
                     </Button>
                 ) : null}

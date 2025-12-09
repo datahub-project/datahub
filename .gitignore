@@ -74,8 +74,6 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
-docs-website/versioned_docs/
-docs-website/versioned_sidebars/
 tmp*
 temp/**
 
@@ -91,6 +89,7 @@ coverage*.xml
 .vercel
 .envrc
 **/.claude/settings.local.json
+**/.claude/*.md
 
 # A long series of binary directories we should ignore
 datahub-frontend/bin/main/
@@ -136,3 +135,4 @@ datahub-executor/
 datahub-integrations-service/
 metadata-ingestion-modules/acryl-cloud
 
+.claude/
