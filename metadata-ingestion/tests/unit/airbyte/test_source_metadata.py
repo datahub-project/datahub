@@ -76,11 +76,11 @@ def test_per_source_platform_override(mock_create_client, mock_ctx):
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "PostgreSQL"}
     )
 
-    platform, platform_instance, env = source._get_platform_for_source(mock_source)
+    platform_info = source._get_platform_for_source(mock_source)
 
-    assert platform == "postgres"
-    assert platform_instance == "prod-postgres"
-    assert env == "PROD"
+    assert platform_info.platform == "postgres"
+    assert platform_info.platform_instance == "prod-postgres"
+    assert platform_info.env == "PROD"
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
@@ -110,11 +110,11 @@ def test_per_destination_platform_override(mock_create_client, mock_ctx):
         }
     )
 
-    platform, platform_instance, env = source._get_platform_for_destination(mock_dest)
+    platform_info = source._get_platform_for_destination(mock_dest)
 
-    assert platform == "snowflake"
-    assert platform_instance == "prod-snowflake"
-    assert env == "PROD"
+    assert platform_info.platform == "snowflake"
+    assert platform_info.platform_instance == "prod-snowflake"
+    assert platform_info.env == "PROD"
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
@@ -136,8 +136,8 @@ def test_source_type_mapping_config(mock_create_client, mock_ctx):
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "Custom DB"}
     )
 
-    platform, _, _ = source._get_platform_for_source(mock_source)
-    assert platform == "custom-platform"
+    platform_info = source._get_platform_for_source(mock_source)
+    assert platform_info.platform == "custom-platform"
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
@@ -158,8 +158,8 @@ def test_platform_detail_defaults(mock_create_client, mock_ctx):
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "postgres"}
     )
 
-    platform, platform_instance, env = source._get_platform_for_source(mock_source)
+    platform_info = source._get_platform_for_source(mock_source)
 
-    assert platform == "postgres"  # From sourceType
-    assert platform_instance is None  # No override
-    assert env is None  # No override
+    assert platform_info.platform == "postgres"  # From sourceType
+    assert platform_info.platform_instance is None  # No override
+    assert platform_info.env is None  # No override

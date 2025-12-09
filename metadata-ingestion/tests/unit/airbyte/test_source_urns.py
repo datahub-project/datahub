@@ -17,6 +17,8 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteSourcePartial,
     AirbyteStreamDetails,
     AirbyteWorkspacePartial,
+    PlatformInfo,
+    PropertyFieldPath,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
 
@@ -96,8 +98,20 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
         stream_name="CUSTOMERS",
     )
 
+    # Create mock stream config
+    from datahub.ingestion.source.airbyte.models import (
+        AirbyteStream,
+        AirbyteStreamConfig,
+    )
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
+    )
+
     # Get the dataset URNs
-    dataset_urns = source._create_dataset_urns(pipeline_info, stream, "test-instance")
+    dataset_urns = source._create_dataset_urns(
+        pipeline_info, stream_config, stream, "test-instance"
+    )
 
     # Source URN should have lowercased dataset name
     assert "public.customers" in dataset_urns.source_urn
@@ -173,8 +187,20 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
         stream_name="CUSTOMERS",
     )
 
+    # Create mock stream config
+    from datahub.ingestion.source.airbyte.models import (
+        AirbyteStream,
+        AirbyteStreamConfig,
+    )
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
+    )
+
     # Get the dataset URNs
-    dataset_urns = source._create_dataset_urns(pipeline_info, stream, "test-instance")
+    dataset_urns = source._create_dataset_urns(
+        pipeline_info, stream_config, stream, "test-instance"
+    )
 
     # Source URN should preserve case
     assert "PUBLIC.CUSTOMERS" in dataset_urns.source_urn
@@ -239,8 +265,20 @@ def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
         stream_name="customers", namespace="mydb", property_fields=[]
     )
 
+    # Create mock stream config
+    from datahub.ingestion.source.airbyte.models import (
+        AirbyteStream,
+        AirbyteStreamConfig,
+    )
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="customers", namespace="mydb"), config={}
+    )
+
     # Create URNs - should auto-detect 2-tier and exclude duplicate schema
-    urns = source._create_dataset_urns(pipeline_info, stream_details, None)
+    urns = source._create_dataset_urns(
+        pipeline_info, stream_config, stream_details, None
+    )
 
     # Should be 2-tier: mydb.customers (not mydb.mydb.customers)
     assert "mydb.customers" in urns.source_urn
@@ -306,7 +344,19 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
         stream_name="customers", namespace="PUBLIC", property_fields=[]
     )
 
-    urns = source._create_dataset_urns(pipeline_info, stream_details, None)
+    # Create mock stream config
+    from datahub.ingestion.source.airbyte.models import (
+        AirbyteStream,
+        AirbyteStreamConfig,
+    )
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="customers", namespace="PUBLIC"), config={}
+    )
+
+    urns = source._create_dataset_urns(
+        pipeline_info, stream_config, stream_details, None
+    )
 
     # Should be 3-tier: dw_analytics.public.customers
     assert "dw_analytics.public.customers" in urns.source_urn
@@ -370,7 +420,19 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
         stream_name="public.customers", namespace="public", property_fields=[]
     )
 
-    urns = source._create_dataset_urns(pipeline_info, stream_details, None)
+    # Create mock stream config
+    from datahub.ingestion.source.airbyte.models import (
+        AirbyteStream,
+        AirbyteStreamConfig,
+    )
+
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="public.customers", namespace="public"), config={}
+    )
+
+    urns = source._create_dataset_urns(
+        pipeline_info, stream_config, stream_details, None
+    )
 
     # Should extract just 'customers' from 'public.customers'
     assert "mydb.public.customers" in urns.source_urn
@@ -391,7 +453,12 @@ def test_known_urns_prevents_phantom_destinations(mock_create_client, mock_ctx):
     source = AirbyteSource(config, mock_ctx)
 
     stream_details = AirbyteStreamDetails(
-        stream_name="customers", namespace="public", property_fields=["id", "name"]
+        stream_name="customers",
+        namespace="public",
+        property_fields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+        ],
     )
 
     # Destination is NOT in known_urns
@@ -434,7 +501,12 @@ def test_known_urns_allows_airbyte_to_airbyte_lineage(mock_create_client, mock_c
     source = AirbyteSource(config, mock_ctx)
 
     stream_details = AirbyteStreamDetails(
-        stream_name="customers", namespace="public", property_fields=["id", "name"]
+        stream_name="customers",
+        namespace="public",
+        property_fields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+        ],
     )
 
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
@@ -490,7 +562,9 @@ def test_platform_caching(mock_create_client, mock_ctx):
 
     # First call - should populate cache
     result1 = source._get_platform_for_source(source_obj)
-    assert result1 == ("postgres", "prod", None)
+    assert result1 == PlatformInfo(
+        platform="postgres", platform_instance="prod", env=None
+    )
     assert "source-1" in source._source_platform_cache
 
     # Second call - should use cache

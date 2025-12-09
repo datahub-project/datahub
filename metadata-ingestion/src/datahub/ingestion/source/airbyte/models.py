@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -6,6 +5,46 @@ from pydantic import BaseModel, ConfigDict, Field
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
+
+
+class StreamIdentifier(BaseModel):
+    """Immutable identifier for an Airbyte stream, used as dictionary key."""
+
+    stream_name: str
+    namespace: str
+
+    model_config = ConfigDict(frozen=True)
+
+    def __str__(self) -> str:
+        return (
+            f"{self.namespace}.{self.stream_name}"
+            if self.namespace
+            else self.stream_name
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.stream_name, self.namespace))
+
+
+class PropertyFieldPath(BaseModel):
+    """Represents a property field path from Airbyte's API.
+
+    A property field path is a list of strings representing the path to a field.
+    Examples:
+    - ["id"] - simple top-level column
+    - ["user", "id"] - nested field
+    - ["address", "city", "name"] - deeply nested field
+    """
+
+    path: List[str]
+
+    @property
+    def field_name(self) -> str:
+        """Get the leaf field name (last component of path)."""
+        return self.path[-1] if self.path else ""
+
+    def __str__(self) -> str:
+        return ".".join(self.path)
 
 
 class AirbyteStream(BaseModel):
@@ -49,6 +88,20 @@ class AirbyteStreamConfig(BaseModel):
             return False
 
         return True
+
+    def get_destination_namespace(self) -> Optional[str]:
+        """Get the destination namespace override from stream config.
+
+        This is the per-stream destination namespace set in Airbyte's sync configuration.
+        Takes precedence over connection-level namespace settings.
+
+        Returns:
+            Destination namespace string or None if not set
+        """
+        if not self.config:
+            return None
+
+        return self.config.get("destinationNamespace")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -447,7 +500,7 @@ class AirbyteStreamDetails(BaseModel):
 
     stream_name: str = Field(alias="streamName")
     namespace: str = ""  # Default to empty string instead of Optional
-    property_fields: List[Union[List[str], str]] = Field(
+    property_fields: List[PropertyFieldPath] = Field(
         default_factory=list, alias="propertyFields"
     )
 
@@ -455,13 +508,7 @@ class AirbyteStreamDetails(BaseModel):
 
     def get_column_names(self) -> List[str]:
         """Extract column names from property fields."""
-        columns = []
-        for prop_field in self.property_fields:
-            if isinstance(prop_field, list) and prop_field:
-                columns.append(prop_field[0])
-            elif isinstance(prop_field, str):
-                columns.append(prop_field)
-        return columns
+        return [field.field_name for field in self.property_fields]
 
 
 class AirbyteTagInfo(BaseModel):
@@ -497,33 +544,53 @@ class AirbyteDatasetUrns(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-@dataclass
-class DataFlowResult:
+class AirbyteStreamInfo(BaseModel):
+    """Model combining stream configuration and details."""
+
+    config: AirbyteStreamConfig
+    details: AirbyteStreamDetails
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PlatformInfo(BaseModel):
+    """Model for platform information."""
+
+    platform: str
+    platform_instance: Optional[str] = None
+    env: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class DataFlowResult(BaseModel):
     """Container for DataFlow creation results."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     dataflow_urn: DataFlowUrn
     work_units: Iterable[MetadataWorkUnit]
 
 
-@dataclass
-class DataJobResult:
+class DataJobResult(BaseModel):
     """Container for DataJob creation results."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     datajob_urn: DataJobUrn
     work_units: Iterable[MetadataWorkUnit]
 
 
-@dataclass
-class AirbyteTestResult:
+class AirbyteTestResult(BaseModel):
     """Container for Airbyte connection test results."""
 
     success: bool
     error_message: Optional[str] = None
     data: Optional[
         Union[
-            "AirbyteWorkspacePartial",
-            "AirbyteConnectionPartial",
-            "AirbyteSourcePartial",
-            "AirbyteDestinationPartial",
+            AirbyteWorkspacePartial,
+            AirbyteConnectionPartial,
+            AirbyteSourcePartial,
+            AirbyteDestinationPartial,
         ]
     ] = None

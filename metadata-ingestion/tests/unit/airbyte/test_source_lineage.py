@@ -14,10 +14,13 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
+    AirbyteStreamConfig,
     AirbyteStreamDetails,
+    AirbyteStreamInfo,
     AirbyteWorkspacePartial,
     DataFlowResult,
     DataJobResult,
+    PropertyFieldPath,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -156,7 +159,11 @@ def stream():
     return AirbyteStreamDetails(
         streamName="customers",
         namespace="public",
-        propertyFields=["id", "name", "email"],
+        propertyFields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+            PropertyFieldPath(path=["email"]),
+        ],
         stream_name="customers",
     )
 
@@ -251,10 +258,13 @@ def test_create_dataset_lineage(source, stream):
 
 def test_create_lineage_workunits(source, pipeline_info, stream):
     """Test the _create_lineage_workunits method."""
+    mock_stream_config = MagicMock(spec=AirbyteStreamConfig)
+    stream_info = AirbyteStreamInfo(config=mock_stream_config, details=stream)
+
     with (
         patch.object(source, "_get_source_platform", return_value="postgres"),
         patch.object(source, "_get_destination_platform", return_value="postgres"),
-        patch.object(source, "_fetch_streams_for_source", return_value=[stream]),
+        patch.object(source, "_fetch_streams_for_source", return_value=[stream_info]),
         patch.object(
             source, "_extract_connection_tags", return_value=["airbyte", "etl"]
         ),

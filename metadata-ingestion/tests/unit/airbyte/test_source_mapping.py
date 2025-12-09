@@ -18,6 +18,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteStreamDetails,
     AirbyteSyncCatalog,
     AirbyteWorkspacePartial,
+    PropertyFieldPath,
 )
 from datahub.ingestion.source.airbyte.source import (
     AirbyteSource,
@@ -131,13 +132,22 @@ def test_fetch_streams_for_source(source, mock_client):
     customer_stream_details = AirbyteStreamDetails(
         stream_name="customers",
         namespace="public",
-        property_fields=["id", "name", "email"],
+        property_fields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+            PropertyFieldPath(path=["email"]),
+        ],
     )
 
     order_stream_details = AirbyteStreamDetails(
         stream_name="orders",
         namespace="public",
-        property_fields=["id", "customer_id", "order_date", "total"],
+        property_fields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["customer_id"]),
+            PropertyFieldPath(path=["order_date"]),
+            PropertyFieldPath(path=["total"]),
+        ],
     )
 
     customer_stream = AirbyteStream(
@@ -185,13 +195,22 @@ def test_fetch_streams_for_source(source, mock_client):
     customer_stream_details = AirbyteStreamDetails(
         stream_name="customers",
         namespace="public",
-        property_fields=["id", "name", "email"],
+        property_fields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["name"]),
+            PropertyFieldPath(path=["email"]),
+        ],
     )
 
     order_stream_details = AirbyteStreamDetails(
         stream_name="orders",
         namespace="public",
-        property_fields=["id", "customer_id", "order_date", "total"],
+        property_fields=[
+            PropertyFieldPath(path=["id"]),
+            PropertyFieldPath(path=["customer_id"]),
+            PropertyFieldPath(path=["order_date"]),
+            PropertyFieldPath(path=["total"]),
+        ],
     )
 
     # Mock AirbyteStreamDetails.model_validate to handle any input and return our predefined objects
@@ -207,11 +226,16 @@ def test_fetch_streams_for_source(source, mock_client):
         streams = source._fetch_streams_for_source(pipeline_info)
 
         assert len(streams) == 2
-        assert streams[0].stream_name == "customers"
-        assert streams[0].namespace == "public"
-        assert sorted(streams[0].get_column_names()) == sorted(["id", "name", "email"])
-        assert streams[1].stream_name == "orders"
-        assert streams[1].namespace == "public"
-        assert sorted(streams[1].get_column_names()) == sorted(
+        # Access stream info objects
+        stream_info_0 = streams[0]
+        stream_info_1 = streams[1]
+        assert stream_info_0.details.stream_name == "customers"
+        assert stream_info_0.details.namespace == "public"
+        assert sorted(stream_info_0.details.get_column_names()) == sorted(
+            ["id", "name", "email"]
+        )
+        assert stream_info_1.details.stream_name == "orders"
+        assert stream_info_1.details.namespace == "public"
+        assert sorted(stream_info_1.details.get_column_names()) == sorted(
             ["id", "customer_id", "order_date", "total"]
         )
