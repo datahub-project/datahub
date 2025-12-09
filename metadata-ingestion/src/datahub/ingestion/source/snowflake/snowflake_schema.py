@@ -872,7 +872,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
         try:
             parsed = json.loads(value) if isinstance(value, str) else value
             if isinstance(parsed, list):
-                return [str(item) for item in parsed]
+                # Only accept simple types (str, int, float, bool)
+                # Skip complex types (dict, list) to avoid useless stringified objects
+                result = []
+                for item in parsed:
+                    if isinstance(item, (str, int, float, bool)):
+                        result.append(str(item))
+                    else:
+                        logger.debug(
+                            f"Skipping complex item in {field_name} ({context}): {type(item).__name__}"
+                        )
+                return result
             logger.warning(
                 f"Expected list for {field_name} in {context}, got {type(parsed).__name__}: {parsed}"
             )
