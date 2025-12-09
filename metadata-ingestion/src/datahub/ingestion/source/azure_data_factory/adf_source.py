@@ -1,0 +1,1073 @@
+"""Azure Data Factory ingestion source for DataHub.
+
+This connector extracts metadata from Azure Data Factory including:
+- Data Factories as Containers
+- Pipelines as DataFlows
+- Activities as DataJobs
+- Dataset lineage (activity inputs/outputs)
+- Pipeline execution history (optional)
+
+Usage:
+    source:
+      type: azure_data_factory
+      config:
+        subscription_id: ${AZURE_SUBSCRIPTION_ID}
+        credential:
+          authentication_method: service_principal
+          client_id: ${AZURE_CLIENT_ID}
+          client_secret: ${AZURE_CLIENT_SECRET}
+          tenant_id: ${AZURE_TENANT_ID}
+"""
+
+import logging
+from typing import Dict, Iterable, List, Optional, Tuple
+
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.azure_data_factory.adf_client import (
+    AzureDataFactoryClient,
+)
+from datahub.ingestion.source.azure_data_factory.adf_config import (
+    AzureDataFactoryConfig,
+)
+from datahub.ingestion.source.azure_data_factory.adf_models import (
+    Activity,
+    DataFlow as AdfDataFlow,
+    Dataset as AdfDataset,
+    Factory,
+    LinkedService,
+    Pipeline,
+    PipelineRun,
+    Trigger,
+)
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
+from datahub.metadata.schema_classes import (
+    DataProcessTypeClass,
+    DataTransformClass,
+    DataTransformLogicClass,
+    QueryLanguageClass,
+    QueryStatementClass,
+)
+from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from datahub.sdk.container import Container
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
+
+logger = logging.getLogger(__name__)
+
+# Platform identifier for Azure Data Factory
+PLATFORM = "azure_data_factory"
+
+# Mapping of ADF linked service types to DataHub platforms
+LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
+    # Azure Storage
+    "AzureBlobStorage": "azure_blob_storage",
+    "AzureBlobFS": "azure_data_lake",
+    "AzureDataLakeStore": "azure_data_lake",
+    "AzureDataLakeStoreCosmosStructuredStream": "azure_data_lake",
+    "AzureFileStorage": "azure_file_storage",
+    # Azure Databases
+    "AzureSqlDatabase": "mssql",
+    "AzureSqlDW": "synapse",
+    "AzureSynapseAnalytics": "synapse",
+    "AzureSqlMI": "mssql",
+    "SqlServer": "mssql",
+    "AzurePostgreSql": "postgres",
+    "AzureMySql": "mysql",
+    "CosmosDb": "cosmosdb",
+    "CosmosDbMongoDbApi": "mongodb",
+    # Databricks
+    "AzureDatabricks": "databricks",
+    "AzureDatabricksDeltaLake": "databricks",
+    # Cloud Platforms
+    "AmazonS3": "s3",
+    "AmazonS3Compatible": "s3",
+    "GoogleCloudStorage": "gcs",
+    "AmazonRedshift": "redshift",
+    "GoogleBigQuery": "bigquery",
+    "Snowflake": "snowflake",
+    # Traditional Databases
+    "PostgreSql": "postgres",
+    "MySql": "mysql",
+    "Oracle": "oracle",
+    "OracleServiceCloud": "oracle",
+    "Db2": "db2",
+    "Sybase": "sybase",
+    "Teradata": "teradata",
+    "Informix": "informix",
+    "Netezza": "netezza",
+    "Vertica": "vertica",
+    "Greenplum": "greenplum",
+    # Data Warehouses
+    "Hive": "hive",
+    "Spark": "spark",
+    "Hdfs": "hdfs",
+    # SaaS Applications
+    "Salesforce": "salesforce",
+    "SalesforceServiceCloud": "salesforce",
+    "SalesforceMarketingCloud": "salesforce",
+    "ServiceNow": "servicenow",
+    "Dynamics": "dynamics",
+    "DynamicsAX": "dynamics",
+    "DynamicsCrm": "dynamics",
+    # File Formats (use linked service or default)
+    "FtpServer": "ftp",
+    "Sftp": "sftp",
+    "HttpServer": "http",
+    "OData": "odata",
+    "Rest": "rest",
+}
+
+# Mapping of ADF activity types to DataHub subtypes
+ACTIVITY_SUBTYPE_MAP: Dict[str, str] = {
+    "Copy": "Copy Activity",
+    "DataFlow": "Data Flow Activity",
+    "ExecutePipeline": "Execute Pipeline",
+    "ExecuteDataFlow": "Data Flow Activity",
+    "Lookup": "Lookup Activity",
+    "GetMetadata": "Get Metadata Activity",
+    "SqlServerStoredProcedure": "Stored Procedure Activity",
+    "Script": "Script Activity",
+    "WebActivity": "Web Activity",
+    "WebHook": "Webhook Activity",
+    "IfCondition": "If Condition",
+    "ForEach": "ForEach Loop",
+    "Until": "Until Loop",
+    "Wait": "Wait Activity",
+    "SetVariable": "Set Variable",
+    "AppendVariable": "Append Variable",
+    "Switch": "Switch Activity",
+    "Filter": "Filter Activity",
+    "Validation": "Validation Activity",
+    "DatabricksNotebook": "Databricks Notebook",
+    "DatabricksSparkJar": "Databricks Spark Jar",
+    "DatabricksSparkPython": "Databricks Spark Python",
+    "HDInsightHive": "HDInsight Hive",
+    "HDInsightPig": "HDInsight Pig",
+    "HDInsightSpark": "HDInsight Spark",
+    "HDInsightMapReduce": "HDInsight MapReduce",
+    "HDInsightStreaming": "HDInsight Streaming",
+    "AzureFunctionActivity": "Azure Function Activity",
+    "AzureMLBatchExecution": "Azure ML Batch",
+    "AzureMLUpdateResource": "Azure ML Update",
+    "AzureMLExecutePipeline": "Azure ML Pipeline",
+    "Custom": "Custom Activity",
+    "Delete": "Delete Activity",
+    "SynapseNotebook": "Synapse Notebook",
+    "SparkJob": "Spark Job",
+    "SynapseSparkJob": "Synapse Spark Job",
+    "SqlPoolStoredProcedure": "SQL Pool Stored Procedure",
+    "Fail": "Fail Activity",
+}
+
+
+class AzureDataFactoryContainerKey(ContainerKey):
+    """Container key for Azure Data Factory resources."""
+
+    resource_group: str
+    factory_name: str
+
+
+@platform_name("Azure Data Factory")
+@config_class(AzureDataFactoryConfig)
+@support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Extracts lineage from activity inputs/outputs",
+)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+class AzureDataFactorySource(StatefulIngestionSourceBase):
+    """Extracts metadata from Azure Data Factory.
+
+    This source extracts:
+    - Data Factories as Containers
+    - Pipelines as DataFlows
+    - Activities as DataJobs
+    - Dataset lineage from activity inputs/outputs
+    - Execution history (optional)
+    """
+
+    config: AzureDataFactoryConfig
+    report: AzureDataFactorySourceReport
+    platform: str = PLATFORM
+
+    def __init__(self, config: AzureDataFactoryConfig, ctx: PipelineContext) -> None:
+        super().__init__(config, ctx)
+        self.config = config
+        self.report = AzureDataFactorySourceReport()
+
+        # Initialize Azure client
+        credential = config.credential.get_credential()
+        self.client = AzureDataFactoryClient(
+            credential=credential,
+            subscription_id=config.subscription_id,
+        )
+
+        # Cache for datasets, linked services, data flows, and triggers (per factory)
+        self._datasets_cache: Dict[str, Dict[str, AdfDataset]] = {}
+        self._linked_services_cache: Dict[str, Dict[str, LinkedService]] = {}
+        self._data_flows_cache: Dict[str, Dict[str, AdfDataFlow]] = {}
+        self._triggers_cache: Dict[str, List[Trigger]] = {}
+
+    @classmethod
+    def create(
+        cls, config_dict: Dict, ctx: PipelineContext
+    ) -> "AzureDataFactorySource":
+        config = AzureDataFactoryConfig.model_validate(config_dict)
+        return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        """Generate workunits for all Azure Data Factory resources."""
+
+        # Iterate over all factories
+        for factory in self.client.get_factories(
+            resource_group=self.config.resource_group
+        ):
+            self.report.report_api_call()
+
+            # Check if factory matches pattern
+            if not self.config.factory_pattern.allowed(factory.name):
+                self.report.report_factory_filtered(factory.name)
+                continue
+
+            self.report.report_factory_scanned()
+            logger.info(f"Processing factory: {factory.name}")
+
+            # Extract resource group from factory ID
+            # Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/...
+            resource_group = self._extract_resource_group(factory.id)
+
+            # Cache datasets and linked services for this factory
+            self._cache_factory_resources(resource_group, factory.name)
+
+            # Emit factory as container and get the Container object for browse paths
+            container, container_workunits = self._emit_factory(factory, resource_group)
+            yield from container_workunits
+
+            # Process pipelines, passing the Container for proper browse path hierarchy
+            yield from self._process_pipelines(factory, resource_group, container)
+
+            # Process execution history if enabled
+            if self.config.include_execution_history:
+                yield from self._process_execution_history(factory, resource_group)
+
+    def _extract_resource_group(self, resource_id: str) -> str:
+        """Extract resource group name from Azure resource ID."""
+        # Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/...
+        parts = resource_id.split("/")
+        try:
+            rg_index = parts.index("resourceGroups")
+            return parts[rg_index + 1]
+        except (ValueError, IndexError):
+            logger.warning(f"Could not extract resource group from: {resource_id}")
+            return "unknown"
+
+    def _cache_factory_resources(self, resource_group: str, factory_name: str) -> None:
+        """Cache datasets and linked services for a factory."""
+        factory_key = f"{resource_group}/{factory_name}"
+
+        # Cache datasets
+        if self.config.include_datasets:
+            self._datasets_cache[factory_key] = {}
+            for dataset in self.client.get_datasets(resource_group, factory_name):
+                self.report.report_api_call()
+                self.report.report_dataset_scanned()
+                self._datasets_cache[factory_key][dataset.name] = dataset
+
+        # Cache linked services
+        if self.config.include_linked_services:
+            self._linked_services_cache[factory_key] = {}
+            for ls in self.client.get_linked_services(resource_group, factory_name):
+                self.report.report_api_call()
+                self.report.report_linked_service_scanned()
+                self._linked_services_cache[factory_key][ls.name] = ls
+
+        # Cache triggers
+        if self.config.include_triggers:
+            self._triggers_cache[factory_key] = []
+            for trigger in self.client.get_triggers(resource_group, factory_name):
+                self.report.report_api_call()
+                self.report.report_trigger_scanned()
+                self._triggers_cache[factory_key].append(trigger)
+
+        # Cache data flows (for lineage extraction from Data Flow activities)
+        if self.config.include_lineage:
+            self._data_flows_cache[factory_key] = {}
+            for data_flow in self.client.get_data_flows(resource_group, factory_name):
+                self.report.report_api_call()
+                self.report.report_data_flow_scanned()
+                self._data_flows_cache[factory_key][data_flow.name] = data_flow
+
+    def _emit_factory(
+        self, factory: Factory, resource_group: str
+    ) -> Tuple[Container, Iterable[MetadataWorkUnit]]:
+        """Emit a Data Factory as a Container.
+
+        Returns:
+            Tuple of (Container object, workunits). The Container object is needed
+            by child entities (DataFlows) to properly set up browse paths.
+        """
+        container_key = AzureDataFactoryContainerKey(
+            platform=PLATFORM,
+            instance=self.config.platform_instance,
+            resource_group=resource_group,
+            factory_name=factory.name,
+            env=self.config.env,
+        )
+
+        # Build custom properties
+        custom_props: Dict[str, str] = {
+            "azure_resource_id": factory.id,
+            "location": factory.location,
+        }
+        if factory.tags:
+            for key, value in factory.tags.items():
+                custom_props[f"tag:{key}"] = value
+        if factory.properties and factory.properties.provisioning_state:
+            custom_props["provisioning_state"] = factory.properties.provisioning_state
+
+        container = Container(
+            container_key,
+            display_name=factory.name,
+            description=f"Azure Data Factory: {factory.name}",
+            subtype="Data Factory",
+            external_url=self._get_factory_url(factory, resource_group),
+            extra_properties=custom_props,
+            parent_container=None,  # Top-level container
+        )
+
+        return container, container.as_workunits()
+
+    def _get_factory_url(self, factory: Factory, resource_group: str) -> str:
+        """Generate Azure Portal URL for a Data Factory."""
+        return (
+            f"https://adf.azure.com/en/home"
+            f"?factory=/subscriptions/{self.config.subscription_id}"
+            f"/resourceGroups/{resource_group}"
+            f"/providers/Microsoft.DataFactory/factories/{factory.name}"
+        )
+
+    def _process_pipelines(
+        self, factory: Factory, resource_group: str, container: Container
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process all pipelines in a factory.
+
+        Args:
+            factory: The Data Factory
+            resource_group: Azure resource group name
+            container: The parent Container object (for browse path hierarchy)
+        """
+        factory_key = f"{resource_group}/{factory.name}"
+
+        for pipeline in self.client.get_pipelines(resource_group, factory.name):
+            self.report.report_api_call()
+
+            # Check if pipeline matches pattern
+            if not self.config.pipeline_pattern.allowed(pipeline.name):
+                self.report.report_pipeline_filtered(pipeline.name)
+                continue
+
+            self.report.report_pipeline_scanned()
+            logger.debug(f"Processing pipeline: {factory.name}/{pipeline.name}")
+
+            # Emit pipeline as DataFlow, passing the Container for proper browse paths
+            dataflow = self._create_dataflow(
+                pipeline, factory, resource_group, container
+            )
+            yield from dataflow.as_workunits()
+
+            # Emit activities as DataJobs
+            if pipeline.properties is None:
+                logger.warning(
+                    f"Pipeline {pipeline.name} has no properties, skipping activities"
+                )
+                continue
+            for activity in pipeline.properties.activities:
+                self.report.report_activity_scanned()
+
+                datajob = self._create_datajob(
+                    activity, pipeline, factory, resource_group, dataflow, factory_key
+                )
+                yield from datajob.as_workunits()
+
+                # Emit dataTransformLogic for Data Flow activities
+                if activity.type == "ExecuteDataFlow":
+                    yield from self._emit_data_flow_script(
+                        activity, datajob, factory_key
+                    )
+
+    def _create_dataflow(
+        self,
+        pipeline: Pipeline,
+        factory: Factory,
+        resource_group: str,
+        container: Container,
+    ) -> DataFlow:
+        """Create a DataFlow entity for a pipeline.
+
+        Args:
+            pipeline: The ADF pipeline
+            factory: The parent Data Factory
+            resource_group: Azure resource group name
+            container: The parent Container object (enables proper browse path hierarchy)
+        """
+        # Build flow name with factory prefix for uniqueness across factories
+        flow_name = f"{factory.name}.{pipeline.name}"
+
+        # Custom properties
+        custom_props: Dict[str, str] = {
+            "azure_resource_id": pipeline.id,
+            "factory_name": factory.name,
+        }
+
+        # Extract properties if available
+        description: Optional[str] = None
+        if pipeline.properties is not None:
+            if pipeline.properties.concurrency:
+                custom_props["concurrency"] = str(pipeline.properties.concurrency)
+            if pipeline.properties.folder:
+                folder_name = pipeline.properties.folder.get("name", "")
+                if folder_name:
+                    custom_props["folder"] = folder_name
+            if pipeline.properties.annotations:
+                custom_props["annotations"] = ", ".join(pipeline.properties.annotations)
+            description = pipeline.properties.description
+
+        # Add trigger info if available
+        triggers = self._get_pipeline_triggers(
+            resource_group, factory.name, pipeline.name
+        )
+        if triggers:
+            custom_props["triggers"] = ", ".join(triggers)
+
+        # Pass the Container object directly so the SDK can properly build
+        # browse paths by inheriting from the parent container's path
+        dataflow = DataFlow(
+            platform=PLATFORM,
+            name=flow_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=pipeline.name,
+            description=description,
+            external_url=self._get_pipeline_url(factory, resource_group, pipeline.name),
+            custom_properties=custom_props,
+            subtype="Pipeline",
+            parent_container=container,
+        )
+
+        return dataflow
+
+    def _get_pipeline_triggers(
+        self, resource_group: str, factory_name: str, pipeline_name: str
+    ) -> List[str]:
+        """Get trigger names associated with a pipeline."""
+        if not self.config.include_triggers:
+            return []
+
+        factory_key = f"{resource_group}/{factory_name}"
+        triggers = self._triggers_cache.get(factory_key, [])
+
+        result = []
+        for trigger in triggers:
+            # Check if trigger references this pipeline
+            for pipeline_ref in trigger.properties.pipelines:
+                ref_name = pipeline_ref.get("pipelineReference", {}).get(
+                    "referenceName", ""
+                )
+                if ref_name == pipeline_name:
+                    result.append(trigger.name)
+                    break
+
+        return result
+
+    def _get_pipeline_url(
+        self, factory: Factory, resource_group: str, pipeline_name: str
+    ) -> str:
+        """Generate Azure Portal URL for a pipeline."""
+        return (
+            f"https://adf.azure.com/en/authoring/pipeline/{pipeline_name}"
+            f"?factory=/subscriptions/{self.config.subscription_id}"
+            f"/resourceGroups/{resource_group}"
+            f"/providers/Microsoft.DataFactory/factories/{factory.name}"
+        )
+
+    def _create_datajob(
+        self,
+        activity: Activity,
+        pipeline: Pipeline,
+        factory: Factory,
+        resource_group: str,
+        dataflow: DataFlow,
+        factory_key: str,
+    ) -> DataJob:
+        """Create a DataJob entity for an activity."""
+        # Determine activity subtype
+        subtype = ACTIVITY_SUBTYPE_MAP.get(activity.type, activity.type)
+
+        # Custom properties
+        custom_props: Dict[str, str] = {
+            "activity_type": activity.type,
+        }
+        if activity.description:
+            custom_props["activity_description"] = activity.description
+
+        # Add policy info
+        if activity.policy:
+            if "timeout" in activity.policy:
+                custom_props["timeout"] = str(activity.policy["timeout"])
+            if "retry" in activity.policy:
+                custom_props["retry"] = str(activity.policy["retry"])
+
+        # Extract lineage (inlets/outlets)
+        inlets: Optional[List[str]] = None
+        outlets: Optional[List[str]] = None
+
+        if self.config.include_lineage:
+            extracted_inlets = self._extract_activity_inputs(activity, factory_key)
+            extracted_outlets = self._extract_activity_outputs(activity, factory_key)
+            if extracted_inlets:
+                inlets = extracted_inlets
+            if extracted_outlets:
+                outlets = extracted_outlets
+
+        # Create DataJob with external URL to the parent pipeline
+        # (ADF doesn't have direct activity URLs, so we link to the pipeline)
+        datajob = DataJob(
+            name=activity.name,
+            flow=dataflow,
+            display_name=activity.name,
+            description=activity.description,
+            external_url=self._get_pipeline_url(factory, resource_group, pipeline.name),
+            custom_properties=custom_props,
+            subtype=subtype,
+            inlets=inlets,  # type: ignore[arg-type]
+            outlets=outlets,  # type: ignore[arg-type]
+        )
+
+        return datajob
+
+    def _extract_activity_inputs(
+        self, activity: Activity, factory_key: str
+    ) -> List[str]:
+        """Extract input dataset URNs from an activity."""
+        inputs: List[str] = []
+
+        # Process explicit inputs (for Copy activities and others)
+        for input_ref in activity.inputs:
+            dataset_urn = self._resolve_dataset_urn(
+                input_ref.reference_name, factory_key
+            )
+            if dataset_urn:
+                inputs.append(str(dataset_urn))
+                self.report.report_lineage_extracted()
+
+        # Process Data Flow activities - extract sources as inputs
+        if activity.type == "ExecuteDataFlow":
+            data_flow_inputs = self._extract_data_flow_sources(activity, factory_key)
+            inputs.extend(data_flow_inputs)
+
+        # Process source in typeProperties (for Copy activities)
+        if activity.type_properties and "source" in activity.type_properties:
+            source = activity.type_properties["source"]
+            if "datasetSettings" in source:
+                # Inline dataset configuration
+                pass  # Complex case, skip for now
+            # Source might reference a dataset in storeSettings
+            store_settings = source.get("storeSettings", {})
+            if "linkedServiceName" in store_settings:
+                # Could resolve to a dataset if we have schema info
+                pass
+
+        return inputs
+
+    def _extract_activity_outputs(
+        self, activity: Activity, factory_key: str
+    ) -> List[str]:
+        """Extract output dataset URNs from an activity."""
+        outputs: List[str] = []
+
+        # Process explicit outputs (for Copy activities and others)
+        for output_ref in activity.outputs:
+            dataset_urn = self._resolve_dataset_urn(
+                output_ref.reference_name, factory_key
+            )
+            if dataset_urn:
+                outputs.append(str(dataset_urn))
+                self.report.report_lineage_extracted()
+
+        # Process Data Flow activities - extract sinks as outputs
+        if activity.type == "ExecuteDataFlow":
+            data_flow_outputs = self._extract_data_flow_sinks(activity, factory_key)
+            outputs.extend(data_flow_outputs)
+
+        # Process sink in typeProperties (for Copy activities)
+        if activity.type_properties and "sink" in activity.type_properties:
+            sink = activity.type_properties["sink"]
+            if "datasetSettings" in sink:
+                # Inline dataset configuration
+                pass  # Complex case, skip for now
+
+        return outputs
+
+    def _get_data_flow_name_from_activity(
+        self, activity: Activity, factory_key: str
+    ) -> Optional[str]:
+        """Get the Data Flow name referenced by an ExecuteDataFlow activity.
+
+        Due to a case-sensitivity bug in the Azure SDK where it expects
+        'typeProperties.dataFlow' but the API returns 'typeProperties.dataflow',
+        we try multiple approaches to find the Data Flow name.
+
+        Args:
+            activity: The ExecuteDataFlow activity
+            factory_key: Factory key for cache lookup
+
+        Returns:
+            Data Flow name if found, None otherwise
+        """
+        # Approach 1: Try typeProperties.dataFlow (SDK expected format)
+        if activity.type_properties:
+            data_flow_ref = activity.type_properties.get(
+                "dataFlow", activity.type_properties.get("dataflow", {})
+            )
+            if isinstance(data_flow_ref, dict):
+                name = data_flow_ref.get("referenceName")
+                if name:
+                    return name
+
+        # Approach 2: Try to match activity name to Data Flow name
+        # Many users name their activity similarly to the Data Flow
+        data_flows = self._data_flows_cache.get(factory_key, {})
+
+        # Exact match
+        if activity.name in data_flows:
+            logger.debug(
+                f"Found Data Flow by exact activity name match: {activity.name}"
+            )
+            return activity.name
+
+        # Fuzzy match - try removing common suffixes/variations
+        activity_name_normalized = activity.name.replace(" ", "").lower()
+        for df_name in data_flows:
+            df_name_normalized = df_name.replace(" ", "").lower()
+            if activity_name_normalized == df_name_normalized:
+                logger.debug(
+                    f"Found Data Flow by fuzzy match: activity='{activity.name}' -> dataflow='{df_name}'"
+                )
+                return df_name
+
+        return None
+
+    def _emit_data_flow_script(
+        self, activity: Activity, datajob: DataJob, factory_key: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit the Data Flow script as a dataTransformLogic aspect.
+
+        For ExecuteDataFlow activities, this extracts the Data Flow DSL script
+        and emits it as a transformation aspect, making it viewable in the UI.
+
+        Args:
+            activity: The ExecuteDataFlow activity
+            datajob: The DataJob entity for this activity
+            factory_key: Factory key for cache lookup
+
+        Yields:
+            MetadataWorkUnit for the dataTransformLogic aspect
+        """
+        # Get the Data Flow name
+        data_flow_name = self._get_data_flow_name_from_activity(activity, factory_key)
+        if not data_flow_name:
+            return
+
+        # Look up the Data Flow definition
+        data_flows = self._data_flows_cache.get(factory_key, {})
+        data_flow = data_flows.get(data_flow_name)
+        if not data_flow or not data_flow.properties:
+            return
+
+        # Get the script from the Data Flow
+        script = data_flow.properties.get_script()
+        if not script:
+            logger.debug(f"No script found for Data Flow: {data_flow_name}")
+            return
+
+        # Emit the dataTransformLogic aspect
+        # Note: Using SQL as language because UNKNOWN is not yet broadly supported
+        # in the UI. The Data Flow DSL is similar to SQL in structure.
+        logger.debug(
+            f"Emitting Data Flow script for activity '{activity.name}' "
+            f"({len(script)} chars)"
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(datajob.urn),
+            aspect=DataTransformLogicClass(
+                transforms=[
+                    DataTransformClass(
+                        queryStatement=QueryStatementClass(
+                            value=script,
+                            language=QueryLanguageClass.SQL,
+                        )
+                    )
+                ]
+            ),
+        ).as_workunit()
+
+    def _extract_data_flow_sources(
+        self, activity: Activity, factory_key: str
+    ) -> List[str]:
+        """Extract source dataset URNs from a Data Flow activity.
+
+        Data Flow activities reference a Data Flow definition which contains
+        sources (inputs) and sinks (outputs). This method extracts the sources.
+
+        Args:
+            activity: The ExecuteDataFlow activity
+            factory_key: Factory key for cache lookup
+
+        Returns:
+            List of source dataset URNs
+        """
+        inputs: List[str] = []
+
+        # Get the Data Flow name using our robust lookup
+        data_flow_name = self._get_data_flow_name_from_activity(activity, factory_key)
+
+        if not data_flow_name:
+            logger.debug(
+                f"Could not find Data Flow reference for activity: {activity.name}"
+            )
+            return inputs
+
+        # Look up the Data Flow definition
+        data_flows = self._data_flows_cache.get(factory_key, {})
+        data_flow = data_flows.get(data_flow_name)
+
+        if not data_flow:
+            logger.debug(f"Data Flow not found in cache: {data_flow_name}")
+            return inputs
+
+        # Extract sources from the Data Flow
+        if data_flow.properties:
+            for source in data_flow.properties.sources:
+                if source.dataset:
+                    dataset_urn = self._resolve_dataset_urn(
+                        source.dataset.reference_name, factory_key
+                    )
+                    if dataset_urn:
+                        inputs.append(str(dataset_urn))
+                        self.report.report_lineage_extracted()
+                        logger.debug(
+                            f"Extracted Data Flow source: {source.name} -> {dataset_urn}"
+                        )
+
+        return inputs
+
+    def _extract_data_flow_sinks(
+        self, activity: Activity, factory_key: str
+    ) -> List[str]:
+        """Extract sink dataset URNs from a Data Flow activity.
+
+        Data Flow activities reference a Data Flow definition which contains
+        sources (inputs) and sinks (outputs). This method extracts the sinks.
+
+        Args:
+            activity: The ExecuteDataFlow activity
+            factory_key: Factory key for cache lookup
+
+        Returns:
+            List of sink dataset URNs
+        """
+        outputs: List[str] = []
+
+        # Get the Data Flow name using our robust lookup
+        data_flow_name = self._get_data_flow_name_from_activity(activity, factory_key)
+
+        if not data_flow_name:
+            logger.debug(
+                f"Could not find Data Flow reference for activity: {activity.name}"
+            )
+            return outputs
+
+        # Look up the Data Flow definition
+        data_flows = self._data_flows_cache.get(factory_key, {})
+        data_flow = data_flows.get(data_flow_name)
+
+        if not data_flow:
+            logger.debug(f"Data Flow not found in cache: {data_flow_name}")
+            return outputs
+
+        # Extract sinks from the Data Flow
+        if data_flow.properties:
+            for sink in data_flow.properties.sinks:
+                if sink.dataset:
+                    dataset_urn = self._resolve_dataset_urn(
+                        sink.dataset.reference_name, factory_key
+                    )
+                    if dataset_urn:
+                        outputs.append(str(dataset_urn))
+                        self.report.report_lineage_extracted()
+                        logger.debug(
+                            f"Extracted Data Flow sink: {sink.name} -> {dataset_urn}"
+                        )
+
+        return outputs
+
+    def _resolve_dataset_urn(
+        self, dataset_name: str, factory_key: str
+    ) -> Optional[DatasetUrn]:
+        """Resolve an ADF dataset reference to a DataHub DatasetUrn."""
+        # Get dataset from cache
+        datasets = self._datasets_cache.get(factory_key, {})
+        dataset = datasets.get(dataset_name)
+
+        if not dataset:
+            logger.debug(f"Dataset not found in cache: {dataset_name}")
+            return None
+
+        # Get linked service to determine platform
+        linked_service_ref = dataset.properties.linked_service_name
+        linked_services = self._linked_services_cache.get(factory_key, {})
+        linked_service = linked_services.get(linked_service_ref.reference_name)
+
+        if not linked_service:
+            logger.debug(
+                f"Linked service not found: {linked_service_ref.reference_name}"
+            )
+            self.report.report_unmapped_platform(dataset_name, "unknown")
+            return None
+
+        # Map linked service type to DataHub platform
+        ls_type = linked_service.properties.type
+        platform = LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
+
+        if not platform:
+            logger.debug(f"Unknown linked service type: {ls_type}")
+            self.report.report_unmapped_platform(dataset_name, ls_type)
+            return None
+
+        # Build dataset name from type properties
+        table_name = self._extract_table_name(dataset, linked_service)
+        if not table_name:
+            table_name = dataset_name  # Fallback to ADF dataset name
+
+        # Check if there's a platform instance mapping
+        platform_instance = self.config.platform_instance_map.get(
+            linked_service_ref.reference_name
+        )
+
+        return DatasetUrn.create_from_ids(
+            platform_id=platform,
+            table_name=table_name,
+            env=self.config.env,
+            platform_instance=platform_instance,
+        )
+
+    def _extract_table_name(
+        self, dataset: AdfDataset, linked_service: LinkedService
+    ) -> Optional[str]:
+        """Extract table/file name from dataset type properties."""
+        if not dataset.properties.type_properties:
+            return None
+
+        type_props = dataset.properties.type_properties
+
+        # SQL-like datasets
+        if "tableName" in type_props:
+            return type_props["tableName"]
+        if "table" in type_props:
+            return type_props["table"]
+
+        # Structured table reference
+        if "schema" in type_props and "table" in type_props:
+            schema = type_props.get("schema", "")
+            table = type_props.get("table", "")
+            if schema and table:
+                return f"{schema}.{table}"
+
+        # File-based datasets
+        if "fileName" in type_props:
+            folder = type_props.get("folderPath", "")
+            filename = type_props.get("fileName", "")
+            if folder and filename:
+                return f"{folder}/{filename}"
+            return filename
+
+        # Container/path based
+        if "location" in type_props:
+            location = type_props["location"]
+            if isinstance(location, dict):
+                container = location.get("container", "")
+                folder = location.get("folderPath", "")
+                filename = location.get("fileName", "")
+                parts = [p for p in [container, folder, filename] if p]
+                if parts:
+                    return "/".join(parts)
+
+        return None
+
+    def _process_execution_history(
+        self, factory: Factory, resource_group: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process pipeline execution history for a factory."""
+        logger.info(
+            f"Processing execution history for factory: {factory.name} "
+            f"(last {self.config.execution_history_days} days)"
+        )
+
+        for pipeline_run in self.client.get_pipeline_runs(
+            resource_group,
+            factory.name,
+            days=self.config.execution_history_days,
+        ):
+            self.report.report_api_call()
+            self.report.report_pipeline_run_scanned()
+
+            # Check if pipeline matches pattern
+            if not self.config.pipeline_pattern.allowed(pipeline_run.pipeline_name):
+                continue
+
+            yield from self._emit_pipeline_run(pipeline_run, factory, resource_group)
+
+    def _emit_pipeline_run(
+        self,
+        pipeline_run: PipelineRun,
+        factory: Factory,
+        resource_group: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a pipeline run as DataProcessInstance."""
+        # Build DataFlow URN for the template - include factory name for uniqueness
+        flow_name = f"{factory.name}.{pipeline_run.pipeline_name}"
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=PLATFORM,
+            flow_id=flow_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+
+        # Map ADF status to InstanceRunResult
+        result = self._map_run_status(pipeline_run.status)
+
+        # Build custom properties
+        properties: Dict[str, str] = {
+            "run_id": pipeline_run.run_id,
+            "status": pipeline_run.status,
+        }
+        if pipeline_run.message:
+            properties["message"] = pipeline_run.message[:500]  # Truncate long messages
+        if pipeline_run.invoked_by:
+            invoker_name = pipeline_run.invoked_by.get("name", "")
+            invoker_type = pipeline_run.invoked_by.get("invokedByType", "")
+            if invoker_name:
+                properties["invoked_by"] = invoker_name
+            if invoker_type:
+                properties["invoked_by_type"] = invoker_type
+        if pipeline_run.parameters:
+            for key, value in list(pipeline_run.parameters.items())[
+                :10
+            ]:  # Limit params
+                properties[f"param:{key}"] = str(value)[:100]
+
+        # Create DataProcessInstance
+        dpi = DataProcessInstance(
+            id=pipeline_run.run_id,
+            orchestrator=PLATFORM,
+            cluster=self.config.env,
+            type=DataProcessTypeClass.BATCH_SCHEDULED,
+            template_urn=flow_urn,
+            properties=properties,
+            url=self._get_pipeline_run_url(
+                factory, resource_group, pipeline_run.run_id
+            ),
+            data_platform_instance=self.config.platform_instance,
+            subtype="Pipeline Run",
+        )
+
+        # Emit the instance
+        for mcp in dpi.generate_mcp(
+            created_ts_millis=(
+                int(pipeline_run.run_start.timestamp() * 1000)
+                if pipeline_run.run_start
+                else None
+            ),
+            materialize_iolets=False,
+        ):
+            yield mcp.as_workunit()
+
+        # Emit start event
+        if pipeline_run.run_start:
+            start_ts = int(pipeline_run.run_start.timestamp() * 1000)
+            for mcp in dpi.start_event_mcp(start_ts):
+                yield mcp.as_workunit()
+
+        # Emit end event if run is complete
+        if pipeline_run.run_end and result:
+            end_ts = int(pipeline_run.run_end.timestamp() * 1000)
+            for mcp in dpi.end_event_mcp(
+                end_timestamp_millis=end_ts,
+                result=result,
+                result_type=pipeline_run.status,
+            ):
+                yield mcp.as_workunit()
+
+    def _map_run_status(self, status: str) -> Optional[InstanceRunResult]:
+        """Map ADF run status to DataHub InstanceRunResult."""
+        status_map = {
+            "Succeeded": InstanceRunResult.SUCCESS,
+            "Failed": InstanceRunResult.FAILURE,
+            "Cancelled": InstanceRunResult.SKIPPED,
+            "Cancelling": None,  # Still running
+            "InProgress": None,  # Still running
+            "Queued": None,  # Not started
+        }
+        return status_map.get(status)
+
+    def _get_pipeline_run_url(
+        self, factory: Factory, resource_group: str, run_id: str
+    ) -> str:
+        """Generate Azure Portal URL for a pipeline run."""
+        return (
+            f"https://adf.azure.com/en/monitoring/pipelineruns/{run_id}"
+            f"?factory=/subscriptions/{self.config.subscription_id}"
+            f"/resourceGroups/{resource_group}"
+            f"/providers/Microsoft.DataFactory/factories/{factory.name}"
+        )
+
+    def get_report(self) -> AzureDataFactorySourceReport:
+        return self.report
+
+    def close(self) -> None:
+        """Clean up resources."""
+        self.client.close()
+        super().close()
