@@ -1,4 +1,5 @@
 import datetime
+from typing import Dict
 from unittest.mock import MagicMock
 
 import pytest
@@ -225,7 +226,7 @@ class TestSnowflakeSemanticViewTags:
 
     def test_build_tags_no_subtype(self, schema_gen):
         """Test building tags for a column with no subtype."""
-        column_subtypes: dict[str, str] = {}
+        column_subtypes: Dict[str, str] = {}
         tags = schema_gen._build_semantic_view_tags("RANDOM_COL", column_subtypes, None)
 
         assert tags is None

@@ -1042,8 +1042,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_view_name = self.identifiers.get_dataset_identifier(
             semantic_view.name, schema_name, db_name
         )
-        logger.info(
-            f"_process_semantic_view ENTERED for {semantic_view.name}, "
+        logger.debug(
+            f"Processing semantic view {semantic_view.name}, "
             f"include_technical_schema={self.config.include_technical_schema}"
         )
 
@@ -1829,7 +1829,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # NOTE: This uses private members (_schema_resolver, _resolve_schema_info) which
         # creates coupling to SqlParsingAggregator internals. Consider exposing a public
         # method if this pattern is needed more broadly.
-        schema_info = self.aggregator._schema_resolver._resolve_schema_info(table_urn)
+        try:
+            schema_info = self.aggregator._schema_resolver._resolve_schema_info(
+                table_urn
+            )
+        except AttributeError:
+            # Schema resolver API changed - fail open (assume column exists)
+            logger.debug(
+                f"Schema resolver API unavailable; assuming column {column_name} exists"
+            )
+            return True
+
         if not schema_info:
             # Schema not found - assume column exists (may not be ingested yet)
             logger.debug(
@@ -1967,7 +1977,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 f"and is not a derived column. Skipping lineage."
             )
 
-    # Maximum recursion depth for resolving chained derived columns
+    # Maximum recursion depth for resolving chained derived columns.
+    # 5 levels handles most real-world metric chains (e.g., metric -> derived -> aggregate -> column).
+    # Higher values risk infinite loops in malformed definitions; lower values may miss deep chains.
     _MAX_DERIVATION_DEPTH = 5
 
     def _resolve_derived_column_sources(
