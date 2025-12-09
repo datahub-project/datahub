@@ -33,6 +33,10 @@ class WorkspaceKey(ContainerKey):
     workspace: str
 
 
+class ReportKey(ContainerKey):
+    report: str
+
+
 class DatasetKey(ContainerKey):
     dataset: str
 
@@ -266,6 +270,7 @@ class Report:
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
+    pbix_metadata: Optional[Dict[str, Any]] = None  # PBIX file metadata if available
 
     def get_urn_part(self):
         return Report.get_urn_part_by_id(self.id)

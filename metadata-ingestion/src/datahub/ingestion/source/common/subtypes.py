@@ -68,6 +68,7 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
+    POWERBI_REPORT = "Report"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"
@@ -102,7 +103,8 @@ class BIAssetSubTypes(StrEnum):
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
-    POWERBI_PAGE = "PowerBI Page"
+    POWERBI_PAGE_AS_DASHBOARD = "PowerBI Page"
+    POWERBI_VISUALIZATION = "PowerBI Visualization"
     POWERBI_APP = "App"
 
     # Mode

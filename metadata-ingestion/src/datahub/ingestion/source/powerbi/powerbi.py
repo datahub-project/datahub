@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -85,6 +85,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     EdgeClass,
     GlobalTagsClass,
+    NullTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -111,12 +112,12 @@ logger = logging.getLogger(__name__)
 def _is_dax_expression(expression: str) -> bool:
     """
     Determine if an expression is a DAX expression (vs M-Query).
-    
+
     DAX expressions typically:
     - Use DAX functions like SUMMARIZE, ADDCOLUMNS, CALENDARAUTO, RELATED, etc.
     - Reference tables with 'TableName' or TableName[Column] syntax
     - Don't start with "let" or "Source ="
-    
+
     M-Query expressions typically:
     - Start with "let" or contain "Source ="
     - Use M-Query functions
@@ -124,56 +125,59 @@ def _is_dax_expression(expression: str) -> bool:
     """
     if not expression or not expression.strip():
         return False
-    
+
     expression_upper = expression.strip().upper()
-    
+
     # M-Query indicators (if these are present, it's NOT DAX)
     mquery_indicators = [
-        'LET ',
-        'SOURCE =',
-        'SOURCE=',
+        "LET ",
+        "SOURCE =",
+        "SOURCE=",
         '#"',  # M-Query step names use #"StepName"
-        'TABLE.', # M-Query table functions
-        'LIST.',  # M-Query list functions
+        "TABLE.",  # M-Query table functions
+        "LIST.",  # M-Query list functions
     ]
-    
+
     for indicator in mquery_indicators:
         if indicator in expression_upper[:100]:  # Check first 100 chars
             return False
-    
+
     # DAX function indicators (if these are present, it's likely DAX)
     dax_functions = [
-        'SUMMARIZE(',
-        'ADDCOLUMNS(',
-        'CALENDARAUTO(',
-        'CALENDAR(',
-        'RELATED(',
-        'RELATEDTABLE(',
-        'CALCULATETABLE(',
-        'FILTER(',
-        'SUMX(',
-        'AVERAGEX(',
-        'COUNTX(',
-        'EVALUATE',
-        'ROW(',  # DAX table constructor function
-        'DATATABLE(',  # DAX table constructor
-        'SELECTCOLUMNS(',
-        'TOPN(',
-        'SAMPLE(',
+        "SUMMARIZE(",
+        "ADDCOLUMNS(",
+        "CALENDARAUTO(",
+        "CALENDAR(",
+        "RELATED(",
+        "RELATEDTABLE(",
+        "CALCULATETABLE(",
+        "FILTER(",
+        "SUMX(",
+        "AVERAGEX(",
+        "COUNTX(",
+        "EVALUATE",
+        "ROW(",  # DAX table constructor function
+        "DATATABLE(",  # DAX table constructor
+        "SELECTCOLUMNS(",
+        "TOPN(",
+        "SAMPLE(",
     ]
-    
+
     for func in dax_functions:
         if func in expression_upper:
             return True
-    
+
     # If expression has table references like 'TableName'[Column] or TableName[Column]
     # it's likely DAX (M-Query uses different syntax)
     import re
-    if re.search(r"'[^']+'\s*\[", expression) or re.search(r"\b[A-Za-z_][A-Za-z0-9_]*\s*\[", expression):
+
+    if re.search(r"'[^']+'\s*\[", expression) or re.search(
+        r"\b[A-Za-z_][A-Za-z0-9_]*\s*\[", expression
+    ):
         # But double-check it's not M-Query (which also uses brackets but differently)
-        if 'SOURCE' not in expression_upper[:50]:
+        if "SOURCE" not in expression_upper[:50]:
             return True
-    
+
     return False
 
 
@@ -267,7 +271,7 @@ class Mapper:
     ) -> List[FineGrainedLineage]:
         """
         Create fine-grained (column-level) lineage.
-        
+
         Args:
             lineage: The lineage information from M-query parsing
             dataset_urn: The URN of the downstream dataset
@@ -313,7 +317,7 @@ class Mapper:
                         logger.warning(
                             f"Table reference '{column_ref.table}' is not a URN and not in upstream_tables mapping"
                         )
-                
+
                 upstreams.append(
                     builder.make_schema_field_urn(table_urn, column_ref.column)
                 )
@@ -329,416 +333,467 @@ class Mapper:
 
         return fine_grained_lineages
 
-    def extract_lineage(
-        self, table: powerbi_data_classes.Table, ds_urn: str, dax_table_mappings: Optional[Dict[str, str]] = None
-    ) -> List[MetadataChangeProposalWrapper]:
-        mcps: List[MetadataChangeProposalWrapper] = []
+    def _make_fine_grained_lineage(
+        self,
+        source_table_urn: str,
+        source_column: str,
+        target_table_urn: str,
+        target_column: str,
+        transform_operation: str,
+    ) -> FineGrainedLineage:
+        """
+        Create a single fine-grained lineage entry.
 
-        # table.dataset should always be set, but we check it just in case.
-        parameters = table.dataset.parameters if table.dataset else {}
+        Args:
+            source_table_urn: URN of the source table
+            source_column: Name of the source column
+            target_table_urn: URN of the target table
+            target_column: Name of the target column
+            transform_operation: Description of the transformation
 
-        upstream: List[UpstreamClass] = []
-        cll_lineage: List[FineGrainedLineage] = []
-
-        logger.debug(
-            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
+        Returns:
+            FineGrainedLineage object
+        """
+        source_field_urn = builder.make_schema_field_urn(
+            source_table_urn, source_column
+        )
+        target_field_urn = builder.make_schema_field_urn(
+            target_table_urn, target_column
         )
 
-        # Only parse M-Query if the expression is not a DAX expression
-        # DAX expressions will be handled separately below
-        upstream_lineage: List[
-            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
-        ] = []
-        
-        if table.expression and not _is_dax_expression(table.expression):
-            upstream_lineage = parser.get_upstream_tables(
-                table=table,
-                reporter=self.__reporter,
-                platform_instance_resolver=self.__dataplatform_instance_resolver,
-                ctx=self.__ctx,
-                config=self.__config,
-                parameters=parameters,
-            )
-            logger.debug(
-                f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
-            )
+        return FineGrainedLineage(
+            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+            downstreams=[target_field_urn],
+            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+            upstreams=[source_field_urn],
+            transformOperation=transform_operation,
+        )
 
-        # Build mapping of table names/identifiers to their URNs
-        # This ensures column-level lineage uses existing dataset URNs
+    def _extract_m_query_lineage(
+        self, table: powerbi_data_classes.Table
+    ) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
+        """Extract lineage from M-Query expressions."""
+        if not table.expression or _is_dax_expression(table.expression):
+            return []
+
+        parameters = table.dataset.parameters if table.dataset else {}
+        upstream_lineage = parser.get_upstream_tables(
+            table=table,
+            reporter=self.__reporter,
+            platform_instance_resolver=self.__dataplatform_instance_resolver,
+            ctx=self.__ctx,
+            config=self.__config,
+            parameters=parameters,
+        )
+        logger.debug(
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
+        )
+        return upstream_lineage
+
+    def _build_upstream_tables_map(
+        self, dax_table_mappings: Optional[Dict[str, str]]
+    ) -> Dict[str, str]:
+        """Build mapping of table names to their URNs."""
         upstream_tables_map: Dict[str, str] = {}
-        
-        # Start with DAX table mappings if provided
-        # This includes tables within the same PowerBI dataset that DAX expressions might reference
         if dax_table_mappings:
             upstream_tables_map.update(dax_table_mappings)
             logger.debug(
                 f"Initialized upstream tables map with {len(dax_table_mappings)} DAX table mappings"
             )
-        
-        # Handle DAX table expressions (calculated tables)
-        # These are tables created with DAX like: DAX_TABLE = SUMMARIZE('SourceTable', ...)
-        if table.expression and _is_dax_expression(table.expression):
-            from datahub.ingestion.source.powerbi.dax_parser import (
-                extract_table_column_references,
+        return upstream_tables_map
+
+    def _resolve_table_urn_with_fallback(
+        self, table_name: str, upstream_tables_map: Dict[str, str]
+    ) -> Optional[str]:
+        """Resolve a table name to its URN, trying case variations."""
+        if table_name in upstream_tables_map:
+            return upstream_tables_map[table_name]
+        if table_name.lower() in upstream_tables_map:
+            return upstream_tables_map[table_name.lower()]
+        return None
+
+    def _extract_referenced_tables_from_dax(
+        self, dax_expression: str
+    ) -> Tuple[Set[str], List]:
+        """Extract table and column references from DAX expression."""
+        from datahub.ingestion.source.powerbi.dax_parser import (
+            extract_table_column_references,
+        )
+
+        references = extract_table_column_references(dax_expression)
+        referenced_tables = set()
+        column_references = []
+
+        for ref in references:
+            referenced_tables.add(ref.table_name)
+            if ref.column_name:
+                column_references.append((ref.table_name, ref.column_name, None))
+
+        return referenced_tables, column_references
+
+    def _create_upstream_for_dax_tables(
+        self,
+        referenced_tables: Set[str],
+        upstream_tables_map: Dict[str, str],
+        table_full_name: str,
+    ) -> List[UpstreamClass]:
+        """Create upstream lineage entries for DAX-referenced tables."""
+        upstream: List[UpstreamClass] = []
+
+        for referenced_table in referenced_tables:
+            table_urn = self._resolve_table_urn_with_fallback(
+                referenced_table, upstream_tables_map
             )
-            
-            logger.info(
-                f"Processing DAX calculated table: {table.full_name}"
-            )
-            
-            try:
-                # First, try to parse as SUMMARIZE for better column mapping
-                from datahub.ingestion.source.powerbi.dax_parser import (
-                    parse_summarize_expression,
+
+            if table_urn:
+                upstream.append(
+                    UpstreamClass(table_urn, DatasetLineageTypeClass.TRANSFORMED)
                 )
-                
-                summarize_parsed = parse_summarize_expression(table.expression)
-                
-                if summarize_parsed:
-                    logger.info(
-                        f"Parsed SUMMARIZE expression: {len(summarize_parsed.get('direct_mappings', []))} direct mappings, "
-                        f"{len(summarize_parsed.get('calculated_mappings', []))} calculated mappings"
-                    )
-                else:
-                    logger.debug("Not a SUMMARIZE expression, using generic DAX parsing")
-                
-                references = extract_table_column_references(table.expression)
-                logger.info(
-                    f"Extracted {len(references)} column references from DAX table {table.name}"
+                logger.debug(
+                    f"Added DAX table lineage: {table_full_name} -> {referenced_table} ({table_urn})"
                 )
-                
-                # Extract unique table names and collect column references
-                referenced_tables = set()
-                column_references = []  # List of (source_table, source_column, target_column) tuples
-                
-                for table_name, column_name in references:
-                    referenced_tables.add(table_name)
-                    if column_name:
-                        # For DAX calculated tables, we don't know the exact target column mapping
-                        # Just track the source columns being referenced
-                        column_references.append((table_name, column_name, None))
-                
-                # Create upstream lineage for referenced tables
-                for referenced_table in referenced_tables:
-                    # Look up the URN for this table
-                    if referenced_table in upstream_tables_map:
-                        table_urn = upstream_tables_map[referenced_table]
-                        upstream_table_class = UpstreamClass(
-                            table_urn,
-                            DatasetLineageTypeClass.TRANSFORMED,
-                        )
-                        upstream.append(upstream_table_class)
-                        logger.debug(
-                            f"Added DAX table lineage: {table.full_name} -> {referenced_table} ({table_urn})"
-                        )
-                    elif referenced_table.lower() in upstream_tables_map:
-                        table_urn = upstream_tables_map[referenced_table.lower()]
-                        upstream_table_class = UpstreamClass(
-                            table_urn,
-                            DatasetLineageTypeClass.TRANSFORMED,
-                        )
-                        upstream.append(upstream_table_class)
-                        logger.debug(
-                            f"Added DAX table lineage: {table.full_name} -> {referenced_table} ({table_urn})"
-                        )
-                    else:
-                        available_tables = sorted(list(upstream_tables_map.keys()))
-                        logger.warning(
-                            f"Could not find URN for referenced table '{referenced_table}' in DAX expression for {table.full_name}. "
-                            f"Available tables in mapping: {available_tables}"
-                        )
-                
-                # Create column-level lineage for DAX references
-                # Map source columns to target columns in the DAX calculated table
-                column_lineage_count = 0
-                
-                logger.info(
-                    f"DAX table {table.name} has {len(table.columns) if table.columns else 0} columns defined"
-                )
-                logger.info(
-                    f"Found {len(references)} source column references: {[(t, c) for t, c in references if c]}"
-                )
-                
-                # If we have SUMMARIZE-specific parsing, use it for better mappings
-                if summarize_parsed:
-                    # Handle direct mappings from SUMMARIZE group-by columns
-                    for source_table, source_column, target_column in summarize_parsed.get('direct_mappings', []):
-                        source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                        if source_table_urn:
-                            source_field_urn = builder.make_schema_field_urn(
-                                source_table_urn,
-                                source_column
-                            )
-                            target_field_urn = builder.make_schema_field_urn(
-                                ds_urn,
-                                target_column
-                            )
-                            
-                            fine_grained_lineage = FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                upstreams=[source_field_urn],
-                                downstreams=[target_field_urn],
-                                transformOperation="DAX_SUMMARIZE_GROUPBY",
-                            )
-                            cll_lineage.append(fine_grained_lineage)
-                            column_lineage_count += 1
-                            logger.info(
-                                f"Added SUMMARIZE group-by lineage: {source_table}.{source_column} -> {table.name}.{target_column}"
-                            )
-                    
-                    # Handle calculated columns from SUMMARIZE
-                    for target_column, expression in summarize_parsed.get('calculated_mappings', []):
-                        # Parse the expression to find source columns
-                        calc_references = extract_table_column_references(expression)
-                        for source_table, source_column in calc_references:
-                            if not source_column:
-                                continue
-                            source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                            if source_table_urn:
-                                source_field_urn = builder.make_schema_field_urn(
-                                    source_table_urn,
-                                    source_column
-                                )
-                                target_field_urn = builder.make_schema_field_urn(
-                                    ds_urn,
-                                    target_column
-                                )
-                                
-                                fine_grained_lineage = FineGrainedLineage(
-                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                    upstreams=[source_field_urn],
-                                    downstreams=[target_field_urn],
-                                    transformOperation="DAX_SUMMARIZE_CALCULATED",
-                                )
-                                cll_lineage.append(fine_grained_lineage)
-                                column_lineage_count += 1
-                                logger.info(
-                                    f"Added SUMMARIZE calculated lineage: {source_table}.{source_column} -> {table.name}.{target_column}"
-                                )
-                
-                # Fallback: For each column in the DAX table, try to find its source
-                elif table.columns:
-                    logger.info(
-                        f"Target columns in {table.name}: {[col.name for col in table.columns]}"
-                    )
-                    for target_column in table.columns:
-                        target_column_name = target_column.name
-                        logger.debug(
-                            f"Processing target column: {target_column_name}, has expression: {hasattr(target_column, 'expression') and bool(target_column.expression)}"
-                        )
-                        
-                        # Try to find source columns that map to this target
-                        # 1. Direct mapping: source column name matches target column name
-                        for source_table, source_column in references:
-                            if source_column and source_column == target_column_name:
-                                source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                                if source_table_urn:
-                                    source_field_urn = builder.make_schema_field_urn(
-                                        source_table_urn,
-                                        source_column
-                                    )
-                                    target_field_urn = builder.make_schema_field_urn(
-                                        ds_urn,
-                                        target_column_name
-                                    )
-                                    
-                                    fine_grained_lineage = FineGrainedLineage(
-                                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                        upstreams=[source_field_urn],
-                                        downstreams=[target_field_urn],
-                                        transformOperation="DAX_CALCULATED_TABLE",
-                                    )
-                                    cll_lineage.append(fine_grained_lineage)
-                                    column_lineage_count += 1
-                                    logger.debug(
-                                        f"Added DAX column lineage: {source_table}.{source_column} -> {table.name}.{target_column_name}"
-                                    )
-                                    break  # Found mapping for this target column
-                        
-                        # 2. If target column has a DAX expression, parse it for sources
-                        if hasattr(target_column, 'expression') and target_column.expression:
-                            try:
-                                col_references = extract_table_column_references(target_column.expression)
-                                for source_table, source_column in col_references:
-                                    if not source_column:
-                                        continue
-                                    source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                                    if source_table_urn:
-                                        source_field_urn = builder.make_schema_field_urn(
-                                            source_table_urn,
-                                            source_column
-                                        )
-                                        target_field_urn = builder.make_schema_field_urn(
-                                            ds_urn,
-                                            target_column_name
-                                        )
-                                        
-                                        fine_grained_lineage = FineGrainedLineage(
-                                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                            upstreams=[source_field_urn],
-                                            downstreams=[target_field_urn],
-                                            transformOperation="DAX_CALCULATED_TABLE",
-                                        )
-                                        cll_lineage.append(fine_grained_lineage)
-                                        column_lineage_count += 1
-                                        logger.debug(
-                                            f"Added DAX column lineage: {source_table}.{source_column} -> {table.name}.{target_column_name}"
-                                        )
-                            except Exception as e:
-                                logger.debug(f"Failed to parse column expression for {target_column_name}: {e}")
-                else:
-                    # Fallback: if no columns defined, create table-level lineage
-                    for source_table, source_column, _ in column_references:
-                        source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                        if source_table_urn and source_column:
-                            source_field_urn = builder.make_schema_field_urn(
-                                source_table_urn,
-                                source_column
-                            )
-                            
-                            fine_grained_lineage = FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD_SET,
-                                upstreams=[source_field_urn],
-                                downstreams=[ds_urn],
-                                transformOperation="DAX_CALCULATED_TABLE",
-                            )
-                            cll_lineage.append(fine_grained_lineage)
-                            column_lineage_count += 1
-                
-                if column_lineage_count > 0:
-                    logger.info(
-                        f"Created {column_lineage_count} column-level lineage edges for DAX table {table.name}"
-                    )
-                
-            except Exception as e:
+            else:
+                available_tables = sorted(list(upstream_tables_map.keys()))
                 logger.warning(
-                    f"Failed to extract DAX table lineage for {table.full_name}: {e}"
+                    f"Could not find URN for referenced table '{referenced_table}' in DAX expression for {table_full_name}. "
+                    f"Available tables in mapping: {available_tables}"
                 )
-        
-        # Handle DAX measures
-        # Measures can reference columns from other tables
-        if table.measures:
-            from datahub.ingestion.source.powerbi.dax_parser import (
-                extract_table_column_references,
+
+        return upstream
+
+    def _process_summarize_direct_mappings(
+        self,
+        direct_mappings: List,
+        upstream_tables_map: Dict[str, str],
+        ds_urn: str,
+        table_name: str,
+    ) -> List[FineGrainedLineage]:
+        """Process SUMMARIZE direct column mappings."""
+        cll_lineage: List[FineGrainedLineage] = []
+
+        for mapping in direct_mappings:
+            source_table_urn = self._resolve_table_urn_with_fallback(
+                mapping.source_table, upstream_tables_map
             )
-            
-            measure_lineage_count = 0
-            for measure in table.measures:
-                if measure.expression and _is_dax_expression(measure.expression):
-                    try:
-                        references = extract_table_column_references(measure.expression)
-                        
-                        for source_table, source_column in references:
-                            if not source_column:
-                                continue
-                                
-                            source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                            if source_table_urn:
-                                # Add table-level upstream if not already present
-                                if not any(u.dataset == source_table_urn for u in upstream):
-                                    upstream.append(
-                                        UpstreamClass(
-                                            source_table_urn,
-                                            DatasetLineageTypeClass.TRANSFORMED,
-                                        )
-                                    )
-                                
-                                # Create fine-grained lineage from source column to measure
-                                source_field_urn = builder.make_schema_field_urn(
-                                    source_table_urn,
-                                    source_column
-                                )
-                                measure_field_urn = builder.make_schema_field_urn(
-                                    ds_urn,
-                                    measure.name
-                                )
-                                
-                                fine_grained_lineage = FineGrainedLineage(
-                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                    upstreams=[source_field_urn],
-                                    downstreams=[measure_field_urn],
-                                    transformOperation="DAX_MEASURE",
-                                )
-                                cll_lineage.append(fine_grained_lineage)
-                                measure_lineage_count += 1
-                                logger.debug(
-                                    f"Added DAX measure lineage: {source_table}.{source_column} -> {table.name}.{measure.name}"
-                                )
-                    except Exception as e:
-                        logger.debug(
-                            f"Failed to extract DAX lineage for measure {measure.name}: {e}"
-                        )
-            
-            if measure_lineage_count > 0:
-                logger.info(
-                    f"Created {measure_lineage_count} column-level lineage edges from {len(table.measures)} DAX measures in {table.name}"
+
+            if source_table_urn:
+                source_field_urn = builder.make_schema_field_urn(
+                    source_table_urn, mapping.source_column
                 )
-        
-        # Handle DAX calculated columns
-        if table.columns:
-            from datahub.ingestion.source.powerbi.dax_parser import (
-                extract_table_column_references,
+                target_field_urn = builder.make_schema_field_urn(
+                    ds_urn, mapping.target_column
+                )
+
+                fine_grained_lineage = FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    upstreams=[source_field_urn],
+                    downstreams=[target_field_urn],
+                    transformOperation="DAX_SUMMARIZE_GROUPBY",
+                )
+                cll_lineage.append(fine_grained_lineage)
+                logger.info(
+                    f"Added SUMMARIZE group-by lineage: {mapping.source_table}.{mapping.source_column} -> {table_name}.{mapping.target_column}"
+                )
+
+        return cll_lineage
+
+    def _process_summarize_calculated_mappings(
+        self,
+        calculated_mappings: List,
+        upstream_tables_map: Dict[str, str],
+        ds_urn: str,
+        table_name: str,
+    ) -> List[FineGrainedLineage]:
+        """Process SUMMARIZE calculated column mappings."""
+        from datahub.ingestion.source.powerbi.dax_parser import (
+            extract_table_column_references,
+        )
+
+        cll_lineage: List[FineGrainedLineage] = []
+
+        for mapping in calculated_mappings:
+            calc_references = extract_table_column_references(mapping.expression)
+
+            for ref in calc_references:
+                if not ref.column_name:
+                    continue
+
+                source_table_urn = self._resolve_table_urn_with_fallback(
+                    ref.table_name, upstream_tables_map
+                )
+
+                if source_table_urn:
+                    source_field_urn = builder.make_schema_field_urn(
+                        source_table_urn, ref.column_name
+                    )
+                    target_field_urn = builder.make_schema_field_urn(
+                        ds_urn, mapping.target_column
+                    )
+
+                    fine_grained_lineage = FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        upstreams=[source_field_urn],
+                        downstreams=[target_field_urn],
+                        transformOperation="DAX_SUMMARIZE_CALCULATED",
+                    )
+                    cll_lineage.append(fine_grained_lineage)
+                    logger.info(
+                        f"Added SUMMARIZE calculated lineage: {ref.table_name}.{ref.column_name} -> {table_name}.{mapping.target_column}"
+                    )
+
+        return cll_lineage
+
+    def _add_upstream_if_not_present(
+        self, upstream: List[UpstreamClass], table_urn: str
+    ) -> None:
+        """Add upstream table if not already in the list."""
+        if not any(u.dataset == table_urn for u in upstream):
+            upstream.append(
+                UpstreamClass(table_urn, DatasetLineageTypeClass.TRANSFORMED)
             )
-            
-            calculated_column_lineage_count = 0
-            for column in table.columns:
-                if column.expression and _is_dax_expression(column.expression):
-                    try:
-                        references = extract_table_column_references(column.expression)
-                        
-                        for source_table, source_column in references:
-                            if not source_column:
-                                continue
-                                
-                            source_table_urn = upstream_tables_map.get(source_table) or upstream_tables_map.get(source_table.lower())
-                            if source_table_urn:
-                                # Add table-level upstream if not already present
-                                if not any(u.dataset == source_table_urn for u in upstream):
-                                    upstream.append(
-                                        UpstreamClass(
-                                            source_table_urn,
-                                            DatasetLineageTypeClass.TRANSFORMED,
-                                        )
-                                    )
-                                
-                                # Create fine-grained lineage from source column to calculated column
-                                source_field_urn = builder.make_schema_field_urn(
-                                    source_table_urn,
-                                    source_column
-                                )
-                                target_field_urn = builder.make_schema_field_urn(
-                                    ds_urn,
-                                    column.name
-                                )
-                                
-                                fine_grained_lineage = FineGrainedLineage(
-                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                    upstreams=[source_field_urn],
-                                    downstreams=[target_field_urn],
-                                    transformOperation="DAX_CALCULATED_COLUMN",
-                                )
-                                cll_lineage.append(fine_grained_lineage)
-                                calculated_column_lineage_count += 1
-                                logger.debug(
-                                    f"Added DAX calculated column lineage: {source_table}.{source_column} -> {table.name}.{column.name}"
-                                )
-                    except Exception as e:
-                        logger.debug(
-                            f"Failed to extract DAX lineage for calculated column {column.name}: {e}"
-                        )
-            
-            if calculated_column_lineage_count > 0:
-                logger.info(
-                    f"Created {calculated_column_lineage_count} column-level lineage edges from DAX calculated columns in {table.name}"
+
+    def _process_dax_measure_column_refs(
+        self,
+        measure_name: str,
+        column_refs: List,
+        upstream_tables_map: Dict[str, str],
+        ds_urn: str,
+        upstream: List[UpstreamClass],
+    ) -> List[FineGrainedLineage]:
+        """Process column references in a DAX measure."""
+        cll_lineage: List[FineGrainedLineage] = []
+
+        for ref in column_refs:
+            if not ref.column_name:
+                continue
+
+            source_table_urn = self._resolve_table_urn_with_fallback(
+                ref.table_name, upstream_tables_map
+            )
+
+            if source_table_urn:
+                self._add_upstream_if_not_present(upstream, source_table_urn)
+
+                source_field_urn = builder.make_schema_field_urn(
+                    source_table_urn, ref.column_name
                 )
-        
+                measure_field_urn = builder.make_schema_field_urn(ds_urn, measure_name)
+
+                fine_grained_lineage = FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    upstreams=[source_field_urn],
+                    downstreams=[measure_field_urn],
+                    transformOperation="DAX_MEASURE",
+                )
+                cll_lineage.append(fine_grained_lineage)
+                logger.debug(
+                    f"Added DAX measure lineage: {ref.table_name}.{ref.column_name} -> {measure_name}"
+                )
+
+        return cll_lineage
+
+    def _process_dax_calculated_column_refs(
+        self,
+        column_name: str,
+        column_expression: str,
+        upstream_tables_map: Dict[str, str],
+        ds_urn: str,
+        upstream: List[UpstreamClass],
+    ) -> List[FineGrainedLineage]:
+        """Process column references in a DAX calculated column."""
+        from datahub.ingestion.source.powerbi.dax_parser import (
+            extract_table_column_references,
+        )
+
+        cll_lineage: List[FineGrainedLineage] = []
+        references = extract_table_column_references(column_expression)
+
+        for ref in references:
+            if not ref.column_name:
+                continue
+
+            source_table_urn = self._resolve_table_urn_with_fallback(
+                ref.table_name, upstream_tables_map
+            )
+
+            if source_table_urn:
+                self._add_upstream_if_not_present(upstream, source_table_urn)
+
+                source_field_urn = builder.make_schema_field_urn(
+                    source_table_urn, ref.column_name
+                )
+                target_field_urn = builder.make_schema_field_urn(ds_urn, column_name)
+
+                fine_grained_lineage = FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    upstreams=[source_field_urn],
+                    downstreams=[target_field_urn],
+                    transformOperation="DAX_CALCULATED_COLUMN",
+                )
+                cll_lineage.append(fine_grained_lineage)
+                logger.debug(
+                    f"Added DAX calculated column lineage: {ref.table_name}.{ref.column_name} -> {column_name}"
+                )
+
+        return cll_lineage
+
+    def _extract_and_log_dax_references(
+        self, dax_expression: str, entity_name: str, entity_type: str
+    ) -> List:
+        """Extract DAX references with logging and error handling."""
+        from datahub.ingestion.source.powerbi.dax_parser import (
+            extract_table_column_references,
+        )
+
+        self.__reporter.dax_parse_attempts += 1
+        try:
+            logger.debug(f"Extracting lineage from DAX {entity_type}: {entity_name}")
+            references = extract_table_column_references(dax_expression)
+
+            if references:
+                logger.debug(
+                    f"Found {len(references)} table/column references in {entity_type} {entity_name}"
+                )
+                self.__reporter.dax_parse_successes += 1
+            else:
+                logger.debug(
+                    f"No table/column references found in {entity_type} {entity_name}"
+                )
+
+            return references
+        except Exception as e:
+            logger.warning(
+                f"Failed to parse DAX expression for {entity_type} {entity_name}: {e}"
+            )
+            self.__reporter.dax_parse_failures += 1
+            return []
+
+    def _log_dax_reference_mappings(
+        self, references: List, table_urn_mapping: Dict[str, str]
+    ) -> None:
+        """Log DAX reference to URN mappings."""
+        for ref in references:
+            if ref.table_name in table_urn_mapping:
+                urn = table_urn_mapping[ref.table_name]
+                if ref.column_name:
+                    logger.debug(f"  ✓ {ref.table_name}.{ref.column_name} -> {urn}")
+                else:
+                    logger.debug(f"  ✓ {ref.table_name} (table reference) -> {urn}")
+            else:
+                available_tables = sorted(list(table_urn_mapping.keys()))
+                logger.warning(
+                    f"  ✗ {ref.table_name} not found in dataset tables - cannot map to URN. "
+                    f"Available: {available_tables}"
+                )
+
+    def _build_data_model_tables_for_parameters(
+        self, dataset: Optional[powerbi_data_classes.PowerBIDataset]
+    ) -> Optional[List[Dict]]:
+        """Build data model table definitions for parameter resolution."""
+        if not dataset:
+            return None
+
+        data_model_tables = []
+        for ds_table in dataset.tables:
+            table_def = {
+                "name": ds_table.name,
+                "columns": [
+                    {"name": c.name, "expression": c.expression}
+                    for c in (ds_table.columns or [])
+                ],
+                "measures": [
+                    {"name": m.name, "expression": m.expression}
+                    for m in (ds_table.measures or [])
+                ],
+            }
+            data_model_tables.append(table_def)
+
+        return data_model_tables
+
+    def _get_all_measure_names_from_dataset(
+        self, table: powerbi_data_classes.Table, measure_map: Dict[str, str]
+    ) -> Set[str]:
+        """Get all measure names across the entire dataset."""
+        all_measure_names = set(measure_map.keys())
+
+        if table.dataset:
+            for ds_table in table.dataset.tables:
+                if ds_table.measures:
+                    all_measure_names.update([m.name for m in ds_table.measures])
+
+        return all_measure_names
+
+    def _process_measure_to_measure_dependencies(
+        self,
+        measure_deps: List[str],
+        measure_map: Dict[str, str],
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        measure_name: str,
+    ) -> List[FineGrainedLineage]:
+        """Process measure-to-measure lineage dependencies."""
+        cll_lineage: List[FineGrainedLineage] = []
+
+        for ref_measure_name in measure_deps:
+            ref_measure_table_urn = None
+
+            # Check if it's in the current table
+            if ref_measure_name in measure_map:
+                ref_measure_table_urn = ds_urn
+            elif table.dataset:
+                # Check other tables in the dataset
+                for ds_table in table.dataset.tables:
+                    if ds_table.measures and any(
+                        m.name == ref_measure_name for m in ds_table.measures
+                    ):
+                        ref_table_full_name = ds_table.full_name.lower()
+                        ref_measure_table_urn = (
+                            builder.make_dataset_urn_with_platform_instance(
+                                platform=self.__config.platform_name,
+                                name=ref_table_full_name,
+                                platform_instance=self.__config.platform_instance,
+                                env=self.__config.env,
+                            )
+                        )
+                        break
+
+            if ref_measure_table_urn:
+                source_measure_urn = builder.make_schema_field_urn(
+                    ref_measure_table_urn, ref_measure_name
+                )
+                target_measure_urn = builder.make_schema_field_urn(ds_urn, measure_name)
+
+                fine_grained_lineage = FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    upstreams=[source_measure_urn],
+                    downstreams=[target_measure_urn],
+                    transformOperation="DAX_MEASURE_TO_MEASURE",
+                )
+                cll_lineage.append(fine_grained_lineage)
+                logger.debug(
+                    f"Added DAX measure-to-measure lineage: [{ref_measure_name}] -> {table.name}.{measure_name}"
+                )
+            else:
+                logger.debug(
+                    f"Could not find table for referenced measure [{ref_measure_name}] in measure {measure_name}"
+                )
+
+        return cll_lineage
+
+    def _process_m_query_upstream_lineage(
+        self,
+        upstream_lineage: List,
+        ds_urn: str,
+        upstream: List[UpstreamClass],
+        upstream_tables_map: Dict[str, str],
+        cll_lineage: List[FineGrainedLineage],
+    ) -> None:
+        """Process M-Query upstream lineage and update collections in place."""
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
                 if (
@@ -754,23 +809,19 @@ class Mapper:
                     upstream_dpt.urn,
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
-
                 upstream.append(upstream_table_class)
-                
+
                 # Store the URN mapping for this upstream table
-                # Extract table name from URN to use as key
-                # URN format: urn:li:dataset:(urn:li:dataPlatform:powerbi,workspace.dataset.table,PROD)
                 urn_parts = upstream_dpt.urn.split(",")
                 if len(urn_parts) >= 2:
                     table_id = urn_parts[1]
-                    # Store both the full ID and just the table name
                     upstream_tables_map[table_id] = upstream_dpt.urn
                     if "." in table_id:
                         table_name = table_id.split(".")[-1]
                         upstream_tables_map[table_name] = upstream_dpt.urn
                         upstream_tables_map[table_name.lower()] = upstream_dpt.urn
 
-            # Add column level lineage if any, passing the URN mapping
+            # Add column level lineage
             cll_lineage.extend(
                 self.make_fine_grained_lineage_class(
                     lineage=lineage,
@@ -778,6 +829,264 @@ class Mapper:
                     upstream_tables=upstream_tables_map,
                 )
             )
+
+    def _process_dax_table_expression_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        upstream_tables_map: Dict[str, str],
+        data_model_tables: Optional[List[Dict]],
+    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineage]]:
+        """Process lineage from DAX table expression."""
+        from datahub.ingestion.source.powerbi.dax_parser import (
+            extract_table_column_references,
+            parse_summarize_expression,
+        )
+
+        if not (table.expression and _is_dax_expression(table.expression)):
+            return [], []
+
+        logger.info(f"Processing DAX calculated table: {table.full_name}")
+
+        upstream: List[UpstreamClass] = []
+        cll_lineage: List[FineGrainedLineage] = []
+
+        try:
+            # Try SUMMARIZE parsing first
+            summarize_parsed = parse_summarize_expression(table.expression)
+            references = extract_table_column_references(table.expression)
+
+            if summarize_parsed:
+                logger.info(
+                    f"Parsed SUMMARIZE expression: {len(summarize_parsed.direct_mappings)} direct mappings, "
+                    f"{len(summarize_parsed.calculated_mappings)} calculated mappings"
+                )
+
+            # Extract referenced tables and create upstream
+            referenced_tables, _ = self._extract_referenced_tables_from_dax(
+                table.expression
+            )
+            upstream = self._create_upstream_for_dax_tables(
+                referenced_tables, upstream_tables_map, table.full_name
+            )
+
+            # Process SUMMARIZE or fallback to generic processing
+            if summarize_parsed:
+                cll_lineage.extend(
+                    self._process_summarize_direct_mappings(
+                        summarize_parsed.direct_mappings,
+                        upstream_tables_map,
+                        ds_urn,
+                        table.name,
+                    )
+                )
+                cll_lineage.extend(
+                    self._process_summarize_calculated_mappings(
+                        summarize_parsed.calculated_mappings,
+                        upstream_tables_map,
+                        ds_urn,
+                        table.name,
+                    )
+                )
+            elif table.columns:
+                # Fallback: try name-based mapping
+                cll_lineage.extend(
+                    self._process_dax_column_name_matching(
+                        table.columns,
+                        references,
+                        upstream_tables_map,
+                        ds_urn,
+                        table.name,
+                    )
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to extract DAX table lineage for {table.name}: {e}")
+
+        return upstream, cll_lineage
+
+    def _process_dax_column_name_matching(
+        self,
+        columns: List,
+        references: List,
+        upstream_tables_map: Dict[str, str],
+        ds_urn: str,
+        table_name: str,
+    ) -> List[FineGrainedLineage]:
+        """Process column lineage using name-based matching."""
+        from datahub.ingestion.source.powerbi.dax_parser import (
+            extract_table_column_references,
+        )
+
+        cll_lineage: List[FineGrainedLineage] = []
+
+        for target_column in columns:
+            # Try direct name matching
+            for ref in references:
+                if ref.column_name and ref.column_name == target_column.name:
+                    source_table_urn = self._resolve_table_urn_with_fallback(
+                        ref.table_name, upstream_tables_map
+                    )
+                    if source_table_urn:
+                        cll_lineage.append(
+                            self._make_fine_grained_lineage(
+                                source_table_urn,
+                                ref.column_name,
+                                ds_urn,
+                                target_column.name,
+                                "DAX_CALCULATED_TABLE",
+                            )
+                        )
+                        break
+
+            # Process column's own expression
+            if hasattr(target_column, "expression") and target_column.expression:
+                try:
+                    col_refs = extract_table_column_references(target_column.expression)
+                    for ref in col_refs:
+                        if not ref.column_name:
+                            continue
+                        source_table_urn = self._resolve_table_urn_with_fallback(
+                            ref.table_name, upstream_tables_map
+                        )
+                        if source_table_urn:
+                            cll_lineage.append(
+                                self._make_fine_grained_lineage(
+                                    source_table_urn,
+                                    ref.column_name,
+                                    ds_urn,
+                                    target_column.name,
+                                    "DAX_CALCULATED_TABLE",
+                                )
+                            )
+                except Exception as e:
+                    logger.debug(
+                        f"Failed to parse column expression for {target_column.name}: {e}"
+                    )
+
+        return cll_lineage
+
+    def extract_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        dax_table_mappings: Optional[Dict[str, str]] = None,
+    ) -> List[MetadataChangeProposalWrapper]:
+        mcps: List[MetadataChangeProposalWrapper] = []
+
+        upstream: List[UpstreamClass] = []
+        cll_lineage: List[FineGrainedLineage] = []
+
+        logger.debug(
+            f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
+        )
+
+        # Extract M-Query lineage (if not DAX)
+        upstream_lineage = self._extract_m_query_lineage(table)
+
+        # Build upstream tables map for DAX reference resolution
+        upstream_tables_map = self._build_upstream_tables_map(dax_table_mappings)
+
+        # Handle DAX table expressions (calculated tables)
+        if table.expression and _is_dax_expression(table.expression):
+            data_model_tables = self._build_data_model_tables_for_parameters(
+                table.dataset
+            )
+            dax_upstream, dax_cll = self._process_dax_table_expression_lineage(
+                table, ds_urn, upstream_tables_map, data_model_tables
+            )
+            upstream.extend(dax_upstream)
+            cll_lineage.extend(dax_cll)
+
+        # Handle DAX measures
+        if table.measures:
+            from datahub.ingestion.source.powerbi.dax_parser import (
+                parse_dax_expression,
+            )
+
+            measure_map = {m.name: m.expression for m in table.measures if m.expression}
+            data_model_tables = self._build_data_model_tables_for_parameters(
+                table.dataset
+            )
+
+            measure_lineage_count = 0
+            for measure in table.measures:
+                if measure.expression and _is_dax_expression(measure.expression):
+                    try:
+                        # Use comprehensive DAX parsing with parameter resolution
+                        # This will resolve field parameters to ALL possible columns they can reference
+                        dax_result = parse_dax_expression(
+                            measure.expression,
+                            include_measure_refs=True,
+                            include_advanced_analysis=False,  # Skip for performance, use if needed
+                            extract_parameters=True,
+                            data_model_tables=data_model_tables,
+                            include_all_functions=True,
+                        )
+
+                        # Handle column references using helper
+                        measure_cll = self._process_dax_measure_column_refs(
+                            measure.name,
+                            dax_result.table_column_references,
+                            upstream_tables_map,
+                            ds_urn,
+                            upstream,
+                        )
+                        cll_lineage.extend(measure_cll)
+                        measure_lineage_count += len(measure_cll)
+
+                        # Handle measure-to-measure dependencies
+                        measure_to_measure_cll = (
+                            self._process_measure_to_measure_dependencies(
+                                dax_result.measure_references,
+                                measure_map,
+                                table,
+                                ds_urn,
+                                measure.name,
+                            )
+                        )
+                        cll_lineage.extend(measure_to_measure_cll)
+                        measure_lineage_count += len(measure_to_measure_cll)
+
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to extract DAX lineage for measure {measure.name}: {e}"
+                        )
+
+            if measure_lineage_count > 0:
+                logger.info(
+                    f"Created {measure_lineage_count} column-level lineage edges from {len(table.measures)} DAX measures in {table.name}"
+                )
+
+        # Handle DAX calculated columns
+        if table.columns:
+            calculated_column_lineage_count = 0
+            for column in table.columns:
+                if column.expression and _is_dax_expression(column.expression):
+                    try:
+                        calc_cll = self._process_dax_calculated_column_refs(
+                            column.name,
+                            column.expression,
+                            upstream_tables_map,
+                            ds_urn,
+                            upstream,
+                        )
+                        cll_lineage.extend(calc_cll)
+                        calculated_column_lineage_count += len(calc_cll)
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to extract DAX lineage for calculated column {column.name}: {e}"
+                        )
+
+            if calculated_column_lineage_count > 0:
+                logger.info(
+                    f"Created {calculated_column_lineage_count} column-level lineage edges from DAX calculated columns in {table.name}"
+                )
+
+        # Process M-Query upstream lineage
+        self._process_m_query_upstream_lineage(
+            upstream_lineage, ds_urn, upstream, upstream_tables_map, cll_lineage
+        )
 
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
@@ -861,10 +1170,19 @@ class Mapper:
         dataset: Optional[powerbi_data_classes.PowerBIDataset],
         workspace: powerbi_data_classes.Workspace,
         dax_table_mappings: Optional[Dict[str, str]] = None,
+        report_container_key: Optional[ContainerKey] = None,
+        is_embedded: bool = False,
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi dataset to datahub dataset. Here we are mapping each table of PowerBi Dataset to Datahub dataset.
         In PowerBi Tile would be having single dataset, However corresponding Datahub's chart might have many input sources.
+
+        Args:
+            dataset: The PowerBI dataset to convert
+            workspace: The workspace containing the dataset
+            dax_table_mappings: Optional DAX table mappings for lineage
+            report_container_key: If provided, place dataset tables in this Report container (for embedded datasources)
+            is_embedded: Whether this is an embedded datasource (affects container placement)
         """
 
         dataset_mcps: List[MetadataChangeProposalWrapper] = []
@@ -872,7 +1190,7 @@ class Mapper:
         if dataset is None:
             return dataset_mcps
 
-        logger.debug(f"Processing dataset {dataset.name}")
+        logger.debug(f"Processing dataset {dataset.name} (embedded={is_embedded})")
 
         if not any(
             [
@@ -964,13 +1282,27 @@ class Mapper:
             dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
 
             if self.__config.extract_lineage is True:
-                dataset_mcps.extend(self.extract_lineage(table, ds_urn, dax_table_mappings))
+                dataset_mcps.extend(
+                    self.extract_lineage(table, ds_urn, dax_table_mappings)
+                )
 
-            self.append_container_mcp(
-                dataset_mcps,
-                ds_urn,
-                dataset,
-            )
+            # For embedded datasources in V2 mode, place in Report container
+            # Otherwise, use standard container hierarchy (dataset or workspace)
+            if is_embedded and report_container_key:
+                logger.debug(
+                    f"Adding embedded datasource table {table.name} to Report container"
+                )
+                self.append_container_mcp(
+                    dataset_mcps,
+                    ds_urn,
+                    report_container_key,
+                )
+            else:
+                self.append_container_mcp(
+                    dataset_mcps,
+                    ds_urn,
+                    dataset=dataset,
+                )
 
             self.append_tag_mcp(
                 dataset_mcps,
@@ -1270,9 +1602,13 @@ class Mapper:
         self,
         list_of_mcps: List[MetadataChangeProposalWrapper],
         entity_urn: str,
+        container_key: Optional[ContainerKey] = None,
         dataset: Optional[powerbi_data_classes.PowerBIDataset] = None,
     ) -> None:
-        if self.__config.extract_datasets_to_containers and isinstance(
+        # If a specific container key is provided, use it (e.g., Report container)
+        if container_key is not None:
+            pass  # Use the provided container_key
+        elif self.__config.extract_datasets_to_containers and isinstance(
             dataset, powerbi_data_classes.PowerBIDataset
         ):
             container_key = dataset.get_dataset_key(self.__config.platform_name)
@@ -1479,12 +1815,295 @@ class Mapper:
         # Return set of work_unit
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
+    def extract_visualizations_from_pbix(
+        self,
+        report: powerbi_data_classes.Report,
+        workspace: powerbi_data_classes.Workspace,
+        ds_mcps: List[MetadataChangeProposalWrapper],
+        pbix_metadata: Dict[str, Any],
+    ) -> Tuple[List[MetadataChangeProposalWrapper], Dict[str, List[str]]]:
+        """
+        Extract individual visualizations from PBIX metadata and create Chart entities.
+
+        Returns:
+            Tuple of (visualization_mcps, page_to_viz_urns_map)
+        """
+        visualization_mcps: List[MetadataChangeProposalWrapper] = []
+        page_to_viz_urns: Dict[str, List[str]] = {}
+
+        lineage_info = pbix_metadata.get("lineage", {})
+        visualization_lineages = lineage_info.get("visualization_lineage", [])
+
+        if not visualization_lineages:
+            logger.warning(
+                f"No visualization lineage found in PBIX for report {report.name}"
+            )
+            return visualization_mcps, page_to_viz_urns
+
+        logger.info(
+            f"Processing {len(visualization_lineages)} visualizations from PBIX"
+        )
+
+        # Build dataset URN map
+        dataset_urn_map: Dict[str, str] = {}
+        for mcp in ds_mcps:
+            if mcp.entityType == DatasetUrn.ENTITY_TYPE and mcp.entityUrn:
+                urn_parts = mcp.entityUrn.split(",")
+                if len(urn_parts) >= 2:
+                    dataset_id = urn_parts[1]
+                    if "." in dataset_id:
+                        table_name = dataset_id.split(".")[-1]
+                        normalized_name = table_name.replace("_", " ").lower()
+                        dataset_urn_map[normalized_name] = mcp.entityUrn
+
+        for viz_lineage in visualization_lineages:
+            viz_id = viz_lineage.get("visualizationId")
+            viz_type = viz_lineage.get("visualizationType", "visual")
+            section_name = viz_lineage.get("sectionName", "Unknown Page")
+            section_id = viz_lineage.get("sectionId")
+
+            if not viz_id:
+                logger.warning(f"Skipping visualization without ID in {section_name}")
+                continue
+
+            # Create chart URN for this visualization
+            chart_urn = builder.make_chart_urn(
+                platform=self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                name=f"{report.get_urn_part()}.visualizations.{viz_id}",
+            )
+
+            # Track this visualization for the page
+            if section_id:
+                if section_id not in page_to_viz_urns:
+                    page_to_viz_urns[section_id] = []
+                page_to_viz_urns[section_id].append(chart_urn)
+
+            # Build InputFields for column-level lineage
+            input_fields: List[InputField] = []
+            columns_processed = set()
+            datasets_used = set()
+
+            # Process columns
+            for col_lineage in viz_lineage.get("columns", []):
+                source_table = col_lineage.get("sourceTable")
+                source_column = col_lineage.get("sourceColumn")
+
+                if source_table and source_column:
+                    dataset_urn = dataset_urn_map.get(
+                        source_table.replace("_", " ").lower()
+                    )
+                    if dataset_urn:
+                        datasets_used.add(dataset_urn)
+                        field_key = f"{dataset_urn}:{source_column}"
+                        if field_key not in columns_processed:
+                            columns_processed.add(field_key)
+                            input_fields.append(
+                                InputField(
+                                    schemaFieldUrn=builder.make_schema_field_urn(
+                                        parent_urn=dataset_urn,
+                                        field_path=source_column,
+                                    ),
+                                    schemaField=SchemaFieldClass(
+                                        fieldPath=source_column,
+                                        type=SchemaFieldDataTypeClass(
+                                            type=powerbi_data_classes.FIELD_TYPE_MAPPING.get(
+                                                col_lineage.get("dataType", "String"),
+                                                powerbi_data_classes.FIELD_TYPE_MAPPING[
+                                                    "String"
+                                                ],
+                                            )
+                                        ),
+                                        nativeDataType=col_lineage.get(
+                                            "dataType", "String"
+                                        ),
+                                    ),
+                                )
+                            )
+
+            # Process measures
+            for measure_lineage in viz_lineage.get("measures", []):
+                source_entity = measure_lineage.get("sourceEntity")
+                measure_name = measure_lineage.get("measureName")
+
+                if source_entity and measure_name:
+                    dataset_urn = dataset_urn_map.get(
+                        source_entity.replace("_", " ").lower()
+                    )
+                    if dataset_urn:
+                        datasets_used.add(dataset_urn)
+                        field_key = f"{dataset_urn}:{measure_name}"
+                        if field_key not in columns_processed:
+                            columns_processed.add(field_key)
+                            input_fields.append(
+                                InputField(
+                                    schemaFieldUrn=builder.make_schema_field_urn(
+                                        parent_urn=dataset_urn,
+                                        field_path=measure_name,
+                                    ),
+                                    schemaField=SchemaFieldClass(
+                                        fieldPath=measure_name,
+                                        type=SchemaFieldDataTypeClass(
+                                            type=powerbi_data_classes.FIELD_TYPE_MAPPING.get(
+                                                "measure",
+                                                powerbi_data_classes.FIELD_TYPE_MAPPING[
+                                                    "String"
+                                                ],
+                                            )
+                                        ),
+                                        nativeDataType="measure",
+                                    ),
+                                )
+                            )
+
+            # Create ChartInfo
+            chart_inputs = sorted(list(datasets_used)) if datasets_used else []
+            chart_info = ChartInfoClass(
+                title=f"{section_name} - {viz_type}",
+                description=f"{viz_type} visualization on page {section_name}",
+                lastModified=ChangeAuditStamps(),
+                inputs=chart_inputs,
+                customProperties={
+                    "visualizationType": viz_type,
+                    "visualizationId": viz_id,
+                    "pageName": section_name,
+                    "reportId": report.id,
+                    "reportName": report.name,
+                },
+            )
+
+            # Create MCPs for this visualization
+            chart_mcps_list = [
+                self.new_mcp(entity_urn=chart_urn, aspect=chart_info),
+                self.new_mcp(entity_urn=chart_urn, aspect=StatusClass(removed=False)),
+                self.new_mcp(
+                    entity_urn=chart_urn,
+                    aspect=SubTypesClass(
+                        typeNames=[BIAssetSubTypes.POWERBI_VISUALIZATION]
+                    ),
+                ),
+                self.new_mcp(
+                    entity_urn=chart_urn,
+                    aspect=BrowsePathsClass(
+                        paths=[
+                            f"/{Constant.PLATFORM_NAME}/{workspace.name}/{report.name}/{section_name}"
+                        ]
+                    ),
+                ),
+            ]
+
+            # Add InputFields if we have column-level lineage
+            if input_fields:
+                chart_mcps_list.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=chart_urn,
+                        aspect=InputFields(
+                            fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                        ),
+                    )
+                )
+
+            # Add to Report container
+            report_container_key = self.gen_report_key(report.id)
+            self.append_container_mcp(chart_mcps_list, chart_urn, report_container_key)
+
+            visualization_mcps.extend(chart_mcps_list)
+
+        logger.info(
+            f"Created {len(visualization_mcps)} MCPs for {len(visualization_lineages)} visualizations "
+            f"across {len(page_to_viz_urns)} pages"
+        )
+
+        return visualization_mcps, page_to_viz_urns
+
+    def pages_as_dashboards_v2(
+        self,
+        report: powerbi_data_classes.Report,
+        pages: List[powerbi_data_classes.Page],
+        workspace: powerbi_data_classes.Workspace,
+        ds_mcps: List[MetadataChangeProposalWrapper],
+        page_to_viz_urns: Dict[str, List[str]],
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Create Power BI Pages as Dashboard entities with links to their visualizations.
+        """
+        dashboard_mcps = []
+
+        if not pages:
+            return []
+
+        logger.debug(f"Converting {len(pages)} pages to dashboards")
+
+        for page in pages:
+            if page is None:
+                continue
+
+            # Create dashboard URN for the page
+            dashboard_urn = builder.make_dashboard_urn(
+                platform=self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                name=f"{report.get_urn_part()}.pages.{page.id}",
+            )
+
+            # Get visualization URNs for this page
+            chart_urn_list = page_to_viz_urns.get(page.id, [])
+
+            logger.debug(
+                f"Converting page {page.displayName} to dashboard with {len(chart_urn_list)} visualizations"
+            )
+
+            # Create DashboardInfo
+            dashboard_info = DashboardInfoClass(
+                title=page.displayName or f"Page {page.order}",
+                description=f"Power BI Page from report {report.name}",
+                charts=chart_urn_list,
+                lastModified=ChangeAuditStamps(),
+                customProperties={
+                    "order": str(page.order),
+                    "reportId": report.id,
+                    "reportName": report.name,
+                    "pageId": page.id,
+                    "visualizationCount": str(len(chart_urn_list)),
+                },
+            )
+
+            info_mcp = self.new_mcp(entity_urn=dashboard_urn, aspect=dashboard_info)
+            status_mcp = self.new_mcp(
+                entity_urn=dashboard_urn, aspect=StatusClass(removed=False)
+            )
+            subtype_mcp = self.new_mcp(
+                entity_urn=dashboard_urn,
+                aspect=SubTypesClass(
+                    typeNames=[BIAssetSubTypes.POWERBI_PAGE_AS_DASHBOARD]
+                ),
+            )
+            browse_path_mcp = self.new_mcp(
+                entity_urn=dashboard_urn,
+                aspect=BrowsePathsClass(
+                    paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}/{report.name}"]
+                ),
+            )
+
+            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
+
+            # Add to Report container
+            report_container_key = self.gen_report_key(report.id)
+            self.append_container_mcp(list_of_mcps, dashboard_urn, report_container_key)
+
+            dashboard_mcps.extend(list_of_mcps)
+
+        return dashboard_mcps
+
     def pages_to_chart(
         self,
         pages: List[powerbi_data_classes.Page],
         workspace: powerbi_data_classes.Workspace,
         ds_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Legacy method: Convert pages to charts.
+        For better alignment with Tableau, use pages_as_dashboards instead.
+        """
         chart_mcps = []
 
         # Return empty list if input list is empty
@@ -1535,7 +2154,7 @@ class Mapper:
             subtype_mcp = MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=SubTypesClass(
-                    typeNames=[BIAssetSubTypes.POWERBI_PAGE],
+                    typeNames=[BIAssetSubTypes.POWERBI_PAGE_AS_DASHBOARD],
                 ),
             )
 
@@ -1565,6 +2184,46 @@ class Mapper:
 
         return chart_mcps
 
+    def gen_report_key(self, report_id: str) -> powerbi_data_classes.ReportKey:
+        """Generate a container key for a Power BI Report."""
+        return powerbi_data_classes.ReportKey(
+            platform=self.__config.platform_name,
+            instance=self.__config.platform_instance,
+            report=report_id,
+        )
+
+    def emit_report_as_container(
+        self,
+        workspace: powerbi_data_classes.Workspace,
+        report: powerbi_data_classes.Report,
+        user_mcps: List[MetadataChangeProposalWrapper],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit Power BI Report as a Container entity (similar to Tableau Workbook).
+        This aligns with Tableau's entity structure where workbooks are containers.
+        """
+        report_container_key = self.gen_report_key(report.id)
+
+        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        owner_urn = user_urn_list[0] if user_urn_list else None
+
+        parent_container_key = workspace.get_workspace_key(
+            self.__config.platform_name,
+            self.__config.platform_instance,
+            self.__config.workspace_id_as_urn_part,
+        )
+
+        yield from gen_containers(
+            container_key=report_container_key,
+            name=report.name or "",
+            parent_container_key=parent_container_key,
+            description=report.description,
+            sub_types=[BIContainerSubTypes.POWERBI_REPORT],
+            owner_urn=owner_urn,
+            external_url=report.webUrl,
+            tags=report.tags if report.tags else None,
+        )
+
     def report_to_dashboard(
         self,
         workspace: powerbi_data_classes.Workspace,
@@ -1574,7 +2233,9 @@ class Mapper:
         dataset_edges: List[EdgeClass],
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi report to Datahub dashboard
+        Map PowerBi report to Datahub dashboard.
+        NOTE: This is the legacy method. For better entity structure alignment with Tableau,
+        use emit_report_as_container + pages_as_dashboards instead.
         """
 
         dashboard_urn = builder.make_dashboard_urn(
@@ -1593,7 +2254,9 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
-            datasetEdges=dataset_edges if self.__config.extract_dataset_to_report_lineage else None,
+            datasetEdges=dataset_edges
+            if self.__config.extract_dataset_to_report_lineage
+            else None,
         )
 
         info_mcp = self.new_mcp(
@@ -1678,16 +2341,21 @@ class Mapper:
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
     ) -> Iterable[MetadataWorkUnit]:
+        """
+        Convert Power BI Report to DataHub entities.
+        Supports two modes:
+        1. Legacy: Report -> Dashboard, Pages -> Charts
+        2. Tableau-style: Report -> Container, Pages -> Dashboards, Visualizations -> Charts
+        """
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        logger.debug(f"Converting report={report.name} to datahub dashboard")
-        # Convert user to CorpUser
+        # Convert users to CorpUser
         user_mcps = self.to_datahub_users(report.users)
-        # Convert pages to charts. A report has a single dataset and the same dataset used in pages to create visualization
-        ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
-        chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
-        # collect all upstream datasets; using a set to retain unique urns
+        # Convert dataset tables to dataset entities
+        ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
+
+        # Collect all upstream datasets for lineage
         dataset_urns = {
             dataset.entityUrn
             for dataset in ds_mcps
@@ -1697,23 +2365,87 @@ class Mapper:
             EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
         ]
 
-        # Let's convert report to datahub dashboard
-        report_mcps = self.report_to_dashboard(
-            workspace=workspace,
-            report=report,
-            chart_mcps=chart_mcps,
-            user_mcps=user_mcps,
-            dataset_edges=dataset_edges,
-        )
+        if self.__config.extract_reports_as_containers:
+            logger.debug(
+                f"Converting report={report.name} with Reports as Containers (enhanced hierarchy)"
+            )
 
-        # Now add MCPs in sequence
-        mcps.extend(ds_mcps)
-        if self.__config.ownership.create_corp_user:
-            mcps.extend(user_mcps)
-        mcps.extend(chart_mcps)
-        mcps.extend(report_mcps)
+            # Enhanced hierarchy: Report is a Container, Pages are Dashboards, Visualizations are Charts
 
-        return map(self._to_work_unit, mcps)
+            # Emit Report as Container
+            yield from self.emit_report_as_container(workspace, report, user_mcps)
+
+            # Get report container key for embedded datasources
+            report_container_key = self.gen_report_key(report.id)
+
+            # Convert dataset tables - if embedded, place in Report container
+            is_embedded_dataset = (
+                report.dataset is not None and report.dataset_id is not None
+            )
+            ds_mcps = self.to_datahub_dataset(
+                report.dataset,
+                workspace,
+                report_container_key=report_container_key
+                if is_embedded_dataset
+                else None,
+                is_embedded=is_embedded_dataset,
+            )
+
+            # Extract individual visualizations as Charts if we have PBIX data
+            visualization_mcps: List[MetadataChangeProposalWrapper] = []
+            page_to_viz_map: Dict[str, List[str]] = {}  # page_id -> [viz_urns]
+
+            if hasattr(report, "pbix_metadata") and report.pbix_metadata:
+                logger.info(
+                    f"Extracting individual visualizations from PBIX for report {report.name}"
+                )
+                visualization_mcps, page_to_viz_map = (
+                    self.extract_visualizations_from_pbix(
+                        report, workspace, ds_mcps, report.pbix_metadata
+                    )
+                )
+                logger.info(f"Extracted {len(visualization_mcps)} visualization MCPs")
+            else:
+                logger.debug(
+                    "No PBIX metadata available, skipping individual visualization extraction"
+                )
+
+            # Create Pages as Dashboards within the Report container
+            page_dashboard_mcps = self.pages_as_dashboards_v2(
+                report, report.pages, workspace, ds_mcps, page_to_viz_map
+            )
+
+            mcps.extend(ds_mcps)
+            if self.__config.ownership.create_corp_user:
+                mcps.extend(user_mcps)
+            mcps.extend(visualization_mcps)
+            mcps.extend(page_dashboard_mcps)
+        else:
+            logger.debug(
+                f"Converting report={report.name} using legacy hierarchy (backward compatible)"
+            )
+
+            # Legacy hierarchy (default, backward compatible): Report is a Dashboard, Pages are Charts
+
+            # Convert pages to charts
+            chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
+
+            # Convert report to dashboard
+            report_mcps = self.report_to_dashboard(
+                workspace=workspace,
+                report=report,
+                chart_mcps=chart_mcps,
+                user_mcps=user_mcps,
+                dataset_edges=dataset_edges,
+            )
+
+            mcps.extend(ds_mcps)
+            if self.__config.ownership.create_corp_user:
+                mcps.extend(user_mcps)
+            mcps.extend(chart_mcps)
+            mcps.extend(report_mcps)
+
+        return map(self._to_work_unit, mcps)  # type: ignore[return-value]
 
 
 @platform_name("PowerBI")
@@ -1724,6 +2456,7 @@ class Mapper:
     "Enabled by default",
     subtype_modifier=[
         SourceCapabilityModifier.POWERBI_WORKSPACE,
+        SourceCapabilityModifier.POWERBI_REPORT,
         SourceCapabilityModifier.POWERBI_DATASET,
     ],
 )
@@ -1893,28 +2626,30 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
             new_powerbi_dataset,
         )
-        
-        logger.debug(f"Converting PBIX data model to PowerBIDataset for report {report.name}")
-        
-        data_model = pbix_metadata.get("data_model_parsed", {})
-        
+
+        logger.debug(
+            f"Converting PBIX data model to PowerBIDataset for report {report.name}"
+        )
+
         # Create dataset from report's existing dataset or create new one
         if report.dataset:
             dataset = report.dataset
         else:
             # Create a new dataset based on the report
             dataset = new_powerbi_dataset(
-                id=report.dataset_id or report.id,
-                name=report.name,
-                workspace_id=workspace.id,
+                workspace=workspace,
+                raw_instance={
+                    "id": report.dataset_id or report.id,
+                    "name": report.name,
+                },
             )
-        
+
         # Update dataset with PBIX metadata
         dataset.workspace_id = workspace.id
         dataset.workspace_name = workspace.name
-        
+
         return dataset
-    
+
     def pbix_to_powerbi_tables(
         self,
         pbix_tables: List[Dict],
@@ -1922,25 +2657,25 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[powerbi_data_classes.Table]:
         """Convert PBIX tables to Table objects with M-query expressions."""
         from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-            Table,
+            FIELD_TYPE_MAPPING,
             Column,
             Measure,
-            FIELD_TYPE_MAPPING,
+            Table,
         )
-        
+
         logger.debug(f"Converting {len(pbix_tables)} PBIX tables to Table objects")
-        
+
         tables = []
         for pbix_table in pbix_tables:
             table_name = pbix_table.get("name", "Unknown")
             logger.debug(f"Processing table: {table_name}")
-            
+
             # Create columns
             columns = []
             for pbix_col in pbix_table.get("columns", []):
                 col_name = pbix_col.get("name", "Unknown")
                 data_type = pbix_col.get("dataType", "String")
-                
+
                 column = Column(
                     name=col_name,
                     dataType=data_type,
@@ -1953,22 +2688,25 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     description=pbix_col.get("formatString"),
                 )
                 columns.append(column)
-            
+
             # Create measures
             measures = []
             for pbix_measure in pbix_table.get("measures", []):
                 measure_name = pbix_measure.get("name", "Unknown")
-                
+
+                data_type = FIELD_TYPE_MAPPING.get("String")
                 measure = Measure(
                     name=measure_name,
                     expression=pbix_measure.get("expression", ""),
                     isHidden=pbix_measure.get("isHidden", False),
                     dataType="measure",
-                    datahubDataType=FIELD_TYPE_MAPPING.get("String"),
-                    formatString=pbix_measure.get("formatString"),
+                    datahubDataType=data_type
+                    if data_type is not None
+                    else NullTypeClass(),
+                    description=pbix_measure.get("formatString"),
                 )
                 measures.append(measure)
-            
+
             # Extract M-query expression from partitions
             expression = None
             partitions = pbix_table.get("partitions", [])
@@ -1977,7 +2715,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 partition = partitions[0]
                 source = partition.get("source", {})
                 expression = source.get("expression")
-            
+
             # Create table with full_name using friendly format: dataset.name.table.name
             table = Table(
                 name=table_name,
@@ -1988,10 +2726,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 expression=expression,
             )
             tables.append(table)
-        
+
         logger.debug(f"Created {len(tables)} Table objects from PBIX")
         return tables
-    
+
     def pbix_to_powerbi_pages(
         self,
         pbix_sections: List[Dict],
@@ -1999,13 +2737,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[powerbi_data_classes.Page]:
         """Convert PBIX layout sections to Page objects."""
         from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Page
-        
+
         logger.debug(f"Converting {len(pbix_sections)} PBIX sections to Page objects")
-        
+
         pages = []
         for idx, section in enumerate(pbix_sections):
             page_name = section.get("displayName", section.get("name", "Unknown"))
-            
+
             page = Page(
                 id=section.get("id", page_name),
                 displayName=page_name,
@@ -2013,10 +2751,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 order=idx,  # Use index as order since not available in PBIX
             )
             pages.append(page)
-        
+
         logger.debug(f"Created {len(pages)} Page objects from PBIX")
         return pages
-    
+
     def process_pbix_visualizations(
         self,
         pbix_metadata: Dict[str, Any],
@@ -2026,17 +2764,19 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Process visualizations from PBIX and create charts with column-level lineage.
-        
+
         This extracts visualization data and column-level lineage from the PBIX parser's
         output and creates chart MCPs with InputFields for column-level tracking.
         """
         chart_mcps = []
-        
+
         lineage_info = pbix_metadata.get("lineage", {})
         visualization_lineages = lineage_info.get("visualization_lineage", [])
-        
-        logger.info(f"Processing {len(visualization_lineages)} visualizations from PBIX")
-        
+
+        logger.info(
+            f"Processing {len(visualization_lineages)} visualizations from PBIX"
+        )
+
         # Build dataset URN map with table names
         dataset_urn_map: Dict[str, str] = {}  # table_name -> dataset_urn
         for mcp in ds_mcps:
@@ -2051,43 +2791,45 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         # Normalize: replace underscores with spaces for consistent lookup
                         normalized_name = table_name.replace("_", " ").lower()
                         dataset_urn_map[normalized_name] = mcp.entityUrn
-        
+
         for viz_lineage in visualization_lineages:
             viz_id = viz_lineage.get("visualizationId")
             viz_type = viz_lineage.get("visualizationType", "visual")
             section_name = viz_lineage.get("sectionName", "Unknown Page")
-            
+
             # Create chart URN
             chart_urn = builder.make_chart_urn(
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance,
                 name=f"{report.get_urn_part()}.{viz_id}",
             )
-            
+
             logger.debug(f"Processing visualization: {viz_type} on page {section_name}")
-            
+
             # Build InputFields for column-level lineage
             input_fields: List[InputField] = []
             columns_processed = set()  # Track unique column references
             datasets_used = set()  # Track which datasets are actually used
-            
+
             # Process columns
             for col_lineage in viz_lineage.get("columns", []):
                 source_table = col_lineage.get("sourceTable")
                 source_column = col_lineage.get("sourceColumn")
-                
+
                 if source_table and source_column:
                     # Find the matching dataset URN (normalize spaces to match map keys)
-                    dataset_urn = dataset_urn_map.get(source_table.replace("_", " ").lower())
+                    dataset_urn = dataset_urn_map.get(
+                        source_table.replace("_", " ").lower()
+                    )
                     if dataset_urn:
                         # Track that this dataset is used
                         datasets_used.add(dataset_urn)
-                        
+
                         # Create unique key to avoid duplicates
                         field_key = f"{dataset_urn}:{source_column}"
                         if field_key not in columns_processed:
                             columns_processed.add(field_key)
-                            
+
                             # Create InputField for this column
                             input_fields.append(
                                 InputField(
@@ -2100,42 +2842,46 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                                         type=SchemaFieldDataTypeClass(
                                             type=powerbi_data_classes.FIELD_TYPE_MAPPING.get(
                                                 col_lineage.get("dataType", "String"),
-                                                powerbi_data_classes.FIELD_TYPE_MAPPING["String"]
+                                                powerbi_data_classes.FIELD_TYPE_MAPPING[
+                                                    "String"
+                                                ],
                                             )
                                         ),
-                                        nativeDataType=col_lineage.get("dataType", "String"),
+                                        nativeDataType=col_lineage.get(
+                                            "dataType", "String"
+                                        ),
                                     ),
                                 )
                             )
-                            
+
                         logger.debug(
                             f"  Added InputField: {source_table}.{source_column}"
                         )
-            
+
             # Process measures
             for measure_lineage in viz_lineage.get("measures", []):
                 source_entity = measure_lineage.get("sourceEntity")
                 measure_name = measure_lineage.get("measureName")
-                
+
                 if source_entity and measure_name:
                     # Find the matching dataset URN (normalize spaces to match map keys)
                     normalized_entity = source_entity.replace("_", " ").lower()
                     dataset_urn = dataset_urn_map.get(normalized_entity)
-                    
+
                     if not dataset_urn:
                         logger.debug(
                             f"  ⚠ Could not find URN for measure source '{source_entity}' (normalized: '{normalized_entity}')"
                         )
-                    
+
                     if dataset_urn:
                         # Track that this dataset is used
                         datasets_used.add(dataset_urn)
-                        
+
                         # Create unique key to avoid duplicates
                         field_key = f"{dataset_urn}:{measure_name}"
                         if field_key not in columns_processed:
                             columns_processed.add(field_key)
-                            
+
                             # Create InputField for this measure (measures are treated as schema fields)
                             input_fields.append(
                                 InputField(
@@ -2148,24 +2894,26 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                                         type=SchemaFieldDataTypeClass(
                                             type=powerbi_data_classes.FIELD_TYPE_MAPPING.get(
                                                 "measure",  # Measures are a special type
-                                                powerbi_data_classes.FIELD_TYPE_MAPPING["String"]
+                                                powerbi_data_classes.FIELD_TYPE_MAPPING[
+                                                    "String"
+                                                ],
                                             )
                                         ),
                                         nativeDataType="measure",
                                     ),
                                 )
                             )
-                            
+
                             logger.debug(
                                 f"  Added InputField (measure): {source_entity}.{measure_name}"
                             )
-            
+
             # Create chart info and InputFields - they must be consistent
             # IMPORTANT: For proper display in DataHub, charts need both:
             # 1. Table-level lineage (inputs field)
             # 2. Column-level lineage (InputFields aspect)
             # These should be aligned - only include datasets that have column references
-            
+
             if datasets_used and input_fields:
                 # We have column-level tracking - use only datasets with columns
                 chart_inputs = sorted(list(datasets_used))
@@ -2175,23 +2923,28 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 # No column-level tracking available - skip this visualization or use all datasets
                 # For now, log a warning and include all datasets without InputFields
-                chart_inputs = [mcp.entityUrn for mcp in ds_mcps if mcp.entityType == DatasetUrn.ENTITY_TYPE]
+                chart_inputs = [
+                    str(mcp.entityUrn)
+                    for mcp in ds_mcps
+                    if mcp.entityType == DatasetUrn.ENTITY_TYPE
+                    and mcp.entityUrn is not None
+                ]
                 logger.warning(
                     f"  Visualization {viz_id} has no column-level tracking - including all {len(chart_inputs)} dataset(s) without InputFields"
                 )
-            
+
             chart_info = ChartInfoClass(
                 title=f"{section_name} - {viz_type}",
                 description=f"Visualization of type {viz_type}",
                 lastModified=ChangeAuditStamps(),
                 inputs=chart_inputs,
             )
-            
+
             # Browse path
             browse_path = BrowsePathsClass(
                 paths=[f"/powerbi/{workspace.name}/{report.name}/{section_name}"]
             )
-            
+
             # Create MCPs for this chart (core aspects)
             chart_mcps.extend(
                 MetadataChangeProposalWrapper.construct_many(
@@ -2204,7 +2957,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     ],
                 )
             )
-            
+
             # Add InputFields aspect ONLY if we have column-level information
             # This ensures consistency between table-level and column-level lineage
             if input_fields and datasets_used:
@@ -2219,12 +2972,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 logger.debug(
                     f"  Added InputFields aspect with {len(input_fields)} fields for {len(datasets_used)} dataset(s)"
                 )
-        
-        logger.info(
-            f"Created {len(chart_mcps)} chart MCPs from PBIX visualizations"
-        )
+
+        logger.info(f"Created {len(chart_mcps)} chart MCPs from PBIX visualizations")
         return chart_mcps
-    
+
     def extract_dax_column_lineage(
         self,
         table: powerbi_data_classes.Table,
@@ -2234,169 +2985,63 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Dict[str, str]:
         """
         Extract lineage from DAX expressions in table definitions, measures, and calculated columns.
-        
+
         This method parses DAX expressions and extracts table/column references,
         building a mapping of table names referenced in DAX to their actual dataset URNs.
-        
+
         Args:
             existing_table_mappings: Previously built mappings to include (e.g., from earlier tables)
-        
+
         Returns:
             Dictionary mapping table names (from DAX) to their actual PowerBI dataset URNs
         """
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-        )
-        
+
         # Build mapping of table names to their URNs within this dataset
         # This ensures DAX references like 'Sales'[Amount] map to the actual Sales table URN
         table_urn_mapping: Dict[str, str] = {}
-        
+
         # Start with existing mappings if provided
         if existing_table_mappings:
             table_urn_mapping.update(existing_table_mappings)
-        
+
         # Note: We don't need to rebuild the mapping here because it's already
         # built completely before any DAX processing begins (in process_report_from_pbix)
         # We just use the existing_table_mappings that were passed in
-        
+
         # Process the table's own DAX expression (for DAX calculated tables)
-        # This creates lineage from source tables to the DAX-calculated table
         if table.expression and _is_dax_expression(table.expression):
-            self.reporter.dax_parse_attempts += 1
-            try:
-                logger.debug(
-                    f"Extracting lineage from DAX table expression: {table.name}"
-                )
-                references = extract_table_column_references(table.expression)
-                
-                if references:
-                    logger.debug(
-                        f"Found {len(references)} table/column references in table {table.name}"
-                    )
-                    self.reporter.dax_parse_successes += 1
-                    
-                    # Log the references and verify they map to real tables
-                    for table_name, column_name in references:
-                        if table_name in table_urn_mapping:
-                            urn = table_urn_mapping[table_name]
-                            if column_name:
-                                logger.debug(
-                                    f"  ✓ {table_name}.{column_name} -> {urn}"
-                                )
-                            else:
-                                logger.debug(
-                                    f"  ✓ {table_name} (table reference) -> {urn}"
-                                )
-                        else:
-                            available_tables = sorted(list(table_urn_mapping.keys()))
-                            logger.warning(
-                                f"  ✗ {table_name} not found in dataset tables - cannot map to URN. "
-                                f"Available: {available_tables}"
-                            )
-                    else:
-                        logger.debug(
-                            f"No table/column references found in table {table.name}"
-                        )
-                    
-            except Exception as e:
-                logger.warning(
-                    f"Failed to parse DAX expression for table {table.name}: {e}"
-                )
-                self.reporter.dax_parse_failures += 1
-        
+            references = self.mapper._extract_and_log_dax_references(
+                table.expression, table.name, "table expression"
+            )
+            if references:
+                self.mapper._log_dax_reference_mappings(references, table_urn_mapping)
+
         # Process measures with DAX expressions
-        for measure in table.measures:
-            if measure.expression:
-                self.reporter.dax_parse_attempts += 1
-                try:
-                    logger.debug(
-                        f"Extracting lineage from DAX measure: {measure.name}"
+        if table.measures:
+            for measure in table.measures:
+                if measure.expression:
+                    references = self.mapper._extract_and_log_dax_references(
+                        measure.expression, measure.name, "measure"
                     )
-                    references = extract_table_column_references(measure.expression)
-                    
                     if references:
-                        logger.debug(
-                            f"Found {len(references)} table/column references in measure {measure.name}"
+                        self.mapper._log_dax_reference_mappings(
+                            references, table_urn_mapping
                         )
-                        self.reporter.dax_parse_successes += 1
-                        
-                        # Log the references and verify they map to real tables
-                        for table_name, column_name in references:
-                            if table_name in table_urn_mapping:
-                                urn = table_urn_mapping[table_name]
-                                if column_name:
-                                    logger.debug(
-                                        f"  ✓ {table_name}.{column_name} -> {urn}"
-                                    )
-                                else:
-                                    logger.debug(
-                                        f"  ✓ {table_name} (table reference) -> {urn}"
-                                    )
-                            else:
-                                available_tables = sorted(list(table_urn_mapping.keys()))
-                                logger.warning(
-                                    f"  ✗ {table_name} not found in dataset tables - cannot map to URN. "
-                                    f"Available: {available_tables}"
-                                )
-                    else:
-                        logger.debug(
-                            f"No table/column references found in measure {measure.name}"
-                        )
-                        
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to parse DAX expression for measure {measure.name}: {e}"
-                    )
-                    self.reporter.dax_parse_failures += 1
-        
+
         # Process calculated columns with DAX expressions
-        for column in table.columns:
-            if column.expression:
-                self.reporter.dax_parse_attempts += 1
-                try:
-                    logger.debug(
-                        f"Extracting lineage from DAX calculated column: {column.name}"
+        if table.columns:
+            for column in table.columns:
+                if column.expression:
+                    references = self.mapper._extract_and_log_dax_references(
+                        column.expression, column.name, "calculated column"
                     )
-                    references = extract_table_column_references(column.expression)
-                    
                     if references:
-                        logger.debug(
-                            f"Found {len(references)} table/column references in column {column.name}"
+                        self.mapper._log_dax_reference_mappings(
+                            references, table_urn_mapping
                         )
-                        self.reporter.dax_parse_successes += 1
-                        
-                        # Log the references and verify they map to real tables
-                        for table_name, column_name in references:
-                            if table_name in table_urn_mapping:
-                                urn = table_urn_mapping[table_name]
-                                if column_name:
-                                    logger.debug(
-                                        f"  ✓ {table_name}.{column_name} -> {urn}"
-                                    )
-                                else:
-                                    logger.debug(
-                                        f"  ✓ {table_name} (table reference) -> {urn}"
-                                    )
-                            else:
-                                available_tables = sorted(list(table_urn_mapping.keys()))
-                                logger.warning(
-                                    f"  ✗ {table_name} not found in dataset tables - cannot map to URN. "
-                                    f"Available: {available_tables}"
-                                )
-                    else:
-                        logger.debug(
-                            f"No table/column references found in column {column.name}"
-                        )
-                        
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to parse DAX expression for column {column.name}: {e}"
-                    )
-                    self.reporter.dax_parse_failures += 1
-        
+
         return table_urn_mapping
-    
+
     def process_report_from_pbix(
         self,
         report: powerbi_data_classes.Report,
@@ -2405,7 +3050,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Extract report metadata from .pbix file instead of using REST API.
-        
+
         This method:
         1. Parses the .pbix file
         2. Extracts DataModel (tables, columns, measures, relationships)
@@ -2416,37 +3061,42 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         7. Generates MCPs for ingestion
         """
         from datahub.ingestion.source.powerbi.parse_pbix import PBIXParser
-        
+
         logger.info(f"Processing report {report.name} from PBIX file: {pbix_path}")
-        
+
         try:
             # Parse the .pbix file
             pbix_parser = PBIXParser(pbix_path)
             pbix_metadata = pbix_parser.extract_metadata()
-            
+
             logger.debug(f"Successfully parsed PBIX file for report {report.name}")
-            
+
+            # Store PBIX metadata on the report for later use (e.g., visualization extraction)
+            report.pbix_metadata = pbix_metadata
+
             # Convert PBIX data to PowerBI data classes
             dataset = self.pbix_to_powerbi_dataset(pbix_metadata, report, workspace)
-            
+
             # Initialize DAX table mappings
             # This ensures that DAX references use real table URNs, not synthetic "dax_" tables
             all_dax_table_mappings: Dict[str, str] = {}
-            
+
             # Extract tables from PBIX data model if available
             if pbix_metadata.get("data_model_parsed"):
                 pbix_tables = pbix_metadata["data_model_parsed"].get("tables", [])
                 tables = self.pbix_to_powerbi_tables(pbix_tables, dataset)
                 dataset.tables = tables
-                
+
                 logger.info(
                     f"Extracted {len(tables)} tables from PBIX for report {report.name}"
                 )
-            
+
             # Build complete table URN mapping from dataset tables (whether from PBIX or REST API)
             # This ensures all table references can be resolved regardless of processing order
             if dataset.tables:
-                logger.debug(f"Building complete table URN mapping from {len(dataset.tables)} dataset tables")
+                logger.debug(
+                    f"Building complete table URN mapping from {len(dataset.tables)} dataset tables"
+                )
                 for table in dataset.tables:
                     # Use friendly name format: dataset.name.table.name (not UUIDs) - always lowercase
                     table_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2459,11 +3109,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     all_dax_table_mappings[table.name] = table_urn
                     all_dax_table_mappings[table.name.lower()] = table_urn
                     logger.debug(f"  Pre-mapped '{table.name}' -> {table_urn}")
-                
+
                 logger.debug(
                     f"Pre-built table mapping with {len(all_dax_table_mappings)} entries"
                 )
-                
+
                 # Now process DAX expressions for each table
                 # All table references should now be resolvable
                 for table in dataset.tables:
@@ -2472,45 +3122,51 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         table, dataset, workspace, all_dax_table_mappings
                     )
                     all_dax_table_mappings.update(dax_mappings)
-                
+
                 # Process M-queries for lineage, using the DAX table mappings
                 for table in dataset.tables:
                     if table.expression:
                         logger.debug(
                             f"Table {table.name} has M-query expression for lineage extraction"
                         )
-            
+
             # Extract pages from PBIX layout
             if pbix_metadata.get("layout_parsed"):
                 pbix_sections = pbix_metadata["layout_parsed"].get("sections", [])
                 pages = self.pbix_to_powerbi_pages(pbix_sections, dataset)
                 report.pages = pages
-                
+
                 logger.info(
                     f"Extracted {len(pages)} pages from PBIX for report {report.name}"
                 )
-            
+
             # Update report with dataset
             report.dataset = dataset
-            
+
             # Generate MCPs using existing mapper methods
             # Convert dataset tables to MCPs, passing the DAX table mappings
-            ds_mcps = self.mapper.to_datahub_dataset(dataset, workspace, all_dax_table_mappings)
-            
+            ds_mcps = self.mapper.to_datahub_dataset(
+                dataset, workspace, all_dax_table_mappings
+            )
+
             # Process visualizations and column-level lineage from PBIX
             chart_mcps = []
             if pbix_metadata.get("lineage") and pbix_metadata.get("layout_parsed"):
-                logger.info("Processing visualizations and column-level lineage from PBIX")
+                logger.info(
+                    "Processing visualizations and column-level lineage from PBIX"
+                )
                 chart_mcps = self.process_pbix_visualizations(
                     pbix_metadata, report, workspace, ds_mcps
                 )
             else:
                 # Fallback to basic page conversion if no lineage available
-                chart_mcps = self.mapper.pages_to_chart(report.pages, workspace, ds_mcps)
-            
+                chart_mcps = self.mapper.pages_to_chart(
+                    report.pages, workspace, ds_mcps
+                )
+
             # Convert users
             user_mcps = self.mapper.to_datahub_users(report.users)
-            
+
             # Collect dataset edges
             dataset_urns = {
                 dataset.entityUrn
@@ -2520,7 +3176,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             dataset_edges = [
                 EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
             ]
-            
+
             # Convert report to dashboard
             report_mcps = self.mapper.report_to_dashboard(
                 workspace=workspace,
@@ -2529,7 +3185,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 user_mcps=user_mcps,
                 dataset_edges=dataset_edges,
             )
-            
+
             # Combine all MCPs
             all_mcps = []
             all_mcps.extend(ds_mcps)
@@ -2537,18 +3193,16 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 all_mcps.extend(user_mcps)
             all_mcps.extend(chart_mcps)
             all_mcps.extend(report_mcps)
-            
+
             # Convert MCPs to work units
             for mcp in all_mcps:
                 wu = self.mapper._to_work_unit(mcp)
                 patched_wu = self._get_dashboard_patch_work_unit(wu)
                 if patched_wu:
                     yield patched_wu
-            
-            logger.info(
-                f"Successfully processed report {report.name} from PBIX file"
-            )
-            
+
+            logger.info(f"Successfully processed report {report.name} from PBIX file")
+
         except Exception as e:
             logger.error(
                 f"Error processing report {report.name} from PBIX file: {e}",
@@ -2559,7 +3213,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 message=f"Failed to process PBIX file for report {report.name}",
                 context=f"report_id={report.id}, workspace={workspace.name}, error={str(e)}",
             )
-    
+
     def emit_app(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -2687,27 +3341,35 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # Try PBIX-based extraction
                 import os
                 import tempfile
-                
+
                 temp_dir = tempfile.gettempdir()
                 pbix_output_path = os.path.join(temp_dir, f"powerbi_{report.id}.pbix")
-                
+
                 logger.info(f"Attempting PBIX export for report {report.name}")
                 pbix_path = self.powerbi_client.export_report_to_pbix(
                     workspace.id, report.id, pbix_output_path
                 )
-                
+
                 if pbix_path:
                     try:
-                        yield from self.process_report_from_pbix(report, workspace, pbix_path)
-                        logger.info(f"Successfully processed report {report.name} from PBIX")
+                        yield from self.process_report_from_pbix(
+                            report, workspace, pbix_path
+                        )
+                        logger.info(
+                            f"Successfully processed report {report.name} from PBIX"
+                        )
                     finally:
                         # Clean up temporary file
                         if os.path.exists(pbix_path):
                             try:
                                 os.remove(pbix_path)
-                                logger.debug(f"Cleaned up temporary PBIX file: {pbix_path}")
+                                logger.debug(
+                                    f"Cleaned up temporary PBIX file: {pbix_path}"
+                                )
                             except Exception as e:
-                                logger.warning(f"Failed to clean up PBIX file {pbix_path}: {e}")
+                                logger.warning(
+                                    f"Failed to clean up PBIX file {pbix_path}: {e}"
+                                )
                     continue
                 else:
                     # Skip this report on failure
@@ -2717,7 +3379,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         context=f"report_id={report.id}, workspace={workspace.name}",
                     )
                     continue
-            
+
             # Existing API-based extraction
             for work_unit in self.mapper.report_to_datahub_work_units(
                 report, workspace

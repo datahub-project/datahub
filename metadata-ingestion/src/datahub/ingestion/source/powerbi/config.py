@@ -560,6 +560,24 @@ class PowerBiDashboardSourceConfig(
         "from downloaded .pbix files instead of using REST API. Falls back to skipping report if download fails.",
     )
 
+    extract_reports_as_containers: bool = pydantic.Field(
+        default=False,
+        description="Extract Power BI Reports as Container entities (like Tableau Workbooks) instead of Dashboard entities. "
+        "When enabled, the entity hierarchy becomes: Report (Container) -> Pages (Dashboards) -> Visualizations (Charts). "
+        "When disabled (default), the legacy structure is used: Report (Dashboard) -> Pages (Charts). "
+        "This option requires extract_from_pbix_file=True to extract individual visualizations and may need "
+        "additional API permissions for PBIX export. Default is False for backward compatibility.",
+    )
+
+    @model_validator(mode="after")
+    def validate_report_container_requirements(self) -> "PowerBiDashboardSourceConfig":
+        if self.extract_reports_as_containers and not self.extract_from_pbix_file:
+            raise ValueError(
+                "extract_reports_as_containers=True requires extract_from_pbix_file=True to extract individual visualizations. "
+                "Either set extract_from_pbix_file=True or use extract_reports_as_containers=False (default)."
+            )
+        return self
+
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
         flags = [
