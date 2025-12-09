@@ -10,7 +10,6 @@ Supports multiple authentication methods:
 - DefaultAzureCredential (auto-detects environment)
 """
 
-from enum import Enum
 from typing import Optional
 
 from azure.core.credentials import TokenCredential
@@ -23,9 +22,10 @@ from azure.identity import (
 from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration import ConfigModel
+from datahub.utilities.str_enum import StrEnum
 
 
-class AzureAuthenticationMethod(str, Enum):
+class AzureAuthenticationMethod(StrEnum):
     """Supported Azure authentication methods.
 
     - DEFAULT: Uses DefaultAzureCredential which auto-detects credentials from
