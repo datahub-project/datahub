@@ -24,7 +24,7 @@ interface Props {
     helper?: string;
 }
 
-function AntdFormCompatibmeCheckbox({ id, checked, onChange, helper }: Props) {
+function AntdFormCompatibleCheckbox({ id, checked, onChange, helper }: Props) {
     return (
         <CheckboxWithHelper>
             <Checkbox id={id} isChecked={checked} onCheckboxChange={onChange} justifyContent="flex-start" />
@@ -44,7 +44,7 @@ export function CheckboxField({ field }: CommonFieldProps) {
             style={{ flexDirection: 'row', alignItems: 'center' }}
             valuePropName="checked"
         >
-            <AntdFormCompatibmeCheckbox helper={field.helper} />
+            <AntdFormCompatibleCheckbox helper={field.helper} />
         </RecipeFormItem>
     );
 }

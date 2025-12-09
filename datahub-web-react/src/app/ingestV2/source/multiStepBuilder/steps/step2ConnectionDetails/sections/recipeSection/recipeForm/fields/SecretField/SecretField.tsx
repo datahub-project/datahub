@@ -9,6 +9,7 @@ import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step
 import CreateSecretButton from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/CreateSecretButton';
 import { useSecrets } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/useSecrets';
 import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
+import { encodeSecret } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/utils';
 
 const StyledDivider = styled(Divider)`
     margin: ${spacing.xsm} 0;
@@ -39,27 +40,15 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
     );
 }
 
-const encodeSecret = (secretName: string) => {
-    return `\${${secretName}}`;
-};
-
 export function SecretField({ field, updateFormValue }: CommonFieldProps) {
     const { secrets, refetchSecrets } = useSecrets();
 
-    const options = useMemo(
-        () => secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name })),
-        [secrets],
-    );
+    const options = useMemo(() => secrets.map((secret) => ({ value: secret.name, label: secret.name })), [secrets]);
     const apolloClient = useApolloClient();
 
     return (
         <RecipeFormItem
             recipeField={field}
-            // labelHelper={
-            //     <Text color="gray" colorLevel={1700} size="xs">
-            //         Secret Field
-            //     </Text>
-            // }
             tooltip={<SecretFieldTooltip tooltipLabel={field?.tooltip} />}
             showHelperText
         >
