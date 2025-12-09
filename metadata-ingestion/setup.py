@@ -787,6 +787,7 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "athena",
+            "azure-data-factory",
             "circuit-breaker",
             "clickhouse",
             "delta-lake",
