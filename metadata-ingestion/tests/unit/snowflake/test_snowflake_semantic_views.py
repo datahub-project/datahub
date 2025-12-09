@@ -7,7 +7,6 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeColumn,
     SnowflakeDataDictionary,
     SnowflakeSemanticView,
 )
@@ -21,77 +20,9 @@ def test_snowflake_semantic_view_subtype():
         comment="Test semantic view",
         view_definition="yaml: definition",
         last_altered=datetime.datetime.now(),
-        semantic_definition="yaml: definition",
     )
 
     assert semantic_view.get_subtype() == DatasetSubTypes.SEMANTIC_VIEW
-
-
-def test_snowflake_semantic_view_columns():
-    """Test that SnowflakeSemanticView can have columns."""
-    semantic_view = SnowflakeSemanticView(
-        name="test_semantic_view",
-        created=datetime.datetime.now(),
-        comment="Test semantic view",
-        view_definition="yaml: definition",
-        last_altered=datetime.datetime.now(),
-        semantic_definition="yaml: definition",
-        columns=[
-            SnowflakeColumn(
-                name="metric_1",
-                ordinal_position=1,
-                is_nullable=False,
-                data_type="NUMBER",
-                comment="First metric",
-                character_maximum_length=None,
-                numeric_precision=38,
-                numeric_scale=0,
-            ),
-            SnowflakeColumn(
-                name="dimension_1",
-                ordinal_position=2,
-                is_nullable=True,
-                data_type="VARCHAR",
-                comment="First dimension",
-                character_maximum_length=255,
-                numeric_precision=None,
-                numeric_scale=None,
-            ),
-        ],
-    )
-
-    assert len(semantic_view.columns) == 2
-    assert semantic_view.columns[0].name == "metric_1"
-    assert semantic_view.columns[0].data_type == "NUMBER"
-    assert semantic_view.columns[1].name == "dimension_1"
-    assert semantic_view.columns[1].data_type == "VARCHAR"
-
-
-def test_snowflake_semantic_view_with_tags():
-    """Test that SnowflakeSemanticView can have tags."""
-    from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
-
-    semantic_view = SnowflakeSemanticView(
-        name="test_semantic_view",
-        created=datetime.datetime.now(),
-        comment="Test semantic view",
-        view_definition="yaml: definition",
-        last_altered=datetime.datetime.now(),
-        semantic_definition="yaml: definition",
-        tags=[
-            SnowflakeTag(
-                database="TEST_DB",
-                schema="TEST_SCHEMA",
-                name="PII",
-                value="true",
-            )
-        ],
-    )
-
-    assert semantic_view.tags is not None
-    assert len(semantic_view.tags) == 1
-    assert semantic_view.tags[0].name == "PII"
-    assert semantic_view.tags[0].value == "true"
 
 
 def test_snowflake_config_includes_semantic_views():
@@ -181,28 +112,6 @@ def test_get_semantic_views_for_database(mock_connection):
     assert len(semantic_views["PUBLIC"]) == 2
     assert semantic_views["PUBLIC"][0].name == "test_semantic_view_1"
     assert semantic_views["PUBLIC"][1].name == "test_semantic_view_2"
-
-
-def test_snowflake_semantic_view_base_tables():
-    """Test that SnowflakeSemanticView can store base table lineage."""
-    semantic_view = SnowflakeSemanticView(
-        name="test_semantic_view",
-        created=datetime.datetime.now(),
-        comment="Test semantic view with lineage",
-        view_definition="yaml: definition",
-        last_altered=datetime.datetime.now(),
-        semantic_definition="yaml: definition",
-        base_tables=[
-            ("TEST_DB", "PUBLIC", "CUSTOMERS"),
-            ("TEST_DB", "PUBLIC", "ORDERS"),
-            ("TEST_DB", "SALES", "REVENUE"),
-        ],
-    )
-
-    assert len(semantic_view.base_tables) == 3
-    assert ("TEST_DB", "PUBLIC", "CUSTOMERS") in semantic_view.base_tables
-    assert ("TEST_DB", "PUBLIC", "ORDERS") in semantic_view.base_tables
-    assert ("TEST_DB", "SALES", "REVENUE") in semantic_view.base_tables
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
@@ -309,83 +218,6 @@ def test_populate_semantic_view_base_tables(mock_connection):
     assert len(semantic_view.base_tables) == 2
     assert ("TEST_DB", "PUBLIC", "CUSTOMERS") in semantic_view.base_tables
     assert ("TEST_DB", "PUBLIC", "ORDERS") in semantic_view.base_tables
-
-
-def test_snowflake_semantic_view_columns_with_expressions():
-    """Test that SnowflakeColumn can store SQL expressions for derived metrics/facts."""
-    semantic_view = SnowflakeSemanticView(
-        name="test_semantic_view",
-        created=datetime.datetime.now(),
-        comment="Test semantic view",
-        view_definition="yaml: definition",
-        last_altered=datetime.datetime.now(),
-        semantic_definition="yaml: definition",
-        columns=[
-            SnowflakeColumn(
-                name="order_total_metric",
-                ordinal_position=1,
-                is_nullable=False,
-                data_type="NUMBER",
-                comment="Sum of order totals",
-                character_maximum_length=None,
-                numeric_precision=38,
-                numeric_scale=2,
-                expression="SUM(ORDER_TOTAL)",
-            ),
-            SnowflakeColumn(
-                name="derived_metric",
-                ordinal_position=2,
-                is_nullable=False,
-                data_type="NUMBER",
-                comment="Calculated from other metrics",
-                character_maximum_length=None,
-                numeric_precision=38,
-                numeric_scale=2,
-                expression="ORDERS.ORDER_TOTAL_METRIC + TRANSACTIONS.TRANSACTION_AMOUNT_METRIC",
-            ),
-        ],
-    )
-
-    assert len(semantic_view.columns) == 2
-    assert semantic_view.columns[0].expression == "SUM(ORDER_TOTAL)"
-    assert (
-        semantic_view.columns[1].expression
-        == "ORDERS.ORDER_TOTAL_METRIC + TRANSACTIONS.TRANSACTION_AMOUNT_METRIC"
-    )
-
-
-def test_snowflake_semantic_view_logical_to_physical_mapping():
-    """Test that SnowflakeSemanticView stores logical to physical table mappings."""
-    semantic_view = SnowflakeSemanticView(
-        name="test_semantic_view",
-        created=datetime.datetime.now(),
-        comment="Test semantic view",
-        view_definition="yaml: definition",
-        last_altered=datetime.datetime.now(),
-        semantic_definition="yaml: definition",
-        logical_to_physical_table={
-            "ORDERS": ("TEST_DB", "PUBLIC", "ORDERS"),
-            "TRANSACTIONS": ("TEST_DB", "PUBLIC", "TRANSACTIONS"),
-            "CUSTOMERS": ("TEST_DB", "SALES", "CUSTOMER_DATA"),
-        },
-    )
-
-    assert len(semantic_view.logical_to_physical_table) == 3
-    assert semantic_view.logical_to_physical_table["ORDERS"] == (
-        "TEST_DB",
-        "PUBLIC",
-        "ORDERS",
-    )
-    assert semantic_view.logical_to_physical_table["TRANSACTIONS"] == (
-        "TEST_DB",
-        "PUBLIC",
-        "TRANSACTIONS",
-    )
-    assert semantic_view.logical_to_physical_table["CUSTOMERS"] == (
-        "TEST_DB",
-        "SALES",
-        "CUSTOMER_DATA",
-    )
 
 
 if __name__ == "__main__":

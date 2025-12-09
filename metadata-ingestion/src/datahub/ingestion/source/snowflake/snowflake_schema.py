@@ -140,15 +140,11 @@ class SnowflakeView(BaseView):
 
 @dataclass
 class SnowflakeSemanticView(BaseView):
-    """
-    Represents a Snowflake Semantic View which defines business metrics, dimensions,
-    and relationships for consistent data modeling and AI-powered analytics.
-    """
+    """Represents a Snowflake Semantic View with dimensions, facts, and metrics."""
 
     columns: List[SnowflakeColumn] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
-    semantic_definition: Optional[str] = None  # Raw DDL definition
     # Base tables that this semantic view is built on (for lineage)
     base_tables: List[Tuple[str, str, str]] = field(
         default_factory=list
@@ -771,18 +767,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     try:
                         semantic_view_name = semantic_view["name"]
                         schema_name = semantic_view["schema_name"]
-                        if schema_name not in semantic_views:
-                            semantic_views[schema_name] = []
 
                         # SHOW SEMANTIC VIEWS doesn't return the definition, we'll fetch it later
-                        semantic_views[schema_name].append(
+                        semantic_views.setdefault(schema_name, []).append(
                             SnowflakeSemanticView(
                                 name=semantic_view_name,
                                 created=semantic_view.get("created_on"),
                                 comment=semantic_view.get("comment"),
                                 view_definition=None,  # Will be populated later using GET_DDL
                                 last_altered=semantic_view.get("created_on"),
-                                semantic_definition=None,  # Will be populated later using GET_DDL
                             )
                         )
                     except (KeyError, TypeError) as e:
@@ -845,7 +838,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         ddl = row.get("DDL") or row.get("ddl")
                         if ddl:
                             semantic_view.view_definition = ddl
-                            semantic_view.semantic_definition = ddl
                         break  # Only one row expected
                 except Exception as e:
                     logger.debug(
@@ -979,23 +971,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 f"in database {db_name} ({row_count} table mappings)"
             )
         except Exception as e:
-            error_msg = str(e).lower()
-            if (
-                "semantic_tables" in error_msg
-                or "does not exist" in error_msg
-                or "insufficient privileges" in error_msg
-            ):
-                logger.warning(
-                    f"Cannot access INFORMATION_SCHEMA.SEMANTIC_TABLES for database {db_name}. "
-                    f"Semantic views may not be supported in your Snowflake edition or may require additional privileges. "
-                    f"Skipping semantic view base table ingestion. Error: {e}"
-                )
-            else:
-                logger.warning(
-                    f"Failed to fetch semantic tables for database {db_name}: {e}",
-                    exc_info=True,
-                )
-            # Continue without base table information - lineage won't be as complete but not critical
+            logger.warning(
+                f"Failed to fetch semantic tables for database {db_name}: {e}"
+            )
 
     def _merge_column_metadata(
         self, occurrences: List[Dict], col_name: str, view_name: str
@@ -1056,9 +1034,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             expression = occurrences[0].get("expression")
             if expression:
                 if merged_comment:
-                    merged_comment = f"{merged_comment}\n\nExpression: {expression}"
+                    merged_comment = f"{merged_comment}\n\n[Expression: {expression}]"
                 else:
-                    merged_comment = f"Expression: {expression}"
+                    merged_comment = f"[Expression: {expression}]"
 
         return (data_type, merged_comment, merged_subtype)
 
@@ -1086,10 +1064,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             column_data: Dict[Tuple[str, str], Dict[str, List[Dict]]] = {}
 
             # Fetch dimensions
-            dim_query = SnowflakeQuery.get_semantic_dimensions_for_database(db_name)
-            dim_cur = self.connection.query(dim_query)
+            dim_rows = self.connection.query(
+                SnowflakeQuery.get_semantic_dimensions_for_database(db_name)
+            )
             dim_count = 0
-            for row in dim_cur:
+            for row in dim_rows:
                 dim_count += 1
                 schema_name = row["SEMANTIC_VIEW_SCHEMA"]
                 view_name = row["SEMANTIC_VIEW_NAME"]
@@ -1125,10 +1104,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.debug(f"Fetched {dim_count} dimensions for database {db_name}")
 
             # Fetch facts
-            fact_query = SnowflakeQuery.get_semantic_facts_for_database(db_name)
-            fact_cur = self.connection.query(fact_query)
+            fact_rows = self.connection.query(
+                SnowflakeQuery.get_semantic_facts_for_database(db_name)
+            )
             fact_count = 0
-            for row in fact_cur:
+            for row in fact_rows:
                 fact_count += 1
                 schema_name = row["SEMANTIC_VIEW_SCHEMA"]
                 view_name = row["SEMANTIC_VIEW_NAME"]
@@ -1164,10 +1144,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.debug(f"Fetched {fact_count} facts for database {db_name}")
 
             # Fetch metrics
-            metric_query = SnowflakeQuery.get_semantic_metrics_for_database(db_name)
-            metric_cur = self.connection.query(metric_query)
+            metric_rows = self.connection.query(
+                SnowflakeQuery.get_semantic_metrics_for_database(db_name)
+            )
             metric_count = 0
-            for row in metric_cur:
+            for row in metric_rows:
                 metric_count += 1
                 schema_name = row["SEMANTIC_VIEW_SCHEMA"]
                 view_name = row["SEMANTIC_VIEW_NAME"]
@@ -1278,25 +1259,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
 
         except Exception as e:
-            error_msg = str(e).lower()
-            if (
-                "semantic_dimensions" in error_msg
-                or "semantic_facts" in error_msg
-                or "semantic_metrics" in error_msg
-                or "does not exist" in error_msg
-                or "insufficient privileges" in error_msg
-            ):
-                logger.warning(
-                    f"Cannot access INFORMATION_SCHEMA semantic view system tables for database {db_name}. "
-                    f"Semantic views may not be supported in your Snowflake edition or may require additional privileges. "
-                    f"Skipping semantic view column ingestion. Error: {e}"
-                )
-            else:
-                logger.warning(
-                    f"Failed to fetch semantic view columns for database {db_name}: {e}",
-                    exc_info=True,
-                )
-            # Continue without column information - not critical
+            logger.warning(
+                f"Failed to fetch semantic view columns for database {db_name}: {e}"
+            )
 
     def _get_semantic_views_for_database_using_information_schema(
         self, db_name: str
@@ -1321,7 +1286,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 comment=row.get("COMMENT"),
                 view_definition=None,  # Not available in information_schema
                 last_altered=row["LAST_ALTERED"],
-                semantic_definition=None,
             )
             semantic_views.setdefault(schema_name, []).append(semantic_view)
 
@@ -1345,7 +1309,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 comment=row.get("COMMENT"),
                 view_definition=None,
                 last_altered=row["LAST_ALTERED"],
-                semantic_definition=None,
             )
             semantic_views.append(semantic_view)
 

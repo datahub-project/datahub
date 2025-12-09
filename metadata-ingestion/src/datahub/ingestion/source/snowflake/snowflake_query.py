@@ -31,11 +31,6 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
-    # NOTE: Semantic views are intentionally excluded from ACCESS_HISTORY tracking.
-    # Snowflake semantic views are metadata constructs (not queryable SQL views) and cannot be
-    # directly queried with SELECT statements. They will never appear in ACCESS_HISTORY.
-    # Semantic views are used by BI tools, Snowflake Cortex, and semantic layer engines
-    # to understand business logic, relationships, and metric definitions.
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),

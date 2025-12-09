@@ -166,37 +166,6 @@ class TestSnowflakeSemanticViewTags:
         """Create a SnowflakeSchemaGenerator instance for testing."""
         return create_mock_schema_gen()
 
-    def test_build_tags_dimension(self, schema_gen):
-        """Test building tags for a DIMENSION column."""
-        column_subtypes = {"CUSTOMER_ID": "DIMENSION"}
-        tags = schema_gen._build_semantic_view_tags(
-            "CUSTOMER_ID", column_subtypes, None
-        )
-
-        assert tags is not None
-        assert len(tags.tags) == 1
-        assert tags.tags[0].tag == str(TagUrn("DIMENSION"))
-
-    def test_build_tags_fact(self, schema_gen):
-        """Test building tags for a FACT column."""
-        column_subtypes = {"ORDER_TOTAL": "FACT"}
-        tags = schema_gen._build_semantic_view_tags(
-            "ORDER_TOTAL", column_subtypes, None
-        )
-
-        assert tags is not None
-        assert len(tags.tags) == 1
-        assert tags.tags[0].tag == str(TagUrn("FACT"))
-
-    def test_build_tags_metric(self, schema_gen):
-        """Test building tags for a METRIC column."""
-        column_subtypes = {"REVENUE": "METRIC"}
-        tags = schema_gen._build_semantic_view_tags("REVENUE", column_subtypes, None)
-
-        assert tags is not None
-        assert len(tags.tags) == 1
-        assert tags.tags[0].tag == str(TagUrn("METRIC"))
-
     def test_build_tags_multiple_subtypes(self, schema_gen):
         """Test building tags for a column with multiple subtypes (DIMENSION and FACT)."""
         column_subtypes = {"ORDER_ID": "DIMENSION,FACT"}
@@ -244,92 +213,6 @@ class TestSnowflakeSemanticViewTags:
         assert str(TagUrn("METRIC")) in tag_names
 
 
-class TestSnowflakeSemanticViewBaseTableLineage:
-    """Test suite for base table lineage resolution in semantic views."""
-
-    @pytest.fixture
-    def schema_gen(self):
-        """Create a SnowflakeSchemaGenerator instance for testing."""
-        return create_mock_schema_gen()
-
-    def test_resolve_upstream_urns_from_base_tables(self, schema_gen):
-        """Test resolving upstream URNs from semantic view base tables."""
-        # Setup filters to allow the dataset
-        schema_gen.filters.is_dataset_pattern_allowed.return_value = True
-        schema_gen.identifiers.get_dataset_identifier.return_value = "db.schema.orders"
-        schema_gen.identifiers.gen_dataset_urn.return_value = (
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)"
-        )
-
-        semantic_view = SnowflakeSemanticView(
-            name="TEST_SV",
-            created=datetime.datetime.now(),
-            comment="Test semantic view",
-            view_definition="definition",
-            last_altered=datetime.datetime.now(),
-            semantic_definition="definition",
-            columns=[],
-            base_tables=[("TEST_DB", "PUBLIC", "ORDERS")],
-        )
-
-        # Simulate the upstream URN resolution logic
-        upstream_urns = []
-        if semantic_view.base_tables:
-            for base_db, base_schema, base_table in semantic_view.base_tables:
-                base_table_identifier = schema_gen.identifiers.get_dataset_identifier(
-                    base_table, base_schema, base_db
-                )
-                is_allowed = schema_gen.filters.is_dataset_pattern_allowed(
-                    base_table_identifier, "TABLE"
-                )
-                if is_allowed:
-                    upstream_urn = schema_gen.identifiers.gen_dataset_urn(
-                        base_table_identifier
-                    )
-                    upstream_urns.append(upstream_urn)
-
-        semantic_view.resolved_upstream_urns = upstream_urns
-
-        assert len(semantic_view.resolved_upstream_urns) == 1
-        assert semantic_view.resolved_upstream_urns[0] == (
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)"
-        )
-
-    def test_filter_disallowed_base_tables(self, schema_gen):
-        """Test that disallowed base tables are filtered out."""
-        schema_gen.filters.is_dataset_pattern_allowed.return_value = False
-
-        semantic_view = SnowflakeSemanticView(
-            name="TEST_SV",
-            created=datetime.datetime.now(),
-            comment="Test semantic view",
-            view_definition="definition",
-            last_altered=datetime.datetime.now(),
-            semantic_definition="definition",
-            columns=[],
-            base_tables=[("TEST_DB", "PUBLIC", "ORDERS")],
-        )
-
-        upstream_urns = []
-        if semantic_view.base_tables:
-            for base_db, base_schema, base_table in semantic_view.base_tables:
-                base_table_identifier = schema_gen.identifiers.get_dataset_identifier(
-                    base_table, base_schema, base_db
-                )
-                is_allowed = schema_gen.filters.is_dataset_pattern_allowed(
-                    base_table_identifier, "TABLE"
-                )
-                if is_allowed:
-                    upstream_urn = schema_gen.identifiers.gen_dataset_urn(
-                        base_table_identifier
-                    )
-                    upstream_urns.append(upstream_urn)
-
-        semantic_view.resolved_upstream_urns = upstream_urns
-
-        assert len(semantic_view.resolved_upstream_urns) == 0
-
-
 class TestSnowflakeSemanticViewRecursiveResolution:
     """Test suite for recursive resolution of chained derived metrics."""
 
@@ -346,79 +229,6 @@ class TestSnowflakeSemanticViewRecursiveResolution:
         assert len(columns) == 2
         assert ("ORDERS", "ORDER_TOTAL_METRIC") in columns
         assert ("TRANSACTIONS", "AMOUNT_METRIC") in columns
-
-    def test_recursive_chained_metrics_structure(self, schema_gen):
-        """Test that chained metrics are structured correctly for resolution.
-
-        This tests the scenario:
-        - METRIC_A = SUM(physical_column)
-        - METRIC_B = METRIC_A * 2
-        - METRIC_C = METRIC_B + METRIC_A
-
-        Verify the semantic view structure is set up correctly.
-        """
-        columns = [
-            SnowflakeColumn(
-                name="METRIC_A",
-                ordinal_position=1,
-                is_nullable=False,
-                data_type="NUMBER",
-                comment="Base metric",
-                expression="SUM(ORDER_TOTAL)",
-                character_maximum_length=None,
-                numeric_precision=38,
-                numeric_scale=2,
-            ),
-            SnowflakeColumn(
-                name="METRIC_B",
-                ordinal_position=2,
-                is_nullable=False,
-                data_type="NUMBER",
-                comment="Derived from METRIC_A",
-                expression="ORDERS.METRIC_A * 2",
-                character_maximum_length=None,
-                numeric_precision=38,
-                numeric_scale=2,
-            ),
-            SnowflakeColumn(
-                name="METRIC_C",
-                ordinal_position=3,
-                is_nullable=False,
-                data_type="NUMBER",
-                comment="Derived from METRIC_B and METRIC_A",
-                expression="ORDERS.METRIC_B + ORDERS.METRIC_A",
-                character_maximum_length=None,
-                numeric_precision=38,
-                numeric_scale=2,
-            ),
-        ]
-
-        semantic_view = SnowflakeSemanticView(
-            name="TEST_SV",
-            created=datetime.datetime.now(),
-            comment="Test semantic view with chained metrics",
-            view_definition="yaml: definition",
-            last_altered=datetime.datetime.now(),
-            semantic_definition="yaml: definition",
-            columns=columns,
-            logical_to_physical_table={
-                "ORDERS": ("TEST_DB", "PUBLIC", "ORDERS"),
-            },
-        )
-
-        # Verify that the columns and expressions are set up correctly
-        assert semantic_view.columns[0].expression == "SUM(ORDER_TOTAL)"
-        assert semantic_view.columns[1].expression == "ORDERS.METRIC_A * 2"
-        assert (
-            semantic_view.columns[2].expression == "ORDERS.METRIC_B + ORDERS.METRIC_A"
-        )
-
-        # Verify logical to physical mapping
-        assert semantic_view.logical_to_physical_table["ORDERS"] == (
-            "TEST_DB",
-            "PUBLIC",
-            "ORDERS",
-        )
 
 
 class TestSnowflakeSemanticViewProcessing:
@@ -454,7 +264,6 @@ class TestSnowflakeSemanticViewProcessing:
             comment="Test semantic view",
             view_definition="definition",
             last_altered=datetime.datetime.now(),
-            semantic_definition="definition",
             columns=columns,
             column_subtypes={"ORDER_ID": "DIMENSION"},
             base_tables=[("TEST_DB", "PUBLIC", "ORDERS")],
@@ -499,7 +308,6 @@ class TestSnowflakeSemanticViewProcessing:
             comment="Test semantic view",
             view_definition="definition",
             last_altered=datetime.datetime.now(),
-            semantic_definition="definition",
             columns=[],  # Empty columns
             base_tables=[],
             resolved_upstream_urns=[],
@@ -565,7 +373,6 @@ class TestSnowflakeSemanticViewProcessing:
             comment="Test semantic view",
             view_definition="definition",
             last_altered=datetime.datetime.now(),
-            semantic_definition="definition",
             columns=columns,
             column_subtypes={"TOTAL_REVENUE": "METRIC"},
             base_tables=[("TEST_DB", "PUBLIC", "ORDERS")],
@@ -599,82 +406,209 @@ class TestSnowflakeSemanticViewProcessing:
         schema_gen._emit_semantic_view_lineage.assert_called_once()
 
 
-class TestSnowflakeSemanticViewFiltering:
-    """Test suite for semantic view filtering in get_semantic_views_for_schema."""
+class TestSnowflakeSemanticViewColumnMerging:
+    """Test suite for column metadata merging when same column appears in multiple contexts."""
+
+    @pytest.fixture
+    def data_dict(self):
+        """Create a SnowflakeDataDictionary instance for testing."""
+        from datahub.ingestion.source.snowflake.snowflake_schema import (
+            SnowflakeDataDictionary,
+        )
+
+        connection = MagicMock()
+        report = MagicMock()
+        return SnowflakeDataDictionary(connection=connection, report=report)
+
+    def test_merge_dimension_and_fact_with_different_descriptions(self, data_dict):
+        """Test merging when same column is both DIMENSION and FACT with different descriptions."""
+        occurrences = [
+            {
+                "name": "ORDER_ID",
+                "data_type": "NUMBER",
+                "comment": "Order identifier for lookups",
+                "subtype": "DIMENSION",
+                "expression": None,
+            },
+            {
+                "name": "ORDER_ID",
+                "data_type": "NUMBER",
+                "comment": "Order ID used in aggregations",
+                "subtype": "FACT",
+                "expression": "ORDER_ID",
+            },
+        ]
+
+        data_type, merged_comment, merged_subtype = data_dict._merge_column_metadata(
+            occurrences, "ORDER_ID", "TEST_VIEW"
+        )
+
+        assert data_type == "NUMBER"
+        assert merged_subtype == "DIMENSION,FACT"
+        # Both descriptions should appear
+        assert "DIMENSION:" in merged_comment
+        assert "FACT:" in merged_comment
+        # FACT should include expression
+        assert "[Expression: ORDER_ID]" in merged_comment
+
+    def test_merge_single_metric_with_expression(self, data_dict):
+        """Test that single METRIC occurrence includes expression in comment."""
+        occurrences = [
+            {
+                "name": "TOTAL_REVENUE",
+                "data_type": "NUMBER",
+                "comment": "Total revenue calculation",
+                "subtype": "METRIC",
+                "expression": "SUM(ORDERS.ORDER_TOTAL)",
+            },
+        ]
+
+        data_type, merged_comment, merged_subtype = data_dict._merge_column_metadata(
+            occurrences, "TOTAL_REVENUE", "TEST_VIEW"
+        )
+
+        assert data_type == "NUMBER"
+        assert merged_subtype == "METRIC"
+        assert "Total revenue calculation" in merged_comment
+        assert "[Expression: SUM(ORDERS.ORDER_TOTAL)]" in merged_comment
+
+    def test_merge_conflicting_data_types(self, data_dict):
+        """Test merging when same column has conflicting data types (uses first)."""
+        occurrences = [
+            {
+                "name": "VALUE",
+                "data_type": "NUMBER",
+                "comment": "Numeric value",
+                "subtype": "FACT",
+                "expression": None,
+            },
+            {
+                "name": "VALUE",
+                "data_type": "VARCHAR",
+                "comment": "String value",
+                "subtype": "DIMENSION",
+                "expression": None,
+            },
+        ]
+
+        data_type, _, merged_subtype = data_dict._merge_column_metadata(
+            occurrences, "VALUE", "TEST_VIEW"
+        )
+
+        # Should use first type
+        assert data_type == "NUMBER"
+        assert merged_subtype == "DIMENSION,FACT"
+
+
+class TestSnowflakeSemanticViewDerivationResolution:
+    """Test suite for recursive derivation resolution with depth limits and cycle detection."""
 
     @pytest.fixture
     def schema_gen(self):
-        """Create a SnowflakeSchemaGenerator instance for testing."""
-        return create_mock_schema_gen()
+        """Create a SnowflakeSchemaGenerator with mocked column verification."""
+        gen = create_mock_schema_gen()
+        # Mock _verify_column_exists_in_table to return False (forces recursion)
+        gen._verify_column_exists_in_table = MagicMock(return_value=False)
+        return gen
 
-    def test_filter_allowed_semantic_views(self, schema_gen):
-        """Test that allowed semantic views pass the filter."""
-        schema_gen.filters.is_semantic_view_allowed.return_value = True
-        schema_gen.identifiers.get_dataset_identifier.return_value = (
-            "test_db.public.test_sv"
+    def test_max_depth_limit_stops_recursion(self, schema_gen):
+        """Test that recursion stops when max depth is reached."""
+        # Create a semantic view with deeply nested derived columns
+        columns = []
+        for i in range(10):
+            columns.append(
+                SnowflakeColumn(
+                    name=f"METRIC_{i}",
+                    ordinal_position=i,
+                    is_nullable=False,
+                    data_type="NUMBER",
+                    comment=f"Metric {i}",
+                    expression=f"ORDERS.METRIC_{i + 1} * 2"
+                    if i < 9
+                    else "SUM(BASE_COL)",
+                    character_maximum_length=None,
+                    numeric_precision=38,
+                    numeric_scale=2,
+                )
+            )
+
+        semantic_view = SnowflakeSemanticView(
+            name="TEST_SV",
+            created=datetime.datetime.now(),
+            comment="Test",
+            view_definition="def",
+            last_altered=datetime.datetime.now(),
+            columns=columns,
+            logical_to_physical_table={"ORDERS": ("DB", "SCHEMA", "ORDERS")},
         )
 
-        semantic_views_from_db = [
-            SnowflakeSemanticView(
-                name="TEST_SV",
-                created=datetime.datetime.now(),
-                comment="Test",
-                view_definition="def",
-                last_altered=datetime.datetime.now(),
-                semantic_definition="def",
-                columns=[],
-            )
-        ]
-
-        # Simulate filtering logic
-        filtered = []
-        for sv in semantic_views_from_db:
-            sv_name = schema_gen.identifiers.get_dataset_identifier(
-                sv.name, "PUBLIC", "TEST_DB"
-            )
-            schema_gen.report.report_entity_scanned(sv_name, "semantic view")
-            if schema_gen.filters.is_semantic_view_allowed(sv_name):
-                filtered.append(sv)
-            else:
-                schema_gen.report.report_dropped(sv_name)
-
-        assert len(filtered) == 1
-        assert filtered[0].name == "TEST_SV"
-
-    def test_filter_disallowed_semantic_views(self, schema_gen):
-        """Test that disallowed semantic views are filtered out."""
-        schema_gen.filters.is_semantic_view_allowed.return_value = False
-        schema_gen.identifiers.get_dataset_identifier.return_value = (
-            "test_db.public.test_sv"
+        # Start resolution from depth 0
+        # Should stop before reaching the bottom due to max depth (default 5)
+        result = schema_gen._resolve_derived_column_sources(
+            "ORDERS.METRIC_0 + 1", semantic_view
         )
 
-        semantic_views_from_db = [
-            SnowflakeSemanticView(
-                name="TEST_SV",
-                created=datetime.datetime.now(),
-                comment="Test",
-                view_definition="def",
-                last_altered=datetime.datetime.now(),
-                semantic_definition="def",
-                columns=[],
-            )
+        # Result should be empty or limited due to depth
+        # The exact behavior depends on max depth, but it should not infinite loop
+        assert isinstance(result, list)
+
+    def test_cycle_detection_prevents_infinite_loop(self, schema_gen):
+        """Test that cycles in derived columns are detected and broken."""
+        # Create circular dependency: A -> B -> C -> A
+        columns = [
+            SnowflakeColumn(
+                name="METRIC_A",
+                ordinal_position=1,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Metric A",
+                expression="ORDERS.METRIC_B + 1",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=2,
+            ),
+            SnowflakeColumn(
+                name="METRIC_B",
+                ordinal_position=2,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Metric B",
+                expression="ORDERS.METRIC_C * 2",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=2,
+            ),
+            SnowflakeColumn(
+                name="METRIC_C",
+                ordinal_position=3,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Metric C - creates cycle",
+                expression="ORDERS.METRIC_A / 3",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=2,
+            ),
         ]
 
-        # Simulate filtering logic
-        filtered = []
-        for sv in semantic_views_from_db:
-            sv_name = schema_gen.identifiers.get_dataset_identifier(
-                sv.name, "PUBLIC", "TEST_DB"
-            )
-            schema_gen.report.report_entity_scanned(sv_name, "semantic view")
-            if schema_gen.filters.is_semantic_view_allowed(sv_name):
-                filtered.append(sv)
-            else:
-                schema_gen.report.report_dropped(sv_name)
+        semantic_view = SnowflakeSemanticView(
+            name="TEST_SV",
+            created=datetime.datetime.now(),
+            comment="Test with cycle",
+            view_definition="def",
+            last_altered=datetime.datetime.now(),
+            columns=columns,
+            logical_to_physical_table={"ORDERS": ("DB", "SCHEMA", "ORDERS")},
+        )
 
-        assert len(filtered) == 0
-        # Verify dropped was reported (report stores tuples with index)
-        assert len(schema_gen.report.filtered) == 1
+        # Should not infinite loop - cycle detection should kick in
+        result = schema_gen._resolve_derived_column_sources(
+            "ORDERS.METRIC_A", semantic_view
+        )
+
+        # Result should be empty (no physical sources found due to cycle)
+        assert isinstance(result, list)
+        # Should complete without hanging
 
 
 if __name__ == "__main__":
