@@ -29,10 +29,6 @@ class TestGlossaryTermBehavior(unittest.TestCase):
         # Create a minimal config and context for RDFSource
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
 
     def _get_datahub_graph(self, graph: Graph):
@@ -150,10 +146,6 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
 
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
 
     def _get_datahub_graph(self, graph: Graph):
@@ -398,10 +390,6 @@ class TestRelationshipBehavior(unittest.TestCase):
 
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
 
     def _get_datahub_graph(self, graph: Graph):
@@ -539,10 +527,6 @@ class TestMCPGenerationBehavior(unittest.TestCase):
 
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
         from datahub.ingestion.api.source import SourceReport
 
@@ -655,10 +639,6 @@ class TestEnvironmentBehavior(unittest.TestCase):
 
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
 
     # test_environment_passed_to_datasets removed - dataset extraction not supported in MVP
@@ -679,10 +659,6 @@ class TestEndToEndBehavior(unittest.TestCase):
 
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
 
     def _get_datahub_graph(self, graph: Graph):
@@ -783,10 +759,6 @@ class TestBCBS239FullParity(unittest.TestCase):
 
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
-        self.ctx.graph = MagicMock()  # Required for StatefulIngestionSourceBase
-        self.ctx.pipeline_name = (
-            "test_pipeline"  # Required for StatefulIngestionSourceBase
-        )
         self.source = RDFSource(self.config, self.ctx)
 
         # Load all bcbs239 TTL files
