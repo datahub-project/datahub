@@ -21,6 +21,9 @@ if not MARKUPSAFE_PATCHED:
 # For legacy openlineage-airflow package (Airflow 2.5-2.9), we use the extractor-based approach
 # in _extractors.py instead.
 import importlib.util
+import logging
+
+logger = logging.getLogger(__name__)
 
 if importlib.util.find_spec("airflow.providers.openlineage.sqlparser") is not None:
     # Provider package detected - apply SQL parser patch
@@ -33,6 +36,32 @@ else:
     # Provider package not available - using legacy openlineage-airflow package
     # No patching needed, extractors will handle SQL parsing
     pass
+
+# Apply operator-specific patches for provider mode
+# These patches work for both Airflow 2.x and 3.x when using OpenLineage provider
+try:
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    config = get_lineage_config()
+    enable_extractors = config.enable_extractors
+    extract_teradata_operator = config.extract_teradata_operator
+except Exception:
+    # If config loading fails, apply patches by default (backward compatibility)
+    enable_extractors = True
+    extract_teradata_operator = True
+
+if enable_extractors and extract_teradata_operator:
+    # TeradataOperator patch - works for both Airflow 2.x provider mode and Airflow 3.x
+    # The patch checks for method existence, so it's safe to import from airflow3 module
+    try:
+        from datahub_airflow_plugin.airflow3._teradata_openlineage_patch import (
+            patch_teradata_operator,
+        )
+
+        patch_teradata_operator()
+    except ImportError:
+        # Teradata provider not installed or patch not available
+        pass
 
 AIRFLOW_PATCHED = True
 

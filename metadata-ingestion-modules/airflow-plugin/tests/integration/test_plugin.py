@@ -794,7 +794,7 @@ test_cases_airflow3 = [
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
     DagTestCase("bigquery_insert_job_operator"),
-    # Note: teradata_operator is Airflow 2 only (uses Legacy OpenLineage extractor)
+    DagTestCase("teradata_operator"),
 ]
 
 

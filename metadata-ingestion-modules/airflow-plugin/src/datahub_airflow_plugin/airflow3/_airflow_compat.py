@@ -30,12 +30,14 @@ try:
     patch_sql_parser = config.patch_sql_parser
     extract_athena_operator = config.extract_athena_operator
     extract_bigquery_insert_job_operator = config.extract_bigquery_insert_job_operator
+    extract_teradata_operator = config.extract_teradata_operator
 except Exception:
     # If config loading fails, apply all patches by default (backward compatibility)
     enable_extractors = True
     patch_sql_parser = True
     extract_athena_operator = True
     extract_bigquery_insert_job_operator = True
+    extract_teradata_operator = True
 
 # Only apply patches if extractors are enabled
 if enable_extractors:
@@ -86,6 +88,16 @@ if enable_extractors:
             )
 
             patch_bigquery_insert_job_operator()
+        except ImportError:
+            pass
+
+    if extract_teradata_operator:
+        try:
+            from datahub_airflow_plugin.airflow3._teradata_openlineage_patch import (
+                patch_teradata_operator,
+            )
+
+            patch_teradata_operator()
         except ImportError:
             pass
 
