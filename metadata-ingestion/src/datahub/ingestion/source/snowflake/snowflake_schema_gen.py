@@ -620,7 +620,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
             # Store for use in column lineage generation
             semantic_view.resolved_upstream_urns = upstream_urns
-            logger.info(
+            logger.debug(
                 f"Pre-computed {len(upstream_urns)} upstream URNs for semantic view {semantic_view.name}"
             )
 
@@ -1522,8 +1522,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
             foreign_keys = self.build_foreign_keys(table, dataset_urn)
 
-        # Debug: Log table type and column count
-        logger.info(
+        logger.debug(
             f"gen_schema_metadata for {table.name}: type={type(table).__name__}, "
             f"columns={len(table.columns)}"
         )
