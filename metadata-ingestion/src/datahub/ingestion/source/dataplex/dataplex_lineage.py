@@ -125,7 +125,11 @@ class DataplexLineageExtractor:
 
         try:
             fully_qualified_name = self._construct_fqn(
-                entity.source_platform, project_id, entity.dataset_id, entity.entity_id
+                entity.source_platform,
+                project_id,
+                entity.dataset_id,
+                entity.entity_id,
+                entity.is_entry,
             )
             lineage_data = {"upstream": [], "downstream": []}
             # We only need multi-region name like US, EU, etc., specific region name like us-central1, eu-central1, etc. does not work
@@ -274,7 +278,12 @@ class DataplexLineageExtractor:
         return retrying_func(parent, fully_qualified_name)
 
     def _construct_fqn(
-        self, platform: str, project_id: str, dataset_id: str, entity_id: str
+        self,
+        platform: str,
+        project_id: str,
+        dataset_id: str,
+        entity_id: str,
+        is_entry: bool = False,
     ) -> str:
         """
         Construct a fully qualified name for an entity based on platform.
@@ -286,30 +295,47 @@ class DataplexLineageExtractor:
         Args:
             platform: Source platform ("bigquery" or "gcs")
             project_id: GCP project ID
-            dataset_id: Dataset ID (for BigQuery) or bucket name (for GCS)
+            dataset_id: Dataset ID format depends on is_entry:
+                - For entries (is_entry=True): Full path like "project.dataset.table"
+                - For entities (is_entry=False): Just dataset name like "dataset"
             entity_id: Entity ID (table name for BigQuery, file path for GCS)
+            is_entry: True if from Entries API, False if from Entities API
 
         Returns:
             Fully qualified name string in the format expected by Google Lineage API
         """
         if platform == "bigquery":
             # BigQuery format: bigquery:{project}.{dataset}.{table}
-            return f"bigquery:{project_id}.{dataset_id}.{entity_id}"
+            if is_entry:
+                # For entries, dataset_id already contains "project.dataset.table"
+                # so we just prepend the platform
+                return f"bigquery:{dataset_id}"
+            else:
+                # For entities, construct from components
+                return f"bigquery:{project_id}.{dataset_id}.{entity_id}"
         elif platform == "gcs":
             # GCS format: gcs:{bucket} or gcs:{bucket}.{path}
-            # For GCS, entity_id might be empty (bucket-level) or a path
-            if entity_id and entity_id != dataset_id:
-                # If entity_id is a path, construct gcs:{bucket}.{path}
-                return f"gcs:{dataset_id}.{entity_id}"
-            else:
-                # Bucket-level resource
+            if is_entry:
+                # For entries, dataset_id already contains the full path
                 return f"gcs:{dataset_id}"
+            else:
+                # For entities, construct from components
+                # entity_id might be empty (bucket-level) or a path
+                if entity_id and entity_id != dataset_id:
+                    # If entity_id is a path, construct gcs:{bucket}.{path}
+                    return f"gcs:{dataset_id}.{entity_id}"
+                else:
+                    # Bucket-level resource
+                    return f"gcs:{dataset_id}"
         else:
             # Fallback for unknown platforms (shouldn't happen in practice)
             logger.warning(
                 f"Unknown platform '{platform}' for FQN construction, using generic format"
             )
-            return f"{platform}:{project_id}.{dataset_id}.{entity_id}"
+            if is_entry:
+                return f"{platform}:{dataset_id}"
+            else:
+                return f"{platform}:{project_id}.{dataset_id}.{entity_id}"
 
     def build_lineage_map(
         self, project_id: str, entity_data: Iterable[EntityDataTuple]
