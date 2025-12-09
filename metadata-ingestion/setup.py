@@ -267,6 +267,7 @@ snowflake_common = {
     "cryptography",
     "msal",
     *cachetools_lib,
+    *classification_lib,
 }
 
 trino = {
