@@ -15,13 +15,6 @@ import org.springframework.core.env.Environment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-/**
- * Unit tests for CommonApplicationConfig to verify Jetty server configurations. Tests are split by
- * configuration aspect to provide granular code coverage reporting for Codecov.
- *
- * <p>This is a lightweight unit test using mocks rather than a full Spring context, allowing fast
- * execution and focused testing of the Jetty customizer bean logic.
- */
 public class CommonApplicationConfigTest {
 
   private CommonApplicationConfig config;
