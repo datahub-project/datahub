@@ -2181,3 +2181,36 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **a0397051817** - feat(ui/ingestion): create new page for ingestion run details (#15443)
   *by Purnima Garg on 2025-12-02*
 
+
+## Upstream Merge Session - 2025-12-04 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-04-000006`
+- **Merge Base**: `a03970518172eac87f23ee355f043a6b68f89492`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 6
+- **Strategy**: stacked
+- **Started**: Thu Dec  4 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **764a74365f1** - refactor(tests): move print to logger (#15466)
+  *by Aseem Bansal on 2025-12-03*
+
+- **8bea2bd29c2** - fix(secrets): Remove incorrect JSON escaping in updateSecret that corrupts special characters (#15442)
+  *by Jonny Dixon on 2025-12-03*
+
+- **cf7efb940db** - docs: Update wrong helm reference slack.md (#15433)
+  *by Tim-Visser on 2025-12-03*
+
+- **19d3e2c00ce** - feat(java-sdk): Add Java SDK V2 with fluent builder API and entity support (#15307)
+  *by Shirshanka Das on 2025-12-03*
+
+- **af590e7e1d3** - feat(ingestion): improve create/update source handling (#15446)
+  *by v-tarasevich-blitz-brain on 2025-12-03*
+
+- **ab2348dcddc** - feat(ui/ingestion): build new source selection screen (#15471)
+  *by Purnima Garg on 2025-12-03*
+

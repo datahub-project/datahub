@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 
@@ -7,6 +8,8 @@ from datahub.metadata.schema_classes import (
     EditableDatasetPropertiesClass,
 )
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
+
+logger = logging.getLogger(__name__)
 
 ingested_dataset_run_id = ""
 ingested_editable_run_id = ""
@@ -33,7 +36,7 @@ def test_setup(auth_session, graph_client):
     ingested_dataset_run_id = ingest_file_via_rest(
         auth_session, "tests/cli/cli_test_data.json"
     ).config.run_id
-    print("Setup ingestion id: " + ingested_dataset_run_id)
+    logger.info("Setup ingestion id: " + ingested_dataset_run_id)
 
     assert graph_client.get_aspect(dataset_urn, BrowsePathsV2Class) is not None
 
@@ -69,7 +72,7 @@ def test_rollback_editable(auth_session, graph_client):
 
     gms_host = graph_client.config.server
 
-    print("Ingested dataset id:", ingested_dataset_run_id)
+    logger.info(f"Ingested dataset id: {ingested_dataset_run_id}")
     # Assert that second data ingestion worked
 
     assert graph_client.get_aspect(dataset_urn, BrowsePathsV2Class) is not None
@@ -78,7 +81,7 @@ def test_rollback_editable(auth_session, graph_client):
     ingested_editable_run_id = ingest_file_via_rest(
         auth_session, "tests/cli/cli_editable_test_data.json"
     ).config.run_id
-    print("ingested editable id:", ingested_editable_run_id)
+    logger.info(f"ingested editable id: {ingested_editable_run_id}")
     # Assert that second data ingestion worked
 
     assert (

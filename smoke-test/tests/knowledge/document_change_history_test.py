@@ -6,12 +6,15 @@ Validates end-to-end functionality of:
 - Verifying change events are captured
 """
 
+import logging
 import time
 import uuid
 
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+
+logger = logging.getLogger(__name__)
 
 
 def execute_graphql(auth_session, query: str, variables: dict | None = None) -> dict:
@@ -133,7 +136,7 @@ def test_document_change_history(auth_session):
 
     # Check if we have a CREATED event
     change_types = [c["changeType"] for c in change_history]
-    print(f"Change history types: {change_types}")
+    logger.info(f"Change history types: {change_types}")
 
     # Basic smoke test - just verify we can query change history
     # and it has the right structure (actual event generation depends on

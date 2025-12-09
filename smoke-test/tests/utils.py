@@ -306,7 +306,7 @@ def delete_urns_from_file(
     graph_client, filename: str, shared_data: bool = False
 ) -> None:
     if not env_utils.get_boolean_env_variable("CLEANUP_DATA", True):
-        print("Not cleaning data to save time")
+        logger.info("Not cleaning data to save time")
         return
 
     def delete(entry):
@@ -359,7 +359,7 @@ def create_datahub_step_state_aspect(
     username: str, onboarding_id: str
 ) -> Dict[str, Any]:
     entity_urn = f"urn:li:dataHubStepState:urn:li:corpuser:{username}-{onboarding_id}"
-    print(f"Creating dataHubStepState aspect for {entity_urn}")
+    logger.info(f"Creating dataHubStepState aspect for {entity_urn}")
     return {
         "auditHeader": None,
         "entityType": "dataHubStepState",
@@ -453,7 +453,7 @@ class TestSessionWrapper:
 
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
-            logger.debug("TestSessionWrapper sync wait.")
+            logger.info("TestSessionWrapper sync wait.")
             wait_for_writes_to_sync()
 
     def get_default_channel_name(self) -> str | None:
