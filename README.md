@@ -85,16 +85,16 @@ Modern data stacks are fragmented across dozens of tools. DataHub solves this by
   </a>
 </p>
 
-| Features                                                                                | Description                                                                                                |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 🔍 [**Data Discovery**](https://datahub.com/products/data-discovery/)                   | Effortlessly discover and get context on trustworthy data                                                  |
-| 👁️ [**Data Observability**](https://datahub.com/products/data-observability)            | Detect, resolve, and prevent data quality issues before they impact your business                          |
-| 🏛️ [**Data Governance**](https://datahub.com/products/data-governance)                  | Ensure every data asset is accounted for by continuously fulfilling governance standards                   |
-| 📊 [**Impact Analysis**](https://docs.datahub.com/docs/act-on-metadata/impact-analysis) | Understand downstream impact before making changes - [Lineage Docs](https://docs.datahub.com/docs/lineage) |
+| Features                                                                     | Description                                                                                                  |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 🔍 [**Data Discovery**](https://datahub.com/products/data-discovery/)        | Effortlessly discover and get context on trustworthy data                                                    |
+| 👁️ [**Data Observability**](https://datahub.com/products/data-observability) | Detect, resolve, and prevent data quality issues before they impact your business                            |
+| 🏛️ [**Data Governance**](https://datahub.com/products/data-governance)       | Ensure every data asset is accounted for by continuously fulfilling governance standards                     |
+| 📊 [**Impact Analysis**](docs/act-on-metadata/impact-analysis)               | Understand downstream impact before making changes - [Lineage Docs](docs/features/feature-guides/lineage.md) |
 
 ## How Do I Get Started with DataHub?
 
-Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
+Please follow the [DataHub Quickstart Guide](docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
 
 ```bash
 python3 -m pip install --upgrade acryl-datahub
@@ -121,7 +121,7 @@ DataHub powers data discovery and governance at some of the world's most data-dr
 
 ## Community
 
-Join our [Slack workspace](https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+Join our [Slack workspace](https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](https://datahub.com/events/) and view past recordings.
 
 ## Contributing
 
