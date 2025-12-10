@@ -1,25 +1,17 @@
 import { Loader, Text, colors } from '@components';
 import { ChatCircle } from '@phosphor-icons/react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
-import analytics, { EventType } from '@app/analytics';
+import { MessageList } from '@app/chat/components/MessageList';
 import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
-import { ChatMessage } from '@app/chat/components/messages/ChatMessage';
-import { ThinkingGroup } from '@app/chat/components/messages/ThinkingGroup';
-import { useChatStream } from '@app/chat/hooks/useChatStream';
+import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { ChatFeatureFlags } from '@app/chat/types';
-import { extractReferencesFromMarkdown } from '@app/chat/utils/extractUrnsFromMarkdown';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataHubAiConversationQuery } from '@graphql/aiChat.generated';
-import {
-    DataHubAiConversationActorType,
-    DataHubAiConversationMessage,
-    DataHubAiConversationMessageType,
-    Entity,
-} from '@types';
+import { Entity } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -160,49 +152,6 @@ interface ChatAreaProps {
     initialMessage?: string;
 }
 
-// todo: extract to file with unit testing.
-// Helper to check if message is thinking/tool related
-const isThinkingOrToolMessage = (message: DataHubAiConversationMessage) => {
-    return (
-        message.type === DataHubAiConversationMessageType.Thinking ||
-        message.type === DataHubAiConversationMessageType.ToolCall ||
-        message.type === DataHubAiConversationMessageType.ToolResult
-    );
-};
-
-// TODO: Extract to file with unit testing.
-// Group consecutive thinking/tool messages together
-type MessageGroup =
-    | { type: 'thinking'; messages: DataHubAiConversationMessage[] }
-    | { type: 'regular'; message: DataHubAiConversationMessage };
-
-// Todo extract to file with unit testing.
-const groupMessages = (messages: DataHubAiConversationMessage[]): MessageGroup[] => {
-    const groups: MessageGroup[] = [];
-    let currentThinkingGroup: DataHubAiConversationMessage[] = [];
-
-    messages.forEach((message) => {
-        if (isThinkingOrToolMessage(message)) {
-            currentThinkingGroup.push(message);
-        } else {
-            // If we have accumulated thinking messages, save the group
-            if (currentThinkingGroup.length > 0) {
-                groups.push({ type: 'thinking', messages: currentThinkingGroup });
-                currentThinkingGroup = [];
-            }
-            // Add regular message
-            groups.push({ type: 'regular', message });
-        }
-    });
-
-    // Don't forget remaining thinking messages
-    if (currentThinkingGroup.length > 0) {
-        groups.push({ type: 'thinking', messages: currentThinkingGroup });
-    }
-
-    return groups;
-};
-
 export const ChatArea: React.FC<ChatAreaProps> = ({
     conversationUrn,
     userUrn,
@@ -213,8 +162,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     initialMessage,
 }) => {
     const [inputValue, setInputValue] = useState('');
-    const [messages, setMessages] = useState<DataHubAiConversationMessage[]>([]);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
     const hasAutoSentInitialMessage = useRef(false);
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
@@ -227,23 +174,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
     const conversation = data?.getDataHubAiConversation;
 
-    const { sendMessage, stopStreaming, isStreaming, currentMessage } = useChatStream({
+    // Use shared chat messages hook
+    const {
+        messages,
+        setMessages,
+        messageGroups,
+        isStreaming,
+        handleSendMessage,
+        handleStopStreaming,
+        messagesEndRef,
+    } = useChatMessages({
         conversationUrn,
-        onMessageReceived: (message: DataHubAiConversationMessage) => {
-            // Skip USER messages since we add them optimistically
-            if (message.actor.type === DataHubAiConversationActorType.User) {
-                return;
-            }
-
-            setMessages((prev) => {
-                // Check if this message is already in the list (to avoid duplicates)
-                const exists = prev.some((m) => m.time === message.time && m.content.text === message.content.text);
-                if (exists) {
-                    return prev;
-                }
-                return [...prev, message];
-            });
-        },
+        userUrn,
         onStreamComplete: () => {
             // Refetch conversation to get the complete message history
             refetch();
@@ -258,39 +200,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         if (conversation?.messages) {
             setMessages(conversation.messages);
         }
-    }, [conversation]);
-
-    // Scroll to bottom when conversation is first loaded
-    useEffect(() => {
-        if (conversation?.messages && conversation.messages.length > 0) {
-            // Use a small delay to ensure the DOM has updated
-            setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-            }, 300);
-        }
-    }, [conversation]);
-
-    // Cleanup: Stop streaming when conversation changes or component unmounts
-    useEffect(() => {
-        return () => {
-            stopStreaming();
-        };
-    }, [conversationUrn, stopStreaming]);
-
-    // Group messages for rendering
-    const messageGroups = useMemo(() => {
-        // Combine regular messages with streaming message if present
-        const allMessages = [...messages];
-        if (isStreaming && currentMessage) {
-            allMessages.push(currentMessage);
-        }
-        return groupMessages(allMessages);
-    }, [messages, currentMessage, isStreaming]);
-
-    // Scroll to bottom when messages change or streaming
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, currentMessage, isStreaming]);
+    }, [conversation, setMessages]);
 
     // Auto-send initial message if provided (from SearchBar "Ask DataHub")
     useEffect(() => {
@@ -299,139 +209,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             setInputValue(initialMessage);
             // Auto-send after a brief delay to ensure everything is ready
             setTimeout(() => {
-                // Add user message to the list immediately
-                const userMessage: DataHubAiConversationMessage = {
-                    type: DataHubAiConversationMessageType.Text,
-                    time: Date.now(),
-                    actor: {
-                        type: DataHubAiConversationActorType.User,
-                        actor: userUrn,
-                    },
-                    content: {
-                        text: initialMessage,
-                    },
-                };
-                setMessages((prev) => [...prev, userMessage]);
-
-                // Extract entity mentions from markdown
-                const mentions = extractReferencesFromMarkdown(initialMessage);
-
-                // Calculate message index - count existing user messages
-                const userMessageCount = messages.filter(
-                    (msg) => msg.actor.type === DataHubAiConversationActorType.User,
-                ).length;
-
-                // Emit analytics event for message creation
-                analytics.event({
-                    type: EventType.CreateDataHubChatMessageEvent,
-                    conversationUrn,
-                    messageLength: initialMessage.length,
-                    hasEntityMentions: mentions.length > 0,
-                    entityMentionCount: mentions.length,
-                    userMessageIndex: userMessageCount, // 0 = first user message, N = Nth user message
-                    totalMessageCount: messages.length, // Total messages (user + agent) before this message
-                    messagePreview: initialMessage.substring(0, 200), // First 200 characters
-                });
-
-                // Send the message
-                sendMessage(initialMessage);
+                handleSendMessage(initialMessage);
                 setInputValue('');
             }, 100);
         }
-    }, [initialMessage, loading, conversation, userUrn, sendMessage, conversationUrn, messages]);
+    }, [initialMessage, loading, conversation, handleSendMessage]);
 
     const handleSend = () => {
         if (!inputValue.trim()) {
             return;
         }
 
-        // Add user message to the list immediately
-        const userMessage: DataHubAiConversationMessage = {
-            type: DataHubAiConversationMessageType.Text,
-            time: Date.now(),
-            actor: {
-                type: DataHubAiConversationActorType.User,
-                actor: userUrn,
-            },
-            content: {
-                text: inputValue,
-            },
-        };
-        setMessages((prev) => [...prev, userMessage]);
-
-        // Extract entity mentions from markdown
-        const mentions = extractReferencesFromMarkdown(inputValue);
-
-        // Calculate message index - count existing user messages
-        const userMessageCount = messages.filter(
-            (msg) => msg.actor.type === DataHubAiConversationActorType.User,
-        ).length;
-
-        // Emit analytics event for message creation
-        analytics.event({
-            type: EventType.CreateDataHubChatMessageEvent,
-            conversationUrn,
-            messageLength: inputValue.length,
-            hasEntityMentions: mentions.length > 0,
-            entityMentionCount: mentions.length,
-            userMessageIndex: userMessageCount, // 0 = first user message, N = Nth user message
-            totalMessageCount: messages.length, // Total messages (user + agent) before this message
-            messagePreview: inputValue.substring(0, 200), // First 200 characters
-        });
-
-        // Send the message
-        sendMessage(inputValue);
+        handleSendMessage(inputValue);
         setInputValue('');
-    };
-
-    const handleStop = () => {
-        // Emit analytics event for stopping chat response
-        analytics.event({
-            type: EventType.StopDataHubChatResponseEvent,
-            conversationUrn,
-        });
-        stopStreaming();
     };
 
     const handleQuestionSelect = (question: string) => {
         if (isStreaming) return;
 
-        // Add user message to the list immediately
-        const userMessage: DataHubAiConversationMessage = {
-            type: DataHubAiConversationMessageType.Text,
-            time: Date.now(),
-            actor: {
-                type: DataHubAiConversationActorType.User,
-                actor: userUrn,
-            },
-            content: {
-                text: question,
-            },
-        };
-        setMessages((prev) => [...prev, userMessage]);
-
-        // Extract entity mentions from markdown
-        const mentions = extractReferencesFromMarkdown(question);
-
-        // Calculate message index - count existing user messages
-        const userMessageCount = messages.filter(
-            (msg) => msg.actor.type === DataHubAiConversationActorType.User,
-        ).length;
-
-        // Emit analytics event for message creation
-        analytics.event({
-            type: EventType.CreateDataHubChatMessageEvent,
-            conversationUrn,
-            messageLength: question.length,
-            hasEntityMentions: mentions.length > 0,
-            entityMentionCount: mentions.length,
-            userMessageIndex: userMessageCount, // 0 = first user message, N = Nth user message
-            totalMessageCount: messages.length, // Total messages (user + agent) before this message
-            messagePreview: question.substring(0, 200), // First 200 characters
-        });
-
-        // Send the message
-        sendMessage(question);
+        handleSendMessage(question);
     };
 
     if (loading) {
@@ -485,7 +281,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                         value={inputValue}
                                         onChange={setInputValue}
                                         onSubmit={handleSend}
-                                        onStop={handleStop}
+                                        onStop={handleStopStreaming}
                                         placeholder="Ask anything about your data..."
                                         isStreaming={isStreaming}
                                         isWelcomeState
@@ -495,39 +291,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                             </EmptyState>
                         ) : (
                             <>
-                                {messageGroups.map((group, index) => {
-                                    if (group.type === 'thinking') {
-                                        const firstMessageTime = group.messages[0]?.time || index;
-                                        // Thinking group is complete if there's a next group (non-thinking) or if we're not streaming
-                                        const isComplete = index < messageGroups.length - 1 || !isStreaming;
-                                        return (
-                                            <ThinkingGroup
-                                                key={`thinking-group-${firstMessageTime}`}
-                                                messages={group.messages}
-                                                verboseMode={featureFlags.verboseMode}
-                                                isComplete={isComplete}
-                                            />
-                                        );
-                                    }
-                                    return (
-                                        <ChatMessage
-                                            key={`${group.message.time}-${group.message.content.text.substring(0, 20)}`}
-                                            message={group.message}
-                                            selectedEntityUrn={selectedEntityUrn}
-                                            onEntitySelect={onEntitySelect}
-                                        />
-                                    );
-                                })}
-                                {isStreaming &&
-                                    (messageGroups.length === 0 ||
-                                        messageGroups[messageGroups.length - 1].type !== 'thinking') && (
-                                        <ThinkingGroup
-                                            key="streaming-thinking"
-                                            messages={[]}
-                                            verboseMode={featureFlags.verboseMode}
-                                            isComplete={false}
-                                        />
-                                    )}
+                                <MessageList
+                                    messageGroups={messageGroups}
+                                    verboseMode={featureFlags.verboseMode}
+                                    isStreaming={isStreaming}
+                                    selectedEntityUrn={selectedEntityUrn}
+                                    onEntitySelect={onEntitySelect}
+                                />
                                 <div ref={messagesEndRef} />
                             </>
                         )}
@@ -540,7 +310,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                 value={inputValue}
                                 onChange={setInputValue}
                                 onSubmit={handleSend}
-                                onStop={handleStop}
+                                onStop={handleStopStreaming}
                                 placeholder="Ask about your data... (use @ to mention assets)"
                                 isStreaming={isStreaming}
                             />

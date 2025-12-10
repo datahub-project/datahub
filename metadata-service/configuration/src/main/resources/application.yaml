@@ -653,6 +653,8 @@ kafka:
   consumerPool:
     initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
     maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
+    validationTimeoutSeconds: ${KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS:5}
+    validationCacheIntervalMinutes: ${KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES:5}
 
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
@@ -1088,8 +1090,8 @@ featureFlags:
   # for Saas:
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud} # URL to fetch product updates JSON from remote source.
   productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
-  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
@@ -1168,6 +1170,8 @@ featureFlags:
   # If enabled, the support tickets feature will be available in the UI
   showAskDataHub: ${SHOW_ASK_DATAHUB:false}
   # If enabled, the ask datahub feature will be available in the UI
+  freshnessAssertionTuningEnabled: ${FRESHNESS_ASSERTION_TUNING_ENABLED:false}
+  # If enabled, the freshness assertion tuning feature will be available in the UI
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
 
 entityChangeEvents:

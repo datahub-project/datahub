@@ -7,7 +7,7 @@ export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
     state: TState;
     updateState: (newState: Partial<TState>) => void;
 
-    submit: () => void;
+    submit: () => Promise<void>;
     cancel: () => void;
 
     totalSteps: number;
@@ -38,7 +38,10 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
     setCurrentStepCompleted: () => null,
 
     getCurrentStep: () => undefined,
-    submit: () => null,
+    submit: () =>
+        new Promise<void>((resolve) => {
+            resolve();
+        }),
     cancel: () => null,
 
     totalSteps: 0,

@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pytest
@@ -5,6 +6,7 @@ from opensearchpy import OpenSearch
 
 from tests.utils import delete_urns, wait_for_writes_to_sync
 
+logger = logging.getLogger(__name__)
 es = OpenSearch(["http://localhost:9200"])
 
 
@@ -22,11 +24,11 @@ generated_urns = {
 @pytest.fixture(scope="module", autouse=True)
 def test_setup(graph_client):
     """Fixture to clean-up urns before and after a test is run"""
-    print("removing previous test data")
+    logger.info("removing previous test data")
     delete_urns(graph_client, list(generated_urns.values()))
     wait_for_writes_to_sync()
     yield
-    print("removing generated test data")
+    logger.info("removing generated test data")
     delete_urns(graph_client, list(generated_urns.values()))
     wait_for_writes_to_sync()
 

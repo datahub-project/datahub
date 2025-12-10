@@ -2,6 +2,7 @@ package io.datahubproject.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.event.exception.UnsupportedTopicException;
+import io.datahubproject.event.kafka.CheckedConsumer;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
@@ -89,13 +90,14 @@ public class ExternalEventsService {
     long startTime = System.currentTimeMillis();
     long timeout =
         (pollTimeoutSeconds != null ? pollTimeoutSeconds : defaultPollTimeoutSeconds) * 1000L;
-    KafkaConsumer<String, GenericRecord> consumer =
-        consumerPool.borrowConsumer(timeout, TimeUnit.MILLISECONDS);
-    if (consumer == null) {
+    CheckedConsumer checkedConsumer =
+        consumerPool.borrowConsumer(timeout, TimeUnit.MILLISECONDS, finalTopic);
+    if (checkedConsumer == null) {
       throw new TimeLimitExceededException("Too many simultaneous requests, retry again later.");
     }
 
     try {
+      KafkaConsumer<String, GenericRecord> consumer = checkedConsumer.getConsumer();
       List<TopicPartition> partitions =
           consumer.partitionsFor(finalTopic).stream()
               .map(partitionInfo -> new TopicPartition(finalTopic, partitionInfo.partition()))
@@ -133,7 +135,7 @@ public class ExternalEventsService {
 
       return convertToExternalEvents(messages, encodeOffsetId(latestOffsets), fetchedRecords);
     } finally {
-      consumerPool.returnConsumer(consumer);
+      consumerPool.returnConsumer(checkedConsumer);
     }
   }
 

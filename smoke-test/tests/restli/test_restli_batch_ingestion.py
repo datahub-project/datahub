@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import List
 
@@ -18,6 +19,8 @@ from datahub.metadata.urns import MlModelUrn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.restli.restli_test import MetadataChangeProposalInvalidWrapper
 from tests.utils import delete_urns
+
+logger = logging.getLogger(__name__)
 
 generated_urns: List[str] = []
 
@@ -174,7 +177,7 @@ def test_restli_batch_ingestion_exception_sync(graph_client):
     except Exception as e:
         if isinstance(e, AssertionError):
             raise e
-        print(f"Error emitting MCPs due to {e}")
+        logger.info(f"Error emitting MCPs due to {e}")
 
 
 def test_restli_batch_ingestion_exception_async(graph_client):

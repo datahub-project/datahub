@@ -26,6 +26,11 @@ record AnomalySource {
   * For assertion monitors, this will contain the urn of the source Assertion.
   */
   @TimeseriesField = {}
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "assertion" ]
+  }
   sourceUrn: optional Urn
 
   /**

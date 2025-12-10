@@ -173,6 +173,14 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesTemplate());
     aspectSpecTemplateMap.put(SIBLINGS_ASPECT_NAME, new SiblingsTemplate());
+    aspectSpecTemplateMap.put(DOMAINS_ASPECT_NAME, new DomainsTemplate());
+    aspectSpecTemplateMap.put(
+        EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, new EditableContainerPropertiesTemplate());
+    aspectSpecTemplateMap.put(
+        ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+        new EditableMLModelGroupPropertiesTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

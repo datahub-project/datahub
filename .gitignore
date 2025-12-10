@@ -75,8 +75,6 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
-docs-website/versioned_docs/
-docs-website/versioned_sidebars/
 tmp*
 temp/**
 
@@ -94,6 +92,7 @@ coverage*.xml
 **/.claude/settings.local.json
 # Claude agent files (session-specific, not to be committed)
 **/.claude/agents/
+**/.claude/*.md
 
 # Environment files with credentials
 .env*
@@ -144,3 +143,4 @@ metadata-utils/bin/
 test-models/bin/
 notifications/bin/
 
+.claude/

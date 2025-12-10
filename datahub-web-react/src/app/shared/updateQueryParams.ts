@@ -19,8 +19,11 @@ export default function updateQueryParams(newParams: QueryParam, location: Locat
         return;
     }
 
-    history.replace({
-        pathname: location.pathname,
-        search: stringifiedParams,
-    });
+    history.replace(
+        {
+            pathname: location.pathname,
+            search: stringifiedParams,
+        },
+        location.state,
+    );
 }

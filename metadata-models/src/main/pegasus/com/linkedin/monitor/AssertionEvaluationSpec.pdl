@@ -14,6 +14,11 @@ record AssertionEvaluationSpec {
       "name": "Evaluates",
       "entityTypes": [ "assertion" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "assertion" ]
+    }
     assertion: Urn
 
     /**

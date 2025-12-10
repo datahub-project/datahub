@@ -103,6 +103,26 @@ There are two [transports types](https://modelcontextprotocol.io/docs/concepts/t
 
 To connect to the MCP server, you'll need the following:
 
+- **Node.js 18+** - Required for AI tools that use the `npx` command (for example Claude Desktop)
+
+  ```bash
+  # Check if Node.js is installed
+  node --version
+
+  # If not installed, download from https://nodejs.org/
+  # Or use a package manager:
+
+  # macOS (using Homebrew)
+  brew install node
+
+  # Linux (using apt)
+  sudo apt update && sudo apt install nodejs npm
+
+  # Or use nvm (Node Version Manager) for easier version management
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+  nvm install --lts
+  ```
+
 - The URL of your DataHub Cloud instance e.g. `https://<tenant>.acryl.io`
 - A [personal access token](../../authentication/personal-access-tokens.md)
 
@@ -192,7 +212,6 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
    ```
 
 2. For authentication, you'll need the following:
-
    - The URL of your DataHub instance's GMS endpoint; e.g. `http://<localhost>:8080` or `https://<tenant>.acryl.io`
    - A [personal access token](../../authentication/personal-access-tokens.md)
 

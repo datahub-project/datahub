@@ -76,6 +76,10 @@ npx cypress open
 # Change cypress.config.js line 22 to http://localhost:3000/
 ```
 
+**Java SDK v2 integration tests:**
+
+See [metadata-integration/java/datahub-client/CLAUDE.md](metadata-integration/java/datahub-client/CLAUDE.md) for detailed integration test documentation.
+
 ## Architecture Overview
 
 DataHub is a **schema-first, event-driven metadata platform** with three core layers:

@@ -1,4 +1,5 @@
-import React from 'react';
+import { Tooltip } from '@components';
+import React, { useEffect, useRef, useState } from 'react';
 
 import {
     CardContainer,
@@ -12,14 +13,13 @@ import { CardProps } from '@components/components/Card/types';
 import { Pill } from '@components/components/Pills';
 
 export const cardDefaults: CardProps = {
-    title: 'Title',
     iconAlignment: 'horizontal',
     isEmpty: false,
     isCardClickable: true,
 };
 
 export const Card = ({
-    title = cardDefaults.title,
+    title,
     iconAlignment = cardDefaults.iconAlignment,
     subTitle,
     percent,
@@ -34,7 +34,29 @@ export const Card = ({
     style,
     isCardClickable = cardDefaults.isCardClickable,
     dataTestId,
+    noOfSubtitleLines,
+    iconStyles,
+    pillLabel,
 }: CardProps) => {
+    const subtitleRef = useRef<HTMLDivElement>(null);
+    const [showSubtitleTooltip, setShowSubtitleTooltip] = useState(false);
+
+    useEffect(() => {
+        const element = subtitleRef.current;
+        if (!element) return;
+
+        requestAnimationFrame(() => {
+            const isOverflowing = element.scrollHeight > element.clientHeight;
+            setShowSubtitleTooltip(isOverflowing);
+        });
+    }, []);
+
+    const subtitleElement = (
+        <SubTitle ref={subtitleRef} $noOfSubtitleLines={noOfSubtitleLines}>
+            {subTitle}
+        </SubTitle>
+    );
+
     return (
         <>
             {isEmpty ? (
@@ -46,7 +68,7 @@ export const Card = ({
                 </CardContainer>
             ) : (
                 <CardContainer
-                    isClickable={!!button && isCardClickable}
+                    isClickable={(!!button || onClick) && isCardClickable}
                     onClick={onClick}
                     maxWidth={maxWidth}
                     height={height}
@@ -54,27 +76,38 @@ export const Card = ({
                     style={style}
                     data-testid={dataTestId}
                 >
-                    <Header iconAlignment={iconAlignment}>
-                        {icon}
-                        <TitleContainer>
-                            <Title data-testid="title">
-                                {title}
-                                {!!percent && (
-                                    <Pill
-                                        label={`${Math.abs(percent)}%`}
-                                        size="sm"
-                                        color={percent < 0 ? 'red' : 'green'}
-                                        leftIcon={percent < 0 ? 'TrendingDown' : 'TrendingUp'}
-                                        clickable={false}
-                                    />
-                                )}
-                            </Title>
-                            <SubTitleContainer>
-                                <SubTitle>{subTitle}</SubTitle>
-                            </SubTitleContainer>
-                        </TitleContainer>
-                        {button}
-                    </Header>
+                    {title && (
+                        <Header iconAlignment={iconAlignment}>
+                            <div style={iconStyles}>{icon}</div>
+
+                            <TitleContainer>
+                                <Title data-testid="title">
+                                    {title}
+                                    {!!percent && (
+                                        <Pill
+                                            label={`${Math.abs(percent)}%`}
+                                            size="sm"
+                                            color={percent < 0 ? 'red' : 'green'}
+                                            leftIcon={percent < 0 ? 'TrendingDown' : 'TrendingUp'}
+                                            clickable={false}
+                                        />
+                                    )}
+                                    {!!pillLabel && (
+                                        <Pill label={pillLabel} size="sm" color="primary" clickable={false} />
+                                    )}
+                                </Title>
+                                <SubTitleContainer>
+                                    {showSubtitleTooltip ? (
+                                        <Tooltip title={subTitle}>{subtitleElement}</Tooltip>
+                                    ) : (
+                                        subtitleElement
+                                    )}
+                                </SubTitleContainer>
+                            </TitleContainer>
+
+                            {button}
+                        </Header>
+                    )}
                     {children}
                 </CardContainer>
             )}

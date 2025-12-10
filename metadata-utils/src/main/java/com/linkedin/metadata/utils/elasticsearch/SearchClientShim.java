@@ -295,6 +295,10 @@ public interface SearchClientShim<T> extends Closeable {
   /** Check if the client supports a specific API feature */
   boolean supportsFeature(@Nonnull String feature);
 
+  /**
+   * WARNING: This breaks abstraction layers and should be considered an anti-pattern for usage,
+   * likely candidate for removal.
+   */
   @Nonnull
   RawResponse performLowLevelRequest(Request request) throws IOException;
 

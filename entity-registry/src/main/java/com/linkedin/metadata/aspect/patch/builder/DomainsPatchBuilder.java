@@ -15,9 +15,9 @@ public class DomainsPatchBuilder extends AbstractMultiFieldPatchBuilder<DomainsP
   public DomainsPatchBuilder setDomain(@Nonnull Urn urn) {
     // remove existing list of domains to set the new one
     this.pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH, null));
-    // add empty domains map
+    // add empty domains array
     pathValues.add(
-        ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH, instance.objectNode()));
+        ImmutableTriple.of(PatchOperationType.ADD.getValue(), BASE_PATH, instance.arrayNode()));
     // set the new domain
     pathValues.add(
         ImmutableTriple.of(
@@ -30,6 +30,16 @@ public class DomainsPatchBuilder extends AbstractMultiFieldPatchBuilder<DomainsP
   public DomainsPatchBuilder removeDomain(@Nonnull Urn urn) {
     pathValues.add(
         ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH + "/" + urn, null));
+    return this;
+  }
+
+  /**
+   * Clears all domains from the entity.
+   *
+   * @return this builder
+   */
+  public DomainsPatchBuilder clearDomains() {
+    pathValues.add(ImmutableTriple.of(PatchOperationType.REMOVE.getValue(), BASE_PATH, null));
     return this;
   }
 
