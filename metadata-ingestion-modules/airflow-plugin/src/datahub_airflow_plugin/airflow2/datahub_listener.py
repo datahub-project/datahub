@@ -820,6 +820,10 @@ class DataHubListener:
                 f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
             )
 
+        # Materialize iolets on completion (outlets may be populated during execution)
+        # This ensures operation aspects are emitted for datasets created during task execution
+        self.materialize_iolets(datajob)
+
         self.emitter.flush()
 
     @hookimpl

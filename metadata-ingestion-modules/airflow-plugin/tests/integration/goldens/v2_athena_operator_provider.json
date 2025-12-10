@@ -124,7 +124,8 @@
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
-                "outlets": "[]"
+                "outlets": "[]",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-1-0/SQLJobFacet.json#/$defs/SQLJobFacet\", \"query\": \"CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=athena_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -147,16 +148,15 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,athena_operator,prod),transform_cost_table)",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [],
-            "fineGrainedLineages": []
+            "platform": "urn:li:dataPlatform:s3",
+            "name": "/",
+            "origin": "PROD"
         }
     }
 },
@@ -223,7 +223,7 @@
             "name": "athena_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1764141930294,
+                "time": 1765359718475,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -245,16 +245,60 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:9cd4fbcec3a50a4988ffc5841beaf0ad",
     "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "name": "/",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:9cd4fbcec3a50a4988ffc5841beaf0ad",
+    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1764141930294,
+            "timestampMillis": 1765359718475,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1765359720418,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1765359720418
         }
     }
 },
@@ -277,7 +321,7 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/1.13.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-1-0/SQLJobFacet.json#/$defs/SQLJobFacet\", \"query\": \"CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/apache/airflow/tree/providers-openlineage/2.8.0\", \"_schemaURL\": \"https://openlineage.io/spec/facets/1-1-0/SQLJobFacet.json#/$defs/SQLJobFacet\", \"query\": \"CREATE OR REPLACE TABLE processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=athena_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -370,7 +414,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1764141930413,
+            "timestampMillis": 1765359720427,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
