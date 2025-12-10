@@ -209,7 +209,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         self.init_hive_metastore_proxy()
 
-        resolved_token = config._resolve_token()
+        resolved_token = config.token
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
             config.workspace_url,

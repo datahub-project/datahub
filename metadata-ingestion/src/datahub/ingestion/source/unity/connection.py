@@ -57,51 +57,12 @@ class UnityCatalogConnectionConfig(ConfigModel):
     def __init__(self, **data: Any):
         super().__init__(**data)
 
-    def _resolve_token(self) -> Optional[str]:
-        """
-        Resolve authentication token using the following priority:
-        1. Explicit token from config
-        2. Token from Databricks SDK Config (environment variables or .databrickscfg)
-        3. OAuth token via service principal
-
-        Returns None if no token is found, allowing unified authentication to be used.
-        """
-        if self.token:
-            return self.token
-
-        try:
-            from databricks.sdk.core import Config, oauth_service_principal
-
-            if self.workspace_url:
-                host = self.workspace_url.replace("https://", "").replace("http://", "")
-                config = Config(host=host)
-            else:
-                config = Config()
-
-            if config.token:
-                return config.token
-
-            try:
-                principal = oauth_service_principal(config)
-                oauth_token = principal.oauth_token()
-                if oauth_token and oauth_token.access_token:
-                    return oauth_token.access_token
-            except Exception:
-                pass
-
-        except ImportError:
-            pass
-        except Exception:
-            pass
-
-        return None
-
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
         if database:
             uri_opts["catalog"] = database
 
-        token = self._resolve_token()
+        token = self.token
         if token is not None:
             username = "token"
             password = token

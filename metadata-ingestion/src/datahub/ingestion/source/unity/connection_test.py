@@ -14,7 +14,7 @@ class UnityCatalogConnectionTest:
     def __init__(self, config: UnityCatalogSourceConfig):
         self.config = config
         self.report = UnityCatalogReport()
-        resolved_token = config._resolve_token()
+        resolved_token = config.token
         self.proxy = UnityCatalogApiProxy(
             self.config.workspace_url,
             resolved_token,
