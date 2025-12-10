@@ -1,0 +1,15 @@
+services:
+  teststarrocks:
+    image: starrocks/allin1-ubuntu:latest
+    container_name: "teststarrocks"
+    ports:
+      - 59030:9030  # FE MySQL protocol port
+      - 58080:8080  # FE HTTP port  
+    volumes:
+      - ./setup:/setup
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h127.0.0.1 -P9030 -uroot -e 'SELECT 1' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
