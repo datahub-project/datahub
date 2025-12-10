@@ -11,20 +11,17 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
-import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.ingestion.DataHubIngestionSourceSource;
 import com.linkedin.ingestion.DataHubIngestionSourceSourceType;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -46,12 +43,9 @@ import org.springframework.scheduling.support.CronExpression;
 public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
-  private final EntityService<?> _entityService;
 
-  public UpsertIngestionSourceResolver(
-      final EntityClient entityClient, final EntityService<?> entityService) {
+  public UpsertIngestionSourceResolver(final EntityClient entityClient) {
     _entityClient = entityClient;
-    _entityService = entityService;
   }
 
   @Override
@@ -95,15 +89,7 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            String urn =
-                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-
-            if (!ingestionSourceUrn.isPresent()) {
-              OwnerUtils.addCreatorAsOwner(context, urn, OwnerEntityType.CORP_USER, _entityService);
-            }
-
-            return urn;
-
+            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
