@@ -685,7 +685,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         return nodes, additional_metadata
 
-    def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
+    def _parse_into_dbt_node(self, node: Dict) -> DBTNode:  # noqa: C901
         key = node["uniqueId"]
 
         name = node["name"]
@@ -704,6 +704,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
+            logger.debug(f"Model {key}: materialization={materialization}, name={name}")
         elif node["resourceType"] == "snapshot":
             materialization = "snapshot"
         else:
@@ -744,10 +745,22 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             # The code fields are new in dbt 1.3, and replace the sql ones.
             raw_code = node["rawCode"] or node["rawSql"]
             compiled_code = node["compiledCode"] or node["compiledSql"]
+
+            if compiled_code:
+                logger.debug(
+                    f"Model {key}: compiled_code present (length={len(compiled_code)})"
+                )
+            else:
+                logger.warning(
+                    f"Model {key}: compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model."
+                )
         elif node["resourceType"] == "semantic_model":
-            # Semantic models don't have SQL code
             raw_code = None
             compiled_code = None
+            logger.debug(
+                f"Semantic model {key}: compiled_code not expected (YAML-based)"
+            )
         else:
             raw_code = None
             compiled_code = None
@@ -845,6 +858,22 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             if node["resourceType"] == "semantic_model"
             else node["resourceType"]
         )
+
+        # Also override node_type for models with semantic_view materialization
+        # (e.g., Snowflake semantic views using dbt_semantic_view package)
+        if materialization == "semantic_view":
+            node_type = "semantic_view"
+            logger.info(
+                f"Detected Snowflake semantic view: {key} (node_type overridden to 'semantic_view')"
+            )
+            if compiled_code:
+                logger.info(
+                    f"Semantic view {key}: Will attempt CLL extraction from compiled DDL"
+                )
+            else:
+                logger.warning(
+                    f"Semantic view {key}: Missing compiled_code - CLL extraction will be skipped!"
+                )
 
         return DBTNode(
             dbt_name=key,
