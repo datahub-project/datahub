@@ -4,10 +4,14 @@ Relationship Entity Module
 Self-contained processing for glossary term relationships:
 - Extraction from RDF graphs (skos:broader, skos:narrower only)
 - Conversion to DataHub AST
-- MCP creation for DataHub ingestion (isRelatedTerms only)
+- MCP creation for DataHub ingestion (isRelatedTerms only - inheritance)
 
 Note: Only broader/narrower relationships are supported.
 skos:related, skos:exactMatch, skos:closeMatch are NOT extracted.
+
+Both broader and narrower create inheritance relationships (isRelatedTerms):
+- broader: child → parent → child inherits from parent
+- narrower: parent → child → normalized to child → parent (child inherits from parent)
 """
 
 from datahub.ingestion.source.rdf.entities.base import EntityMetadata

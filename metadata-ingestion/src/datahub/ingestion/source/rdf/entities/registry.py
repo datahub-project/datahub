@@ -1,10 +1,8 @@
 """
 Entity Registry
 
-DEPRECATED: This auto-discovery registry is replaced by simple_registry.py
-which uses explicit imports for the 2-3 entity types we support.
-
-This module is kept for backward compatibility but delegates to SimpleEntityRegistry.
+Explicit registry for the 2-3 entity types currently supported.
+Uses explicit imports instead of auto-discovery for simplicity.
 """
 
 import logging
@@ -23,15 +21,9 @@ logger = logging.getLogger(__name__)
 
 class EntityRegistry:
     """
-    Central registry for entity processors.
+    Simplified registry with explicit entity type registration.
 
-    Manages registration and lookup of entity processing components
-    (extractors, converters, MCP builders) for different entity types.
-
-    Usage:
-        registry = EntityRegistry()
-        registry.register_processor('glossary_term', GlossaryTermProcessor())
-        processor = registry.get_processor('glossary_term')
+    For 2-3 entity types, explicit imports are simpler than auto-discovery.
     """
 
     def __init__(self):
@@ -40,9 +32,12 @@ class EntityRegistry:
         self._mcp_builders: Dict[str, EntityMCPBuilder] = {}
         self._processors: Dict[str, EntityProcessor] = {}
         self._metadata: Dict[str, EntityMetadata] = {}
-        self._cli_name_to_entity_type: Dict[
-            str, str
-        ] = {}  # Reverse mapping for CLI names
+        self._cli_name_to_entity_type: Dict[str, str] = {}
+
+        # Explicitly register the 2-3 entity types we support
+        self._register_glossary_term()
+        self._register_relationship()
+        self._register_domain()
 
     def register_extractor(self, entity_type: str, extractor: EntityExtractor) -> None:
         """Register an extractor for an entity type."""
@@ -86,13 +81,85 @@ class EntityRegistry:
         """Get the processor for an entity type."""
         return self._processors.get(entity_type)
 
+    def _register_glossary_term(self):
+        """Register glossary_term entity."""
+        from datahub.ingestion.source.rdf.entities.glossary_term import (
+            ENTITY_METADATA,
+            GlossaryTermExtractor,
+            GlossaryTermMCPBuilder,
+        )
+
+        entity_type = "glossary_term"
+        extractor = GlossaryTermExtractor()
+        # No converter - extractor returns DataHub AST directly
+        mcp_builder = GlossaryTermMCPBuilder()
+
+        self._extractors[entity_type] = extractor
+        # No converter registered - extractor returns DataHub AST directly
+        self._mcp_builders[entity_type] = mcp_builder
+        # EntityProcessor not used for glossary_term (no converter)
+        self._metadata[entity_type] = ENTITY_METADATA
+
+        # Register CLI names
+        for cli_name in ENTITY_METADATA.cli_names:
+            self._cli_name_to_entity_type[cli_name] = entity_type
+
+        logger.debug(
+            f"Registered {entity_type} (no converter - extractor returns DataHub AST directly)"
+        )
+
+    def _register_relationship(self):
+        """Register relationship entity."""
+        from datahub.ingestion.source.rdf.entities.relationship import (
+            ENTITY_METADATA,
+            RelationshipConverter,
+            RelationshipExtractor,
+            RelationshipMCPBuilder,
+        )
+
+        entity_type = "relationship"
+        extractor = RelationshipExtractor()
+        converter = RelationshipConverter()
+        mcp_builder = RelationshipMCPBuilder()
+
+        self._extractors[entity_type] = extractor
+        self._converters[entity_type] = converter
+        self._mcp_builders[entity_type] = mcp_builder
+        self._processors[entity_type] = EntityProcessor(
+            extractor=extractor,
+            converter=converter,
+            mcp_builder=mcp_builder,
+        )
+        self._metadata[entity_type] = ENTITY_METADATA
+
+        # Register CLI names
+        for cli_name in ENTITY_METADATA.cli_names:
+            self._cli_name_to_entity_type[cli_name] = entity_type
+
+        logger.debug(f"Registered {entity_type}")
+
+    def _register_domain(self):
+        """Register domain entity (data structure only, no extractor/converter)."""
+        from datahub.ingestion.source.rdf.entities.domain import ENTITY_METADATA
+
+        entity_type = "domain"
+        # Domain is built from other entities, not extracted
+        # No extractor or converter needed
+        self._metadata[entity_type] = ENTITY_METADATA
+
+        # Register CLI names
+        for cli_name in ENTITY_METADATA.cli_names:
+            self._cli_name_to_entity_type[cli_name] = entity_type
+
+        logger.debug(f"Registered {entity_type} (data structure only)")
+
     def list_entity_types(self) -> List[str]:
         """List all registered entity types."""
-        # Union of all registered types
         all_types = (
             set(self._extractors.keys())
             | set(self._converters.keys())
             | set(self._mcp_builders.keys())
+            | set(self._metadata.keys())
         )
         return sorted(all_types)
 
@@ -165,18 +232,14 @@ class EntityRegistry:
 
     def get_entity_types_by_processing_order(self) -> List[str]:
         """
-        Get all registered entity types sorted by dependencies (topological sort).
+        Get all registered entity types sorted by dependencies.
 
-        Entities are ordered such that dependencies are processed before dependents.
-        Uses topological sorting based on the dependencies field in EntityMetadata.
-
-        Falls back to processing_order if dependencies are not specified (backward compatibility).
-
-        Returns:
-            List of entity type names sorted by dependency order
+        Uses topological sort based on dependencies in EntityMetadata.
+        Falls back to alphabetical order if no dependencies specified.
         """
-        # Build dependency graph
         entity_types = list(self._metadata.keys())
+
+        # Build dependency graph
         dependency_graph: Dict[str, List[str]] = {}
         in_degree: Dict[str, int] = {}
 
@@ -187,40 +250,39 @@ class EntityRegistry:
 
         # Build edges: if A depends on B, then B -> A (B must come before A)
         for entity_type, metadata in self._metadata.items():
-            # Use dependencies if specified, otherwise fall back to processing_order
             if metadata.dependencies:
                 for dep in metadata.dependencies:
-                    # Normalize dependency to string (handles both string literals and ENTITY_TYPE constants)
                     dep_str = dep if isinstance(dep, str) else str(dep)
                     if dep_str in dependency_graph:
                         dependency_graph[dep_str].append(entity_type)
                         in_degree[entity_type] += 1
-                    else:
-                        logger.warning(
-                            f"Entity '{entity_type}' depends on '{dep_str}', but '{dep_str}' is not registered. "
-                            f"Ignoring dependency."
-                        )
 
         # Topological sort using Kahn's algorithm
         queue = [et for et in entity_types if in_degree[et] == 0]
         result = []
 
-        # If no dependencies specified, fall back to processing_order
+        # If no dependencies, use processing_order or alphabetical order
         has_dependencies = any(
             metadata.dependencies for metadata in self._metadata.values()
         )
         if not has_dependencies:
-            # Fallback to processing_order
-            entity_types_with_order = [
-                (entity_type, metadata.processing_order)
-                for entity_type, metadata in self._metadata.items()
-            ]
-            entity_types_with_order.sort(key=lambda x: (x[1], x[0]))
-            return [entity_type for entity_type, _ in entity_types_with_order]
+            # Sort by processing_order, then by name
+            return sorted(
+                entity_types,
+                key=lambda et: (
+                    self._metadata[et].processing_order,
+                    et,
+                ),
+            )
 
         while queue:
-            # Sort queue alphabetically for deterministic ordering
-            queue.sort()
+            # Sort queue by processing_order, then by name for deterministic ordering
+            queue.sort(
+                key=lambda et: (
+                    self._metadata[et].processing_order,
+                    et,
+                )
+            )
             entity_type = queue.pop(0)
             result.append(entity_type)
 
@@ -230,147 +292,29 @@ class EntityRegistry:
                 if in_degree[dependent] == 0:
                     queue.append(dependent)
 
-        # Check for cycles (shouldn't happen with valid dependencies)
+        # Check for cycles
         if len(result) != len(entity_types):
             remaining = set(entity_types) - set(result)
             logger.warning(
-                f"Circular dependency detected or missing dependencies. "
-                f"Remaining entities: {remaining}. "
-                f"Falling back to processing_order."
+                f"Circular dependency detected. Remaining: {remaining}. "
+                f"Falling back to alphabetical order."
             )
-            # Fallback to processing_order
-            entity_types_with_order = [
-                (entity_type, metadata.processing_order)
-                for entity_type, metadata in self._metadata.items()
-            ]
-            entity_types_with_order.sort(key=lambda x: (x[1], x[0]))
-            return [entity_type for entity_type, _ in entity_types_with_order]
+            return sorted(entity_types)
 
         return result
 
 
-def _entity_type_to_class_name(entity_type: str, suffix: str) -> str:
+# Create a singleton instance
+_singleton_registry: Optional[EntityRegistry] = None
+
+
+def create_default_registry() -> EntityRegistry:
     """
-    Convert entity_type to class name following the naming convention.
+    Create or return the singleton registry instance.
 
-    Examples:
-        'glossary_term' + 'Extractor' -> 'GlossaryTermExtractor'
-        'structured_property' + 'Converter' -> 'StructuredPropertyConverter'
-        'data_product' + 'MCPBuilder' -> 'DataProductMCPBuilder'
-
-    Args:
-        entity_type: The entity type name (snake_case)
-        suffix: The class suffix ('Extractor', 'Converter', 'MCPBuilder')
-
-    Returns:
-        PascalCase class name
+    This maintains backward compatibility with the old registry interface.
     """
-    # Convert snake_case to PascalCase
-    parts = entity_type.split("_")
-    pascal_case = "".join(word.capitalize() for word in parts)
-    return f"{pascal_case}{suffix}"
-
-
-def _register_entity_module(registry: EntityRegistry, entity_type: str, module) -> None:
-    """
-    Register an entity module's components.
-
-    Args:
-        registry: The registry to register into
-        entity_type: The entity type name (must match folder name)
-        module: The imported module
-
-    Raises:
-        ValueError: If required components are missing
-    """
-    # Get components using naming convention
-    # Extractor and Converter are optional for built entities (e.g., domains)
-    ExtractorClass = getattr(
-        module, _entity_type_to_class_name(entity_type, "Extractor"), None
-    )
-    ConverterClass = getattr(
-        module, _entity_type_to_class_name(entity_type, "Converter"), None
-    )
-    MCPBuilderClass = getattr(
-        module, _entity_type_to_class_name(entity_type, "MCPBuilder"), None
-    )
-    metadata = getattr(module, "ENTITY_METADATA", None)
-
-    # Validate required components exist
-    # Note: MCPBuilder is optional for 'domain' since domains are data structure only, not ingested
-    missing = []
-    if MCPBuilderClass is None and entity_type != "domain":
-        missing.append(f"{_entity_type_to_class_name(entity_type, 'MCPBuilder')}")
-    if metadata is None:
-        missing.append("ENTITY_METADATA")
-
-    if missing:
-        raise ValueError(
-            f"Entity module '{entity_type}' is missing required components: {', '.join(missing)}. "
-            f"See docs/ENTITY_PLUGIN_CONTRACT.md for the required plugin contract."
-        )
-
-    # Validate metadata entity_type matches
-    assert metadata is not None  # Already validated above
-    if metadata.entity_type != entity_type:
-        raise ValueError(
-            f"Entity module '{entity_type}' has ENTITY_METADATA.entity_type='{metadata.entity_type}'. "
-            f"Entity type must match the folder name."
-        )
-
-    # Register MCP builder (required, except for domain which is data structure only)
-    if MCPBuilderClass:
-        mcp_builder = MCPBuilderClass()
-        registry.register_mcp_builder(entity_type, mcp_builder)
-    elif entity_type == "domain":
-        # Domain is data structure only - no MCP builder needed
-        logger.debug(
-            "Domain module has no MCPBuilder (domains are data structure only, not ingested)"
-        )
-
-    # Register extractor and converter if they exist (optional for built entities)
-    if ExtractorClass:
-        extractor = ExtractorClass()
-        registry.register_extractor(entity_type, extractor)
-    if ConverterClass:
-        converter = ConverterClass()
-        registry.register_converter(entity_type, converter)
-
-    # Create processor instance only if all components exist
-    # Built entities (like domains) may not have extractor/converter
-    if ExtractorClass and ConverterClass and MCPBuilderClass:
-        try:
-            processor = EntityProcessor(
-                extractor=ExtractorClass(),
-                converter=ConverterClass(),
-                mcp_builder=MCPBuilderClass(),
-            )
-            registry.register_processor(entity_type, processor)
-        except Exception as e:
-            raise ValueError(
-                f"Failed to instantiate processor components for '{entity_type}': {e}. "
-                f"Ensure all components can be instantiated without required arguments."
-            ) from e
-
-    # Register metadata (always required)
-    registry.register_metadata(entity_type, metadata)
-
-    logger.debug(f"Auto-registered entity module: {entity_type}")
-
-
-def create_default_registry():
-    """
-    Create a registry with entity processors.
-
-    DEPRECATED: Now uses SimpleEntityRegistry with explicit imports
-    instead of auto-discovery. This is simpler for 2-3 entity types.
-
-    Returns:
-        SimpleEntityRegistry with explicitly registered entities
-    """
-    # Use the simplified registry instead
-    from datahub.ingestion.source.rdf.entities.simple_registry import (
-        create_default_registry as create_simple_registry,
-    )
-
-    return create_simple_registry()
+    global _singleton_registry
+    if _singleton_registry is None:
+        _singleton_registry = EntityRegistry()
+    return _singleton_registry

@@ -219,10 +219,10 @@ class EntityRegistry:
 
 #### 9.4.2 Entity Registration
 
-Entity modules are explicitly registered in the registry. The system uses a simplified `SimpleEntityRegistry` that explicitly imports and registers entity types:
+Entity modules are explicitly registered in the registry. The system uses `EntityRegistry` that explicitly imports and registers entity types:
 
 ```python
-class SimpleEntityRegistry:
+class EntityRegistry:
     """Simplified registry with explicit entity type registration."""
 
     def __init__(self):
@@ -260,8 +260,6 @@ class RDFGraph:
             setattr(self, field_name, [])
 
         # Special fields (always present)
-        self.owner_groups: List[RDFOwnerGroup] = []
-        self.ownership: List[RDFOwnership] = []
         self.metadata: Dict[str, Any] = {}
 ```
 
@@ -332,7 +330,6 @@ def _create_export_target_enum() -> type[Enum]:
         'ENTITIES': 'entities',
         'LINKS': 'links',
         'DDL': 'ddl',
-        'OWNERSHIP': 'ownership',
     }
 
     # Add entity-specific targets from registered entities

@@ -17,8 +17,5 @@ class DataHubGlossaryTerm:
     name: str
     definition: Optional[str] = None
     source: Optional[str] = None
-    relationships: Dict[str, List[str]] = field(
-        default_factory=dict
-    )  # Use strings for now
     custom_properties: Dict[str, Any] = field(default_factory=dict)
     path_segments: List[str] = field(default_factory=list)  # Hierarchical path from IRI
