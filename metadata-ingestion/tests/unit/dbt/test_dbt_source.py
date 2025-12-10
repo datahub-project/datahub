@@ -25,6 +25,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
 
@@ -981,7 +982,7 @@ def test_dbt_semantic_view_missing_upstream() -> None:
         }
     }
 
-    all_manifest_entities = {}  # Empty - upstream not found
+    all_manifest_entities: Dict[str, Dict[str, Any]] = {}  # Empty - upstream not found
 
     report = DBTSourceReport()
 
@@ -1107,6 +1108,7 @@ def test_dbt_semantic_view_subtype() -> None:
     assert subtype_wu is not None
     aspect = subtype_wu.metadata.aspect
     assert aspect is not None
+    assert isinstance(aspect, SubTypesClass)
     assert DatasetSubTypes.SEMANTIC_VIEW in aspect.typeNames
 
 
