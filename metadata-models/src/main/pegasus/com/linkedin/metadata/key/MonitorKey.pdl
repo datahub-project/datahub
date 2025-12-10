@@ -20,6 +20,11 @@ record MonitorKey {
   @Searchable = {
     "fieldType": "URN"
   }
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "dataset" ]
+  }
   entity: Urn
 
   /**
