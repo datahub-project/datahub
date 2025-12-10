@@ -139,36 +139,39 @@ class TestDirectEntityProcessingRelationships(unittest.TestCase):
 
     def test_build_relationship_mcps(self):
         """Test building relationship MCPs directly."""
-        from datahub.ingestion.source.rdf.entities.glossary_term.relationship_collector import (
-            collect_relationships_from_terms,
-        )
+        # Extract relationships independently using RelationshipExtractor
+        relationship_extractor = self.registry.get_extractor("relationship")
+        relationship_converter = self.registry.get_converter("relationship")
 
-        extractor = self.registry.get_extractor("glossary_term")
-        datahub_terms = extractor.extract_all(self.graph)
-        relationships = collect_relationships_from_terms(datahub_terms)
+        rdf_relationships = relationship_extractor.extract_all(self.graph)
+        datahub_relationships = relationship_converter.convert_all(rdf_relationships)
 
-        mcp_builder = self.registry.get_mcp_builder("glossary_term")
-        rel_mcps = mcp_builder.build_relationship_mcps(relationships)
+        mcp_builder = self.registry.get_mcp_builder("relationship")
+        rel_mcps = mcp_builder.build_all_mcps(datahub_relationships)
 
-        # Should have 2 relationship MCPs (one for each child)
+        # Should have 2 isRelatedTerms MCPs (one for each child inheriting from parent)
         self.assertEqual(len(rel_mcps), 2)
 
     def test_full_pipeline_with_relationships(self):
         """Test full pipeline produces both term and relationship MCPs."""
-        from datahub.ingestion.source.rdf.entities.glossary_term.relationship_collector import (
-            collect_relationships_from_terms,
-        )
+        # Extract glossary terms independently
+        term_extractor = self.registry.get_extractor("glossary_term")
+        datahub_terms = term_extractor.extract_all(self.graph)
 
-        extractor = self.registry.get_extractor("glossary_term")
-        datahub_terms = extractor.extract_all(self.graph)
+        # Extract relationships independently
+        relationship_extractor = self.registry.get_extractor("relationship")
+        relationship_converter = self.registry.get_converter("relationship")
 
-        mcp_builder = self.registry.get_mcp_builder("glossary_term")
-        term_mcps = mcp_builder.build_all_mcps(datahub_terms)
+        rdf_relationships = relationship_extractor.extract_all(self.graph)
+        datahub_relationships = relationship_converter.convert_all(rdf_relationships)
 
-        relationships = collect_relationships_from_terms(datahub_terms)
-        rel_mcps = mcp_builder.build_relationship_mcps(relationships)
+        term_mcp_builder = self.registry.get_mcp_builder("glossary_term")
+        term_mcps = term_mcp_builder.build_all_mcps(datahub_terms)
 
-        # Should have 3 term MCPs + 2 relationship MCPs
+        relationship_mcp_builder = self.registry.get_mcp_builder("relationship")
+        rel_mcps = relationship_mcp_builder.build_all_mcps(datahub_relationships)
+
+        # Should have 3 term MCPs + 2 relationship MCPs (isRelatedTerms only)
         total_mcps = term_mcps + rel_mcps
         self.assertEqual(len(total_mcps), 5)
 

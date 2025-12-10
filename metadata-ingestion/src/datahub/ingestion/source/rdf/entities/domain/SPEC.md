@@ -112,14 +112,7 @@ Domains are created via DataHub MCPs:
 
 1. **Domain Properties MCP**: Creates the domain entity with name, description
 2. **Domain Hierarchy MCP**: Establishes parent-child relationships
-3. **Domain Ownership MCP**: Assigns ownership if specified
-
-### Domain Ownership
-
-Domains can have ownership assigned:
-
-- **Owner Groups**: `dh:hasOwnerGroup` property
-- **Ownership Type**: Business owner, data steward, technical owner
+3. **Domain Hierarchy MCP**: Establishes parent-child relationships
 
 ## Example
 
@@ -162,4 +155,3 @@ DataHubDomain(
 ## Relationship to Other Entities
 
 - **Glossary Terms**: Provide path segments for domain construction and determine which domains are created
-- **Ownership**: Can be assigned to domains via ownership properties

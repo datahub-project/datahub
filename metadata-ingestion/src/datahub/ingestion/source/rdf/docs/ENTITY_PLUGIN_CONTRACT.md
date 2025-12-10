@@ -296,8 +296,6 @@ Some fields are not entity types but sub-components:
 - `lineage_activities` - Sub-component of `lineage`
 - `cross_field_constraints` - Sub-component of `assertion`
 - `domains` - Built from other entities, not extracted
-- `owner_groups` - Special field for ownership
-- `ownership` - Special field for ownership relationships
 - `metadata` - Special field for graph-level metadata
 
 These are automatically initialized and don't need to be registered.

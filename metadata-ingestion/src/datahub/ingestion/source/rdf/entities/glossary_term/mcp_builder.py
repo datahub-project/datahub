@@ -10,11 +10,8 @@ from typing import Any, Dict, List
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.rdf.entities.base import EntityMCPBuilder
 from datahub.ingestion.source.rdf.entities.glossary_term.ast import DataHubGlossaryTerm
-
-# Lazy import to avoid circular dependency with relationship module
 from datahub.metadata.schema_classes import (
     GlossaryNodeInfoClass,
-    GlossaryRelatedTermsClass,
     GlossaryTermInfoClass,
 )
 
@@ -27,10 +24,8 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
     Creates:
     - GlossaryTermInfo MCP for term metadata
-    - GlossaryRelatedTerms MCP for relationships (isRelatedTerms only)
 
-    Note: Only creates isRelatedTerms (inherits) for broader relationships.
-    Does NOT create hasRelatedTerms (contains).
+    Note: Relationships are handled by the separate relationship entity.
     """
 
     @property
@@ -123,67 +118,6 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             f"Built {len(mcps)} MCPs for {len(terms) - skipped_count} glossary terms "
             f"(skipped {skipped_count} in dependent entities)"
         )
-        return mcps
-
-    def build_relationship_mcps(
-        self, relationships, context: Dict[str, Any] | None = None
-    ) -> List[MetadataChangeProposalWrapper]:
-        # Lazy import to avoid circular dependency
-        from datahub.ingestion.source.rdf.entities.relationship.ast import (
-            RelationshipType,
-        )
-
-        """
-        Build MCPs for glossary term relationships.
-
-        Only creates isRelatedTerms (inherits) for broader relationships.
-        Does NOT create hasRelatedTerms (contains).
-
-        Args:
-            relationships: List of DataHub relationships
-            context: Optional context
-
-        Returns:
-            List of MCPs for relationship aspects
-        """
-        mcps = []
-
-        # Aggregate relationships by source term
-        # Only track broader relationships for isRelatedTerms
-        broader_terms_map: Dict[str, List[str]] = {}  # child_urn -> [broader_term_urns]
-
-        for relationship in relationships:
-            if relationship.relationship_type == RelationshipType.BROADER:
-                source_urn = str(relationship.source_urn)
-                target_urn = str(relationship.target_urn)
-
-                if source_urn not in broader_terms_map:
-                    broader_terms_map[source_urn] = []
-                broader_terms_map[source_urn].append(target_urn)
-
-        # Create isRelatedTerms MCPs (child points to broader parent = inherits)
-        created_count = 0
-        failed_count = 0
-
-        for child_urn, broader_urns in broader_terms_map.items():
-            try:
-                unique_broader = list(set(broader_urns))  # Deduplicate
-                broader_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=child_urn,
-                    aspect=GlossaryRelatedTermsClass(isRelatedTerms=unique_broader),
-                )
-                mcps.append(broader_mcp)
-                created_count += 1
-                logger.debug(
-                    f"Created isRelatedTerms MCP for {child_urn} with {len(unique_broader)} broader terms"
-                )
-            except Exception as e:
-                failed_count += 1
-                logger.error(
-                    f"Failed to create isRelatedTerms MCP for {child_urn}: {e}"
-                )
-
-        logger.info(f"Built {created_count} relationship MCPs ({failed_count} failed)")
         return mcps
 
     def _create_term_info_mcp(

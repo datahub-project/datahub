@@ -75,7 +75,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         self.assertIn("rdf:originalIRI", term.custom_properties)
 
     def test_extract_broader_relationship(self):
-        """Test extraction of skos:broader relationship."""
+        """Test that glossary terms are extracted independently (relationships extracted separately)."""
         child = self.EX.ChildTerm
         parent = self.EX.ParentTerm
 
@@ -89,13 +89,13 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, child)
 
         self.assertIsNotNone(term)
-        # Relationships are now a dict with "broader" and "narrower" keys
-        self.assertEqual(len(term.relationships.get("broader", [])), 1)
-        # Target is now a URN, not a URI
-        self.assertIn("urn:li:glossaryTerm:", term.relationships["broader"][0])
+        # Terms are now independent - relationships are extracted separately
+        # Verify term was extracted correctly
+        self.assertEqual(term.name, "Child Term")
+        self.assertIn("urn:li:glossaryTerm:", term.urn)
 
     def test_extract_narrower_relationship(self):
-        """Test extraction of skos:narrower relationship."""
+        """Test that glossary terms are extracted independently (relationships extracted separately)."""
         parent = self.EX.ParentTerm
         child = self.EX.ChildTerm
 
@@ -106,12 +106,13 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, parent)
 
         self.assertIsNotNone(term)
-        # Relationships are now a dict with "broader" and "narrower" keys
-        self.assertEqual(len(term.relationships.get("narrower", [])), 1)
-        self.assertIn("urn:li:glossaryTerm:", term.relationships["narrower"][0])
+        # Terms are now independent - relationships are extracted separately
+        # Verify term was extracted correctly
+        self.assertEqual(term.name, "Parent Term")
+        self.assertIn("urn:li:glossaryTerm:", term.urn)
 
     def test_no_related_relationship_extraction(self):
-        """Test that skos:related is NOT extracted."""
+        """Test that glossary terms are extracted independently (relationships extracted separately)."""
         term1 = self.EX.Term1
         term2 = self.EX.Term2
 
@@ -122,12 +123,11 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, term1)
 
         self.assertIsNotNone(term)
-        # Relationships are now a dict
-        self.assertEqual(len(term.relationships.get("broader", [])), 0)
-        self.assertEqual(len(term.relationships.get("narrower", [])), 0)
+        # Terms are now independent - relationships are extracted separately
+        self.assertEqual(term.name, "Term One")
 
     def test_no_exact_match_relationship_extraction(self):
-        """Test that skos:exactMatch is NOT extracted for term-to-term."""
+        """Test that glossary terms are extracted independently (relationships extracted separately)."""
         term1 = self.EX.Term1
         term2 = self.EX.Term2
 
@@ -138,9 +138,8 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, term1)
 
         self.assertIsNotNone(term)
-        # Relationships are now a dict
-        self.assertEqual(len(term.relationships.get("broader", [])), 0)
-        self.assertEqual(len(term.relationships.get("narrower", [])), 0)
+        # Terms are now independent - relationships are extracted separately
+        self.assertEqual(term.name, "Term One")
 
     def test_extract_all_terms(self):
         """Test extraction of all glossary terms from a graph."""
@@ -213,7 +212,7 @@ class TestGlossaryTermExtractorMultipleRelationships(unittest.TestCase):
         self.EX = Namespace("http://example.org/")
 
     def test_extract_multiple_broader_relationships(self):
-        """Test extraction of multiple skos:broader relationships."""
+        """Test that glossary terms are extracted independently (relationships extracted separately)."""
         child = self.EX.ChildTerm
         parent1 = self.EX.Parent1
         parent2 = self.EX.Parent2
@@ -226,17 +225,12 @@ class TestGlossaryTermExtractorMultipleRelationships(unittest.TestCase):
         term = self.extractor.extract(self.graph, child)
 
         self.assertIsNotNone(term)
-        # Relationships are now a dict
-        self.assertEqual(len(term.relationships.get("broader", [])), 2)
-
-        broader_urns = term.relationships["broader"]
-        # Both parent URNs should be present
-        self.assertEqual(len(broader_urns), 2)
-        for urn in broader_urns:
-            self.assertIn("urn:li:glossaryTerm:", urn)
+        # Terms are now independent - relationships are extracted separately
+        self.assertEqual(term.name, "Child Term")
+        self.assertIn("urn:li:glossaryTerm:", term.urn)
 
     def test_extract_mixed_broader_narrower(self):
-        """Test extraction of both broader and narrower relationships."""
+        """Test that glossary terms are extracted independently (relationships extracted separately)."""
         middle = self.EX.MiddleTerm
         parent = self.EX.ParentTerm
         child = self.EX.ChildTerm
@@ -249,12 +243,9 @@ class TestGlossaryTermExtractorMultipleRelationships(unittest.TestCase):
         term = self.extractor.extract(self.graph, middle)
 
         self.assertIsNotNone(term)
-        # Relationships are now a dict
-        broader_urns = term.relationships.get("broader", [])
-        narrower_urns = term.relationships.get("narrower", [])
-
-        self.assertEqual(len(broader_urns), 1)
-        self.assertEqual(len(narrower_urns), 1)
+        # Terms are now independent - relationships are extracted separately
+        self.assertEqual(term.name, "Middle Term")
+        self.assertIn("urn:li:glossaryTerm:", term.urn)
 
 
 if __name__ == "__main__":

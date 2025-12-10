@@ -30,11 +30,6 @@ RDF Files → RDFSource → MetadataWorkUnits → DataHub
    - Reports errors and warnings
    - Extends `SourceReport` from DataHub SDK
 
-4. **DataHubIngestionTarget** - Internal target adapter
-   - Implements `TargetInterface` from RDF core
-   - Converts DataHub AST to MetadataWorkUnits
-   - Bridges RDF transpiler with DataHub ingestion framework
-
 ## How It Works
 
 1. **Configuration** - DataHub parses recipe YAML and creates `RDFSourceConfig`
@@ -43,20 +38,13 @@ RDF Files → RDFSource → MetadataWorkUnits → DataHub
 
 3. **Work Unit Generation** - `get_workunits()` is called:
 
-   - Creates RDF source (file, folder, URL) using `SourceFactory`
-   - Creates `DataHubIngestionTarget` to collect work units
-   - Creates transpiler with configuration
-   - Executes orchestrator pipeline
-   - Yields collected work units
-
-4. **MCP Generation** - `DataHubIngestionTarget`:
-
-   - Receives DataHub AST from transpiler
+   - Loads RDF graph from source (file, folder, URL)
+   - Converts RDF to DataHub AST using entity extractors
    - Generates MCPs directly from entity MCP builders
    - Wraps MCPs in `MetadataWorkUnit` objects
-   - Returns work units to source
+   - Yields work units to DataHub ingestion framework
 
-5. **Ingestion** - DataHub ingestion framework:
+4. **Ingestion** - DataHub ingestion framework:
    - Receives work units from source
    - Applies transformers (if configured)
    - Sends to DataHub GMS via sink
@@ -119,8 +107,8 @@ datahub ingest -c examples/recipe_basic.yml --dry-run
 ### Adding New Configuration Parameters
 
 1. Add field to `RDFSourceConfig` class
-2. Add validator if needed (using pydantic's `@validator`)
-3. Use parameter in `_create_source()`, `_create_query()`, or `_create_transpiler()`
+2. Add validator if needed (using pydantic's `@field_validator`)
+3. Use parameter in `get_workunits()` or `_convert_rdf_to_datahub_ast()`
 4. Update example recipes
 5. Update documentation
 
@@ -145,18 +133,13 @@ logger.error("Error message")
 
 ## Design Decisions
 
-### Why DataHubIngestionTarget?
-
-The `DataHubIngestionTarget` class bridges the RDF core (which expects a `TargetInterface`) with DataHub's ingestion framework (which expects work units). This allows us to:
-
-1. Reuse the entire RDF transpiler pipeline
-2. Maintain separation of concerns
-3. Avoid duplicating MCP generation logic
-4. Keep the ingestion source thin and focused
-
 ### MCP Generation
 
-MCPs are generated directly by entity MCP builders, ensuring: 2. Single source of truth for MCP generation 3. Easier maintenance (fix once, works everywhere)
+MCPs are generated directly by entity MCP builders in `RDFSource._generate_workunits_from_ast()`, ensuring:
+
+1. Single source of truth for MCP generation
+2. Easier maintenance (fix once, works everywhere)
+3. No unnecessary abstraction layers
 
 ### Configuration Parameters
 
@@ -175,8 +158,7 @@ Potential improvements for future development:
 
 ## Related Files
 
-- `src/rdf/core/orchestrator.py` - Pipeline orchestrator
-- `src/rdf/core/transpiler.py` - 3-phase transpiler
+- `src/rdf/core/rdf_loader.py` - RDF graph loading
+- `src/rdf/core/ast.py` - DataHub AST classes
 - `src/rdf/entities/*/mcp_builder.py` - Entity-specific MCP builders
-- `examples/RECIPES.md` - Recipe documentation
-- `CLAUDE.md` - Overall architecture documentation
+- `src/rdf/entities/registry.py` - Entity registry
