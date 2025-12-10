@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - cr-oss-flake-tester
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
