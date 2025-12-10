@@ -517,9 +517,6 @@ class TestMCPGenerationBehavior(unittest.TestCase):
         from unittest.mock import MagicMock
 
         from datahub.ingestion.api.common import PipelineContext
-        from datahub.ingestion.source.rdf.ingestion.datahub_ingestion_target import (
-            DataHubIngestionTarget,
-        )
         from datahub.ingestion.source.rdf.ingestion.rdf_source import (
             RDFSource,
             RDFSourceConfig,
@@ -528,28 +525,18 @@ class TestMCPGenerationBehavior(unittest.TestCase):
         self.config = RDFSourceConfig(source="dummy", environment="PROD")
         self.ctx = MagicMock(spec=PipelineContext)
         self.source = RDFSource(self.config, self.ctx)
-        from datahub.ingestion.api.source import SourceReport
-
-        self.target = DataHubIngestionTarget(SourceReport())
 
     def _get_mcps(self, graph):
         """Helper to get MCPs from RDF graph."""
-        from datahub.ingestion.source.rdf.ingestion.datahub_ingestion_target import (
-            DataHubIngestionTarget,
-        )
-        from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSourceReport
-
         datahub_graph = self.source._convert_rdf_to_datahub_ast(
             graph,
             environment="PROD",
             export_only=None,
             skip_export=None,
         )
-        # Use RDFSourceReport instead of SourceReport so report methods work
-        rdf_report = RDFSourceReport()
-        target = DataHubIngestionTarget(rdf_report)
-        target.execute(datahub_graph, graph)
-        return list(target.get_workunits())
+        # Generate work units directly using the inlined method
+        workunits = self.source._generate_workunits_from_ast(datahub_graph)
+        return workunits
 
     def test_glossary_term_mcp_generation(self):
         """Test that glossary term MCPs are generated correctly."""

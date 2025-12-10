@@ -2,7 +2,7 @@
 Relationship MCP Builder
 
 Creates DataHub MCPs for glossary term relationships.
-Only creates isRelatedTerms (inherits) - not hasRelatedTerms (contains).
+Creates only inheritance relationships (isRelatedTerms).
 """
 
 import logging
@@ -23,8 +23,9 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
     """
     Creates MCPs for glossary term relationships.
 
-    Creates only isRelatedTerms MCPs for broader relationships.
-    Per specification, hasRelatedTerms (contains) is NOT created for broader.
+    Handles both skos:broader and skos:narrower relationships.
+    Creates only inheritance relationships (isRelatedTerms):
+    - Both broader and narrower normalize to child → parent inheritance
     """
 
     @property
@@ -48,42 +49,61 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
         """
         Build MCPs for all relationships.
 
-        Aggregates relationships by source term and creates one MCP per term
-        with all its broader relationships.
+        Handles both broader and narrower relationships, creating only inheritance
+        relationships (isRelatedTerms) in DataHub.
 
-        Only creates isRelatedTerms (inherits) - not hasRelatedTerms (contains).
+        Both broader and narrower are normalized to child → parent inheritance:
+        - broader: child → parent → child inherits from parent
+        - narrower: parent → child → normalize to child → parent (child inherits from parent)
         """
         mcps = []
 
-        # Aggregate broader relationships by child term
-        broader_terms_map: Dict[str, List[str]] = {}  # child_urn -> [broader_term_urns]
+        # Normalize relationships: both broader and narrower create child → parent inheritance
+        # broader: child → parent means child inherits from parent
+        # narrower: parent → child means normalize to child → parent (child inherits from parent)
+        # Map: child_urn -> [parent_urns] (for isRelatedTerms only)
+        is_related_map: Dict[str, List[str]] = {}
 
         for rel in relationships:
             if rel.relationship_type == RelationshipType.BROADER:
-                source = str(rel.source_urn)
-                target = str(rel.target_urn)
+                # broader: child → parent
+                child_urn = str(rel.source_urn)
+                parent_urn = str(rel.target_urn)
 
-                if source not in broader_terms_map:
-                    broader_terms_map[source] = []
-                broader_terms_map[source].append(target)
+                # Child inherits from parent
+                if child_urn not in is_related_map:
+                    is_related_map[child_urn] = []
+                is_related_map[child_urn].append(parent_urn)
 
-        # Create isRelatedTerms MCPs
-        for child_urn, broader_urns in broader_terms_map.items():
+            elif rel.relationship_type == RelationshipType.NARROWER:
+                # narrower: parent → child (normalize to child → parent)
+                parent_urn = str(rel.source_urn)
+                child_urn = str(rel.target_urn)
+
+                # Child inherits from parent (normalized direction)
+                if child_urn not in is_related_map:
+                    is_related_map[child_urn] = []
+                is_related_map[child_urn].append(parent_urn)
+
+        # Create isRelatedTerms MCPs (child → parent, inheritance only)
+        for child_urn, parent_urns in is_related_map.items():
             try:
-                unique_broader = list(set(broader_urns))  # Deduplicate
+                unique_parents = list(set(parent_urns))  # Deduplicate
 
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=child_urn,
-                    aspect=GlossaryRelatedTermsClass(isRelatedTerms=unique_broader),
+                    aspect=GlossaryRelatedTermsClass(isRelatedTerms=unique_parents),
                 )
                 mcps.append(mcp)
 
                 logger.debug(
-                    f"Created isRelatedTerms MCP for {child_urn} with {len(unique_broader)} broader terms"
+                    f"Created isRelatedTerms MCP for {child_urn} with {len(unique_parents)} parent terms"
                 )
 
             except Exception as e:
-                logger.error(f"Failed to create MCP for {child_urn}: {e}")
+                logger.error(
+                    f"Failed to create isRelatedTerms MCP for {child_urn}: {e}"
+                )
 
-        logger.info(f"Built {len(mcps)} relationship MCPs")
+        logger.info(f"Built {len(mcps)} relationship MCPs (isRelatedTerms only)")
         return mcps

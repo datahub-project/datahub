@@ -101,9 +101,6 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             definition = self._extract_definition(graph, uri)
             source_uri = str(uri)
 
-            # Extract relationships (only broader/narrower supported) - keep as URIs for now
-            relationship_uris = self._extract_relationship_uris(graph, uri)
-
             # Extract custom properties
             custom_properties = self._extract_custom_properties(graph, uri, context)
             custom_properties["rdf:originalIRI"] = source_uri
@@ -136,15 +133,11 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
                 self.urn_generator.derive_path_from_iri(source_uri, include_last=True)
             )
 
-            # Convert relationship URIs to URNs and create dict format
-            relationships = self._convert_relationship_uris_to_urns(relationship_uris)
-
             return DataHubGlossaryTerm(
                 urn=term_urn,
                 name=name,
                 definition=definition,
                 source=source_uri,
-                relationships=relationships,
                 custom_properties=custom_properties,
                 path_segments=path_segments,
             )
@@ -240,56 +233,6 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
                     return str(obj)
 
         return None
-
-    def _extract_relationship_uris(
-        self, graph: Graph, uri: URIRef
-    ) -> Dict[str, List[str]]:
-        """
-        Extract relationship URIs for a glossary term.
-
-        Only extracts skos:broader and skos:narrower.
-        Returns dict with 'broader' and 'narrower' keys containing lists of target URIs.
-        """
-        relationships = {"broader": [], "narrower": []}
-
-        # Extract broader relationships
-        for obj in graph.objects(uri, SKOS.broader):
-            if isinstance(obj, URIRef):
-                relationships["broader"].append(str(obj))
-
-        # Extract narrower relationships
-        for obj in graph.objects(uri, SKOS.narrower):
-            if isinstance(obj, URIRef):
-                relationships["narrower"].append(str(obj))
-
-        return relationships
-
-    def _convert_relationship_uris_to_urns(
-        self, relationship_uris: Dict[str, List[str]]
-    ) -> Dict[str, List[str]]:
-        """
-        Convert relationship URIs to URNs.
-
-        Args:
-            relationship_uris: Dict with 'broader' and 'narrower' keys containing lists of URIs
-
-        Returns:
-            Dict with 'broader' and 'narrower' keys containing lists of URNs
-        """
-        relationships = {"broader": [], "narrower": []}
-
-        for rel_type, uris in relationship_uris.items():
-            if rel_type in relationships:
-                for uri in uris:
-                    try:
-                        target_urn = self.urn_generator.generate_glossary_term_urn(uri)
-                        relationships[rel_type].append(target_urn)
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to convert relationship URI {uri} to URN: {e}"
-                        )
-
-        return relationships
 
     def _extract_custom_properties(
         self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None

@@ -7,8 +7,9 @@ Self-contained processing for glossary terms:
 
 Supports:
 - skos:Concept, owl:Class, owl:NamedIndividual
-- skos:broader/narrower relationships (only these are supported)
 - Custom properties including FIBO-specific metadata
+
+Note: Relationships (skos:broader/narrower) are extracted independently by the relationship entity.
 """
 
 from datahub.ingestion.source.rdf.entities.base import EntityMetadata

@@ -48,8 +48,9 @@ class TestDependencyBasedOrdering(unittest.TestCase):
         self.registry.register_metadata("c", metadata_c)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        # Should be: a, b, c
-        self.assertEqual(ordered, ["a", "b", "c"])
+        # Should be: a, b, c (test entities only)
+        test_entities = [et for et in ordered if et in ["a", "b", "c"]]
+        self.assertEqual(test_entities, ["a", "b", "c"])
         # Verify dependencies are satisfied
         self.assertLess(ordered.index("a"), ordered.index("b"))
         self.assertLess(ordered.index("b"), ordered.index("c"))
@@ -204,8 +205,9 @@ class TestDependencyBasedOrdering(unittest.TestCase):
         self.registry.register_metadata("entity_2", metadata2)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        # Should be sorted by processing_order
-        self.assertEqual(ordered, ["entity_2", "entity_1"])
+        # Should be sorted by processing_order (test entities only)
+        test_entities = [et for et in ordered if et.startswith("entity_")]
+        self.assertEqual(test_entities, ["entity_2", "entity_1"])
 
     def test_mixed_dependencies_and_processing_order(self):
         """Test that dependencies take precedence over processing_order."""
@@ -232,8 +234,9 @@ class TestDependencyBasedOrdering(unittest.TestCase):
         self.registry.register_metadata("b", metadata_b)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        # A should come before B despite having higher processing_order
-        self.assertEqual(ordered, ["a", "b"])
+        # A should come before B despite having higher processing_order (test entities only)
+        test_entities = [et for et in ordered if et in ["a", "b"]]
+        self.assertEqual(test_entities, ["a", "b"])
 
     def test_complex_dependency_graph(self):
         """Test a complex dependency graph with multiple levels."""
@@ -377,7 +380,9 @@ class TestProcessingOrderBackwardCompatibility(unittest.TestCase):
         self.registry.register_metadata("entity_3", metadata3)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        self.assertEqual(ordered, ["entity_2", "entity_1", "entity_3"])
+        # Test entities only
+        test_entities = [et for et in ordered if et.startswith("entity_")]
+        self.assertEqual(test_entities, ["entity_2", "entity_1", "entity_3"])
 
     def test_same_processing_order_sorted_by_name(self):
         """Test that entities with same processing_order are sorted by name."""
@@ -402,8 +407,9 @@ class TestProcessingOrderBackwardCompatibility(unittest.TestCase):
         self.registry.register_metadata("entity_a", metadata2)
 
         ordered = self.registry.get_entity_types_by_processing_order()
-        # Should be sorted by name when order is the same
-        self.assertEqual(ordered, ["entity_a", "entity_b"])
+        # Should be sorted by name when order is the same (test entities only)
+        test_entities = [et for et in ordered if et.startswith("entity_")]
+        self.assertEqual(test_entities, ["entity_a", "entity_b"])
 
 
 if __name__ == "__main__":
