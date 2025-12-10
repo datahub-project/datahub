@@ -158,7 +158,7 @@ export default function EditBusinessAttributeModal({
         };
         /* eslint-disable-next-line react/prop-types */
         const selectedItem = selectedAttribute
-            ? selectedAttribute?.props?.component
+            ? selectedAttribute?.component
             : displayedAttributes.find((attribute) => attribute.urn === value)?.component;
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
