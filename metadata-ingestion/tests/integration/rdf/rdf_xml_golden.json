@@ -1,0 +1,63 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609684,
+        "runId": "rdf-test-xml",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: glossary",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "name": "glossary"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609684,
+        "runId": "rdf-test-xml",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/TestTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/TestTerm"
+            },
+            "name": "Test Term",
+            "definition": "A test term",
+            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/TestTerm",
+            "sourceUrl": "http://example.org/glossary/TestTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609685,
+        "runId": "rdf-test-xml",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

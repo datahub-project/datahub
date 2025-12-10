@@ -1,0 +1,32 @@
+source:
+  type: rdf
+  config:
+    # Required: RDF source (file, folder, URL, or comma-separated files)
+    source: path/to/glossary.ttl
+    
+    # Optional: DataHub environment
+    environment: PROD
+    
+    # Optional: RDF format (auto-detected if not specified)
+    # format: turtle
+    
+    # Optional: RDF dialect (auto-detected if not specified)
+    # dialect: default
+    
+    # Optional: Export only specific entity types
+    # export_only:
+    #   - glossary
+    
+    # Optional: Skip specific entity types
+    # skip_export:
+    #   - relationship
+    
+    # Optional: Enable stateful ingestion (recommended for production)
+    # stateful_ingestion:
+    #   enabled: true
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
+    # token: "${DATAHUB_TOKEN}"

@@ -1,0 +1,87 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396610423,
+        "runId": "rdf-test-export-only",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: glossary",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "name": "glossary"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396610424,
+        "runId": "rdf-test-export-only",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/ChildTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/ChildTerm"
+            },
+            "name": "Child Term",
+            "definition": "A child term",
+            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/ChildTerm",
+            "sourceUrl": "http://example.org/glossary/ChildTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396610425,
+        "runId": "rdf-test-export-only",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/ParentTerm",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/ParentTerm"
+            },
+            "name": "Parent Term",
+            "definition": "A parent term",
+            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/ParentTerm",
+            "sourceUrl": "http://example.org/glossary/ParentTerm"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396610425,
+        "runId": "rdf-test-export-only",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
