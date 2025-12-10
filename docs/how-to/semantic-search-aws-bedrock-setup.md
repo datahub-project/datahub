@@ -428,13 +428,6 @@ Check current pricing: https://aws.amazon.com/bedrock/pricing/
 4. **Resource Tags**: Tag IAM roles for cost tracking
 5. **Rotate Credentials**: If using access keys, rotate regularly
 
-## Next Steps
-
-- [Configure additional entity types](./semantic-search-configuration.md)
-- [Optimize search relevance](./semantic-search-tuning.md)
-- [Monitor embedding quality](./semantic-search-monitoring.md)
-- [Upgrade existing indices](./semantic-search-migration.md)
-
 ## References
 
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)

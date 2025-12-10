@@ -363,6 +363,46 @@ elasticsearch:
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
+    semanticSearch:
+      enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
+      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+      # Multi-model configuration: map of model name to embedding config
+      # Example with multiple models:
+      # models:
+      #   cohere_embed_v3:
+      #     vectorDimension: 1024
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      #   openai_text_embedding_3_small:
+      #     vectorDimension: 1536
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      models:
+        cohere_embed_v3:
+          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:1024}
+          knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
+          spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
+          efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
+          m: ${ELASTICSEARCH_SEMANTIC_M:16}
+      # Embeddings update configuration for semantic search CLI
+      embeddingsUpdate:
+        batchSize: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_BATCH_SIZE:100}
+        maxTextLength: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_MAX_TEXT_LENGTH:8000}
+      # Embedding provider configuration for generating query embeddings
+      # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
+      embeddingProvider:
+        # Provider type: "aws-bedrock" (currently only Bedrock is supported)
+        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
+        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
+        # Maximum text length before truncation (Cohere enforces 2048 character limit)
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -416,46 +456,6 @@ elasticsearch:
     docIds:
       schemaField:
         hashIdEnabled: ${ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED:false}
-    semanticSearch:
-      enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
-      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
-      # Multi-model configuration: map of model name to embedding config
-      # Example with multiple models:
-      # models:
-      #   cohere_embed_v3:
-      #     vectorDimension: 1024
-      #     knnEngine: faiss
-      #     spaceType: cosinesimil
-      #     efConstruction: 128
-      #     m: 16
-      #   openai_text_embedding_3_small:
-      #     vectorDimension: 1536
-      #     knnEngine: faiss
-      #     spaceType: cosinesimil
-      #     efConstruction: 128
-      #     m: 16
-      models:
-        cohere_embed_v3:
-          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:1024}
-          knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
-          spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
-          efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
-          m: ${ELASTICSEARCH_SEMANTIC_M:16}
-      # Embeddings update configuration for semantic search CLI
-      embeddingsUpdate:
-        batchSize: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_BATCH_SIZE:100}
-        maxTextLength: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_MAX_TEXT_LENGTH:8000}
-      # Embedding provider configuration for generating query embeddings
-      # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
-      embeddingProvider:
-        # Provider type: "aws-bedrock" (currently only Bedrock is supported)
-        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
-        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
-        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
-        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
-        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
-        # Maximum text length before truncation (Cohere enforces 2048 character limit)
-        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
   buildIndices:
     allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
