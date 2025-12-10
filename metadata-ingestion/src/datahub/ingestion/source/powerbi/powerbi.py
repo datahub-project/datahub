@@ -3243,21 +3243,23 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 "Extracted %d tables from PBIX for report %s", len(tables), report.name
             )
 
-        # Build complete table URN mapping from dataset tables
-        if dataset.tables:
-            logger.debug(
-                "Building complete table URN mapping from %d dataset tables",
-                len(dataset.tables),
-            )
-            for table in dataset.tables:
-                table_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.source_config.platform_name,
-                    "%s.%s" % (dataset.name, table.name),
-                    self.source_config.platform_instance,
-                    self.source_config.env,
-                ).lower()
-                all_dax_table_mappings[table.name] = table_urn
-                all_dax_table_mappings[table.name.lower()] = table_urn
+            # Build complete table URN mapping from dataset tables
+            if dataset.tables:
+                logger.debug(
+                    "Building complete table URN mapping from %d dataset tables",
+                    len(dataset.tables),
+                )
+                for table in dataset.tables:
+                    # Lowercase only the name, not the entire URN
+                    table_full_name = "%s.%s" % (dataset.name, table.name)
+                    table_urn = builder.make_dataset_urn_with_platform_instance(
+                        self.source_config.platform_name,
+                        table_full_name.lower(),
+                        self.source_config.platform_instance,
+                        self.source_config.env,
+                    )
+                    all_dax_table_mappings[table.name] = table_urn
+                    all_dax_table_mappings[table.name.lower()] = table_urn
                 logger.debug("  Pre-mapped '%s' -> %s", table.name, table_urn)
 
             logger.debug(
