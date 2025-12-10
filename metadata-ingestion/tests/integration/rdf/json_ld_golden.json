@@ -19,7 +19,7 @@
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {
@@ -31,14 +31,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609866,
+        "lastObserved": 1765406907361,
         "runId": "rdf-test-jsonld",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/TestTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.TestTerm",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -48,14 +48,14 @@
             },
             "name": "Test Term",
             "definition": "A test term",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/TestTerm",
             "sourceUrl": "http://example.org/glossary/TestTerm"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609866,
+        "lastObserved": 1765406907362,
         "runId": "rdf-test-jsonld",
         "lastRunId": "no-run-id-provided"
     }

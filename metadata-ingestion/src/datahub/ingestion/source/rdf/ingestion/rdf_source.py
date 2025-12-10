@@ -18,6 +18,7 @@ Example recipe:
 """
 
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import Field, field_validator
@@ -28,10 +29,16 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.rdf.core.ast import DataHubGraph
@@ -60,11 +67,48 @@ class RDFSourceConfig(
 
     Mirrors the CLI parameters to provide consistent behavior between
     CLI and ingestion framework usage.
+
+    Example configuration:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: /path/to/glossary.ttl
+            format: turtle
+            environment: PROD
+            stateful_ingestion:
+              enabled: true
+              remove_stale_metadata: true
+        ```
+
+    Example with directory:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: ./rdf_data/
+            format: turtle
+            recursive: true
+            environment: PROD
+        ```
+
+    Example with filtering:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: /path/to/ontology.owl
+            export_only: ["glossary"]
+            environment: PROD
+        ```
     """
 
     # Source Options
     source: str = Field(
-        description="Source to process: file path, folder path, server URL, or comma-separated files"
+        description=(
+            "Source to process: file path, folder path, server URL, or comma-separated files. "
+            "Examples: '/path/to/file.ttl', './rdf_data/', 'http://example.org/ontology.owl', '/path/to/file1.ttl,/path/to/file2.ttl'"
+        )
     )
     format: Optional[str] = Field(
         default=None,
@@ -140,6 +184,7 @@ class RDFSourceConfig(
         return v
 
 
+@dataclass
 class RDFSourceReport(StaleEntityRemovalSourceReport):
     """
     Report for RDF ingestion source.
@@ -152,9 +197,13 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
     num_entities_emitted: int = 0
     num_workunits_produced: int = 0
 
-    def report_file_processed(self):
-        """Increment file counter."""
-        self.num_files_processed += 1
+    # Breakdown by entity type
+    num_glossary_terms: int = 0
+    num_glossary_nodes: int = 0
+    num_relationships: int = 0
+
+    # File-level tracking
+    files_processed: List[str] = field(default_factory=list)
 
     def report_triples_processed(self, count: int):
         """Add to triples counter."""
@@ -168,10 +217,67 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
         """Increment workunit counter."""
         self.num_workunits_produced += 1
 
+    def report_glossary_term(self):
+        """Increment glossary term counter."""
+        self.num_glossary_terms += 1
+
+    def report_glossary_node(self):
+        """Increment glossary node counter."""
+        self.num_glossary_nodes += 1
+
+    def report_relationship(self):
+        """Increment relationship counter."""
+        self.num_relationships += 1
+
+    def report_file_processed(self, file_path: str):
+        """Record a processed file."""
+        self.num_files_processed += 1
+        self.files_processed.append(file_path)
+
 
 @platform_name("RDF")
 @config_class(RDFSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled via stateful_ingestion.enabled: true",
+    supported=True,
+)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Supported via platform_instance config",
+    supported=True,
+)
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Enabled by default (from skos:definition or rdfs:comment)",
+    supported=True,
+)
+@capability(
+    SourceCapability.DOMAINS,
+    "Not applicable (domains used internally for hierarchy)",
+    supported=False,
+)
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Not applicable",
+    supported=False,
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Not in MVP",
+    supported=False,
+)
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Not supported",
+    supported=False,
+)
+@capability(
+    SourceCapability.TAGS,
+    "Not supported",
+    supported=False,
+)
 class RDFSource(StatefulIngestionSourceBase):
     """
     DataHub ingestion source for RDF ontologies.
@@ -204,7 +310,8 @@ class RDFSource(StatefulIngestionSourceBase):
         self.report = RDFSourceReport()
         self.platform = "rdf"
 
-        logger.info(f"Initializing RDF source with config: {config}")
+        logger.info("Initializing RDF source")
+        logger.debug(f"RDF source config: {config}")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "RDFSource":
@@ -220,6 +327,146 @@ class RDFSource(StatefulIngestionSourceBase):
         """
         config = RDFSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        """
+        Test connection to RDF source.
+
+        Validates that the source is accessible and can be parsed as RDF.
+
+        Args:
+            config_dict: Configuration dictionary
+
+        Returns:
+            TestConnectionReport with connection test results
+        """
+        from pathlib import Path
+
+        config = RDFSourceConfig.model_validate(config_dict)
+        report = TestConnectionReport()
+
+        # Test 1: Source accessibility
+        try:
+            source_path = config.source
+
+            # Check if it's a URL
+            if source_path.startswith(("http://", "https://")):
+                # URL accessibility will be tested in parsing step
+                basic_connectivity = CapabilityReport(
+                    capable=True,
+                    failure_reason=None,
+                )
+            else:
+                # Check if file/directory exists
+                path = Path(source_path)
+                if not path.exists():
+                    basic_connectivity = CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Source not found: {source_path}",
+                    )
+                elif path.is_dir():
+                    # Check if directory has RDF files
+                    rdf_files = list(
+                        path.rglob("*") if config.recursive else path.glob("*")
+                    )
+                    rdf_files = [
+                        f
+                        for f in rdf_files
+                        if f.is_file()
+                        and f.suffix.lower()
+                        in [ext.lower() for ext in config.extensions]
+                    ]
+                    if not rdf_files:
+                        basic_connectivity = CapabilityReport(
+                            capable=False,
+                            failure_reason=(
+                                f"No RDF files found in directory {source_path}. "
+                                f"Supported extensions: {', '.join(config.extensions)}"
+                            ),
+                        )
+                    else:
+                        basic_connectivity = CapabilityReport(
+                            capable=True,
+                            failure_reason=None,
+                        )
+                else:
+                    # Single file - check extension
+                    if path.suffix.lower() not in [
+                        ext.lower() for ext in config.extensions
+                    ]:
+                        basic_connectivity = CapabilityReport(
+                            capable=False,
+                            failure_reason=(
+                                f"File extension '{path.suffix}' not in supported extensions: "
+                                f"{', '.join(config.extensions)}"
+                            ),
+                        )
+                    else:
+                        basic_connectivity = CapabilityReport(
+                            capable=True,
+                            failure_reason=None,
+                        )
+        except Exception as e:
+            basic_connectivity = CapabilityReport(
+                capable=False,
+                failure_reason=f"Error checking source accessibility: {e}",
+            )
+
+        report.basic_connectivity = basic_connectivity
+
+        # Test 2: RDF parsing (only if source is accessible)
+        if basic_connectivity.capable:
+            try:
+                # Try to parse a small sample
+                from datahub.ingestion.source.rdf.core.rdf_loader import (
+                    load_rdf_graph,
+                )
+
+                # For URLs, we'll do a limited test
+                # For files, parse a small portion
+                test_graph = load_rdf_graph(
+                    source=config.source,
+                    format=config.format,
+                    recursive=False,  # Don't recurse during test
+                    file_extensions=config.extensions,
+                )
+                triple_count = len(test_graph)
+
+                rdf_parsing = CapabilityReport(
+                    capable=True,
+                    failure_reason=None,
+                    metadata={"triples_loaded": triple_count},
+                )
+            except FileNotFoundError as e:
+                rdf_parsing = CapabilityReport(
+                    capable=False,
+                    failure_reason=f"File not found: {e}",
+                )
+            except ValueError as e:
+                rdf_parsing = CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Invalid RDF format or source: {e}",
+                )
+            except Exception as e:
+                rdf_parsing = CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Failed to parse RDF: {e}",
+                )
+        else:
+            rdf_parsing = CapabilityReport(
+                capable=False,
+                failure_reason="Skipped due to source accessibility failure",
+            )
+
+        # Add RDF parsing as a capability
+        from datahub.ingestion.api.source import SourceCapability
+
+        report.capability_report = {
+            SourceCapability.SCHEMA_METADATA: rdf_parsing,
+        }
+
+        return report
 
     def get_workunit_processors(self) -> List[Any]:
         """
@@ -254,39 +501,73 @@ class RDFSource(StatefulIngestionSourceBase):
                 recursive=self.config.recursive,
                 file_extensions=self.config.extensions,
             )
-            self.report.report_triples_processed(len(rdf_graph))
-            logger.info(f"Loaded {len(rdf_graph)} triples from source")
+            triple_count = len(rdf_graph)
+            self.report.report_triples_processed(triple_count)
+            logger.info(f"Loaded {triple_count} triples from source")
+
+            # Performance warning for large files
+            if triple_count > 10000:
+                logger.warning(
+                    f"Large RDF graph detected ({triple_count} triples). "
+                    "Processing may take some time. Consider splitting large files "
+                    "or using more specific export filters to improve performance."
+                )
         except FileNotFoundError as e:
+            # Provide actionable error message
+            error_context = (
+                f"Source: {self.config.source}. "
+                f"Please verify the file or directory exists and is accessible. "
+                f"If using a URL, ensure it's reachable. "
+                f"Supported file extensions: {', '.join(self.config.extensions)}"
+            )
             self.report.report_failure(
                 "RDF source file not found",
-                context=f"Source: {self.config.source}",
+                context=error_context,
                 exc=e,
             )
             logger.error(
-                f"RDF source file not found: {self.config.source}", exc_info=True
+                f"RDF source file not found: {self.config.source}. {error_context}",
+                exc_info=True,
             )
             return  # Early return, don't continue
         except ValueError as e:
+            # Provide actionable error message
+            error_context = (
+                f"Source: {self.config.source}, Error: {str(e)}. "
+                f"Please verify the file is valid RDF in a supported format "
+                f"(turtle, xml, json-ld, n3, nt). "
+                f"If format is not auto-detected, specify it explicitly using the 'format' config option."
+            )
             self.report.report_failure(
                 "Invalid RDF source",
-                context=f"Source: {self.config.source}, Error: {str(e)}",
-                exc=e,
-            )
-            logger.error(f"Invalid RDF source: {self.config.source}", exc_info=True)
-            return
-        except Exception as e:
-            self.report.report_failure(
-                "Failed to load RDF graph",
-                context=f"Source: {self.config.source}",
+                context=error_context,
                 exc=e,
             )
             logger.error(
-                f"Failed to load RDF graph from {self.config.source}",
+                f"Invalid RDF source: {self.config.source}. {error_context}",
+                exc_info=True,
+            )
+            return
+        except Exception as e:
+            # Provide actionable error message
+            error_context = (
+                f"Source: {self.config.source}. "
+                f"Unexpected error while loading RDF. "
+                f"Please verify the file is accessible, properly formatted, and in a supported RDF format. "
+                f"Check the logs for more details."
+            )
+            self.report.report_failure(
+                "Failed to load RDF graph",
+                context=error_context,
+                exc=e,
+            )
+            logger.error(
+                f"Failed to load RDF graph from {self.config.source}. {error_context}",
                 exc_info=True,
             )
             return
 
-        # Convert RDF to DataHub AST
+            # Convert RDF to DataHub AST
         summary_str = "unknown"
         try:
             logger.info("Converting RDF to DataHub AST")
@@ -317,7 +598,7 @@ class RDFSource(StatefulIngestionSourceBase):
         try:
             logger.info("Generating work units from DataHub AST")
             workunits = self._generate_workunits_from_ast(datahub_ast)
-            logger.info(f"Generated {len(workunits)} work units from RDF data")
+            # Note: workunits is a generator, so we can't get its length without consuming it
         except Exception as e:
             self.report.report_failure(
                 "Failed to generate work units",
@@ -497,24 +778,25 @@ class RDFSource(StatefulIngestionSourceBase):
 
     def _generate_workunits_from_ast(
         self, datahub_graph: DataHubGraph
-    ) -> List[MetadataWorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate work units from DataHub AST.
 
         Inlined from DataHubIngestionTarget to eliminate unnecessary abstraction.
+        Uses generator pattern for memory efficiency.
 
         Args:
             datahub_graph: DataHubGraph AST containing entities to emit
 
-        Returns:
-            List of MetadataWorkUnit objects
+        Yields:
+            MetadataWorkUnit objects as they're generated
         """
         from datahub.ingestion.source.rdf.core.ast import DataHubGraph
 
         if not isinstance(datahub_graph, DataHubGraph):
             logger.error(f"Expected DataHubGraph, got {type(datahub_graph)}")
             self.report.report_failure(f"Invalid AST type: {type(datahub_graph)}")
-            return []
+            return  # Generator returns nothing on error
 
         try:
             registry = create_default_registry()
@@ -529,16 +811,37 @@ class RDFSource(StatefulIngestionSourceBase):
             logger.info(f"  - {len(datahub_graph.domains)} domains")
             logger.info(f"  - {len(datahub_graph.relationships)} relationships")
 
-            mcps = []
-            mcps.extend(
-                self._process_standard_entities(datahub_graph, registry, build_context)
+            # Process standard entities and yield work units incrementally
+            mcp_count = 0
+            workunit_id = 0
+            for mcp in self._process_standard_entities(
+                datahub_graph, registry, build_context
+            ):
+                mcp_count += 1
+                workunit = MetadataWorkUnit(id=f"rdf-{workunit_id}", mcp=mcp)
+                workunit_id += 1
+                if hasattr(self.report, "report_workunit_produced"):
+                    self.report.report_workunit_produced()
+                yield workunit
+
+            # Process deferred entities and yield work units incrementally
+            for mcp in self._process_deferred_entities(
+                datahub_graph, registry, build_context
+            ):
+                mcp_count += 1
+                workunit = MetadataWorkUnit(id=f"rdf-{workunit_id}", mcp=mcp)
+                workunit_id += 1
+                if hasattr(self.report, "report_workunit_produced"):
+                    self.report.report_workunit_produced()
+                yield workunit
+
+            # Log summary (simplified since we don't have full MCP list)
+            logger.info(f"Generated {mcp_count} MCPs total:")
+            logger.info(f"  - Glossary terms: {len(datahub_graph.glossary_terms)}")
+            logger.info(f"  - Relationships: {len(datahub_graph.relationships)}")
+            logger.debug(
+                f"  - Domains (data structure only, not ingested): {len(datahub_graph.domains)}"
             )
-            mcps.extend(
-                self._process_deferred_entities(datahub_graph, registry, build_context)
-            )
-            self._log_mcp_summary(mcps, datahub_graph)
-            workunits = self._convert_mcps_to_workunits(mcps)
-            return workunits
 
         except Exception as e:
             self.report.report_failure(
@@ -549,13 +852,16 @@ class RDFSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             logger.error(f"Failed to generate work units: {e}", exc_info=True)
-            return []
+            return  # Generator returns nothing on error
 
     def _process_standard_entities(
         self, datahub_graph: DataHubGraph, registry: Any, build_context: Dict[str, Any]
-    ) -> List[Any]:
-        """Process standard entities in processing order."""
-        mcps = []
+    ) -> Iterable[Any]:
+        """
+        Process standard entities in processing order.
+
+        Yields MCPs as they're generated for memory efficiency.
+        """
         entity_types_by_order = registry.get_entity_types_by_processing_order()
 
         for entity_type in entity_types_by_order:
@@ -582,10 +888,14 @@ class RDFSource(StatefulIngestionSourceBase):
                 entity_mcps = self._build_entity_mcps(
                     mcp_builder, entities, entity_type, build_context
                 )
-                mcps.extend(entity_mcps)
-                self._process_post_processing_hooks(
-                    mcp_builder, entity_type, datahub_graph, build_context, mcps
-                )
+                # Yield MCPs as they're generated
+                for mcp in entity_mcps:
+                    yield mcp
+                # Process post-processing hooks and yield their MCPs
+                for mcp in self._process_post_processing_hooks(
+                    mcp_builder, entity_type, datahub_graph, build_context
+                ):
+                    yield mcp
             except Exception as e:
                 # Continue processing other entity types even if one fails
                 self.report.report_failure(
@@ -598,8 +908,6 @@ class RDFSource(StatefulIngestionSourceBase):
                     exc_info=True,
                 )
                 # Continue to next entity type
-
-        return mcps
 
     def _get_entities_from_graph(
         self, datahub_graph: DataHubGraph, entity_type: str
@@ -642,6 +950,15 @@ class RDFSource(StatefulIngestionSourceBase):
                     for _ in entity_mcps:
                         if hasattr(self.report, "report_entity_emitted"):
                             self.report.report_entity_emitted()
+                        # Track entity type statistics
+                        if entity_type == "glossary_term" and hasattr(
+                            self.report, "report_glossary_term"
+                        ):
+                            self.report.report_glossary_term()
+                        elif entity_type == "relationship" and hasattr(
+                            self.report, "report_relationship"
+                        ):
+                            self.report.report_relationship()
                     logger.debug(
                         f"Created {len(entity_mcps)} MCPs for {len(entities)} {entity_type} entities"
                     )
@@ -692,9 +1009,12 @@ class RDFSource(StatefulIngestionSourceBase):
         entity_type: str,
         datahub_graph: DataHubGraph,
         build_context: Dict[str, Any],
-        mcps: List[Any],
-    ) -> None:
-        """Process post-processing hooks for cross-entity dependencies."""
+    ) -> Iterable[Any]:
+        """
+        Process post-processing hooks for cross-entity dependencies.
+
+        Yields MCPs as they're generated.
+        """
         if hasattr(mcp_builder, "build_post_processing_mcps") and entity_type not in [
             "structured_property",
             "glossary_term",
@@ -705,10 +1025,11 @@ class RDFSource(StatefulIngestionSourceBase):
                     datahub_graph, build_context
                 )
                 if post_mcps:
-                    mcps.extend(post_mcps)
                     logger.debug(
                         f"Created {len(post_mcps)} post-processing MCPs for {entity_type}"
                     )
+                    for mcp in post_mcps:
+                        yield mcp
             except Exception as e:
                 self.report.report_failure(
                     f"Failed to create post-processing MCPs for {entity_type}",
@@ -722,9 +1043,12 @@ class RDFSource(StatefulIngestionSourceBase):
 
     def _process_deferred_entities(
         self, datahub_graph: DataHubGraph, registry: Any, build_context: Dict[str, Any]
-    ) -> List[Any]:
-        """Process deferred entities (glossary terms, structured properties)."""
-        mcps = []
+    ) -> Iterable[Any]:
+        """
+        Process deferred entities (glossary terms, structured properties).
+
+        Yields MCPs as they're generated for memory efficiency.
+        """
 
         # Deferred: Glossary term nodes from domain hierarchy
         glossary_term_mcp_builder = registry.get_mcp_builder("glossary_term")
@@ -739,10 +1063,20 @@ class RDFSource(StatefulIngestionSourceBase):
                     datahub_graph, build_context
                 )
                 if post_mcps:
-                    mcps.extend(post_mcps)
-                    for _ in post_mcps:
+                    for mcp in post_mcps:
                         if hasattr(self.report, "report_entity_emitted"):
                             self.report.report_entity_emitted()
+                        # Track glossary nodes and terms from post-processing
+                        if hasattr(mcp, "entityType"):
+                            if mcp.entityType == "glossaryNode" and hasattr(
+                                self.report, "report_glossary_node"
+                            ):
+                                self.report.report_glossary_node()
+                            elif mcp.entityType == "glossaryTerm" and hasattr(
+                                self.report, "report_glossary_term"
+                            ):
+                                self.report.report_glossary_term()
+                        yield mcp
                     logger.info(
                         f"Created {len(post_mcps)} glossary node/term MCPs from domain hierarchy"
                     )
@@ -772,10 +1106,10 @@ class RDFSource(StatefulIngestionSourceBase):
                     datahub_graph, build_context
                 )
                 if post_mcps:
-                    mcps.extend(post_mcps)
-                    for _ in post_mcps:
+                    for mcp in post_mcps:
                         if hasattr(self.report, "report_entity_emitted"):
                             self.report.report_entity_emitted()
+                        yield mcp
                     logger.info(
                         f"Created {len(post_mcps)} structured property value assignment MCPs"
                     )
@@ -789,8 +1123,6 @@ class RDFSource(StatefulIngestionSourceBase):
                     f"Failed to create structured property value assignment MCPs: {e}",
                     exc_info=True,
                 )
-
-        return mcps
 
     def _log_mcp_summary(self, mcps: List[Any], datahub_graph: DataHubGraph) -> None:
         """Log summary of MCPs created."""

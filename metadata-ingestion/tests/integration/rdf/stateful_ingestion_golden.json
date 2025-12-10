@@ -20,7 +20,7 @@
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396906118,
+        "lastObserved": 1765406908151,
         "runId": "rdf-test-stateful",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "rdf-test-stateful"
@@ -40,7 +40,7 @@
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/AccountIdentifier",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.AccountIdentifier",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -50,14 +50,14 @@
             },
             "name": "Account Identifier",
             "definition": "A unique identifier for an account",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/AccountIdentifier",
             "sourceUrl": "http://example.org/glossary/AccountIdentifier"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396906118,
+        "lastObserved": 1765406908151,
         "runId": "rdf-test-stateful",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "rdf-test-stateful"
@@ -65,7 +65,7 @@
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/CustomerName",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.CustomerName",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -75,14 +75,14 @@
             },
             "name": "Customer Name",
             "definition": "The name of the customer",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/CustomerName",
             "sourceUrl": "http://example.org/glossary/CustomerName"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396906118,
+        "lastObserved": 1765406908151,
         "runId": "rdf-test-stateful",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "rdf-test-stateful"

@@ -19,7 +19,7 @@
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:bank.com/trading",
+    "entityUrn": "urn:li:glossaryNode:bank.com.trading",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {
@@ -31,38 +31,33 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609511,
+        "lastObserved": 1765406906947,
         "runId": "rdf-test-domains",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:bank.com/trading/loans/Loan_Amount",
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bank.com.trading.loans",
     "changeType": "UPSERT",
-    "aspectName": "glossaryTermInfo",
+    "aspectName": "glossaryNodeInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "rdf:originalIRI": "http://bank.com/trading/loans/Loan_Amount"
-            },
-            "name": "Loan Amount",
-            "definition": "The principal amount of the loan",
-            "parentNode": "urn:li:glossaryNode:bank.com/trading/loans",
-            "termSource": "EXTERNAL",
-            "sourceRef": "http://bank.com/trading/loans/Loan_Amount",
-            "sourceUrl": "http://bank.com/trading/loans/Loan_Amount"
+            "customProperties": {},
+            "definition": "Glossary node: loans",
+            "parentNode": "urn:li:glossaryNode:bank.com.trading",
+            "name": "loans"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609513,
+        "lastObserved": 1765406906947,
         "runId": "rdf-test-domains",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:bank.com/trading/loans/Customer_Name",
+    "entityUrn": "urn:li:glossaryTerm:bank.com.trading.loans.Customer_Name",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -72,33 +67,38 @@
             },
             "name": "Customer Name",
             "definition": "The name of the customer",
-            "parentNode": "urn:li:glossaryNode:bank.com/trading/loans",
+            "parentNode": "urn:li:glossaryNode:bank.com.trading.loans",
             "termSource": "EXTERNAL",
             "sourceRef": "http://bank.com/trading/loans/Customer_Name",
             "sourceUrl": "http://bank.com/trading/loans/Customer_Name"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609512,
+        "lastObserved": 1765406906948,
         "runId": "rdf-test-domains",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:bank.com/trading/loans",
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bank.com.trading.loans.Loan_Amount",
     "changeType": "UPSERT",
-    "aspectName": "glossaryNodeInfo",
+    "aspectName": "glossaryTermInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "definition": "Glossary node: loans",
-            "parentNode": "urn:li:glossaryNode:bank.com/trading",
-            "name": "loans"
+            "customProperties": {
+                "rdf:originalIRI": "http://bank.com/trading/loans/Loan_Amount"
+            },
+            "name": "Loan Amount",
+            "definition": "The principal amount of the loan",
+            "parentNode": "urn:li:glossaryNode:bank.com.trading.loans",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://bank.com/trading/loans/Loan_Amount",
+            "sourceUrl": "http://bank.com/trading/loans/Loan_Amount"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609512,
+        "lastObserved": 1765406906948,
         "runId": "rdf-test-domains",
         "lastRunId": "no-run-id-provided"
     }
