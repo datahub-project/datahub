@@ -85,6 +85,8 @@ RUN uv venv --python "$PYTHON_VERSION"
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
+ENV UV_LINK_MODE=copy
+
 # We always want to use the system CA bundle.
 # Requests comes with it's own CA bundle, which we need to override.
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
@@ -288,7 +290,8 @@ COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
-RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -342,7 +345,8 @@ COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
-RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -398,7 +402,8 @@ COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
-RUN echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions \
+    echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
