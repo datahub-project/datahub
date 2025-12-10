@@ -7,6 +7,7 @@ export const UNITY_CATALOG = 'unity-catalog';
 export const TOKEN: RecipeField = {
     name: 'token',
     label: 'Token',
+    helper: 'Personal access token for Databricks',
     tooltip: 'A personal access token associated with the Databricks account used to extract metadata.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.token',
@@ -18,6 +19,7 @@ export const TOKEN: RecipeField = {
 export const WORKSPACE_URL: RecipeField = {
     name: 'workspace_url',
     label: 'Workspace URL',
+    helper: 'Databricks workspace URL',
     tooltip: 'The URL for the Databricks workspace from which to extract metadata.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.workspace_url',
@@ -29,6 +31,7 @@ export const WORKSPACE_URL: RecipeField = {
 export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
     label: 'Include Table Lineage',
+    helper: 'Extract Table Lineage from Unity',
     tooltip: (
         <div>
             Extract Table Lineage from Unity Catalog. Note that this requires that your Databricks accounts meets
@@ -44,6 +47,7 @@ export const INCLUDE_TABLE_LINEAGE: RecipeField = {
 export const INCLUDE_COLUMN_LINEAGE: RecipeField = {
     name: 'include_column_lineage',
     label: 'Include Column Lineage',
+    helper: 'Extract Column Lineage from Unity',
     tooltip: (
         <div>
             Extract Column Lineage from Unity Catalog. Note that this requires that your Databricks accounts meets
@@ -61,6 +65,7 @@ const metastoreIdAllowFieldPath = 'source.config.metastore_id_pattern.allow';
 export const UNITY_METASTORE_ID_ALLOW: RecipeField = {
     name: 'metastore_id_pattern.allow',
     label: 'Allow Patterns',
+    helper: 'Include specific Metastores',
     tooltip:
         'Only include specific Metastores by providing the id of a Metastore, or a Regular Expression (REGEX) to include specific Metastores. If not provided, all Metastores will be included.',
     placeholder: '11111-2222-33333-44-555555',
@@ -77,6 +82,7 @@ const metastoreIdDenyFieldPath = 'source.config.metastore_id_pattern.deny';
 export const UNITY_METASTORE_ID_DENY: RecipeField = {
     name: 'metastore_id_pattern.deny',
     label: 'Deny Patterns',
+    helper: 'Exclude specific Metastores',
     tooltip:
         'Exclude specific Metastores by providing the id of a Metastores, or a Regular Expression (REGEX). If not provided, all Metastores will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: '11111-2222-33333-44-555555',
@@ -93,6 +99,7 @@ const catalogAllowFieldPath = 'source.config.catalog_pattern.allow';
 export const UNITY_CATALOG_ALLOW: RecipeField = {
     name: 'catalog_pattern.allow',
     label: 'Allow Patterns',
+    helper: 'Include specific Catalogs',
     tooltip:
         'Only include specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to include specific Catalogs. If not provided, all Catalogs will be included.',
     placeholder: 'metastore.my_catalog',
@@ -109,6 +116,7 @@ const catalogDenyFieldPath = 'source.config.catalog_pattern.deny';
 export const UNITY_CATALOG_DENY: RecipeField = {
     name: 'catalog_pattern.deny',
     label: 'Deny Patterns',
+    helper: 'Exclude specific Catalogs',
     tooltip:
         'Exclude specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to exclude specific Catalogs. If not provided, all Catalogs will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'metastore.my_catalog',
@@ -125,6 +133,7 @@ const tableAllowFieldPath = 'source.config.table_pattern.allow';
 export const UNITY_TABLE_ALLOW: RecipeField = {
     name: 'table_pattern.allow',
     label: 'Allow Patterns',
+    helper: 'Include specific Tables',
     tooltip:
         'Only include specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to include specific Tables. If not provided, all Tables will be included.',
     placeholder: 'catalog.schema.table',
@@ -141,6 +150,7 @@ const tableDenyFieldPath = 'source.config.table_pattern.deny';
 export const UNITY_TABLE_DENY: RecipeField = {
     name: 'table_pattern.deny',
     label: 'Deny Patterns',
+    helper: 'Exclude specific Tables',
     tooltip:
         'Exclude specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to exclude specific Tables. If not provided, all Tables will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'catalog.schema.table',
