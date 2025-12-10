@@ -860,8 +860,12 @@ def test_dbt_semantic_view_field_conversion() -> None:
     # Should have 3 columns
     assert len(columns) == 3
 
+    # Build column lookup for clearer assertions
+    columns_by_name = {col.name: col for col in columns}
+
     # Check entity column
-    entity_col = next(col for col in columns if col.name == "order_id")
+    assert "order_id" in columns_by_name, "Entity column 'order_id' not found"
+    entity_col = columns_by_name["order_id"]
     assert "[Entity: primary]" in entity_col.description
     assert "Unique order identifier" in entity_col.description
     assert "Expression: ORDER_ID" in entity_col.description
@@ -869,7 +873,8 @@ def test_dbt_semantic_view_field_conversion() -> None:
     assert "dbt:primary" in entity_col.tags
 
     # Check dimension column
-    dim_col = next(col for col in columns if col.name == "order_date")
+    assert "order_date" in columns_by_name, "Dimension column 'order_date' not found"
+    dim_col = columns_by_name["order_date"]
     assert "[Dimension: time]" in dim_col.description
     assert "Order timestamp" in dim_col.description
     assert "Expression: ORDER_DATE" in dim_col.description
@@ -877,7 +882,8 @@ def test_dbt_semantic_view_field_conversion() -> None:
     assert "dbt:time" in dim_col.tags
 
     # Check measure column
-    measure_col = next(col for col in columns if col.name == "total_amount")
+    assert "total_amount" in columns_by_name, "Measure column 'total_amount' not found"
+    measure_col = columns_by_name["total_amount"]
     assert "[Measure: sum]" in measure_col.description
     assert "Total order amount" in measure_col.description
     assert "Expression: AMOUNT" in measure_col.description

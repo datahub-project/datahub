@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, TypedDict, Union
 
 import more_itertools
 import pydantic
@@ -125,6 +125,40 @@ DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
+
+# Semantic view constants
+SEMANTIC_VIEW_UNKNOWN_DATA_TYPE = "unknown"
+
+
+# Semantic view field structures
+class SemanticViewEntity(TypedDict, total=False):
+    """Structure for semantic view entity fields."""
+
+    name: str
+    type: str  # primary, foreign, unique, natural
+    description: str
+    expr: Optional[str]
+
+
+class SemanticViewDimension(TypedDict, total=False):
+    """Structure for semantic view dimension fields."""
+
+    name: str
+    type: str  # categorical, time
+    description: str
+    expr: Optional[str]
+
+
+class SemanticViewMeasure(TypedDict, total=False):
+    """Structure for semantic view measure fields."""
+
+    name: str
+    agg: Optional[str]  # sum, count, avg, min, max (dbt Core manifest.json)
+    aggr: Optional[
+        str
+    ]  # sum, count, avg, min, max (dbt Cloud GraphQL - different field name)
+    description: str
+    expr: Optional[str]
 
 
 @dataclass
@@ -541,15 +575,18 @@ class DBTColumnLineageInfo:
 
 
 def convert_semantic_view_fields_to_columns(
-    entities: List[Dict[str, Any]],
-    dimensions: List[Dict[str, Any]],
-    measures: List[Dict[str, Any]],
+    entities: List[Union[SemanticViewEntity, Dict[str, Any]]],
+    dimensions: List[Union[SemanticViewDimension, Dict[str, Any]]],
+    measures: List[Union[SemanticViewMeasure, Dict[str, Any]]],
     tag_prefix: str,
 ) -> List[DBTColumn]:
     """
     Convert semantic view entities, dimensions, and measures into DBTColumn objects.
 
     Handles both dbt Core (uses 'agg') and dbt Cloud (uses 'aggr') field naming.
+    The inconsistency exists because:
+    - dbt Core manifest.json uses 'agg' (abbreviation of 'aggregation')
+    - dbt Cloud GraphQL API uses 'aggr' (different abbreviation)
     """
 
     def build_description(
@@ -579,7 +616,7 @@ def convert_semantic_view_fields_to_columns(
                 entity_desc, "Entity", entity_type, entity_expr
             ),
             index=idx,
-            data_type="unknown",
+            data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
             meta={},
             tags=[f"{tag_prefix}entity", f"{tag_prefix}{entity_type}"]
             if entity_type
@@ -600,7 +637,7 @@ def convert_semantic_view_fields_to_columns(
             comment="",
             description=build_description(dim_desc, "Dimension", dim_type, dim_expr),
             index=offset + idx,
-            data_type="unknown",
+            data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
             meta={},
             tags=[f"{tag_prefix}dimension", f"{tag_prefix}{dim_type}"]
             if dim_type
@@ -612,10 +649,11 @@ def convert_semantic_view_fields_to_columns(
     offset = len(entities) + len(dimensions)
     for idx, measure in enumerate(measures):
         measure_name = measure.get("name", "")
-        # Handle both "agg" (dbt Core manifest) and "aggr" (dbt Cloud GraphQL)
+        # Handle both "agg" (dbt Core manifest.json) and "aggr" (dbt Cloud GraphQL API)
+        # dbt uses different field names in different interfaces - we support both
         measure_agg = measure.get("agg") or measure.get(
             "aggr", ""
-        )  # sum, count, avg, etc
+        )  # sum, count, avg, min, max
         measure_desc = measure.get("description", "")
         measure_expr = measure.get("expr")
 
@@ -626,7 +664,7 @@ def convert_semantic_view_fields_to_columns(
                 measure_desc, "Measure", measure_agg, measure_expr
             ),
             index=offset + idx,
-            data_type="unknown",
+            data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
             meta={},
             tags=[f"{tag_prefix}measure", f"{tag_prefix}{measure_agg}"]
             if measure_agg
