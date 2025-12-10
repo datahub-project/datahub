@@ -58,8 +58,9 @@ x-localstack-env: &localstack-env
   DATAHUB_EXECUTOR_ROLE_ARN: ${DATAHUB_EXECUTOR_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
 
 x-datahub-common: &datahub-common-env
-  DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
-  DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
+  DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-}
+  DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-}
+  DATAHUB_GMS_BASE_PATH_ENABLED: ${DATAHUB_GMS_BASE_PATH_ENABLED:-false}
 
 #################################
 # System Update
@@ -137,7 +138,7 @@ x-datahub-gms-service: &datahub-gms-service
     SHOW_INGESTION_PAGE_REDESIGN: ${SHOW_INGESTION_PAGE_REDESIGN:-true}
     SHOW_HOME_PAGE_REDESIGN: ${SHOW_HOME_PAGE_REDESIGN:-true}
   healthcheck:
-    test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
+    test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}${DATAHUB_GMS_BASE_PATH:-}/health
     start_period: 90s
     interval: 1s
     retries: 3

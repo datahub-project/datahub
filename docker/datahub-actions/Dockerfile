@@ -362,7 +362,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT${DATAHUB_GMS_BASE_PATH:-}/health -timeout 240s /start_datahub_actions.sh
 
 # =============================================================================
 # FINAL STAGE - LOCKED VARIANT (no PySpark, network BLOCKED, bundled venvs only)
@@ -416,7 +416,7 @@ ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT${DATAHUB_GMS_BASE_PATH:-}/health -timeout 240s /start_datahub_actions.sh
 
 # =============================================================================
 # DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)

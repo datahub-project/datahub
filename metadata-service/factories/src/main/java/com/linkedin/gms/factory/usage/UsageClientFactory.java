@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.usage;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
@@ -23,6 +24,12 @@ public class UsageClientFactory {
 
   @Value("${DATAHUB_GMS_PORT:8080}")
   private int gmsPort;
+
+  @Value("${datahub.gms.basePath:}")
+  private String gmsBasePath;
+
+  @Value("${datahub.gms.basePathEnabled:false}")
+  private boolean gmsBasePathEnabled;
 
   @Value("${DATAHUB_GMS_USE_SSL:false}")
   private boolean gmsUseSSL;
@@ -48,9 +55,11 @@ public class UsageClientFactory {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    String resolvedBasePath = BasePathUtils.resolveBasePath(gmsBasePathEnabled, gmsBasePath);
     Client restClient =
         DefaultRestliClientFactory.getRestLiClient(
-            gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params);
+            gmsHost, gmsPort, resolvedBasePath, gmsUseSSL, gmsSslProtocol, params);
     return new RestliUsageClient(
         restClient,
         new ExponentialBackoff(retryInterval),

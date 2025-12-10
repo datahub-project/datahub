@@ -17,6 +17,7 @@ x-datahub-actions-service: &datahub-actions-service
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
+    DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-}
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service

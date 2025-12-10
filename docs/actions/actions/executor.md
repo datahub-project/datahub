@@ -58,7 +58,7 @@ action:
   type: "executor"
 # Requires DataHub API configurations to report to DataHub
 datahub:
-  server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}"
+  server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}${DATAHUB_GMS_BASE_PATH:-}"
   # token: <token> # Must have "Manage Secrets" privilege
 ```
 

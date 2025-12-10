@@ -229,7 +229,7 @@ action:
     suppress_system_activity: ${DATAHUB_ACTIONS_SLACK_SUPPRESS_SYSTEM_ACTIVITY:-true}
 
 datahub:
-  server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}"
+  server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}${DATAHUB_GMS_BASE_PATH:-}"
 ```
 
 ##### Slack Action Configuration Parameters

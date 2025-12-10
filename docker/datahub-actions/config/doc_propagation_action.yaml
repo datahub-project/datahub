@@ -36,6 +36,6 @@ action:
     rate_limit_propagated_writes_period: ${DATAHUB_ACTIONS_DOC_PROPAGATION_RATE_LIMIT_PROPAGATED_WRITES_PERIOD:-15} # Every 15 seconds
 
 datahub:
-  server: 'http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}'
+  server: 'http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}${DATAHUB_GMS_BASE_PATH:-}'
   extra_headers:
     Authorization: 'Basic ${DATAHUB_SYSTEM_CLIENT_ID:-__datahub_system}:${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}'

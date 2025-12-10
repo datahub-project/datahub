@@ -12,6 +12,7 @@ services:
     environment:
       ACTIONS_CONFIG: ''
       ACTIONS_EXTRA_PACKAGES: ''
+      DATAHUB_GMS_BASE_PATH: ''
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_GMS_PROTOCOL: http
@@ -40,8 +41,9 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
-      DATAHUB_BASE_PATH: /
-      DATAHUB_GMS_BASE_PATH: /
+      DATAHUB_BASE_PATH: ''
+      DATAHUB_GMS_BASE_PATH: ''
+      DATAHUB_GMS_BASE_PATH_ENABLED: 'false'
       DATAHUB_SERVER_TYPE: quickstart
       DATAHUB_TELEMETRY_ENABLED: 'false'
       DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
@@ -405,8 +407,9 @@ services:
       CREATE_USER: 'false'
       CREATE_USER_PASSWORD: datahub
       CREATE_USER_USERNAME: datahub
-      DATAHUB_BASE_PATH: /
-      DATAHUB_GMS_BASE_PATH: /
+      DATAHUB_BASE_PATH: ''
+      DATAHUB_GMS_BASE_PATH: ''
+      DATAHUB_GMS_BASE_PATH_ENABLED: 'false'
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PRECREATE_TOPICS: 'true'

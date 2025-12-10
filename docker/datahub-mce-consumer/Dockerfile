@@ -58,6 +58,6 @@ ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
 
 EXPOSE 9090
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9090/actuator/health || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9090${DATAHUB_GMS_BASE_PATH:-}/actuator/health || exit 1
 
 CMD /datahub/datahub-mce-consumer/scripts/start.sh
