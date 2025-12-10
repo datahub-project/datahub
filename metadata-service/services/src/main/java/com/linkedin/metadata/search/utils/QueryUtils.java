@@ -23,7 +23,6 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.util.Pair;
 import java.util.Arrays;
 import java.util.Collections;
@@ -86,7 +85,8 @@ public class QueryUtils {
                 ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // condition (default).
   @Nonnull
   public static Filter newListsFilter(@Nullable Map<String, List<String>> params) {
     if (params == null) {
@@ -95,7 +95,7 @@ public class QueryUtils {
     CriterionArray criteria =
         params.entrySet().stream()
             .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> CriterionUtils.buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
+            .map(e -> newCriterion(e.getKey(), e.getValue()))
             .filter(Objects::nonNull)
             .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
@@ -250,7 +250,6 @@ public class QueryUtils {
   }
 
   public static List<EntitySpec> getQueryByDefaultEntitySpecs(EntityRegistry entityRegistry) {
-
     return excludeIngestionSourceEntitySpec(
         entityRegistry.getEntitySpecs().values().stream()
             .map(
@@ -277,7 +276,6 @@ public class QueryUtils {
 
   private static <T> List<T> excludeIngestionSourceFromList(
       List<T> items, Function<T, String> nameExtractor) {
-
     if (items == null || items.size() <= 1) {
       return items;
     }
