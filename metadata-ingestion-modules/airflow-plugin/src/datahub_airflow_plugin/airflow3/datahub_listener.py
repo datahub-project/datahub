@@ -1172,6 +1172,10 @@ class DataHubListener:
             logger.debug(
                 f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
             )
+            # Emit inlet/outlet aspects for DataProcessInstance (emit_process_end only emits run event)
+            # This matches the behavior of emit_process_start which calls generate_mcp()
+            for mcp in dpi.generate_inlet_outlet_mcp(materialize_iolets=False):
+                emitter.emit(mcp, self._make_emit_callback())
 
         if emitter:
             emitter.flush()
