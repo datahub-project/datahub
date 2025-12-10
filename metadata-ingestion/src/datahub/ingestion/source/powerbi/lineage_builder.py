@@ -8,8 +8,6 @@ It breaks down the complex lineage logic into manageable, testable components.
 import logging
 from typing import Dict, List, Optional, Set, Tuple
 
-from pydantic import BaseModel, Field
-
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.powerbi.dax_parser import (
     DAXParseResult,
@@ -18,138 +16,18 @@ from datahub.ingestion.source.powerbi.dax_parser import (
     parse_dax_expression,
     parse_summarize_expression,
 )
+from datahub.ingestion.source.powerbi.models import (
+    ColumnLineageEdge,
+    LineageExtractionResult,
+    MeasureLineageEdge,
+    TableExpressionLineageResult,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper import (
     data_classes as powerbi_data_classes,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
-    UpstreamClass,
-)
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-)
+from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
 
 logger = logging.getLogger(__name__)
-
-
-class TableExpressionLineageResult(BaseModel):
-    """Result of extracting lineage from a table expression."""
-
-    upstream_tables: List[UpstreamClass] = Field(
-        default_factory=list, description="Upstream table dependencies"
-    )
-    column_edges: List["ColumnLineageEdge"] = Field(
-        default_factory=list, description="Column-level lineage edges"
-    )
-
-    class Config:
-        arbitrary_types_allowed = True
-
-
-class MeasureLineageResult(BaseModel):
-    """Result of extracting lineage from measures."""
-
-    measure_edges: List["MeasureLineageEdge"] = Field(
-        default_factory=list, description="Measure lineage edges"
-    )
-    upstream_tables: List[UpstreamClass] = Field(
-        default_factory=list, description="Additional upstream tables discovered"
-    )
-
-    class Config:
-        arbitrary_types_allowed = True
-
-
-class TableReference(BaseModel):
-    """A reference to a table in lineage extraction."""
-
-    table_name: str = Field(description="Name of the table")
-    table_urn: str = Field(description="DataHub URN for the table")
-    is_dax_table: bool = Field(
-        default=False, description="Whether this is a DAX calculated table"
-    )
-
-
-class ColumnLineageEdge(BaseModel):
-    """Represents a column-level lineage edge."""
-
-    source_table_urn: str = Field(description="URN of the source table")
-    source_column: str = Field(description="Name of the source column")
-    target_table_urn: str = Field(description="URN of the target table")
-    target_column: str = Field(description="Name of the target column")
-    transform_operation: str = Field(description="Type of transformation applied")
-
-
-class MeasureLineageEdge(BaseModel):
-    """Represents measure-level lineage (measure to measure or column to measure)."""
-
-    source_urn: str = Field(description="URN of the source (can be column or measure)")
-    source_name: str = Field(description="Name of the source")
-    target_measure_urn: str = Field(description="URN of the target measure")
-    target_measure_name: str = Field(description="Name of the target measure")
-    transform_operation: str = Field(description="Type of transformation")
-    is_measure_to_measure: bool = Field(
-        default=False,
-        description="True if source is a measure, False if source is a column",
-    )
-
-
-class LineageExtractionResult(BaseModel):
-    """Result of extracting lineage from a Power BI table."""
-
-    table_urn: str = Field(description="URN of the table being processed")
-    table_name: str = Field(description="Name of the table")
-    upstream_tables: List[UpstreamClass] = Field(
-        default_factory=list, description="Table-level upstream lineage"
-    )
-    column_lineage_edges: List[ColumnLineageEdge] = Field(
-        default_factory=list, description="Column-level lineage edges"
-    )
-    measure_lineage_edges: List[MeasureLineageEdge] = Field(
-        default_factory=list, description="Measure lineage edges"
-    )
-    warnings: List[str] = Field(
-        default_factory=list, description="Warnings encountered during extraction"
-    )
-
-    def to_fine_grained_lineage(self) -> List[FineGrainedLineage]:
-        """Convert edges to DataHub FineGrainedLineage objects."""
-        result: List[FineGrainedLineage] = []
-
-        # Convert column lineage edges
-        for edge in self.column_lineage_edges:
-            source_field_urn = builder.make_schema_field_urn(
-                edge.source_table_urn, edge.source_column
-            )
-            target_field_urn = builder.make_schema_field_urn(
-                edge.target_table_urn, edge.target_column
-            )
-
-            result.append(
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    upstreams=[source_field_urn],
-                    downstreams=[target_field_urn],
-                    transformOperation=edge.transform_operation,
-                )
-            )
-
-        # Convert measure lineage edges
-        for measure_edge in self.measure_lineage_edges:
-            result.append(
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    upstreams=[measure_edge.source_urn],
-                    downstreams=[measure_edge.target_measure_urn],
-                    transformOperation=measure_edge.transform_operation,
-                )
-            )
-
-        return result
 
 
 class DAXLineageExtractor:

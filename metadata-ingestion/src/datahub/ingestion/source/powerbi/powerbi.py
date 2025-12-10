@@ -4,9 +4,10 @@
 #
 #########################################################
 import functools
+import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import more_itertools
 
@@ -52,8 +53,31 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
+from datahub.ingestion.source.powerbi.dax_parser import (
+    extract_table_column_references,
+    parse_dax_expression,
+    parse_summarize_expression,
+)
 from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.models import (
+    PBIXExtractedMetadata,
+    PBIXTable,
+    SectionInfo,
+)
+from datahub.ingestion.source.powerbi.parse_pbix import PBIXParser
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FIELD_TYPE_MAPPING,
+    Column,
+    Measure,
+    Page,
+    Table,
+    create_powerbi_dataset,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.powerbi.utils import (
+    is_dax_expression as _is_dax_expression,
+    urn_to_lowercase,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -73,7 +97,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
     CorpUserKeyClass,
@@ -103,82 +126,9 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn, DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
 logger = logging.getLogger(__name__)
-
-
-def _is_dax_expression(expression: str) -> bool:
-    """
-    Determine if an expression is a DAX expression (vs M-Query).
-
-    DAX expressions typically:
-    - Use DAX functions like SUMMARIZE, ADDCOLUMNS, CALENDARAUTO, RELATED, etc.
-    - Reference tables with 'TableName' or TableName[Column] syntax
-    - Don't start with "let" or "Source ="
-
-    M-Query expressions typically:
-    - Start with "let" or contain "Source ="
-    - Use M-Query functions
-    - Have step-by-step transformations
-    """
-    if not expression or not expression.strip():
-        return False
-
-    expression_upper = expression.strip().upper()
-
-    # M-Query indicators (if these are present, it's NOT DAX)
-    mquery_indicators = [
-        "LET ",
-        "SOURCE =",
-        "SOURCE=",
-        '#"',  # M-Query step names use #"StepName"
-        "TABLE.",  # M-Query table functions
-        "LIST.",  # M-Query list functions
-    ]
-
-    for indicator in mquery_indicators:
-        if indicator in expression_upper[:100]:  # Check first 100 chars
-            return False
-
-    # DAX function indicators (if these are present, it's likely DAX)
-    dax_functions = [
-        "SUMMARIZE(",
-        "ADDCOLUMNS(",
-        "CALENDARAUTO(",
-        "CALENDAR(",
-        "RELATED(",
-        "RELATEDTABLE(",
-        "CALCULATETABLE(",
-        "FILTER(",
-        "SUMX(",
-        "AVERAGEX(",
-        "COUNTX(",
-        "EVALUATE",
-        "ROW(",  # DAX table constructor function
-        "DATATABLE(",  # DAX table constructor
-        "SELECTCOLUMNS(",
-        "TOPN(",
-        "SAMPLE(",
-    ]
-
-    for func in dax_functions:
-        if func in expression_upper:
-            return True
-
-    # If expression has table references like 'TableName'[Column] or TableName[Column]
-    # it's likely DAX (M-Query uses different syntax)
-    import re
-
-    if re.search(r"'[^']+'\s*\[", expression) or re.search(
-        r"\b[A-Za-z_][A-Za-z0-9_]*\s*\[", expression
-    ):
-        # But double-check it's not M-Query (which also uses brackets but differently)
-        if "SOURCE" not in expression_upper[:50]:
-            return True
-
-    return False
 
 
 class Mapper:
@@ -211,35 +161,11 @@ class Mapper:
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.workspace_key: Optional[ContainerKey] = None
 
-    @staticmethod
-    def urn_to_lowercase(value: str, flag: bool) -> str:
-        if flag is True:
-            return lowercase_dataset_urn(value)
-
-        return value
-
     def lineage_urn_to_lowercase(self, value):
-        return Mapper.urn_to_lowercase(
-            value, self.__config.convert_lineage_urns_to_lowercase
-        )
+        return urn_to_lowercase(value, self.__config.convert_lineage_urns_to_lowercase)
 
     def assets_urn_to_lowercase(self, value):
-        return Mapper.urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
-
-    def new_mcp(
-        self,
-        entity_urn,
-        aspect,
-        change_type=ChangeTypeClass.UPSERT,
-    ):
-        """
-        Create MCP
-        """
-        return MetadataChangeProposalWrapper(
-            changeType=change_type,
-            entityUrn=entity_urn,
-            aspect=aspect,
-        )
+        return urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
 
     def _to_work_unit(
         self, mcp: MetadataChangeProposalWrapper
@@ -257,8 +183,8 @@ class Mapper:
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
         schema_metadata = self.to_datahub_schema(table)
-        schema_mcp = self.new_mcp(
-            entity_urn=ds_urn,
+        schema_mcp = MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
             aspect=schema_metadata,
         )
         return [schema_mcp]
@@ -416,10 +342,6 @@ class Mapper:
         self, dax_expression: str
     ) -> Tuple[Set[str], List]:
         """Extract table and column references from DAX expression."""
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-        )
-
         references = extract_table_column_references(dax_expression)
         referenced_tables = set()
         column_references = []
@@ -506,10 +428,6 @@ class Mapper:
         table_name: str,
     ) -> List[FineGrainedLineage]:
         """Process SUMMARIZE calculated column mappings."""
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-        )
-
         cll_lineage: List[FineGrainedLineage] = []
 
         for mapping in calculated_mappings:
@@ -604,10 +522,6 @@ class Mapper:
         upstream: List[UpstreamClass],
     ) -> List[FineGrainedLineage]:
         """Process column references in a DAX calculated column."""
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-        )
-
         cll_lineage: List[FineGrainedLineage] = []
         references = extract_table_column_references(column_expression)
 
@@ -645,10 +559,6 @@ class Mapper:
         self, dax_expression: str, entity_name: str, entity_type: str
     ) -> List:
         """Extract DAX references with logging and error handling."""
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-        )
-
         self.__reporter.dax_parse_attempts += 1
         try:
             logger.debug(f"Extracting lineage from DAX {entity_type}: {entity_name}")
@@ -838,11 +748,6 @@ class Mapper:
         data_model_tables: Optional[List[Dict]],
     ) -> Tuple[List[UpstreamClass], List[FineGrainedLineage]]:
         """Process lineage from DAX table expression."""
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-            parse_summarize_expression,
-        )
-
         if not (table.expression and _is_dax_expression(table.expression)):
             return [], []
 
@@ -914,10 +819,6 @@ class Mapper:
         table_name: str,
     ) -> List[FineGrainedLineage]:
         """Process column lineage using name-based matching."""
-        from datahub.ingestion.source.powerbi.dax_parser import (
-            extract_table_column_references,
-        )
-
         cll_lineage: List[FineGrainedLineage] = []
 
         for target_column in columns:
@@ -1000,10 +901,6 @@ class Mapper:
 
         # Handle DAX measures
         if table.measures:
-            from datahub.ingestion.source.powerbi.dax_parser import (
-                parse_dax_expression,
-            )
-
             measure_map = {m.name: m.expression for m in table.measures if m.expression}
             data_model_tables = self._build_data_model_tables_for_parameters(
                 table.dataset
@@ -1111,6 +1008,156 @@ class Mapper:
         if self.__config.ownership.remove_email_suffix:
             return builder.make_user_urn(user.split("@")[0])
         return builder.make_user_urn(f"users.{user}")
+
+    def _add_pbix_hierarchies_to_props(
+        self, table: powerbi_data_classes.Table, custom_props: Dict[str, str]
+    ) -> None:
+        """Add table hierarchies to custom properties."""
+        if hasattr(table, "hierarchies") and table.hierarchies:
+            table_hierarchies = [
+                {
+                    "name": hier.name,
+                    "levels": [level.name for level in hier.levels]
+                    if hasattr(hier, "levels")
+                    else [],
+                    "hidden": getattr(hier, "isHidden", False),
+                }
+                for hier in table.hierarchies
+            ]
+            if table_hierarchies:
+                custom_props["pbix.hierarchies"] = json.dumps(table_hierarchies)
+
+    def _add_pbix_rls_to_props(
+        self,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        table: powerbi_data_classes.Table,
+        custom_props: Dict[str, str],
+    ) -> None:
+        """Add RLS roles to custom properties (filtered for this table)."""
+        if not dataset.roles:
+            return
+
+        roles_info = []
+        for role in dataset.roles:
+            role_dict = {
+                "name": role.name,
+                "modelPermission": getattr(role, "modelPermission", "read"),
+            }
+            if hasattr(role, "tablePermissions"):
+                table_perms = [
+                    {
+                        "table": perm.table,
+                        "filterExpression": perm.filterExpression,
+                    }
+                    for perm in role.tablePermissions
+                    if perm.table == table.name
+                ]
+                if table_perms:
+                    role_dict["tablePermissions"] = table_perms
+            if role_dict.get("tablePermissions"):
+                roles_info.append(role_dict)
+
+        if roles_info:
+            custom_props["pbix.rowLevelSecurity"] = json.dumps(roles_info)
+
+    def _add_pbix_data_sources_to_props(
+        self,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        custom_props: Dict[str, str],
+    ) -> None:
+        """Add data sources to custom properties."""
+        if not dataset.dataSources:
+            return
+
+        sources_info = [
+            {
+                "name": ds.name,
+                "type": getattr(ds, "type", None),
+                "provider": getattr(ds, "provider", None),
+            }
+            for ds in dataset.dataSources
+        ]
+        if sources_info:
+            custom_props["pbix.dataSources"] = json.dumps(sources_info)
+
+    def _add_pbix_expressions_to_props(
+        self,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        custom_props: Dict[str, str],
+    ) -> None:
+        """Add M-query expressions to custom properties."""
+        if not dataset.expressions:
+            return
+
+        expressions_info = [
+            {"name": expr.name, "kind": getattr(expr, "kind", None)}
+            for expr in dataset.expressions
+        ]
+        if expressions_info:
+            custom_props["pbix.expressions"] = json.dumps(expressions_info)
+
+    def _add_pbix_bookmarks_and_interactions_to_props(
+        self,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        custom_props: Dict[str, str],
+    ) -> None:
+        """Add bookmarks and visual interactions to custom properties."""
+        if dataset.bookmarks:
+            custom_props["pbix.bookmarksCount"] = str(len(dataset.bookmarks))
+
+        if dataset.interactions:
+            custom_props["pbix.hasVisualInteractions"] = "true"
+
+    def _add_pbix_relationships_to_props(
+        self,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        table: powerbi_data_classes.Table,
+        custom_props: Dict[str, str],
+    ) -> None:
+        """Add enhanced relationship metadata to custom properties (filtered for this table)."""
+        if not dataset.relationships:
+            return
+
+        relationships_info = []
+        for rel in dataset.relationships:
+            rel_dict = rel if isinstance(rel, dict) else {}
+
+            # Only add if this relationship involves the current table
+            if (
+                rel_dict.get("fromTable") != table.name
+                and rel_dict.get("toTable") != table.name
+            ):
+                continue
+
+            rel_info = {
+                "fromTable": rel_dict.get("fromTable"),
+                "fromColumn": rel_dict.get("fromColumn"),
+                "toTable": rel_dict.get("toTable"),
+                "toColumn": rel_dict.get("toColumn"),
+                "crossFilteringBehavior": rel_dict.get(
+                    "crossFilteringBehavior", "oneDirection"
+                ),
+                "isActive": rel_dict.get("isActive", True),
+            }
+
+            # Add enhanced metadata if available
+            if rel_dict.get("securityFilteringBehavior"):
+                rel_info["securityFilteringBehavior"] = rel_dict[
+                    "securityFilteringBehavior"
+                ]
+            if rel_dict.get("fromCardinality"):
+                rel_info["fromCardinality"] = rel_dict["fromCardinality"]
+            if rel_dict.get("toCardinality"):
+                rel_info["toCardinality"] = rel_dict["toCardinality"]
+            if rel_dict.get("relyOnReferentialIntegrity"):
+                rel_info["relyOnReferentialIntegrity"] = rel_dict[
+                    "relyOnReferentialIntegrity"
+                ]
+
+            relationships_info.append(rel_info)
+
+        if relationships_info:
+            custom_props["pbix.relationships"] = json.dumps(relationships_info)
 
     def to_datahub_schema_field(
         self,
@@ -1227,35 +1274,46 @@ class Mapper:
                     viewLogic=table.expression,
                     viewLanguage="m_query",
                 )
-                view_prop_mcp = self.new_mcp(
-                    entity_urn=ds_urn,
+                view_prop_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=ds_urn,
                     aspect=view_properties,
                 )
                 dataset_mcps.extend([view_prop_mcp])
+            # Build custom properties including PBIX metadata
+            custom_props = {"datasetId": dataset.id}
+
+            # Add PBIX-extracted metadata as custom properties using helper methods
+            self._add_pbix_hierarchies_to_props(table, custom_props)
+            self._add_pbix_rls_to_props(dataset, table, custom_props)
+            self._add_pbix_data_sources_to_props(dataset, custom_props)
+            self._add_pbix_expressions_to_props(dataset, custom_props)
+            self._add_pbix_bookmarks_and_interactions_to_props(dataset, custom_props)
+            self._add_pbix_relationships_to_props(dataset, table, custom_props)
+
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
-                description=dataset.description,
+                description=dataset.description or table.description
+                if hasattr(table, "description")
+                else dataset.description,
                 externalUrl=dataset.webUrl,
-                customProperties={
-                    "datasetId": dataset.id,
-                },
+                customProperties=custom_props,
             )
 
-            info_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            info_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=ds_properties,
             )
 
             # Remove status mcp
-            status_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            status_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=StatusClass(removed=False),
             )
             if self.__config.extract_dataset_schema:
                 dataset_mcps.extend(self.extract_dataset_schema(table, ds_urn))
 
-            subtype_mcp = self.new_mcp(
-                entity_urn=ds_urn,
+            subtype_mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
                 aspect=SubTypesClass(
                     typeNames=[
                         BIContainerSubTypes.POWERBI_DATASET_TABLE,
@@ -1273,8 +1331,8 @@ class Mapper:
                 owner_class = OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
                 # Dashboard owner MCP
                 ownership = OwnershipClass(owners=[owner_class])
-                owner_mcp = self.new_mcp(
-                    entity_urn=ds_urn,
+                owner_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=ds_urn,
                     aspect=ownership,
                 )
                 dataset_mcps.extend([owner_mcp])
@@ -1428,14 +1486,14 @@ class Mapper:
             customProperties=tile_custom_properties(tile),
         )
 
-        info_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        info_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=chart_info_instance,
         )
 
         # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=StatusClass(removed=False),
         )
 
@@ -1451,15 +1509,15 @@ class Mapper:
         # Note: we previously would emit a ChartKey aspect with incorrect information.
         # Explicitly emitting this aspect isn't necessary, but we do it here to ensure that
         # the old, bad data gets overwritten.
-        chart_key_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        chart_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
 
         # Browse path
         browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
-        browse_path_mcp = self.new_mcp(
-            entity_urn=chart_urn,
+        browse_path_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
             aspect=browse_path,
         )
         result_mcps = [
@@ -1526,14 +1584,14 @@ class Mapper:
             dashboards=dashboard_edges,
         )
 
-        info_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        info_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
-        removed_status_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        removed_status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
 
@@ -1544,8 +1602,8 @@ class Mapper:
         )
 
         # Dashboard key
-        dashboard_key_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        dashboard_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
 
@@ -1560,8 +1618,8 @@ class Mapper:
         if len(owners) > 0:
             # Dashboard owner MCP
             ownership = OwnershipClass(owners=owners)
-            owner_mcp = self.new_mcp(
-                entity_urn=dashboard_urn,
+            owner_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
                 aspect=ownership,
             )
 
@@ -1569,8 +1627,8 @@ class Mapper:
         browse_path = BrowsePathsClass(
             paths=[f"/{Constant.PLATFORM_NAME}/{dashboard.workspace_name}"]
         )
-        browse_path_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        browse_path_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=browse_path,
         )
 
@@ -1672,8 +1730,8 @@ class Mapper:
         tags: List[str],
     ) -> None:
         if self.__config.extract_endorsements_to_tags and tags:
-            tags_mcp = self.new_mcp(
-                entity_urn=entity_urn,
+            tags_mcp = MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
                 aspect=self.transform_tags(tags),
             )
             list_of_mcps.append(tags_mcp)
@@ -1695,8 +1753,8 @@ class Mapper:
         user_urn = builder.make_user_urn(user_id)
         user_key = CorpUserKeyClass(username=user.id)
 
-        user_key_mcp = self.new_mcp(
-            entity_urn=user_urn,
+        user_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=user_urn,
             aspect=user_key,
         )
 
@@ -1820,7 +1878,7 @@ class Mapper:
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
         ds_mcps: List[MetadataChangeProposalWrapper],
-        pbix_metadata: Dict[str, Any],
+        pbix_metadata: PBIXExtractedMetadata,
     ) -> Tuple[List[MetadataChangeProposalWrapper], Dict[str, List[str]]]:
         """
         Extract individual visualizations from PBIX metadata and create Chart entities.
@@ -1831,8 +1889,10 @@ class Mapper:
         visualization_mcps: List[MetadataChangeProposalWrapper] = []
         page_to_viz_urns: Dict[str, List[str]] = {}
 
-        lineage_info = pbix_metadata.get("lineage", {})
-        visualization_lineages = lineage_info.get("visualization_lineage", [])
+        lineage_info = pbix_metadata.lineage
+        visualization_lineages = (
+            lineage_info.visualization_lineage if lineage_info else []
+        )
 
         if not visualization_lineages:
             logger.warning(
@@ -1843,6 +1903,10 @@ class Mapper:
         logger.info(
             f"Processing {len(visualization_lineages)} visualizations from PBIX"
         )
+
+        # Track column-level lineage statistics
+        viz_with_columns = 0
+        viz_without_columns = 0
 
         # Build dataset URN map
         dataset_urn_map: Dict[str, str] = {}
@@ -1857,10 +1921,14 @@ class Mapper:
                         dataset_urn_map[normalized_name] = mcp.entityUrn
 
         for viz_lineage in visualization_lineages:
-            viz_id = viz_lineage.get("visualizationId")
-            viz_type = viz_lineage.get("visualizationType", "visual")
-            section_name = viz_lineage.get("sectionName", "Unknown Page")
-            section_id = viz_lineage.get("sectionId")
+            viz_id = viz_lineage.visualizationId
+            viz_type = viz_lineage.visualizationType or "visual"
+            section_name = viz_lineage.sectionName or "Unknown Page"
+            section_id = (
+                str(viz_lineage.sectionId)
+                if viz_lineage.sectionId is not None
+                else None
+            )
 
             if not viz_id:
                 logger.warning(f"Skipping visualization without ID in {section_name}")
@@ -1885,9 +1953,9 @@ class Mapper:
             datasets_used = set()
 
             # Process columns
-            for col_lineage in viz_lineage.get("columns", []):
-                source_table = col_lineage.get("sourceTable")
-                source_column = col_lineage.get("sourceColumn")
+            for col_lineage in viz_lineage.columns:
+                source_table = col_lineage.sourceTable
+                source_column = col_lineage.sourceColumn
 
                 if source_table and source_column:
                     dataset_urn = dataset_urn_map.get(
@@ -1908,23 +1976,21 @@ class Mapper:
                                         fieldPath=source_column,
                                         type=SchemaFieldDataTypeClass(
                                             type=powerbi_data_classes.FIELD_TYPE_MAPPING.get(
-                                                col_lineage.get("dataType", "String"),
+                                                col_lineage.dataType or "String",
                                                 powerbi_data_classes.FIELD_TYPE_MAPPING[
                                                     "String"
                                                 ],
                                             )
                                         ),
-                                        nativeDataType=col_lineage.get(
-                                            "dataType", "String"
-                                        ),
+                                        nativeDataType=col_lineage.dataType or "String",
                                     ),
                                 )
                             )
 
             # Process measures
-            for measure_lineage in viz_lineage.get("measures", []):
-                source_entity = measure_lineage.get("sourceEntity")
-                measure_name = measure_lineage.get("measureName")
+            for measure_lineage in viz_lineage.measures:
+                source_entity = measure_lineage.sourceEntity
+                measure_name = measure_lineage.measureName
 
                 if source_entity and measure_name:
                     dataset_urn = dataset_urn_map.get(
@@ -1956,6 +2022,12 @@ class Mapper:
                                 )
                             )
 
+            # Track statistics
+            if input_fields:
+                viz_with_columns += 1
+            else:
+                viz_without_columns += 1
+
             # Create ChartInfo
             chart_inputs = sorted(list(datasets_used)) if datasets_used else []
             chart_info = ChartInfoClass(
@@ -1965,7 +2037,7 @@ class Mapper:
                 inputs=chart_inputs,
                 customProperties={
                     "visualizationType": viz_type,
-                    "visualizationId": viz_id,
+                    "visualizationId": str(viz_id) if viz_id is not None else "",
                     "pageName": section_name,
                     "reportId": report.id,
                     "reportName": report.name,
@@ -1974,16 +2046,18 @@ class Mapper:
 
             # Create MCPs for this visualization
             chart_mcps_list = [
-                self.new_mcp(entity_urn=chart_urn, aspect=chart_info),
-                self.new_mcp(entity_urn=chart_urn, aspect=StatusClass(removed=False)),
-                self.new_mcp(
-                    entity_urn=chart_urn,
+                MetadataChangeProposalWrapper(entityUrn=chart_urn, aspect=chart_info),
+                MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn, aspect=StatusClass(removed=False)
+                ),
+                MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
                     aspect=SubTypesClass(
                         typeNames=[BIAssetSubTypes.POWERBI_VISUALIZATION]
                     ),
                 ),
-                self.new_mcp(
-                    entity_urn=chart_urn,
+                MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
                     aspect=BrowsePathsClass(
                         paths=[
                             f"/{Constant.PLATFORM_NAME}/{workspace.name}/{report.name}/{section_name}"
@@ -2012,6 +2086,10 @@ class Mapper:
         logger.info(
             f"Created {len(visualization_mcps)} MCPs for {len(visualization_lineages)} visualizations "
             f"across {len(page_to_viz_urns)} pages"
+        )
+        logger.info(
+            f"Column-level lineage: {viz_with_columns} visualizations with columns/measures tracked, "
+            f"{viz_without_columns} without (will use table-level lineage only)"
         )
 
         return visualization_mcps, page_to_viz_urns
@@ -2067,18 +2145,20 @@ class Mapper:
                 },
             )
 
-            info_mcp = self.new_mcp(entity_urn=dashboard_urn, aspect=dashboard_info)
-            status_mcp = self.new_mcp(
-                entity_urn=dashboard_urn, aspect=StatusClass(removed=False)
+            info_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn, aspect=dashboard_info
             )
-            subtype_mcp = self.new_mcp(
-                entity_urn=dashboard_urn,
+            status_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn, aspect=StatusClass(removed=False)
+            )
+            subtype_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
                 aspect=SubTypesClass(
                     typeNames=[BIAssetSubTypes.POWERBI_PAGE_AS_DASHBOARD]
                 ),
             )
-            browse_path_mcp = self.new_mcp(
-                entity_urn=dashboard_urn,
+            browse_path_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
                 aspect=BrowsePathsClass(
                     paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}/{report.name}"]
                 ),
@@ -2140,14 +2220,14 @@ class Mapper:
                 customProperties={Constant.ORDER: str(page.order)},
             )
 
-            info_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            info_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=chart_info_instance,
             )
 
             # removed status mcp
-            status_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            status_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=StatusClass(removed=False),
             )
             # Subtype mcp
@@ -2162,8 +2242,8 @@ class Mapper:
             browse_path = BrowsePathsClass(
                 paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
             )
-            browse_path_mcp = self.new_mcp(
-                entity_urn=chart_urn,
+            browse_path_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
                 aspect=browse_path,
             )
             list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
@@ -2259,14 +2339,14 @@ class Mapper:
             else None,
         )
 
-        info_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        info_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
-        removed_status_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        removed_status_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
 
@@ -2277,8 +2357,8 @@ class Mapper:
         )
 
         # Dashboard key
-        dashboard_key_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        dashboard_key_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
         # Report Ownership
@@ -2292,8 +2372,8 @@ class Mapper:
         if len(owners) > 0:
             # Report owner MCP
             ownership = OwnershipClass(owners=owners)
-            owner_mcp = self.new_mcp(
-                entity_urn=dashboard_urn,
+            owner_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dashboard_urn,
                 aspect=ownership,
             )
 
@@ -2301,13 +2381,13 @@ class Mapper:
         browse_path = BrowsePathsClass(
             paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
         )
-        browse_path_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        browse_path_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=browse_path,
         )
 
-        sub_type_mcp = self.new_mcp(
-            entity_urn=dashboard_urn,
+        sub_type_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
             aspect=SubTypesClass(typeNames=[report.type.value]),
         )
 
@@ -2395,7 +2475,11 @@ class Mapper:
             visualization_mcps: List[MetadataChangeProposalWrapper] = []
             page_to_viz_map: Dict[str, List[str]] = {}  # page_id -> [viz_urns]
 
-            if hasattr(report, "pbix_metadata") and report.pbix_metadata:
+            if (
+                hasattr(report, "pbix_metadata")
+                and report.pbix_metadata
+                and isinstance(report.pbix_metadata, PBIXExtractedMetadata)
+            ):
                 logger.info(
                     f"Extracting individual visualizations from PBIX for report {report.name}"
                 )
@@ -2618,15 +2702,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def pbix_to_powerbi_dataset(
         self,
-        pbix_metadata: Dict,
+        pbix_metadata: PBIXExtractedMetadata,
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
     ) -> powerbi_data_classes.PowerBIDataset:
         """Convert PBIX data model to PowerBIDataset object."""
-        from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-            new_powerbi_dataset,
-        )
-
         logger.debug(
             f"Converting PBIX data model to PowerBIDataset for report {report.name}"
         )
@@ -2636,7 +2716,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             dataset = report.dataset
         else:
             # Create a new dataset based on the report
-            dataset = new_powerbi_dataset(
+            dataset = create_powerbi_dataset(
                 workspace=workspace,
                 raw_instance={
                     "id": report.dataset_id or report.id,
@@ -2652,69 +2732,97 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def pbix_to_powerbi_tables(
         self,
-        pbix_tables: List[Dict],
+        pbix_tables: Sequence[Union[PBIXTable, Dict, Any]],
         dataset: powerbi_data_classes.PowerBIDataset,
     ) -> List[powerbi_data_classes.Table]:
-        """Convert PBIX tables to Table objects with M-query expressions."""
-        from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-            FIELD_TYPE_MAPPING,
-            Column,
-            Measure,
-            Table,
-        )
-
+        """Convert PBIX tables (Pydantic models or dicts) to Table objects with M-query expressions."""
         logger.debug(f"Converting {len(pbix_tables)} PBIX tables to Table objects")
 
         tables = []
         for pbix_table in pbix_tables:
-            table_name = pbix_table.get("name", "Unknown")
+            # Handle both Pydantic models and dictionaries
+            if isinstance(pbix_table, PBIXTable):
+                table_name = pbix_table.name
+                pbix_columns = pbix_table.columns
+                pbix_measures = pbix_table.measures
+                pbix_partitions = pbix_table.partitions
+                pbix_hierarchies = pbix_table.hierarchies
+            else:
+                table_name = pbix_table.get("name", "Unknown")
+                pbix_columns = pbix_table.get("columns", [])
+                pbix_measures = pbix_table.get("measures", [])
+                pbix_partitions = pbix_table.get("partitions", [])
+                pbix_hierarchies = pbix_table.get("hierarchies", [])
+
             logger.debug(f"Processing table: {table_name}")
 
             # Create columns
             columns = []
-            for pbix_col in pbix_table.get("columns", []):
-                col_name = pbix_col.get("name", "Unknown")
-                data_type = pbix_col.get("dataType", "String")
+            for pbix_col in pbix_columns:
+                if hasattr(pbix_col, "name"):  # Pydantic model
+                    col_name = pbix_col.name
+                    data_type = pbix_col.dataType
+                    is_hidden = pbix_col.isHidden
+                    column_type = pbix_col.columnType  # type: ignore[attr-defined]
+                    expression = pbix_col.expression
+                    format_string = pbix_col.formatString
+                else:  # Dictionary
+                    col_name = pbix_col.get("name", "Unknown")  # type: ignore[attr-defined]
+                    data_type = pbix_col.get("dataType", "String")  # type: ignore[attr-defined]
+                    is_hidden = pbix_col.get("isHidden", False)  # type: ignore[attr-defined]
+                    column_type = pbix_col.get("columnType")  # type: ignore[attr-defined]
+                    expression = pbix_col.get("expression")  # type: ignore[attr-defined]
+                    format_string = pbix_col.get("formatString")  # type: ignore[attr-defined]
 
                 column = Column(
                     name=col_name,
                     dataType=data_type,
-                    isHidden=pbix_col.get("isHidden", False),
+                    isHidden=is_hidden,
                     datahubDataType=FIELD_TYPE_MAPPING.get(
                         data_type, FIELD_TYPE_MAPPING["String"]
                     ),
-                    columnType=pbix_col.get("columnType"),
-                    expression=pbix_col.get("expression"),
-                    description=pbix_col.get("formatString"),
+                    columnType=column_type,
+                    expression=expression,
+                    description=format_string,
                 )
                 columns.append(column)
 
             # Create measures
             measures = []
-            for pbix_measure in pbix_table.get("measures", []):
-                measure_name = pbix_measure.get("name", "Unknown")
+            for pbix_measure in pbix_measures:
+                if hasattr(pbix_measure, "name"):  # Pydantic model
+                    measure_name = pbix_measure.name
+                    measure_expression = pbix_measure.expression
+                    measure_hidden = pbix_measure.isHidden
+                    measure_format = pbix_measure.formatString
+                else:  # Dictionary
+                    measure_name = pbix_measure.get("name", "Unknown")  # type: ignore[attr-defined]
+                    measure_expression = pbix_measure.get("expression", "")  # type: ignore[attr-defined]
+                    measure_hidden = pbix_measure.get("isHidden", False)  # type: ignore[attr-defined]
+                    measure_format = pbix_measure.get("formatString")  # type: ignore[attr-defined]
 
-                data_type = FIELD_TYPE_MAPPING.get("String")
+                datahub_data_type = FIELD_TYPE_MAPPING.get("String", NullTypeClass())
                 measure = Measure(
                     name=measure_name,
-                    expression=pbix_measure.get("expression", ""),
-                    isHidden=pbix_measure.get("isHidden", False),
+                    expression=measure_expression,
+                    isHidden=measure_hidden,
                     dataType="measure",
-                    datahubDataType=data_type
-                    if data_type is not None
-                    else NullTypeClass(),
-                    description=pbix_measure.get("formatString"),
+                    datahubDataType=datahub_data_type,
+                    description=measure_format,
                 )
                 measures.append(measure)
 
             # Extract M-query expression from partitions
             expression = None
-            partitions = pbix_table.get("partitions", [])
-            if partitions:
+            if pbix_partitions:
                 # Use the first partition's source expression
-                partition = partitions[0]
-                source = partition.get("source", {})
-                expression = source.get("expression")
+                partition = pbix_partitions[0]
+                if hasattr(partition, "source"):  # Pydantic model
+                    if partition.source and hasattr(partition.source, "expression"):
+                        expression = partition.source.expression
+                else:  # Dictionary
+                    source = partition.get("source", {})  # type: ignore[attr-defined]
+                    expression = source.get("expression")
 
             # Create table with full_name using friendly format: dataset.name.table.name
             table = Table(
@@ -2725,6 +2833,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 dataset=dataset,
                 expression=expression,
             )
+
+            # Attach hierarchies to the table object for later emission
+            if pbix_hierarchies:
+                table.hierarchies = pbix_hierarchies  # type: ignore[attr-defined]
+
             tables.append(table)
 
         logger.debug(f"Created {len(tables)} Table objects from PBIX")
@@ -2732,22 +2845,35 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def pbix_to_powerbi_pages(
         self,
-        pbix_sections: List[Dict],
+        pbix_sections: Sequence[Union[SectionInfo, Dict, Any]],
         dataset: powerbi_data_classes.PowerBIDataset,
     ) -> List[powerbi_data_classes.Page]:
-        """Convert PBIX layout sections to Page objects."""
-        from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Page
-
+        """Convert PBIX layout sections (Pydantic models or dicts) to Page objects."""
         logger.debug(f"Converting {len(pbix_sections)} PBIX sections to Page objects")
 
         pages = []
         for idx, section in enumerate(pbix_sections):
-            page_name = section.get("displayName", section.get("name", "Unknown"))
+            # Handle both Pydantic models and dictionaries
+            if isinstance(section, SectionInfo):
+                page_id_raw = section.id if section.id else section.displayName
+                page_display_name = section.displayName
+                page_name = section.name if section.name else section.displayName
+            else:
+                page_display_name = section.get(
+                    "displayName", section.get("name", "Unknown")
+                )
+                page_id_raw = section.get("id", page_display_name)
+                page_name = section.get("name", page_display_name)
+
+            # Convert PBIX integer ID to string for Page (REST API expects string IDs)
+            page_id_str = (
+                str(page_id_raw) if page_id_raw is not None else page_display_name
+            )
 
             page = Page(
-                id=section.get("id", page_name),
-                displayName=page_name,
-                name=section.get("name", page_name),
+                id=page_id_str,
+                displayName=page_display_name,
+                name=page_name,
                 order=idx,  # Use index as order since not available in PBIX
             )
             pages.append(page)
@@ -2757,7 +2883,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_pbix_visualizations(
         self,
-        pbix_metadata: Dict[str, Any],
+        pbix_metadata: PBIXExtractedMetadata,
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
         ds_mcps: List[MetadataChangeProposalWrapper],
@@ -2770,8 +2896,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         """
         chart_mcps = []
 
-        lineage_info = pbix_metadata.get("lineage", {})
-        visualization_lineages = lineage_info.get("visualization_lineage", [])
+        lineage_info = pbix_metadata.lineage
+        visualization_lineages = (
+            lineage_info.visualization_lineage if lineage_info else []
+        )
 
         logger.info(
             f"Processing {len(visualization_lineages)} visualizations from PBIX"
@@ -2793,9 +2921,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         dataset_urn_map[normalized_name] = mcp.entityUrn
 
         for viz_lineage in visualization_lineages:
-            viz_id = viz_lineage.get("visualizationId")
-            viz_type = viz_lineage.get("visualizationType", "visual")
-            section_name = viz_lineage.get("sectionName", "Unknown Page")
+            viz_id = viz_lineage.visualizationId
+            viz_type = viz_lineage.visualizationType or "visual"
+            section_name = viz_lineage.sectionName or "Unknown Page"
 
             # Create chart URN
             chart_urn = builder.make_chart_urn(
@@ -2812,9 +2940,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             datasets_used = set()  # Track which datasets are actually used
 
             # Process columns
-            for col_lineage in viz_lineage.get("columns", []):
-                source_table = col_lineage.get("sourceTable")
-                source_column = col_lineage.get("sourceColumn")
+            for col_lineage in viz_lineage.columns:
+                source_table = col_lineage.sourceTable
+                source_column = col_lineage.sourceColumn
 
                 if source_table and source_column:
                     # Find the matching dataset URN (normalize spaces to match map keys)
@@ -2841,15 +2969,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                                         fieldPath=source_column,
                                         type=SchemaFieldDataTypeClass(
                                             type=powerbi_data_classes.FIELD_TYPE_MAPPING.get(
-                                                col_lineage.get("dataType", "String"),
+                                                col_lineage.dataType or "String",
                                                 powerbi_data_classes.FIELD_TYPE_MAPPING[
                                                     "String"
                                                 ],
                                             )
                                         ),
-                                        nativeDataType=col_lineage.get(
-                                            "dataType", "String"
-                                        ),
+                                        nativeDataType=col_lineage.dataType or "String",
                                     ),
                                 )
                             )
@@ -2859,9 +2985,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         )
 
             # Process measures
-            for measure_lineage in viz_lineage.get("measures", []):
-                source_entity = measure_lineage.get("sourceEntity")
-                measure_name = measure_lineage.get("measureName")
+            for measure_lineage in viz_lineage.measures:
+                source_entity = measure_lineage.sourceEntity
+                measure_name = measure_lineage.measureName
 
                 if source_entity and measure_name:
                     # Find the matching dataset URN (normalize spaces to match map keys)
@@ -2922,15 +3048,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
             else:
                 # No column-level tracking available - skip this visualization or use all datasets
-                # For now, log a warning and include all datasets without InputFields
+                # For now, log at debug level and include all datasets without InputFields
                 chart_inputs = [
                     str(mcp.entityUrn)
                     for mcp in ds_mcps
                     if mcp.entityType == DatasetUrn.ENTITY_TYPE
                     and mcp.entityUrn is not None
                 ]
-                logger.warning(
-                    f"  Visualization {viz_id} has no column-level tracking - including all {len(chart_inputs)} dataset(s) without InputFields"
+                logger.debug(
+                    f"  Visualization {viz_id} ({viz_type}) has no column-level tracking - including all {len(chart_inputs)} dataset(s) without InputFields"
                 )
 
             chart_info = ChartInfoClass(
@@ -3060,8 +3186,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         6. Maps PBIX metadata to existing data structures
         7. Generates MCPs for ingestion
         """
-        from datahub.ingestion.source.powerbi.parse_pbix import PBIXParser
-
         logger.info(f"Processing report {report.name} from PBIX file: {pbix_path}")
 
         try:
@@ -3082,10 +3206,20 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             all_dax_table_mappings: Dict[str, str] = {}
 
             # Extract tables from PBIX data model if available
-            if pbix_metadata.get("data_model_parsed"):
-                pbix_tables = pbix_metadata["data_model_parsed"].get("tables", [])
+            if pbix_metadata.data_model_parsed:
+                pbix_tables = pbix_metadata.data_model_parsed.tables
                 tables = self.pbix_to_powerbi_tables(pbix_tables, dataset)
                 dataset.tables = tables
+
+                # Attach PBIX metadata to dataset for emission
+                dataset.hierarchies = pbix_metadata.data_model_parsed.hierarchies
+                dataset.roles = pbix_metadata.data_model_parsed.roles
+                dataset.dataSources = pbix_metadata.data_model_parsed.dataSources
+                dataset.expressions = pbix_metadata.data_model_parsed.expressions
+                dataset.relationships = [
+                    rel if isinstance(rel, dict) else rel.model_dump()
+                    for rel in pbix_metadata.data_model_parsed.relationships
+                ]
 
                 logger.info(
                     f"Extracted {len(tables)} tables from PBIX for report {report.name}"
@@ -3131,10 +3265,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         )
 
             # Extract pages from PBIX layout
-            if pbix_metadata.get("layout_parsed"):
-                pbix_sections = pbix_metadata["layout_parsed"].get("sections", [])
+            if pbix_metadata.layout_parsed:
+                pbix_sections = pbix_metadata.layout_parsed.sections
                 pages = self.pbix_to_powerbi_pages(pbix_sections, dataset)
                 report.pages = pages
+
+                # Attach bookmarks and interactions to dataset for emission
+                dataset.bookmarks = pbix_metadata.layout_parsed.bookmarks
+                dataset.interactions = pbix_metadata.layout_parsed.interactions
 
                 logger.info(
                     f"Extracted {len(pages)} pages from PBIX for report {report.name}"
@@ -3151,7 +3289,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
             # Process visualizations and column-level lineage from PBIX
             chart_mcps = []
-            if pbix_metadata.get("lineage") and pbix_metadata.get("layout_parsed"):
+            if pbix_metadata.lineage and pbix_metadata.layout_parsed:
                 logger.info(
                     "Processing visualizations and column-level lineage from PBIX"
                 )
@@ -3177,7 +3315,29 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
             ]
 
-            # Convert report to dashboard
+            # Yield dataset MCPs immediately
+            for mcp in ds_mcps:
+                wu = self.mapper._to_work_unit(mcp)
+                patched_wu = self._get_dashboard_patch_work_unit(wu)
+                if patched_wu:
+                    yield patched_wu
+
+            # Yield user MCPs if enabled
+            if self.source_config.ownership.create_corp_user:
+                for mcp in user_mcps:
+                    wu = self.mapper._to_work_unit(mcp)
+                    patched_wu = self._get_dashboard_patch_work_unit(wu)
+                    if patched_wu:
+                        yield patched_wu
+
+            # Yield chart MCPs immediately
+            for mcp in chart_mcps:
+                wu = self.mapper._to_work_unit(mcp)
+                patched_wu = self._get_dashboard_patch_work_unit(wu)
+                if patched_wu:
+                    yield patched_wu
+
+            # Yield report MCPs immediately
             report_mcps = self.mapper.report_to_dashboard(
                 workspace=workspace,
                 report=report,
@@ -3185,17 +3345,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 user_mcps=user_mcps,
                 dataset_edges=dataset_edges,
             )
-
-            # Combine all MCPs
-            all_mcps = []
-            all_mcps.extend(ds_mcps)
-            if self.source_config.ownership.create_corp_user:
-                all_mcps.extend(user_mcps)
-            all_mcps.extend(chart_mcps)
-            all_mcps.extend(report_mcps)
-
-            # Convert MCPs to work units
-            for mcp in all_mcps:
+            for mcp in report_mcps:
                 wu = self.mapper._to_work_unit(mcp)
                 patched_wu = self._get_dashboard_patch_work_unit(wu)
                 if patched_wu:

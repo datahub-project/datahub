@@ -8,12 +8,16 @@ into DataHub Chart entities with proper lineage and metadata.
 import logging
 from typing import Dict, List, Optional, Set, Tuple
 
-from pydantic import BaseModel, Field
-
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.source.powerbi.models import (
+    ChartWithLineage,
+    VisualizationColumn,
+    VisualizationMeasure,
+    VisualizationMetadata,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper import (
     data_classes as powerbi_data_classes,
 )
@@ -32,65 +36,8 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class VisualizationColumn(BaseModel):
-    """Represents a column used in a visualization."""
-
-    source_table: str = Field(description="Name of the source table")
-    source_column: str = Field(description="Name of the source column")
-    data_type: str = Field(default="String", description="Data type of the column")
-    display_name: Optional[str] = Field(
-        default=None, description="Display name in visual"
-    )
-
-
-class VisualizationMeasure(BaseModel):
-    """Represents a measure used in a visualization."""
-
-    source_entity: str = Field(description="Entity/table containing the measure")
-    measure_name: str = Field(description="Name of the measure")
-    expression: Optional[str] = Field(
-        default=None, description="DAX expression if available"
-    )
-
-
-class VisualizationMetadata(BaseModel):
-    """Complete metadata for a Power BI visualization."""
-
-    visualization_id: str = Field(description="Unique ID of the visualization")
-    visualization_type: str = Field(default="visual", description="Type of visual")
-    page_name: str = Field(description="Name of the page containing this visual")
-    page_id: str = Field(description="ID of the page")
-    columns: List[VisualizationColumn] = Field(
-        default_factory=list, description="Columns used in the visualization"
-    )
-    measures: List[VisualizationMeasure] = Field(
-        default_factory=list, description="Measures used in the visualization"
-    )
-
-    def get_all_source_tables(self) -> Set[str]:
-        """Get all unique source table names."""
-        tables: Set[str] = set()
-        for col in self.columns:
-            tables.add(col.source_table)
-        for measure in self.measures:
-            tables.add(measure.source_entity)
-        return tables
-
-
-class ChartWithLineage(BaseModel):
-    """Represents a chart entity with its lineage information."""
-
-    chart_urn: str = Field(description="URN of the chart")
-    chart_info: ChartInfoClass = Field(description="Chart information aspect")
-    input_fields: List[InputFieldClass] = Field(
-        default_factory=list, description="Column-level lineage (InputFields)"
-    )
-    dataset_urns: Set[str] = Field(
-        default_factory=set, description="URNs of datasets this chart uses"
-    )
-
-    class Config:
-        arbitrary_types_allowed = True
+# Models are now imported from models.py
+# This enables better organization and reuse
 
 
 class VisualizationProcessor:

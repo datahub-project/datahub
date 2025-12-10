@@ -1,374 +1,311 @@
 import json
 import logging
 import re
+import struct
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from pydantic import BaseModel, Field
+import xpress9
+
+from datahub.ingestion.source.powerbi.models import (
+    ColumnLineageEntry,
+    ColumnPageMapping,
+    ColumnUsageOnPage,
+    DataRole,
+    MeasureLineageEntry,
+    MeasurePageMapping,
+    MeasureUsageOnPage,
+    PageUsageInfo,
+    PBIXBookmark,
+    PBIXColumn,
+    PBIXColumnMapping,
+    PBIXDataModel,
+    PBIXDataModelParsed,
+    PBIXDataSource,
+    PBIXDataTransformSelect,
+    PBIXExpression,
+    PBIXExtractedMetadata,
+    PBIXExtractResult,
+    PBIXFileInfo,
+    PBIXHierarchy,
+    PBIXLayout,
+    PBIXLayoutParsedEnhanced,
+    PBIXLineageResult,
+    PBIXMeasure,
+    PBIXMeasureMapping,
+    PBIXPageLineage,
+    PBIXParameter,
+    PBIXPartition,
+    PBIXRelationship,
+    PBIXRole,
+    PBIXSection,
+    PBIXSelectItem,
+    PBIXTable,
+    PBIXTableParsed,
+    PBIXTableUsage,
+    PBIXVisualContainer,
+    SectionInfo,
+    VisualColumnInfo,
+    VisualInfo,
+    VisualizationLineage,
+    VisualizationReference,
+    VisualizationUsage,
+    VisualMeasureInfo,
+    VisualPosition,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class PBIXColumn(BaseModel):
-    name: str
-    dataType: str = "Unknown"
-    formatString: Optional[str] = None
-    isHidden: bool = False
-    isNullable: bool = True
-    sourceColumn: Optional[str] = None
-    summarizeBy: Optional[str] = None
-    expression: Optional[str] = None
-
-
-class PBIXMeasure(BaseModel):
-    name: str
-    expression: str = ""
-    formatString: Optional[str] = None
-    isHidden: bool = False
-
-
-class PBIXPartition(BaseModel):
-    name: str = "Partition"
-    mode: str = "Import"
-    source: Dict[str, Any] = Field(default_factory=dict)
-
-
-class PBIXTable(BaseModel):
-    name: str
-    columns: List[PBIXColumn] = Field(default_factory=list)
-    measures: List[PBIXMeasure] = Field(default_factory=list)
-    partitions: List[PBIXPartition] = Field(default_factory=list)
-    isHidden: bool = False
-
-
-class PBIXRelationship(BaseModel):
-    name: str = ""
-    fromTable: str
-    fromColumn: str
-    toTable: str
-    toColumn: str
-    crossFilteringBehavior: str = "oneDirection"
-    isActive: bool = True
-
-
-class PBIXDataModel(BaseModel):
-    tables: List[PBIXTable] = Field(default_factory=list)
-    relationships: List[PBIXRelationship] = Field(default_factory=list)
-    cultures: str = "en-US"
-    version: str = "Unknown"
-
-
-class PBIXDataModelRoot(BaseModel):
-    model: Dict[str, Any] = Field(default_factory=dict)
-
-
-class PBIXAggregationExpression(BaseModel):
-    Column: Optional[Dict[str, Any]] = None
-    Property: Optional[Dict[str, Any]] = None
-
-
-class PBIXAggregation(BaseModel):
-    Function: int = 0
-    Expression: PBIXAggregationExpression = Field(
-        default_factory=PBIXAggregationExpression
-    )
-
-
-class PBIXSelectItem(BaseModel):
-    Aggregation: Optional[PBIXAggregation] = None
-    Measure: Optional[Dict[str, Any]] = None
-    Column: Optional[Dict[str, Any]] = None
-    HierarchyLevel: Optional[Dict[str, Any]] = None
-    Name: Optional[str] = None
-    NativeReferenceName: Optional[str] = None
-
-
-class PBIXBookmark(BaseModel):
-    name: str
-    displayName: Optional[str] = None
-    id: Optional[str] = None
-    explorationState: Dict[str, Any] = Field(default_factory=dict)
-    options: Dict[str, Any] = Field(default_factory=dict)
-    children: List[str] = Field(default_factory=list)
-
-
-class PBIXParameter(BaseModel):
-    name: str
-    value: Optional[Union[str, int, float, bool]] = None
-    type: Optional[str] = None
-    expression: Optional[str] = None
-    kind: Optional[str] = None
-
-
-class PBIXDataTransformSelect(BaseModel):
-    queryName: Optional[str] = None
-    displayName: Optional[str] = None
-    roles: Dict[str, bool] = Field(default_factory=dict)
-    type: Dict[str, Any] = Field(default_factory=dict)
-    format: Optional[str] = None
-
-
-# Visual Information Models (to replace dictionaries)
-class VisualPosition(BaseModel):
-    x: float = 0.0
-    y: float = 0.0
-    z: int = 0
-    width: float = 0.0
-    height: float = 0.0
-
-
-class VisualColumnInfo(BaseModel):
-    name: str
-    nativeReferenceName: str = ""
-    table: str = ""
-    column: str = ""
-    displayName: str = ""
-    roles: Dict[str, bool] = Field(default_factory=dict)
-    dataType: Optional[str] = None
-    aggregation: Optional[str] = None
-    type: str = "column"
-
-
-class VisualMeasureInfo(BaseModel):
-    name: str
-    nativeReferenceName: str = ""
-    entity: str = ""
-    property: str = ""
-    displayName: str = ""
-    roles: Dict[str, bool] = Field(default_factory=dict)
-    dataType: Optional[str] = None
-    format: Optional[str] = None
-
-
-class DataRole(BaseModel):
-    queryRef: str
-    active: bool = False
-
-
-class VisualInfo(BaseModel):
-    id: Optional[str] = None
-    position: VisualPosition = Field(default_factory=VisualPosition)
-    visualType: str = "Unknown"
-    columns: List[VisualColumnInfo] = Field(default_factory=list)
-    measures: List[VisualMeasureInfo] = Field(default_factory=list)
-    dataRoles: Dict[str, List[DataRole]] = Field(default_factory=dict)
-    sectionName: Optional[str] = None
-    sectionId: Optional[str] = None
-
-
-class SectionInfo(BaseModel):
-    name: str
-    displayName: str
-    id: Optional[str] = None
-    width: float = 0.0
-    height: float = 0.0
-    visualContainers: List[VisualInfo] = Field(default_factory=list)
-    filters: List[Any] = Field(default_factory=list)
-
-
-class LayoutParsed(BaseModel):
-    sections: List[SectionInfo] = Field(default_factory=list)
-    themes: List[Any] = Field(default_factory=list)
-    defaultLayout: Dict[str, Any] = Field(default_factory=dict)
-    visualizations: List[VisualInfo] = Field(default_factory=list)
-    bookmarks: List[Dict[str, Any]] = Field(default_factory=list)
-    interactions: Dict[str, Any] = Field(default_factory=dict)
-
-
-# Lineage Models (to replace dictionaries)
-class ColumnLineageEntry(BaseModel):
-    visualizationColumn: str
-    displayName: str = ""
-    sourceTable: str = ""
-    sourceColumn: str = ""
-    dataRole: List[str] = Field(default_factory=list)
-    aggregation: Optional[str] = None
-    columnType: str = "column"
-    page: str = ""
-    pageId: Optional[str] = None
-    visualization: str = ""
-    visualizationId: Optional[str] = None
-    lineagePath: List[str] = Field(default_factory=list)
-    sourceColumnDetails: Optional[Dict[str, Any]] = None
-
-
-class MeasureLineageEntry(BaseModel):
-    visualizationMeasure: str
-    displayName: str = ""
-    sourceEntity: str = ""
-    measureName: str = ""
-    dataRole: List[str] = Field(default_factory=list)
-    format: Optional[str] = None
-    page: str = ""
-    pageId: Optional[str] = None
-    visualization: str = ""
-    visualizationId: Optional[str] = None
-    lineagePath: List[str] = Field(default_factory=list)
-    sourceMeasureDetails: Optional[Dict[str, Any]] = None
-
-
-class VisualizationLineage(BaseModel):
-    visualizationId: Optional[str] = None
-    visualizationType: str = "Unknown"
-    sectionName: Optional[str] = None
-    sectionId: Optional[str] = None
-    columns: List[ColumnLineageEntry] = Field(default_factory=list)
-    measures: List[MeasureLineageEntry] = Field(default_factory=list)
-
-
-class PBIXVisualConfig(BaseModel):
-    singleVisual: Dict[str, Any] = Field(default_factory=dict)
-
-
-class PBIXVisualContainer(BaseModel):
-    id: Optional[str] = None
-    x: int = 0
-    y: int = 0
-    z: int = 0
-    width: int = 0
-    height: int = 0
-    config: Union[str, Dict[str, Any]] = "{}"
-    query: Union[str, Dict[str, Any]] = "{}"
-    dataTransforms: Optional[Union[str, Dict[str, Any]]] = None
-
-
-class PBIXSection(BaseModel):
-    name: str = ""
-    displayName: str = ""
-    id: Optional[str] = None
-    width: int = 0
-    height: int = 0
-    visualContainers: List[Dict[str, Any]] = Field(default_factory=list)
-    filters: List[Any] = Field(default_factory=list)
-
-
-class PBIXLayout(BaseModel):
-    sections: List[PBIXSection] = Field(default_factory=list)
-    themes: List[Any] = Field(default_factory=list)
-    defaultLayout: Dict[str, Any] = Field(default_factory=dict)
-    bookmarks: List[Dict[str, Any]] = Field(default_factory=list)
-    config: Optional[Union[str, Dict[str, Any]]] = None
-
-
-class ColumnReference(BaseModel):
-    name: str = Field(description="Full column reference name")
-    table: str = Field(default="", description="Source table name")
-    column: str = Field(default="", description="Column name")
-    display_name: str = Field(
-        default="", description="Display name shown in the visual"
-    )
-    roles: Dict[str, bool] = Field(
-        default_factory=dict, description="Data roles this column fills"
-    )
-
-
-class MeasureReference(BaseModel):
-    name: str = Field(description="Full measure reference name")
-    entity: str = Field(default="", description="Table/entity containing the measure")
-    property: str = Field(default="", description="Measure property name")
-    display_name: str = Field(
-        default="", description="Display name shown in the visual"
-    )
-    roles: Dict[str, bool] = Field(
-        default_factory=dict, description="Data roles this measure fills"
-    )
-
-
-class VisualizationMetadata(BaseModel):
-    id: str = Field(description="Unique identifier for the visualization")
-    visual_type: str = Field(
-        description="Type of visual (e.g., 'barChart', 'table', 'pieChart')"
-    )
-    position_x: float = Field(default=0.0, description="X coordinate of visual")
-    position_y: float = Field(default=0.0, description="Y coordinate of visual")
-    width: float = Field(default=0.0, description="Width of visual")
-    height: float = Field(default=0.0, description="Height of visual")
-    z_index: int = Field(default=0, description="Z-index (layering) of visual")
-    columns: List[ColumnReference] = Field(
-        default_factory=list, description="Column references used"
-    )
-    measures: List[MeasureReference] = Field(
-        default_factory=list, description="Measure references used"
-    )
-    filters: List[str] = Field(default_factory=list, description="Visual-level filters")
-    title: Optional[str] = Field(default=None, description="Visual title if set")
-
-    # Raw config preserved for complex scenarios
-    config_raw: Optional[Dict] = Field(
-        default=None, description="Raw visual configuration"
-    )
-
-
-class BookmarkMetadata(BaseModel):
-    name: str = Field(description="Internal name of the bookmark")
-    display_name: Optional[str] = Field(
-        default=None, description="User-facing display name"
-    )
-    id: str = Field(description="Unique identifier for the bookmark")
-    exploration_state: Dict = Field(
-        default_factory=dict, description="Captured state (filters, slicers, etc.)"
-    )
-    options: Dict = Field(
-        default_factory=dict, description="Bookmark options and settings"
-    )
-    children: List[str] = Field(default_factory=list, description="Child bookmark IDs")
-
-
-class ParameterMetadata(BaseModel):
-    name: str = Field(description="Parameter name")
-    parameter_type: Literal["what_if", "query", "m_query", "field"] = Field(
-        description="Type of parameter"
-    )
-    value: Optional[Union[str, int, float, bool]] = Field(
-        default=None, description="Current parameter value"
-    )
-    expression: Optional[str] = Field(
-        default=None, description="M-Query or DAX expression defining the parameter"
-    )
-
-
-class VisualInteraction(BaseModel):
-    visual_id: str = Field(description="ID of the visual")
-    section_id: str = Field(description="Page/section ID containing the visual")
-    interactions: Dict = Field(
-        default_factory=dict, description="Interaction configuration with other visuals"
-    )
-
-
-class PageMetadata(BaseModel):
-    name: str = Field(description="Internal page name")
-    display_name: str = Field(description="User-facing page display name")
-    id: str = Field(description="Unique page identifier")
-    width: float = Field(default=0.0, description="Page width")
-    height: float = Field(default=0.0, description="Page height")
-    visualizations: List[VisualizationMetadata] = Field(
-        default_factory=list, description="Visualizations on this page"
-    )
-    filters: List[str] = Field(default_factory=list, description="Page-level filters")
-
-
-class PBIXMetadata(BaseModel):
-    file_info: Dict[str, Union[str, int]] = Field(
-        description="File information (name, size, etc.)"
-    )
-    version: Optional[str] = Field(default=None, description="Power BI file version")
-    pages: List[PageMetadata] = Field(default_factory=list, description="Report pages")
-    bookmarks: List[BookmarkMetadata] = Field(
-        default_factory=list, description="Report bookmarks"
-    )
-    parameters: List[ParameterMetadata] = Field(
-        default_factory=list, description="Report parameters"
-    )
-    interactions: List[VisualInteraction] = Field(
-        default_factory=list, description="Visual interaction settings"
-    )
-
-    # Keep raw data for backward compatibility and complex scenarios
-    data_model_raw: Optional[Dict] = Field(
-        default=None, description="Raw data model JSON"
-    )
-    layout_raw: Optional[Dict] = Field(default=None, description="Raw layout JSON")
+class LineageBuilder:
+    """Helper class to build lineage using Pydantic models instead of dictionaries."""
+
+    def __init__(self):
+        self.visualization_lineage: List[VisualizationLineage] = []
+        self.column_mapping: Dict[str, PBIXColumnMapping] = {}
+        self.measure_mapping: Dict[str, PBIXMeasureMapping] = {}
+        self.table_usage: Dict[str, PBIXTableUsage] = {}
+        self.page_lineage: Dict[str, PBIXPageLineage] = {}
+        self.page_mapping: Dict[str, Union[ColumnPageMapping, MeasurePageMapping]] = {}
+        # Temporary sets for deduplication
+        self._table_columns: Dict[str, Set[str]] = {}
+        self._table_visualizations: Dict[str, List[VisualizationReference]] = {}
+
+    def add_visualization_lineage(self, viz_lineage: VisualizationLineage) -> None:
+        """Add a visualization lineage entry."""
+        self.visualization_lineage.append(viz_lineage)
+
+    def update_column_mapping(
+        self,
+        table: str,
+        column: str,
+        viz: VisualInfo,
+        col: VisualColumnInfo,
+    ) -> None:
+        """Update column mapping with visualization usage."""
+        if not (table and column):
+            return
+
+        key = f"{table}.{column}"
+        if key not in self.column_mapping:
+            self.column_mapping[key] = PBIXColumnMapping(
+                table=table,
+                column=column,
+                used_in_visualizations=[],
+            )
+
+        viz_usage = VisualizationUsage(
+            visualization_id=viz.id,
+            visualization_type=viz.visualType,
+            page=viz.sectionName,
+            page_id=viz.sectionId,
+            data_role=list(col.roles.keys()) if col.roles else [],
+        )
+        self.column_mapping[key].used_in_visualizations.append(viz_usage)
+
+        # Update table usage
+        if table not in self.table_usage:
+            self.table_usage[table] = PBIXTableUsage(
+                columns=[],
+                visualizations=[],
+            )
+            self._table_columns[table] = set()
+            self._table_visualizations[table] = []
+
+        self._table_columns[table].add(column)
+
+        viz_ref = VisualizationReference(
+            id=viz.id,
+            type=viz.visualType,
+            page=viz.sectionName,
+            page_id=viz.sectionId,
+        )
+        self._table_visualizations[table].append(viz_ref)
+
+    def update_measure_mapping(
+        self,
+        entity: str,
+        property_name: str,
+        viz: VisualInfo,
+        measure: VisualMeasureInfo,
+    ) -> None:
+        """Update measure mapping with visualization usage."""
+        if not (entity and property_name):
+            return
+
+        key = f"{entity}.{property_name}"
+        if key not in self.measure_mapping:
+            self.measure_mapping[key] = PBIXMeasureMapping(
+                entity=entity,
+                measure=property_name,
+                used_in_visualizations=[],
+            )
+
+        viz_usage = VisualizationUsage(
+            visualization_id=viz.id,
+            visualization_type=viz.visualType,
+            page=viz.sectionName,
+            page_id=viz.sectionId,
+            data_role=list(measure.roles.keys()) if measure.roles else [],
+        )
+        self.measure_mapping[key].used_in_visualizations.append(viz_usage)
+
+    def process_page_lineage_and_mapping(
+        self, layout_parsed: PBIXLayoutParsedEnhanced
+    ) -> None:
+        """
+        Process page-level lineage and build page mappings.
+
+        Args:
+            layout_parsed: Parsed layout with sections
+        """
+        for section in layout_parsed.sections:
+            page_name = section.displayName
+            page_id = section.id
+
+            if page_name not in self.page_lineage:
+                self.page_lineage[page_name] = PBIXPageLineage(
+                    page_id=page_id,
+                    page_name=page_name,
+                    columns={},
+                    measures={},
+                    tables=[],
+                    visualizations=[],
+                )
+
+            for viz in section.visualContainers:
+                viz_type = viz.visualType if hasattr(viz, "visualType") else "Unknown"
+                viz_id = viz.id if hasattr(viz, "id") else None
+
+                viz_ref = VisualizationReference(
+                    id=viz_id,
+                    type=viz_type,
+                )
+                self.page_lineage[page_name].visualizations.append(viz_ref)
+
+                # Process columns
+                columns = viz.columns if hasattr(viz, "columns") else []
+                for col in columns:
+                    table = col.table if hasattr(col, "table") else ""
+                    column = col.column if hasattr(col, "column") else ""
+                    if table and column:
+                        col_key = f"{table}.{column}"
+                        if col_key not in self.page_lineage[page_name].columns:
+                            self.page_lineage[page_name].columns[col_key] = (
+                                ColumnUsageOnPage(
+                                    table=table,
+                                    column=column,
+                                    visualizations=[],
+                                )
+                            )
+
+                        viz_usage = VisualizationUsage(
+                            visualization_id=viz_id,
+                            visualization_type=viz_type,
+                            data_role=list(col.roles.keys())
+                            if hasattr(col, "roles") and col.roles
+                            else [],
+                        )
+                        self.page_lineage[page_name].columns[
+                            col_key
+                        ].visualizations.append(viz_usage)
+
+                        # Add table to page's table list (will be sorted in finalize)
+                        if table not in self.page_lineage[page_name].tables:
+                            self.page_lineage[page_name].tables.append(table)
+
+                # Process measures
+                measures = viz.measures if hasattr(viz, "measures") else []
+                for measure in measures:
+                    entity = measure.entity if hasattr(measure, "entity") else ""
+                    property_name = (
+                        measure.property if hasattr(measure, "property") else ""
+                    )
+                    if entity and property_name:
+                        measure_key = f"{entity}.{property_name}"
+                        if measure_key not in self.page_lineage[page_name].measures:
+                            self.page_lineage[page_name].measures[measure_key] = (
+                                MeasureUsageOnPage(
+                                    entity=entity,
+                                    measure=property_name,
+                                    visualizations=[],
+                                )
+                            )
+
+                        viz_usage = VisualizationUsage(
+                            visualization_id=viz_id,
+                            visualization_type=viz_type,
+                            data_role=list(measure.roles.keys())
+                            if hasattr(measure, "roles") and measure.roles
+                            else [],
+                        )
+                        self.page_lineage[page_name].measures[
+                            measure_key
+                        ].visualizations.append(viz_usage)
+
+            # Build page mapping
+            for col_key, col_usage in self.page_lineage[page_name].columns.items():
+                if col_key not in self.page_mapping:
+                    self.page_mapping[col_key] = ColumnPageMapping(
+                        table=col_usage.table,
+                        column=col_usage.column,
+                        used_in_pages=[],
+                    )
+
+                page_usage = PageUsageInfo(
+                    page=page_name,
+                    page_id=page_id,
+                    visualization_count=len(col_usage.visualizations),
+                )
+                self.page_mapping[col_key].used_in_pages.append(page_usage)
+
+            for measure_key, measure_usage in self.page_lineage[
+                page_name
+            ].measures.items():
+                if measure_key not in self.page_mapping:
+                    self.page_mapping[measure_key] = MeasurePageMapping(
+                        entity=measure_usage.entity,
+                        measure=measure_usage.measure,
+                        used_in_pages=[],
+                    )
+
+                page_usage = PageUsageInfo(
+                    page=page_name,
+                    page_id=page_id,
+                    visualization_count=len(measure_usage.visualizations),
+                )
+                self.page_mapping[measure_key].used_in_pages.append(page_usage)
+
+    def finalize(self) -> PBIXLineageResult:
+        """Finalize lineage by deduplicating and converting to result."""
+        # Finalize table usage
+        for table in self.table_usage:
+            self.table_usage[table].columns = sorted(list(self._table_columns[table]))
+            # Deduplicate visualizations
+            seen = set()
+            unique_viz = []
+            for viz in self._table_visualizations[table]:
+                viz_key = (viz.id, viz.type, viz.page)
+                if viz_key not in seen:
+                    seen.add(viz_key)
+                    unique_viz.append(viz)
+            self.table_usage[table].visualizations = unique_viz
+
+        # Sort page tables
+        for page_name in self.page_lineage:
+            self.page_lineage[page_name].tables = sorted(
+                self.page_lineage[page_name].tables
+            )
+
+        return PBIXLineageResult(
+            visualization_lineage=self.visualization_lineage,
+            column_mapping=self.column_mapping,
+            measure_mapping=self.measure_mapping,
+            table_usage=self.table_usage,
+            page_lineage=self.page_lineage,
+            page_mapping=self.page_mapping,
+        )
 
 
 class PBIXParser:
@@ -390,72 +327,107 @@ class PBIXParser:
         self.layout = None
         self.version = None
 
-    def extract_zip(self) -> Dict[str, Any]:
+    def extract_zip(self) -> PBIXExtractResult:
         """
         Extract and parse the .pbix ZIP archive.
 
         Returns:
-            Dictionary containing parsed metadata
+            PBIXExtractResult with strongly-typed parsed metadata
         """
-        result: Dict[str, Any] = {
-            "file_info": {
-                "filename": self.pbix_path.name,
-                "size_bytes": self.pbix_path.stat().st_size,
-            },
-            "version": None,
-            "metadata": None,
-            "data_model": None,
-            "layout": None,
-            "file_list": [],
-        }
+        file_info = PBIXFileInfo(
+            filename=self.pbix_path.name,
+            size_bytes=self.pbix_path.stat().st_size,
+        )
+
+        version: Optional[str] = None
+        metadata: Optional[Union[Dict[str, Any], str]] = None
+        data_model: Optional[Dict[str, Any]] = None
+        layout: Optional[Dict[str, Any]] = None
+        file_list: List[str] = []
 
         try:
             with zipfile.ZipFile(self.pbix_path, "r") as zip_ref:
                 # List all files in the archive
-                file_list = zip_ref.namelist()
-                result["file_list"] = sorted(file_list)
+                file_list = sorted(zip_ref.namelist())
 
                 # Extract and parse key files
                 for filename in file_list:
                     try:
                         if filename == "Version":
                             content = zip_ref.read(filename).decode("utf-8")
-                            result["version"] = content.strip()
+                            version = content.strip()
 
                         elif filename == "Metadata":
                             content = zip_ref.read(filename).decode("utf-8")
                             # Metadata might not be JSON, try to parse it
                             try:
-                                result["metadata"] = json.loads(content)
+                                metadata = json.loads(content)
                             except json.JSONDecodeError:
                                 # Metadata might be in a different format, store as raw text
-                                result["metadata"] = content
+                                metadata = content
 
                         elif filename in ("DataModelSchema", "DataModel"):
                             raw_content = zip_ref.read(filename)
-                            # Try UTF-16LE first (common in .pbix files), then UTF-8
+                            content = None
+
+                            # Try to decode as text first
                             try:
                                 content = raw_content.decode("utf-16-le")
+                                # Successfully decoded as text
+                                data_model = json.loads(content)
+                                continue
                             except UnicodeDecodeError:
+                                # Not UTF-16LE, try UTF-8
                                 try:
                                     content = raw_content.decode("utf-8")
-                                except UnicodeDecodeError:
-                                    # If it's compressed or binary, skip for now
+                                    data_model = json.loads(content)
+                                    continue
+                                except (UnicodeDecodeError, json.JSONDecodeError):
+                                    # Binary content - might be XPress9 compressed
+                                    pass
+
+                            # If we got here, file is binary - try XPress9 decompression
+                            logger.info(
+                                f"{filename} appears to be XPress9 compressed, attempting decompression..."
+                            )
+                            try:
+                                # XPress9 format: first 8 bytes contain the uncompressed size (little-endian int64)
+                                if len(raw_content) < 8:
                                     logger.warning(
-                                        f"Could not decode {filename} (might be compressed)"
+                                        f"{filename} is too small to be a valid XPress9 file"
                                     )
                                     continue
 
-                            # Check if it's compressed (XPress9)
-                            if content.startswith(
-                                "This backup was created using XPress9 compression."
-                            ):
+                                # Read the uncompressed size from the header
+                                uncompressed_size = struct.unpack(
+                                    "<Q", raw_content[:8]
+                                )[0]
+                                compressed_data = raw_content[8:]  # Skip the header
+
+                                logger.debug(
+                                    f"XPress9 header: uncompressed_size={uncompressed_size}, compressed_size={len(compressed_data)}"
+                                )
+
+                                # Decompress using xpress9
+                                decompressor = xpress9.Xpress9()
+                                decompressed_data = decompressor.decompress(
+                                    compressed_data, uncompressed_size
+                                )
+
+                                # Decode and parse as JSON
+                                content = decompressed_data.decode("utf-16-le")
+                                data_model = json.loads(content)
+                                logger.info(
+                                    f"✓ Successfully decompressed {filename} using XPress9 ({len(raw_content)} → {len(decompressed_data)} bytes)"
+                                )
+                            except Exception as e:
                                 logger.warning(
-                                    f"{filename} is compressed with XPress9 (decompression not yet supported)"
+                                    f"Failed to decompress {filename} with XPress9: {e}"
+                                )
+                                logger.debug(
+                                    f"Raw content preview (first 100 bytes): {raw_content[:100]!r}"
                                 )
                                 continue
-
-                            result["data_model"] = json.loads(content)
 
                         elif filename in ("Layout", "Report/Layout"):
                             raw_content = zip_ref.read(filename)
@@ -464,7 +436,7 @@ class PBIXParser:
                                 content = raw_content.decode("utf-16-le")
                             except UnicodeDecodeError:
                                 content = raw_content.decode("utf-8")
-                            result["layout"] = json.loads(content)
+                            layout = json.loads(content)
 
                     except (UnicodeDecodeError, json.JSONDecodeError) as e:
                         # Some files might be binary or have encoding issues
@@ -474,9 +446,16 @@ class PBIXParser:
         except zipfile.BadZipFile as e:
             raise ValueError(f"Invalid ZIP file: {self.pbix_path}") from e
 
-        return result
+        return PBIXExtractResult(
+            file_info=file_info,
+            version=version,
+            metadata=metadata,
+            data_model=data_model,
+            layout=layout,
+            file_list=file_list,
+        )
 
-    def parse_data_model(self, data_model: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_data_model(self, data_model: Dict[str, Any]) -> PBIXDataModelParsed:
         """
         Parse the DataModelSchema to extract tables, columns, relationships, etc.
         Uses Pydantic models for validation and type safety.
@@ -485,10 +464,10 @@ class PBIXParser:
             data_model: The parsed DataModelSchema JSON
 
         Returns:
-            Structured information about the data model
+            PBIXDataModelParsed with strongly-typed structured information
         """
         if not data_model:
-            return {}
+            return PBIXDataModelParsed()
 
         try:
             # Extract model structure
@@ -498,6 +477,7 @@ class PBIXParser:
 
             # Parse tables using Pydantic model_validate
             tables = []
+            all_hierarchies = []
             for table_data in tables_data:
                 try:
                     # Parse columns with validation
@@ -518,6 +498,19 @@ class PBIXParser:
                         for partition in table_data.get("partitions", [])
                     ]
 
+                    # Parse hierarchies with validation
+                    hierarchies = []
+                    for hierarchy_data in table_data.get("hierarchies", []):
+                        try:
+                            hierarchy = PBIXHierarchy.model_validate(hierarchy_data)
+                            hierarchies.append(hierarchy)
+                            all_hierarchies.append(hierarchy)
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to parse hierarchy in table {table_data.get('name')}: {e}"
+                            )
+                            continue
+
                     # Create table model with validation
                     table = PBIXTable.model_validate(
                         {
@@ -525,6 +518,7 @@ class PBIXParser:
                             "columns": columns,
                             "measures": measures,
                             "partitions": partitions,
+                            "hierarchies": hierarchies,
                             "isHidden": table_data.get("isHidden", False),
                         }
                     )
@@ -545,50 +539,88 @@ class PBIXParser:
                     logger.warning(f"Failed to parse relationship: {e}")
                     continue
 
+            # Parse roles (Row-Level Security)
+            roles = []
+            roles_data = model.get("roles", [])
+            for role_data in roles_data:
+                try:
+                    role = PBIXRole.model_validate(role_data)
+                    roles.append(role)
+                except Exception as e:
+                    logger.warning(f"Failed to parse role: {e}")
+                    continue
+
+            # Parse data sources
+            data_sources = []
+            data_sources_data = model.get("dataSources", [])
+            for ds_data in data_sources_data:
+                try:
+                    data_source = PBIXDataSource.model_validate(ds_data)
+                    data_sources.append(data_source)
+                except Exception as e:
+                    logger.warning(f"Failed to parse data source: {e}")
+                    continue
+
+            # Parse expressions (M-Queries)
+            expressions = []
+            expressions_data = model.get("expressions", [])
+            for expr_data in expressions_data:
+                try:
+                    expression = PBIXExpression.model_validate(expr_data)
+                    expressions.append(expression)
+                except Exception as e:
+                    logger.warning(f"Failed to parse expression: {e}")
+                    continue
+
             # Create complete data model with validation
             data_model_obj = PBIXDataModel.model_validate(
                 {
                     "tables": tables,
                     "relationships": relationships,
+                    "roles": roles,
+                    "dataSources": data_sources,
+                    "expressions": expressions,
                     "cultures": data_model.get("culture", "en-US"),
                     "version": data_model.get("version", "Unknown"),
                 }
             )
 
-            # Convert back to dict for backward compatibility
-            parsed = {
-                "tables": [
-                    {
-                        "name": table.name,
-                        "columns": [col.model_dump() for col in table.columns],
-                        "measures": [
-                            measure.model_dump() for measure in table.measures
-                        ],
-                        "partitions": [
-                            partition.model_dump() for partition in table.partitions
-                        ],
-                        "isHidden": table.isHidden,
-                    }
-                    for table in data_model_obj.tables
-                ],
-                "relationships": [
+            # Convert to strongly-typed result
+            parsed_tables = [
+                PBIXTableParsed(
+                    name=table.name,
+                    columns=[col.model_dump() for col in table.columns],
+                    measures=[measure.model_dump() for measure in table.measures],
+                    partitions=[
+                        partition.model_dump() for partition in table.partitions
+                    ],
+                    isHidden=table.isHidden,
+                )
+                for table in data_model_obj.tables
+            ]
+
+            return PBIXDataModelParsed(
+                tables=parsed_tables,
+                relationships=[
                     rel.model_dump() for rel in data_model_obj.relationships
                 ],
-                "cultures": data_model_obj.cultures,
-                "version": data_model_obj.version,
-                "validated_model": data_model_obj,  # Keep for type-safe access
-            }
+                hierarchies=all_hierarchies,
+                roles=data_model_obj.roles,
+                dataSources=data_model_obj.dataSources,
+                expressions=data_model_obj.expressions,
+                cultures=data_model_obj.cultures,
+                version=data_model_obj.version,
+                validated_model=data_model_obj,
+            )
         except Exception as e:
             logger.error(f"Failed to parse data model: {e}")
             # Fallback to basic structure
-            parsed = {
-                "tables": [],
-                "relationships": [],
-                "cultures": data_model.get("culture", "en-US"),
-                "version": data_model.get("version", "Unknown"),
-            }
-
-        return parsed
+            return PBIXDataModelParsed(
+                tables=[],
+                relationships=[],
+                cultures=data_model.get("culture", "en-US"),
+                version=data_model.get("version", "Unknown"),
+            )
 
     def _parse_table_column_from_names(
         self,
@@ -1069,7 +1101,7 @@ class PBIXParser:
 
         return parameters
 
-    def parse_layout(self, layout: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_layout(self, layout: Dict[str, Any]) -> PBIXLayoutParsedEnhanced:
         """
         Parse the Layout to extract report information including visualizations and columns.
         Uses Pydantic model_validate for type safety and validation.
@@ -1078,10 +1110,10 @@ class PBIXParser:
             layout: The parsed Layout JSON
 
         Returns:
-            Structured information about the report layout
+            PBIXLayoutParsedEnhanced with strongly-typed structured information
         """
         if not layout:
-            return {}
+            return PBIXLayoutParsedEnhanced()
 
         # Validate with Pydantic model
         try:
@@ -1104,35 +1136,33 @@ class PBIXParser:
                 except Exception:
                     continue
 
-        parsed: Dict[str, Any] = {
-            "sections": [],
-            "themes": layout_model.themes,
-            "defaultLayout": layout_model.defaultLayout,
-            "visualizations": [],
-            "bookmarks": list(layout_model.bookmarks),
-            "interactions": {},
-        }
-
-        # Extract bookmarks (combine from model and method)
-        parsed["bookmarks"].extend(self.parse_bookmarks(layout))
-
-        # Extract visual interactions
-        parsed["interactions"] = self.parse_visual_interactions(layout)
+        parsed_sections: List[SectionInfo] = []
+        parsed_visualizations: List[VisualInfo] = []
+        bookmarks_list = list(layout_model.bookmarks)
+        bookmarks_list.extend(self.parse_bookmarks(layout))
+        interactions_dict = self.parse_visual_interactions(layout)
 
         # Extract sections (pages) with detailed visualization information
         for section_model in layout_model.sections:
             # Parse each visualization in the section
             section_visuals = []
             for visual_container in section_model.visualContainers:
-                # Convert dict to Pydantic model
-                visual_info = self.parse_visualization(visual_container)
+                # Convert Pydantic model to dict for parse_visualization
+                visual_container_dict = (
+                    visual_container.model_dump()
+                    if hasattr(visual_container, "model_dump")
+                    else visual_container
+                )
+                visual_info = self.parse_visualization(visual_container_dict)
                 section_visuals.append(visual_info)
 
                 # Also add to top-level visualizations list with section info
                 visual_with_section = visual_info.model_copy(deep=True)
                 visual_with_section.sectionName = section_model.displayName
-                visual_with_section.sectionId = section_model.id
-                parsed["visualizations"].append(visual_with_section)
+                visual_with_section.sectionId = (
+                    int(section_model.id) if section_model.id is not None else None
+                )
+                parsed_visualizations.append(visual_with_section)
 
             # Create section info model
             section_obj = SectionInfo(
@@ -1144,16 +1174,39 @@ class PBIXParser:
                 visualContainers=section_visuals,
                 filters=section_model.filters,
             )
-            parsed["sections"].append(section_obj)
+            parsed_sections.append(section_obj)
 
-        return parsed
+        return PBIXLayoutParsedEnhanced(
+            sections=parsed_sections,
+            themes=layout_model.themes,
+            default_layout=layout_model.defaultLayout,
+            visualizations=parsed_visualizations,
+            bookmarks=bookmarks_list,
+            interactions=interactions_dict,
+        )
 
     def _find_column_in_data_model(
-        self, data_model_parsed: Dict[str, Any], table: str, column: str
+        self,
+        data_model_parsed: Optional[PBIXDataModelParsed],
+        table: str,
+        column: str,
     ) -> Optional[Dict[str, Any]]:
-        # Try to use validated data model if available
-        if "validated_model" in data_model_parsed:
-            dm_model: PBIXDataModel = data_model_parsed["validated_model"]
+        """
+        Find column details in the data model.
+
+        Args:
+            data_model_parsed: Parsed data model (Pydantic model)
+            table: Table name to search
+            column: Column name to search
+
+        Returns:
+            Dictionary with column details if found, None otherwise
+        """
+        if not data_model_parsed:
+            return None
+
+        if data_model_parsed.validated_model:
+            dm_model = data_model_parsed.validated_model
             for table_model in dm_model.tables:
                 if table_model.name == table:
                     for col_model in table_model.columns:
@@ -1164,27 +1217,30 @@ class PBIXParser:
                                 "isNullable": col_model.isNullable,
                                 "formatString": col_model.formatString,
                             }
-            return None
-
-        # Fallback to dict parsing
-        for table_info in data_model_parsed.get("tables", []):
-            if table_info.get("name") == table:
-                for col_info in table_info.get("columns", []):
-                    if col_info.get("name") == column:
-                        return {
-                            "dataType": col_info.get("dataType"),
-                            "isHidden": col_info.get("isHidden"),
-                            "isNullable": col_info.get("isNullable"),
-                            "formatString": col_info.get("formatString"),
-                        }
         return None
 
     def _find_measure_in_data_model(
-        self, data_model_parsed: Dict[str, Any], entity: str, property_name: str
+        self,
+        data_model_parsed: Optional[PBIXDataModelParsed],
+        entity: str,
+        property_name: str,
     ) -> Optional[Dict[str, Any]]:
-        # Try to use validated data model if available
-        if "validated_model" in data_model_parsed:
-            dm_model: PBIXDataModel = data_model_parsed["validated_model"]
+        """
+        Find measure details in the data model.
+
+        Args:
+            data_model_parsed: Parsed data model (Pydantic model)
+            entity: Table/entity name to search
+            property_name: Measure name to search
+
+        Returns:
+            Dictionary with measure details if found, None otherwise
+        """
+        if not data_model_parsed:
+            return None
+
+        if data_model_parsed.validated_model:
+            dm_model = data_model_parsed.validated_model
             for table_model in dm_model.tables:
                 if table_model.name == entity:
                     for measure_model in table_model.measures:
@@ -1194,25 +1250,13 @@ class PBIXParser:
                                 "formatString": measure_model.formatString,
                                 "isHidden": measure_model.isHidden,
                             }
-            return None
-
-        # Fallback to dict parsing
-        for table_info in data_model_parsed.get("tables", []):
-            if table_info.get("name") == entity:
-                for measure_info in table_info.get("measures", []):
-                    if measure_info.get("name") == property_name:
-                        return {
-                            "expression": measure_info.get("expression"),
-                            "formatString": measure_info.get("formatString"),
-                            "isHidden": measure_info.get("isHidden"),
-                        }
         return None
 
     def _build_column_lineage_entry(
         self,
         col: VisualColumnInfo,
         viz: VisualInfo,
-        data_model_parsed: Optional[Dict] = None,
+        data_model_parsed: Optional[PBIXDataModelParsed] = None,
     ) -> ColumnLineageEntry:
         col_name = col.name
         table = col.table
@@ -1265,7 +1309,7 @@ class PBIXParser:
         self,
         measure: VisualMeasureInfo,
         viz: VisualInfo,
-        data_model_parsed: Optional[Dict] = None,
+        data_model_parsed: Optional[PBIXDataModelParsed] = None,
     ) -> MeasureLineageEntry:
         measure_name = measure.name
         entity = measure.entity
@@ -1313,213 +1357,20 @@ class PBIXParser:
             sourceMeasureDetails=measure_details,
         )
 
-    def _update_column_mapping(
-        self,
-        lineage: Dict,
-        table: str,
-        column: str,
-        viz: VisualInfo,
-        col: VisualColumnInfo,
-    ) -> None:
-        if not (table and column):
-            return
-
-        key = f"{table}.{column}"
-        if key not in lineage["column_mapping"]:
-            lineage["column_mapping"][key] = {
-                "table": table,
-                "column": column,
-                "usedInVisualizations": [],
-            }
-
-        lineage["column_mapping"][key]["usedInVisualizations"].append(
-            {
-                "visualizationId": viz.id,
-                "visualizationType": viz.visualType,
-                "page": viz.sectionName,
-                "pageId": viz.sectionId,
-                "dataRole": list(col.roles.keys()) if col.roles else [],
-            }
-        )
-
-        # Update table usage
-        if table not in lineage["table_usage"]:
-            lineage["table_usage"][table] = {
-                "columns": set(),
-                "visualizations": [],
-            }
-        lineage["table_usage"][table]["columns"].add(column)
-        lineage["table_usage"][table]["visualizations"].append(
-            {
-                "id": viz.id,
-                "type": viz.visualType,
-                "page": viz.sectionName,
-                "pageId": viz.sectionId,
-            }
-        )
-
-    def _update_measure_mapping(
-        self,
-        lineage: Dict,
-        entity: str,
-        property_name: str,
-        viz: VisualInfo,
-        measure: VisualMeasureInfo,
-    ) -> None:
-        if not (entity and property_name):
-            return
-
-        key = f"{entity}.{property_name}"
-        if key not in lineage["measure_mapping"]:
-            lineage["measure_mapping"][key] = {
-                "entity": entity,
-                "measure": property_name,
-                "usedInVisualizations": [],
-            }
-
-        lineage["measure_mapping"][key]["usedInVisualizations"].append(
-            {
-                "visualizationId": viz.id,
-                "visualizationType": viz.visualType,
-                "page": viz.sectionName,
-                "pageId": viz.sectionId,
-                "dataRole": list(measure.roles.keys()) if measure.roles else [],
-            }
-        )
-
-    def _process_page_lineage_and_mapping(
-        self, lineage: Dict, layout_parsed: Dict[str, Any]
-    ) -> None:
-        for section in layout_parsed.get("sections", []):
-            page_name = section.get("displayName", "Unknown")
-            page_id = section.get("id")
-
-            if page_name not in lineage["page_lineage"]:
-                lineage["page_lineage"][page_name] = {
-                    "pageId": page_id,
-                    "pageName": page_name,
-                    "columns": {},
-                    "measures": {},
-                    "tables": set(),
-                    "visualizations": [],
-                }
-
-            for viz in section.get("visualContainers", []):
-                viz_type = viz.get("visualType", "Unknown")
-                viz_id = viz.get("id")
-
-                lineage["page_lineage"][page_name]["visualizations"].append(
-                    {"id": viz_id, "type": viz_type}
-                )
-
-                for col in viz.get("columns", []):
-                    table = col.get("table", "")
-                    column = col.get("column", "")
-                    if table and column:
-                        col_key = f"{table}.{column}"
-                        if col_key not in lineage["page_lineage"][page_name]["columns"]:
-                            lineage["page_lineage"][page_name]["columns"][col_key] = {
-                                "table": table,
-                                "column": column,
-                                "visualizations": [],
-                            }
-                        lineage["page_lineage"][page_name]["columns"][col_key][
-                            "visualizations"
-                        ].append(
-                            {
-                                "id": viz_id,
-                                "type": viz_type,
-                                "dataRole": list(col.get("roles", {}).keys())
-                                if col.get("roles")
-                                else [],
-                            }
-                        )
-                        lineage["page_lineage"][page_name]["tables"].add(table)
-
-                for measure in viz.get("measures", []):
-                    entity = measure.get("entity", "")
-                    property_name = measure.get("property", "")
-                    if entity and property_name:
-                        measure_key = f"{entity}.{property_name}"
-                        if (
-                            measure_key
-                            not in lineage["page_lineage"][page_name]["measures"]
-                        ):
-                            lineage["page_lineage"][page_name]["measures"][
-                                measure_key
-                            ] = {
-                                "entity": entity,
-                                "measure": property_name,
-                                "visualizations": [],
-                            }
-                        lineage["page_lineage"][page_name]["measures"][measure_key][
-                            "visualizations"
-                        ].append(
-                            {
-                                "id": viz_id,
-                                "type": viz_type,
-                                "dataRole": list(measure.get("roles", {}).keys())
-                                if measure.get("roles")
-                                else [],
-                            }
-                        )
-
-            for col_key, col_info in lineage["page_lineage"][page_name][
-                "columns"
-            ].items():
-                if col_key not in lineage["page_mapping"]:
-                    lineage["page_mapping"][col_key] = {
-                        "table": col_info["table"],
-                        "column": col_info["column"],
-                        "usedInPages": [],
-                    }
-                lineage["page_mapping"][col_key]["usedInPages"].append(
-                    {
-                        "page": page_name,
-                        "pageId": page_id,
-                        "visualizationCount": len(col_info["visualizations"]),
-                    }
-                )
-
-            for measure_key, measure_info in lineage["page_lineage"][page_name][
-                "measures"
-            ].items():
-                if measure_key not in lineage["page_mapping"]:
-                    lineage["page_mapping"][measure_key] = {
-                        "entity": measure_info["entity"],
-                        "measure": measure_info["measure"],
-                        "usedInPages": [],
-                    }
-                lineage["page_mapping"][measure_key]["usedInPages"].append(
-                    {
-                        "page": page_name,
-                        "pageId": page_id,
-                        "visualizationCount": len(measure_info["visualizations"]),
-                    }
-                )
-
-    def _finalize_lineage_sets(self, lineage: Dict) -> None:
-        for table in lineage["table_usage"]:
-            lineage["table_usage"][table]["columns"] = sorted(
-                list(lineage["table_usage"][table]["columns"])
-            )
-            seen = set()
-            unique_viz = []
-            for viz in lineage["table_usage"][table]["visualizations"]:
-                viz_key = (viz["id"], viz["type"], viz.get("page"))
-                if viz_key not in seen:
-                    seen.add(viz_key)
-                    unique_viz.append(viz)
-            lineage["table_usage"][table]["visualizations"] = unique_viz
-
-        for page_name in lineage["page_lineage"]:
-            lineage["page_lineage"][page_name]["tables"] = sorted(
-                list(lineage["page_lineage"][page_name]["tables"])
-            )
-
     def _process_viz_pydantic(
-        self, viz: VisualInfo, lineage: Dict, data_model_parsed: Optional[Dict]
+        self,
+        viz: VisualInfo,
+        builder: LineageBuilder,
+        data_model_parsed: Optional[PBIXDataModelParsed],
     ) -> None:
+        """
+        Process visualization from Pydantic model format.
+
+        Args:
+            viz: VisualInfo Pydantic model
+            builder: LineageBuilder to accumulate results
+            data_model_parsed: Parsed data model for enrichment
+        """
         viz_lineage = VisualizationLineage(
             visualizationId=viz.id,
             visualizationType=viz.visualType,
@@ -1532,256 +1383,134 @@ class PBIXParser:
         for col in viz.columns:
             col_lineage = self._build_column_lineage_entry(col, viz, data_model_parsed)
             viz_lineage.columns.append(col_lineage)
-            self._update_column_mapping(lineage, col.table, col.column, viz, col)
+            builder.update_column_mapping(col.table, col.column, viz, col)
 
         for measure in viz.measures:
             measure_lineage = self._build_measure_lineage_entry(
                 measure, viz, data_model_parsed
             )
             viz_lineage.measures.append(measure_lineage)
-            self._update_measure_mapping(
-                lineage, measure.entity, measure.property, viz, measure
+            builder.update_measure_mapping(
+                measure.entity, measure.property, viz, measure
             )
 
-        lineage["visualization_lineage"].append(viz_lineage.model_dump())
+        builder.add_visualization_lineage(viz_lineage)
 
     def _process_viz_dict(
-        self, viz: Dict, lineage: Dict, data_model_parsed: Optional[Dict]
+        self,
+        viz: Dict,
+        builder: LineageBuilder,
+        data_model_parsed: Optional[PBIXDataModelParsed],
     ) -> None:
-        viz_lineage: Dict[str, Any] = {
-            "visualizationId": viz.get("id"),
-            "visualizationType": viz.get("visualType"),
-            "sectionName": viz.get("sectionName"),
-            "sectionId": viz.get("sectionId"),
-            "columns": [],
-            "measures": [],
-        }
+        """
+        Process visualization from dictionary format.
+
+        Args:
+            viz: Visualization dictionary
+            builder: LineageBuilder to accumulate results
+            data_model_parsed: Parsed data model for enrichment
+        """
+        viz_lineage = VisualizationLineage(
+            visualizationId=viz.get("id"),
+            visualizationType=viz.get("visualType"),
+            sectionName=viz.get("sectionName"),
+            sectionId=viz.get("sectionId"),
+            columns=[],
+            measures=[],
+        )
+
+        viz_obj = VisualInfo.model_validate(viz)
 
         for col_dict in viz.get("columns", []):
             col = VisualColumnInfo.model_validate(col_dict)
-            viz_obj = VisualInfo.model_validate(viz)
             col_lineage = self._build_column_lineage_entry(
                 col, viz_obj, data_model_parsed
             )
-            viz_lineage["columns"].append(col_lineage.model_dump())
-            self._update_column_mapping(lineage, col.table, col.column, viz_obj, col)
+            viz_lineage.columns.append(col_lineage)
+            builder.update_column_mapping(col.table, col.column, viz_obj, col)
 
         for measure_dict in viz.get("measures", []):
             measure = VisualMeasureInfo.model_validate(measure_dict)
-            viz_obj = VisualInfo.model_validate(viz)
             measure_lineage = self._build_measure_lineage_entry(
                 measure, viz_obj, data_model_parsed
             )
-            viz_lineage["measures"].append(measure_lineage.model_dump())
-            self._update_measure_mapping(
-                lineage, measure.entity, measure.property, viz_obj, measure
+            viz_lineage.measures.append(measure_lineage)
+            builder.update_measure_mapping(
+                measure.entity, measure.property, viz_obj, measure
             )
 
-        lineage["visualization_lineage"].append(viz_lineage)
+        builder.add_visualization_lineage(viz_lineage)
 
     def build_column_lineage(
         self,
-        layout_parsed: Dict[str, Any],
-        data_model_parsed: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        lineage: Dict[str, Any] = {
-            "visualization_lineage": [],
-            "column_mapping": {},
-            "measure_mapping": {},
-            "table_usage": {},
-            "page_lineage": {},
-            "page_mapping": {},
-        }
+        layout_parsed: PBIXLayoutParsedEnhanced,
+        data_model_parsed: Optional[PBIXDataModelParsed] = None,
+    ) -> PBIXLineageResult:
+        """
+        Build column-level lineage from parsed layout and data model.
 
-        if not layout_parsed or "visualizations" not in layout_parsed:
-            return lineage
+        Args:
+            layout_parsed: Parsed layout with visualizations
+            data_model_parsed: Parsed data model with tables and columns
 
-        visualizations = layout_parsed.get("visualizations", [])
-        for viz in visualizations:
+        Returns:
+            PBIXLineageResult with strongly-typed lineage information
+        """
+        if not layout_parsed or not layout_parsed.visualizations:
+            return PBIXLineageResult()
+
+        # Use LineageBuilder to accumulate results with Pydantic models
+        builder = LineageBuilder()
+
+        for viz in layout_parsed.visualizations:
             if isinstance(viz, VisualInfo):
-                self._process_viz_pydantic(viz, lineage, data_model_parsed)
+                self._process_viz_pydantic(viz, builder, data_model_parsed)
             else:
-                self._process_viz_dict(viz, lineage, data_model_parsed)
+                self._process_viz_dict(viz, builder, data_model_parsed)
 
-        self._process_page_lineage_and_mapping(lineage, layout_parsed)
-        self._finalize_lineage_sets(lineage)
+        # Process page-level lineage
+        builder.process_page_lineage_and_mapping(layout_parsed)
 
-        return lineage
+        # Finalize and return
+        return builder.finalize()
 
-    def _old_build_page_lineage_loop(self, lineage: Dict, layout_parsed: Dict) -> None:
-        for section in layout_parsed.get("sections", []):
-            page_name = section.get("displayName", "Unknown")
-            page_id = section.get("id")
-
-            if page_name not in lineage["page_lineage"]:
-                lineage["page_lineage"][page_name] = {
-                    "pageId": page_id,
-                    "pageName": page_name,
-                    "columns": {},
-                    "measures": {},
-                    "tables": set(),
-                    "visualizations": [],
-                }
-
-            # Collect all columns and measures used on this page
-            for viz in section.get("visualContainers", []):
-                viz_type = viz.get("visualType", "Unknown")
-                viz_id = viz.get("id")
-
-                lineage["page_lineage"][page_name]["visualizations"].append(
-                    {"id": viz_id, "type": viz_type}
-                )
-
-                # Add columns from this visualization
-                for col in viz.get("columns", []):
-                    table = col.get("table", "")
-                    column = col.get("column", "")
-                    if table and column:
-                        col_key = f"{table}.{column}"
-                        if col_key not in lineage["page_lineage"][page_name]["columns"]:
-                            lineage["page_lineage"][page_name]["columns"][col_key] = {
-                                "table": table,
-                                "column": column,
-                                "visualizations": [],
-                            }
-                        lineage["page_lineage"][page_name]["columns"][col_key][
-                            "visualizations"
-                        ].append(
-                            {
-                                "id": viz_id,
-                                "type": viz_type,
-                                "dataRole": list(col.get("roles", {}).keys())
-                                if col.get("roles")
-                                else [],
-                            }
-                        )
-                        lineage["page_lineage"][page_name]["tables"].add(table)
-
-                # Add measures from this visualization
-                for measure in viz.get("measures", []):
-                    entity = measure.get("entity", "")
-                    property_name = measure.get("property", "")
-                    if entity and property_name:
-                        measure_key = f"{entity}.{property_name}"
-                        if (
-                            measure_key
-                            not in lineage["page_lineage"][page_name]["measures"]
-                        ):
-                            lineage["page_lineage"][page_name]["measures"][
-                                measure_key
-                            ] = {
-                                "entity": entity,
-                                "measure": property_name,
-                                "visualizations": [],
-                            }
-                        lineage["page_lineage"][page_name]["measures"][measure_key][
-                            "visualizations"
-                        ].append(
-                            {
-                                "id": viz_id,
-                                "type": viz_type,
-                                "dataRole": list(measure.get("roles", {}).keys())
-                                if measure.get("roles")
-                                else [],
-                            }
-                        )
-
-            # Build page mapping (reverse: which pages use each column/measure)
-            for col_key, col_info in lineage["page_lineage"][page_name][
-                "columns"
-            ].items():
-                if col_key not in lineage["page_mapping"]:
-                    lineage["page_mapping"][col_key] = {
-                        "table": col_info["table"],
-                        "column": col_info["column"],
-                        "usedInPages": [],
-                    }
-                lineage["page_mapping"][col_key]["usedInPages"].append(
-                    {
-                        "page": page_name,
-                        "pageId": page_id,
-                        "visualizationCount": len(col_info["visualizations"]),
-                    }
-                )
-
-            for measure_key, measure_info in lineage["page_lineage"][page_name][
-                "measures"
-            ].items():
-                if measure_key not in lineage["page_mapping"]:
-                    lineage["page_mapping"][measure_key] = {
-                        "entity": measure_info["entity"],
-                        "measure": measure_info["measure"],
-                        "usedInPages": [],
-                    }
-                lineage["page_mapping"][measure_key]["usedInPages"].append(
-                    {
-                        "page": page_name,
-                        "pageId": page_id,
-                        "visualizationCount": len(measure_info["visualizations"]),
-                    }
-                )
-
-        # Convert sets to lists for JSON serialization
-        for table in lineage["table_usage"]:
-            lineage["table_usage"][table]["columns"] = sorted(
-                list(lineage["table_usage"][table]["columns"])
-            )
-            # Remove duplicates from visualizations list
-            seen = set()
-            unique_viz = []
-            for viz in lineage["table_usage"][table]["visualizations"]:
-                viz_key = (viz["id"], viz["type"], viz.get("page"))
-                if viz_key not in seen:
-                    seen.add(viz_key)
-                    unique_viz.append(viz)
-            lineage["table_usage"][table]["visualizations"] = unique_viz
-
-        # Convert sets in page_lineage to lists
-        for page_name in lineage["page_lineage"]:
-            lineage["page_lineage"][page_name]["tables"] = sorted(
-                list(lineage["page_lineage"][page_name]["tables"])
-            )
-
-        return lineage  # type: ignore[return-value]
-
-    def extract_metadata(self) -> Dict[str, Any]:
+    def extract_metadata(self) -> PBIXExtractedMetadata:
         """
         Main method to extract all metadata from the .pbix file.
 
         Returns:
-            Complete metadata dictionary
+            PBIXExtractedMetadata with complete strongly-typed metadata
         """
         extracted = self.extract_zip()
 
-        result = {
-            "file_info": extracted["file_info"],
-            "version": extracted["version"],
-            "metadata": extracted["metadata"],
-            "file_list": extracted["file_list"],
-        }
-
         # Parse data model if available
-        if extracted["data_model"]:
-            result["data_model_parsed"] = self.parse_data_model(extracted["data_model"])
-            result["data_model_raw"] = extracted["data_model"]  # Keep raw for reference
+        data_model_parsed: Optional[PBIXDataModelParsed] = None
+        if extracted.data_model:
+            data_model_parsed = self.parse_data_model(extracted.data_model)
 
         # Parse layout if available
-        if extracted["layout"]:
-            result["layout_parsed"] = self.parse_layout(extracted["layout"])
-            result["layout_raw"] = extracted["layout"]  # Keep raw for reference
-
-            # Extract report parameters
-            result["parameters"] = self.parse_report_parameters(
-                extracted["layout"], extracted.get("data_model")
+        layout_parsed: Optional[PBIXLayoutParsedEnhanced] = None
+        parameters: List[Dict[str, Any]] = []
+        if extracted.layout:
+            layout_parsed = self.parse_layout(extracted.layout)
+            parameters = self.parse_report_parameters(
+                extracted.layout, extracted.data_model
             )
 
         # Build column-level lineage
-        if extracted["layout"]:
-            data_model = (
-                result.get("data_model_parsed") if extracted.get("data_model") else None
-            )
-            result["lineage"] = self.build_column_lineage(
-                result.get("layout_parsed", {}), data_model
-            )
+        lineage: Optional[PBIXLineageResult] = None
+        if layout_parsed:
+            lineage = self.build_column_lineage(layout_parsed, data_model_parsed)
 
-        return result
+        return PBIXExtractedMetadata(
+            file_info=extracted.file_info,
+            version=extracted.version,
+            metadata=extracted.metadata,
+            file_list=extracted.file_list,
+            data_model_parsed=data_model_parsed,
+            data_model_raw=extracted.data_model,
+            layout_parsed=layout_parsed,
+            layout_raw=extracted.layout,
+            parameters=parameters,
+            lineage=lineage,
+        )

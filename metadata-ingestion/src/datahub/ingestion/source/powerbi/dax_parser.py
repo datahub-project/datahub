@@ -2,202 +2,44 @@ import logging
 import re
 from typing import Dict, List, Literal, Optional, Set, Tuple
 
-from pydantic import BaseModel, Field
+from datahub.ingestion.source.powerbi.models import (
+    CalculatedColumnMapping,
+    CalculateExpression,
+    DAXParameter,
+    DAXParseResult,
+    DirectColumnMapping,
+    FilterContextModifier,
+    FilterReference,
+    SummarizeParseResult,
+    TableColumnReference,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class TableColumnReference(BaseModel):
-    """Represents a table.column reference in DAX."""
-
-    table_name: str = Field(description="Name of the table being referenced")
-    column_name: str = Field(
-        description="Name of the column being referenced, empty string for table-only references"
-    )
-
-    class Config:
-        frozen = True  # Make it hashable for use in sets
+# Models are now imported from models.py
+# This enables better organization and reuse
 
 
-class MeasureDependency(BaseModel):
-    """Represents a measure dependency (measure referencing another measure)."""
+def get_all_column_references_for_parameter(
+    param: DAXParameter,
+) -> List[TableColumnReference]:
+    """
+    For field parameters, extract all possible table.column references.
+    Returns list of TableColumnReference objects.
+    """
+    refs: List[TableColumnReference] = []
 
-    measure_name: str = Field(description="Name of the measure being referenced")
-    source_table: Optional[str] = Field(
-        default=None, description="Table containing the measure, if known"
-    )
+    # Parse each possible value to extract table.column patterns
+    for value in param.possible_values:
+        # Pattern: TableName[ColumnName] or 'TableName'[ColumnName]
+        matches = re.findall(r"'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]", value)
+        for table_name, column_name in matches:
+            refs.append(
+                TableColumnReference(table_name=table_name, column_name=column_name)
+            )
 
-
-class DAXParameter(BaseModel):
-    """Represents a parameter or placeholder in a DAX expression."""
-
-    name: str = Field(description="Parameter name")
-    parameter_type: Literal[
-        "field_parameter", "what_if", "query_parameter", "slicer_value"
-    ] = Field(description="Type of parameter")
-    table_name: Optional[str] = Field(
-        default=None, description="Associated table if applicable"
-    )
-    default_value: Optional[str] = Field(
-        default=None, description="Default value if specified"
-    )
-    possible_values: List[str] = Field(
-        default_factory=list,
-        description="All possible values this parameter can take (for field parameters, this would be all selectable columns)",
-    )
-
-    def get_all_column_references(self) -> List["TableColumnReference"]:
-        """
-        For field parameters, extract all possible table.column references.
-        Returns list of TableColumnReference objects.
-        """
-        refs: List[TableColumnReference] = []
-
-        # Parse each possible value to extract table.column patterns
-        for value in self.possible_values:
-            # Pattern: TableName[ColumnName] or 'TableName'[ColumnName]
-            matches = re.findall(r"'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]", value)
-            for table_name, column_name in matches:
-                refs.append(
-                    TableColumnReference(table_name=table_name, column_name=column_name)
-                )
-
-        return refs
-
-
-class FilterReference(BaseModel):
-    """Represents a table/column reference within a filter expression."""
-
-    table: str = Field(description="Table name")
-    column: str = Field(description="Column name")
-
-
-class CalculateExpression(BaseModel):
-    """Represents a CALCULATE or CALCULATETABLE expression with context."""
-
-    function: Literal["CALCULATE", "CALCULATETABLE"] = Field(
-        description="The function name"
-    )
-    nesting_depth: int = Field(
-        description="How deeply nested this CALCULATE is (0 = top level)"
-    )
-    expression: str = Field(description="The expression being calculated")
-    filters: List[str] = Field(
-        default_factory=list, description="List of filter expressions"
-    )
-    filter_references: List[FilterReference] = Field(
-        default_factory=list,
-        description="Table/column references found in filter expressions",
-    )
-    full_content: str = Field(
-        description="Full content of the CALCULATE call (truncated if too long)"
-    )
-
-
-class FilterContextModifier(BaseModel):
-    """Represents a filter context modification function."""
-
-    function: Literal[
-        "ALL",
-        "ALLEXCEPT",
-        "ALLSELECTED",
-        "FILTER",
-        "REMOVEFILTERS",
-        "KEEPFILTERS",
-        "USERELATIONSHIP",
-    ] = Field(description="The filter modifier function name")
-    modifier_type: Literal[
-        "remove_filter", "apply_filter", "keep_filter", "modify_relationship"
-    ] = Field(description="Category of filter modification")
-    arguments: Optional[str] = Field(
-        default=None, description="Function arguments as string"
-    )
-    references: List[FilterReference] = Field(
-        default_factory=list, description="Table/column references in the modifier"
-    )
-    # For FILTER specifically
-    table_expression: Optional[str] = Field(
-        default=None, description="Table expression (for FILTER function)"
-    )
-    filter_expression: Optional[str] = Field(
-        default=None, description="Filter predicate (for FILTER function)"
-    )
-    # For USERELATIONSHIP specifically
-    column1: Optional[str] = Field(
-        default=None, description="First column in relationship"
-    )
-    column2: Optional[str] = Field(
-        default=None, description="Second column in relationship"
-    )
-
-
-class DAXParseResult(BaseModel):
-    """Result of parsing a DAX expression."""
-
-    table_column_references: List[TableColumnReference] = Field(
-        default_factory=list,
-        description="List of table.column references found in the expression",
-    )
-    measure_references: List[str] = Field(
-        default_factory=list,
-        description="List of measure names referenced in the expression",
-    )
-    table_references: List[str] = Field(
-        default_factory=list,
-        description="List of table names referenced without specific columns",
-    )
-    variables: Dict[str, str] = Field(
-        default_factory=dict,
-        description="VAR declarations found in the expression (variable name -> expression)",
-    )
-    parameters: List[DAXParameter] = Field(
-        default_factory=list,
-        description="Parameters and placeholders found in the expression",
-    )
-    calculate_expressions: List[CalculateExpression] = Field(
-        default_factory=list,
-        description="Nested CALCULATE expressions with their filter contexts",
-    )
-    filter_context_modifiers: List[FilterContextModifier] = Field(
-        default_factory=list,
-        description="Filter context modifiers (ALL, FILTER, REMOVEFILTERS, etc.)",
-    )
-
-    @property
-    def all_tables(self) -> Set[str]:
-        """Get all unique table names referenced."""
-        tables = set(self.table_references)
-        tables.update(
-            ref.table_name for ref in self.table_column_references if ref.table_name
-        )
-        return tables
-
-
-class DirectColumnMapping(BaseModel):
-    """Represents a direct column mapping in SUMMARIZE."""
-
-    source_table: str = Field(description="Source table name")
-    source_column: str = Field(description="Source column name")
-    target_column: str = Field(description="Target column name in the result")
-
-
-class CalculatedColumnMapping(BaseModel):
-    """Represents a calculated column mapping in SUMMARIZE."""
-
-    target_column: str = Field(description="Target column name")
-    expression: str = Field(description="DAX expression for the calculated column")
-
-
-class SummarizeParseResult(BaseModel):
-    """Result of parsing a SUMMARIZE DAX expression."""
-
-    source_table: str = Field(description="The source table being summarized")
-    direct_mappings: List[DirectColumnMapping] = Field(
-        default_factory=list, description="Direct column mappings from source to target"
-    )
-    calculated_mappings: List[CalculatedColumnMapping] = Field(
-        default_factory=list, description="Calculated column mappings with expressions"
-    )
+    return refs
 
 
 def parse_dax_expression(
@@ -279,7 +121,7 @@ def parse_dax_expression(
                 param.possible_values = possible_values
 
                 # Extract column references from possible values and add to lineage
-                param_col_refs = param.get_all_column_references()
+                param_col_refs = get_all_column_references_for_parameter(param)
                 for ref in param_col_refs:
                     ref_tuple = (ref.table_name, ref.column_name)
                     if ref_tuple not in existing_refs:

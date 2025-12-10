@@ -26,7 +26,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Tile,
     User,
     Workspace,
-    new_powerbi_dataset,
+    create_powerbi_dataset,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -490,7 +490,7 @@ class RegularAPIResolver(DataResolverBase):
         logger.debug(f"datasets = {response_dict}")
         # PowerBi Always return the webURL, in-case if it is None, then setting complete webURL to None instead of
         # None/details
-        return new_powerbi_dataset(workspace, response_dict)
+        return create_powerbi_dataset(workspace, response_dict)
 
     def get_dataset_parameters(
         self, workspace_id: str, dataset_id: str
@@ -973,7 +973,7 @@ class AdminAPIResolver(DataResolverBase):
             return None
 
         raw_instance: dict = response_dict[Constant.VALUE][0]
-        return new_powerbi_dataset(workspace, raw_instance)
+        return create_powerbi_dataset(workspace, raw_instance)
 
     def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
