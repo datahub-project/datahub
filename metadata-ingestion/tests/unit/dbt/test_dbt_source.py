@@ -829,7 +829,7 @@ def test_dbt_semantic_view_field_conversion() -> None:
     """
     Test that semantic view entities, dimensions, and measures are correctly converted to columns.
     """
-    entities = [
+    entities: List[Dict[str, Any]] = [
         {
             "name": "order_id",
             "type": "primary",
@@ -837,7 +837,7 @@ def test_dbt_semantic_view_field_conversion() -> None:
             "description": "Unique order identifier",
         }
     ]
-    dimensions = [
+    dimensions: List[Dict[str, Any]] = [
         {
             "name": "order_date",
             "type": "time",
@@ -845,7 +845,7 @@ def test_dbt_semantic_view_field_conversion() -> None:
             "description": "Order timestamp",
         }
     ]
-    measures = [
+    measures: List[Dict[str, Any]] = [
         {
             "name": "total_amount",
             "agg": "sum",
@@ -1489,8 +1489,8 @@ def test_parse_semantic_view_cll_no_upstream_mapping() -> None:
     """
 
     # Empty upstream nodes
-    upstream_nodes = []
-    all_nodes_map = {}
+    upstream_nodes: List[str] = []
+    all_nodes_map: Dict[str, Any] = {}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 

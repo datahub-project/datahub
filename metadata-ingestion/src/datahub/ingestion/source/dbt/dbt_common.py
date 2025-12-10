@@ -5,7 +5,18 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import more_itertools
 import pydantic
@@ -575,9 +586,9 @@ class DBTColumnLineageInfo:
 
 
 def convert_semantic_view_fields_to_columns(
-    entities: List[Union[SemanticViewEntity, Dict[str, Any]]],
-    dimensions: List[Union[SemanticViewDimension, Dict[str, Any]]],
-    measures: List[Union[SemanticViewMeasure, Dict[str, Any]]],
+    entities: Sequence[Union[SemanticViewEntity, Dict[str, Any]]],
+    dimensions: Sequence[Union[SemanticViewDimension, Dict[str, Any]]],
+    measures: Sequence[Union[SemanticViewMeasure, Dict[str, Any]]],
     tag_prefix: str,
 ) -> List[DBTColumn]:
     """
@@ -661,7 +672,7 @@ def convert_semantic_view_fields_to_columns(
             name=measure_name,
             comment="",
             description=build_description(
-                measure_desc, "Measure", measure_agg, measure_expr
+                measure_desc, "Measure", measure_agg or "", measure_expr
             ),
             index=offset + idx,
             data_type=SEMANTIC_VIEW_UNKNOWN_DATA_TYPE,
@@ -678,7 +689,7 @@ def convert_semantic_view_fields_to_columns(
 def parse_semantic_view_cll(
     compiled_sql: str,
     upstream_nodes: List[str],
-    all_nodes_map: Dict[str, "DBTNode"],
+    all_nodes_map: Dict[str, Any],
 ) -> List[DBTColumnLineageInfo]:
     """
     Parse semantic view DDL to extract column-level lineage.
