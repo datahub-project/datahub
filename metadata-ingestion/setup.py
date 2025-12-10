@@ -859,6 +859,7 @@ entry_points = {
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
+        "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
