@@ -540,6 +540,103 @@ class DBTColumnLineageInfo:
     downstream_col: str
 
 
+def convert_semantic_view_fields_to_columns(
+    entities: List[Dict[str, Any]],
+    dimensions: List[Dict[str, Any]],
+    measures: List[Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTColumn]:
+    """
+    Convert semantic view entities, dimensions, and measures into DBTColumn objects.
+
+    Handles both dbt Core (uses 'agg') and dbt Cloud (uses 'aggr') field naming.
+    """
+
+    def build_description(
+        base_desc: str, type_label: str, type_value: str, expr: Optional[str]
+    ) -> str:
+        """Build description with type annotation and expression."""
+        full_desc = base_desc
+        if type_value:
+            full_desc = f"[{type_label}: {type_value}] {full_desc}"
+        if expr:
+            full_desc = f"{full_desc}\nExpression: {expr}"
+        return full_desc.strip()
+
+    columns = []
+
+    # Process entities (join keys)
+    for idx, entity in enumerate(entities):
+        entity_name = entity.get("name", "")
+        entity_type = entity.get("type", "")  # primary, foreign, natural, unique
+        entity_desc = entity.get("description", "")
+        entity_expr = entity.get("expr")
+
+        column = DBTColumn(
+            name=entity_name,
+            comment="",
+            description=build_description(
+                entity_desc, "Entity", entity_type, entity_expr
+            ),
+            index=idx,
+            data_type="unknown",
+            meta={},
+            tags=[f"{tag_prefix}entity", f"{tag_prefix}{entity_type}"]
+            if entity_type
+            else [f"{tag_prefix}entity"],
+        )
+        columns.append(column)
+
+    # Process dimensions
+    offset = len(entities)
+    for idx, dimension in enumerate(dimensions):
+        dim_name = dimension.get("name", "")
+        dim_type = dimension.get("type", "")  # categorical, time
+        dim_desc = dimension.get("description", "")
+        dim_expr = dimension.get("expr")
+
+        column = DBTColumn(
+            name=dim_name,
+            comment="",
+            description=build_description(dim_desc, "Dimension", dim_type, dim_expr),
+            index=offset + idx,
+            data_type="unknown",
+            meta={},
+            tags=[f"{tag_prefix}dimension", f"{tag_prefix}{dim_type}"]
+            if dim_type
+            else [f"{tag_prefix}dimension"],
+        )
+        columns.append(column)
+
+    # Process measures
+    offset = len(entities) + len(dimensions)
+    for idx, measure in enumerate(measures):
+        measure_name = measure.get("name", "")
+        # Handle both "agg" (dbt Core manifest) and "aggr" (dbt Cloud GraphQL)
+        measure_agg = measure.get("agg") or measure.get(
+            "aggr", ""
+        )  # sum, count, avg, etc
+        measure_desc = measure.get("description", "")
+        measure_expr = measure.get("expr")
+
+        column = DBTColumn(
+            name=measure_name,
+            comment="",
+            description=build_description(
+                measure_desc, "Measure", measure_agg, measure_expr
+            ),
+            index=offset + idx,
+            data_type="unknown",
+            meta={},
+            tags=[f"{tag_prefix}measure", f"{tag_prefix}{measure_agg}"]
+            if measure_agg
+            else [f"{tag_prefix}measure"],
+        )
+        columns.append(column)
+
+    return columns
+
+
 @dataclass
 class DBTModelPerformance:
     # This is specifically for model/snapshot builds.

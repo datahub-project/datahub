@@ -17,12 +17,12 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
+    convert_semantic_view_fields_to_columns,
     get_column_type,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
-    _convert_semantic_view_fields_to_columns,
     extract_semantic_views,
     parse_dbt_timestamp,
 )
@@ -853,7 +853,7 @@ def test_dbt_semantic_view_field_conversion() -> None:
         }
     ]
 
-    columns = _convert_semantic_view_fields_to_columns(
+    columns = convert_semantic_view_fields_to_columns(
         entities, dimensions, measures, tag_prefix="dbt:"
     )
 
@@ -889,7 +889,7 @@ def test_dbt_semantic_view_field_conversion_empty() -> None:
     """
     Test that empty semantic view fields return empty column list.
     """
-    columns = _convert_semantic_view_fields_to_columns([], [], [], tag_prefix="dbt:")
+    columns = convert_semantic_view_fields_to_columns([], [], [], tag_prefix="dbt:")
 
     assert len(columns) == 0
 

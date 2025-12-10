@@ -36,6 +36,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_view_fields_to_columns,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -168,101 +169,6 @@ def get_columns(
     return columns
 
 
-def _convert_semantic_view_fields_to_columns(
-    entities: List[Dict[str, Any]],
-    dimensions: List[Dict[str, Any]],
-    measures: List[Dict[str, Any]],
-    tag_prefix: str,
-) -> List[DBTColumn]:
-    """
-    Convert semantic view entities, dimensions, and measures into DBTColumn objects.
-    """
-    columns = []
-
-    # Process entities (join keys)
-    for idx, entity in enumerate(entities):
-        entity_name = entity.get("name", "")
-        entity_type = entity.get("type", "")  # primary, foreign, natural, unique
-        entity_desc = entity.get("description", "")
-        entity_expr = entity.get("expr")
-
-        # Build description with entity type and expression
-        full_desc = f"{entity_desc}"
-        if entity_type:
-            full_desc = f"[Entity: {entity_type}] {full_desc}"
-        if entity_expr:
-            full_desc = f"{full_desc}\nExpression: {entity_expr}"
-
-        column = DBTColumn(
-            name=entity_name,
-            comment="",
-            description=full_desc.strip(),
-            index=idx,
-            data_type="unknown",
-            meta={},
-            tags=[f"{tag_prefix}entity", f"{tag_prefix}{entity_type}"]
-            if entity_type
-            else [f"{tag_prefix}entity"],
-        )
-        columns.append(column)
-
-    # Process dimensions
-    offset = len(entities)
-    for idx, dimension in enumerate(dimensions):
-        dim_name = dimension.get("name", "")
-        dim_type = dimension.get("type", "")  # categorical, time
-        dim_desc = dimension.get("description", "")
-        dim_expr = dimension.get("expr")
-
-        full_desc = f"{dim_desc}"
-        if dim_type:
-            full_desc = f"[Dimension: {dim_type}] {full_desc}"
-        if dim_expr:
-            full_desc = f"{full_desc}\nExpression: {dim_expr}"
-
-        column = DBTColumn(
-            name=dim_name,
-            comment="",
-            description=full_desc.strip(),
-            index=offset + idx,
-            data_type="unknown",
-            meta={},
-            tags=[f"{tag_prefix}dimension", f"{tag_prefix}{dim_type}"]
-            if dim_type
-            else [f"{tag_prefix}dimension"],
-        )
-        columns.append(column)
-
-    # Process measures
-    offset = len(entities) + len(dimensions)
-    for idx, measure in enumerate(measures):
-        measure_name = measure.get("name", "")
-        measure_agg = measure.get("agg", "")  # sum, count, avg, etc
-        measure_desc = measure.get("description", "")
-        measure_expr = measure.get("expr")
-
-        full_desc = f"{measure_desc}"
-        if measure_agg:
-            full_desc = f"[Measure: {measure_agg}] {full_desc}"
-        if measure_expr:
-            full_desc = f"{full_desc}\nExpression: {measure_expr}"
-
-        column = DBTColumn(
-            name=measure_name,
-            comment="",
-            description=full_desc.strip(),
-            index=offset + idx,
-            data_type="unknown",
-            meta={},
-            tags=[f"{tag_prefix}measure", f"{tag_prefix}{measure_agg}"]
-            if measure_agg
-            else [f"{tag_prefix}measure"],
-        )
-        columns.append(column)
-
-    return columns
-
-
 def extract_semantic_views(
     semantic_models_manifest: Dict[str, Dict[str, Any]],
     all_manifest_entities: Dict[str, Dict[str, Any]],
@@ -315,12 +221,13 @@ def extract_semantic_views(
                         break
 
             if not database or not schema:
-                logger.debug(
-                    f"Could not resolve database.schema for semantic view {name} - sibling relationships may not work"
+                logger.warning(
+                    f"Could not resolve database.schema for semantic view {name} - sibling relationships may not work. "
+                    f"Ensure the referenced model exists in the manifest."
                 )
 
         # Convert semantic view fields to columns
-        columns = _convert_semantic_view_fields_to_columns(
+        columns = convert_semantic_view_fields_to_columns(
             entities, dimensions, measures, tag_prefix
         )
 
