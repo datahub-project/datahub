@@ -773,6 +773,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             dimensions = node.get("dimensions", [])
             measures = node.get("measures", [])
 
+            logger.debug(
+                f"Parsing semantic model {node.get('name')}: "
+                f"{len(entities)} entity/entities, {len(dimensions)} dimension(s), {len(measures)} measure(s)"
+            )
+
             # Convert semantic model fields to columns
             columns = self._convert_semantic_model_fields_to_columns(
                 entities, dimensions, measures

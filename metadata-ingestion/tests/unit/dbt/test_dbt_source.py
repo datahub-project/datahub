@@ -8,17 +8,22 @@ from pydantic import ValidationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBTEntitiesEnabled,
     DBTNode,
     DBTSourceReport,
+    EmitDirective,
     NullTypeClass,
     get_column_type,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
+    _convert_semantic_view_fields_to_columns,
+    extract_semantic_views,
     parse_dbt_timestamp,
 )
 from datahub.metadata.schema_classes import (
@@ -823,10 +828,6 @@ def test_dbt_semantic_view_field_conversion() -> None:
     """
     Test that semantic view entities, dimensions, and measures are correctly converted to columns.
     """
-    from datahub.ingestion.source.dbt.dbt_core import (
-        _convert_semantic_view_fields_to_columns,
-    )
-
     entities = [
         {
             "name": "order_id",
@@ -888,10 +889,6 @@ def test_dbt_semantic_view_field_conversion_empty() -> None:
     """
     Test that empty semantic view fields return empty column list.
     """
-    from datahub.ingestion.source.dbt.dbt_core import (
-        _convert_semantic_view_fields_to_columns,
-    )
-
     columns = _convert_semantic_view_fields_to_columns([], [], [], tag_prefix="dbt:")
 
     assert len(columns) == 0
@@ -901,8 +898,6 @@ def test_dbt_semantic_view_extraction() -> None:
     """
     Test that extract_semantic_views correctly parses semantic models from manifest.
     """
-    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_views
-
     semantic_models_manifest = {
         "semantic_model.my_project.sales_analytics": {
             "name": "sales_analytics",
@@ -969,8 +964,6 @@ def test_dbt_semantic_view_missing_upstream() -> None:
     """
     Test that semantic view extraction handles missing upstream references gracefully.
     """
-    from datahub.ingestion.source.dbt.dbt_core import extract_semantic_views
-
     semantic_models_manifest = {
         "semantic_model.my_project.sales_analytics": {
             "name": "sales_analytics",
@@ -1074,8 +1067,6 @@ def test_dbt_semantic_view_subtype() -> None:
     """
     Test that semantic views get the correct SEMANTIC_VIEW subtype.
     """
-    from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     config = DBTCoreConfig(**create_base_dbt_config())
     source = DBTCoreSource(config, ctx)
@@ -1118,11 +1109,6 @@ def test_dbt_entities_enabled_semantic_views() -> None:
     """
     Test that DBTEntitiesEnabled correctly handles semantic_views configuration.
     """
-    from datahub.ingestion.source.dbt.dbt_common import (
-        DBTEntitiesEnabled,
-        EmitDirective,
-    )
-
     # Test default (YES)
     entities_enabled = DBTEntitiesEnabled()
     assert entities_enabled.semantic_views == EmitDirective.YES

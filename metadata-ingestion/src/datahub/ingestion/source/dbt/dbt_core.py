@@ -309,7 +309,15 @@ def extract_semantic_views(
                     database = upstream_entity.get("database")
                     schema = upstream_entity.get("schema")
                     if database and schema:
+                        logger.debug(
+                            f"Resolved database.schema for semantic view {name}: {database}.{schema}"
+                        )
                         break
+
+            if not database or not schema:
+                logger.debug(
+                    f"Could not resolve database.schema for semantic view {name} - sibling relationships may not work"
+                )
 
         # Convert semantic view fields to columns
         columns = _convert_semantic_view_fields_to_columns(
@@ -350,7 +358,15 @@ def extract_semantic_views(
 
         semantic_view_nodes.append(node)
 
-    logger.debug(f"Extracted {len(semantic_view_nodes)} semantic views from manifest")
+    if semantic_view_nodes:
+        total_fields = sum(
+            len(n.entities) + len(n.dimensions) + len(n.measures)
+            for n in semantic_view_nodes
+        )
+        logger.info(
+            f"Extracted {len(semantic_view_nodes)} semantic view(s) from manifest with {total_fields} total field(s)"
+        )
+
     return semantic_view_nodes
 
 
