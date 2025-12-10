@@ -47,9 +47,9 @@ public class EmbeddingProviderFactory {
     SemanticSearchConfiguration semanticSearchConfig =
         configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
 
-    if (!semanticSearchConfig.isEnabled()) {
+    if (semanticSearchConfig == null || !semanticSearchConfig.isEnabled()) {
       log.info(
-          "Semantic search is not enabled. Using no-op embedding provider that will throw exceptions if used.");
+          "Semantic search is not configured or not enabled. Using no-op embedding provider that will throw exceptions if used.");
       return new NoOpEmbeddingProvider();
     }
 
