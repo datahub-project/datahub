@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
@@ -1106,6 +1107,7 @@ def test_dbt_semantic_view_subtype() -> None:
     )
 
     assert subtype_wu is not None
+    assert isinstance(subtype_wu.metadata, MetadataChangeProposalWrapper)
     aspect = subtype_wu.metadata.aspect
     assert aspect is not None
     assert isinstance(aspect, SubTypesClass)
