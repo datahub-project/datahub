@@ -19,7 +19,7 @@
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {
@@ -31,14 +31,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609150,
+        "lastObserved": 1765406900970,
         "runId": "rdf-test-simple",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/AccountIdentifier",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.AccountIdentifier",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -48,21 +48,21 @@
             },
             "name": "Account Identifier",
             "definition": "A unique identifier for an account",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/AccountIdentifier",
             "sourceUrl": "http://example.org/glossary/AccountIdentifier"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609150,
+        "lastObserved": 1765406900970,
         "runId": "rdf-test-simple",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/CustomerName",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.CustomerName",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -72,14 +72,14 @@
             },
             "name": "Customer Name",
             "definition": "The name of the customer",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/CustomerName",
             "sourceUrl": "http://example.org/glossary/CustomerName"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396609151,
+        "lastObserved": 1765406900971,
         "runId": "rdf-test-simple",
         "lastRunId": "no-run-id-provided"
     }

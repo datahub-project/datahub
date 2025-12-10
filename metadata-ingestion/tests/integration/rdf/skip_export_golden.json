@@ -19,7 +19,7 @@
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "entityUrn": "urn:li:glossaryNode:example.org.glossary",
     "changeType": "UPSERT",
     "aspectName": "glossaryNodeInfo",
     "aspect": {
@@ -31,14 +31,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396610670,
+        "lastObserved": 1765406907934,
         "runId": "rdf-test-skip-export",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/ChildTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.ChildTerm",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -48,21 +48,21 @@
             },
             "name": "Child Term",
             "definition": "A child term",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/ChildTerm",
             "sourceUrl": "http://example.org/glossary/ChildTerm"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396610670,
+        "lastObserved": 1765406907935,
         "runId": "rdf-test-skip-export",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/ParentTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org.glossary.ParentTerm",
     "changeType": "UPSERT",
     "aspectName": "glossaryTermInfo",
     "aspect": {
@@ -72,14 +72,14 @@
             },
             "name": "Parent Term",
             "definition": "A parent term",
-            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "parentNode": "urn:li:glossaryNode:example.org.glossary",
             "termSource": "EXTERNAL",
             "sourceRef": "http://example.org/glossary/ParentTerm",
             "sourceUrl": "http://example.org/glossary/ParentTerm"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765396610671,
+        "lastObserved": 1765406907935,
         "runId": "rdf-test-skip-export",
         "lastRunId": "no-run-id-provided"
     }

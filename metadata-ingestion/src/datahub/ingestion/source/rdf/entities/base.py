@@ -7,13 +7,20 @@ extraction, conversion, and MCP creation.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from rdflib import Graph, URIRef
+
+if TYPE_CHECKING:
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.ingestion.source.rdf.core.ast import DataHubGraph
 
 # Type variables for generic entity processing
 RDFEntityT = TypeVar("RDFEntityT")  # RDF AST entity type
 DataHubEntityT = TypeVar("DataHubEntityT")  # DataHub AST entity type
+
+# Default processing order constant
+DEFAULT_PROCESSING_ORDER = 100
 
 
 class EntityExtractor(ABC, Generic[RDFEntityT]):
@@ -142,7 +149,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
     @abstractmethod
     def build_mcps(
         self, entity: DataHubEntityT, context: Dict[str, Any] | None = None
-    ) -> List[Any]:
+    ) -> List["MetadataChangeProposalWrapper"]:
         """
         Build MCPs for a DataHub AST entity.
 
@@ -158,7 +165,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
     @abstractmethod
     def build_all_mcps(
         self, entities: List[DataHubEntityT], context: Dict[str, Any] | None = None
-    ) -> List[Any]:
+    ) -> List["MetadataChangeProposalWrapper"]:
         """
         Build MCPs for all DataHub AST entities of this type.
 
@@ -172,8 +179,8 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
         pass
 
     def build_post_processing_mcps(
-        self, datahub_graph: Any, context: Dict[str, Any] | None = None
-    ) -> List[Any]:
+        self, datahub_graph: "DataHubGraph", context: Dict[str, Any] | None = None
+    ) -> List["MetadataChangeProposalWrapper"]:
         """
         Optional hook for building MCPs that depend on other entities.
 
@@ -208,7 +215,9 @@ class EntityProcessor(Generic[RDFEntityT, DataHubEntityT]):
         """Return the entity type name."""
         return self.extractor.entity_type
 
-    def process(self, graph: Graph, context: Dict[str, Any] | None = None) -> List[Any]:
+    def process(
+        self, graph: Graph, context: Dict[str, Any] | None = None
+    ) -> List["MetadataChangeProposalWrapper"]:
         """
         Complete pipeline: extract → convert → build MCPs.
 
@@ -254,5 +263,15 @@ class EntityMetadata:
         default_factory=list
     )  # List of entity types this entity depends on (for MCP emission ordering)
     processing_order: int = field(
-        default=100
+        default=DEFAULT_PROCESSING_ORDER
     )  # DEPRECATED: Use dependencies instead. Kept for backward compatibility.
+
+
+__all__ = [
+    "EntityExtractor",
+    "EntityConverter",
+    "EntityMCPBuilder",
+    "EntityProcessor",
+    "EntityMetadata",
+    "DEFAULT_PROCESSING_ORDER",
+]
