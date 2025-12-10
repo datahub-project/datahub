@@ -22,7 +22,10 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import Field, field_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -30,18 +33,28 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.rdf.core.ast import DataHubGraph
 from datahub.ingestion.source.rdf.core.rdf_loader import load_rdf_graph
 from datahub.ingestion.source.rdf.dialects import RDFDialect
 from datahub.ingestion.source.rdf.entities.domain.builder import DomainBuilder
 from datahub.ingestion.source.rdf.entities.registry import create_default_registry
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class RDFSourceConfig(ConfigModel):
+class RDFSourceConfig(
+    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
+):
     """
     Configuration for RDF ingestion source.
 
@@ -86,6 +99,12 @@ class RDFSourceConfig(ConfigModel):
         description="Skip exporting specified entity types. Options are dynamically determined from registered entity types.",
     )
 
+    # Stateful Ingestion Options
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion configuration. See https://datahubproject.io/docs/stateful-ingestion for more details.",
+    )
+
     @field_validator("dialect")
     @classmethod
     def validate_dialect(cls, v):
@@ -121,7 +140,7 @@ class RDFSourceConfig(ConfigModel):
         return v
 
 
-class RDFSourceReport(SourceReport):
+class RDFSourceReport(StaleEntityRemovalSourceReport):
     """
     Report for RDF ingestion source.
 
@@ -153,7 +172,7 @@ class RDFSourceReport(SourceReport):
 @platform_name("RDF")
 @config_class(RDFSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-class RDFSource(Source):
+class RDFSource(StatefulIngestionSourceBase):
     """
     DataHub ingestion source for RDF ontologies.
 
@@ -166,7 +185,11 @@ class RDFSource(Source):
     - Data lineage (PROV-O)
     - Structured properties
     - Domain hierarchy
+    - Stateful ingestion (stale entity removal)
     """
+
+    config: RDFSourceConfig
+    report: RDFSourceReport
 
     def __init__(self, config: RDFSourceConfig, ctx: PipelineContext):
         """
@@ -176,9 +199,10 @@ class RDFSource(Source):
             config: Source configuration
             ctx: Pipeline context from DataHub
         """
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = RDFSourceReport()
+        self.platform = "rdf"
 
         logger.info(f"Initializing RDF source with config: {config}")
 
@@ -197,7 +221,20 @@ class RDFSource(Source):
         config = RDFSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunit_processors(self) -> List[Any]:
+        """
+        Get work unit processors for stateful ingestion.
+
+        Returns:
+            List of work unit processors including stale entity removal handler
+        """
+        return [
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Generate work units from RDF data.
 
@@ -206,10 +243,10 @@ class RDFSource(Source):
         Yields:
             MetadataWorkUnit objects containing MCPs
         """
-        try:
-            logger.info("Starting RDF ingestion")
+        logger.info("Starting RDF ingestion")
 
-            # Load RDF graph directly
+        # Load RDF graph directly
+        try:
             logger.info("Loading RDF graph from source")
             rdf_graph = load_rdf_graph(
                 source=self.config.source,
@@ -219,8 +256,39 @@ class RDFSource(Source):
             )
             self.report.report_triples_processed(len(rdf_graph))
             logger.info(f"Loaded {len(rdf_graph)} triples from source")
+        except FileNotFoundError as e:
+            self.report.report_failure(
+                "RDF source file not found",
+                context=f"Source: {self.config.source}",
+                exc=e,
+            )
+            logger.error(
+                f"RDF source file not found: {self.config.source}", exc_info=True
+            )
+            return  # Early return, don't continue
+        except ValueError as e:
+            self.report.report_failure(
+                "Invalid RDF source",
+                context=f"Source: {self.config.source}, Error: {str(e)}",
+                exc=e,
+            )
+            logger.error(f"Invalid RDF source: {self.config.source}", exc_info=True)
+            return
+        except Exception as e:
+            self.report.report_failure(
+                "Failed to load RDF graph",
+                context=f"Source: {self.config.source}",
+                exc=e,
+            )
+            logger.error(
+                f"Failed to load RDF graph from {self.config.source}",
+                exc_info=True,
+            )
+            return
 
-            # Convert RDF to DataHub AST
+        # Convert RDF to DataHub AST
+        summary_str = "unknown"
+        try:
             logger.info("Converting RDF to DataHub AST")
             datahub_ast = self._convert_rdf_to_datahub_ast(
                 rdf_graph,
@@ -233,20 +301,57 @@ class RDFSource(Source):
                 [f"{count} {name}" for name, count in summary.items()]
             )
             logger.info(f"DataHub AST created: {summary_str}")
+        except Exception as e:
+            self.report.report_failure(
+                "Failed to convert RDF to DataHub AST",
+                context=f"Triples processed: {len(rdf_graph)}",
+                exc=e,
+            )
+            logger.error(
+                f"Failed to convert RDF to DataHub AST: {e}",
+                exc_info=True,
+            )
+            return
 
-            # Generate work units from DataHub AST
+        # Generate work units from DataHub AST
+        try:
             logger.info("Generating work units from DataHub AST")
             workunits = self._generate_workunits_from_ast(datahub_ast)
-
             logger.info(f"Generated {len(workunits)} work units from RDF data")
-
-            # Yield all work units
-            for workunit in workunits:
-                yield workunit
-
         except Exception as e:
-            logger.error(f"RDF ingestion failed: {e}", exc_info=True)
-            self.report.report_failure(f"Ingestion failed: {e}")
+            self.report.report_failure(
+                "Failed to generate work units",
+                context=f"AST summary: {summary_str}",
+                exc=e,
+            )
+            logger.error(
+                f"Failed to generate work units from DataHub AST: {e}",
+                exc_info=True,
+            )
+            return
+
+        # Yield all work units with individual error handling
+        for workunit in workunits:
+            try:
+                yield workunit
+            except Exception as e:
+                # Continue processing other work units even if one fails
+                workunit_id = getattr(workunit, "id", "unknown")
+                entity_urn = (
+                    str(workunit.mcp.entityUrn)
+                    if hasattr(workunit, "mcp") and hasattr(workunit.mcp, "entityUrn")
+                    else "unknown"
+                )
+                self.report.report_failure(
+                    "Failed to process work unit",
+                    context=f"Work unit ID: {workunit_id}, Entity URN: {entity_urn}",
+                    exc=e,
+                )
+                logger.error(
+                    f"Failed to process work unit {workunit_id} (entity: {entity_urn}): {e}",
+                    exc_info=True,
+                )
+                # Continue to next work unit
 
     def _convert_rdf_to_datahub_ast(
         self,
@@ -289,8 +394,24 @@ class RDFSource(Source):
             extractor = registry.get_extractor(entity_type)
 
             if extractor:
-                datahub_terms = extractor.extract_all(graph, context)
-                datahub_graph.glossary_terms = datahub_terms
+                try:
+                    datahub_terms = extractor.extract_all(graph, context)
+                    datahub_graph.glossary_terms = datahub_terms
+                    logger.debug(
+                        f"Extracted {len(datahub_terms)} glossary terms from RDF graph"
+                    )
+                except Exception as e:
+                    self.report.report_failure(
+                        "Failed to extract glossary terms",
+                        context=f"Entity type: {entity_type}",
+                        exc=e,
+                    )
+                    logger.error(
+                        f"Failed to extract glossary terms: {e}",
+                        exc_info=True,
+                    )
+                    # Continue with empty list - partial success
+                    datahub_graph.glossary_terms = []
 
         # Extract relationships independently (using RelationshipExtractor)
         if should_process_cli_name("relationship"):
@@ -298,24 +419,79 @@ class RDFSource(Source):
             extractor = registry.get_extractor(entity_type)
 
             if extractor:
-                # Extract RDF relationships
-                rdf_relationships = extractor.extract_all(graph, context)
+                try:
+                    # Extract RDF relationships
+                    rdf_relationships = extractor.extract_all(graph, context)
 
-                # Convert RDF relationships to DataHub relationships
-                converter = registry.get_converter(entity_type)
-                if converter:
-                    datahub_relationships = []
-                    for rdf_rel in rdf_relationships:
-                        datahub_rel = converter.convert(rdf_rel, context)
-                        if datahub_rel:
-                            datahub_relationships.append(datahub_rel)
-                    datahub_graph.relationships.extend(datahub_relationships)
+                    # Convert RDF relationships to DataHub relationships
+                    converter = registry.get_converter(entity_type)
+                    if converter:
+                        datahub_relationships = []
+                        for rdf_rel in rdf_relationships:
+                            try:
+                                datahub_rel = converter.convert(rdf_rel, context)
+                                if datahub_rel:
+                                    datahub_relationships.append(datahub_rel)
+                            except Exception as e:
+                                # Continue processing other relationships
+                                rel_source = (
+                                    str(rdf_rel.source_urn)
+                                    if hasattr(rdf_rel, "source_urn")
+                                    else "unknown"
+                                )
+                                rel_target = (
+                                    str(rdf_rel.target_urn)
+                                    if hasattr(rdf_rel, "target_urn")
+                                    else "unknown"
+                                )
+                                self.report.report_failure(
+                                    "Failed to convert relationship",
+                                    context=f"Source: {rel_source}, Target: {rel_target}",
+                                    exc=e,
+                                )
+                                logger.warning(
+                                    f"Failed to convert relationship {rel_source} -> {rel_target}: {e}",
+                                    exc_info=True,
+                                )
+                                # Continue to next relationship
+                        datahub_graph.relationships.extend(datahub_relationships)
+                        logger.debug(
+                            f"Extracted {len(datahub_relationships)} relationships from RDF graph"
+                        )
+                except Exception as e:
+                    self.report.report_failure(
+                        "Failed to extract relationships",
+                        context=f"Entity type: {entity_type}",
+                        exc=e,
+                    )
+                    logger.error(
+                        f"Failed to extract relationships: {e}",
+                        exc_info=True,
+                    )
+                    # Continue with empty list - partial success
+                    datahub_graph.relationships = []
 
         # Build domains
-        domain_builder = DomainBuilder()
-        datahub_graph.domains = domain_builder.build_domains(
-            datahub_graph.glossary_terms, context
-        )
+        try:
+            domain_builder = DomainBuilder()
+            datahub_graph.domains = domain_builder.build_domains(
+                datahub_graph.glossary_terms, context
+            )
+            logger.debug(
+                f"Built {len(datahub_graph.domains)} domains from glossary term hierarchy"
+            )
+        except Exception as e:
+            self.report.report_failure(
+                "Failed to build domain hierarchy",
+                context=f"Glossary terms: {len(datahub_graph.glossary_terms)}",
+                exc=e,
+            )
+            logger.error(
+                f"Failed to build domain hierarchy: {e}",
+                exc_info=True,
+            )
+            # Continue with empty list - partial success
+            datahub_graph.domains = []
 
         return datahub_graph
 
@@ -365,8 +541,14 @@ class RDFSource(Source):
             return workunits
 
         except Exception as e:
+            self.report.report_failure(
+                "Failed to generate work units from DataHub AST",
+                context=f"Glossary terms: {len(datahub_graph.glossary_terms)}, "
+                f"Domains: {len(datahub_graph.domains)}, "
+                f"Relationships: {len(datahub_graph.relationships)}",
+                exc=e,
+            )
             logger.error(f"Failed to generate work units: {e}", exc_info=True)
-            self.report.report_failure(f"Failed to generate work units: {e}")
             return []
 
     def _process_standard_entities(
@@ -383,24 +565,39 @@ class RDFSource(Source):
                 )
                 continue
 
-            mcp_builder = registry.get_mcp_builder(entity_type)
-            if not mcp_builder:
-                logger.debug(f"No MCP builder registered for {entity_type}, skipping")
-                continue
+            try:
+                mcp_builder = registry.get_mcp_builder(entity_type)
+                if not mcp_builder:
+                    logger.debug(
+                        f"No MCP builder registered for {entity_type}, skipping"
+                    )
+                    continue
 
-            entities = self._get_entities_from_graph(datahub_graph, entity_type)
-            if not entities:
-                logger.debug(f"No {entity_type} entities to process")
-                continue
+                entities = self._get_entities_from_graph(datahub_graph, entity_type)
+                if not entities:
+                    logger.debug(f"No {entity_type} entities to process")
+                    continue
 
-            self._log_entity_processing(entity_type, entities, registry)
-            entity_mcps = self._build_entity_mcps(
-                mcp_builder, entities, entity_type, build_context
-            )
-            mcps.extend(entity_mcps)
-            self._process_post_processing_hooks(
-                mcp_builder, entity_type, datahub_graph, build_context, mcps
-            )
+                self._log_entity_processing(entity_type, entities, registry)
+                entity_mcps = self._build_entity_mcps(
+                    mcp_builder, entities, entity_type, build_context
+                )
+                mcps.extend(entity_mcps)
+                self._process_post_processing_hooks(
+                    mcp_builder, entity_type, datahub_graph, build_context, mcps
+                )
+            except Exception as e:
+                # Continue processing other entity types even if one fails
+                self.report.report_failure(
+                    f"Failed to process {entity_type} entities",
+                    context=f"Entity type: {entity_type}",
+                    exc=e,
+                )
+                logger.error(
+                    f"Failed to process {entity_type} entities: {e}",
+                    exc_info=True,
+                )
+                # Continue to next entity type
 
         return mcps
 
@@ -453,6 +650,11 @@ class RDFSource(Source):
                         f"No MCPs created for {len(entities)} {entity_type} entities (they may have been filtered out)"
                     )
             except Exception as e:
+                self.report.report_failure(
+                    f"Failed to create MCPs for {entity_type}",
+                    context=f"Entity count: {len(entities)}",
+                    exc=e,
+                )
                 logger.error(
                     f"Failed to create MCPs for {entity_type}: {e}", exc_info=True
                 )
@@ -468,10 +670,17 @@ class RDFSource(Source):
                                 self.report.report_entity_emitted()
                             created_count += 1
                 except Exception as e:
+                    entity_urn = getattr(entity, "urn", "unknown")
+                    self.report.report_failure(
+                        f"Failed to create MCP for {entity_type}",
+                        context=f"Entity URN: {entity_urn}",
+                        exc=e,
+                    )
                     logger.error(
-                        f"Failed to create MCP for {entity_type} {getattr(entity, 'urn', 'unknown')}: {e}",
+                        f"Failed to create MCP for {entity_type} {entity_urn}: {e}",
                         exc_info=True,
                     )
+                    # Continue processing other entities
             logger.debug(
                 f"Created MCPs for {created_count}/{len(entities)} {entity_type} entities"
             )
@@ -501,6 +710,11 @@ class RDFSource(Source):
                         f"Created {len(post_mcps)} post-processing MCPs for {entity_type}"
                     )
             except Exception as e:
+                self.report.report_failure(
+                    f"Failed to create post-processing MCPs for {entity_type}",
+                    context="Post-processing hook",
+                    exc=e,
+                )
                 logger.error(
                     f"Failed to create post-processing MCPs for {entity_type}: {e}",
                     exc_info=True,
@@ -533,6 +747,11 @@ class RDFSource(Source):
                         f"Created {len(post_mcps)} glossary node/term MCPs from domain hierarchy"
                     )
             except Exception as e:
+                self.report.report_failure(
+                    "Failed to create glossary node MCPs from domain hierarchy",
+                    context=f"Domains: {len(datahub_graph.domains)}",
+                    exc=e,
+                )
                 logger.error(
                     f"Failed to create glossary node MCPs from domain hierarchy: {e}",
                     exc_info=True,
@@ -561,6 +780,11 @@ class RDFSource(Source):
                         f"Created {len(post_mcps)} structured property value assignment MCPs"
                     )
             except Exception as e:
+                self.report.report_failure(
+                    "Failed to create structured property value assignment MCPs",
+                    context="Post-processing hook",
+                    exc=e,
+                )
                 logger.error(
                     f"Failed to create structured property value assignment MCPs: {e}",
                     exc_info=True,

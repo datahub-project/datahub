@@ -1,0 +1,87 @@
+[
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: example.org",
+            "name": "example.org"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609149,
+        "runId": "rdf-test-simple",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:example.org/glossary",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Glossary node: glossary",
+            "parentNode": "urn:li:glossaryNode:example.org",
+            "name": "glossary"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609150,
+        "runId": "rdf-test-simple",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/AccountIdentifier",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/AccountIdentifier"
+            },
+            "name": "Account Identifier",
+            "definition": "A unique identifier for an account",
+            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/AccountIdentifier",
+            "sourceUrl": "http://example.org/glossary/AccountIdentifier"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609150,
+        "runId": "rdf-test-simple",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:example.org/glossary/CustomerName",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rdf:originalIRI": "http://example.org/glossary/CustomerName"
+            },
+            "name": "Customer Name",
+            "definition": "The name of the customer",
+            "parentNode": "urn:li:glossaryNode:example.org/glossary",
+            "termSource": "EXTERNAL",
+            "sourceRef": "http://example.org/glossary/CustomerName",
+            "sourceUrl": "http://example.org/glossary/CustomerName"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765396609151,
+        "runId": "rdf-test-simple",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
