@@ -9,6 +9,7 @@
 ## Summary
 
 Successfully completed full port of semantic search functionality from DataHub cloud to open-source version. This includes:
+
 - ✅ All 92 semantic search backend files (services, factories, resolvers, tests, docs, POC scripts)
 - ✅ 5 upgrade CLI files for embedding backfill operations
 - ✅ 8 infrastructure files merged with semantic search enhancements
@@ -18,6 +19,7 @@ Successfully completed full port of semantic search functionality from DataHub c
 ## Phase 1: Initial File Copy (92 files)
 
 ### Core Backend Services (7 files)
+
 - `metadata-io/src/main/java/com/linkedin/metadata/search/SemanticSearchService.java` - Main service orchestrating semantic search
 - `metadata-io/src/main/java/com/linkedin/metadata/search/semantic/SemanticEntitySearchService.java` - Low-level OpenSearch k-NN implementation
 - `metadata-io/src/main/java/com/linkedin/metadata/search/semantic/SemanticEntitySearch.java` - Interface for semantic search
@@ -27,6 +29,7 @@ Successfully completed full port of semantic search functionality from DataHub c
 - `metadata-io/src/main/java/com/linkedin/metadata/search/semantic/SemanticIndexConvention.java` - Index naming conventions
 
 ### Embedding Infrastructure (6 files)
+
 - `metadata-io/src/main/java/com/linkedin/metadata/search/embedding/EmbeddingProvider.java` - Interface for embedding providers
 - `metadata-io/src/main/java/com/linkedin/metadata/search/embedding/AwsBedrockEmbeddingProvider.java` - **NEW OSS** Direct AWS Bedrock embedding provider
 - `metadata-io/src/main/java/com/linkedin/metadata/search/embedding/IntegrationsServiceEmbeddingProvider.java` - Cloud embedding provider using IntegrationsService (replaced in OSS)
@@ -35,11 +38,13 @@ Successfully completed full port of semantic search functionality from DataHub c
 - `metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/index/entity/v2/V2SemanticSearchSettingsBuilder.java` - OpenSearch settings
 
 ### GraphQL Layer (3 files)
+
 - `datahub-graphql-core/src/main/resources/semantic-search.acryl.graphql` - GraphQL schema
 - `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/semantic/SemanticSearchResolver.java` - Single entity resolver
 - `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/semantic/SemanticSearchAcrossEntitiesResolver.java` - Cross-entity resolver
 
 ### Spring Factories (5 files)
+
 - `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/SemanticSearchServiceFactory.java`
 - `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/SemanticEntitySearchServiceFactory.java`
 - `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProviderFactory.java`
@@ -47,16 +52,19 @@ Successfully completed full port of semantic search functionality from DataHub c
 - `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/SearchableFieldExtractorFactory.java`
 
 ### Configuration (4 files)
+
 - `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/SemanticSearchConfiguration.java`
 - `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingsUpdateConfiguration.java`
 - `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/ModelEmbeddingConfig.java`
 - `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProviderConfiguration.java` - **NEW OSS** AWS Bedrock configuration
 
 ### Tests (15 files)
+
 - Unit tests and integration tests for all semantic search components
 - `metadata-io/src/test/java/com/linkedin/metadata/search/embedding/AwsBedrockEmbeddingProviderTest.java` - **NEW OSS** Unit tests for Bedrock provider
 
 ### Documentation (5 files)
+
 - `docs/tech-spec-semantic-search.md`
 - `docs/pseudo-semantic-search.md`
 - `docs/dev-guides/semantic-index-dual-write.md`
@@ -64,14 +72,17 @@ Successfully completed full port of semantic search functionality from DataHub c
 - `docs/dev-guides/proposal-semantic-search-fast-copy.md`
 
 ### POC Scripts and Tools (51 files in semantic-search-poc/)
+
 - Complete semantic search POC directory with Python scripts for testing, backfilling, and management
 
 ## Phase 2: Initial OSS Integration (Modified Files)
 
 ### 1. GraphQLEngineFactory.java ✅
+
 **File:** `metadata-service/factories/src/main/java/com/linkedin/gms/factory/graphql/GraphQLEngineFactory.java`
 
 **Changes:**
+
 - Added import: `com.linkedin.gms.factory.search.SemanticSearchServiceFactory`
 - Added import: `com.linkedin.metadata.search.SemanticSearchService`
 - Added `SemanticSearchServiceFactory.class` to `@Import` annotation
@@ -87,18 +98,22 @@ Successfully completed full port of semantic search functionality from DataHub c
   ```
 
 ### 2. GmsGraphQLEngineArgs.java ✅
+
 **File:** `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngineArgs.java`
 
 **Changes:**
+
 - Added import: `com.linkedin.metadata.search.SemanticSearchService`
 - Added field: `SemanticSearchService semanticSearchService;`
 
 ### 3. OssSemanticSearchPlugin.java ✅ (NEW FILE)
+
 **File:** `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/plugins/OssSemanticSearchPlugin.java`
 
 **Purpose:** Registers semantic search GraphQL schema and resolvers using OSS's plugin system
 
 **Features:**
+
 - Implements `GmsGraphQLPlugin` interface
 - Conditionally loads semantic search schema file (`semantic-search.acryl.graphql`)
 - Registers GraphQL resolvers:
@@ -108,6 +123,7 @@ Successfully completed full port of semantic search functionality from DataHub c
 - Automatic initialization via plugin system
 
 **Why This Approach:**
+
 - ✅ Follows OSS's established plugin architecture
 - ✅ Clean separation of concerns
 - ✅ No merge conflicts with core GmsGraphQLEngine
@@ -115,9 +131,11 @@ Successfully completed full port of semantic search functionality from DataHub c
 - ✅ Conditionally active based on configuration
 
 ### 4. GmsGraphQLEngine.java ✅
+
 **File:** `datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java`
 
 **Changes:**
+
 - Registered OssSemanticSearchPlugin in the plugins list (line 535):
   ```java
   this.graphQLPlugins = List.of(
@@ -126,6 +144,7 @@ Successfully completed full port of semantic search functionality from DataHub c
   ```
 
 **How It Works:**
+
 1. Plugin is instantiated in GmsGraphQLEngine constructor
 2. Plugin's `init()` method is called with GmsGraphQLEngineArgs
 3. If SemanticSearchService is available, plugin loads schema file
@@ -135,14 +154,17 @@ Successfully completed full port of semantic search functionality from DataHub c
 ## Phase 3: AWS Bedrock Embedding Provider for OSS (COMPLETED)
 
 ### Overview
+
 Replaced cloud's IntegrationsService-based embedding provider with direct AWS Bedrock integration for OSS. The cloud version uses a separate Python-based integrations service that calls AWS Bedrock, but this doesn't exist in OSS. The new implementation directly calls AWS Bedrock using the AWS SDK for Java v2.
 
 ### Key Changes
 
 #### 1. AwsBedrockEmbeddingProvider.java ✅ (NEW)
+
 **File:** `metadata-io/src/main/java/com/linkedin/metadata/search/embedding/AwsBedrockEmbeddingProvider.java`
 
 **Features:**
+
 - Direct AWS Bedrock InvokeModel API calls using AWS SDK for Java v2
 - Supports Cohere Embed v3 models with proper parameters:
   - `input_type: "search_query"` for query embeddings
@@ -158,6 +180,7 @@ Replaced cloud's IntegrationsService-based embedding provider with direct AWS Be
 - Configurable AWS region, model ID, and max character length
 
 **Implementation Details:**
+
 ```java
 // Request format for Cohere Embed v3
 {
@@ -176,39 +199,48 @@ Replaced cloud's IntegrationsService-based embedding provider with direct AWS Be
 ```
 
 #### 2. EmbeddingProviderConfiguration.java ✅ (NEW)
+
 **File:** `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProviderConfiguration.java`
 
 **Configuration Properties:**
+
 - `type`: Provider type (default: "aws-bedrock")
 - `awsRegion`: AWS region where Bedrock is available (default: "us-west-2")
 - `modelId`: Bedrock model ID (default: "cohere.embed-english-v3")
 - `maxCharacterLength`: Max text length before truncation (default: 2048)
 
 #### 3. EmbeddingProvider.java ✅ (Copied from cloud)
+
 **File:** `metadata-io/src/main/java/com/linkedin/metadata/search/embedding/EmbeddingProvider.java`
 
 Simple interface with one method:
+
 ```java
 float[] embed(@Nonnull String text, @Nullable String model);
 ```
 
 #### 4. EmbeddingProviderFactory.java ✅ (Rewritten)
+
 **File:** `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProviderFactory.java`
 
 **Before (Cloud):**
+
 - Depended on `IntegrationsService` (doesn't exist in OSS)
 - Created `IntegrationsServiceEmbeddingProvider`
 
 **After (OSS):**
+
 - Reads configuration from `application.yaml`
 - Creates `AwsBedrockEmbeddingProvider` based on config
 - Conditional bean creation: only when `semanticSearch.enabled=true`
 - Validates provider type (currently only "aws-bedrock" supported)
 
 #### 5. application.yaml ✅ (Updated)
+
 **File:** `metadata-service/configuration/src/main/resources/application.yaml`
 
 **Added Configuration:**
+
 ```yaml
 elasticsearch:
   index:
@@ -222,15 +254,19 @@ elasticsearch:
 ```
 
 #### 6. SemanticSearchConfiguration.java ✅ (Updated)
+
 **File:** `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/SemanticSearchConfiguration.java`
 
 **Added Field:**
+
 ```java
 private EmbeddingProviderConfiguration embeddingProvider = new EmbeddingProviderConfiguration();
 ```
 
 #### 7. metadata-io/build.gradle ✅ (Updated)
+
 **Added Dependencies:**
+
 ```gradle
 // AWS SDK for Bedrock (semantic search embeddings)
 implementation platform(externalDependency.awsSdk2Bom)
@@ -240,9 +276,11 @@ implementation 'software.amazon.awssdk:bedrockruntime'
 Uses existing AWS SDK BOM version 2.23.6 (already defined in root build.gradle).
 
 #### 8. AwsBedrockEmbeddingProviderTest.java ✅ (NEW)
+
 **File:** `metadata-io/src/test/java/com/linkedin/metadata/search/embedding/AwsBedrockEmbeddingProviderTest.java`
 
 **Comprehensive Unit Tests:**
+
 - ✅ Successful embedding generation
 - ✅ Custom model specification
 - ✅ Long text truncation (>2048 characters)
@@ -260,11 +298,13 @@ Uses Mockito to mock BedrockRuntimeClient for fast, reliable unit tests.
 ### Architecture Comparison
 
 **Cloud (Python Integrations Service):**
+
 ```
 Java → IntegrationsService → HTTP → Python Service → AWS Bedrock → Cohere
 ```
 
 **OSS (Direct Bedrock):**
+
 ```
 Java → AwsBedrockEmbeddingProvider → AWS SDK → AWS Bedrock → Cohere
 ```
@@ -282,6 +322,7 @@ The implementation uses AWS SDK's `DefaultCredentialsProvider` which checks cred
 ### Configuration Examples
 
 **Development (using AWS_PROFILE):**
+
 ```bash
 export ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
 export AWS_PROFILE=my-datahub-dev-profile
@@ -289,6 +330,7 @@ export EMBEDDING_PROVIDER_AWS_REGION=us-west-2
 ```
 
 **Production (using EC2 instance role):**
+
 ```bash
 # No AWS credentials needed - automatically resolved from EC2 instance role
 export ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
@@ -298,6 +340,7 @@ export EMBEDDING_PROVIDER_MODEL_ID=cohere.embed-english-v3
 
 **LocalStack (testing):**
 Can override endpoint using AWS SDK environment variables:
+
 ```bash
 export AWS_ENDPOINT_URL=http://localhost:4566
 ```
@@ -305,10 +348,12 @@ export AWS_ENDPOINT_URL=http://localhost:4566
 ### Supported Models
 
 **Cohere Embed v3 (1024 dimensions):**
+
 - `cohere.embed-english-v3` (default)
 - `cohere.embed-multilingual-v3`
 
 **Amazon Titan (1536 dimensions):**
+
 - `amazon.titan-embed-text-v1`
 - `amazon.titan-embed-text-v2:0`
 
@@ -325,9 +370,11 @@ Model dimensions must match the `vectorDimension` configured in `semanticSearch.
 ## Phase 4: Additional Files and Infrastructure Merges (COMPLETED)
 
 ### 1. application.yaml Configuration ✅
+
 **File:** `metadata-service/configuration/src/main/resources/application.yaml` (line 417)
 
 **Added:** Complete semantic search configuration section:
+
 ```yaml
 semanticSearch:
   enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
@@ -345,7 +392,9 @@ semanticSearch:
 ```
 
 ### 2. Upgrade CLI Files (5 files) ✅
+
 Copied for embedding backfill functionality:
+
 - `datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/config/SearchEmbeddingsUpdateConfig.java`
 - `datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/semanticsearch/SearchEmbeddingsUpdate.java`
 - `datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/semanticsearch/SearchEmbeddingsUpdateStep.java`
@@ -355,17 +404,21 @@ Copied for embedding backfill functionality:
 ### 3. Infrastructure Files Merged (8 files) ✅
 
 #### A. IndexConvention.java ✅
+
 **File:** `metadata-utils/src/main/java/com/linkedin/metadata/utils/elasticsearch/IndexConvention.java`
 
 **Changes:**
+
 - Added method: `String getEntityIndexNameSemantic(String entityName)`
 - Added method: `Optional<String> getEntityNameSemantic(String semanticIndexName)`
 - Added method: `boolean isSemanticEntityIndex(@Nonnull String indexName)`
 
 #### B. IndexConventionImpl.java ✅
+
 **File:** `metadata-utils/src/main/java/com/linkedin/metadata/utils/elasticsearch/IndexConventionImpl.java`
 
 **Changes:**
+
 - Added constant: `SEMANTIC_INDEX_SUFFIX = "semantic"`
 - Added private method: `extractEntityNameSemantic()`
 - Implemented: `getEntityIndexNameSemantic()` - returns semantic index names
@@ -375,21 +428,26 @@ Copied for embedding backfill functionality:
 - Refactored: `isV2EntityIndex()` and `isV3EntityIndex()` to use helper
 
 #### C. ESIndexBuilder.java ✅
+
 **File:** `metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/ESIndexBuilder.java`
 
 **Changes:**
+
 - Modified zstd codec check: Now checks `!isKnnEnabled(baseSettings)` (codec conflicts with k-NN)
 - Added method: `isKnnEnabled()` - checks if k-NN plugin is enabled
 - Updated comment to explain k-NN codec conflict
 
 #### D. ReindexConfig.java ✅
+
 **File:** `metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/ReindexConfig.java`
 
 **Critical Bug Fix:**
+
 - Changed `sortObject()`: Now returns `item` instead of `String.valueOf(item)` to preserve integer types
 - This fix is critical for k-NN parameters (efConstruction, m) which must be integers
 
 **Added Methods:**
+
 - `normalizeMapForComparison()` - Normalizes maps for comparison (converts all to strings)
 - `normalizeListForComparison()` - Normalizes lists for comparison
 - `normalizeObjectForComparison()` - Normalizes objects for comparison
@@ -398,9 +456,11 @@ Copied for embedding backfill functionality:
 **Why This Matters:** OpenSearch k-NN validation fails if integer parameters are sent as strings.
 
 #### E. MappingsBuilderFactory.java ✅
+
 **File:** `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/MappingsBuilderFactory.java`
 
 **Changes:**
+
 - Added imports:
   - `com.linkedin.gms.factory.common.IndexConventionFactory`
   - `com.linkedin.metadata.config.search.SemanticSearchConfiguration`
@@ -411,9 +471,11 @@ Copied for embedding backfill functionality:
 - Added semantic builder to builders list
 
 #### F. SettingsBuilderFactory.java ✅
+
 **File:** `metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/SettingsBuilderFactory.java`
 
 **Changes:**
+
 - Added imports:
   - `com.linkedin.metadata.config.search.SemanticSearchConfiguration`
   - `com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchSettingsBuilder`
@@ -422,25 +484,31 @@ Copied for embedding backfill functionality:
 - Added semantic builder to builders list
 
 #### G. EntityIndexConfiguration.java ✅
+
 **File:** `metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EntityIndexConfiguration.java`
 
 **Changes:**
+
 - Added field: `private SemanticSearchConfiguration semanticSearch;`
 
 ## Phase 5: Missing Dependencies and Compilation Fixes (COMPLETED) ✅
 
 ### Missing Files Fixed
+
 During compilation, discovered several missing files that were referenced but not copied:
 
 1. **SearchResultUtils.java** ✅ - Copied from cloud
+
    - Location: `metadata-io/src/main/java/com/linkedin/metadata/search/utils/SearchResultUtils.java`
    - Contains: `buildBaseFeatures()`, `toExtraFields()` methods for search results
 
-2. **QueryUtils.java** ✅ - Copied from cloud  
+2. **QueryUtils.java** ✅ - Copied from cloud
+
    - Location: `metadata-service/services/src/main/java/com/linkedin/metadata/search/utils/QueryUtils.java`
    - Contains: `excludeIngestionSourceEntity()` method
 
 3. **SearchDocFieldFetchConfig.java** ✅ - Copied from cloud
+
    - Location: `metadata-service/services/src/main/java/com/linkedin/metadata/search/api/SearchDocFieldFetchConfig.java`
    - Contains: Configuration for document field fetching
 
@@ -451,6 +519,7 @@ During compilation, discovered several missing files that were referenced but no
 ### Code Compatibility Fixes
 
 1. **ESUtils.buildFilterMap()** ✅ - Added to OSS
+
    - Location: `metadata-io/src/main/java/com/linkedin/metadata/search/utils/ESUtils.java`
    - **Issue:** Method didn't exist in OSS, but was called by `SemanticEntitySearchService.java:201`
    - **Solution:** Copied complete implementation from cloud (line 403)
@@ -463,20 +532,23 @@ During compilation, discovered several missing files that were referenced but no
      import org.opensearch.core.xcontent.XContentBuilder;
      ```
    - **Purpose:** Converts Filter objects to Map<String, Object> for low-level REST client usage
-   - **Features:** 
+   - **Features:**
      - Optimizes queries with `queryOptimize()`
      - Ensures top-level `bool` wrapper
      - Proper JSON serialization via XContent API
 
 2. **SemanticIndexConvention.java** ✅ - Fixed annotations
+
    - Changed `@NotNull` to `@Nonnull` (javax.annotation)
    - Removed JetBrains annotations dependency
 
 3. **SimpleRanker.rank()** ✅ - Fixed method signature
+
    - **Issue:** Cloud version has `rank(opContext, entities)`, OSS has `rank(entities)`
    - **Solution:** Removed opContext parameter from call in `SemanticSearchService.java:line`
 
 4. **SearchServiceConfiguration.java** ✅ - Added missing field
+
    - Added: `semanticSearchEnabled` field with getter/setter
    - Updated: `application.yaml` with configuration
 
@@ -485,17 +557,20 @@ During compilation, discovered several missing files that were referenced but no
    - **Removed:** `SearchResultMetadata.setScoringMethod("cosine_similarity")` - doesn't exist in OSS
 
 ### Dependency Lock Files
+
 - Updated `metadata-io/gradle.lockfile` for AWS SDK dependencies
 - Ran: `./gradlew :metadata-io:dependencies --write-locks`
 
 ## Summary of All Changes
 
 ### Files Copied: 101 total
+
 - 92 semantic search core files (services, factories, resolvers, tests, docs, POC)
 - 5 upgrade CLI files
 - 4 missing utility files (SearchResultUtils, QueryUtils, SearchDocFieldFetchConfig, SemanticSearchDisabledException)
 
 ### Files Created: 5 total
+
 - 1 GraphQL plugin file (OssSemanticSearchPlugin.java)
 - 1 AWS Bedrock provider (AwsBedrockEmbeddingProvider.java)
 - 1 Configuration class (EmbeddingProviderConfiguration.java)
@@ -503,6 +578,7 @@ During compilation, discovered several missing files that were referenced but no
 - 1 Test file (AwsBedrockEmbeddingProviderTest.java)
 
 ### Files Modified: 15 total
+
 - 4 GraphQL integration files (GraphQLEngineFactory, GmsGraphQLEngineArgs, GmsGraphQLEngine, OssSemanticSearchPlugin)
 - 3 configuration files (application.yaml, SemanticSearchConfiguration.java, SearchServiceConfiguration.java)
 - 5 infrastructure files (IndexConvention, IndexConventionImpl, ESIndexBuilder, ReindexConfig, EntityIndexConfiguration)
@@ -512,6 +588,7 @@ During compilation, discovered several missing files that were referenced but no
 - 3 semantic search files (SemanticIndexConvention.java, SemanticSearchService.java, SemanticEntitySearchService.java)
 
 ### Git Status:
+
 ```
 Modified:
  M SEMANTIC_SEARCH_PORT_SUMMARY.md
@@ -547,16 +624,19 @@ New files (from cloud):
 For semantic search to work in OSS, users need:
 
 1. **OpenSearch 2.17+** (or Elasticsearch with k-NN plugin)
+
    - k-NN plugin must be enabled
    - Vector dimensions: 1024 (for Cohere Embed v3)
 
 2. **AWS Bedrock Access** for embeddings
+
    - AWS account with Bedrock access in a supported region
    - Model access enabled for Cohere Embed v3 (or other supported models)
    - IAM permissions for `bedrock:InvokeModel` action
    - AWS credentials configured (AWS_PROFILE, EC2 instance role, or environment variables)
 
 3. **Configuration** in application.yaml or environment variables:
+
    ```yaml
    elasticsearch:
      index:
@@ -570,6 +650,7 @@ For semantic search to work in OSS, users need:
    ```
 
    Or via environment variables:
+
    ```bash
    ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
    ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
@@ -586,12 +667,14 @@ These endpoints are now available (schema auto-loads from resources):
 ```graphql
 # Single entity type semantic search
 query {
-  semanticSearch(input: {
-    type: DATASET
-    query: "customer churn metrics"
-    start: 0
-    count: 10
-  }) {
+  semanticSearch(
+    input: {
+      type: DATASET
+      query: "customer churn metrics"
+      start: 0
+      count: 10
+    }
+  ) {
     start
     count
     total
@@ -610,12 +693,14 @@ query {
 
 # Multi-entity semantic search
 query {
-  semanticSearchAcrossEntities(input: {
-    types: [DATASET, DASHBOARD, CHART]
-    query: "revenue analysis"
-    start: 0
-    count: 10
-  }) {
+  semanticSearchAcrossEntities(
+    input: {
+      types: [DATASET, DASHBOARD, CHART]
+      query: "revenue analysis"
+      start: 0
+      count: 10
+    }
+  ) {
     start
     count
     total
@@ -638,18 +723,21 @@ query {
 ## Testing
 
 ### Unit Tests
+
 ```bash
 ./gradlew :metadata-io:test --tests "*Semantic*"
 ./gradlew :datahub-graphql-core:test --tests "*Semantic*"
 ```
 
 ### Integration Tests (requires OpenSearch with k-NN)
+
 ```bash
 ./gradlew :metadata-io:integrationTest --tests "*SemanticSearchServiceIT"
 ./gradlew :metadata-io:integrationTest --tests "*SemanticEntitySearchIT"
 ```
 
 ### GraphQL Tests (from semantic-search-poc)
+
 ```bash
 cd semantic-search-poc
 source .venv/bin/activate  # or create with: uv sync
@@ -658,6 +746,7 @@ python test_graphql_semantic_search_integration.py --query "customer data"
 ```
 
 ### Upgrade CLI Tests
+
 ```bash
 # Test embedding backfill
 ./datahub-upgrade/build/install/datahub-upgrade/bin/datahub-upgrade -u SearchEmbeddingsUpdate
@@ -666,10 +755,10 @@ python test_graphql_semantic_search_integration.py --query "customer data"
 ## Key Architecture Decisions
 
 1. **Dedicated Endpoints**: Uses separate `semanticSearch` and `semanticSearchAcrossEntitiesSearch` endpoints instead of adding a searchMode parameter to existing search
-   
 2. **Clean Separation**: Semantic and keyword search are completely isolated, enabling independent evolution
 
-3. **Plugin-Based (Cloud) vs Spring Factory (OSS)**: 
+3. **Plugin-Based (Cloud) vs Spring Factory (OSS)**:
+
    - Cloud version uses AcrylGraphQLPlugin to register resolvers dynamically
    - OSS version integrates through Spring factories - SemanticSearchService is autowired and GraphQL schema auto-loads
 
@@ -684,12 +773,14 @@ python test_graphql_semantic_search_integration.py --query "customer data"
 ### Test Files Fixed
 
 1. **IntegrationsServiceEmbeddingProviderIntegrationTest.java** ✅ - Removed
+
    - **Issue:** Cloud-only test file that depends on IntegrationsService
    - **Solution:** Deleted the file (not applicable to OSS)
 
 2. **SemanticEntitySearchServiceTest.java** ✅ - Fixed cloud-only assertions
+
    - **Issue:** Tests referenced `getScoringMethod()` and `getFetchExtraFields()` which don't exist in OSS
-   - **Fixed:** 
+   - **Fixed:**
      - Removed assertion for `getScoringMethod()` (line 142)
      - Removed all `when(mockSearchFlags.getFetchExtraFields())` mocking calls (4 instances)
    - These methods are cloud-only features not present in OSS SearchFlags and SearchResultMetadata
@@ -701,6 +792,7 @@ python test_graphql_semantic_search_integration.py --query "customer data"
      - Simplified test to just verify metadata exists
 
 ### Test Results
+
 - ✅ **15/15 AWS Bedrock unit tests passing**
 - ✅ **40/40 semantic search tests passing** (`:metadata-io:test --tests "*Semantic*"`)
 - ✅ **11/11 GraphQLEngineFactoryTest tests passing** - Fixed by adding semantic search mock beans
@@ -710,9 +802,11 @@ python test_graphql_semantic_search_integration.py --query "customer data"
 ## Phase 7: GraphQLEngineFactoryTest Fix (COMPLETED) ✅
 
 ### Issue
+
 The `GraphQLEngineFactoryTest` was failing because it tried to autowire `semanticSearchService`, which required `cachingEntitySearchService` and `semanticEntitySearchService` beans, but these were not mocked in the test context.
 
 ### Solution
+
 Added missing mock beans to the test class by comparing with the cloud version:
 
 ```java
@@ -732,6 +826,7 @@ private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntit
 **Location:** `metadata-service/factories/src/test/java/com/linkedin/gms/factory/graphql/GraphQLEngineFactoryTest.java`
 
 ### Result
+
 - ✅ **11/11 GraphQLEngineFactoryTest tests now passing**
 - ✅ Test context properly configured with all required semantic search dependencies
 
@@ -778,16 +873,20 @@ private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntit
 ## Key Implementation Notes
 
 ### Why ReindexConfig Type Preservation Matters
+
 The original code converted all values to strings via `String.valueOf(item)`. This caused OpenSearch k-NN validation to fail because parameters like `efConstruction: 128` and `m: 16` must be integers, not strings "128" and "16".
 
 The fix separates concerns:
+
 - `sortObject()`: Preserves types for correct serialization to OpenSearch
 - `normalizeObjectForComparison()`: Converts to strings for consistent comparison
 
-### Why Codec Check Matters  
+### Why Codec Check Matters
+
 OpenSearch's zstd_no_dict codec cannot be used with k-NN indices. The codec setting conflicts with k-NN plugin settings. The fix checks `!isKnnEnabled(baseSettings)` before applying the codec.
 
 ### How OSS Integration Differs from Cloud
+
 - **Cloud**: Uses AcrylGraphQLPlugin to dynamically register resolvers
 - **OSS**: Uses Spring factory pattern with @ConditionalOnProperty
 - **Result**: Same functionality, different wiring mechanism

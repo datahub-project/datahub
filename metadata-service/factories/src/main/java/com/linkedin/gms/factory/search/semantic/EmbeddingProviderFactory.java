@@ -2,8 +2,10 @@ package com.linkedin.gms.factory.search.semantic;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,17 +36,24 @@ public class EmbeddingProviderFactory {
   /**
    * Creates an EmbeddingProvider bean for generating query embeddings.
    *
+   * <p>Returns a no-op provider if semantic search is not enabled, allowing the system to start
+   * without requiring embedding configuration.
+   *
    * @return EmbeddingProvider instance configured based on application.yaml settings
    */
   @Bean(name = "embeddingProvider")
   @Nonnull
   protected EmbeddingProvider getInstance() {
-    EmbeddingProviderConfiguration config =
-        configurationProvider
-            .getElasticSearch()
-            .getEntityIndex()
-            .getSemanticSearch()
-            .getEmbeddingProvider();
+    SemanticSearchConfiguration semanticSearchConfig =
+        configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+
+    if (!semanticSearchConfig.isEnabled()) {
+      log.info(
+          "Semantic search is not enabled. Using no-op embedding provider that will throw exceptions if used.");
+      return new NoOpEmbeddingProvider();
+    }
+
+    EmbeddingProviderConfiguration config = semanticSearchConfig.getEmbeddingProvider();
 
     String providerType = config.getType();
     log.info("Creating embedding provider with type: {}", providerType);
