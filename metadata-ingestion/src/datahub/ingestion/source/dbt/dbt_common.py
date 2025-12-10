@@ -675,6 +675,189 @@ def convert_semantic_view_fields_to_columns(
     return columns
 
 
+def parse_semantic_view_cll(
+    compiled_sql: str,
+    upstream_nodes: List[str],
+    all_nodes_map: Dict[str, "DBTNode"],
+) -> List[DBTColumnLineageInfo]:
+    """
+    Parse semantic view DDL to extract column-level lineage.
+
+    Extracts mappings from DIMENSIONS, FACTS, and METRICS sections:
+    - DIMENSIONS ( ORDERS.CUSTOMER_ID AS CUSTOMER_ID, ... )
+    - FACTS ( orders.ORDER_TOTAL AS ORDER_TOTAL, ... )
+    - METRICS ( ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL), ... )
+
+    Returns list of DBTColumnLineageInfo mapping upstream columns to downstream columns.
+    """
+    if not compiled_sql:
+        return []
+
+    cll_info = []
+
+    # Build mapping of table references to dbt source node names
+    # upstream_nodes contains dbt_names like "source.project.source_name.TABLE_NAME"
+    table_to_dbt_name = {}
+    for upstream_dbt_name in upstream_nodes:
+        if upstream_dbt_name in all_nodes_map:
+            upstream_node = all_nodes_map[upstream_dbt_name]
+            # The table reference in DDL might be just the table name (ORDERS, TRANSACTIONS)
+            table_name = upstream_node.name.upper()
+            table_to_dbt_name[table_name] = upstream_dbt_name
+        else:
+            logger.warning(
+                f"Upstream node {upstream_dbt_name} not found in all_nodes_map, skipping for CLL extraction"
+            )
+
+    if not table_to_dbt_name:
+        logger.warning(
+            "No upstream table mapping available for semantic view CLL extraction"
+        )
+        return []
+
+    logger.debug(
+        f"Built table mapping for {len(table_to_dbt_name)} tables: {list(table_to_dbt_name.keys())}"
+    )
+
+    # Pattern 1: DIMENSIONS/FACTS - TABLE.SOURCE_COLUMN AS OUTPUT_COLUMN
+    # Example: ORDERS.CUSTOMER_ID AS CUSTOMER_ID
+    dimension_pattern = r"(\w+)\.(\w+)\s+AS\s+(\w+)(?:\s|,|\))"
+
+    # Pattern 2: METRICS - TABLE.OUTPUT_NAME AS AGG_FUNC(SOURCE_COLUMN)
+    # Example: ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL)
+    metric_pattern = (
+        r"(\w+)\.(\w+)\s+AS\s+(?:SUM|AVG|COUNT|MIN|MAX|ARRAY_AGG)\s*\(\s*(\w+)\s*\)"
+    )
+
+    # Pattern 3: DERIVED METRICS - OUTPUT_NAME AS TABLE.METRIC1 + TABLE.METRIC2
+    # Example: TOTAL_ORDER_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
+    derived_metric_pattern = r"(\w+)\s+AS\s+((?:\w+\.\w+(?:\s*[+\-*/]\s*)?)+)"
+
+    # Parse METRICS first (more specific pattern)
+    for match in re.finditer(metric_pattern, compiled_sql, re.IGNORECASE):
+        table_ref = match.group(1).upper()  # ORDERS, TRANSACTIONS
+        output_column = match.group(2).lower()  # gross_revenue, net_payment_amount
+        source_column = match.group(3).lower()  # order_total, transaction_amount
+
+        # Map table reference to dbt source node
+        if table_ref in table_to_dbt_name:
+            upstream_dbt_name = table_to_dbt_name[table_ref]
+
+            cll_info.append(
+                DBTColumnLineageInfo(
+                    upstream_dbt_name=upstream_dbt_name,
+                    upstream_col=source_column,  # The column inside the aggregation
+                    downstream_col=output_column,  # The output metric name
+                )
+            )
+            logger.debug(
+                f"Extracted metric CLL: {table_ref}.{source_column} → {output_column}"
+            )
+        else:
+            logger.debug(
+                f"Table {table_ref} not found in upstream mapping, skipping metric {output_column}"
+            )
+
+    # Parse DIMENSIONS/FACTS (simpler 1:1 mapping)
+    for match in re.finditer(dimension_pattern, compiled_sql, re.IGNORECASE):
+        table_ref = match.group(1).upper()  # ORDERS, TRANSACTIONS
+        source_column = match.group(2).lower()  # customer_id, order_total
+        output_column = match.group(3).lower()  # customer_id, order_total (often same)
+
+        # Skip if already captured by metric pattern from the SAME upstream table
+        already_captured = any(
+            cll.upstream_col == source_column
+            and cll.downstream_col == output_column
+            and cll.upstream_dbt_name == table_to_dbt_name.get(table_ref)
+            for cll in cll_info
+        )
+        if already_captured:
+            continue
+
+        # Map table reference to dbt source node
+        if table_ref in table_to_dbt_name:
+            upstream_dbt_name = table_to_dbt_name[table_ref]
+
+            cll_info.append(
+                DBTColumnLineageInfo(
+                    upstream_dbt_name=upstream_dbt_name,
+                    upstream_col=source_column,
+                    downstream_col=output_column,
+                )
+            )
+            logger.debug(
+                f"Extracted dimension/fact CLL: {table_ref}.{source_column} → {output_column}"
+            )
+        else:
+            logger.debug(
+                f"Table {table_ref} not found in upstream mapping, skipping dimension/fact {output_column}"
+            )
+
+    # Build a map of metric names to their base columns for resolving derived metrics
+    # Format: {metric_name: [(upstream_dbt_name, source_column)]}
+    metric_to_sources: Dict[str, List[Tuple[str, str]]] = {}
+    for cll in cll_info:
+        # Track what each output column is derived from
+        if cll.downstream_col not in metric_to_sources:
+            metric_to_sources[cll.downstream_col] = []
+        metric_to_sources[cll.downstream_col].append(
+            (cll.upstream_dbt_name, cll.upstream_col)
+        )
+
+    # Parse DERIVED METRICS (metrics computed from other metrics)
+    # Example: TOTAL_ORDER_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
+    for match in re.finditer(derived_metric_pattern, compiled_sql, re.IGNORECASE):
+        output_metric = match.group(1).lower()  # total_order_revenue
+        expression = match.group(
+            2
+        )  # ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
+
+        # Extract all TABLE.METRIC references from the expression
+        # Pattern: TABLE.METRIC_NAME
+        ref_pattern = r"(\w+)\.(\w+)"
+        refs = re.findall(ref_pattern, expression, re.IGNORECASE)
+
+        logger.debug(
+            f"Found derived metric: {output_metric} from expression: {expression}"
+        )
+
+        # For each referenced metric, trace back to its source columns
+        for table_ref, metric_name in refs:
+            metric_name_lower = metric_name.lower()
+
+            # Check if this metric is in our map (meaning we've seen it before)
+            if metric_name_lower in metric_to_sources:
+                # Create CLL from the base columns to this derived metric
+                for upstream_dbt_name, source_col in metric_to_sources[
+                    metric_name_lower
+                ]:
+                    cll_info.append(
+                        DBTColumnLineageInfo(
+                            upstream_dbt_name=upstream_dbt_name,
+                            upstream_col=source_col,
+                            downstream_col=output_metric,
+                        )
+                    )
+                    logger.debug(
+                        f"Extracted derived metric CLL: {source_col} → {output_metric} (via {metric_name_lower})"
+                    )
+            else:
+                logger.debug(
+                    f"Referenced metric {table_ref}.{metric_name_lower} not found in metric mapping for derived metric {output_metric}"
+                )
+
+    if cll_info:
+        logger.info(
+            f"Successfully parsed {len(cll_info)} column lineage entries from semantic view DDL"
+        )
+    else:
+        logger.warning(
+            "No column lineage entries extracted from semantic view DDL - verify DDL contains DIMENSIONS, FACTS, or METRICS"
+        )
+
+    return cll_info
+
+
 @dataclass
 class DBTModelPerformance:
     # This is specifically for model/snapshot builds.
@@ -1472,16 +1655,35 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
             depends_on_ephemeral_models = False
-            if node.node_type in {"source", "test", "seed", "semantic_view"}:
-                # For sources, we generate CLL as a 1:1 mapping.
-                # We don't support CLL for tests (assertions), seeds, or semantic views.
-                pass
-            elif node.materialization == "semantic_view":
-                # Skip SQL parsing for dbt models with semantic_view materialization
-                # (e.g., from dbt_semantic_view package)
+            if (
+                node.node_type == "semantic_view"
+                or node.materialization == "semantic_view"
+            ):
+                # Parse semantic view DDL to extract column-level lineage
+                # SQL parser can't handle semantic view DDL syntax, so we use a custom parser
                 logger.debug(
-                    f"Skipping SQL parsing for {node.dbt_name} because it uses semantic_view materialization"
+                    f"Parsing semantic view DDL for {node.dbt_name} to extract column lineage"
                 )
+
+                if node.compiled_code:
+                    cll_info = parse_semantic_view_cll(
+                        compiled_sql=node.compiled_code,
+                        upstream_nodes=node.upstream_nodes,
+                        all_nodes_map=all_nodes_map,
+                    )
+                    node.upstream_cll.extend(cll_info)
+
+                    if cll_info:
+                        logger.info(
+                            f"Extracted {len(cll_info)} column lineage entries from semantic view {node.dbt_name}"
+                        )
+                else:
+                    logger.debug(
+                        f"No compiled SQL available for {node.dbt_name}, skipping CLL extraction"
+                    )
+            elif node.node_type in {"source", "test", "seed"}:
+                # For sources, we generate CLL as a 1:1 mapping.
+                # We don't support CLL for tests (assertions) or seeds.
                 pass
             elif node.dbt_name not in cll_required_nodes:
                 logger.debug(
@@ -1817,6 +2019,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         mce_platform = self.config.target_platform
         mce_platform_instance = self.config.target_platform_instance
 
+        logger.info(f"create_target_platform_mces called with {len(dbt_nodes)} nodes")
+        for n in dbt_nodes:
+            logger.info(
+                f"  - Node: {n.dbt_name}, type={n.node_type}, materialization={n.materialization}"
+            )
+
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             node_datahub_urn = node.get_urn(
                 mce_platform,
@@ -1831,6 +2039,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # We are creating empty node for platform and only add lineage/keyaspect.
             if not node.exists_in_target_platform:
+                logger.info(
+                    f"Skipping {node.dbt_name} (type={node.node_type}) - does not exist in target platform"
+                )
                 continue
 
             # Emit sibling patch for target platform entity BEFORE any other aspects.
@@ -1867,6 +2078,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.config.env,
                     self.config.platform_instance,
                 )
+
+                # Log column count for debugging
+                column_count = len(node.columns) if node.columns else 0
+                logger.info(
+                    f"Processing target platform lineage for {node.dbt_name}: "
+                    f"type={node.node_type}, columns={column_count}, materialization={node.materialization}"
+                )
+
                 upstreams_lineage_class = make_mapping_upstream_lineage(
                     upstream_urn=upstream_dbt_urn,
                     downstream_urn=node_datahub_urn,
@@ -1874,6 +2093,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
                     skip_sources_in_lineage=self.config.skip_sources_in_lineage,
                 )
+
+                # Log if CLL was created
+                cll_count = len(upstreams_lineage_class.fineGrainedLineages or [])
+                if cll_count > 0:
+                    logger.info(
+                        f"Created {cll_count} column-level lineage entries for {node.dbt_name} → {mce_platform}"
+                    )
+                else:
+                    logger.warning(
+                        f"No column-level lineage created for {node.dbt_name} (has {column_count} columns)"
+                    )
+
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
                     wu = convert_upstream_lineage_to_patch(
@@ -2302,32 +2533,50 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # SQL parsing failed entirely, which is already reported above.
                         pass
 
-                cll = [
-                    FineGrainedLineage(
-                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                        upstreams=[
-                            mce_builder.make_schema_field_urn(
-                                _translate_dbt_name_to_upstream_urn(
-                                    upstream_column.upstream_dbt_name
-                                ),
-                                upstream_column.upstream_col,
-                            )
-                            for upstream_column in upstreams
-                        ],
-                        downstreams=[
-                            mce_builder.make_schema_field_urn(node_urn, downstream)
-                        ],
-                        confidenceScore=(
-                            node.cll_debug_info.confidence
-                            if node.cll_debug_info
-                            else None
-                        ),
+                # Group by downstream column - each downstream gets one lineage entry with potentially multiple upstreams
+                grouped_cll = list(
+                    groupby_unsorted(node.upstream_cll, lambda x: x.downstream_col)
+                )
+
+                cll = []
+                for downstream, upstreams in grouped_cll:
+                    upstream_list = list(upstreams)
+                    if len(upstream_list) > 1:
+                        upstream_names = [
+                            f"{u.upstream_dbt_name.split('.')[-1]}.{u.upstream_col}"
+                            for u in upstream_list
+                        ]
+                        logger.debug(
+                            f"Column {downstream} has {len(upstream_list)} upstream sources: {upstream_names}"
+                        )
+
+                    cll.append(
+                        FineGrainedLineage(
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            upstreams=[
+                                mce_builder.make_schema_field_urn(
+                                    _translate_dbt_name_to_upstream_urn(
+                                        upstream_column.upstream_dbt_name
+                                    ),
+                                    upstream_column.upstream_col,
+                                )
+                                for upstream_column in upstream_list
+                            ],
+                            downstreams=[
+                                mce_builder.make_schema_field_urn(node_urn, downstream)
+                            ],
+                            confidenceScore=(
+                                node.cll_debug_info.confidence
+                                if node.cll_debug_info
+                                else None
+                            ),
+                        )
                     )
-                    for downstream, upstreams in groupby_unsorted(
-                        node.upstream_cll, lambda x: x.downstream_col
-                    )
-                ]
+
+                logger.debug(
+                    f"Created {len(cll)} fine-grained lineage entries for {node.dbt_name}"
+                )
 
             if not upstream_urns:
                 return None
