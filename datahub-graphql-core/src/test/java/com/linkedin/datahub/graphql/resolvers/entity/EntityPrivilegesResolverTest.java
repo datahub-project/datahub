@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
@@ -31,6 +32,7 @@ public class EntityPrivilegesResolverTest {
   final String dashboardUrn = "urn:li:dashboard:(looker,dashboards.1)";
   final String dataJobUrn =
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
+  final String businessAttributeUrn = "urn:li:businessAttribute:testBusinessAttribute";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
@@ -237,5 +239,78 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanEditLineage());
+  }
+
+  @Test
+  public void testGetBusinessAttributeSuccessWithPermissions() throws Exception {
+    final BusinessAttribute businessAttribute = new BusinessAttribute();
+    businessAttribute.setUrn(businessAttributeUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithPermissions(businessAttribute);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanManageEntity());
+    // Verify common privileges are also set
+    assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanEditProperties());
+    assertTrue(result.getCanEditTags());
+    assertTrue(result.getCanEditGlossaryTerms());
+    assertTrue(result.getCanEditOwners());
+    assertTrue(result.getCanEditDescription());
+    assertTrue(result.getCanEditLinks());
+  }
+
+  @Test
+  public void testGetBusinessAttributeSuccessWithoutPermissions() throws Exception {
+    final BusinessAttribute businessAttribute = new BusinessAttribute();
+    businessAttribute.setUrn(businessAttributeUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithoutPermissions(businessAttribute);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanManageEntity());
+    // Verify common privileges are also denied
+    assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanEditProperties());
+    assertFalse(result.getCanEditTags());
+    assertFalse(result.getCanEditGlossaryTerms());
+    assertFalse(result.getCanEditOwners());
+    assertFalse(result.getCanEditDescription());
+    assertFalse(result.getCanEditLinks());
+  }
+
+  @Test
+  public void testGetBusinessAttributeWithCommonPrivileges() throws Exception {
+    final BusinessAttribute businessAttribute = new BusinessAttribute();
+    businessAttribute.setUrn(businessAttributeUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithPermissions(businessAttribute);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    // Test that business attribute gets all common privileges
+    assertNotNull(result);
+    assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanEditProperties());
+    assertTrue(result.getCanEditAssertions());
+    assertTrue(result.getCanEditIncidents());
+    assertTrue(result.getCanEditDomains());
+    assertTrue(result.getCanEditDataProducts());
+    assertTrue(result.getCanEditDeprecation());
+    assertTrue(result.getCanEditGlossaryTerms());
+    assertTrue(result.getCanEditTags());
+    assertTrue(result.getCanEditOwners());
+    assertTrue(result.getCanEditDescription());
+    assertTrue(result.getCanEditLinks());
+    assertTrue(result.getCanManageAssetSummary());
   }
 }

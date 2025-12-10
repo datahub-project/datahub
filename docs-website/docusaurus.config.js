@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p><strong>CONTEXT:</strong> December Town Hall 12/2</p><a href="https://events.datahub.com/december-townhall-2025/?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p>December Town Hall 12/10</p><a href="https://events.datahub.com/december-townhall-2025/?utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -338,7 +338,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "Next",
+              label: "1.3.0",
               banner: 'none',
             },
           },

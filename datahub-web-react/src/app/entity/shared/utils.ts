@@ -193,7 +193,8 @@ export function formatEntityType(type: string): string {
             return EntityType.Test;
         case 'schemafield':
             return EntityType.SchemaField;
-
+        case 'document':
+            return EntityType.Document;
         // these are const in the java app
         case 'dataprocessinstance': // Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME
             return EntityType.DataProcessInstance;

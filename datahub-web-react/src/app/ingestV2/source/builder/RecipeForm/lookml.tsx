@@ -8,6 +8,7 @@ export const LOOKML = 'lookml';
 export const LOOKML_GIT_INFO_REPO: RecipeField = {
     name: 'git_info.repo',
     label: 'Git Repository',
+    helper: 'Git repository name or URL',
     tooltip: (
         <>
             <p>
@@ -32,6 +33,7 @@ const deployKeyFieldPath = 'source.config.git_info.deploy_key';
 export const LOOKML_GIT_INFO_DEPLOY_KEY: RecipeField = {
     name: 'git_info.deploy_key',
     label: 'Git Deploy Key',
+    helper: 'SSH private key for repo access',
     tooltip: (
         <>
             An SSH private key that has been provisioned for read access on the Git repository where the LookML is
@@ -72,6 +74,7 @@ export const LOOKML_GIT_INFO_DEPLOY_KEY: RecipeField = {
 export const LOOKML_GIT_INFO_REPO_SSH_LOCATOR: RecipeField = {
     name: 'git_info.repo_ssh_locator',
     label: 'Repository SSH Locator',
+    helper: 'SSH URL for non-GitHub/GitLab',
     tooltip: (
         <>
             The SSH URL to clone the repository. Required for Git platforms other than GitHub and GitLab (which are
@@ -133,6 +136,7 @@ function validateApiSection(getFieldValue, fieldName) {
 export const LOOKML_BASE_URL: RecipeField = {
     name: 'base_url',
     label: 'Looker Base URL',
+    helper: 'URL to Looker instance',
     tooltip: 'Optional URL to your Looker instance. This is used to generate external URLs for models in your project.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.api.base_url',
@@ -143,6 +147,7 @@ export const LOOKML_BASE_URL: RecipeField = {
 export const LOOKML_CLIENT_ID: RecipeField = {
     name: 'client_id',
     label: 'Looker Client ID',
+    helper: 'Looker API Client ID Required',
     tooltip: 'The Looker API Client ID. Required if Looker Base URL is present.',
     type: FieldType.SECRET,
     placeholder: 'client_id',
@@ -153,6 +158,7 @@ export const LOOKML_CLIENT_ID: RecipeField = {
 export const LOOKML_CLIENT_SECRET: RecipeField = {
     name: 'client_secret',
     label: 'Looker Client Secret',
+    helper: 'Looker API Client Secret Required',
     tooltip: 'A Looker API Client Secret. Required if Looker Base URL is present.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.api.client_secret',
@@ -163,6 +169,7 @@ export const LOOKML_CLIENT_SECRET: RecipeField = {
 export const PROJECT_NAME: RecipeField = {
     name: 'project_name',
     label: 'LookML Project Name',
+    helper: 'LookML project name in Looker',
     tooltip: (
         <>
             The project name within which the LookML files live. See
@@ -199,6 +206,7 @@ export const PROJECT_NAME: RecipeField = {
 export const PARSE_TABLE_NAMES_FROM_SQL: RecipeField = {
     name: 'parse_table_names_from_sql',
     label: 'Extract External Lineage',
+    helper: 'Extract lineage from external sources',
     tooltip:
         'Extract lineage between Looker and the external upstream Data Sources (e.g. Data Warehouses or Databases).',
     type: FieldType.BOOLEAN,
@@ -209,6 +217,7 @@ export const PARSE_TABLE_NAMES_FROM_SQL: RecipeField = {
 export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     name: 'name',
     label: 'Name',
+    helper: 'Looker connection name',
     tooltip: (
         <div>
             Looker connection name. See{' '}
@@ -232,6 +241,7 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
 export const PLATFORM: RecipeField = {
     name: 'platform',
     label: 'Platform',
+    helper: 'Data Platform ID in DataHub',
     tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
     type: FieldType.TEXT,
     fieldPath: 'platform',
@@ -242,6 +252,7 @@ export const PLATFORM: RecipeField = {
 export const DEFAULT_DB: RecipeField = {
     name: 'default_db',
     label: 'Default Database',
+    helper: 'Database for assets from connection',
     tooltip: 'The Database associated with assets from the Looker connection.',
     type: FieldType.TEXT,
     fieldPath: 'default_db',
@@ -254,6 +265,7 @@ const connectionToPlatformMapFieldPath = 'source.config.connection_to_platform_m
 export const CONNECTION_TO_PLATFORM_MAP: RecipeField = {
     name: 'connection_to_platform_map',
     label: 'Connection To Platform Map',
+    helper: 'Map Looker connections to platforms',
     tooltip:
         'A mapping of Looker connection names to DataHub Data Platform and Database names. This is used to create an accurate picture of the Lineage between LookML models and upstream Data Sources.',
     type: FieldType.DICT,

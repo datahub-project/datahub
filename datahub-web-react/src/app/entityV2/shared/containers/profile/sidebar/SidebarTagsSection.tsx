@@ -7,6 +7,7 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
 import { ENTITY_PROFILE_TAGS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
@@ -22,9 +23,10 @@ const Content = styled.div`
 
 interface Props {
     readOnly?: boolean;
+    properties?: any;
 }
 
-export const SidebarTagsSection = ({ readOnly }: Props) => {
+export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -32,7 +34,12 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const areTagsEmpty = !entityData?.globalTags?.tags?.length;
+    // Extract tags using custom hook
+    const { data: tags, isEmpty: areTagsEmpty } = useEntityDataExtractor({
+        customPath: properties?.customTagPath,
+        defaultPath: 'globalTags',
+        arrayProperty: 'tags',
+    });
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
 
@@ -44,7 +51,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                     <Content>
                         {!areTagsEmpty ? (
                             <TagTermGroup
-                                editableTags={entityData?.globalTags}
+                                editableTags={tags}
                                 canAddTag
                                 canRemove
                                 showEmptyMessage

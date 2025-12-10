@@ -3,9 +3,10 @@ import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import { message } from 'antd';
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
+import analytics, { DocumentEditType, EventType } from '@app/analytics';
+import { DocumentTreeNode, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
 import {
     useCreateDocumentTreeMutation,
     useDeleteDocumentTreeMutation,
@@ -29,32 +30,49 @@ vi.mock('antd', () => ({
     },
 }));
 
+// Mock analytics
+vi.mock('@app/analytics', () => ({
+    default: {
+        event: vi.fn(),
+    },
+    EventType: {
+        CreateDocumentEvent: 'CreateDocumentEvent',
+        EditDocumentEvent: 'EditDocumentEvent',
+        MoveDocumentEvent: 'MoveDocumentEvent',
+        DeleteDocumentEvent: 'DeleteDocumentEvent',
+    },
+    DocumentEditType: {
+        Title: 'Title',
+    },
+}));
+
+const createWrapper = (mocks: any[]) => {
+    return ({ children }: { children: React.ReactNode }) => (
+        <MockedProvider mocks={mocks} addTypename={false}>
+            <DocumentTreeProvider>{children}</DocumentTreeProvider>
+        </MockedProvider>
+    );
+};
+
 describe('useDocumentTreeMutations', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        console.error = vi.fn(); // Suppress console.error in tests
+        console.error = vi.fn();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     describe('useCreateDocumentTreeMutation', () => {
-        it('should create a document and update tree optimistically', async () => {
-            const mockAddNode = vi.fn();
-            const mockDeleteNode = vi.fn();
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: mockAddNode,
-                deleteNode: mockDeleteNode,
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: vi.fn(),
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
+        it('should successfully create a root document', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const input = {
+                title: 'New Document',
+                parentDocument: null,
+                subType: 'guide',
             };
 
-            const newUrn = 'urn:li:document:new123';
             const mocks = [
                 {
                     request: {
@@ -63,80 +81,104 @@ describe('useDocumentTreeMutations', () => {
                             input: {
                                 title: 'New Document',
                                 parentDocument: null,
-                                subType: undefined,
-                                contents: { text: '' },
+                                subType: 'guide',
                                 state: DocumentState.Published,
+                                contents: { text: '' },
                                 settings: { showInGlobalContext: true },
                             },
                         },
                     },
                     result: {
                         data: {
-                            createDocument: newUrn,
+                            createDocument: mockUrn,
                         },
                     },
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    createMutation: useCreateDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useCreateDocumentTreeMutation(), { wrapper });
+            const newUrn = await result.current.createMutation.createDocument(input);
 
-            const createdUrnPromise = result.current.createDocument({
-                title: 'New Document',
-                parentDocument: null,
-            });
-
-            // Should add optimistic node immediately
             await waitFor(() => {
-                expect(mockAddNode).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        title: 'New Document',
-                        parentUrn: null,
-                        hasChildren: false,
-                    }),
-                );
+                expect(newUrn).toBe(mockUrn);
+                // Verify analytics was called
+                expect(analytics.event).toHaveBeenCalledWith({
+                    type: EventType.CreateDocumentEvent,
+                    documentUrn: mockUrn,
+                    documentType: 'guide',
+                    hasParent: false,
+                    parentDocumentUrn: undefined,
+                });
+                // Verify node was added to tree
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node).toBeTruthy();
+                expect(node?.title).toBe('New Document');
             });
-
-            const urn = await createdUrnPromise;
-
-            // Should replace temp node with real node
-            await waitFor(() => {
-                expect(mockDeleteNode).toHaveBeenCalled();
-                expect(mockAddNode).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        urn: newUrn,
-                        title: 'New Document',
-                        parentUrn: null,
-                    }),
-                );
-            });
-
-            expect(urn).toBe(newUrn);
         });
 
-        it('should rollback on error', async () => {
-            const mockAddNode = vi.fn();
-            const mockDeleteNode = vi.fn();
+        it('should successfully create a child document', async () => {
+            const parentUrn = 'urn:li:document:parent';
+            const mockUrn = 'urn:li:document:child';
+            const input = {
+                title: 'Child Document',
+                parentDocument: parentUrn,
+                subType: 'reference',
+            };
 
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: mockAddNode,
-                deleteNode: mockDeleteNode,
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: vi.fn(),
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
+            const mocks = [
+                {
+                    request: {
+                        query: CreateDocumentDocument,
+                        variables: {
+                            input: {
+                                title: 'Child Document',
+                                parentDocument: parentUrn,
+                                subType: 'reference',
+                                state: DocumentState.Published,
+                                contents: { text: '' },
+                                settings: { showInGlobalContext: true },
+                            },
+                        },
+                    },
+                    result: {
+                        data: {
+                            createDocument: mockUrn,
+                        },
+                    },
+                },
+            ];
+
+            const { result } = renderHook(() => useCreateDocumentTreeMutation(), {
+                wrapper: createWrapper(mocks),
+            });
+
+            const newUrn = await result.current.createDocument(input);
+
+            await waitFor(() => {
+                expect(newUrn).toBe(mockUrn);
+                expect(analytics.event).toHaveBeenCalledWith({
+                    type: EventType.CreateDocumentEvent,
+                    documentUrn: mockUrn,
+                    documentType: 'reference',
+                    hasParent: true,
+                    parentDocumentUrn: parentUrn,
+                });
+            });
+        });
+
+        it('should rollback on mutation error', async () => {
+            const input = {
+                title: 'Failed Document',
+                parentDocument: null,
             };
 
             const mocks = [
@@ -148,140 +190,89 @@ describe('useDocumentTreeMutations', () => {
                                 title: 'Failed Document',
                                 parentDocument: null,
                                 subType: undefined,
-                                contents: { text: '' },
                                 state: DocumentState.Published,
+                                contents: { text: '' },
                                 settings: { showInGlobalContext: true },
                             },
                         },
                     },
-                    error: new Error('Server error'),
+                    error: new Error('Network error'),
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    createMutation: useCreateDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useCreateDocumentTreeMutation(), { wrapper });
+            const newUrn = await result.current.createMutation.createDocument(input);
 
-            const createdUrn = await result.current.createDocument({
-                title: 'Failed Document',
-                parentDocument: null,
+            await waitFor(() => {
+                expect(newUrn).toBe(null);
+                expect(message.error).toHaveBeenCalledWith('Failed to create document');
+                // Verify no nodes remain in tree (temp node was rolled back)
+                const rootNodes = result.current.tree.getRootNodes();
+                expect(rootNodes).toHaveLength(0);
             });
-
-            expect(createdUrn).toBeNull();
-            expect(message.error).toHaveBeenCalledWith('Failed to create document');
-            // Should have called deleteNode twice: once for the temp node after success, once for rollback
-            expect(mockDeleteNode).toHaveBeenCalled();
         });
 
-        it('should handle creating document with parent and subType', async () => {
-            const mockAddNode = vi.fn();
-            const mockDeleteNode = vi.fn();
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: mockAddNode,
-                deleteNode: mockDeleteNode,
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: vi.fn(),
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
+        it('should rollback when mutation returns no URN', async () => {
+            const input = {
+                title: 'Failed Document',
+                parentDocument: null,
             };
 
-            const newUrn = 'urn:li:document:child123';
-            const parentUrn = 'urn:li:document:parent456';
             const mocks = [
                 {
                     request: {
                         query: CreateDocumentDocument,
                         variables: {
                             input: {
-                                title: 'Child Document',
-                                parentDocument: parentUrn,
-                                subType: 'guide',
-                                contents: { text: '' },
+                                title: 'Failed Document',
+                                parentDocument: null,
+                                subType: undefined,
                                 state: DocumentState.Published,
+                                contents: { text: '' },
                                 settings: { showInGlobalContext: true },
                             },
                         },
                     },
                     result: {
                         data: {
-                            createDocument: newUrn,
+                            createDocument: null,
                         },
                     },
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
-            );
-
-            const { result } = renderHook(() => useCreateDocumentTreeMutation(), { wrapper });
-
-            const createdUrnPromise = result.current.createDocument({
-                title: 'Child Document',
-                parentDocument: parentUrn,
-                subType: 'guide',
-            });
-
-            // Wait for optimistic node to be added
-            await waitFor(() => {
-                expect(mockAddNode).toHaveBeenCalled();
-            });
-
-            const createdUrn = await createdUrnPromise;
-
-            expect(createdUrn).toBe(newUrn);
-            // Should have been called twice: once with temp URN, once with real URN
-            expect(mockAddNode).toHaveBeenCalledTimes(2);
-            expect(mockAddNode).toHaveBeenLastCalledWith(
-                expect.objectContaining({
-                    urn: newUrn,
-                    title: 'Child Document',
-                    parentUrn,
+            const { result } = renderHook(
+                () => ({
+                    createMutation: useCreateDocumentTreeMutation(),
+                    tree: useDocumentTree(),
                 }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
+
+            const newUrn = await result.current.createMutation.createDocument(input);
+
+            await waitFor(() => {
+                expect(newUrn).toBe(null);
+                expect(message.error).toHaveBeenCalledWith('Failed to create document');
+            });
         });
     });
 
     describe('useUpdateDocumentTitleMutation', () => {
-        it('should update title optimistically and persist', async () => {
-            const mockUpdateNodeTitle = vi.fn();
-            const mockGetNode = vi.fn(() => ({
-                urn: 'urn:li:document:123',
-                title: 'Old Title',
-                parentUrn: null,
-                hasChildren: false,
-                children: [],
-            }));
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: vi.fn(),
-                updateNodeTitle: mockUpdateNodeTitle,
-                moveNode: vi.fn(),
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
-            };
+        it('should successfully update document title', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const newTitle = 'Updated Title';
 
             const mocks = [
                 {
@@ -289,8 +280,8 @@ describe('useDocumentTreeMutations', () => {
                         query: UpdateDocumentContentsDocument,
                         variables: {
                             input: {
-                                urn: 'urn:li:document:123',
-                                title: 'New Title',
+                                urn: mockUrn,
+                                title: newTitle,
                             },
                         },
                     },
@@ -302,45 +293,45 @@ describe('useDocumentTreeMutations', () => {
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    updateMutation: useUpdateDocumentTitleMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useUpdateDocumentTitleMutation(), { wrapper });
-
-            const success = await result.current.updateTitle('urn:li:document:123', 'New Title');
-
-            expect(success).toBe(true);
-            expect(mockUpdateNodeTitle).toHaveBeenCalledWith('urn:li:document:123', 'New Title');
-        });
-
-        it('should rollback title on error', async () => {
-            const mockUpdateNodeTitle = vi.fn();
-            const mockGetNode = vi.fn(() => ({
-                urn: 'urn:li:document:123',
+            // Add node to tree first
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
                 title: 'Old Title',
                 parentUrn: null,
                 hasChildren: false,
                 children: [],
-            }));
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: vi.fn(),
-                updateNodeTitle: mockUpdateNodeTitle,
-                moveNode: vi.fn(),
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
             };
+            result.current.tree.addNode(initialNode);
+
+            const success = await result.current.updateMutation.updateTitle(mockUrn, newTitle);
+
+            await waitFor(() => {
+                expect(success).toBe(true);
+                expect(analytics.event).toHaveBeenCalledWith({
+                    type: EventType.EditDocumentEvent,
+                    documentUrn: mockUrn,
+                    editType: DocumentEditType.Title,
+                });
+                // Verify title was updated in tree
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node?.title).toBe(newTitle);
+            });
+        });
+
+        it('should rollback on mutation error', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const oldTitle = 'Old Title';
+            const newTitle = 'Failed Title';
 
             const mocks = [
                 {
@@ -348,59 +339,86 @@ describe('useDocumentTreeMutations', () => {
                         query: UpdateDocumentContentsDocument,
                         variables: {
                             input: {
-                                urn: 'urn:li:document:123',
-                                title: 'New Title',
+                                urn: mockUrn,
+                                title: newTitle,
                             },
                         },
                     },
-                    error: new Error('Server error'),
+                    error: new Error('Update failed'),
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    updateMutation: useUpdateDocumentTitleMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useUpdateDocumentTitleMutation(), { wrapper });
+            // Add node to tree first
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: oldTitle,
+                parentUrn: null,
+                hasChildren: false,
+                children: [],
+            };
+            result.current.tree.addNode(initialNode);
 
-            const success = await result.current.updateTitle('urn:li:document:123', 'New Title');
+            const success = await result.current.updateMutation.updateTitle(mockUrn, newTitle);
 
-            expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to update title');
-            // Should have called updateNodeTitle twice: once optimistically, once to rollback
-            expect(mockUpdateNodeTitle).toHaveBeenCalledTimes(2);
-            expect(mockUpdateNodeTitle).toHaveBeenLastCalledWith('urn:li:document:123', 'Old Title');
+            await waitFor(() => {
+                expect(success).toBe(false);
+                expect(message.error).toHaveBeenCalledWith('Failed to update title');
+                // Verify title was rolled back
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node?.title).toBe(oldTitle);
+            });
+        });
+
+        it('should handle updating non-existent document gracefully', async () => {
+            const mockUrn = 'urn:li:document:nonexistent';
+            const newTitle = 'New Title';
+
+            const mocks = [
+                {
+                    request: {
+                        query: UpdateDocumentContentsDocument,
+                        variables: {
+                            input: {
+                                urn: mockUrn,
+                                title: newTitle,
+                            },
+                        },
+                    },
+                    result: {
+                        data: {
+                            updateDocumentContents: true,
+                        },
+                    },
+                },
+            ];
+
+            const { result } = renderHook(() => useUpdateDocumentTitleMutation(), {
+                wrapper: createWrapper(mocks),
+            });
+
+            const success = await result.current.updateTitle(mockUrn, newTitle);
+
+            await waitFor(() => {
+                expect(success).toBe(true);
+            });
         });
     });
 
     describe('useMoveDocumentTreeMutation', () => {
-        it('should move document optimistically and persist', async () => {
-            const mockMoveNode = vi.fn();
-            const mockGetNode = vi.fn(() => ({
-                urn: 'urn:li:document:123',
-                title: 'Document',
-                parentUrn: 'urn:li:document:oldParent',
-                hasChildren: false,
-                children: [],
-            }));
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: vi.fn(),
-                updateNodeTitle: vi.fn(),
-                moveNode: mockMoveNode,
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
-            };
+        it('should successfully move document to new parent', async () => {
+            const mockUrn = 'urn:li:document:child';
+            const oldParentUrn = 'urn:li:document:oldParent';
+            const newParentUrn = 'urn:li:document:newParent';
 
             const mocks = [
                 {
@@ -408,8 +426,8 @@ describe('useDocumentTreeMutations', () => {
                         query: MoveDocumentDocument,
                         variables: {
                             input: {
-                                urn: 'urn:li:document:123',
-                                parentDocument: 'urn:li:document:newParent',
+                                urn: mockUrn,
+                                parentDocument: newParentUrn,
                             },
                         },
                     },
@@ -421,46 +439,46 @@ describe('useDocumentTreeMutations', () => {
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    moveMutation: useMoveDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useMoveDocumentTreeMutation(), { wrapper });
-
-            const success = await result.current.moveDocument('urn:li:document:123', 'urn:li:document:newParent');
-
-            expect(success).toBe(true);
-            expect(mockMoveNode).toHaveBeenCalledWith('urn:li:document:123', 'urn:li:document:newParent');
-            expect(message.success).toHaveBeenCalledWith('Document moved successfully');
-        });
-
-        it('should rollback move on error', async () => {
-            const mockMoveNode = vi.fn();
-            const mockGetNode = vi.fn(() => ({
-                urn: 'urn:li:document:123',
-                title: 'Document',
-                parentUrn: 'urn:li:document:oldParent',
+            // Add node to tree first
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Child Document',
+                parentUrn: oldParentUrn,
                 hasChildren: false,
                 children: [],
-            }));
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: vi.fn(),
-                updateNodeTitle: vi.fn(),
-                moveNode: mockMoveNode,
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
             };
+            result.current.tree.addNode(initialNode);
+
+            const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
+
+            await waitFor(() => {
+                expect(success).toBe(true);
+                expect(message.success).toHaveBeenCalledWith('Document moved successfully');
+                expect(analytics.event).toHaveBeenCalledWith({
+                    type: EventType.MoveDocumentEvent,
+                    documentUrn: mockUrn,
+                    oldParentDocumentUrn: oldParentUrn,
+                    newParentDocumentUrn: newParentUrn,
+                });
+                // Verify parent was updated in tree
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node?.parentUrn).toBe(newParentUrn);
+            });
+        });
+
+        it('should successfully move document to root level', async () => {
+            const mockUrn = 'urn:li:document:child';
+            const oldParentUrn = 'urn:li:document:parent';
 
             const mocks = [
                 {
@@ -468,99 +486,121 @@ describe('useDocumentTreeMutations', () => {
                         query: MoveDocumentDocument,
                         variables: {
                             input: {
-                                urn: 'urn:li:document:123',
-                                parentDocument: 'urn:li:document:newParent',
+                                urn: mockUrn,
+                                parentDocument: null,
                             },
                         },
                     },
-                    error: new Error('Server error'),
+                    result: {
+                        data: {
+                            moveDocument: true,
+                        },
+                    },
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    moveMutation: useMoveDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useMoveDocumentTreeMutation(), { wrapper });
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Child Document',
+                parentUrn: oldParentUrn,
+                hasChildren: false,
+                children: [],
+            };
+            result.current.tree.addNode(initialNode);
 
-            const success = await result.current.moveDocument('urn:li:document:123', 'urn:li:document:newParent');
+            const success = await result.current.moveMutation.moveDocument(mockUrn, null);
 
-            expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to move document');
-            // Should have called moveNode twice: once optimistically, once to rollback
-            expect(mockMoveNode).toHaveBeenCalledTimes(2);
-            expect(mockMoveNode).toHaveBeenLastCalledWith('urn:li:document:123', 'urn:li:document:oldParent');
+            await waitFor(() => {
+                expect(success).toBe(true);
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node?.parentUrn).toBe(null);
+            });
+        });
+
+        it('should rollback on mutation error', async () => {
+            const mockUrn = 'urn:li:document:child';
+            const oldParentUrn = 'urn:li:document:oldParent';
+            const newParentUrn = 'urn:li:document:newParent';
+
+            const mocks = [
+                {
+                    request: {
+                        query: MoveDocumentDocument,
+                        variables: {
+                            input: {
+                                urn: mockUrn,
+                                parentDocument: newParentUrn,
+                            },
+                        },
+                    },
+                    error: new Error('Move failed'),
+                },
+            ];
+
+            const { result } = renderHook(
+                () => ({
+                    moveMutation: useMoveDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
+            );
+
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Child Document',
+                parentUrn: oldParentUrn,
+                hasChildren: false,
+                children: [],
+            };
+            result.current.tree.addNode(initialNode);
+
+            const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
+
+            await waitFor(() => {
+                expect(success).toBe(false);
+                expect(message.error).toHaveBeenCalledWith('Failed to move document');
+                // Verify parent was rolled back
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node?.parentUrn).toBe(oldParentUrn);
+            });
         });
 
         it('should return false when document not found in tree', async () => {
-            const mockGetNode = vi.fn(() => undefined);
+            const mockUrn = 'urn:li:document:nonexistent';
 
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: vi.fn(),
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
-            };
+            const mocks: any[] = [];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={[]} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
-            );
+            const { result } = renderHook(() => useMoveDocumentTreeMutation(), {
+                wrapper: createWrapper(mocks),
+            });
 
-            const { result } = renderHook(() => useMoveDocumentTreeMutation(), { wrapper });
-
-            const success = await result.current.moveDocument('urn:li:document:nonexistent', 'urn:li:document:parent');
+            const success = await result.current.moveDocument(mockUrn, null);
 
             expect(success).toBe(false);
         });
     });
 
     describe('useDeleteDocumentTreeMutation', () => {
-        it('should delete document optimistically and persist', async () => {
-            const mockDeleteNode = vi.fn();
-            const mockGetNode = vi.fn(() => ({
-                urn: 'urn:li:document:123',
-                title: 'Document to Delete',
-                parentUrn: null,
-                hasChildren: false,
-                children: [],
-            }));
-
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: mockDeleteNode,
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
-            };
+        it('should successfully delete document that exists in tree', async () => {
+            const mockUrn = 'urn:li:document:123';
 
             const mocks = [
                 {
                     request: {
                         query: DeleteDocumentDocument,
-                        variables: {
-                            urn: 'urn:li:document:123',
-                        },
+                        variables: { urn: mockUrn },
                     },
                     result: {
                         data: {
@@ -570,109 +610,159 @@ describe('useDocumentTreeMutations', () => {
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    deleteMutation: useDeleteDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useDeleteDocumentTreeMutation(), { wrapper });
-
-            const success = await result.current.deleteDocument('urn:li:document:123');
-
-            expect(success).toBe(true);
-            expect(mockDeleteNode).toHaveBeenCalledWith('urn:li:document:123');
-            expect(message.success).toHaveBeenCalledWith('Document deleted');
-        });
-
-        it('should rollback delete on error', async () => {
-            const mockDeleteNode = vi.fn();
-            const mockAddNode = vi.fn();
-            const savedNode = {
-                urn: 'urn:li:document:123',
+            // Add node to tree first
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
                 title: 'Document to Delete',
                 parentUrn: null,
                 hasChildren: false,
                 children: [],
             };
-            const mockGetNode = vi.fn(() => savedNode);
+            result.current.tree.addNode(initialNode);
 
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: mockAddNode,
-                deleteNode: mockDeleteNode,
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
-            };
+            const success = await result.current.deleteMutation.deleteDocument(mockUrn);
+
+            await waitFor(() => {
+                expect(success).toBe(true);
+                expect(message.success).toHaveBeenCalledWith('Document deleted');
+                expect(analytics.event).toHaveBeenCalledWith({
+                    type: EventType.DeleteDocumentEvent,
+                    documentUrn: mockUrn,
+                });
+                // Verify node was removed from tree
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node).toBe(undefined);
+            });
+        });
+
+        it('should successfully delete document not in tree (e.g., modal)', async () => {
+            const mockUrn = 'urn:li:document:notInTree';
 
             const mocks = [
                 {
                     request: {
                         query: DeleteDocumentDocument,
-                        variables: {
-                            urn: 'urn:li:document:123',
+                        variables: { urn: mockUrn },
+                    },
+                    result: {
+                        data: {
+                            deleteDocument: true,
                         },
                     },
-                    error: new Error('Server error'),
                 },
             ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
-            );
+            const { result } = renderHook(() => useDeleteDocumentTreeMutation(), {
+                wrapper: createWrapper(mocks),
+            });
 
-            const { result } = renderHook(() => useDeleteDocumentTreeMutation(), { wrapper });
+            const success = await result.current.deleteDocument(mockUrn);
 
-            const success = await result.current.deleteDocument('urn:li:document:123');
-
-            expect(success).toBe(false);
-            expect(message.error).toHaveBeenCalledWith('Failed to delete document');
-            expect(mockDeleteNode).toHaveBeenCalledWith('urn:li:document:123');
-            expect(mockAddNode).toHaveBeenCalledWith(savedNode);
+            await waitFor(() => {
+                expect(success).toBe(true);
+                expect(message.success).toHaveBeenCalledWith('Document deleted');
+            });
         });
 
-        it('should return false when document not found in tree', async () => {
-            const mockGetNode = vi.fn(() => undefined);
+        it('should rollback on mutation error', async () => {
+            const mockUrn = 'urn:li:document:123';
 
-            const mockContextValue = {
-                nodes: new Map(),
-                rootUrns: [],
-                addNode: vi.fn(),
-                deleteNode: vi.fn(),
-                updateNodeTitle: vi.fn(),
-                moveNode: vi.fn(),
-                getNode: mockGetNode,
-                getRootNodes: vi.fn(),
-                getChildren: vi.fn(),
-                initializeTree: vi.fn(),
-                setNodeChildren: vi.fn(),
-            };
+            const mocks = [
+                {
+                    request: {
+                        query: DeleteDocumentDocument,
+                        variables: { urn: mockUrn },
+                    },
+                    error: new Error('Delete failed'),
+                },
+            ];
 
-            const wrapper = ({ children }: any) => (
-                <DocumentTreeContext.Provider value={mockContextValue}>
-                    <MockedProvider mocks={[]} addTypename={false}>
-                        {children}
-                    </MockedProvider>
-                </DocumentTreeContext.Provider>
+            const { result } = renderHook(
+                () => ({
+                    deleteMutation: useDeleteDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
             );
 
-            const { result } = renderHook(() => useDeleteDocumentTreeMutation(), { wrapper });
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Document to Delete',
+                parentUrn: null,
+                hasChildren: false,
+                children: [],
+            };
+            result.current.tree.addNode(initialNode);
 
-            const success = await result.current.deleteDocument('urn:li:document:nonexistent');
+            const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 
-            expect(success).toBe(false);
+            await waitFor(() => {
+                expect(success).toBe(false);
+                expect(message.error).toHaveBeenCalledWith('Failed to delete document');
+                // Verify node was restored in tree
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node).toBeTruthy();
+                expect(node?.title).toBe('Document to Delete');
+            });
+        });
+
+        it('should rollback when mutation returns false', async () => {
+            const mockUrn = 'urn:li:document:123';
+
+            const mocks = [
+                {
+                    request: {
+                        query: DeleteDocumentDocument,
+                        variables: { urn: mockUrn },
+                    },
+                    result: {
+                        data: {
+                            deleteDocument: false,
+                        },
+                    },
+                },
+            ];
+
+            const { result } = renderHook(
+                () => ({
+                    deleteMutation: useDeleteDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
+            );
+
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Document to Delete',
+                parentUrn: null,
+                hasChildren: false,
+                children: [],
+            };
+            result.current.tree.addNode(initialNode);
+
+            const success = await result.current.deleteMutation.deleteDocument(mockUrn);
+
+            await waitFor(() => {
+                expect(success).toBe(false);
+                expect(message.error).toHaveBeenCalledWith('Failed to delete document');
+                // Verify node was restored
+                const node = result.current.tree.getNode(mockUrn);
+                expect(node).toBeTruthy();
+            });
         });
     });
 });

@@ -4,22 +4,33 @@ import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
-import { SectionContainer } from '@app/entityV2/shared/summary/HeaderComponents';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { AndFilterInput, DocumentRelatedAsset, DocumentRelatedDocument, EntityType, FilterOperator } from '@types';
 
+const Section = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    &:hover {
+        .hover-btn {
+            display: flex;
+        }
+    }
+    padding-top: 20px;
+`;
+
 const SectionHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
 `;
 
 const SectionTitle = styled.h4`
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     margin: 0;
     color: ${colors.gray[600]};
@@ -35,8 +46,8 @@ const EmptyState = styled.div`
     font-size: 14px;
     font-weight: 400;
     color: ${colors.gray[1800]};
-    text-align: center;
-    padding: 8px;
+    text-align: start;
+    padding: 0px;
 `;
 
 const EntityItemContainer = styled.div`
@@ -172,7 +183,7 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     };
 
     return (
-        <SectionContainer>
+        <Section>
             <SectionHeader>
                 <SectionTitle>Related</SectionTitle>
                 {canEdit && (
@@ -224,9 +235,9 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
                         );
                     })
                 ) : (
-                    <EmptyState>No related assets or context</EmptyState>
+                    <EmptyState>Add related assets or context</EmptyState>
                 )}
             </List>
-        </SectionContainer>
+        </Section>
     );
 };

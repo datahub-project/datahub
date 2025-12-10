@@ -241,7 +241,7 @@ describe('MultiStepFormContext', () => {
                 await result.current.submit();
             });
 
-            expect(mockSubmit).toHaveBeenCalledWith(initialState);
+            expect(mockSubmit).toHaveBeenCalledWith(initialState, undefined);
         });
 
         it('should handle submit when no onSubmit is provided', async () => {
@@ -301,6 +301,79 @@ describe('MultiStepFormContext', () => {
             const { result } = renderMultiStepContextHook<TestState>({ steps: [mockStep1, mockStep2] });
 
             expect(result.current.getCurrentStep()).toEqual(mockStep1);
+        });
+    });
+
+    describe('OnNextHandler', () => {
+        it('should execute the onNextHandler when going to next step', () => {
+            const mockNextHandler = vi.fn();
+            const { result } = renderMultiStepContextHook<TestState>({ steps: [mockStep1, mockStep2] });
+
+            // Set the next handler
+            act(() => {
+                result.current.setOnNextHandler(mockNextHandler);
+            });
+
+            // Go to next step
+            act(() => {
+                result.current.goToNext();
+            });
+
+            expect(mockNextHandler).toHaveBeenCalled();
+            expect(result.current.currentStepIndex).toBe(1);
+        });
+
+        it('should reset the onNextHandler after execution', () => {
+            const mockNextHandler = vi.fn();
+            const { result } = renderMultiStepContextHook<TestState>({ steps: [mockStep1, mockStep2] });
+
+            // Set the next handler
+            act(() => {
+                result.current.setOnNextHandler(mockNextHandler);
+            });
+
+            // Go to next step
+            act(() => {
+                result.current.goToNext();
+            });
+
+            // The handler should have been executed and reset
+            expect(mockNextHandler).toHaveBeenCalled();
+
+            // Set handler again and ensure it can be called again in the next step
+            const mockNextHandler2 = vi.fn();
+            act(() => {
+                result.current.setOnNextHandler(mockNextHandler2);
+            });
+
+            act(() => {
+                result.current.goToPrevious(); // Go back to step 1
+            });
+            act(() => {
+                result.current.goToNext(); // Go to step 2 again
+            });
+
+            expect(mockNextHandler2).toHaveBeenCalled();
+        });
+
+        it('should handle onNextHandler function execution', () => {
+            // Test that the onNextHandler is executed properly without errors
+            const mockNextHandler = vi.fn();
+
+            const { result } = renderMultiStepContextHook<TestState>({ steps: [mockStep1, mockStep2] });
+
+            // Set the next handler
+            act(() => {
+                result.current.setOnNextHandler(mockNextHandler);
+            });
+
+            // Call goToNext - this should execute the handler
+            act(() => {
+                result.current.goToNext();
+            });
+
+            // Verify the handler was called
+            expect(mockNextHandler).toHaveBeenCalled();
         });
     });
 });

@@ -17,6 +17,7 @@ export interface AutoCompleteProps {
     defaultValue?: ValueType;
     options: OptionType[];
     open?: boolean;
+    placeholder?: string;
 
     defaultActiveFirstOption?: boolean;
     filterOption?: boolean | ((inputValue: ValueType, option?: OptionType) => boolean);
