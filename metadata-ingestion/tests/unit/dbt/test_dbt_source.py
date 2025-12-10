@@ -1899,8 +1899,8 @@ def test_parse_semantic_view_cll_no_upstream_nodes() -> None:
         ORDERS.CUSTOMER_ID AS CUSTOMER_ID
     )
     """
-    upstream_nodes = []  # No upstream nodes
-    all_nodes_map = {}
+    upstream_nodes: List[str] = []  # No upstream nodes
+    all_nodes_map: Dict[str, Any] = {}
 
     cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
 
