@@ -29,12 +29,14 @@ jobs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        if: false
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Check if flaky tests need to run
         id: check
+        if: false
         run: |
           # If manual trigger, always run
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -77,8 +79,8 @@ jobs:
 
   setup:
     runs-on: depot-ubuntu-24.04-small
-    needs: [check_changes]
-    if: needs.check_changes.outputs.should_run == 'true'
+    #needs: [check_changes]
+    # if: needs.check_changes.outputs.should_run == 'true'
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       date_tag: ${{ steps.tag.outputs.date_tag }}
@@ -177,8 +179,8 @@ jobs:
   run_flaky_tests:
     name: Run Flaky Tests (Run ${{ matrix.run_number }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs: [check_changes, setup]
-    if: needs.check_changes.outputs.should_run == 'true'
+    needs: [setup]
+    #if: needs.check_changes.outputs.should_run == 'true'
     strategy:
       fail-fast: false
       matrix:
