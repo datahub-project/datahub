@@ -4,6 +4,9 @@ import { Button } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { getKatexPlugins } from '@app/shared/markdown/katexConfig';
+import 'katex/dist/katex.min.css';
+
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     position: absolute;
@@ -106,7 +109,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                 limit={ignoreLimit ? undefined : `${limit}`}
                 over={height >= limit && !ignoreLimit ? 'true' : undefined}
             >
-                <MarkdownView ref={ref} source={source} />
+                <MarkdownView ref={ref as any} source={source} {...(getKatexPlugins() as any)} />
             </MarkdownViewContainer>
             {height >= limit && !ignoreLimit && (
                 <CustomButton type="link" onClick={() => setShowAll(!showAll)}>
