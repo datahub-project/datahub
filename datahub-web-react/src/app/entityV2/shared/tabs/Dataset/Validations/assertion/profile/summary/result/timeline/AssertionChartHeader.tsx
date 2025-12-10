@@ -12,6 +12,7 @@ import {
 import { getBestChartTypeForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { getIsSmartAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionUtils';
+import { useIsFreshnessAssertionTuningEnabled } from '@app/useAppConfig';
 
 import { Assertion, Maybe, Monitor } from '@types';
 
@@ -46,25 +47,28 @@ type Props = {
 const AssertionChartHeader = ({ title, timeRange, assertion, monitor, onOpenTunePredictionsModal }: Props) => {
     const isSmartAssertion = getIsSmartAssertion(assertion);
     const bestChartType = getBestChartTypeForAssertion(assertion.info);
+    const isFreshnessAssertionTuningEnabled = useIsFreshnessAssertionTuningEnabled();
     return (
         <VizHeader>
             <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
-            {isSmartAssertion && bestChartType === AssertionChartType.ValuesOverTime && (
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                        if (!monitor) {
-                            message.error('Could not find the monitor for this assertion.');
-                        } else {
-                            onOpenTunePredictionsModal();
-                        }
-                    }}
-                >
-                    <Sparkle weight="fill" size={12} />
-                    <Text>Tune Predictions</Text>
-                </Button>
-            )}
+            {isSmartAssertion &&
+                (bestChartType === AssertionChartType.ValuesOverTime ||
+                    (isFreshnessAssertionTuningEnabled && bestChartType === AssertionChartType.Freshness)) && (
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            if (!monitor) {
+                                message.error('Could not find the monitor for this assertion.');
+                            } else {
+                                onOpenTunePredictionsModal();
+                            }
+                        }}
+                    >
+                        <Sparkle weight="fill" size={12} />
+                        <Text>Tune Predictions</Text>
+                    </Button>
+                )}
         </VizHeader>
     );
 };
