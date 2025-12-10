@@ -329,7 +329,7 @@ jobs:
           TEST_STRATEGY: "cypress"
           BATCH_COUNT: "1"
           BATCH_NUMBER: "0"
-          FILTERED_TESTS: "smoke-test/flaky-tests.txt"
+          FILTERED_TESTS: "flaky-tests.txt" # relative to smoke-test dir
           PROFILE_NAME: ${{ matrix.profile }}
         run: |
           echo "$DATAHUB_VERSION"

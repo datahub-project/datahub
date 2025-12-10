@@ -253,7 +253,7 @@ def _get_filtered_or_batched_tests():
     Returns list of test file paths relative to cypress/e2e/
     """
     filtered_tests_file = env_vars.get_filtered_tests_file()
-    if filtered_tests_file and os.path.exists(filtered_tests_file):
+    if filtered_tests_file:
         logger.info(f"Reading filtered tests from {filtered_tests_file}")
         with open(filtered_tests_file) as f:
             # Read non-empty lines, strip whitespace, ignore comments
