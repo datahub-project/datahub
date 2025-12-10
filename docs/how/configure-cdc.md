@@ -874,17 +874,29 @@ curl http://localhost:8083/connectors/datahub-cdc-connector/status
 - GMS logs show MCL emission
 
 **Cause:**
-`CDC_MCL_PROCESSING_ENABLED` is not set to `true` in GMS environment.
+`CDC_MCL_PROCESSING_ENABLED` is not set to `true` in **all required containers** (gms, mce-consumer, and datahub-upgrade).
 
 **Fix:**
+
+Ensure `CDC_MCL_PROCESSING_ENABLED=true` is set for **all three containers**:
 
 ```yaml
 datahub-gms:
   environment:
-    - CDC_MCL_PROCESSING_ENABLED=true # Add this!
+    - CDC_MCL_PROCESSING_ENABLED=true # Required!
+mce-consumer:
+  environment:
+    - CDC_MCL_PROCESSING_ENABLED=true # Required!
+datahub-upgrade:
+  environment:
+    - CDC_MCL_PROCESSING_ENABLED=true # Required!
 ```
 
-Restart GMS after adding the environment variable.
+**Important:** After setting these environment variables, you must restart **GMS and mce-consumer** for the changes to take effect:
+
+```bash
+docker-compose restart datahub-gms mce-consumer
+```
 
 #### Replication Slot Growth (PostgreSQL)
 
