@@ -242,6 +242,33 @@ def _get_cypress_tests_batch():
     return test_batches[env_vars.get_batch_number()]
 
 
+def _get_filtered_or_batched_tests():
+    """
+    Read tests from a file if FILTERED_TESTS env var is set, pointing to a file.
+    Otherwise, fall back to normal batching logic.
+
+    This allows running a specific subset of tests for any purpose (flaky tests,
+    smoke tests, regression tests, etc.) by setting FILTERED_TESTS=/path/to/file.
+
+    Returns list of test file paths relative to cypress/e2e/
+    """
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file and os.path.exists(filtered_tests_file):
+        logger.info(f"Reading filtered tests from {filtered_tests_file}")
+        with open(filtered_tests_file) as f:
+            # Read non-empty lines, strip whitespace, ignore comments
+            tests = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        logger.info(f"Found {len(tests)} filtered tests to run")
+        return tests
+    else:
+        logger.info("No FILTERED_TESTS set, using batching logic")
+        return _get_cypress_tests_batch()
+
+
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = env_vars.get_cypress_record_key()
@@ -261,7 +288,7 @@ def test_run_cypress(auth_session):
 
     logger.info(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    specs_str = ",".join([f"**/{f}" for f in _get_filtered_or_batched_tests()])
     test_spec_arg = f" --spec '{specs_str}' "
 
     logger.info("Running Cypress tests with command")
