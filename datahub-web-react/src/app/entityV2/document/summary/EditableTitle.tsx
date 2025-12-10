@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
@@ -7,6 +7,7 @@ import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
     width: 100%;
+    min-width: 0;
 `;
 
 const TitleInput = styled.textarea<{ $editable: boolean }>`
@@ -18,16 +19,21 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     outline: none;
     background: transparent;
     width: 100%;
+    min-width: 0;
     padding: 6px 8px;
     margin: -6px -8px;
     cursor: ${(props) => (props.$editable ? 'text' : 'default')};
     border-radius: 4px;
     resize: none;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     font-family: inherit;
     white-space: pre-wrap;
     word-wrap: break-word;
-
+    overflow-wrap: break-word;
+    box-sizing: border-box;
+    min-height: calc(32px * 1.4 + 12px); /* 1 row: font-size * line-height + padding */
+    max-height: calc(32px * 1.4 * 3 + 12px); /* 3 rows: font-size * line-height * 3 + padding */
     &:hover {
         background-color: transparent;
     }
@@ -50,6 +56,7 @@ interface Props {
 export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) => {
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const { canEditTitle } = useDocumentPermissions(documentUrn);
     const { updateTitle } = useUpdateDocumentTitleMutation();
 
@@ -57,12 +64,22 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
         setTitle(initialTitle || '');
     }, [initialTitle]);
 
-    // Auto-resize textarea to fit content
-    const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-        const target = e.currentTarget;
-        target.style.height = 'auto';
-        target.style.height = `${target.scrollHeight}px`;
-    };
+    // Auto-resize textarea up to 3 rows, then scroll
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const { style, scrollHeight } = textarea;
+
+        // Reset height to auto to get the correct scrollHeight
+        style.height = 'auto';
+
+        // Calculate max height for 3 rows (font-size * line-height * 3 + padding)
+        const maxHeight = 32 * 1.4 * 3 + 12; // ~146px
+
+        // Set height to scrollHeight, but cap at maxHeight
+        style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+    }, [title]);
 
     const handleBlur = async () => {
         if (title !== initialTitle && !isSaving) {
@@ -85,10 +102,10 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     return (
         <TitleContainer>
             <TitleInput
+                ref={textareaRef}
                 data-testid="document-title-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onInput={handleInput}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 $editable={canEditTitle}

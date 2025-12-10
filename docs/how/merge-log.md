@@ -2214,3 +2214,75 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **ab2348dcddc** - feat(ui/ingestion): build new source selection screen (#15471)
   *by Purnima Garg on 2025-12-03*
 
+
+## Upstream Merge Session - 2025-12-09 03:21:40
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-09-032139`
+- **Merge Base**: `ab2348dcddc35504fe9b8ec5f9573ced1cb9b96a`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 19
+- **Strategy**: stacked
+- **Started**: Tue Dec  9 03:21:40 UTC 2025
+
+### Commits Included in This Merge
+- **fe5209113e** - fix(search): fix suggestion conversion for ES8 (#15426)
+  *by Deepak Garg on 2025-12-04*
+
+- **39bbe14615** - feat(kafka): add lightweight Kafka connectivity validation function (#15472)
+  *by Max Margalith on 2025-12-04*
+
+- **4074d1ff0e** - chore(deps): update org.ow2.asm dependency in datahub-client (#15478)
+  *by Deepak Garg on 2025-12-04*
+
+- **dc914b30d2** - feat(ingest): add convert to lowercase for s3 (#15475)
+  *by Kevin Karch on 2025-12-04*
+
+- **ddd93212bb** - feat(events): improve events kafka pool & client retry (#15429)
+  *by david-leifker on 2025-12-04*
+
+- **599585b78d** - ES clear: delete indices themselves, not all the docs (#15449)
+  *by jmacryl on 2025-12-04*
+
+- **0dfa9151ac** - fix(changeEvent): fix reinstate lifecycle event condition (#15476)
+  *by RyanHolstien on 2025-12-04*
+
+- **f3f2e3b84b** - docs(release): Revise known issues in release notes for v0.3.15 (#15465)
+  *by Jay on 2025-12-04*
+
+- **a69cadfc6a** - fix(ui): Limit the number of entities per page in search (#5198) (#14871)
+  *by Chris Collins on 2025-12-04*
+
+- **2b30460506** - feat(python): make MCE Topic in Kafka sink as optional (#14150)
+  *by P Anshul Jain on 2025-12-05*
+
+- **90546d5253** - feat(structured-properties): add version field to StructuredProperties (#15255)
+  *by Pedro Silva on 2025-12-04*
+
+- **f303fd6e1c** - docs(mcp): mcp server setup instructions (#15484)
+  *by jamesmayfield-star on 2025-12-04*
+
+- **697be4162e** - docs: reference field-path-spec-v2 in SchemaFieldPath (#15477)
+  *by varun patil on 2025-12-05*
+
+- **0ef44191df** - test: make flaky neo4j integration test less flaky (#15492)
+  *by David Haglund on 2025-12-08*
+
+- **b238dcdfcc** - docs: Update GraqhQL query in external OAuth authentication docs (#15493)
+  *by David Haglund on 2025-12-08*
+
+- **ef46ed1d7a** - feat(ui/ingestion): add search by name on source selection screen (#15488)
+  *by Purnima Garg on 2025-12-08*
+
+- **0a14181fea** - docs: revert versioned docs (#15486)
+  *by Hyejin Yoon on 2025-12-08*
+
+- **6da6e6c99d** - feat(context): Support Viewing and Adding Related Context to All Asset Types (#15453)
+  *by John Joyce on 2025-12-08*
+
+- **ed72cf42f0** - fix(es8): fix role creation issues (#15485)
+  *by RyanHolstien on 2025-12-08*
+

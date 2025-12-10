@@ -243,6 +243,10 @@ export class DomainEntity implements Entity<Domain> {
 
     supportedCapabilities = () => {
         // TODO.. Determine whether SOFT_DELETE should go into here.
-        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.TEST]);
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.TEST,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+        ]);
     };
 }

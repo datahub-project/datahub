@@ -19,13 +19,13 @@ import com.linkedin.datahub.graphql.generated.DocumentParentDocument;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedAsset;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedDocument;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
@@ -179,10 +179,10 @@ public class DocumentMapper {
     result.setContents(graphqlContent);
 
     // Map created audit stamp
-    result.setCreated(AuditStampMapper.map(null, info.getCreated()));
+    result.setCreated(MapperUtils.createResolvedAuditStamp(info.getCreated()));
 
     // Map lastModified audit stamp
-    result.setLastModified(AuditStampMapper.map(null, info.getLastModified()));
+    result.setLastModified(MapperUtils.createResolvedAuditStamp(info.getLastModified()));
 
     // Map related assets - create stubs that will be resolved by GraphQL batch loaders
     if (info.hasRelatedAssets()) {
