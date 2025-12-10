@@ -5,7 +5,6 @@ import { Group } from '@visx/group';
 import { scaleBand } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import { TooltipWithBounds, useTooltip } from '@visx/tooltip';
-import { DatePicker } from 'antd';
 import { scaleLinear } from 'd3-scale';
 import moment from 'moment';
 import { ArrowCounterClockwise } from 'phosphor-react';
@@ -29,63 +28,23 @@ const CADENCE_CONFIG = {
         maxHours: 12, // Maximum average time between updates for hourly category
         maxYMs: 12 * 60 * 60 * 1000, // Maximum Y-axis value in milliseconds (12 hours) before we clip the bar
         useDaysFormat: false,
+        stepSizeMs: 4 * 60 * 60 * 1000, // Step size for Y-axis ticks (4 hours)
     },
     daily: {
         minHours: 12,
         maxHours: 48, // (48 hours)
         maxYMs: 36 * 60 * 60 * 1000, // (36 hours)
         useDaysFormat: false,
+        stepSizeMs: 4 * 60 * 60 * 1000, // Step size for Y-axis ticks (4 hours)
     },
     weekly: {
         minHours: 48,
         maxHours: Infinity,
         maxYMs: 14 * 24 * 60 * 60 * 1000, // (14 days)
         useDaysFormat: true, // Show in days on the Y-axis for large values
+        stepSizeMs: 2 * 24 * 60 * 60 * 1000, // Step size for Y-axis ticks (2 days)
     },
 } as const;
-
-const { RangePicker } = DatePicker;
-
-const DateRangeContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-`;
-
-const StyledRangePicker = styled(RangePicker)`
-    .ant-picker-input > input {
-        font-size: 12px;
-    }
-
-    .ant-picker-separator {
-        color: ${colors.gray[400]};
-    }
-
-    .ant-picker-suffix {
-        order: -1;
-        margin-left: 0;
-        margin-right: 8px;
-    }
-
-    .ant-picker-input {
-        display: flex;
-        align-items: center;
-    }
-
-    border: 1px solid ${colors.gray[100]};
-    border-radius: 8px;
-    padding: 8px;
-    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
-
-    &:hover {
-        border-color: ${colors.primary[400]};
-    }
-
-    &.ant-picker-focused {
-        border-color: ${colors.primary[500]};
-    }
-`;
 
 const Legend = styled.div`
     display: flex;
@@ -124,13 +83,14 @@ const ResetZoomButton = styled(Button)`
 `;
 
 const ZoomInstructionText = styled(Text)`
-    font-size: 11px;
+    font-size: 14px;
     color: ${colors.gray[1700]};
 `;
 
 const ChartContainer = styled.div`
     display: flex;
     flex-direction: column;
+    position: relative;
 `;
 
 const ChartInteractionContainer = styled.div<{ $isSelecting: boolean }>`
@@ -174,9 +134,8 @@ type Props = {
     height: number;
     onRangeChange: (range: { start: number; end: number }) => void;
     resetRange?: () => void;
-    onDateRangeChange: (startDate: moment.Moment | null, endDate: moment.Moment | null) => void;
-    dateRange: [moment.Moment | null, moment.Moment | null];
     currentTime: number;
+    range?: { start: number; end: number };
 };
 
 /**
@@ -189,7 +148,7 @@ const formatTimeDuration = (ms: number, useDays = false): string => {
     const days = hours / 24;
 
     if (useDays) {
-        return `${Math.round(days * 10) / 10}d`;
+        return `${Math.round(days)}d`;
     }
     // When useDays is false, always show hours (even if >= 24 hours)
     // This prevents duplicate labels when values round to the same day
@@ -213,12 +172,19 @@ const determineCadence = (
     category: CadenceCategory;
     maxY: number; // in milliseconds
     useDaysFormat: boolean;
+    stepSizeMs: number; // Step size for Y-axis ticks
 } => {
+    // Helper function to round up to nearest multiple of step size
+    const roundToStep = (value: number, step: number): number => {
+        return Math.ceil(value / step) * step;
+    };
+
     if (barData.length === 0) {
         return {
             category: 'daily',
             maxY: CADENCE_CONFIG.daily.maxYMs,
             useDaysFormat: CADENCE_CONFIG.daily.useDaysFormat,
+            stepSizeMs: CADENCE_CONFIG.daily.stepSizeMs,
         };
     }
 
@@ -230,6 +196,7 @@ const determineCadence = (
             category: 'daily',
             maxY: CADENCE_CONFIG.daily.maxYMs,
             useDaysFormat: CADENCE_CONFIG.daily.useDaysFormat,
+            stepSizeMs: CADENCE_CONFIG.daily.stepSizeMs,
         };
     }
 
@@ -239,30 +206,36 @@ const determineCadence = (
 
     // Hourly: average >= minHours and < maxHours
     if (averageHours >= CADENCE_CONFIG.hourly.minHours && averageHours < CADENCE_CONFIG.hourly.maxHours) {
-        const maxY = Math.min(CADENCE_CONFIG.hourly.maxYMs, maxFreshnessDelay);
+        const rawMaxY = Math.min(CADENCE_CONFIG.hourly.maxYMs, maxFreshnessDelay);
+        const maxY = roundToStep(rawMaxY, CADENCE_CONFIG.hourly.stepSizeMs);
         return {
             category: 'hourly',
             maxY,
             useDaysFormat: CADENCE_CONFIG.hourly.useDaysFormat,
+            stepSizeMs: CADENCE_CONFIG.hourly.stepSizeMs,
         };
     }
 
     // Daily: average >= minHours and <= maxHours
     if (averageHours >= CADENCE_CONFIG.daily.minHours && averageHours <= CADENCE_CONFIG.daily.maxHours) {
-        const maxY = Math.min(CADENCE_CONFIG.daily.maxYMs, maxFreshnessDelay);
+        const rawMaxY = Math.min(CADENCE_CONFIG.daily.maxYMs, maxFreshnessDelay);
+        const maxY = roundToStep(rawMaxY, CADENCE_CONFIG.daily.stepSizeMs);
         return {
             category: 'daily',
             maxY,
             useDaysFormat: CADENCE_CONFIG.daily.useDaysFormat,
+            stepSizeMs: CADENCE_CONFIG.daily.stepSizeMs,
         };
     }
 
     // Weekly: average >= minHours
-    const maxY = Math.min(CADENCE_CONFIG.weekly.maxYMs, maxFreshnessDelay);
+    const rawMaxY = Math.min(CADENCE_CONFIG.weekly.maxYMs, maxFreshnessDelay);
+    const maxY = roundToStep(rawMaxY, CADENCE_CONFIG.weekly.stepSizeMs);
     return {
         category: 'weekly',
         maxY,
         useDaysFormat: CADENCE_CONFIG.weekly.useDaysFormat,
+        stepSizeMs: CADENCE_CONFIG.weekly.stepSizeMs,
     };
 };
 
@@ -342,16 +315,15 @@ export const DataFreshnessChart = ({
     height,
     onRangeChange,
     resetRange,
-    onDateRangeChange,
-    dateRange,
     currentTime,
+    range,
 }: Props) => {
-    // Calculate time range from dateRange prop or data
+    // Calculate time range from range prop if provided, otherwise from operations data
     const timeRange = (() => {
-        if (dateRange[0] && dateRange[1]) {
+        if (range) {
             return {
-                startMs: dateRange[0].valueOf(),
-                endMs: dateRange[1].valueOf(),
+                startMs: range.start,
+                endMs: range.end,
             };
         }
         if (operations.length === 0) {
@@ -372,25 +344,21 @@ export const DataFreshnessChart = ({
         return calculateBarData(operations, timeRange.startMs, timeRange.endMs);
     }, [operations, timeRange.startMs, timeRange.endMs]);
 
-    // Wrapper to convert RangePicker's onChange format to our expected format
-    const handleDateRangeChange = useCallback(
-        (dates: [moment.Moment | null, moment.Moment | null] | null) => {
-            const [startDate, endDate] = dates || [null, null];
-            onDateRangeChange(startDate, endDate);
-        },
-        [onDateRangeChange],
-    );
-
     const chartHeight = height - 100; // Subtract space for header/legend
     const chartInnerHeight = chartHeight - CHART_AXIS_BOTTOM_HEIGHT - CHART_AXIS_TOP_MARGIN;
     const chartInnerWidth = width - CHART_HORIZ_MARGIN - CHART_AXIS_LEFT_WIDTH;
 
     // Determine cadence and calculate Y scale
-    const { maxY: cadenceMaxY, useDaysFormat } = useMemo(() => {
+    const {
+        maxY: cadenceMaxY,
+        useDaysFormat,
+        stepSizeMs,
+    } = useMemo(() => {
         const cadence = determineCadence(barData);
         return {
             maxY: cadence.maxY,
             useDaysFormat: cadence.useDaysFormat,
+            stepSizeMs: cadence.stepSizeMs,
         };
     }, [barData]);
 
@@ -408,12 +376,34 @@ export const DataFreshnessChart = ({
               });
 
     // Calculate Y scale based on cadence category
-    const minY = 0;
-    const maxY = cadenceMaxY;
-    const padding = maxY * 0.05; // 5% padding
-    const paddedMin = Math.max(0, minY - padding);
-    const paddedMax = maxY + padding;
+    // maxY is already rounded to step size in determineCadence
+    const paddedMin = 0;
+    const paddedMax = cadenceMaxY;
+
     const yScale = scaleLinear([paddedMin, paddedMax], [chartInnerHeight, 0]);
+
+    // Generate whole number tick values using step size from cadence config
+    const yAxisTickValues = useDaysFormat
+        ? (() => {
+              // Step size of 2 days for weekly cadence
+              const maxDays = paddedMax / (24 * 60 * 60 * 1000);
+              const stepDays = stepSizeMs / (24 * 60 * 60 * 1000);
+              const ticks: number[] = [];
+              for (let i = 0; i <= maxDays; i += stepDays) {
+                  ticks.push(i * 24 * 60 * 60 * 1000);
+              }
+              return ticks;
+          })()
+        : (() => {
+              // Step size of 4 hours for hourly and daily cadences
+              const maxHours = paddedMax / (60 * 60 * 1000);
+              const stepHours = stepSizeMs / (60 * 60 * 1000);
+              const ticks: number[] = [];
+              for (let i = 0; i <= maxHours; i += stepHours) {
+                  ticks.push(i * 60 * 60 * 1000);
+              }
+              return ticks;
+          })();
 
     // Generate date labels for x-axis (only first and last)
     const dateLabels = (() => {
@@ -525,8 +515,16 @@ export const DataFreshnessChart = ({
 
     if (loading) {
         return (
-            <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loading />
+            <div
+                style={{
+                    width,
+                    height: height - 65,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <Loading marginTop={0} />
             </div>
         );
     }
@@ -534,20 +532,10 @@ export const DataFreshnessChart = ({
     if (barData.length === 0) {
         return (
             <ChartContainer>
-                <DateRangeContainer>
-                    <StyledRangePicker
-                        value={dateRange}
-                        onChange={handleDateRangeChange}
-                        format="MMM DD, YYYY"
-                        allowClear={false}
-                        placeholder={['Start Date', 'End Date']}
-                        size="small"
-                    />
-                </DateRangeContainer>
                 <div
                     style={{
                         width,
-                        height: height - 60,
+                        height: height - 65,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -563,16 +551,6 @@ export const DataFreshnessChart = ({
 
     return (
         <ChartContainer>
-            <DateRangeContainer>
-                <StyledRangePicker
-                    value={dateRange}
-                    onChange={handleDateRangeChange}
-                    format="MMM DD, YYYY"
-                    allowClear={false}
-                    placeholder={['Start Date', 'End Date']}
-                    size="small"
-                />
-            </DateRangeContainer>
             <Legend>
                 <LegendItem $color={BAR_COLOR}>Included in training set</LegendItem>
                 <LegendItem $color={BAR_EXCEEDS_MAX_COLOR}>Included in training set, but later than usual</LegendItem>
@@ -611,6 +589,7 @@ export const DataFreshnessChart = ({
                             stroke={ANTD_GRAY[4]}
                             tickStroke={ANTD_GRAY[9]}
                             tickLength={4}
+                            tickValues={yAxisTickValues}
                             tickFormat={(v) => formatTimeDuration(v.valueOf(), useDaysFormat)}
                             tickLabelProps={{
                                 fill: ANTD_GRAY[9],

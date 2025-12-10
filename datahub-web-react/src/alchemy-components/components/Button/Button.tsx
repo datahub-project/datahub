@@ -42,7 +42,7 @@ export const Button = ({
 
     if (isLoading) {
         return (
-            <ButtonBase {...styleProps} {...props}>
+            <ButtonBase {...styleProps} {...props} disabled={isDisabled || props.disabled}>
                 <LoadingOutlined rotate={10} /> {!isCircle && children}
             </ButtonBase>
         );
@@ -50,7 +50,7 @@ export const Button = ({
 
     // Prefer `icon.size` over `size` for icon size
     return (
-        <ButtonBase {...styleProps} {...props}>
+        <ButtonBase {...styleProps} {...props} disabled={isDisabled || props.disabled}>
             {icon && iconPosition === 'left' && <Icon size={size} {...icon} />}
             {!isCircle && children}
             {icon && iconPosition === 'right' && <Icon size={size} {...icon} />}
