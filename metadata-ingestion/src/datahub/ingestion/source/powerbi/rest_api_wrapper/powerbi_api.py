@@ -721,11 +721,15 @@ class PowerBiAPI:
                 Constant.Authorization: access_token,
             }
 
-            logger.debug(f"Downloading PBIX file via GET from {export_url}")
+            logger.debug("Downloading PBIX file via GET from %s", export_url)
 
             # Make the GET request with streaming enabled
+            # Use configurable timeout for large PBIX file downloads
             export_response = self._get_resolver()._request_session.get(
-                export_url, headers=headers, stream=True
+                export_url,
+                headers=headers,
+                stream=True,
+                timeout=self.__config.pbix_download_timeout_seconds,
             )
 
             if data_resolver.is_http_failure(

@@ -589,7 +589,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": (
         microsoft_common
-        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+        | {"lark[regex]==1.1.4", "sqlparse", "more-itertools", "pbixray>=0.5.0"}
         | sqlglot_lib
         | threading_timeout_common
     ),

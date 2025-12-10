@@ -561,7 +561,7 @@ class Mapper:
         """Extract DAX references with logging and error handling."""
         self.__reporter.dax_parse_attempts += 1
         try:
-            logger.debug(f"Extracting lineage from DAX {entity_type}: {entity_name}")
+            logger.debug("Extracting lineage from DAX %s: %s", entity_type, entity_name)
             references = extract_table_column_references(dax_expression)
 
             if references:
@@ -590,9 +590,11 @@ class Mapper:
             if ref.table_name in table_urn_mapping:
                 urn = table_urn_mapping[ref.table_name]
                 if ref.column_name:
-                    logger.debug(f"  ✓ {ref.table_name}.{ref.column_name} -> {urn}")
+                    logger.debug(
+                        "  ✓ %s.%s -> %s", ref.table_name, ref.column_name, urn
+                    )
                 else:
-                    logger.debug(f"  ✓ {ref.table_name} (table reference) -> {urn}")
+                    logger.debug("  ✓ %s (table reference) -> %s", ref.table_name, urn)
             else:
                 available_tables = sorted(list(table_urn_mapping.keys()))
                 logger.warning(
@@ -751,7 +753,7 @@ class Mapper:
         if not (table.expression and _is_dax_expression(table.expression)):
             return [], []
 
-        logger.info(f"Processing DAX calculated table: {table.full_name}")
+        logger.info("Processing DAX calculated table: %s", table.full_name)
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
@@ -806,7 +808,9 @@ class Mapper:
                 )
 
         except Exception as e:
-            logger.warning(f"Failed to extract DAX table lineage for {table.name}: {e}")
+            logger.warning(
+                "Failed to extract DAX table lineage for %s: %s", table.name, e
+            )
 
         return upstream, cll_lineage
 
@@ -991,7 +995,9 @@ class Mapper:
                 fineGrainedLineages=cll_lineage or None,
             )
 
-            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+            logger.debug(
+                "Dataset urn = %s and its lineage = %s", ds_urn, upstream_lineage
+            )
 
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=ds_urn,
@@ -1012,7 +1018,10 @@ class Mapper:
     def _add_pbix_hierarchies_to_props(
         self, table: powerbi_data_classes.Table, custom_props: Dict[str, str]
     ) -> None:
-        """Add table hierarchies to custom properties."""
+        """Add table hierarchies to custom properties (v2 feature)."""
+        if not self.__config.use_pbix_v2_features:
+            return
+
         if hasattr(table, "hierarchies") and table.hierarchies:
             table_hierarchies = [
                 {
@@ -1114,7 +1123,7 @@ class Mapper:
         table: powerbi_data_classes.Table,
         custom_props: Dict[str, str],
     ) -> None:
-        """Add enhanced relationship metadata to custom properties (filtered for this table)."""
+        """Add relationship metadata to custom properties (filtered for this table). Enhanced metadata requires v2 features."""
         if not dataset.relationships:
             return
 
@@ -1140,19 +1149,20 @@ class Mapper:
                 "isActive": rel_dict.get("isActive", True),
             }
 
-            # Add enhanced metadata if available
-            if rel_dict.get("securityFilteringBehavior"):
-                rel_info["securityFilteringBehavior"] = rel_dict[
-                    "securityFilteringBehavior"
-                ]
-            if rel_dict.get("fromCardinality"):
-                rel_info["fromCardinality"] = rel_dict["fromCardinality"]
-            if rel_dict.get("toCardinality"):
-                rel_info["toCardinality"] = rel_dict["toCardinality"]
-            if rel_dict.get("relyOnReferentialIntegrity"):
-                rel_info["relyOnReferentialIntegrity"] = rel_dict[
-                    "relyOnReferentialIntegrity"
-                ]
+            # Add enhanced metadata if v2 features are enabled
+            if self.__config.use_pbix_v2_features:
+                if rel_dict.get("securityFilteringBehavior"):
+                    rel_info["securityFilteringBehavior"] = rel_dict[
+                        "securityFilteringBehavior"
+                    ]
+                if rel_dict.get("fromCardinality"):
+                    rel_info["fromCardinality"] = rel_dict["fromCardinality"]
+                if rel_dict.get("toCardinality"):
+                    rel_info["toCardinality"] = rel_dict["toCardinality"]
+                if rel_dict.get("relyOnReferentialIntegrity"):
+                    rel_info["relyOnReferentialIntegrity"] = rel_dict[
+                        "relyOnReferentialIntegrity"
+                    ]
 
             relationships_info.append(rel_info)
 
@@ -1237,7 +1247,7 @@ class Mapper:
         if dataset is None:
             return dataset_mcps
 
-        logger.debug(f"Processing dataset {dataset.name} (embedded={is_embedded})")
+        logger.debug("Processing dataset %s (embedded=%s)", dataset.name, is_embedded)
 
         if not any(
             [
@@ -1266,7 +1276,7 @@ class Mapper:
                 env=self.__config.env,
             )
 
-            logger.debug(f"dataset_urn={ds_urn}")
+            logger.debug("dataset_urn=%s", ds_urn)
             # Create datasetProperties mcp
             if table.expression:
                 view_properties = ViewPropertiesClass(
@@ -1391,7 +1401,7 @@ class Mapper:
                 f"Table {table.name} in {dataset.name}, not allowed for profiling"
             )
             return
-        logger.debug(f"Profiling table: {table.name}")
+        logger.debug("Profiling table: %s", table.name)
 
         profile = DatasetProfileClass(timestampMillis=builder.get_sys_time())
         profile.rowCount = table.row_count
@@ -1405,7 +1415,7 @@ class Mapper:
                 f"{workspace.name}.{dataset.name}.{table.name}.{column.name}"
             )
             if column.isHidden or not allowed_column:
-                logger.info(f"Column {column.name} not allowed for profiling")
+                logger.info("Column %s not allowed for profiling", column.name)
                 continue
             measure_profile = column.measure_profile
             if measure_profile:
@@ -1442,7 +1452,7 @@ class Mapper:
         """
         Map PowerBi tile to datahub chart
         """
-        logger.info(f"Converting tile {tile.title}(id={tile.id}) to chart")
+        logger.info("Converting tile %s(id=%s) to chart", tile.title, tile.id)
         # Create a URN for chart
         chart_urn = builder.make_chart_urn(
             platform=self.__config.platform_name,
@@ -1450,7 +1460,7 @@ class Mapper:
             name=tile.get_urn_part(),
         )
 
-        logger.info(f"{Constant.CHART_URN}={chart_urn}")
+        logger.info("%s=%s", Constant.CHART_URN, chart_urn)
 
         ds_input: List[str] = self.to_urn_set(
             [x for x in ds_mcps if x.entityType == Constant.DATASET]
@@ -1743,7 +1753,9 @@ class Mapper:
         Map PowerBi user to datahub user
         """
 
-        logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
+        logger.debug(
+            "Mapping user %s(id=%s) to datahub's user", user.displayName, user.id
+        )
 
         # Create an URN for user
         user_id = user.get_urn_part(
@@ -1801,7 +1813,7 @@ class Mapper:
         if not tiles:
             return [], []
 
-        logger.info(f"Converting tiles(count={len(tiles)}) to charts")
+        logger.info("Converting tiles(count=%d) to charts", len(tiles))
 
         for tile in tiles:
             if tile is None:
@@ -1931,7 +1943,7 @@ class Mapper:
             )
 
             if not viz_id:
-                logger.warning(f"Skipping visualization without ID in {section_name}")
+                logger.warning("Skipping visualization without ID in %s", section_name)
                 continue
 
             # Create chart URN for this visualization
@@ -2028,11 +2040,21 @@ class Mapper:
             else:
                 viz_without_columns += 1
 
-            # Create ChartInfo
+            # Create ChartInfo with meaningful title
+            # Priority: visualization title > page + type fallback
+            viz_title = viz_lineage.visualizationTitle
+            chart_title = (
+                viz_title if viz_title else "%s - %s" % (section_name, viz_type)
+            )
+            chart_description = "Visualization: %s on page %s" % (
+                viz_type,
+                section_name,
+            )
+
             chart_inputs = sorted(list(datasets_used)) if datasets_used else []
             chart_info = ChartInfoClass(
-                title=f"{section_name} - {viz_type}",
-                description=f"{viz_type} visualization on page {section_name}",
+                title=chart_title,
+                description=chart_description,
                 lastModified=ChangeAuditStamps(),
                 inputs=chart_inputs,
                 customProperties={
@@ -2110,7 +2132,7 @@ class Mapper:
         if not pages:
             return []
 
-        logger.debug(f"Converting {len(pages)} pages to dashboards")
+        logger.debug("Converting %d pages to dashboards", len(pages))
 
         for page in pages:
             if page is None:
@@ -2190,13 +2212,13 @@ class Mapper:
         if not pages:
             return []
 
-        logger.debug(f"Converting pages(count={len(pages)}) to charts")
+        logger.debug("Converting pages(count=%d) to charts", len(pages))
 
         def to_chart_mcps(
             page: powerbi_data_classes.Page,
             ds_mcps: List[MetadataChangeProposalWrapper],
         ) -> List[MetadataChangeProposalWrapper]:
-            logger.debug(f"Converting page {page.displayName} to chart")
+            logger.debug("Converting page %s to chart", page.displayName)
             # Create a URN for chart
             chart_urn = builder.make_chart_urn(
                 platform=self.__config.platform_name,
@@ -2204,7 +2226,7 @@ class Mapper:
                 name=page.get_urn_part(),
             )
 
-            logger.debug(f"{Constant.CHART_URN}={chart_urn}")
+            logger.debug("%s=%s", Constant.CHART_URN, chart_urn)
 
             ds_input: List[str] = self.to_urn_set(
                 [x for x in ds_mcps if x.entityType == Constant.DATASET]
@@ -2488,7 +2510,7 @@ class Mapper:
                         report, workspace, ds_mcps, report.pbix_metadata
                     )
                 )
-                logger.info(f"Extracted {len(visualization_mcps)} visualization MCPs")
+                logger.info("Extracted %d visualization MCPs", len(visualization_mcps))
             else:
                 logger.debug(
                     "No PBIX metadata available, skipping individual visualization extraction"
@@ -2630,7 +2652,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
-        logger.info(f"Number of workspaces = {len(all_workspaces)}")
+        logger.info("Number of workspaces = %d", len(all_workspaces))
         self.reporter.all_workspace_count = len(all_workspaces)
         logger.debug(
             f"All workspaces: {[workspace.format_name_for_logger() for workspace in all_workspaces]}"
@@ -2653,7 +2675,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 allowed_workspaces.append(workspace)
 
-        logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
+        logger.info("Number of allowed workspaces = %d", len(allowed_workspaces))
         logger.debug(
             f"Allowed workspaces: {[workspace.format_name_for_logger() for workspace in allowed_workspaces]}"
         )
@@ -2736,7 +2758,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         dataset: powerbi_data_classes.PowerBIDataset,
     ) -> List[powerbi_data_classes.Table]:
         """Convert PBIX tables (Pydantic models or dicts) to Table objects with M-query expressions."""
-        logger.debug(f"Converting {len(pbix_tables)} PBIX tables to Table objects")
+        logger.debug("Converting %d PBIX tables to Table objects", len(pbix_tables))
 
         tables = []
         for pbix_table in pbix_tables:
@@ -2754,7 +2776,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 pbix_partitions = pbix_table.get("partitions", [])
                 pbix_hierarchies = pbix_table.get("hierarchies", [])
 
-            logger.debug(f"Processing table: {table_name}")
+            logger.debug("Processing table: %s", table_name)
 
             # Create columns
             columns = []
@@ -2840,7 +2862,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
             tables.append(table)
 
-        logger.debug(f"Created {len(tables)} Table objects from PBIX")
+        logger.debug("Created %d Table objects from PBIX", len(tables))
         return tables
 
     def pbix_to_powerbi_pages(
@@ -2849,7 +2871,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         dataset: powerbi_data_classes.PowerBIDataset,
     ) -> List[powerbi_data_classes.Page]:
         """Convert PBIX layout sections (Pydantic models or dicts) to Page objects."""
-        logger.debug(f"Converting {len(pbix_sections)} PBIX sections to Page objects")
+        logger.debug("Converting %d PBIX sections to Page objects", len(pbix_sections))
 
         pages = []
         for idx, section in enumerate(pbix_sections):
@@ -2878,7 +2900,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             )
             pages.append(page)
 
-        logger.debug(f"Created {len(pages)} Page objects from PBIX")
+        logger.debug("Created %d Page objects from PBIX", len(pages))
         return pages
 
     def process_pbix_visualizations(
@@ -2932,7 +2954,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 name=f"{report.get_urn_part()}.{viz_id}",
             )
 
-            logger.debug(f"Processing visualization: {viz_type} on page {section_name}")
+            logger.debug(
+                "Processing visualization: %s on page %s", viz_type, section_name
+            )
 
             # Build InputFields for column-level lineage
             input_fields: List[InputField] = []
@@ -3099,7 +3123,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     f"  Added InputFields aspect with {len(input_fields)} fields for {len(datasets_used)} dataset(s)"
                 )
 
-        logger.info(f"Created {len(chart_mcps)} chart MCPs from PBIX visualizations")
+        logger.info("Created %d chart MCPs from PBIX visualizations", len(chart_mcps))
         return chart_mcps
 
     def extract_dax_column_lineage(
@@ -3168,6 +3192,243 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         return table_urn_mapping
 
+    def _parse_and_prepare_pbix_data(
+        self,
+        report: powerbi_data_classes.Report,
+        workspace: powerbi_data_classes.Workspace,
+        pbix_path: str,
+    ) -> Tuple[
+        powerbi_data_classes.PowerBIDataset, PBIXExtractedMetadata, Dict[str, str]
+    ]:
+        """
+        Parse PBIX file and prepare dataset with DAX table mappings.
+
+        Returns:
+            Tuple of (dataset, pbix_metadata, dax_table_mappings)
+        """
+        # Parse the .pbix file
+        pbix_parser = PBIXParser(
+            pbix_path, use_v2_features=self.source_config.use_pbix_v2_features
+        )
+        pbix_metadata = pbix_parser.extract_metadata()
+
+        logger.debug("Successfully parsed PBIX file for report %s", report.name)
+
+        # Store PBIX metadata on the report for later use
+        report.pbix_metadata = pbix_metadata
+
+        # Convert PBIX data to PowerBI data classes
+        dataset = self.pbix_to_powerbi_dataset(pbix_metadata, report, workspace)
+
+        # Initialize DAX table mappings
+        all_dax_table_mappings: Dict[str, str] = {}
+
+        # Extract tables from PBIX data model if available
+        if pbix_metadata.data_model_parsed:
+            pbix_tables = pbix_metadata.data_model_parsed.tables
+            tables = self.pbix_to_powerbi_tables(pbix_tables, dataset)
+            dataset.tables = tables
+
+            # Attach PBIX metadata to dataset for emission
+            dataset.hierarchies = pbix_metadata.data_model_parsed.hierarchies
+            dataset.roles = pbix_metadata.data_model_parsed.roles
+            dataset.dataSources = pbix_metadata.data_model_parsed.dataSources
+            dataset.expressions = pbix_metadata.data_model_parsed.expressions
+            dataset.relationships = [
+                rel if isinstance(rel, dict) else rel.model_dump()
+                for rel in pbix_metadata.data_model_parsed.relationships
+            ]
+
+            logger.info(
+                "Extracted %d tables from PBIX for report %s", len(tables), report.name
+            )
+
+        # Build complete table URN mapping from dataset tables
+        if dataset.tables:
+            logger.debug(
+                "Building complete table URN mapping from %d dataset tables",
+                len(dataset.tables),
+            )
+            for table in dataset.tables:
+                table_urn = builder.make_dataset_urn_with_platform_instance(
+                    self.source_config.platform_name,
+                    "%s.%s" % (dataset.name, table.name),
+                    self.source_config.platform_instance,
+                    self.source_config.env,
+                ).lower()
+                all_dax_table_mappings[table.name] = table_urn
+                all_dax_table_mappings[table.name.lower()] = table_urn
+                logger.debug("  Pre-mapped '%s' -> %s", table.name, table_urn)
+
+            logger.debug(
+                "Pre-built table mapping with %d entries", len(all_dax_table_mappings)
+            )
+
+            # Process DAX expressions for each table
+            for table in dataset.tables:
+                dax_mappings = self.extract_dax_column_lineage(
+                    table, dataset, workspace, all_dax_table_mappings
+                )
+                all_dax_table_mappings.update(dax_mappings)
+
+        # Extract pages from PBIX layout
+        if pbix_metadata.layout_parsed:
+            pbix_sections = pbix_metadata.layout_parsed.sections
+            pages = self.pbix_to_powerbi_pages(pbix_sections, dataset)
+            report.pages = pages
+
+            # Attach bookmarks and interactions to dataset for emission
+            dataset.bookmarks = pbix_metadata.layout_parsed.bookmarks
+            dataset.interactions = pbix_metadata.layout_parsed.interactions
+
+            logger.info(
+                "Extracted %d pages from PBIX for report %s", len(pages), report.name
+            )
+
+        # Update report with dataset
+        report.dataset = dataset
+
+        return dataset, pbix_metadata, all_dax_table_mappings
+
+    def _emit_container_mode_entities(
+        self,
+        report: powerbi_data_classes.Report,
+        workspace: powerbi_data_classes.Workspace,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        pbix_metadata: PBIXExtractedMetadata,
+        all_dax_table_mappings: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit entities using container mode (Report as Container)."""
+        logger.info(
+            "Using container mode: Report as Container, Pages as Dashboards, Visualizations as Charts"
+        )
+
+        # Convert users
+        user_mcps = self.mapper.to_datahub_users(report.users)
+
+        # Emit Report as Container first
+        for wu in self.mapper.emit_report_as_container(workspace, report, user_mcps):
+            patched_wu = self._get_dashboard_patch_work_unit(wu)
+            if patched_wu:
+                yield patched_wu
+
+        # Get report container key for embedded datasources
+        report_container_key = self.mapper.gen_report_key(report.id)
+
+        # Convert dataset tables - if embedded, place in Report container
+        is_embedded_dataset = report.dataset_id is not None
+        ds_mcps = self.mapper.to_datahub_dataset(
+            dataset,
+            workspace,
+            dax_table_mappings=all_dax_table_mappings,
+            report_container_key=report_container_key if is_embedded_dataset else None,
+            is_embedded=is_embedded_dataset,
+        )
+
+        # Extract individual visualizations as Charts
+        visualization_mcps: List[MetadataChangeProposalWrapper] = []
+        page_to_viz_map: Dict[str, List[str]] = {}
+
+        if pbix_metadata.lineage:
+            logger.info("Extracting visualizations with column-level lineage from PBIX")
+            visualization_mcps, page_to_viz_map = (
+                self.mapper.extract_visualizations_from_pbix(
+                    report, workspace, ds_mcps, pbix_metadata
+                )
+            )
+
+        # Create Pages as Dashboards within the Report container
+        page_dashboard_mcps = self.mapper.pages_as_dashboards_v2(
+            report, report.pages, workspace, ds_mcps, page_to_viz_map
+        )
+
+        # Yield all MCPs
+        all_mcps = ds_mcps + visualization_mcps + page_dashboard_mcps
+        if self.source_config.ownership.create_corp_user:
+            all_mcps.extend(user_mcps)
+
+        for mcp in all_mcps:
+            wu = self.mapper._to_work_unit(mcp)
+            patched_wu = self._get_dashboard_patch_work_unit(wu)
+            if patched_wu:
+                yield patched_wu
+
+    def _emit_legacy_mode_entities(
+        self,
+        report: powerbi_data_classes.Report,
+        workspace: powerbi_data_classes.Workspace,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        pbix_metadata: PBIXExtractedMetadata,
+        all_dax_table_mappings: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit entities using legacy mode (Report as Dashboard)."""
+        logger.info("Using legacy mode: Report as Dashboard, Pages as Charts")
+
+        # Convert users
+        user_mcps = self.mapper.to_datahub_users(report.users)
+
+        # Convert dataset tables to MCPs
+        ds_mcps = self.mapper.to_datahub_dataset(
+            dataset, workspace, all_dax_table_mappings
+        )
+
+        # Process visualizations and column-level lineage from PBIX
+        chart_mcps = []
+        if pbix_metadata.lineage and pbix_metadata.layout_parsed:
+            logger.info("Processing visualizations and column-level lineage from PBIX")
+            chart_mcps = self.process_pbix_visualizations(
+                pbix_metadata, report, workspace, ds_mcps
+            )
+        else:
+            # Fallback to basic page conversion if no lineage available
+            chart_mcps = self.mapper.pages_to_chart(report.pages, workspace, ds_mcps)
+
+        # Collect dataset edges
+        dataset_urns = {
+            dataset.entityUrn
+            for dataset in ds_mcps
+            if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
+        }
+        dataset_edges = [
+            EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
+        ]
+
+        # Yield dataset MCPs
+        for mcp in ds_mcps:
+            wu = self.mapper._to_work_unit(mcp)
+            patched_wu = self._get_dashboard_patch_work_unit(wu)
+            if patched_wu:
+                yield patched_wu
+
+        # Yield user MCPs if enabled
+        if self.source_config.ownership.create_corp_user:
+            for mcp in user_mcps:
+                wu = self.mapper._to_work_unit(mcp)
+                patched_wu = self._get_dashboard_patch_work_unit(wu)
+                if patched_wu:
+                    yield patched_wu
+
+        # Yield chart MCPs
+        for mcp in chart_mcps:
+            wu = self.mapper._to_work_unit(mcp)
+            patched_wu = self._get_dashboard_patch_work_unit(wu)
+            if patched_wu:
+                yield patched_wu
+
+        # Yield report MCPs
+        report_mcps = self.mapper.report_to_dashboard(
+            workspace=workspace,
+            report=report,
+            chart_mcps=chart_mcps,
+            user_mcps=user_mcps,
+            dataset_edges=dataset_edges,
+        )
+        for mcp in report_mcps:
+            wu = self.mapper._to_work_unit(mcp)
+            patched_wu = self._get_dashboard_patch_work_unit(wu)
+            if patched_wu:
+                yield patched_wu
+
     def process_report_from_pbix(
         self,
         report: powerbi_data_classes.Report,
@@ -3177,191 +3438,42 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         """
         Extract report metadata from .pbix file instead of using REST API.
 
-        This method:
-        1. Parses the .pbix file
-        2. Extracts DataModel (tables, columns, measures, relationships)
-        3. Extracts Layout (pages, visualizations)
-        4. Extracts M-queries from DataModel's table partitions
-        5. Parses DAX expressions from measures and calculated columns
-        6. Maps PBIX metadata to existing data structures
-        7. Generates MCPs for ingestion
+        This method orchestrates the PBIX extraction process by:
+        1. Parsing the PBIX file and preparing dataset with DAX mappings
+        2. Emitting entities using either container mode or legacy mode
         """
-        logger.info(f"Processing report {report.name} from PBIX file: {pbix_path}")
+        logger.info("Processing report %s from PBIX file: %s", report.name, pbix_path)
 
         try:
-            # Parse the .pbix file
-            pbix_parser = PBIXParser(pbix_path)
-            pbix_metadata = pbix_parser.extract_metadata()
-
-            logger.debug(f"Successfully parsed PBIX file for report {report.name}")
-
-            # Store PBIX metadata on the report for later use (e.g., visualization extraction)
-            report.pbix_metadata = pbix_metadata
-
-            # Convert PBIX data to PowerBI data classes
-            dataset = self.pbix_to_powerbi_dataset(pbix_metadata, report, workspace)
-
-            # Initialize DAX table mappings
-            # This ensures that DAX references use real table URNs, not synthetic "dax_" tables
-            all_dax_table_mappings: Dict[str, str] = {}
-
-            # Extract tables from PBIX data model if available
-            if pbix_metadata.data_model_parsed:
-                pbix_tables = pbix_metadata.data_model_parsed.tables
-                tables = self.pbix_to_powerbi_tables(pbix_tables, dataset)
-                dataset.tables = tables
-
-                # Attach PBIX metadata to dataset for emission
-                dataset.hierarchies = pbix_metadata.data_model_parsed.hierarchies
-                dataset.roles = pbix_metadata.data_model_parsed.roles
-                dataset.dataSources = pbix_metadata.data_model_parsed.dataSources
-                dataset.expressions = pbix_metadata.data_model_parsed.expressions
-                dataset.relationships = [
-                    rel if isinstance(rel, dict) else rel.model_dump()
-                    for rel in pbix_metadata.data_model_parsed.relationships
-                ]
-
-                logger.info(
-                    f"Extracted {len(tables)} tables from PBIX for report {report.name}"
-                )
-
-            # Build complete table URN mapping from dataset tables (whether from PBIX or REST API)
-            # This ensures all table references can be resolved regardless of processing order
-            if dataset.tables:
-                logger.debug(
-                    f"Building complete table URN mapping from {len(dataset.tables)} dataset tables"
-                )
-                for table in dataset.tables:
-                    # Use friendly name format: dataset.name.table.name (not UUIDs) - always lowercase
-                    table_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.source_config.platform_name,
-                        f"{dataset.name}.{table.name}".lower(),
-                        self.source_config.platform_instance,
-                        self.source_config.env,
-                    )
-                    # Map the exact table name as it appears in the dataset
-                    all_dax_table_mappings[table.name] = table_urn
-                    all_dax_table_mappings[table.name.lower()] = table_urn
-                    logger.debug(f"  Pre-mapped '{table.name}' -> {table_urn}")
-
-                logger.debug(
-                    f"Pre-built table mapping with {len(all_dax_table_mappings)} entries"
-                )
-
-                # Now process DAX expressions for each table
-                # All table references should now be resolvable
-                for table in dataset.tables:
-                    # Extract DAX lineage from measures and calculated columns
-                    dax_mappings = self.extract_dax_column_lineage(
-                        table, dataset, workspace, all_dax_table_mappings
-                    )
-                    all_dax_table_mappings.update(dax_mappings)
-
-                # Process M-queries for lineage, using the DAX table mappings
-                for table in dataset.tables:
-                    if table.expression:
-                        logger.debug(
-                            f"Table {table.name} has M-query expression for lineage extraction"
-                        )
-
-            # Extract pages from PBIX layout
-            if pbix_metadata.layout_parsed:
-                pbix_sections = pbix_metadata.layout_parsed.sections
-                pages = self.pbix_to_powerbi_pages(pbix_sections, dataset)
-                report.pages = pages
-
-                # Attach bookmarks and interactions to dataset for emission
-                dataset.bookmarks = pbix_metadata.layout_parsed.bookmarks
-                dataset.interactions = pbix_metadata.layout_parsed.interactions
-
-                logger.info(
-                    f"Extracted {len(pages)} pages from PBIX for report {report.name}"
-                )
-
-            # Update report with dataset
-            report.dataset = dataset
-
-            # Generate MCPs using existing mapper methods
-            # Convert dataset tables to MCPs, passing the DAX table mappings
-            ds_mcps = self.mapper.to_datahub_dataset(
-                dataset, workspace, all_dax_table_mappings
+            # Parse PBIX and prepare dataset with DAX table mappings
+            dataset, pbix_metadata, all_dax_table_mappings = (
+                self._parse_and_prepare_pbix_data(report, workspace, pbix_path)
             )
 
-            # Process visualizations and column-level lineage from PBIX
-            chart_mcps = []
-            if pbix_metadata.lineage and pbix_metadata.layout_parsed:
-                logger.info(
-                    "Processing visualizations and column-level lineage from PBIX"
-                )
-                chart_mcps = self.process_pbix_visualizations(
-                    pbix_metadata, report, workspace, ds_mcps
+            # Emit entities based on configuration mode
+            if self.source_config.extract_reports_as_containers:
+                yield from self._emit_container_mode_entities(
+                    report, workspace, dataset, pbix_metadata, all_dax_table_mappings
                 )
             else:
-                # Fallback to basic page conversion if no lineage available
-                chart_mcps = self.mapper.pages_to_chart(
-                    report.pages, workspace, ds_mcps
+                yield from self._emit_legacy_mode_entities(
+                    report, workspace, dataset, pbix_metadata, all_dax_table_mappings
                 )
 
-            # Convert users
-            user_mcps = self.mapper.to_datahub_users(report.users)
-
-            # Collect dataset edges
-            dataset_urns = {
-                dataset.entityUrn
-                for dataset in ds_mcps
-                if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
-            }
-            dataset_edges = [
-                EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
-            ]
-
-            # Yield dataset MCPs immediately
-            for mcp in ds_mcps:
-                wu = self.mapper._to_work_unit(mcp)
-                patched_wu = self._get_dashboard_patch_work_unit(wu)
-                if patched_wu:
-                    yield patched_wu
-
-            # Yield user MCPs if enabled
-            if self.source_config.ownership.create_corp_user:
-                for mcp in user_mcps:
-                    wu = self.mapper._to_work_unit(mcp)
-                    patched_wu = self._get_dashboard_patch_work_unit(wu)
-                    if patched_wu:
-                        yield patched_wu
-
-            # Yield chart MCPs immediately
-            for mcp in chart_mcps:
-                wu = self.mapper._to_work_unit(mcp)
-                patched_wu = self._get_dashboard_patch_work_unit(wu)
-                if patched_wu:
-                    yield patched_wu
-
-            # Yield report MCPs immediately
-            report_mcps = self.mapper.report_to_dashboard(
-                workspace=workspace,
-                report=report,
-                chart_mcps=chart_mcps,
-                user_mcps=user_mcps,
-                dataset_edges=dataset_edges,
-            )
-            for mcp in report_mcps:
-                wu = self.mapper._to_work_unit(mcp)
-                patched_wu = self._get_dashboard_patch_work_unit(wu)
-                if patched_wu:
-                    yield patched_wu
-
-            logger.info(f"Successfully processed report {report.name} from PBIX file")
+            logger.info("Successfully processed report %s from PBIX file", report.name)
 
         except Exception as e:
             logger.error(
-                f"Error processing report {report.name} from PBIX file: {e}",
+                "Error processing report %s from PBIX file: %s",
+                report.name,
+                e,
                 exc_info=True,
             )
             self.reporter.warning(
                 title="PBIX Processing Error",
-                message=f"Failed to process PBIX file for report {report.name}",
-                context=f"report_id={report.id}, workspace={workspace.name}, error={str(e)}",
+                message="Failed to process PBIX file for report %s" % report.name,
+                context="report_id=%s, workspace=%s, error=%s"
+                % (report.id, workspace.name, str(e)),
             )
 
     def emit_app(
@@ -3495,7 +3607,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 temp_dir = tempfile.gettempdir()
                 pbix_output_path = os.path.join(temp_dir, f"powerbi_{report.id}.pbix")
 
-                logger.info(f"Attempting PBIX export for report {report.name}")
+                logger.info("Attempting PBIX export for report %s", report.name)
                 pbix_path = self.powerbi_client.export_report_to_pbix(
                     workspace.id, report.id, pbix_output_path
                 )
@@ -3588,7 +3700,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for workspace in self.powerbi_client.fill_workspaces(
                 batch_workspaces, self.reporter
             ):
-                logger.info(f"Processing workspace id: {workspace.id}")
+                logger.info("Processing workspace id: %s", workspace.id)
 
                 if self.source_config.modified_since:
                     # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace

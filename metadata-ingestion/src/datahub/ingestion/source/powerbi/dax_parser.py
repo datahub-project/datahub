@@ -21,6 +21,82 @@ logger = logging.getLogger(__name__)
 # This enables better organization and reuse
 
 
+# =============================================================================
+# Pre-compiled Regex Patterns for Performance
+# =============================================================================
+# These patterns are compiled once at module load time to avoid repeated compilation
+# during parsing of potentially thousands of DAX expressions
+
+# Pattern for parameter field references: TableName[ColumnName] or 'TableName'[ColumnName]
+_PARAM_TABLE_COLUMN_PATTERN = re.compile(r"'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]")
+
+# Pattern 1: 'TableName'[ColumnName] (with single quotes around table name)
+_QUOTED_TABLE_COLUMN_PATTERN = re.compile(r"'([^']+)'\s*\[\s*([^\]]+)\s*\]")
+
+# Pattern 2: TableName[ColumnName] (without quotes, but not measure-only references)
+_UNQUOTED_TABLE_COLUMN_PATTERN = re.compile(
+    r"(?<!['\"])\b([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*([^\]]+)\s*\]"
+)
+
+# Pattern for measure references: [MeasureName] (no table prefix)
+_MEASURE_ONLY_PATTERN = re.compile(r"(?<!\w)\[\s*([^\]]+)\s*\](?!\s*\[)")
+
+# Pattern 3: RELATED(TableName[ColumnName])
+_RELATED_PATTERN = re.compile(
+    r"RELATED\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\[\s*([^\]]+)\s*\]",
+    re.IGNORECASE,
+)
+
+# Pattern 4: RELATEDTABLE(TableName)
+_RELATEDTABLE_PATTERN = re.compile(
+    r"RELATEDTABLE\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\)",
+    re.IGNORECASE,
+)
+
+# Pattern 5: Iterator functions with table references
+_ITERATOR_TABLE_PATTERN = re.compile(
+    r"(?:SUMX|AVERAGEX|COUNTX|MAXX|MINX|FILTER|ALL|ALLEXCEPT|VALUES|DISTINCT|CALCULATETABLE|ADDCOLUMNS|SELECTCOLUMNS|GROUPBY)\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*[,)]",
+    re.IGNORECASE,
+)
+
+# Pattern 6: Time intelligence functions
+_TIME_INTELLIGENCE_PATTERN = re.compile(
+    r"(?:SAMEPERIODLASTYEAR|PARALLELPERIOD|DATESINPERIOD|DATESBETWEEN|DATESYTD|DATESMTD|DATESQTD)\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\[\s*([^\]]+)\s*\]",
+    re.IGNORECASE,
+)
+
+# Pattern for measure dependencies: [MeasureName]
+_MEASURE_DEPENDENCY_PATTERN = re.compile(r"\[([^\]]+)\]")
+
+# Pattern for SUMMARIZE function (full expression capture)
+_SUMMARIZE_FULL_PATTERN = re.compile(r"SUMMARIZE\s*\((.*)\)", re.IGNORECASE | re.DOTALL)
+
+# Pattern for SUMMARIZE table name extraction
+_SUMMARIZE_TABLE_PATTERN = re.compile(
+    r"SUMMARIZE\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Pattern for NAMEOF function
+_NAMEOF_PATTERN = re.compile(
+    r"NAMEOF\s*\(\s*'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]\s*\)", re.IGNORECASE
+)
+
+# Pattern for CALCULATE expression parsing
+_CALCULATE_PATTERN = re.compile(r"CALCULATE\s*\((.*)\)", re.IGNORECASE | re.DOTALL)
+
+# Pattern for VAR declarations in DAX
+_VAR_DECLARATION_PATTERN = re.compile(
+    r"VAR\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^\n]+?)(?=\s+(?:VAR|RETURN)|$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Pattern for table/column references in SUMMARIZE expressions
+_TABLE_COLUMN_IN_SUMMARIZE_PATTERN = re.compile(
+    r"(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\[\s*([^\]]+)\s*\]"
+)
+
+
 def get_all_column_references_for_parameter(
     param: DAXParameter,
 ) -> List[TableColumnReference]:
@@ -33,7 +109,7 @@ def get_all_column_references_for_parameter(
     # Parse each possible value to extract table.column patterns
     for value in param.possible_values:
         # Pattern: TableName[ColumnName] or 'TableName'[ColumnName]
-        matches = re.findall(r"'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]", value)
+        matches = _PARAM_TABLE_COLUMN_PATTERN.findall(value)
         for table_name, column_name in matches:
             refs.append(
                 TableColumnReference(table_name=table_name, column_name=column_name)
@@ -185,7 +261,7 @@ def extract_table_column_references(
     if not dax_expression:
         return []
 
-    logger.debug(f"Parsing DAX expression: {dax_expression[:100]}...")
+    logger.debug("Parsing DAX expression: %s...", dax_expression[:100])
 
     references: Set[Tuple[str, str]] = (
         set()
@@ -193,16 +269,14 @@ def extract_table_column_references(
 
     # Pattern 1: 'TableName'[ColumnName] (with single quotes around table name)
     # Matches: 'Sales'[Amount], 'Order Details'[Price]
-    pattern1 = r"'([^']+)'\s*\[\s*([^\]]+)\s*\]"
-    matches1 = re.findall(pattern1, dax_expression)
+    matches1 = _QUOTED_TABLE_COLUMN_PATTERN.findall(dax_expression)
     references.update(matches1)
 
     # Pattern 2: TableName[ColumnName] (without quotes)
     # Matches: Sales[Amount], OrderDetails[Price]
     # But not things like [ColumnOnly] (no table)
     # Need to be careful not to match measure references without table
-    pattern2 = r"(?<!['\"])\b([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*([^\]]+)\s*\]"
-    matches2 = re.findall(pattern2, dax_expression)
+    matches2 = _UNQUOTED_TABLE_COLUMN_PATTERN.findall(dax_expression)
 
     # Filter out common DAX functions that might match this pattern
     dax_functions = {
@@ -294,8 +368,7 @@ def extract_table_column_references(
     # Pattern for measure references: [MeasureName] (no table prefix)
     # Only extract if include_measure_refs is True
     if include_measure_refs:
-        pattern_measure = r"(?<!\w)\[\s*([^\]]+)\s*\](?!\s*\[)"
-        matches_measure = re.findall(pattern_measure, dax_expression)
+        matches_measure = _MEASURE_ONLY_PATTERN.findall(dax_expression)
         for measure_name in matches_measure:
             # Add as ("", measure_name) to indicate it's a measure reference
             # Skip if it looks like a parameter or if we already have it with a table
@@ -304,10 +377,7 @@ def extract_table_column_references(
 
     # Pattern 3: RELATED(TableName[ColumnName])
     # This is more specific and reliable
-    pattern3 = (
-        r"RELATED\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\[\s*([^\]]+)\s*\]"
-    )
-    matches3 = re.findall(pattern3, dax_expression, re.IGNORECASE)
+    matches3 = _RELATED_PATTERN.findall(dax_expression)
     for match in matches3:
         table = match[0] if match[0] else match[1]
         column = match[2]
@@ -315,8 +385,7 @@ def extract_table_column_references(
 
     # Pattern 4: RELATEDTABLE(TableName)
     # This references a whole table
-    pattern4 = r"RELATEDTABLE\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\)"
-    matches4 = re.findall(pattern4, dax_expression, re.IGNORECASE)
+    matches4 = _RELATEDTABLE_PATTERN.findall(dax_expression)
     for match in matches4:
         table = match[0] if match[0] else match[1]
         # For table references without a specific column, use empty string as column
@@ -325,8 +394,7 @@ def extract_table_column_references(
     # Pattern 5: Table references in iterators like SUMX, FILTER, etc.
     # SUMX(TableName, ...) or FILTER(TableName, ...)
     # These reference tables without specific columns initially
-    pattern5 = r"(?:SUMX|AVERAGEX|COUNTX|MAXX|MINX|FILTER|ALL|ALLEXCEPT|VALUES|DISTINCT|CALCULATETABLE|ADDCOLUMNS|SELECTCOLUMNS|GROUPBY)\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*[,)]"
-    matches5 = re.findall(pattern5, dax_expression, re.IGNORECASE)
+    matches5 = _ITERATOR_TABLE_PATTERN.findall(dax_expression)
     for match in matches5:
         table = match[0] if match[0] else match[1]
         # For table references without a specific column, use empty string as column
@@ -334,20 +402,25 @@ def extract_table_column_references(
 
     # Pattern 6: Time intelligence functions that reference tables
     # SAMEPERIODLASTYEAR, PARALLELPERIOD, DATEADD, etc.
-    pattern6 = r"(?:SAMEPERIODLASTYEAR|PARALLELPERIOD|DATESINPERIOD|DATESBETWEEN|DATESYTD|DATESMTD|DATESQTD)\s*\(\s*(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\[\s*([^\]]+)\s*\]"
-    matches6 = re.findall(pattern6, dax_expression, re.IGNORECASE)
+    matches6 = _TIME_INTELLIGENCE_PATTERN.findall(dax_expression)
     for match in matches6:
         table = match[0] if match[0] else match[1]
         column = match[2]
         references.add((table, column))
 
     # Convert set to sorted list of TableColumnReference objects
+    # Ensure we convert None to empty string for Pydantic validation
     result = [
-        TableColumnReference(table_name=table, column_name=column)
+        TableColumnReference(
+            table_name=table if table is not None else "",
+            column_name=column if column is not None else "",
+        )
         for table, column in sorted(list(references))
     ]
 
-    logger.debug(f"Extracted {len(result)} table/column references from DAX expression")
+    logger.debug(
+        "Extracted %d table/column references from DAX expression", len(result)
+    )
 
     return result
 
@@ -408,8 +481,7 @@ def extract_measure_dependencies(
 
     # Pattern: [MeasureName] without a table prefix
     # This is common for measures referencing other measures
-    pattern = r"(?<![A-Za-z0-9_'])\[\s*([^\]]+)\s*\](?!\s*\[)"
-    matches = re.findall(pattern, dax_expression)
+    matches = _MEASURE_DEPENDENCY_PATTERN.findall(dax_expression)
 
     for measure_name in matches:
         # Validate against known measures if provided
@@ -437,12 +509,11 @@ def extract_variables(dax_expression: str) -> Dict[str, str]:
 
     # Pattern: VAR VariableName = Expression
     # This is a simplified pattern - production would need better parsing
-    pattern = r"VAR\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^\n]+?)(?=\s+(?:VAR|RETURN)|$)"
-    matches = re.findall(pattern, dax_expression, re.IGNORECASE | re.MULTILINE)
+    matches = _VAR_DECLARATION_PATTERN.findall(dax_expression)
 
     for var_name, var_expr in matches:
         variables[var_name.strip()] = var_expr.strip()
-        logger.debug(f"Found variable: {var_name} = {var_expr[:50]}...")
+        logger.debug("Found variable: %s = %s...", var_name, var_expr[:50])
 
     return variables
 
@@ -550,7 +621,7 @@ def extract_dax_parameters(dax_expression: str) -> List[DAXParameter]:
     # SWITCH(TRUE(), SELECTEDVALUE(...) = "Value1", Measure1, ...)
     # Already captured by SELECTEDVALUE pattern above
 
-    logger.debug(f"Found {len(parameters)} parameters in DAX expression")
+    logger.debug("Found %d parameters in DAX expression", len(parameters))
     return parameters
 
 
@@ -589,7 +660,7 @@ def resolve_field_parameter_values(
             break
 
     if not param_table:
-        logger.debug(f"Parameter table {parameter_table_name} not found in data model")
+        logger.debug("Parameter table %s not found in data model", parameter_table_name)
         return possible_values
 
     # Look for calculated columns that define the field parameter options
@@ -604,19 +675,13 @@ def resolve_field_parameter_values(
             continue
 
         # Pattern 1: NAMEOF('Table'[Column])
-        nameof_matches = re.findall(
-            r"NAMEOF\s*\(\s*'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]\s*\)",
-            expression,
-            re.IGNORECASE,
-        )
+        nameof_matches = _NAMEOF_PATTERN.findall(expression)
         for table, col in nameof_matches:
             possible_values.append(f"{table}[{col}]")
 
         # Pattern 2: Direct column references in SELECTCOLUMNS or similar
         # SELECTCOLUMNS(..., "Value", 'Table'[Column])
-        direct_refs = re.findall(
-            r"'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]", expression
-        )
+        direct_refs = _PARAM_TABLE_COLUMN_PATTERN.findall(expression)
         for table, col in direct_refs:
             # Avoid duplicates and non-column references
             ref = f"{table}[{col}]"
@@ -629,7 +694,7 @@ def resolve_field_parameter_values(
         expression = measure.get("expression", "")
         if expression:
             # Extract column references from the measure expression
-            refs = re.findall(r"'?([A-Za-z0-9_\s]+)'?\s*\[\s*([^\]]+)\s*\]", expression)
+            refs = _PARAM_TABLE_COLUMN_PATTERN.findall(expression)
             for table, col in refs:
                 ref = f"{table}[{col}]"
                 if ref not in possible_values and table != parameter_table_name:
@@ -1086,7 +1151,7 @@ def extract_filter_context_modifiers(
             )
         )
 
-    logger.debug(f"Found {len(filter_modifiers)} filter context modifiers")
+    logger.debug("Found %d filter context modifiers", len(filter_modifiers))
     return filter_modifiers
 
 
@@ -1114,8 +1179,7 @@ def parse_summarize_expression(dax_expression: str) -> Optional[SummarizeParseRe
     logger.debug("Parsing SUMMARIZE expression")
 
     # Match SUMMARIZE(...) and extract its contents
-    pattern = r"SUMMARIZE\s*\((.*)\)"
-    match = re.search(pattern, dax_expression, re.IGNORECASE | re.DOTALL)
+    match = _SUMMARIZE_FULL_PATTERN.search(dax_expression)
     if not match:
         return None
 
@@ -1183,9 +1247,7 @@ def parse_summarize_expression(dax_expression: str) -> Optional[SummarizeParseRe
         else:
             # This is a group-by column: 'Table'[Column] or Table[Column]
             # Extract table and column name
-            table_col_match = re.search(
-                r"(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_]*))\s*\[\s*([^\]]+)\s*\]", part
-            )
+            table_col_match = _TABLE_COLUMN_IN_SUMMARIZE_PATTERN.search(part)
             if table_col_match:
                 source_table = table_col_match.group(1) or table_col_match.group(2)
                 source_column = table_col_match.group(3)
@@ -1230,6 +1292,6 @@ def build_measure_dependency_graph(measures: Dict[str, str]) -> Dict[str, List[s
         dependency_graph[measure_name] = deps
 
         if deps:
-            logger.debug(f"Measure '{measure_name}' depends on: {', '.join(deps)}")
+            logger.debug("Measure '%s' depends on: %s", measure_name, ", ".join(deps))
 
     return dependency_graph

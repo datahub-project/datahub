@@ -560,6 +560,25 @@ class PowerBiDashboardSourceConfig(
         "additional API permissions for PBIX export. Default is False for backward compatibility.",
     )
 
+    use_pbix_v2_features: bool = pydantic.Field(
+        default=False,
+        description="Enable enhanced PBIX parsing features (v2). "
+        "When enabled, activates improved metadata extraction including: "
+        "(1) Enhanced table and column descriptions from PBIX files, "
+        "(2) Hierarchies, perspectives, and annotations extraction, "
+        "(3) Enhanced relationship metadata with cardinality and cross-filter direction, "
+        "(4) Improved visualization column/measure tracking for better column-level lineage. "
+        "This flag automatically enables extract_from_pbix_file=True. "
+        "Requires DataHub server 0.14.2+. Default is False for backward compatibility.",
+    )
+
+    pbix_download_timeout_seconds: int = pydantic.Field(
+        default=180,
+        gt=0,
+        description="Timeout in seconds for downloading .pbix files from Power BI. "
+        "Large PBIX files may require longer timeouts. Default is 180 seconds (3 minutes).",
+    )
+
     @model_validator(mode="after")
     def validate_report_container_requirements(self) -> "PowerBiDashboardSourceConfig":
         if self.extract_reports_as_containers and not self.extract_from_pbix_file:
@@ -567,6 +586,16 @@ class PowerBiDashboardSourceConfig(
                 "extract_reports_as_containers=True requires extract_from_pbix_file=True to extract individual visualizations. "
                 "Either set extract_from_pbix_file=True or use extract_reports_as_containers=False (default)."
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_v2_features_requirements(self) -> "PowerBiDashboardSourceConfig":
+        if self.use_pbix_v2_features:
+            if not self.extract_from_pbix_file:
+                logger.info(
+                    "use_pbix_v2_features=True requires extract_from_pbix_file=True. Automatically enabling extract_from_pbix_file."
+                )
+                self.extract_from_pbix_file = True
         return self
 
     @model_validator(mode="after")
@@ -581,7 +610,7 @@ class PowerBiDashboardSourceConfig(
         if self.extract_column_level_lineage is False:
             return self
 
-        logger.debug(f"Validating additional flags: {flags}")
+        logger.debug("Validating additional flags: %s", flags)
 
         is_flag_enabled: bool = True
         for flag in flags:
@@ -1238,6 +1267,7 @@ class MeasureLineageEntry(BaseModel):
 class VisualizationLineage(BaseModel):
     visualizationId: Optional[int] = None  # Integer ID in PBIX files
     visualizationType: str = "Unknown"
+    visualizationTitle: Optional[str] = None  # User-defined title from visual config
     sectionName: Optional[str] = None
     sectionId: Optional[int] = None  # Integer ID in PBIX files
     columns: List[ColumnLineageEntry] = Field(default_factory=list)

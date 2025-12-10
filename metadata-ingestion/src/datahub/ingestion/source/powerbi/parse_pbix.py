@@ -309,12 +309,13 @@ class LineageBuilder:
 
 
 class PBIXParser:
-    def __init__(self, pbix_path: str):
+    def __init__(self, pbix_path: str, use_v2_features: bool = False):
         """
         Initialize the parser with a .pbix file path.
 
         Args:
             pbix_path: Path to the .pbix file
+            use_v2_features: Enable enhanced metadata extraction (v2 features)
         """
         self.pbix_path = Path(pbix_path)
         if not self.pbix_path.exists():
@@ -322,6 +323,7 @@ class PBIXParser:
         if not self.pbix_path.suffix.lower() == ".pbix":
             raise ValueError(f"File must have .pbix extension: {pbix_path}")
 
+        self.use_v2_features = use_v2_features
         self.metadata: Dict[str, Any] = {}
         self.data_model_schema = None
         self.layout = None
@@ -440,7 +442,7 @@ class PBIXParser:
 
                     except (UnicodeDecodeError, json.JSONDecodeError) as e:
                         # Some files might be binary or have encoding issues
-                        logger.warning(f"Could not parse {filename}: {e}")
+                        logger.warning("Could not parse %s: %s", filename, e)
                         continue
 
         except zipfile.BadZipFile as e:
@@ -536,7 +538,7 @@ class PBIXParser:
                     relationship = PBIXRelationship.model_validate(rel_data)
                     relationships.append(relationship)
                 except Exception as e:
-                    logger.warning(f"Failed to parse relationship: {e}")
+                    logger.warning("Failed to parse relationship: %s", e)
                     continue
 
             # Parse roles (Row-Level Security)
@@ -547,7 +549,7 @@ class PBIXParser:
                     role = PBIXRole.model_validate(role_data)
                     roles.append(role)
                 except Exception as e:
-                    logger.warning(f"Failed to parse role: {e}")
+                    logger.warning("Failed to parse role: %s", e)
                     continue
 
             # Parse data sources
@@ -558,7 +560,7 @@ class PBIXParser:
                     data_source = PBIXDataSource.model_validate(ds_data)
                     data_sources.append(data_source)
                 except Exception as e:
-                    logger.warning(f"Failed to parse data source: {e}")
+                    logger.warning("Failed to parse data source: %s", e)
                     continue
 
             # Parse expressions (M-Queries)
@@ -569,7 +571,7 @@ class PBIXParser:
                     expression = PBIXExpression.model_validate(expr_data)
                     expressions.append(expression)
                 except Exception as e:
-                    logger.warning(f"Failed to parse expression: {e}")
+                    logger.warning("Failed to parse expression: %s", e)
                     continue
 
             # Create complete data model with validation
@@ -613,7 +615,7 @@ class PBIXParser:
                 validated_model=data_model_obj,
             )
         except Exception as e:
-            logger.error(f"Failed to parse data model: {e}")
+            logger.error("Failed to parse data model: %s", e)
             # Fallback to basic structure
             return PBIXDataModelParsed(
                 tables=[],
@@ -742,7 +744,7 @@ class PBIXParser:
                         visual_columns.append(hierarchy_info)
             except Exception as e:
                 # Fallback to Pydantic models for malformed items
-                logger.debug(f"Failed to validate select item: {e}, using fallback")
+                logger.debug("Failed to validate select item: %s, using fallback", e)
                 name = select_item.get("Name", "")
                 native_ref = select_item.get("NativeReferenceName", "")
 
@@ -780,7 +782,7 @@ class PBIXParser:
         try:
             visual_model = PBIXVisualContainer.model_validate(visual_container)
         except Exception as e:
-            logger.warning(f"Failed to validate visual container: {e}")
+            logger.warning("Failed to validate visual container: %s", e)
             # Fallback to basic parsing
             visual_model = PBIXVisualContainer(
                 id=visual_container.get("id"),
@@ -995,7 +997,7 @@ class PBIXParser:
                 bookmark_model = PBIXBookmark.model_validate(bookmark_data)
                 bookmarks.append(bookmark_model.model_dump())
             except Exception as e:
-                logger.debug(f"Failed to validate bookmark: {e}, using fallback")
+                logger.debug("Failed to validate bookmark: %s, using fallback", e)
                 # Fallback
                 bookmark = {
                     "name": bookmark_data.get("name", "Unknown"),
@@ -1119,7 +1121,7 @@ class PBIXParser:
         try:
             layout_model = PBIXLayout.model_validate(layout)
         except Exception as e:
-            logger.warning(f"Failed to validate layout structure: {e}")
+            logger.warning("Failed to validate layout structure: %s", e)
             # Fallback to basic parsing
             layout_model = PBIXLayout(
                 sections=[],
@@ -1374,6 +1376,7 @@ class PBIXParser:
         viz_lineage = VisualizationLineage(
             visualizationId=viz.id,
             visualizationType=viz.visualType,
+            visualizationTitle=viz.title if hasattr(viz, "title") else None,
             sectionName=viz.sectionName,
             sectionId=viz.sectionId,
             columns=[],
@@ -1410,27 +1413,30 @@ class PBIXParser:
             builder: LineageBuilder to accumulate results
             data_model_parsed: Parsed data model for enrichment
         """
+        # First convert dict to Pydantic object for type safety
+        viz_obj = VisualInfo.model_validate(viz)
+
+        # Use object attributes instead of .get() for better readability
         viz_lineage = VisualizationLineage(
-            visualizationId=viz.get("id"),
-            visualizationType=viz.get("visualType"),
-            sectionName=viz.get("sectionName"),
-            sectionId=viz.get("sectionId"),
+            visualizationId=viz_obj.id,
+            visualizationType=viz_obj.visualType,
+            visualizationTitle=viz_obj.title if hasattr(viz_obj, "title") else None,
+            sectionName=viz_obj.sectionName,
+            sectionId=viz_obj.sectionId,
             columns=[],
             measures=[],
         )
 
-        viz_obj = VisualInfo.model_validate(viz)
-
-        for col_dict in viz.get("columns", []):
-            col = VisualColumnInfo.model_validate(col_dict)
+        # Process columns using object attributes
+        for col in viz_obj.columns:
             col_lineage = self._build_column_lineage_entry(
                 col, viz_obj, data_model_parsed
             )
             viz_lineage.columns.append(col_lineage)
             builder.update_column_mapping(col.table, col.column, viz_obj, col)
 
-        for measure_dict in viz.get("measures", []):
-            measure = VisualMeasureInfo.model_validate(measure_dict)
+        # Process measures using object attributes
+        for measure in viz_obj.measures:
             measure_lineage = self._build_measure_lineage_entry(
                 measure, viz_obj, data_model_parsed
             )
