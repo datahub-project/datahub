@@ -145,7 +145,7 @@ def test_source_report():
     assert report.num_workunits_produced == 0
 
     # Test reporting methods
-    report.report_file_processed()
+    report.report_file_processed("/path/to/file.ttl")
     assert report.num_files_processed == 1
 
     report.report_triples_processed(100)

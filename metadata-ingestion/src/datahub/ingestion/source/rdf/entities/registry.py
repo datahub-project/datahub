@@ -3,9 +3,12 @@ Entity Registry
 
 Explicit registry for the 2-3 entity types currently supported.
 Uses explicit imports instead of auto-discovery for simplicity.
+
+This module provides a thread-safe singleton registry pattern for entity processors.
 """
 
 import logging
+import threading
 from typing import Dict, List, Optional
 
 from datahub.ingestion.source.rdf.entities.base import (
@@ -40,24 +43,93 @@ class EntityRegistry:
         self._register_domain()
 
     def register_extractor(self, entity_type: str, extractor: EntityExtractor) -> None:
-        """Register an extractor for an entity type."""
+        """
+        Register an extractor for an entity type.
+
+        Args:
+            entity_type: The entity type name
+            extractor: The extractor instance
+
+        Raises:
+            ValueError: If extractor's entity_type doesn't match
+        """
+        if extractor.entity_type != entity_type:
+            raise ValueError(
+                f"Extractor entity_type '{extractor.entity_type}' does not match provided entity_type '{entity_type}'"
+            )
         self._extractors[entity_type] = extractor
         logger.debug(f"Registered extractor for {entity_type}")
 
     def register_converter(self, entity_type: str, converter: EntityConverter) -> None:
-        """Register a converter for an entity type."""
+        """
+        Register a converter for an entity type.
+
+        Args:
+            entity_type: The entity type name
+            converter: The converter instance
+
+        Raises:
+            ValueError: If converter's entity_type doesn't match
+        """
+        if converter.entity_type != entity_type:
+            raise ValueError(
+                f"Converter entity_type '{converter.entity_type}' does not match provided entity_type '{entity_type}'"
+            )
         self._converters[entity_type] = converter
         logger.debug(f"Registered converter for {entity_type}")
 
     def register_mcp_builder(
         self, entity_type: str, mcp_builder: EntityMCPBuilder
     ) -> None:
-        """Register an MCP builder for an entity type."""
+        """
+        Register an MCP builder for an entity type.
+
+        Args:
+            entity_type: The entity type name
+            mcp_builder: The MCP builder instance
+
+        Raises:
+            ValueError: If mcp_builder's entity_type doesn't match
+        """
+        if mcp_builder.entity_type != entity_type:
+            raise ValueError(
+                f"MCP builder entity_type '{mcp_builder.entity_type}' does not match provided entity_type '{entity_type}'"
+            )
         self._mcp_builders[entity_type] = mcp_builder
         logger.debug(f"Registered MCP builder for {entity_type}")
 
     def register_processor(self, entity_type: str, processor: EntityProcessor) -> None:
-        """Register a complete processor for an entity type."""
+        """
+        Register a complete processor for an entity type.
+
+        Validates that all components have consistent entity types.
+
+        Args:
+            entity_type: The entity type name
+            processor: The processor instance
+
+        Raises:
+            ValueError: If processor or any component's entity_type doesn't match
+        """
+        if processor.entity_type != entity_type:
+            raise ValueError(
+                f"Processor entity_type '{processor.entity_type}' does not match provided entity_type '{entity_type}'"
+            )
+
+        # Validate component consistency
+        if processor.extractor.entity_type != entity_type:
+            raise ValueError(
+                f"Extractor entity_type mismatch: '{processor.extractor.entity_type}' != '{entity_type}'"
+            )
+        if processor.converter.entity_type != entity_type:
+            raise ValueError(
+                f"Converter entity_type mismatch: '{processor.converter.entity_type}' != '{entity_type}'"
+            )
+        if processor.mcp_builder.entity_type != entity_type:
+            raise ValueError(
+                f"MCP builder entity_type mismatch: '{processor.mcp_builder.entity_type}' != '{entity_type}'"
+            )
+
         self._processors[entity_type] = processor
         # Also register individual components
         self._extractors[entity_type] = processor.extractor
@@ -185,10 +257,18 @@ class EntityRegistry:
         # Build reverse mapping from CLI names to entity type
         for cli_name in metadata.cli_names:
             if cli_name in self._cli_name_to_entity_type:
-                logger.warning(
-                    f"CLI name '{cli_name}' already mapped to '{self._cli_name_to_entity_type[cli_name]}', overwriting with '{entity_type}'"
+                existing_type = self._cli_name_to_entity_type[cli_name]
+                if existing_type != entity_type:
+                    raise ValueError(
+                        f"CLI name '{cli_name}' is already registered for entity type '{existing_type}'. "
+                        f"Cannot register for '{entity_type}'. Use a different CLI name."
+                    )
+                # Same entity type re-registering - this is OK, just log
+                logger.debug(
+                    f"CLI name '{cli_name}' already registered for '{entity_type}', skipping duplicate registration"
                 )
-            self._cli_name_to_entity_type[cli_name] = entity_type
+            else:
+                self._cli_name_to_entity_type[cli_name] = entity_type
 
         logger.debug(
             f"Registered metadata for {entity_type} with CLI names: {metadata.cli_names}"
@@ -253,7 +333,12 @@ class EntityRegistry:
             if metadata.dependencies:
                 for dep in metadata.dependencies:
                     dep_str = dep if isinstance(dep, str) else str(dep)
-                    if dep_str in dependency_graph:
+                    if dep_str not in dependency_graph:
+                        logger.warning(
+                            f"Entity type '{entity_type}' depends on '{dep_str}' which is not registered. "
+                            f"Ignoring dependency. This may cause incorrect processing order."
+                        )
+                    else:
                         dependency_graph[dep_str].append(entity_type)
                         in_degree[entity_type] += 1
 
@@ -295,26 +380,97 @@ class EntityRegistry:
         # Check for cycles
         if len(result) != len(entity_types):
             remaining = set(entity_types) - set(result)
-            logger.warning(
-                f"Circular dependency detected. Remaining: {remaining}. "
-                f"Falling back to alphabetical order."
-            )
+            # Try to detect the actual cycle for better error reporting
+            cycle = self._detect_cycle(dependency_graph, list(remaining))
+            if cycle:
+                logger.error(
+                    f"Circular dependency detected: {' -> '.join(cycle)} -> {cycle[0]}. "
+                    f"Falling back to alphabetical order."
+                )
+            else:
+                logger.warning(
+                    f"Circular dependency detected. Remaining entities: {remaining}. "
+                    f"Falling back to alphabetical order."
+                )
             return sorted(entity_types)
 
         return result
 
+    def _detect_cycle(
+        self, dependency_graph: Dict[str, List[str]], start_entities: List[str]
+    ) -> Optional[List[str]]:
+        """
+        Detect a cycle in the dependency graph using DFS.
 
-# Create a singleton instance
+        Args:
+            dependency_graph: The dependency graph
+            start_entities: Entities to start cycle detection from
+
+        Returns:
+            List of entity types forming a cycle, or None if no cycle found
+        """
+        visited: Dict[str, bool] = {}
+        rec_stack: Dict[str, bool] = {}
+        cycle_path: List[str] = []
+
+        def dfs(entity_type: str, path: List[str]) -> bool:
+            """DFS helper to detect cycles."""
+            visited[entity_type] = True
+            rec_stack[entity_type] = True
+            path.append(entity_type)
+
+            for dependent in dependency_graph.get(entity_type, []):
+                if dependent not in visited:
+                    if dfs(dependent, path):
+                        return True
+                elif rec_stack.get(dependent, False):
+                    # Found a cycle - extract the cycle path
+                    cycle_start_idx = path.index(dependent)
+                    cycle_path.extend(path[cycle_start_idx:] + [dependent])
+                    return True
+
+            rec_stack[entity_type] = False
+            path.pop()
+            return False
+
+        for entity_type in start_entities:
+            if entity_type not in visited:
+                path: List[str] = []
+                if dfs(entity_type, path):
+                    return cycle_path if cycle_path else None
+
+        return None
+
+
+# Create a singleton instance with thread-safe initialization
 _singleton_registry: Optional[EntityRegistry] = None
+_registry_lock = threading.Lock()
 
 
 def create_default_registry() -> EntityRegistry:
     """
     Create or return the singleton registry instance.
 
-    This maintains backward compatibility with the old registry interface.
+    This function uses a thread-safe double-checked locking pattern to ensure
+    only one registry instance is created, even in multi-threaded environments.
+
+    Returns:
+        The singleton EntityRegistry instance
+
+    Note:
+        While DataHub ingestion is typically single-threaded, this pattern
+        ensures thread safety as a best practice.
     """
     global _singleton_registry
     if _singleton_registry is None:
-        _singleton_registry = EntityRegistry()
+        with _registry_lock:
+            # Double-check pattern: another thread may have created it while we waited
+            if _singleton_registry is None:
+                _singleton_registry = EntityRegistry()
     return _singleton_registry
+
+
+__all__ = [
+    "EntityRegistry",
+    "create_default_registry",
+]

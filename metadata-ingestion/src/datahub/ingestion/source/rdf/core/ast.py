@@ -3,7 +3,7 @@
 Shared AST (Abstract Syntax Tree) representations for RDF-to-DataHub transpilation.
 
 This module defines shared data structures that aggregate entity types.
-Entity-specific AST classes are now in their respective entity modules.
+Entity-specific AST classes are in their respective entity modules.
 """
 
 from typing import Any, Dict, List

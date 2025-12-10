@@ -551,7 +551,8 @@ class TestMCPGenerationBehavior(unittest.TestCase):
             skip_export=None,
         )
         # Generate work units directly using the inlined method
-        workunits = self.source._generate_workunits_from_ast(datahub_graph)
+        # Convert generator to list for backward compatibility with tests
+        workunits = list(self.source._generate_workunits_from_ast(datahub_graph))
         return workunits
 
     def test_glossary_term_mcp_generation(self):
@@ -608,10 +609,12 @@ class TestMCPGenerationBehavior(unittest.TestCase):
                 rel_mcps.append((m, aspect))
 
         # Should have at least one relationship MCP
+        # Convert mcps to list for length check
+        mcps_list = list(mcps) if not isinstance(mcps, list) else mcps
         self.assertGreater(
             len(rel_mcps),
             0,
-            f"Should have relationship MCPs, got {len(mcps)} total MCPs",
+            f"Should have relationship MCPs, got {len(mcps_list)} total MCPs",
         )
 
         # Check that isRelatedTerms is populated (not hasRelatedTerms)
