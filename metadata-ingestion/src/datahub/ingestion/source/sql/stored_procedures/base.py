@@ -33,6 +33,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BaseProcedure:
@@ -205,9 +207,8 @@ def generate_procedure_lineage(
     default_schema: Optional[str] = None,
     is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
+    report_failure: Optional[Callable[[str], None]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    logger = logging.getLogger(__name__)
-
     if procedure.procedure_definition and procedure.language == "SQL":
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
@@ -229,6 +230,8 @@ def generate_procedure_lineage(
                 f"Failed to extract lineage for stored procedure: {procedure.name}. "
                 f"URN: {procedure_job_urn}."
             )
+            if report_failure:
+                report_failure(procedure.name)
 
 
 def generate_procedure_container_workunits(

@@ -14,7 +14,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import _is_control_flow_statement
+from datahub.sql_parsing.sqlglot_lineage import _is_tsql_control_flow_statement
 from datahub.sql_parsing.sqlglot_utils import (
     get_dialect,
     is_dialect_instance,
@@ -76,7 +76,7 @@ def parse_procedure_code(
 
         # Skip TSQL control flow keywords that don't produce lineage
         # Only apply for MSSQL/TSQL dialect
-        if is_dialect_instance(dialect, "tsql") and _is_control_flow_statement(
+        if is_dialect_instance(dialect, "tsql") and _is_tsql_control_flow_statement(
             stmt_upper
         ):
             continue
@@ -86,12 +86,10 @@ def parse_procedure_code(
             parsed = parse_statement(stmt_stripped, dialect=dialect)
             query_type, _ = get_query_type_of_sql(parsed, dialect=platform)
 
-            # Skip UNKNOWN types (RAISERROR, unsupported SQL, etc.)
-            if query_type == QueryType.UNKNOWN:
-                continue
-
-            # Skip CREATE_DDL (table definitions without data operations)
-            if query_type == QueryType.CREATE_DDL:
+            # Skip non-DML statements that don't produce lineage
+            # UNKNOWN: RAISERROR, unsupported SQL, etc.
+            # CREATE_DDL: table definitions without data operations
+            if query_type in (QueryType.UNKNOWN, QueryType.CREATE_DDL):
                 continue
 
             # Skip SELECT without FROM clause (variable assignments)

@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 from collections import defaultdict
 from typing import (
@@ -120,7 +121,7 @@ TSQL_CONTROL_FLOW_KEYWORDS = {
 }
 
 
-def _is_control_flow_statement(stmt_upper: str) -> bool:
+def _is_tsql_control_flow_statement(stmt_upper: str) -> bool:
     """Check if statement starts with a TSQL control flow keyword with word boundary."""
     for kw in TSQL_CONTROL_FLOW_KEYWORDS:
         if stmt_upper.startswith(kw):
@@ -292,6 +293,10 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
     table_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
     column_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
+
+    # Fallback parser statistics (for stored procedures)
+    num_statements_parsed: Optional[int] = pydantic.Field(default=None, exclude=True)
+    num_statements_failed: Optional[int] = pydantic.Field(default=None, exclude=True)
 
     @property
     def error(self) -> Optional[Exception]:
@@ -1450,18 +1455,19 @@ def _is_stored_procedure_with_unsupported_syntax(
     if not is_dialect_instance(dialect, "tsql"):
         return False
 
-    sql_upper = sql.strip().upper()
+    # Normalize whitespace to handle multiple spaces, tabs, newlines
+    sql_normalized = re.sub(r"\s+", " ", sql.strip()).upper()
 
     # Check if it's a CREATE PROCEDURE statement
     if not (
-        sql_upper.startswith("CREATE PROCEDURE")
-        or sql_upper.startswith("CREATE OR REPLACE PROCEDURE")
+        sql_normalized.startswith("CREATE PROCEDURE")
+        or sql_normalized.startswith("CREATE OR REPLACE PROCEDURE")
     ):
         return False
 
     # Check for TSQL control flow that causes parsing failures
     # Use word boundary matching to avoid false positives like TREND (contains END)
-    return _contains_control_flow_keyword(sql_upper)
+    return _contains_control_flow_keyword(sql_normalized)
 
 
 def _parse_stored_procedure_fallback(
@@ -1506,11 +1512,12 @@ def _parse_stored_procedure_fallback(
         if not stmt_stripped:
             continue
 
-        stmt_upper = stmt_stripped.upper()
+        # Normalize whitespace to handle multiple spaces, tabs, newlines
+        stmt_normalized = re.sub(r"\s+", " ", stmt_stripped).upper()
 
         # Skip CREATE PROCEDURE statements to prevent infinite recursion
         # (split_statements might return the CREATE PROCEDURE header itself)
-        if stmt_upper.startswith("CREATE PROCEDURE") or stmt_upper.startswith(
+        if stmt_normalized.startswith("CREATE PROCEDURE") or stmt_normalized.startswith(
             "CREATE OR REPLACE PROCEDURE"
         ):
             logger.debug(
@@ -1520,13 +1527,15 @@ def _parse_stored_procedure_fallback(
 
         # Skip control flow statements that don't produce lineage
         # Use word boundary checking to avoid false positives like SETVAR, BEGINX
-        if _is_control_flow_statement(stmt_upper):
+        if _is_tsql_control_flow_statement(stmt_normalized):
             logger.debug(f"Skipping control flow statement: {stmt_stripped[:50]}...")
             continue
 
         # Skip DROP TABLE statements - they don't contribute to lineage and often
         # get split incorrectly (e.g., "DROP TABLE IF EXISTS" becomes "DROP TABLE")
-        if stmt_upper.startswith("DROP TABLE") or stmt_upper.startswith("DROP "):
+        if stmt_normalized.startswith("DROP TABLE") or stmt_normalized.startswith(
+            "DROP "
+        ):
             logger.debug(f"Skipping DROP statement: {stmt_stripped[:50]}...")
             continue
 
@@ -1609,6 +1618,8 @@ def _parse_stored_procedure_fallback(
             generalized_statement=f"CREATE PROCEDURE (parsed {parsed_count} statements via fallback)",
             tables_discovered=len(all_in_tables | all_out_tables),
             table_schemas_resolved=0,  # We don't have schema resolution in fallback mode
+            num_statements_parsed=parsed_count,
+            num_statements_failed=failed_count,
         ),
     )
 
@@ -1642,7 +1653,7 @@ def _sqlglot_lineage_inner(
     # Check this BEFORE parsing to avoid wasted effort
     sql_string = sql if isinstance(sql, str) else str(sql)
     if _is_stored_procedure_with_unsupported_syntax(sql_string, dialect):
-        logger.info(
+        logger.debug(
             "Detected stored procedure with unsupported control flow syntax (TRY/CATCH), using fallback parser to extract DML statements"
         )
         return _parse_stored_procedure_fallback(

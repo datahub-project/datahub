@@ -1198,6 +1198,9 @@ class SQLServerSource(SQLAlchemySource):
                                 is_temp_table=self.is_temp_table,
                                 default_db=procedure.db,
                                 default_schema=procedure.schema,
+                                report_failure=lambda name: self._report_procedure_failure(
+                                    name
+                                ),
                             ),
                             procedure_name=procedure.name,
                         )
@@ -1209,6 +1212,12 @@ class SQLServerSource(SQLAlchemySource):
                         logger.debug(
                             f"No lineage workunits for procedure: {procedure.name}"
                         )
+
+    def _report_procedure_failure(self, procedure_name: str) -> None:
+        """Report a stored procedure lineage extraction failure to the aggregator."""
+        if hasattr(self, "aggregator") and self.aggregator is not None:
+            self.aggregator.report.num_procedures_failed += 1
+            self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
     def is_temp_table(self, name: str) -> bool:
         """Check if a table name refers to a temp table or unresolved alias."""
