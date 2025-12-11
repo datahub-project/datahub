@@ -863,12 +863,12 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         # (e.g., Snowflake semantic views using dbt_semantic_view package)
         if materialization == "semantic_view":
             node_type = "semantic_view"
-            logger.info(
+            logger.debug(
                 f"Detected Snowflake semantic view: {key} (node_type overridden to 'semantic_view')"
             )
             if compiled_code:
-                logger.info(
-                    f"Semantic view {key}: Will attempt CLL extraction from compiled DDL"
+                logger.debug(
+                    f"Semantic view {key}: compiled_code present (length={len(compiled_code)}). Will attempt CLL extraction from compiled DDL"
                 )
             else:
                 logger.warning(

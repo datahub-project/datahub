@@ -707,7 +707,7 @@ def parse_semantic_view_cll(  # noqa: C901
         )
         return []
 
-    logger.info(
+    logger.debug(
         f"parse_semantic_view_cll: Starting CLL extraction (compiled_sql length={len(compiled_sql)}, upstream_nodes={len(upstream_nodes)})"
     )
     logger.debug(f"Upstream nodes: {upstream_nodes}")
@@ -737,24 +737,25 @@ def parse_semantic_view_cll(  # noqa: C901
         )
         return []
 
-    logger.info(
+    logger.debug(
         f"Built table mapping for {len(table_to_dbt_name)} tables: {list(table_to_dbt_name.keys())}"
     )
 
     # Pattern 1: DIMENSIONS/FACTS - TABLE.SOURCE_COLUMN AS OUTPUT_COLUMN
-    # Example: ORDERS.CUSTOMER_ID AS CUSTOMER_ID
-    # Handles quoted identifiers and various terminators (whitespace, comma, paren, newline, EOF, COMMENT)
-    dimension_pattern = r"(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")\s+AS\s+(?:\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|$|\n))"
+    # Example: ORDERS.CUSTOMER_ID AS CUSTOMER_ID, "Order-ID" AS order_id
+    # Handles quoted identifiers, newlines, EOF, comments, and various terminators
+    dimension_pattern = r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|$|\n))"
 
     # Pattern 2: METRICS - TABLE.OUTPUT_NAME AS AGG_FUNC(SOURCE_COLUMN)
-    # Example: ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL)
-    # Extended to support more aggregation functions
+    # Example: ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL), "Total-Revenue" AS COUNT_DISTINCT("order_id")
+    # Extended to support more aggregation functions and quoted identifiers
     AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
-    metric_pattern = rf"(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")\s+AS\s+{AGGREGATIONS}\s*\(\s*(?:\w+|\"[^\"]+\")\s*\)"
+    metric_pattern = rf"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+{AGGREGATIONS}\s*\(\s*(\w+|\"[^\"]+\")\s*\)"
 
     # Pattern 3: DERIVED METRICS - OUTPUT_NAME AS TABLE.METRIC1 + TABLE.METRIC2
     # Example: TOTAL_ORDER_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
-    derived_metric_pattern = r"(\w+)\s+AS\s+((?:\w+\.\w+(?:\s*[+\-*/]\s*)?)+)"
+    # Now handles quoted identifiers: "total-revenue" AS "Orders"."gross-revenue" + "Trans"."net-amount"
+    derived_metric_pattern = r"(\w+|\"[^\"]+\")\s+AS\s+((?:(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")(?:\s*[+\-*/]\s*)?)+)"
 
     # Detect DDL sections for debugging
     has_dimensions = bool(re.search(r"DIMENSIONS\s*\(", compiled_sql, re.IGNORECASE))
@@ -769,20 +770,11 @@ def parse_semantic_view_cll(  # noqa: C901
     logger.debug(f"Found {len(metric_matches)} metric patterns")
 
     for match in metric_matches:
-        # Extract the full match and parse it
-        full_match = match.group(0)
         # Pattern: TABLE.OUTPUT_NAME AS AGG_FUNC(SOURCE_COLUMN)
-        parts = re.match(
-            rf"(?P<table>\w+|\"[^\"]+\")\.(?P<output>\w+|\"[^\"]+\")\s+AS\s+{AGGREGATIONS}\s*\(\s*(?P<source>\w+|\"[^\"]+\")\s*\)",
-            full_match,
-            re.IGNORECASE,
-        )
-        if not parts:
-            continue
-
-        table_ref = parts.group("table").strip('"').upper()
-        output_column = parts.group("output").strip('"').lower()
-        source_column = parts.group("source").strip('"').lower()
+        # Groups: (1) table, (2) output, (3) source
+        table_ref = match.group(1).strip('"').upper()
+        output_column = match.group(2).strip('"').lower()
+        source_column = match.group(3).strip('"').lower()
 
         # Map table reference to dbt source node
         if table_ref in table_to_dbt_name:
@@ -816,20 +808,11 @@ def parse_semantic_view_cll(  # noqa: C901
     logger.debug(f"Found {len(dimension_matches)} dimension/fact patterns")
 
     for match in dimension_matches:
-        # Extract the full match and parse it
-        full_match = match.group(0)
         # Pattern: TABLE.SOURCE_COLUMN AS OUTPUT_COLUMN
-        parts = re.match(
-            r"(?P<table>\w+|\"[^\"]+\")\.(?P<source>\w+|\"[^\"]+\")\s+AS\s+(?P<output>\w+|\"[^\"]+\")",
-            full_match,
-            re.IGNORECASE,
-        )
-        if not parts:
-            continue
-
-        table_ref = parts.group("table").strip('"').upper()
-        source_column = parts.group("source").strip('"').lower()
-        output_column = parts.group("output").strip('"').lower()
+        # Groups: (1) table, (2) source, (3) output
+        table_ref = match.group(1).strip('"').upper()
+        source_column = match.group(2).strip('"').lower()
+        output_column = match.group(3).strip('"').lower()
 
         # Map table reference to dbt source node
         if table_ref in table_to_dbt_name:
@@ -875,14 +858,14 @@ def parse_semantic_view_cll(  # noqa: C901
     logger.debug(f"Found {len(derived_matches)} derived metric patterns")
 
     for match in derived_matches:
-        output_metric = match.group(1).lower()  # total_order_revenue
+        output_metric = match.group(1).strip('"').lower()  # total_order_revenue
         expression = match.group(
             2
         )  # ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
 
         # Extract all TABLE.METRIC references from the expression
-        # Pattern: TABLE.METRIC_NAME
-        ref_pattern = r"(\w+)\.(\w+)"
+        # Pattern: TABLE.METRIC_NAME (handles quoted identifiers)
+        ref_pattern = r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")"
         refs = re.findall(ref_pattern, expression, re.IGNORECASE)
 
         logger.debug(
@@ -891,7 +874,9 @@ def parse_semantic_view_cll(  # noqa: C901
 
         # For each referenced metric, trace back to its source columns
         for table_ref, metric_name in refs:
-            metric_name_lower = metric_name.lower()
+            # Strip quotes from identifiers
+            table_ref = table_ref.strip('"')
+            metric_name_lower = metric_name.strip('"').lower()
 
             # Check if this metric is in our map (meaning we've seen it before)
             if metric_name_lower in metric_to_sources:
@@ -921,7 +906,7 @@ def parse_semantic_view_cll(  # noqa: C901
                 )
 
     if cll_info:
-        logger.info(
+        logger.debug(
             f"Successfully parsed {len(cll_info)} column lineage entries from semantic view DDL "
             f"(metrics={len([c for c in cll_info if c.downstream_col in metric_to_sources])}, "
             f"dimensions/facts={len([c for c in cll_info if c.downstream_col not in metric_to_sources])})"
@@ -1745,13 +1730,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 # Parse semantic view DDL to extract column-level lineage
                 # SQL parser can't handle semantic view DDL syntax, so we use a custom parser
-                logger.info(
+                logger.debug(
                     f"Processing semantic view {node.dbt_name} for CLL extraction"
                 )
 
                 if node.compiled_code:
-                    logger.info(
-                        f"Semantic view {node.dbt_name}: compiled_code available, calling CLL parser"
+                    logger.debug(
+                        f"Semantic view {node.dbt_name}: compiled_code available (length={len(node.compiled_code)}), calling CLL parser"
                     )
                     cll_info = parse_semantic_view_cll(
                         compiled_sql=node.compiled_code,
@@ -1761,7 +1746,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     node.upstream_cll.extend(cll_info)
 
                     if cll_info:
-                        logger.info(
+                        logger.debug(
                             f"Semantic view {node.dbt_name}: Extracted {len(cll_info)} column lineage entries"
                         )
                     else:
