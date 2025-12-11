@@ -68,7 +68,7 @@ export default function NavBarHeader({ logotype }: Props) {
 
     return (
         <Container>
-            <StyledLink to="/" onClick={handleLogoClick}>
+            <StyledLink to="/" onClick={handleLogoClick} data-testid="nav-bar-home-logo">
                 <Logotype>{logotype}</Logotype>
                 {!isCollapsed && <DatahubCoreLogo />}
             </StyledLink>

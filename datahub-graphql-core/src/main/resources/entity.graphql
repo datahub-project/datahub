@@ -977,6 +977,14 @@ type Mutation {
   ): Boolean
 
   """
+  Batch unset a specific Application from a list of entities
+  """
+  batchUnsetApplication(
+    "Input for batch unsetting application"
+    input: BatchUnsetApplicationInput!
+  ): Boolean
+
+  """
   Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
   """
   createOwnershipType(
@@ -1352,6 +1360,11 @@ enum EntityType {
   An application
   """
   APPLICATION
+
+  """
+  A Knowledge Article
+  """
+  DOCUMENT
 
   """
   An DataHub Page Template
@@ -1766,9 +1779,16 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
+  The applications associated with the dataset
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the dataset
   """
-  application: ApplicationAssociation @aspectMapping(aspects: ["applications"])
+  application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead") @aspectMapping(aspects: ["applications"])
 
   """
   The forms associated with the Dataset
@@ -1827,6 +1847,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
     @noAspects # has own custom resolver
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
@@ -2234,9 +2259,16 @@ type VersionedDataset implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Experimental! The resolved health status of the asset
@@ -2269,7 +2301,6 @@ type VersionedDataset implements Entity {
   No-op, has to be included due to model
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
-    @deprecated
 }
 
 """
@@ -2456,9 +2487,16 @@ type GlossaryTerm implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the glossary term
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the glossary term
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   References to internal resources related to the Glossary Term
@@ -2500,6 +2538,11 @@ type GlossaryTerm implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Schema metadata of the dataset
@@ -2663,6 +2706,11 @@ type GlossaryNode implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Recursively get the lineage of glossary nodes for this entity
@@ -3043,6 +3091,16 @@ enum FabricType {
   Designates sandbox fabrics
   """
   SANDBOX
+
+  """
+  Designates alternative spelling PROD
+  """
+  PRD
+
+  """
+  Designates alternative spelling TEST
+  """
+  TST
 }
 
 """
@@ -3120,9 +3178,16 @@ type Container implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The deprecation status of the container
@@ -3143,6 +3208,11 @@ type Container implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Status metadata of the container
@@ -3599,6 +3669,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -5685,9 +5760,16 @@ type Notebook implements Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -5977,9 +6059,16 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -5990,6 +6079,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -6320,9 +6414,16 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6340,6 +6441,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -6724,9 +6830,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6747,6 +6860,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -6986,14 +7104,26 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
@@ -10351,6 +10481,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -10376,9 +10511,16 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10488,6 +10630,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -10518,9 +10665,16 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10685,6 +10839,11 @@ type MLFeature implements EntityWithRelationships & Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -10705,9 +10864,16 @@ type MLFeature implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -10944,6 +11110,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -10964,9 +11135,16 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11088,6 +11266,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
@@ -11118,9 +11301,16 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   domain: DomainAssociation
 
   """
+  The applications associated with the entity
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
@@ -11553,6 +11743,11 @@ type Domain implements Entity {
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
 
   """
   Experimental API.
@@ -13116,6 +13311,11 @@ type DataProduct implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   Children entities inside of the DataProduct
   """
   entities(input: SearchAcrossEntitiesInput): SearchResults
@@ -13131,9 +13331,16 @@ type DataProduct implements Entity {
   domain: DomainAssociation
 
   """
+  The applications associated with the data product
+  """
+  applications: [ApplicationAssociation!]
+
+  """
+  Deprecated, use applications instead
   The application associated with the data product
   """
   application: ApplicationAssociation
+    @deprecated(reason: "Use applications instead")
 
   """
   Tags used for searching Data Product
@@ -13324,6 +13531,11 @@ type Application implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+
+  """
   The structured glossary terms associated with the Application
   """
   glossaryTerms: GlossaryTerms
@@ -13477,6 +13689,21 @@ input BatchSetApplicationInput {
 
   """
   The urns of the entities the given application should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+Input properties required for batch unsetting a specific Application from entities
+"""
+input BatchUnsetApplicationInput {
+  """
+  The urn of the application to be removed from the resources
+  """
+  applicationUrn: String!
+
+  """
+  The urns of the entities the given application should be removed from
   """
   resourceUrns: [String!]!
 }
@@ -13774,6 +14001,11 @@ type BusinessAttribute implements Entity {
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
 }
 
 """

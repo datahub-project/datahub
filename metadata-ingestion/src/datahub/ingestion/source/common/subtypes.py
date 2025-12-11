@@ -20,6 +20,7 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
+    GRAFANA_DATASET = "Grafana Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
@@ -118,6 +119,9 @@ class BIAssetSubTypes(StrEnum):
     # Hex
     HEX_PROJECT = "Project"
     HEX_COMPONENT = "Component"
+
+    # Streamlit
+    STREAMLIT = "Streamlit"
 
 
 class MLAssetSubTypes(StrEnum):

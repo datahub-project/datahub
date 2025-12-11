@@ -187,6 +187,14 @@ def test_failed_events_file():
     os.remove(failed_events_file_path)
 
 
+def test_minimal_create():
+    valid_config = _build_minimal_pipeline_config()
+    try:
+        Pipeline.create(valid_config)
+    except ValidationError:
+        pytest.fail("Should not get validation error")
+
+
 def _build_valid_pipeline_config() -> dict:
     return {
         "name": "sample-pipeline",
@@ -199,6 +207,15 @@ def _build_valid_pipeline_config() -> dict:
             "failure_mode": "CONTINUE",
             "failed_events_dir": "/tmp/datahub/test",
         },
+    }
+
+
+def _build_minimal_pipeline_config() -> dict:
+    return {
+        "name": "sample-pipeline",
+        "source": {"type": "test_source"},
+        "transform": [{"type": "test_transformer"}],
+        "action": {"type": "test_action"},
     }
 
 
