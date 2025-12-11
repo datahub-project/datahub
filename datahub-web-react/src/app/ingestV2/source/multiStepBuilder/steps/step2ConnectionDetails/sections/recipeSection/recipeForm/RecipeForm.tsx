@@ -1,10 +1,10 @@
 import { spacing } from '@components';
 import { Form, message } from 'antd';
-import { get } from 'lodash';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
+import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
@@ -13,8 +13,9 @@ import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FormHeader';
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
-import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/FiltersSection';
+import { getValuesFromRecipe } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/utils';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
+import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/FiltersSection';
 import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 
@@ -42,26 +43,13 @@ const TestConnectionWrapper = styled.div`
     justify-content: flex-start;
 `;
 
-function getInitialValues(displayRecipe: string, allFields: any[]) {
-    const initialValues = {};
-    let recipeObj;
+function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
     try {
-        recipeObj = YAML.parse(displayRecipe);
+        return getValuesFromRecipe(displayRecipe, allFields);
     } catch (e) {
         message.warn('Found invalid YAML. Please check your recipe configuration.');
         return {};
     }
-    if (recipeObj) {
-        allFields.forEach((field) => {
-            if (field.getValueFromRecipeOverride) {
-                initialValues[field.name] = field.getValueFromRecipeOverride(recipeObj);
-            } else {
-                initialValues[field.name] = get(recipeObj, field.fieldPath);
-            }
-        });
-    }
-
-    return initialValues;
 }
 
 interface Props {
@@ -164,7 +152,7 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
                     </TestConnectionWrapper>
                 )}
 
-                <FiltersSection filterFields={filterFields} updateFormValue={updateFormValue} />
+                <FiltersSection fields={filterFields} updateRecipe={updateRecipe} recipe={displayRecipe} />
 
                 <SettingsSection settingsFields={advancedFields} updateFormValue={updateFormValue} />
             </SectionsContainer>
