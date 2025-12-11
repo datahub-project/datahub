@@ -8,6 +8,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
 from datahub_executor.common.connection.databricks.databricks_connection import (
+    DATABRICKS_USER_AGENT_ENTRY,
     DatabricksConnection,
 )
 from datahub_executor.common.exceptions import SourceConnectionErrorException
@@ -61,6 +62,7 @@ class TestDatabricksConnection:
             server_hostname="test-workspace.databricks.com",
             http_path="/sql/1.0/warehouses/test-warehouse-id",
             access_token="test-token",
+            user_agent_entry=DATABRICKS_USER_AGENT_ENTRY,
         )
 
     @patch("datahub_executor.common.connection.databricks.databricks_connection.sql")
