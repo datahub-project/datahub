@@ -243,6 +243,31 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             logger.info(f"Processing Dataplex resources for project: {project_id}")
             yield from self._process_project(project_id)
 
+    def _emit_final_batch(
+        self,
+        cached_mcps: list[MetadataChangeProposalWrapper],
+        total_emitted: int,
+        project_id: str,
+        resource_type: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit the final batch of MCPs for a resource type.
+
+        Args:
+            cached_mcps: List of cached MCPs to emit
+            total_emitted: Total count of MCPs emitted so far
+            project_id: GCP project ID
+            resource_type: Type of resource being emitted ("entities" or "entries")
+
+        Yields:
+            MetadataWorkUnit objects
+        """
+        if cached_mcps:
+            yield from auto_workunit(cached_mcps)
+            total_emitted += len(cached_mcps)
+            logger.info(
+                f"Emitted final batch of {len(cached_mcps)} {resource_type} ({total_emitted} total) for project {project_id}"
+            )
+
     def _process_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         """Process all Dataplex resources for a single project.
 
@@ -293,6 +318,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     cached_entities_mcps.clear()
 
+            # Emit remaining cached entities MCPs
+            yield from self._emit_final_batch(
+                cached_entities_mcps, entities_emitted, project_id, "entities"
+            )
+
         # Process Entries API SECOND (if enabled) - collect MCPs and track containers
         # Entries will overwrite any duplicate entity metadata
         if self.config.include_entries:
@@ -311,24 +341,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     cached_entries_mcps.clear()
 
-        # Emit BigQuery containers BEFORE remaining entities/entries (so they can reference them)
+            # Emit remaining cached entries MCPs (will overwrite any duplicate entities)
+            yield from self._emit_final_batch(
+                cached_entries_mcps, entries_emitted, project_id, "entries"
+            )
+
+        # Emit BigQuery containers (so entities can reference them)
         yield from self._gen_bigquery_containers(project_id)
-
-        # Emit remaining cached entities MCPs
-        if self.config.include_entities and cached_entities_mcps:
-            yield from auto_workunit(cached_entities_mcps)
-            entities_emitted += len(cached_entities_mcps)
-            logger.info(
-                f"Emitted final batch of {len(cached_entities_mcps)} entities ({entities_emitted} total) for project {project_id}"
-            )
-
-        # Emit remaining cached entries MCPs (will overwrite any duplicate entities)
-        if self.config.include_entries and cached_entries_mcps:
-            yield from auto_workunit(cached_entries_mcps)
-            entries_emitted += len(cached_entries_mcps)
-            logger.info(
-                f"Emitted final batch of {len(cached_entries_mcps)} entries ({entries_emitted} total) for project {project_id}"
-            )
 
         # Extract lineage for entities (after entities and containers have been processed)
         if self.config.include_lineage and self.lineage_extractor:
