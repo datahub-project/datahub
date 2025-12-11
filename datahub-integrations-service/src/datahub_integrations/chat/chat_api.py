@@ -27,6 +27,13 @@ from datahub_integrations.chat.config import CHAT_MAX_MESSAGE_LENGTH
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
+class ChatContext(BaseModel):
+    """Context about where and how a message is being sent."""
+
+    text: str
+    entity_urns: list[str] | None = None
+
+
 class ChatMessageRequest(BaseModel):
     """Request model for sending a chat message."""
 
@@ -34,6 +41,7 @@ class ChatMessageRequest(BaseModel):
     conversation_urn: str
     user_urn: str
     agent_name: str | None = None
+    context: ChatContext | None = None
 
 
 def get_system_client() -> DataHubClient:
@@ -198,6 +206,7 @@ def send_streaming_message(
                 user_urn=request.user_urn,
                 conversation_urn=request.conversation_urn,
                 agent_name=request.agent_name,
+                message_context=request.context,
             ):
                 sse_data = event_to_sse(event)
 

@@ -8,6 +8,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.agent_runner import AgentRunner
+    from datahub_integrations.chat.chat_api import ChatContext
     from datahub_integrations.chat.planner.tools import get_plan_by_id
 else:
     # Import at runtime to avoid circular dependency
@@ -338,3 +339,23 @@ def format_plan_progress(
             lines.append(f"{icon} {step.description}")
 
     return "\n\n".join(lines)
+
+
+def combine_contexts(
+    conversation_context: Optional[str], message_context: Optional["ChatContext"]
+) -> Optional[str]:
+    """
+    Combine conversation-level context with message-level context.
+
+    Args:
+        conversation_context: Context from the conversation entity
+        message_context: Context from the current message
+
+    Returns:
+        Combined context string, or None if both are empty
+    """
+    if message_context and message_context.text:
+        if conversation_context:
+            return f"{conversation_context}\n\nCurrent Context: {message_context.text}"
+        return message_context.text
+    return conversation_context

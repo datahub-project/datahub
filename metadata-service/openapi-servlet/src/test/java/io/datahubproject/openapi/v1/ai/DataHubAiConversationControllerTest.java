@@ -1,6 +1,8 @@
 package io.datahubproject.openapi.v1.ai;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
@@ -19,6 +21,9 @@ import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.springframework.web.server.ResponseStatusException;
@@ -91,12 +96,13 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
               // Simulate Python service returning SSE events with event names
-              Consumer<SseEvent> callback = invocation.getArgument(4);
+              Consumer<SseEvent> callback = invocation.getArgument(5);
               if (callback != null) {
                 callback.accept(
                     new SseEvent(
@@ -151,6 +157,7 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenReturn(
@@ -179,11 +186,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(4);
+              Consumer<SseEvent> callback = invocation.getArgument(5);
               if (callback != null) {
                 // Simulate Python service streaming responses with event names
                 callback.accept(new SseEvent("message", testSseData1));
@@ -211,11 +219,12 @@ public class DataHubAiConversationControllerTest {
             any(String.class),
             any(String.class),
             any(String.class),
+            any(), // messageContext can be null
             any(Authentication.class),
             any(Consumer.class)))
         .thenAnswer(
             invocation -> {
-              Consumer<SseEvent> callback = invocation.getArgument(4);
+              Consumer<SseEvent> callback = invocation.getArgument(5);
               if (callback != null) {
                 // Simulate Python service returning an error event
                 callback.accept(
@@ -277,5 +286,136 @@ public class DataHubAiConversationControllerTest {
 
     // Should throw IllegalArgumentException for invalid URN
     controller.streamChat(mockHttpServletRequest, request);
+  }
+
+  @Test
+  public void testStreamChatWithContext() throws Exception {
+    // Test that message context is properly converted and passed through
+    when(mockStreamingClient.sendStreamingMessage(
+            eq(TEST_CONVERSATION_URN.toString()),
+            eq(TEST_MESSAGE_TEXT),
+            any(String.class), // agentName
+            argThat(
+                (Map<String, Object> contextMap) -> {
+                  if (contextMap == null) return false;
+                  String text = (String) contextMap.get("text");
+                  @SuppressWarnings("unchecked")
+                  List<String> entityUrns = (List<String>) contextMap.get("entity_urns");
+                  return "Current step: Configure Recipe".equals(text)
+                      && entityUrns != null
+                      && entityUrns.size() == 1
+                      && "urn:li:dataSource:123".equals(entityUrns.get(0));
+                }),
+            any(Authentication.class),
+            any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<SseEvent> callback = invocation.getArgument(5);
+              if (callback != null) {
+                callback.accept(
+                    new SseEvent(
+                        "message", "{\"type\":\"TEXT\",\"content\":{\"text\":\"Response\"}}"));
+              }
+              return CompletableFuture.completedFuture(null);
+            });
+
+    // Create request with context
+    DataHubAiConversationController.ChatRequest request =
+        new DataHubAiConversationController.ChatRequest();
+    request.setConversationUrn(TEST_CONVERSATION_URN.toString());
+    request.setText(TEST_MESSAGE_TEXT);
+
+    DataHubAiConversationController.ChatContext context =
+        new DataHubAiConversationController.ChatContext();
+    context.setText("Current step: Configure Recipe");
+    context.setEntityUrns(Arrays.asList("urn:li:dataSource:123"));
+    request.setContext(context);
+
+    // Call the streaming endpoint
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
+    assertNotNull(emitter);
+
+    // Give the async thread time to complete
+    Thread.sleep(500);
+  }
+
+  @Test
+  public void testStreamChatWithoutContext() throws Exception {
+    // Test that null context is handled correctly
+    when(mockStreamingClient.sendStreamingMessage(
+            eq(TEST_CONVERSATION_URN.toString()),
+            eq(TEST_MESSAGE_TEXT),
+            any(String.class),
+            eq(null), // Context should be null
+            any(Authentication.class),
+            any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<SseEvent> callback = invocation.getArgument(5);
+              if (callback != null) {
+                callback.accept(
+                    new SseEvent(
+                        "message", "{\"type\":\"TEXT\",\"content\":{\"text\":\"Response\"}}"));
+              }
+              return CompletableFuture.completedFuture(null);
+            });
+
+    // Create request without context
+    DataHubAiConversationController.ChatRequest request =
+        new DataHubAiConversationController.ChatRequest();
+    request.setConversationUrn(TEST_CONVERSATION_URN.toString());
+    request.setText(TEST_MESSAGE_TEXT);
+    // context is not set
+
+    // Call the streaming endpoint
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
+    assertNotNull(emitter);
+
+    // Give the async thread time to complete
+    Thread.sleep(500);
+  }
+
+  @Test
+  public void testStreamChatWithContextTextOnly() throws Exception {
+    // Test context with only text (no entity URNs)
+    when(mockStreamingClient.sendStreamingMessage(
+            eq(TEST_CONVERSATION_URN.toString()),
+            eq(TEST_MESSAGE_TEXT),
+            any(String.class),
+            argThat(
+                (Map<String, Object> contextMap) -> {
+                  if (contextMap == null) return false;
+                  String text = (String) contextMap.get("text");
+                  return "Current step: Test Connection".equals(text)
+                      && !contextMap.containsKey("entity_urns");
+                }),
+            any(Authentication.class),
+            any(Consumer.class)))
+        .thenAnswer(
+            invocation -> {
+              Consumer<SseEvent> callback = invocation.getArgument(5);
+              if (callback != null) {
+                callback.accept(
+                    new SseEvent(
+                        "message", "{\"type\":\"TEXT\",\"content\":{\"text\":\"Response\"}}"));
+              }
+              return CompletableFuture.completedFuture(null);
+            });
+
+    DataHubAiConversationController.ChatRequest request =
+        new DataHubAiConversationController.ChatRequest();
+    request.setConversationUrn(TEST_CONVERSATION_URN.toString());
+    request.setText(TEST_MESSAGE_TEXT);
+
+    DataHubAiConversationController.ChatContext context =
+        new DataHubAiConversationController.ChatContext();
+    context.setText("Current step: Test Connection");
+    // entityUrns is null
+    request.setContext(context);
+
+    SseEmitter emitter = controller.streamChat(mockHttpServletRequest, request);
+    assertNotNull(emitter);
+
+    Thread.sleep(500);
   }
 }

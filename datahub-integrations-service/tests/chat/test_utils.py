@@ -2,7 +2,12 @@
 
 import pytest
 
-from datahub_integrations.chat.utils import ParsedReasoning, parse_reasoning_message
+from datahub_integrations.chat.chat_api import ChatContext
+from datahub_integrations.chat.utils import (
+    ParsedReasoning,
+    combine_contexts,
+    parse_reasoning_message,
+)
 
 
 class TestParsedReasoning:
@@ -495,3 +500,80 @@ class TestParseReasoningMessage:
         assert parsed.plan_id == "plan_test123"
         assert parsed.plan_step == "s0"
         assert parsed.step_status == "in_progress"
+
+
+class TestCombineContexts:
+    """Tests for the combine_contexts function."""
+
+    def test_combine_both_contexts_provided(self) -> None:
+        conversation_context = "User is editing an ingestion source"
+        message_context = ChatContext(
+            text="Current step: Configure Recipe. Source type: MySQL",
+            entity_urns=["urn:li:dataSource:123"],
+        )
+
+        result = combine_contexts(conversation_context, message_context)
+
+        assert result == (
+            "User is editing an ingestion source\n\n"
+            "Current Context: Current step: Configure Recipe. Source type: MySQL"
+        )
+
+    def test_combine_only_conversation_context(self) -> None:
+        conversation_context = "User is viewing ingestion run details"
+        message_context = None
+
+        result = combine_contexts(conversation_context, message_context)
+
+        assert result == "User is viewing ingestion run details"
+
+    def test_combine_only_message_context(self) -> None:
+        conversation_context = None
+        message_context = ChatContext(
+            text="Current step: Test Connection",
+        )
+
+        result = combine_contexts(conversation_context, message_context)
+
+        assert result == "Current step: Test Connection"
+
+    def test_combine_neither_context(self) -> None:
+        conversation_context = None
+        message_context = None
+
+        result = combine_contexts(conversation_context, message_context)
+
+        assert result is None
+
+    def test_combine_empty_conversation_context(self) -> None:
+        conversation_context = ""
+        message_context = ChatContext(text="Current step: Review")
+
+        result = combine_contexts(conversation_context, message_context)
+
+        # Empty string is falsy, so only message context should be returned
+        assert result == "Current step: Review"
+
+    def test_combine_empty_message_context_text(self) -> None:
+        conversation_context = "Base context"
+        message_context = ChatContext(text="")
+
+        result = combine_contexts(conversation_context, message_context)
+
+        # Empty message context text means only conversation context
+        assert result == "Base context"
+
+    def test_combine_message_context_with_entity_urns(self) -> None:
+        conversation_context = "Editing source"
+        message_context = ChatContext(
+            text="Step: Configure",
+            entity_urns=[
+                "urn:li:dataSource:123",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+            ],
+        )
+
+        result = combine_contexts(conversation_context, message_context)
+
+        # entity_urns don't affect the text combination
+        assert result == "Editing source\n\nCurrent Context: Step: Configure"
