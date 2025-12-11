@@ -84,9 +84,20 @@ Default GCP Role for lineage: [roles/datalineage.viewer](https://docs.cloud.goog
 
 The Dataplex connector extracts metadata from Google Dataplex using two complementary APIs:
 
-1. **Universal Catalog Entries API** (Primary, default enabled): Extracts entries from system-managed entry groups like `@bigquery`, `@pubsub`, etc. This is the recommended approach for discovering BigQuery tables and other Google Cloud resources.
+1. **Universal Catalog Entries API** (Primary, default enabled): Extracts entries from system-managed entry groups for Google Cloud services. This is the recommended approach for discovering resources across your GCP organization. Supported services include:
 
-2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you need entity-level details not available in the Entries API.
+   - **BigQuery**: datasets, tables, models, routines, connections, and linked datasets
+   - **Cloud SQL**: instances
+   - **AlloyDB**: instances, databases, schemas, tables, and views
+   - **Spanner**: instances, databases, and tables
+   - **Pub/Sub**: topics and subscriptions
+   - **Cloud Storage**: buckets
+   - **Bigtable**: instances, clusters, and tables
+   - **Vertex AI**: models, datasets, and feature stores
+   - **Dataform**: repositories and workflows
+   - **Dataproc Metastore**: services and databases
+
+2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you are using the legacy Data Catalog and need entity-level details not available in the Entries API.
 
 **Datasets are ingested using their source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
 
@@ -94,11 +105,12 @@ The Dataplex connector extracts metadata from Google Dataplex using two compleme
 
 This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 
-| Dataplex Concept          | DataHub Concept                                                                 | Notes                                                                                                                                                                  |
-| :------------------------ | :------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entry (Universal Catalog) | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset) | Metadata from Universal Catalog. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.                       |
-| Entity (Lakes/Zones)      | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset) | Discovered table or fileset from lakes/zones. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.          |
-| Lake/Zone/Asset           | Custom Properties                                                               | Dataplex hierarchy information (lake, zone, asset, zone type) is preserved as **custom properties** on datasets for traceability without creating separate containers. |
+| Dataplex Concept          | DataHub Concept                                                                     | Notes                                                                                                                                                                                                                                                                                          |
+| :------------------------ | :---------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entry (Universal Catalog) | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Metadata from Universal Catalog for Google Cloud services (BigQuery, Cloud SQL, AlloyDB, Spanner, Pub/Sub, GCS, Bigtable, Vertex AI, Dataform, Dataproc Metastore). Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`, `spanner`). Schema metadata is extracted when available. |
+| Entity (Lakes/Zones)      | [`Dataset`](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Discovered table or fileset from lakes/zones. Ingested using **source platform URNs** (e.g., `bigquery`, `gcs`). Schema metadata is extracted when available.                                                                                                                                  |
+| BigQuery Project/Dataset  | [`Container`](https://docs.datahub.com/docs/generated/metamodel/entities/container) | BigQuery projects and datasets are created as containers to align with the native BigQuery connector. Dataplex-discovered BigQuery tables are linked to these containers.                                                                                                                      |
+| Lake/Zone/Asset           | Custom Properties                                                                   | Dataplex hierarchy information (lake, zone, asset, zone type) is preserved as **custom properties** on datasets for traceability without creating separate containers.                                                                                                                         |
 
 #### API Selection Guide
 

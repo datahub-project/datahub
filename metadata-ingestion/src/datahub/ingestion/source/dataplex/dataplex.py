@@ -1,11 +1,11 @@
 """Google Dataplex source for DataHub ingestion.
 
 This source extracts metadata from Google Dataplex, including:
-- Projects as Containers
-- Lakes as Containers (sub-containers of Projects)
-- Zones as Containers (sub-containers of Lakes)
-- Assets as Data Products (linked to Zone containers)
-- Entities (discovered tables/filesets) as Datasets (linked to Zone containers)
+- Entries (Universal Catalog) as Datasets with source platform URNs (bigquery, gcs, etc.)
+- Entities (discovered tables/filesets from Lakes/Zones) as Datasets with source platform URNs
+- BigQuery Projects as Containers (project-level containers)
+- BigQuery Datasets as Containers (dataset-level containers, nested under project containers)
+- Dataplex hierarchy (lakes, zones, assets, zone types) preserved as custom properties on datasets
 
 Reference implementation based on VertexAI and BigQuery V2 sources.
 """
