@@ -1,6 +1,6 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.datahub.authentication.Actor;
@@ -24,7 +24,8 @@ import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
-import java.util.*;
+import java.util.Collections;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -41,7 +42,10 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
 
   @Mock protected EntityService entityService;
   @Mock protected CredentialProvider credentialProvider;
-  @Mock protected Authorizer authorizer;
+
+  @Mock(answer = Answers.CALLS_REAL_METHODS)
+  protected Authorizer authorizer;
+
   @Mock protected HttpServletRequest request;
   @Mock protected SecretService secretService;
   @Mock protected EntitySearchService entitySearchService;

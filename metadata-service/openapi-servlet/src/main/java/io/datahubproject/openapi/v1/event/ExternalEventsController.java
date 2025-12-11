@@ -1,12 +1,12 @@
 package io.datahubproject.openapi.v1.event;
 
-import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -54,7 +54,7 @@ public class ExternalEventsController {
   static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
 
   private ExternalEventsService eventsService;
-  private AuthorizerChain authorizationChain;
+  private Authorizer authorizer;
   private OperationContext systemOperationContext;
   private final DataHubUsageService dataHubUsageService;
 
@@ -62,11 +62,11 @@ public class ExternalEventsController {
 
   public ExternalEventsController(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      AuthorizerChain authorizerChain,
+      Authorizer authorizer,
       DataHubUsageService dataHubUsageService,
       ExternalEventsService eventsService) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizationChain = authorizerChain;
+    this.authorizer = authorizer;
     this.dataHubUsageService = dataHubUsageService;
     this.eventsService = eventsService;
   }
@@ -111,7 +111,7 @@ public class ExternalEventsController {
               systemOperationContext,
               RequestContext.builder()
                   .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
-              authorizationChain,
+              authorizer,
               authentication,
               true);
 
@@ -223,7 +223,7 @@ public class ExternalEventsController {
                     request,
                     "search",
                     DATAHUB_USAGE_EVENT_INDEX),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 

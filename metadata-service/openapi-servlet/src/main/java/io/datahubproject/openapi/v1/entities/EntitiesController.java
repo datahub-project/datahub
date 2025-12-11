@@ -1,16 +1,15 @@
 package io.datahubproject.openapi.v1.entities;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.datahub.authorization.AuthUtil.*;
+import static com.linkedin.metadata.authorization.ApiGroup.*;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -70,19 +69,19 @@ public class EntitiesController {
   private final OperationContext systemOperationContext;
   private final EntityService<ChangeItemImpl> _entityService;
   private final ObjectMapper _objectMapper;
-  private final AuthorizerChain _authorizerChain;
+  private final Authorizer _authorizer;
   @Nullable private final MetricUtils metricUtils;
 
   public EntitiesController(
       OperationContext systemOperationContext,
       EntityService<ChangeItemImpl> _entityService,
       ObjectMapper _objectMapper,
-      AuthorizerChain _authorizerChain) {
+      Authorizer authorizer) {
     this.systemOperationContext = systemOperationContext;
     this.metricUtils = systemOperationContext.getMetricUtils().orElse(null);
     this._entityService = _entityService;
     this._objectMapper = _objectMapper;
-    this._authorizerChain = _authorizerChain;
+    this._authorizer = authorizer;
   }
 
   @InitBinder
@@ -128,7 +127,7 @@ public class EntitiesController {
                         .map(Urn::getEntityType)
                         .distinct()
                         .collect(Collectors.toList())),
-            _authorizerChain,
+            _authorizer,
             authentication,
             true);
 
@@ -204,7 +203,7 @@ public class EntitiesController {
                     proposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
                         .collect(Collectors.toSet())),
-            _authorizerChain,
+            _authorizer,
             authentication,
             true);
     /*
@@ -286,7 +285,7 @@ public class EntitiesController {
                       request,
                       "deleteEntities",
                       entityUrns.stream().map(Urn::getEntityType).collect(Collectors.toSet())),
-              _authorizerChain,
+              _authorizer,
               authentication,
               true);
 

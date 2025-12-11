@@ -1,13 +1,9 @@
 package io.datahubproject.openapi.operations.elastic;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.testng.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -15,7 +11,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -69,7 +65,7 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
 
   @Autowired private GraphService mockGraphService;
 
-  @Autowired private AuthorizerChain authorizerChain;
+  @Autowired private Authorizer authorizer;
 
   @BeforeMethod
   public void setupMocks() {
@@ -79,7 +75,7 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
     AuthenticationContext.setAuthentication(authentication);
 
     // Setup AuthorizerChain to allow access
-    when(authorizerChain.authorize(any()))
+    when(authorizer.authorize(any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
   }
 
@@ -150,7 +146,7 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
   @Test
   public void testGetEntityRawUnauthorized() throws Exception {
     // Setup AuthorizerChain to deny access
-    when(authorizerChain.authorize(any()))
+    when(authorizer.authorize(any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
 
     // Prepare request body

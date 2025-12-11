@@ -1,17 +1,11 @@
 package com.datahub.authorization;
 
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
-import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIVILEGE_MAP;
-import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static com.linkedin.metadata.authorization.ApiGroup.*;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.authorization.PoliciesConfig.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -330,7 +324,7 @@ public class AuthUtilTest {
   }
 
   private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {
-    Authorizer authorizer = mock(Authorizer.class);
+    Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
     when(authorizer.authorize(any()))
         .thenAnswer(
             args -> {

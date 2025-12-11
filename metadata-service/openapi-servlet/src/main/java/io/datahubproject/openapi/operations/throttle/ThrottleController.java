@@ -3,7 +3,7 @@ package io.datahubproject.openapi.operations.throttle;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.entity.throttle.ManualThrottleSensor;
@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ThrottleController {
 
   private final OperationContext systemOperationContext;
-  private final AuthorizerChain authorizerChain;
+  private final Authorizer authorizer;
   private final EntityServiceImpl entityService;
   private final ObjectMapper objectMapper;
   private final ManualThrottleSensor manualThrottleSensor;
@@ -42,11 +42,11 @@ public class ThrottleController {
   public ThrottleController(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       EntityServiceImpl entityService,
-      AuthorizerChain authorizerChain,
+      Authorizer authorizer,
       ObjectMapper objectMapper,
       ManualThrottleSensor manualThrottleSensor) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizerChain = authorizerChain;
+    this.authorizer = authorizer;
     this.entityService = entityService;
     this.objectMapper = objectMapper;
     this.manualThrottleSensor = manualThrottleSensor;
@@ -66,7 +66,7 @@ public class ThrottleController {
             RequestContext.builder()
                 .buildOpenapi(
                     actorUrnStr, httpServletRequest, "getManualAPIRequestsThrottle", List.of()),
-            authorizerChain,
+            authorizer,
             authentication,
             true);
 
@@ -98,7 +98,7 @@ public class ThrottleController {
                     httpServletRequest,
                     "getManualAPIRequestsThrottle",
                     List.of()),
-            authorizerChain,
+            authorizer,
             authentication,
             true);
 

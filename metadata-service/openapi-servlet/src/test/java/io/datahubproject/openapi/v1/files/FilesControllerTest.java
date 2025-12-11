@@ -1,21 +1,16 @@
 package io.datahubproject.openapi.v1.files;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.testng.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -63,7 +58,6 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   private static final String TEST_BUCKET = "test-bucket";
   private static final String TEST_FOLDER = "documents";
   private static final String TEST_FILE_ID = "abc123-def456-ghi789";
-  private static final String TEST_FILE_ID_WITH_SEPARATOR = "abc123__filename.pdf";
   private static final String TEST_PRESIGNED_URL =
       "https://s3.amazonaws.com/test-bucket/documents/abc123-def456-ghi789?signature=xyz";
   private static final int DEFAULT_EXPIRATION = 3600;
@@ -84,8 +78,6 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private EntityService mockEntityService;
 
   @Autowired private OperationContext mockSystemOperationContext;
-
-  @Autowired private AuthorizerChain mockAuthorizerChain;
 
   private MockedStatic<AuthenticationContext> authenticationContextMock;
   private MockedStatic<AuthUtil> authUtilMock;
@@ -598,9 +590,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    @Qualifier("authorizerChain")
-    public AuthorizerChain authorizerChain() {
-      return mock(AuthorizerChain.class);
+    public Authorizer authorizer() {
+      return mock(Authorizer.class);
     }
   }
 }

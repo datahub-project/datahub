@@ -1,18 +1,10 @@
 package io.datahubproject.openapi.v3.controller;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
-import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.GenericRecordUtils.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
@@ -22,8 +14,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.GlobalTags;
@@ -486,16 +477,14 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     }
 
     @Bean
-    public AuthorizerChain authorizerChain() {
-      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
+    public Authorizer authorizer() {
+      Authorizer authorizer = mock(Authorizer.class);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizerChain;
+      return authorizer;
     }
 
     @Bean

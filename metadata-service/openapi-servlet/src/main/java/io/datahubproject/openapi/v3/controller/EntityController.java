@@ -1,11 +1,9 @@
 package io.datahubproject.openapi.v3.controller;
 
-import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
-import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
-import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.*;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.*;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -143,7 +141,7 @@ public class EntityController
                     requestMap.keySet().stream()
                         .map(Urn::getEntityType)
                         .collect(Collectors.toSet())),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 
@@ -215,7 +213,7 @@ public class EntityController
                     request,
                     "scrollEntities",
                     resolvedEntityNames),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 
@@ -324,7 +322,7 @@ public class EntityController
                     request,
                     "linkLatestVersion",
                     ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
@@ -376,7 +374,7 @@ public class EntityController
                     request,
                     "unlinkVersion",
                     ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
@@ -417,7 +415,7 @@ public class EntityController
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "patchEntity", entityName),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 
@@ -479,7 +477,7 @@ public class EntityController
                     request,
                     "createGenericEntities",
                     entityTypes),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 

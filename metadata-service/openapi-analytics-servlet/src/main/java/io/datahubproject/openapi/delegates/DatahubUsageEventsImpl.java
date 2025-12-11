@@ -1,12 +1,12 @@
 package io.datahubproject.openapi.delegates;
 
-import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiGroup.*;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -23,7 +23,7 @@ import org.springframework.http.ResponseEntity;
 public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
 
   @Autowired private ElasticSearchService _searchService;
-  @Autowired private AuthorizerChain _authorizationChain;
+  @Autowired private Authorizer _authorizer;
 
   @Autowired
   @Qualifier("systemOperationContext")
@@ -41,7 +41,7 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of()),
-            _authorizationChain,
+            _authorizer,
             authentication,
             true);
     checkAnalyticsAuthorized(opContext);

@@ -1,15 +1,14 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.datahub.authorization.AuthUtil.*;
+import static com.linkedin.metadata.authorization.ApiGroup.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -48,9 +47,8 @@ public class PlatformEntitiesController {
 
   private final OperationContext systemOperationContext;
   private final EntityService<ChangeItemImpl> _entityService;
-  private final CachingEntitySearchService _cachingEntitySearchService;
   private final ObjectMapper _objectMapper;
-  private final AuthorizerChain _authorizerChain;
+  private final Authorizer _authorizer;
 
   @InitBinder
   public void initBinder(WebDataBinder binder) {
@@ -78,7 +76,7 @@ public class PlatformEntitiesController {
                         .map(MetadataChangeProposal::getEntityType)
                         .distinct()
                         .collect(Collectors.toList())),
-            _authorizerChain,
+            _authorizer,
             authentication,
             true);
 

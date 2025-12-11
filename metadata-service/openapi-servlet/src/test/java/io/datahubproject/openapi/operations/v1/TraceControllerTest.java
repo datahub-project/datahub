@@ -1,18 +1,15 @@
 package io.datahubproject.openapi.operations.v1;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.testng.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -273,16 +270,14 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public AuthorizerChain authorizerChain() {
-      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
+    public Authorizer authorizer() {
+      Authorizer authorizer = mock(Authorizer.class);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizerChain;
+      return authorizer;
     }
   }
 }

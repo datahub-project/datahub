@@ -1,8 +1,5 @@
 package com.linkedin.metadata.resources.entity;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -10,14 +7,12 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -34,17 +29,18 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Optional;
-
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import mock.MockEntityRegistry;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
 
 public class AspectResourceTest {
   private AspectResource aspectResource;
@@ -67,7 +63,7 @@ public class AspectResourceTest {
     entityService = new EntityServiceImpl(aspectDao, producer, false,
             preProcessHooks, true);
     entityService.setUpdateIndicesService(updateIndicesService);
-    authorizer = mock(Authorizer.class);
+    authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
     when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
       AuthorizationRequest request = invocation.getArgument(0);
       return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");

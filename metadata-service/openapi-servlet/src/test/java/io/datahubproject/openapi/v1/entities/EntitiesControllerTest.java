@@ -1,18 +1,8 @@
 package io.datahubproject.openapi.v1.entities;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Actor;
@@ -20,7 +10,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -60,7 +50,7 @@ public class EntitiesControllerTest {
 
   @Mock private ObjectMapper objectMapper;
 
-  @Mock private AuthorizerChain authorizerChain;
+  @Mock private Authorizer authorizer;
 
   @Mock private MetricUtils metricUtils;
 
@@ -86,8 +76,7 @@ public class EntitiesControllerTest {
 
     // Create controller
     controller =
-        new EntitiesController(
-            systemOperationContext, entityService, objectMapper, authorizerChain);
+        new EntitiesController(systemOperationContext, entityService, objectMapper, authorizer);
 
     // Setup authentication
     Actor actor = new Actor(ActorType.USER, "urn:li:corpuser:testuser");
