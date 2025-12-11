@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -45,6 +44,7 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.authorizeBatch(any())).thenCallRealMethod();
 
     if (request == null) {
       // Simple case: always allow
@@ -92,6 +92,8 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.authorizeBatch(any())).thenCallRealMethod();
+
     AuthorizationResult result = mock(AuthorizationResult.class);
     when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
 

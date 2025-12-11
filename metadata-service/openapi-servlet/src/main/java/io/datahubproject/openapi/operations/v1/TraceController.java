@@ -1,11 +1,11 @@
 package io.datahubproject.openapi.operations.v1;
 
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.systemmetadata.TraceService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -40,16 +40,14 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Tracing", description = "An API for tracing async operations.")
 public class TraceController {
   private final TraceService traceService;
-  private final AuthorizerChain authorizerChain;
+  private final Authorizer authorizer;
   private final OperationContext systemOperationContext;
 
   public TraceController(
-      TraceService traceService,
-      OperationContext systemOperationContext,
-      AuthorizerChain authorizerChain) {
+      TraceService traceService, OperationContext systemOperationContext, Authorizer authorizer) {
     this.traceService = traceService;
     this.systemOperationContext = systemOperationContext;
-    this.authorizerChain = authorizerChain;
+    this.authorizer = authorizer;
   }
 
   @Tag(name = "Async Write Tracing")
@@ -87,7 +85,7 @@ public class TraceController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder().buildOpenapi(actorUrnStr, request, "getTrace", List.of()),
-            authorizerChain,
+            authorizer,
             authentication,
             true);
 

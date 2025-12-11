@@ -30,6 +30,9 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
             try {
               _entityClient.deleteEntity(context.getOperationContext(), urn);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
+                // TODO: either we do not need to invalidate cache manually
+                // or we should use spring cache to support distributed cache.
+                // Current implementation invalidates cache only at one instance
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()
                     .invalidateCache();

@@ -1,23 +1,16 @@
 package io.datahubproject.openapi.operations.elastic;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.testng.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -107,7 +100,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
   @Autowired private EntityService<?> mockEntityService;
 
-  @Autowired private AuthorizerChain authorizerChain;
+  @Autowired private Authorizer authorizer;
 
   @Autowired private ESSearchDAO mockESSearchDAO;
 
@@ -119,7 +112,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     AuthenticationContext.setAuthentication(authentication);
 
     // Setup AuthorizerChain to allow access
-    when(authorizerChain.authorize(any()))
+    when(authorizer.authorize(any()))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
   }
 
@@ -813,16 +806,14 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
     @Bean
     @Primary
-    public AuthorizerChain authorizerChain() {
-      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
+    public Authorizer authorizer() {
+      Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizerChain;
+      return authorizer;
     }
 
     @Bean

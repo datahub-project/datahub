@@ -34,6 +34,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 
 @Slf4j
@@ -46,6 +47,7 @@ public class AuthorizerChainFactory {
 
   @Bean(name = "authorizerChain")
   @Scope("singleton")
+  @Primary
   @Nonnull
   protected AuthorizerChain getInstance(
       final DataHubAuthorizer dataHubAuthorizer, final SystemEntityClient systemEntityClient) {
@@ -79,10 +81,7 @@ public class AuthorizerChainFactory {
 
     Optional<Config> optionalConfig = configProvider.load();
     // Register authorizer plugins if present
-    optionalConfig.ifPresent(
-        (config) -> {
-          registerAuthorizer(customAuthorizers, resolver, config);
-        });
+    optionalConfig.ifPresent(config -> registerAuthorizer(customAuthorizers, resolver, config));
 
     return customAuthorizers;
   }
@@ -129,7 +128,7 @@ public class AuthorizerChainFactory {
           IsolatedClassLoader isolatedClassLoader =
               new IsolatedClassLoader(permissionManager, pluginConfig);
           try {
-            Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);
+            Thread.currentThread().setContextClassLoader(isolatedClassLoader);
             Authorizer authorizer =
                 (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
             log.info("Initializing plugin {}", pluginConfig.getName());
@@ -137,7 +136,7 @@ public class AuthorizerChainFactory {
             customAuthorizers.add(authorizer);
             log.info("Plugin {} is initialized", pluginConfig.getName());
           } catch (ClassNotFoundException e) {
-            log.debug(String.format("Failed to init the plugin", pluginConfig.getName()));
+            log.debug("Failed to init the plugin: {}", pluginConfig.getName());
             throw new RuntimeException(e);
           } finally {
             Thread.currentThread().setContextClassLoader(contextClassLoader);

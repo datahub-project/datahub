@@ -3,7 +3,7 @@ package io.datahubproject.openapi.v1.registry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 @AllArgsConstructor
 @NoArgsConstructor
 public class EntityRegistryController {
-  @Autowired private AuthorizerChain authorizerChain;
+  @Autowired private Authorizer authorizer;
   @Autowired private OperationContext systemOperationContext;
 
   @GetMapping(path = "/entity/specifications", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -74,7 +74,7 @@ public class EntityRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getEntitySpecs", Collections.emptyList()),
-            authorizerChain,
+            authorizer,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -127,7 +127,7 @@ public class EntityRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getEntitySpec", Collections.emptyList()),
-            authorizerChain,
+            authorizer,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -174,7 +174,7 @@ public class EntityRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getEntityAspecSpecs", Collections.emptyList()),
-            authorizerChain,
+            authorizer,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -229,7 +229,7 @@ public class EntityRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getAspectSpecs", Collections.emptyList()),
-            authorizerChain,
+            authorizer,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -272,7 +272,7 @@ public class EntityRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getAspectSpec", Collections.emptyList()),
-            authorizerChain,
+            authorizer,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -319,7 +319,7 @@ public class EntityRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getEventSpecs", Collections.emptyList()),
-            authorizerChain,
+            authorizer,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(

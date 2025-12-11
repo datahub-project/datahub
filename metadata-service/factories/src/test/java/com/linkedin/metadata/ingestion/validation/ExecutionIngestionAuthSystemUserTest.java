@@ -1,19 +1,15 @@
 package com.linkedin.metadata.ingestion.validation;
 
-import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -58,7 +54,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
   @Autowired
   private OperationContext systemOperationContext;
 
-  @Autowired private AuthorizerChain authorizerChain;
+  @Autowired private Authorizer authorizer;
 
   @Autowired private EntityRegistry entityRegistry;
 
@@ -66,7 +62,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
   public void testAuthInit() {
     assertNotNull(validator);
     assertNotNull(systemOperationContext);
-    assertNotNull(authorizerChain);
+    assertNotNull(authorizer);
 
     AuthorizationRequest request =
         new AuthorizationRequest(
@@ -79,7 +75,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
             Collections.emptyList());
 
     assertEquals(
-        authorizerChain.authorize(request).getType(),
+        authorizer.authorize(request).getType(),
         AuthorizationResult.Type.ALLOW,
         "System user is expected to be authorized.");
   }
@@ -101,7 +97,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
                 systemOperationContext.getRetrieverContext(),
                 systemOperationContext.asSession(
                     RequestContext.TEST,
-                    authorizerChain,
+                    authorizer,
                     new Authentication(
                         new Actor(ActorType.USER, UrnUtils.getUrn(SYSTEM_ACTOR).getId()), "creds")))
             .count(),

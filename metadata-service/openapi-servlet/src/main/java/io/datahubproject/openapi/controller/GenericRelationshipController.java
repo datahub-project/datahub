@@ -1,12 +1,12 @@
 package io.datahubproject.openapi.controller;
 
-import static com.linkedin.metadata.authorization.ApiGroup.RELATIONSHIP;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiGroup.*;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -14,7 +14,6 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -34,13 +33,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 public abstract class GenericRelationshipController {
 
-  @Autowired private EntityRegistry entityRegistry;
   @Autowired private GraphService graphService;
-  @Autowired private AuthorizerChain authorizationChain;
+  @Autowired private Authorizer authorizer;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -78,7 +78,7 @@ public abstract class GenericRelationshipController {
                         request,
                         "getRelationshipsByType",
                         List.of()),
-                authorizationChain,
+                authorizer,
                 authentication,
                 true)
             .withSearchFlags(
@@ -181,7 +181,7 @@ public abstract class GenericRelationshipController {
                         request,
                         "getRelationshipsByEntity",
                         List.of()),
-                authorizationChain,
+                authorizer,
                 authentication,
                 true)
             .withSearchFlags(

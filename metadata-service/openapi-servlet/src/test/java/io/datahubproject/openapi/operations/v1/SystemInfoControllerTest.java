@@ -7,7 +7,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -33,7 +33,7 @@ public class SystemInfoControllerTest {
   private SystemInfoService mockSystemInfoService;
   private ObjectMapper mockObjectMapper;
   private ObjectWriter mockObjectWriter;
-  private AuthorizerChain mockAuthorizerChain;
+  private Authorizer mockAuthorizer;
   private OperationContext mockSystemOperationContext;
   private HttpServletRequest mockRequest;
 
@@ -42,7 +42,7 @@ public class SystemInfoControllerTest {
     mockSystemInfoService = mock(SystemInfoService.class);
     mockObjectMapper = mock(ObjectMapper.class);
     mockObjectWriter = mock(ObjectWriter.class);
-    mockAuthorizerChain = mock(AuthorizerChain.class);
+    mockAuthorizer = mock(Authorizer.class);
     mockSystemOperationContext = mock(OperationContext.class);
     mockRequest = mock(HttpServletRequest.class);
 
@@ -60,10 +60,7 @@ public class SystemInfoControllerTest {
 
     systemInfoController =
         new SystemInfoController(
-            mockSystemInfoService,
-            mockObjectMapper,
-            mockAuthorizerChain,
-            mockSystemOperationContext);
+            mockSystemInfoService, mockObjectMapper, mockAuthorizer, mockSystemOperationContext);
   }
 
   @Test

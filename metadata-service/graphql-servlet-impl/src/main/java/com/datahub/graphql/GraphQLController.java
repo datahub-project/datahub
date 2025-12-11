@@ -1,12 +1,12 @@
 package com.datahub.graphql;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -48,7 +48,7 @@ public class GraphQLController {
 
   @Inject GraphQLEngine _engine;
 
-  @Inject AuthorizerChain _authorizerChain;
+  @Inject Authorizer _authorizer;
 
   @Inject ConfigurationProvider configurationProvider;
 
@@ -123,7 +123,7 @@ public class GraphQLController {
         new SpringQueryContext(
             true,
             authentication,
-            _authorizerChain,
+            _authorizer,
             systemOperationContext,
             configurationProvider,
             request,
@@ -208,7 +208,7 @@ public class GraphQLController {
                       1);
               }
             });
-    if (executionResult.getErrors().size() != 0 && metricUtils != null) {
+    if (!executionResult.getErrors().isEmpty() && metricUtils != null) {
       metricUtils.increment(MetricRegistry.name(this.getClass(), "error"), 1);
     }
   }

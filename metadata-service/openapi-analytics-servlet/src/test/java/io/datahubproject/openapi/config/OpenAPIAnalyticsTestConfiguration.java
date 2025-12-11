@@ -1,17 +1,17 @@
 package io.datahubproject.openapi.config;
 
-import static io.datahubproject.openapi.delegates.DatahubUsageEventsImpl.DATAHUB_USAGE_INDEX;
+import static io.datahubproject.openapi.delegates.DatahubUsageEventsImpl.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.AuthorizerChain;
-import com.linkedin.metadata.models.registry.*;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -45,16 +45,14 @@ public class OpenAPIAnalyticsTestConfiguration {
   }
 
   @Bean
-  public AuthorizerChain authorizerChain() {
-    AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
+  public Authorizer authorizer() {
+    Authorizer authorizer = Mockito.mock(Authorizer.class);
 
     Authentication authentication = Mockito.mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
     AuthenticationContext.setAuthentication(authentication);
 
-    return authorizerChain;
+    return authorizer;
   }
 
   @Bean("entityRegistry")

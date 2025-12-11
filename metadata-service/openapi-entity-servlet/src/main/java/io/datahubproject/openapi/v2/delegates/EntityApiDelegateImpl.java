@@ -1,13 +1,12 @@
 package io.datahubproject.openapi.v2.delegates;
 
-import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static io.datahubproject.openapi.util.ReflectionCache.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -87,7 +86,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final EntityService<?> _entityService;
   private final SearchService _searchService;
   private final EntitiesController _v1Controller;
-  private final AuthorizerChain _authorizationChain;
+  private final Authorizer _authorizer;
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
@@ -103,7 +102,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
-      AuthorizerChain authorizationChain,
+      Authorizer authorizer,
       Class<I> reqClazz,
       Class<O> respClazz,
       Class<S> scrollRespClazz) {
@@ -113,7 +112,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     this._searchService = searchService;
     this._entityRegistry = systemOperationContext.getEntityRegistry();
     this._v1Controller = entitiesController;
-    this._authorizationChain = authorizationChain;
+    this._authorizer = authorizer;
     this._reqClazz = reqClazz;
     this._respClazz = respClazz;
     this._scrollRespClazz = scrollRespClazz;
@@ -184,7 +183,7 @@ public class EntityApiDelegateImpl<I, O, S> {
               RequestContext.builder()
                   .buildOpenapi(
                       auth.getActor().toUrnStr(), request, "head", entityUrn.getEntityType()),
-              _authorizationChain,
+              _authorizer,
               auth,
               true);
 
@@ -248,7 +247,7 @@ public class EntityApiDelegateImpl<I, O, S> {
               RequestContext.builder()
                   .buildOpenapi(
                       auth.getActor().toUrnStr(), request, "headAspect", entityUrn.getEntityType()),
-              _authorizationChain,
+              _authorizer,
               auth,
               true);
 
@@ -276,7 +275,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             RequestContext.builder()
                 .buildOpenapi(
                     auth.getActor().toUrnStr(), request, "deleteAspect", entityUrn.getEntityType()),
-            _authorizationChain,
+            _authorizer,
             auth,
             true);
     _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
@@ -618,7 +617,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "scroll", entitySpec.getName()),
-            _authorizationChain,
+            _authorizer,
             authentication,
             true);
 
