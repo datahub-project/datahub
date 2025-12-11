@@ -720,7 +720,8 @@ curl http://kafka-connect:8083/connectors/datahub-cdc-connector/status | jq
 - Connector state: `RUNNING`
 - Task state: `RUNNING`
 - No errors in `connector.trace` field
-  :::
+
+:::
 
 ### 2. Verify CDC Topic
 
