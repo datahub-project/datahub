@@ -348,7 +348,8 @@ const TOOLTIP_MAX_WIDTH = 440;
  * For example, Column 'X' values are in [1, 2, 3]
  */
 export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation }: Props) => {
-    const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } = assertionInfo ?? {};
+    const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } =
+        assertionInfo ?? {};
     const [isLogicVisible, setIsLogicVisible] = useState(false);
     /**
      * Build a description component from a) input (aggregation, inputs) b) the operator text
