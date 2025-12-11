@@ -741,6 +741,36 @@ def parse_semantic_view_cll(  # noqa: C901
         f"Built table mapping for {len(table_to_dbt_name)} tables: {list(table_to_dbt_name.keys())}"
     )
 
+    # Parse TABLES section to extract alias mappings
+    # Example: cases as analytics_cs_mart.analytics.r_support_case_analysis
+    # The DDL may use aliases (e.g., 'cases') instead of actual table names
+    alias_to_dbt_name = {}
+    tables_section = re.search(
+        r"TABLES\s*\((.*?)\)", compiled_sql, re.IGNORECASE | re.DOTALL
+    )
+    if tables_section:
+        tables_content = tables_section.group(1)
+        # Pattern: alias AS database.schema.table or alias AS table
+        # Example: cases as analytics_cs_mart.analytics.r_support_case_analysis
+        alias_pattern = r"(\w+)\s+as\s+[\w.]+\.(\w+)"
+        alias_matches = re.findall(alias_pattern, tables_content, re.IGNORECASE)
+        for alias, table_name in alias_matches:
+            alias_upper = alias.upper()
+            table_upper = table_name.upper()
+            # Find the dbt node name for this table
+            if table_upper in table_to_dbt_name:
+                alias_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
+                logger.debug(
+                    f"Mapped alias '{alias_upper}' to table '{table_upper}' -> {table_to_dbt_name[table_upper]}"
+                )
+
+    # Merge alias mappings into table mappings
+    # This allows dimensions to reference either the alias or the actual table name
+    table_to_dbt_name.update(alias_to_dbt_name)
+    logger.debug(
+        f"Final table+alias mapping has {len(table_to_dbt_name)} entries: {list(table_to_dbt_name.keys())}"
+    )
+
     # Pattern 1: DIMENSIONS/FACTS - TABLE.SOURCE_COLUMN AS OUTPUT_COLUMN
     # Example: ORDERS.CUSTOMER_ID AS CUSTOMER_ID, "Order-ID" AS order_id
     # Handles quoted identifiers, newlines, EOF, comments, and various terminators

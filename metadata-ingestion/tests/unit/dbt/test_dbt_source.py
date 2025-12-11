@@ -1976,6 +1976,77 @@ def test_parse_semantic_view_cll_production_pattern() -> None:
     assert len(upstream_tables) == 2, "ORDER_ID should come from 2 different tables"
 
 
+def test_parse_semantic_view_cll_with_table_aliases() -> None:
+    """
+    Test that parser correctly handles table aliases in TABLES section.
+    This is a common pattern in semantic views where tables are aliased.
+    """
+    compiled_sql = """
+    TABLES (
+        cases as analytics_cs_mart.analytics.r_support_case_analysis,
+        hierarchy as analytics_cs_mart.analytics.r_cs_all_level_success_factor_hierarchy
+    )
+    
+    DIMENSIONS (
+        cases.account_name as account_name,
+        cases.case_id as case_id,
+        hierarchy.l1_name as l1_name,
+        hierarchy.l2_name as l2_name
+    )
+    
+    METRICS (
+        cases.first_response_met as COUNT(case_id)
+    )
+    """
+
+    upstream_nodes = [
+        "model.dbt_cs_analytics.r_support_case_analysis",
+        "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy",
+    ]
+
+    all_nodes_map = {
+        "model.dbt_cs_analytics.r_support_case_analysis": _create_mock_node(
+            "r_support_case_analysis"
+        ),
+        "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy": _create_mock_node(
+            "r_cs_all_level_success_factor_hierarchy"
+        ),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Expected: 4 dimensions + 1 metric = 5 CLL entries
+    assert len(cll_info) == 5, f"Expected 5 CLL entries, got {len(cll_info)}"
+
+    # Verify dimensions from 'cases' alias
+    cases_dimensions = [
+        cll
+        for cll in cll_info
+        if cll.upstream_dbt_name == "model.dbt_cs_analytics.r_support_case_analysis"
+        and cll.downstream_col in ["account_name", "case_id", "first_response_met"]
+    ]
+    assert len(cases_dimensions) == 3, (
+        f"Expected 3 lineages from cases alias, got {len(cases_dimensions)}"
+    )
+
+    # Verify dimensions from 'hierarchy' alias
+    hierarchy_dimensions = [
+        cll
+        for cll in cll_info
+        if cll.upstream_dbt_name
+        == "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy"
+    ]
+    assert len(hierarchy_dimensions) == 2, (
+        f"Expected 2 lineages from hierarchy alias, got {len(hierarchy_dimensions)}"
+    )
+
+    # Verify column names
+    assert any(cll.downstream_col == "account_name" for cll in cll_info)
+    assert any(cll.downstream_col == "case_id" for cll in cll_info)
+    assert any(cll.downstream_col == "l1_name" for cll in cll_info)
+    assert any(cll.downstream_col == "first_response_met" for cll in cll_info)
+
+
 def test_semantic_view_cll_integration_multiple_upstreams() -> None:
     """Test that CLL extraction works correctly with multiple upstream tables."""
 
