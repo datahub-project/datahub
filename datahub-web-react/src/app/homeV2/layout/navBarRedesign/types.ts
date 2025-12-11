@@ -23,6 +23,7 @@ export interface NavBarMenuBaseElement {
     disabled?: boolean;
     href?: string;
     dataTestId?: string;
+    icon?: React.ReactNode;
 }
 
 export type Badge = {

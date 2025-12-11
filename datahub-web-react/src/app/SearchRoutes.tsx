@@ -27,6 +27,7 @@ import { LoadingPermissions } from '@app/govern/Dashboard/charts/AuxViews';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
+import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { DatasetHealthPage } from '@app/observe/dataset/DatasetHealthPage';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
@@ -203,6 +204,7 @@ export const SearchRoutes = (): JSX.Element => {
                             )}
                         />
                     )}
+                    <Route path="/mfe*" component={MFERoutes} />
                     {me.loaded && loaded && <Route component={NoPageFound} />}
                 </Switch>
             </ErrorBoundary>
