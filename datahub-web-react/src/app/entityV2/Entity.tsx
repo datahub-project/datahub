@@ -108,6 +108,10 @@ export enum EntityCapabilityType {
      * Related context documents for this entity
      */
     RELATED_DOCUMENTS,
+    /**
+     * Adding a business attribute to the entity
+     */
+    BUSINESS_ATTRIBUTES,
 }
 
 export interface EntityMenuActions {

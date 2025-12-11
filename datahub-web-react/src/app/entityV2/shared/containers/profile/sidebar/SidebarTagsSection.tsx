@@ -7,6 +7,7 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
 import { getProposedItemsByType } from '@app/entityV2/shared/utils';
 import { ENTITY_PROFILE_TAGS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import { findTopLevelProposals } from '@app/shared/tags/utils/proposalUtils';
@@ -24,9 +25,10 @@ const Content = styled.div`
 
 interface Props {
     readOnly?: boolean;
+    properties?: any;
 }
 
-export const SidebarTagsSection = ({ readOnly }: Props) => {
+export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -34,11 +36,19 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
+    // Extract tags using custom hook (for Business Attributes support)
+    const { data: tags, isEmpty: areTagsEmpty } = useEntityDataExtractor({
+        customPath: properties?.customTagPath,
+        defaultPath: 'globalTags',
+        arrayProperty: 'tags',
+    });
+
+    // Preserve Acryl proposals functionality
     const proposedTags = findTopLevelProposals(
         getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TagAssociation) || [],
     );
 
-    const areTagsEmpty = !entityData?.globalTags?.tags?.length && !proposedTags?.length;
+    const areTagsEmptyWithProposals = areTagsEmpty && !proposedTags?.length;
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
     const canProposeTags = !!entityData?.privileges?.canProposeTags;
@@ -49,9 +59,9 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 title="Tags"
                 content={
                     <Content>
-                        {!areTagsEmpty ? (
+                        {!areTagsEmptyWithProposals ? (
                             <TagTermGroup
-                                editableTags={entityData?.globalTags}
+                                editableTags={tags}
                                 canAddTag
                                 canRemove
                                 showEmptyMessage
