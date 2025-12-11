@@ -6,8 +6,8 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
@@ -64,10 +64,10 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
     assertNotNull(systemOperationContext);
     assertNotNull(authorizer);
 
-    AuthorizationRequest request =
-        new AuthorizationRequest(
+    BatchAuthorizationRequest request =
+        new BatchAuthorizationRequest(
             SYSTEM_ACTOR,
-            "EXECUTE_ENTITY",
+            Set.of("EXECUTE_ENTITY"),
             Optional.of(
                 new EntitySpec(
                     INGESTION_SOURCE_ENTITY_NAME,
@@ -75,7 +75,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
             Collections.emptyList());
 
     assertEquals(
-        authorizer.authorize(request).getType(),
+        authorizer.authorizeBatch(request).getResults().get("EXECUTE_ENTITY").getType(),
         AuthorizationResult.Type.ALLOW,
         "System user is expected to be authorized.");
   }
