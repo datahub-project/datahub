@@ -45,6 +45,13 @@ public class UpdateIndicesStrategyFactory {
     SemanticSearchConfiguration semanticSearchConfig =
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
 
+    // #region agent debug log - H2/H3/H4 instrumentation
+    log.info("[DEBUG-DUALWRITE] SemanticSearchConfig null check: isNull={}", semanticSearchConfig == null);
+    if (semanticSearchConfig != null) {
+      log.info("[DEBUG-DUALWRITE] SemanticSearchConfig.isEnabled()={}", semanticSearchConfig.isEnabled());
+      log.info("[DEBUG-DUALWRITE] SemanticSearchConfig.getEnabledEntities()={}", semanticSearchConfig.getEnabledEntities());
+    }
+    // #endregion
     log.info(
         "Creating UpdateIndicesV2Strategy bean with semantic search enabled: {}, entities: {}",
         semanticSearchConfig != null && semanticSearchConfig.isEnabled(),

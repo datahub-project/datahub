@@ -1,0 +1,72 @@
+[
+  {
+    "id": "custom-doc-001",
+    "title": "Customer Data Platform Overview",
+    "text": "# Customer Data Platform Overview\n\nOur Customer Data Platform (CDP) consolidates customer data from multiple sources to create unified customer profiles.\n\n## Data Sources\n\n- CRM System (Salesforce)\n- Marketing Automation (Marketo)\n- E-commerce Platform (Shopify)\n- Support Tickets (Zendesk)\n- Website Analytics (Google Analytics)\n\n## Key Entities\n\n### Customer Profile\nThe central entity containing:\n- Demographics\n- Contact information\n- Preferences\n- Consent records\n\n### Event Stream\nAll customer interactions including:\n- Page views\n- Purchases\n- Support interactions\n- Email engagements\n\n## Data Quality Rules\n\n1. Email addresses must be valid format\n2. Phone numbers normalized to E.164\n3. Duplicate detection on email + name combination\n4. PII fields must be encrypted at rest",
+    "subType": "reference",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-002",
+    "title": "ETL Pipeline Documentation: Sales Data",
+    "text": "# Sales Data ETL Pipeline\n\n## Overview\n\nThis pipeline extracts sales data from the transactional database, transforms it for analytics, and loads it into the data warehouse.\n\n## Schedule\n\nRuns daily at 2:00 AM UTC\n\n## Source Systems\n\n- PostgreSQL: `sales_db.orders`\n- PostgreSQL: `sales_db.order_items`\n- PostgreSQL: `sales_db.customers`\n\n## Transformations\n\n1. **Currency Conversion**: All amounts converted to USD\n2. **Date Standardization**: Convert to UTC timestamps\n3. **Customer Deduplication**: Match on email or phone\n4. **Product Categorization**: Map SKUs to product hierarchy\n\n## Target Tables\n\n- `analytics.fact_sales`\n- `analytics.dim_customer`\n- `analytics.dim_product`\n\n## SLAs\n\n- Data freshness: < 6 hours\n- Completeness: > 99.9%\n- Processing time: < 45 minutes\n\n## Alerting\n\nAlerts sent to #data-alerts Slack channel on:\n- Pipeline failure\n- SLA breach\n- Data quality issues",
+    "subType": "guide",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-003",
+    "title": "Machine Learning Model: Churn Prediction",
+    "text": "# Churn Prediction Model\n\n## Model Overview\n\nThis model predicts the probability of customer churn within the next 30 days.\n\n## Features\n\n### Behavioral Features\n- Days since last login\n- Purchase frequency (30/60/90 day)\n- Support ticket count\n- Feature usage metrics\n\n### Demographic Features\n- Account age\n- Plan type\n- Company size\n- Industry\n\n## Model Architecture\n\n- Algorithm: XGBoost Classifier\n- Training data: 24 months historical\n- Refresh frequency: Weekly\n\n## Performance Metrics\n\n| Metric | Value |\n|--------|-------|\n| AUC-ROC | 0.87 |\n| Precision | 0.72 |\n| Recall | 0.68 |\n| F1 Score | 0.70 |\n\n## Usage\n\nScores available in `ml.churn_predictions` table, updated daily.\n\n## Limitations\n\n- Model less accurate for accounts < 3 months old\n- Enterprise segment underrepresented in training data",
+    "subType": "reference",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-004",
+    "title": "Data Access Request Process",
+    "text": "# Data Access Request Process\n\n## Overview\n\nThis document describes how to request access to data assets in our data platform.\n\n## Access Levels\n\n### Read Access\n- View data in dashboards\n- Run SELECT queries\n- Export small datasets\n\n### Write Access\n- Create derived tables\n- Run ETL jobs\n- Modify existing tables\n\n### Admin Access\n- Grant access to others\n- Modify schemas\n- Delete data\n\n## Request Process\n\n1. **Submit Request**\n   - Go to DataHub\n   - Find the dataset\n   - Click \"Request Access\"\n   - Specify access level and business justification\n\n2. **Approval Workflow**\n   - Data owner reviews request\n   - Security team reviews for sensitive data\n   - Approval/denial within 2 business days\n\n3. **Provisioning**\n   - Access automatically granted upon approval\n   - Credentials sent via secure channel\n\n## Sensitive Data\n\nAccess to PII requires:\n- Privacy training completion\n- Manager approval\n- Quarterly access review",
+    "subType": "how-to",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-005",
+    "title": "Snowflake Best Practices",
+    "text": "# Snowflake Best Practices\n\n## Query Optimization\n\n### Use Appropriate Warehouse Size\n- Start with X-Small for development\n- Scale up for production workloads\n- Use auto-suspend and auto-resume\n\n### Clustering Keys\n- Add clustering keys to large tables (>1TB)\n- Choose columns used in WHERE and JOIN clauses\n- Limit to 3-4 columns maximum\n\n### Query Patterns\n```sql\n-- Good: Selective filter first\nSELECT * FROM orders\nWHERE order_date > '2024-01-01'\nAND status = 'completed';\n\n-- Bad: Full table scan\nSELECT * FROM orders\nWHERE UPPER(customer_name) LIKE '%SMITH%';\n```\n\n## Cost Management\n\n1. Set resource monitors on warehouses\n2. Use query tags for cost attribution\n3. Review Query History for expensive queries\n4. Consider materialized views for repeated aggregations\n\n## Security\n\n- Never store credentials in queries\n- Use role-based access control\n- Enable network policies\n- Audit access logs regularly",
+    "subType": "guide",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-006",
+    "title": "Incident Report: Data Pipeline Outage 2024-01-15",
+    "text": "# Incident Report: Data Pipeline Outage\n\n**Date**: January 15, 2024\n**Duration**: 4 hours 23 minutes\n**Severity**: P2\n\n## Summary\n\nThe nightly ETL pipeline failed due to an out-of-memory error, causing a 4+ hour delay in dashboard data.\n\n## Timeline\n\n- 02:15 UTC: Pipeline started\n- 02:47 UTC: OOM error on transformation step\n- 03:00 UTC: Alert triggered\n- 03:15 UTC: On-call engineer acknowledged\n- 04:30 UTC: Root cause identified\n- 05:45 UTC: Fix deployed\n- 06:38 UTC: Pipeline completed successfully\n\n## Root Cause\n\nA new data source was added without updating memory allocation. The additional data volume exceeded available memory during the join operation.\n\n## Resolution\n\n1. Increased worker memory from 8GB to 16GB\n2. Optimized join to use broadcast hint for small table\n\n## Action Items\n\n- [ ] Add memory monitoring alerts\n- [ ] Document capacity planning process\n- [ ] Review all pipelines for similar issues\n- [ ] Implement automatic scaling",
+    "subType": "runbook",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-007",
+    "title": "Data Dictionary: Marketing Analytics",
+    "text": "# Marketing Analytics Data Dictionary\n\n## Tables\n\n### `marketing.campaigns`\n\nMarketing campaign metadata.\n\n| Column | Type | Description |\n|--------|------|-------------|\n| campaign_id | VARCHAR | Primary key |\n| campaign_name | VARCHAR | Display name |\n| channel | VARCHAR | Marketing channel (email, social, paid) |\n| start_date | DATE | Campaign start |\n| end_date | DATE | Campaign end |\n| budget | DECIMAL | Allocated budget in USD |\n| status | VARCHAR | active, paused, completed |\n\n### `marketing.campaign_metrics`\n\nDaily campaign performance metrics.\n\n| Column | Type | Description |\n|--------|------|-------------|\n| campaign_id | VARCHAR | Foreign key to campaigns |\n| metric_date | DATE | Date of metrics |\n| impressions | INTEGER | Number of impressions |\n| clicks | INTEGER | Number of clicks |\n| conversions | INTEGER | Number of conversions |\n| spend | DECIMAL | Actual spend in USD |\n| revenue | DECIMAL | Attributed revenue |\n\n## Calculated Metrics\n\n- **CTR**: clicks / impressions\n- **CPC**: spend / clicks\n- **ROAS**: revenue / spend\n- **CVR**: conversions / clicks",
+    "subType": "reference",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-008",
+    "title": "Airflow DAG Development Guidelines",
+    "text": "# Airflow DAG Development Guidelines\n\n## Naming Conventions\n\n- DAG ID: `{domain}_{pipeline_name}_{version}`\n- Example: `sales_daily_aggregation_v2`\n\n## Required Configuration\n\n```python\ndefault_args = {\n    'owner': 'data-team',\n    'depends_on_past': False,\n    'email_on_failure': True,\n    'email': ['data-alerts@company.com'],\n    'retries': 3,\n    'retry_delay': timedelta(minutes=5),\n}\n```\n\n## Best Practices\n\n### Task Design\n- Keep tasks atomic and idempotent\n- Use XCom sparingly (< 48KB)\n- Prefer operators over PythonOperator\n\n### Dependencies\n- Use `>>` for linear dependencies\n- Use `TaskGroup` for logical grouping\n- Avoid circular dependencies\n\n### Testing\n- Unit test transformation logic\n- Use `dag.test()` for local testing\n- Maintain a staging environment\n\n## Monitoring\n\n- Set SLA on critical tasks\n- Use task callbacks for custom alerts\n- Review failed tasks daily\n\n## Deployment\n\n1. Test in development environment\n2. Create PR with DAG changes\n3. Review and approve\n4. Merge triggers automatic deployment",
+    "subType": "guide",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-009",
+    "title": "FAQ: Data Warehouse Access",
+    "text": "# FAQ: Data Warehouse Access\n\n## How do I get access to the data warehouse?\n\nSubmit a request through DataHub by searching for the dataset you need and clicking \"Request Access\". Your manager and the data owner will be notified for approval.\n\n## What tools can I use to query the warehouse?\n\n- **SQL Clients**: DBeaver, DataGrip, or any JDBC-compatible tool\n- **BI Tools**: Looker, Tableau (pre-configured)\n- **Notebooks**: Jupyter with snowflake-connector-python\n- **CLI**: SnowSQL command line tool\n\n## Why is my query slow?\n\nCommon causes:\n1. Missing filters on partitioned columns\n2. Selecting too many columns (use SELECT specific columns)\n3. Joining large tables without proper keys\n4. Using warehouse that's too small\n\n## How do I find what data is available?\n\nUse DataHub to:\n- Search for datasets by name or keyword\n- Browse by domain or data source\n- View column descriptions and sample data\n\n## Who do I contact for help?\n\n- **Access issues**: #data-access Slack channel\n- **Query help**: #sql-help Slack channel\n- **Data questions**: Contact the dataset owner in DataHub",
+    "subType": "faq",
+    "state": "PUBLISHED"
+  },
+  {
+    "id": "custom-doc-010",
+    "title": "dbt Project Structure",
+    "text": "# dbt Project Structure\n\n## Directory Layout\n\n```\ndbt_project/\n├── dbt_project.yml\n├── profiles.yml\n├── models/\n│   ├── staging/           # Raw data cleaning\n│   │   ├── stg_orders.sql\n│   │   └── stg_customers.sql\n│   ├── intermediate/      # Business logic\n│   │   └── int_order_items.sql\n│   └── marts/             # Final tables\n│       ├── core/\n│       │   └── dim_customers.sql\n│       └── marketing/\n│           └── fct_campaigns.sql\n├── tests/\n│   └── generic/\n├── macros/\n└── seeds/\n```\n\n## Naming Conventions\n\n- **Staging**: `stg_{source}_{table}`\n- **Intermediate**: `int_{entity}_{verb}`\n- **Dimensions**: `dim_{entity}`\n- **Facts**: `fct_{event/process}`\n\n## Model Configuration\n\n```yaml\n# dbt_project.yml\nmodels:\n  my_project:\n    staging:\n      +materialized: view\n    marts:\n      +materialized: table\n      +schema: analytics\n```\n\n## Documentation\n\n- Add descriptions to all models\n- Document columns in schema.yml\n- Use doc blocks for complex logic\n- Generate and deploy docs site",
+    "subType": "reference",
+    "state": "PUBLISHED"
+  }
+]
