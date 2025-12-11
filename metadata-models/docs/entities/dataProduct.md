@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Data Product
 
 Data Products are curated collections of data assets designed for easy discovery and consumption. They represent an innovative way to organize and package related data assets such as Tables, Dashboards, Charts, Pipelines, and other entities within DataHub. Data Products are a key concept in data mesh architecture, where they serve as independent units of data managed by specific domain teams.

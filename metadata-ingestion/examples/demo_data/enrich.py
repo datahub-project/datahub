@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 """
 After running the recipe in this directory, we get a large JSON file called all_covid19_datasets.json.
 This script reads that JSON file, adds to it using the directives pull from a Google sheet, and

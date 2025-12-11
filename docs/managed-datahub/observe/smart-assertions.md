@@ -1,6 +1,12 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 ---
-description: This page provides an overview of Smart Assertions (AI Anomaly Detection)
----
+
+## description: This page provides an overview of Smart Assertions (AI Anomaly Detection)
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 

@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<!--
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~
+  ~ This file is unmodified from its original version developed by Acryl Data, Inc.,
+  ~ and is now included as part of a repository maintained by the National Digital Twin Programme.
+  ~ All support, maintenance and further development of this code is now the responsibility
+  ~ of the National Digital Twin Programme.
+-->
+
 <edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx">
     <edmx:DataServices xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" m:DataServiceVersion="2.0">
         <Schema Namespace="sap.fpa.services.search.internal" xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns="http://schemas.microsoft.com/ado/2008/09/edm">

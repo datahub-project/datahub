@@ -1,4 +1,18 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This file is unmodified from its original version developed by Acryl Data, Inc.,
+ * and is now included as part of a repository maintained by the National Digital Twin Programme.
+ * All support, maintenance and further development of this code is now the responsibility
+ * of the National Digital Twin Programme.
+ */
+
+/* SPDX-License-Identifier: Apache-2.0  */
+/*
+ * Originally developed by Acryl Data, Inc.; subsequently adapted, enhanced, and maintained by the National Digital Twin Programme.
+ */
+/*
+/*
 /* Copyright 2018-2025 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
@@ -31,6 +45,12 @@ import org.apache.spark.sql.SparkSession;
  * Utility class to handle removing path patterns in dataset names. Given a configured regex pattern
  * with "remove" group defined, class methods run regex replacements on all the datasets available
  * within the event
+ */
+/*
+ * This file is unmodified from its original version developed by Acryl Data, Inc.,
+ * and is now included as part of a repository maintained by the National Digital Twin Programme.
+ * All support, maintenance and further development of this code is now the responsibility
+ * of the National Digital Twin Programme.
  */
 @Slf4j
 public class RemovePathPatternUtils {

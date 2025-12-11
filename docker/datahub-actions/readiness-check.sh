@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Originally developed by Acryl Data, Inc.; subsequently adapted, enhanced, and maintained by the National Digital Twin Programme.
+#
 #!/bin/bash
 
 # Copyright 2023 Acryl Data, Inc.
@@ -15,6 +18,10 @@
 # limitations under the License.
 
 # checking for zombie processes
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
 if ps -Ao stat= | grep -q '^[Zz]'; then
   exit 1
 else

@@ -2,7 +2,7 @@ name: metadata-io
 on:
   push:
     branches:
-      - master
+      - main
       - releases/**
     paths:
       - "**/*.gradle"

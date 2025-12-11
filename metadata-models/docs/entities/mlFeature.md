@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # ML Feature
 
 The ML Feature entity represents an individual input variable used by machine learning models. Features are the building blocks of feature engineering - they transform raw data into meaningful signals that ML algorithms can learn from. In modern ML systems, features are first-class citizens that can be discovered, documented, versioned, and reused across multiple models and teams.

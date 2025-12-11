@@ -1,4 +1,18 @@
 /*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This file is unmodified from its original version developed by Acryl Data, Inc.,
+ * and is now included as part of a repository maintained by the National Digital Twin Programme.
+ * All support, maintenance and further development of this code is now the responsibility
+ * of the National Digital Twin Programme.
+ */
+
+/* SPDX-License-Identifier: Apache-2.0  */
+/*
+ * Originally developed by Acryl Data, Inc.; subsequently adapted, enhanced, and maintained by the National Digital Twin Programme.
+ */
+/*
+/*
    Copyright (c) 2015 LinkedIn Corp.
    Copyright (c) 2023 Acryl Data, Inc.
 
@@ -53,6 +67,12 @@ import org.slf4j.LoggerFactory;
  * etc.
  *
  * @author Zhenkai Zhu
+ */
+/*
+ * This file is unmodified from its original version developed by Acryl Data, Inc.,
+ * and is now included as part of a repository maintained by the National Digital Twin Programme.
+ * All support, maintenance and further development of this code is now the responsibility
+ * of the National Digital Twin Programme.
  */
 /* package private */ class JakartaServletHelper {
   private static final Logger LOG = LoggerFactory.getLogger(JakartaServletHelper.class.getName());

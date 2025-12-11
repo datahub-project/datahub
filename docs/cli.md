@@ -1,8 +1,16 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 ---
+
 # Display to h4 headings
+
 # toc_min_heading_level: 2
-toc_max_heading_level: 4
----
+
+## toc_max_heading_level: 4
 
 # DataHub CLI
 

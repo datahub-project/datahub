@@ -1,106 +1,38 @@
-<!--HOSTED_DOCS_ONLY
-import useBaseUrl from '@docusaurus/useBaseUrl';
+# README  
 
-export const Logo = (props) => {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
-      <img
-        alt="DataHub Logo"
-        src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
-        {...props}
-      />
-    </div>
-  );
-};
+**Repository:** `ndt-data-catalogue`  
+**Description:** `This repository contains the code required to build and run the NDT data catalogue`  
+**SPDX-License-Identifier:** `Apache-2.0 AND OGL-UK-3.0 ` 
 
-<Logo />
+# National Digital Twins (NDT) Data Catalogue
 
-<!--
-HOSTED_DOCS_ONLY-->
-<p align="center">
-<a href="https://datahub.com">
-<img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" height="150" />
-</a>
-</p>
-<!-- -->
+## Overview  
 
-# DataHub: The Data Discovery Platform for the Modern Data Stack
+This repository has been put together to house the open sourced code required to build and run the NDT Data Catalogue.
 
-### Built with ❤️ by <img src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" width="20"/> [DataHub](https://datahub.com) and <img src="https://docs.datahub.com/img/LI-In-Bug.png" width="20"/> [LinkedIn](https://engineering.linkedin.com)
+The NDT Data Catalogue is used to view data products held within a node net, which is made up of all products produced by organisations within the node net. Users will be able to look at a products metadata, lineage and more.
 
-<div>
-  <a target="_blank" href="https://github.com/datahub-project/datahub/blob/master/LICENSE">
-    <img alt="Apache 2.0 License" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg?label=license&labelColor=133554&color=1890ff" /></a>
-  <a target="_blank" href="https://pypi.org/project/acryl-datahub/">
-    <img alt="PyPI" src="https://img.shields.io/pypi/dm/acryl-datahub?label=downloads&labelColor=133554&color=1890ff" /></a>
-  <a target="_blank" href="https://github.com/datahub-project/datahub/pulse">
-    <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/datahub-project/datahub?label=commits&labelColor=133554&color=1890ff" /></a>
-  <br />
-  <a target="_blank" href="https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme">
-    <img alt="Slack" src="https://img.shields.io/badge/slack-join_community-red.svg?logo=slack&labelColor=133554&color=1890ff" /></a>
-  <a href="https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w">
-    <img alt="YouTube" src="https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=flat&logo=youtube&label=subscribers&labelColor=133554&color=1890ff"/></a>
-  <a href="https://medium.com/datahub-project/">
-    <img alt="Medium" src="https://img.shields.io/badge/blog-DataHub-red.svg?style=flat&logo=medium&logoColor=white&labelColor=133554&color=1890ff" /></a>
-  <a href="https://x.com/datahubproject">
-    <img alt="X (formerly Twitter) Follow" src="https://img.shields.io/badge/follow-datahubproject-red.svg?style=flat&logo=x&labelColor=133554&color=1890ff" /></a>
-</div>
+This repository is a fork of [datahub-project/datahub](https://github.com/datahub-project/datahub) that will be reskinned and developed for use within the NDT program and infrastructure.
 
----
+## Prerequisites  
 
-### 🏠 Docs: [docs.datahub.com](https://docs.datahub.com/)
-
-[Quickstart](https://docs.datahub.com/docs/quickstart) |
-[Features](https://docs.datahub.com/docs/features) |
-[Roadmap](https://feature-requests.datahubproject.io/roadmap) |
-[Adoption](#adoption) |
-[Demo](https://demo.datahub.com/) |
-[Town Hall](https://docs.datahub.com/docs/townhalls)
-
----
-
-> 📣 DataHub Town Hall is the 4th Thursday at 9am US PT of every month - [add it to your calendar!](https://lu.ma/datahubevents/)
->
-> - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
-> - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
-
-> ✨ DataHub Community Highlights:
->
-> - Read our Monthly Project Updates [here](https://medium.com/datahub-project/tagged/project-updates).
-> - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At DataHub: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
-> - Check out our most-read blog post, [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
-> - Join us on [Slack](docs/slack.md)! Ask questions and keep up with the latest announcements.
-
-## Introduction
-
-DataHub is an open-source data catalog for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
-[LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented.
-
-## Features & Roadmap
-
-Check out DataHub's [Features](docs/features.md) & [Roadmap](https://feature-requests.datahubproject.io/roadmap).
-
-## Demo and Screenshots
-
-There's a [hosted demo environment](https://demo.datahub.com/) courtesy of DataHub where you can explore DataHub without installing it locally.
+The prerequisites can be found on the [DataHub Quickstart Guide](./docs/quickstart.md).
 
 ## Quickstart
 
-Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
+Please follow the [DataHub Quickstart Guide](./docs/quickstart.md) to run DataHub locally using [Docker](https://docker.com).
+
+## Pull Requests
+
+Included in this repository is an example [PULL_REQUEST_TEMPLATE.md](./.github/PULL_REQUEST_TEMPLATE.md), which can be used to help prompt specific content to include in pull requests by contributors. 
 
 ## Development
 
-If you're looking to build & modify datahub please take a look at our [Development Guide](https://docs.datahub.com/docs/developers).
+As we are going to modify datahub to build the NDT Data Catalogue, please take a look at the [Development Guide](./docs/quickstart.md). There are various other documents within this repo in the `docs` folder that may also be of interest.
 
-<p align="center">
-<a href="https://demo.datahub.com/">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity.png"/>
-</a>
-</p>
+## Other Source Code and Repositories from DataHub
 
-## Source Code and Repositories
-
-- [datahub-project/datahub](https://github.com/datahub-project/datahub): This repository contains the complete source code for DataHub's metadata model, metadata services, integration connectors and the web application.
+- [datahub-project/datahub](https://github.com/datahub-project/datahub): This repository contains the complete source code for DataHub's metadata model, metadata services, integration connectors and the web application. (the repo this repo was forked from)
 - [acryldata/datahub-actions](https://github.com/acryldata/datahub-actions): DataHub Actions is a framework for responding to changes to your DataHub Metadata Graph in real time.
 - [acryldata/datahub-helm](https://github.com/acryldata/datahub-helm): Helm charts for deploying DataHub on a Kubernetes cluster
 - [acryldata/meta-world](https://github.com/acryldata/meta-world): A repository to store recipes, custom sources, transformations and other things to make your DataHub experience magical.
@@ -109,89 +41,37 @@ If you're looking to build & modify datahub please take a look at our [Developme
 - [business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action): A github action that opens PRs to update your business glossary yaml file.
 - [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub): A [Model Context Protocol](https://modelcontextprotocol.io/) server implementation for DataHub.
 
-## Releases
+## Public Funding Acknowledgment  
+This repository has been developed with public funding as part of the National Digital Twin Programme (NDTP), a UK Government initiative. NDTP, alongside its partners, has invested in this work to advance open, secure, and reusable digital twin technologies for any organisation, whether from the public or private sector, irrespective of size.  
 
-See [Releases](https://github.com/datahub-project/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases and adopt the [Keep a Changelog convention](https://keepachangelog.com/) for the changelog format.
+## License  
+This repository contains both source code and documentation, which are covered by different licenses:  
+- **Code:** Originally developed by DataHub and LinkedIn, now maintained by National Digital Twin Programme. Licensed under the [Apache License 2.0](./LICENSE.md).
+- **Documentation:** Licensed under the [Open Government Licence v3.0](./OGL_LICENCE.md).
 
-## Contributing
+See [`LICENSE.md`](LICENSE.md), [`OGL_LICENCE.md`](OGL_LICENCE.md) and [`NOTICE.md`](NOTICE.md) for details.
 
-We welcome contributions from the community. Please refer to our [Contributing Guidelines](docs/CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubating experimental features.
+## Security and Responsible Disclosure
+We take security seriously. If you believe you have found a security vulnerability in this repository, please follow our responsible disclosure process outlined in [`SECURITY.md`](./SECURITY.md).  
 
-## Community
+## Software Bill of Materials (SBOM)
+This project provides a Software Bill of Materials (SBOM) to help users and integrators understand its dependencies.
 
-Join our [Slack workspace](https://datahub.com/slack?utm_source=github&utm_medium=readme&utm_campaign=github_readme) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+### Current SBOM
+Download the [latest SBOM for this codebase](../../dependency-graph/sbom) to view the current list of components used in this repository.
 
-## Security
+## Contributing  
+We welcome contributions that align with the Programme’s objectives. Please read our [`CONTRIBUTING.md`](./CONTRIBUTING.md) guidelines before submitting pull requests.  
 
-See [Security Stance](docs/SECURITY_STANCE.md) for information on DataHub's Security.
+## Acknowledgements  
+This repository has benefited from collaboration with various organisations. For a list of acknowledgments, see [`ACKNOWLEDGEMENTS.md`](./ACKNOWLEDGEMENTS.md).  
 
-## Adoption
+## Support and Contact  
+For questions or support, check our Issues or contact the NDTP team on ndtp@businessandtrade.gov.uk.
 
-Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
+For any questions or support regarding DataHub and its usage/development, please contact the DataHub team using the DataHub [Development Guide](./docs/quickstart.md)
 
-- [ABLY](https://ably.team/)
-- [Adevinta](https://www.adevinta.com/)
-- [Banksalad](https://www.banksalad.com)
-- [Cabify](https://cabify.tech/)
-- [ClassDojo](https://www.classdojo.com/)
-- [Coursera](https://www.coursera.org/)
-- [CVS Health](https://www.cvshealth.com/)
-- [DefinedCrowd](http://www.definedcrowd.com)
-- [DFDS](https://www.dfds.com/)
-- [Digital Turbine](https://www.digitalturbine.com/)
-- [Expedia Group](http://expedia.com)
-- [Experius](https://www.experius.nl)
-- [Geotab](https://www.geotab.com)
-- [Grofers](https://grofers.com)
-- [Haibo Technology](https://www.botech.com.cn)
-- [hipages](https://hipages.com.au/)
-- [inovex](https://www.inovex.de/)
-- [Inter&Co](https://inter.co/)
-- [IOMED](https://iomed.health)
-- [Klarna](https://www.klarna.com)
-- [LinkedIn](http://linkedin.com)
-- [Moloco](https://www.moloco.com/en)
-- [N26](https://n26brasil.com/)
-- [Optum](https://www.optum.com/)
-- [Peloton](https://www.onepeloton.com)
-- [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
-- [Razer](https://www.razer.com)
-- [Rippling](https://www.rippling.com/)
-- [Showroomprive](https://www.showroomprive.com/)
-- [SpotHero](https://spothero.com)
-- [Stash](https://www.stash.com)
-- [Shanghai HuaRui Bank](https://www.shrbank.com)
-- [s7 Airlines](https://www.s7.ru/)
-- [ThoughtWorks](https://www.thoughtworks.com)
-- [TypeForm](http://typeform.com)
-- [Udemy](https://www.udemy.com/)
-- [Uphold](https://uphold.com)
-- [Viasat](https://viasat.com)
-- [Wealthsimple](https://www.wealthsimple.com)
-- [Wikimedia](https://www.wikimedia.org)
-- [Wolt](https://wolt.com)
-- [Zynga](https://www.zynga.com)
+**Maintained by the National Digital Twin Programme (NDTP).**  
 
-## Select Articles & Talks
-
-- [DataHub Blog](https://medium.com/datahub-project/)
-- [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
-- [Optum: Data Mesh via DataHub](https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub)
-- [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
-- [Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At DataHub](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
-- [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
-- [Driving DataOps Culture with LinkedIn DataHub](https://www.youtube.com/watch?v=ccsIKK9nVxk) @ [DataOps Unleashed 2021](https://dataopsunleashed.com/#shirshanka-session)
-- [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
-- [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) @ [Crunch Data Conference 2019](https://crunchconf.com/2019)
-- [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
-- [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
-- [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
-- [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
-- [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
-- [Emerging Architectures for Modern Data Infrastructure](https://future.com/emerging-architectures-for-modern-data-infrastructure-2020/)
-
-See the full list [here](docs/links.md).
-
-## License
-
-[Apache License 2.0](./LICENSE).
+© Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+Licensed under the Open Government Licence v3.0.

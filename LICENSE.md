@@ -1,4 +1,15 @@
 
+# License 
+
+## Copyright Notice  
+© Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+
+This work is licensed under the Apache License, Version 2.0.  
+
+**Note:** All documentation in this repository is licensed under the Open Government Licence v3.0 (OGL-3.0). See [OGL_LICENSE.md](OGL_LICENSE.md) for full terms.
+
+---
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -187,7 +198,8 @@
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright 2015 LinkedIn Corp. All rights reserved.
+   Copyright 2025 Crown Copyright, National Digital Twin Programme,
+   legally attributed to the Department for Business and Trade (UK)
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

@@ -1,3 +1,10 @@
+rem SPDX-License-Identifier: Apache-2.0
+rem
+rem This file is unmodified from its original version developed by Acryl Data, Inc.,
+rem and is now included as part of a repository maintained by the National Digital Twin Programme.
+rem All support, maintenance and further development of this code is now the responsibility
+rem of the National Digital Twin Programme.
+
 @rem
 @rem Copyright 2015 the original author or authors.
 @rem

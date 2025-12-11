@@ -2,7 +2,7 @@ name: Metadata Ingestion
 on:
   push:
     branches:
-      - master
+      - main
       - releases/**
     paths:
       - ".github/workflows/metadata-ingestion.yml"

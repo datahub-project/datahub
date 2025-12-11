@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 # This script checks the shadow jar to ensure that we only have allowed classes being exposed through the jar
 libName=datahub-spark-lineage
 jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)

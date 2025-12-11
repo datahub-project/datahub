@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Dashboard
 
 Dashboards are collections of visualizations and charts that provide insights into data. In DataHub, dashboards represent collections of charts (visualizations) typically found in Business Intelligence (BI) platforms and data visualization tools. Dashboards are typically ingested from platforms like Looker, Tableau, PowerBI, Superset, Mode, Grafana, and other BI tools.

@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.metadata.urns import CorpUserUrn, DataPlatformUrn, Urn
 from datahub.sql_parsing.sql_parsing_aggregator import PreparsedQuery

@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # DataHub MCP Server
 
 The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), which standardizes how applications provide context to LLMs and AI agents. This enables AI agents to query DataHub metadata and use it to find relevant assets, traverse lineage, and more.

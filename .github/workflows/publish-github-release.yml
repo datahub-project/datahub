@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: Apache-2.0
+# © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+
+# This workflow is triggered when a pull request is merged into the main branch
+# from a release/* branch. It extracts the release version from the source branch,
+# generates a Software Bill of Materials (SBOM) using the GitHub API,
+# creates a Git tag with the version, and publishes a GitHub release including the SBOM file.
+
+name: Generate SBOM, Tag and Publish GitHub Release
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  versioning:
+    if: github.event.pull_request.merged == true && startsWith(github.head_ref, 'release/')
+    name: Extract Release Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract_version.outputs.VERSION }}
+    steps:
+      - name: Extract Version from Source Branch Name
+        id: extract_version
+        run: |
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          VERSION=$(echo "$SOURCE_BRANCH" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: No semantic release version found in source branch: $SOURCE_BRANCH"
+            exit 1
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate Version Format (Semantic Versioning)
+        run: |
+          if [[ ! "${{ env.VERSION }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Invalid version format found. Expected semantic version in release branch name (e.g., release/0.9.0)"
+            exit 1
+          fi
+
+      - name: Print Tag Version
+        run: |
+          echo "Identified release semantic version: ${{ steps.extract_version.outputs.version }}"
+
+  generate-sbom:
+    name: Generate SPDX SBOM
+    runs-on: ubuntu-latest
+    needs: [versioning]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Generate SPDX SBOM
+        run: |
+          # Call GitHub API to generate SBOM
+          api_response=$(curl -sSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$GITHUB_API_URL/repos/${{ github.repository }}/dependency-graph/sbom")
+
+          # Extract nested "sbom" object into a valid SPDX file
+          echo "$api_response" | jq '.sbom' > sbom.spdx.json
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+  create-git-tag:
+    name: Create Git Tag
+    needs: [versioning, generate-sbom]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create Git Tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: "v${{ needs.versioning.outputs.version }}"
+          message: "Release v${{ needs.versioning.outputs.version }}"
+          force_push_tag: true
+
+  create-git-release:
+    name: Create GitHub Release
+    needs: [versioning, generate-sbom, create-git-tag]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download SBOM Artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: sbom
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ needs.versioning.outputs.version }}"
+          name: "Release v${{ needs.versioning.outputs.version }}"
+          body: "Automated release for version ${{ needs.versioning.outputs.version }}. For details of fixes, new features and changes in this release, please see [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/main/CHANGELOG.md)."
+          draft: false
+          prerelease: false
+          files: |
+            sbom.spdx.json
+

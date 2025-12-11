@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Originally developed by Acryl Data, Inc.; subsequently adapted, enhanced, and maintained by the National Digital Twin Programme.
+#
 #!/bin/bash
 
 # Copyright 2021 Acryl Data, Inc.
@@ -14,6 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
 SYS_CONFIGS_PATH="${DATAHUB_ACTIONS_SYSTEM_CONFIGS_PATH:-/etc/datahub/actions/system/conf}"
 USER_CONFIGS_PATH="${DATAHUB_ACTIONS_USER_CONFIGS_PATH:-/etc/datahub/actions/conf}"
 MONITORING_ENABLED="${DATAHUB_ACTIONS_MONITORING_ENABLED:-false}"

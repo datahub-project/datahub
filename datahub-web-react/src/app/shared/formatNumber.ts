@@ -1,3 +1,12 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This file is unmodified from its original version developed by Acryl Data, Inc.,
+ * and is now included as part of a repository maintained by the National Digital Twin Programme.
+ * All support, maintenance and further development of this code is now the responsibility
+ * of the National Digital Twin Programme.
+ */
+
 export function formatNumber(n) {
     if (n < 1e3) return n;
     if (n >= 1e3 && n < 1e6) return `${+(n / 1e3).toFixed(1)}k`;

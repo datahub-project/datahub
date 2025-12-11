@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 """
 This script is designed to manage and clean up contents in an S3 bucket, specifically targeting orphaned files and folders.
 It provides functionality to list, delete, or simulate deletion of all objects under a specified S3 prefix using AWS assumed role credentials.

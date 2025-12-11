@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Structured Property
 
 Structured Properties are custom, typed metadata fields that can be attached to any entity type in DataHub. They enable organizations to extend the core metadata model with domain-specific attributes that support governance, compliance, and data discovery initiatives.

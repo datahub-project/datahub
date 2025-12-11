@@ -1,8 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 name: build & test
 on:
   push:
     branches:
-      - master
+      - main
       - releases/**
     paths-ignore:
       - "docs/**"
@@ -58,7 +65,7 @@ jobs:
           - command: "frontend"
             timezone: "America/New_York"
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
-    timeout-minutes: 60
+    timeout-minutes: 120
     needs: setup
     steps:
       - name: Free up disk space

@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Assertion
 
 The assertion entity represents a data quality rule that can be applied to one or more datasets. Assertions are the foundation of DataHub's data quality framework, enabling organizations to define, monitor, and enforce expectations about their data. They encompass various types of checks including field-level validation, volume monitoring, freshness tracking, schema validation, and custom SQL-based rules.

@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Application
 
 The application entity represents software applications, services, or systems that produce or consume data assets in your data ecosystem. Applications serve as a way to organize and group related data assets by the software that creates, transforms, or uses them, enabling better understanding of data provenance and usage patterns.

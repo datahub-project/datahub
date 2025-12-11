@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Data Platform Instance
 
 A Data Platform Instance represents a specific deployment or instance of a data platform. While a [dataPlatform](./dataPlatform.md) represents a technology type (e.g., MySQL, Snowflake, BigQuery), a dataPlatformInstance represents a particular running instance of that platform (e.g., "production-mysql-cluster", "dev-snowflake-account", "analytics-bigquery-project").

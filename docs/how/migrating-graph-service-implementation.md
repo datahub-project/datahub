@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Migrate Graph Service Implementation to Elasticsearch
 
 We currently support either Elasticsearch or Neo4j as backend implementations for the graph service. We recommend

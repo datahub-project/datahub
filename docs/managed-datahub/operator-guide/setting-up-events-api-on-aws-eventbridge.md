@@ -1,7 +1,15 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 ---
+
 description: >-
-  This guide will walk through the configuration required to start receiving
-  DataHub Cloud events via AWS EventBridge.
+This guide will walk through the configuration required to start receiving
+DataHub Cloud events via AWS EventBridge.
+
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

@@ -1,6 +1,12 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 ---
-title: "Timeline API"
----
+
+## title: "Timeline API"
 
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
 to entities. At present, the API only supports Datasets and Glossary Terms.

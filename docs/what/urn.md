@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # What is URN?
 
 URN ([Uniform Resource Name](https://en.wikipedia.org/wiki/Uniform_Resource_Name)) is the chosen scheme of [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier) to uniquely define any resource in DataHub. It has the following form

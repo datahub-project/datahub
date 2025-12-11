@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Truncate Timeseries Index Endpoint
 
 You can do a HTTP POST request to `/gms/operations?action=truncateTimeseriesAspect` endpoint to manage the size of a time series index by removing entries older than a certain timestamp, thereby truncating the table to only the entries needed, to save space. The `getIndexSizes` endpoint can be used to identify the largest indices. The output includes the index parameters needed for this function.

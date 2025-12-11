@@ -12,7 +12,7 @@ on:
       - "docs-website/**"
   push:
     branches:
-      - master
+      - main
     paths:
       - ".github/workflows/documentation.yml"
       - "metadata-ingestion/**"

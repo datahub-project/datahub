@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 - id: io.acryl.privacy.retentionTime
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
   qualified_name: io.acryl.privacy.retentionTime # required if urn is provided

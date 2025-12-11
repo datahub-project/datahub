@@ -2,7 +2,7 @@ name: markdown format
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - "**/*.md"
   pull_request:

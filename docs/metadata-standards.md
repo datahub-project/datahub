@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Metadata Standards
 
 The data and AI tooling and infrastructure stack is constantly evolving and adding new concepts (from datasets to dashboards, to models and training runs). DataHub’s goal is to harmonize this complexity and make it understandable for humans and machines, while not sacrificing fidelity. As a result, [over 10 years of iteration](https://www.linkedin.com/blog/engineering/data-management/datahub-popular-metadata-architectures-explained), the DataHub project has evolved into a comprehensive living metadata model that serves as a de-facto standard for metadata in the data and AI stack.

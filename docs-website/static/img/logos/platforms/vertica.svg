@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~
+  ~ This file is unmodified from its original version developed by Acryl Data, Inc.,
+  ~ and is now included as part of a repository maintained by the National Digital Twin Programme.
+  ~ All support, maintenance and further development of this code is now the responsibility
+  ~ of the National Digital Twin Programme.
+-->
+
 <svg version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 300 150" style="enable-background:new 0 0 792 612;" xmlns="http://www.w3.org/2000/svg">
   <polygon points="102.075 51.675 69.835 51.675 69.835 51.675 69.835 51.675 51.692 83.742 33.608 51.675 25 51.675 51.75 98.995 74.225 59.188 102.075 59.188"/>
   <polygon points="102.075 78.252 102.075 70.742 70.065 70.742 70.065 96.915 102.075 96.915 102.075 89.402 77.578 89.402 77.578 78.252"/>

@@ -1,3 +1,12 @@
+<!--
+  ~ SPDX-License-Identifier: Apache-2.0
+  ~
+  ~ This file is unmodified from its original version developed by Acryl Data, Inc.,
+  ~ and is now included as part of a repository maintained by the National Digital Twin Programme.
+  ~ All support, maintenance and further development of this code is now the responsibility
+  ~ of the National Digital Twin Programme.
+-->
+
 <svg width="155" height="20" viewBox="0 0 155 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_82_38001)">
 <path d="M7.14228 18.7782L11.4422 11.2287L15.7421 18.7782H7.14228ZM6.07987 1.82767L10.7347 10.001L6.07987 18.1743L1.29734 10.001L6.07987 1.82767ZM11.4422 8.77407L7.14064 1.22291H15.7421L11.4422 8.77407ZM12.1406 10.0018L17.3151 0.914737C17.4815 0.6223 17.381 0.248678 17.0895 0.0813344C16.9981 0.0283148 16.8935 0.000976562 16.788 0.000976562H6.09469C5.87974 0.000976562 5.68043 0.116129 5.57172 0.302526L0.0833874 9.69197C-0.0277958 9.88251 -0.0277958 10.1194 0.0833874 10.31L5.57172 19.6994C5.68043 19.8867 5.87974 20.001 6.09469 20.001H16.788C17.1232 20.001 17.395 19.7276 17.3958 19.3904C17.3958 19.2836 17.3687 19.1792 17.316 19.0864L12.1406 10.0001V10.0018Z" fill="black"/>

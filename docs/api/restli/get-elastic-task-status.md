@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Get ElasticSearch Task Status Endpoint
 
 You can do a HTTP POST request to `/gms/operations?action=getEsTaskStatus` endpoint to see the status of the input task running in ElasticSearch. For example, the task ID given by the [`truncateTimeseriesAspect` endpoint](./truncate-time-series-aspect.md). The task ID can be passed in as a string with node name and task ID separated by a colon (as is output by the previous API), or the node name and task ID parameters separately.

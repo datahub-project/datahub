@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Form
 
 The form entity is a core entity in DataHub's metadata model that enables structured metadata collection and compliance initiatives. Forms provide a centralized, template-based approach for capturing essential metadata across data assets through a collaborative, crowdsourced workflow.

@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Optional PySpark Support for S3 Source
 
 DataHub's S3 source now supports optional PySpark installation through the `s3-slim` variant. This allows users to choose a lightweight installation when data lake profiling is not needed.

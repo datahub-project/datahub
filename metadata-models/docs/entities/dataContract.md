@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Data Contract
 
 A Data Contract is an agreement between a data asset's producer and consumer that defines expectations and guarantees about the quality, structure, and operational characteristics of data. Data Contracts serve as formal commitments that help establish trust and reliability in data pipelines by making explicit what data consumers can expect from data producers.

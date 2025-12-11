@@ -1,3 +1,11 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This file is unmodified from its original version developed by Acryl Data, Inc.,
+ * and is now included as part of a repository maintained by the National Digital Twin Programme.
+ * All support, maintenance and further development of this code is now the responsibility
+ * of the National Digital Twin Programme.
+ */
 // Reset antd styles for the menu dropdown including submenu
 // Styles can't be modified by styled as submenu is rendering in another portal
 import '@components/components/Dropdown/reset-dropdown-menu-styles.less';

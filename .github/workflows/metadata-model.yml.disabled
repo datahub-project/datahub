@@ -2,7 +2,7 @@ name: metadata model generate
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - "metadata-models/**"
       - "metadata-ingestion/scripts/modeldocgen.py"

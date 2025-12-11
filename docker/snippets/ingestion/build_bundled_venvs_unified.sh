@@ -1,4 +1,11 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 # Self-contained script to build bundled venvs for DataHub ingestion sources
 # This script creates venvs with predictable names: <plugin-name>-bundled
 # which are then leveraged within acryl-executor to run ingestion jobs.

@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # SchemaField
 
 The schemaField entity represents an individual column or field within a dataset's schema. While schema information is typically ingested as part of a dataset's `schemaMetadata` aspect, schemaField entities exist as first-class entities to enable direct attachment of metadata like tags, glossary terms, documentation, and structured properties at the field level.

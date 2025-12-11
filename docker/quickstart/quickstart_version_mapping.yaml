@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 # This file is used by the CLI to map quickstart version "labels" to docker tags and git refs.
 # It can also be used to override the defaults if master is broken, and to
 # map broken releases to fixed ones.

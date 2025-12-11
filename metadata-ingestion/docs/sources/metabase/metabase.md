@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 Metabase databases will be mapped to a DataHub platform based on the engine listed in the
 [api/database](https://www.metabase.com/docs/latest/api-documentation.html#database) response. This mapping can be
 customized by using the `engine_platform_map` config option. For example, to map databases using the `athena` engine to

@@ -1,0 +1,42 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    content: |
+      SPDX-License-Identifier: Apache-2.0
+
+      This file is unmodified from its original version developed by Acryl Data, Inc.,
+      and is now included as part of a repository maintained by the National Digital Twin Programme.
+      All support, maintenance and further development of this code is now the responsibility
+      of the National Digital Twin Programme.
+    pattern: |
+      SPDX-License-Identifier: Apache-2\.0[\s\S]+(This file is unmodified from its original version developed by .+[\s\S]+and is now included as part of a repository maintained by the National Digital Twin Programme\.[\s\S]+All support, maintenance and further development of this code is now the responsibility[\s\S]+of the National Digital Twin Programme\.|Originally developed by .+; subsequently adapted, enhanced, and maintained by the National Digital Twin[\s\S]+Programme\.)
+      
+  paths-ignore:
+    - '**/*.md'
+    - '**/*.mdx'
+    - '**/*.txt'
+    - '**/*.pdl'
+    - '**/*.json'
+    - '**/*.avsc'
+    - '**/*.lkml'
+    - 'buildSrc/src/main/java/com/linkedin/metadata/models/registry/config'
+    - 'buildSrc/src/main/java/com/linkedin/metadata/aspect/plugins/config'
+    - 'datahub-frontend/public'
+    - 'docker/profiles/*'
+
+  comment: on-failure
+
+  language:
+    JSX:
+      extensions:
+        - ".jsx"
+      comment_style_id: SlashAsterisk
+
+# If you don't want to check dependencies' license compatibility, remove the following part
+dependency:
+  files:
+    - pom.xml           # If this is a maven project.
+    - Cargo.toml        # If this is a rust project.
+    - package.json      # If this is a npm project.
+    - go.mod            # If this is a Go project.
+    - Gemfile.lock      # If this is a Ruby project (Bundler). Ensure Gemfile.lock is committed.

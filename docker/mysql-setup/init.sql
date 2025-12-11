@@ -1,3 +1,10 @@
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- This file is unmodified from its original version developed by Acryl Data, Inc.,
+-- and is now included as part of a repository maintained by the National Digital Twin Programme.
+-- All support, maintenance and further development of this code is now the responsibility
+-- of the National Digital Twin Programme.
+
 -- create datahub database
 CREATE DATABASE IF NOT EXISTS `DATAHUB_DB_NAME` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 USE `DATAHUB_DB_NAME`;

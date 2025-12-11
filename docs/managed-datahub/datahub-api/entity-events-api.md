@@ -1,7 +1,15 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 ---
+
 description: >-
-  This guide details the Entity Events API, which allows you to take action when
-  things change on DataHub.
+This guide details the Entity Events API, which allows you to take action when
+things change on DataHub.
+
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

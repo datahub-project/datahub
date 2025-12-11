@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # ML Model Group
 
 ML Model Groups represent collections of related machine learning models within an organization's ML infrastructure. They serve as logical containers for organizing model versions, experimental variants, or families of models that share common characteristics. Model groups are essential for managing the lifecycle of ML models, tracking model evolution over time, and organizing models by purpose, architecture, or business function.

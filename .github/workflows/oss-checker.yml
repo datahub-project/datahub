@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: Apache-2.0
+# © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+
+name: Run OSS check helper
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  oss-checks:
+    if: github.actor != 'dependabot[bot]' && 
+      (github.event.repository.private == false ||
+        (github.event.repository.private == true &&
+         contains(join(github.event.pull_request.labels.*.name), 'oss-preparation')))
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch GitHub App token for target repo
+        id: target_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OSPO_WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.OSPO_WORKFLOW_PRIVATE_KEY }}
+          permission-contents: read
+
+      - name: Fetch GitHub App token for OSPO source repo (read-only)
+        id: ospo_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OSPO_WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.OSPO_WORKFLOW_PRIVATE_KEY }}
+          owner: National-Digital-Twin
+          repositories: ospo-resources
+          permission-contents: read
+
+      - name: Checkout target repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.target_token.outputs.token }}
+
+      - name: Checkout OSPO source repository
+        uses: actions/checkout@v6
+        with:
+          repository: National-Digital-Twin/ospo-resources
+          path: ospo-resources
+          token: ${{ steps.ospo_token.outputs.token }}
+
+      - name: Checkout archetypes source repository
+        uses: actions/checkout@v6
+        with:
+          repository: National-Digital-Twin/archetypes
+          path: archetypes
+
+      - name: Test for presence of OSS files and variation from templated content
+        run: |
+          missing_files=()
+          unchanged_files=()
+
+          while IFS= read -r file || [ -n "$file" ]; do
+            # Skip comments and empty lines
+            if [[ -z "$file" || "$file" == \#* ]]; then
+              continue
+            fi
+
+            target_path="$file"
+            archetypes_path="archetypes/$file"
+
+            if [ ! -f "$target_path" ]; then
+              echo "Missing OSS file in target repository: $target_path"
+              missing_files+=("$file")
+            elif cmp -s "$target_path" "$archetypes_path"; then
+              echo "OSS file unchanged from archetypes template: $target_path"
+              unchanged_files+=("$file")
+            else
+              echo "OSS file present and different from the archetypes template: $target_path"
+            fi
+          done < ospo-resources/oss-checklist-files.txt
+
+          echo ""
+          if [ ${#missing_files[@]} -ne 0 ]; then
+            echo "The following OSS required files are missing:"
+            printf '%s\n' "${missing_files[@]}"
+          fi
+
+          if [ ${#unchanged_files[@]} -ne 0 ]; then
+            echo "The following OSS required files are unchanged from the archetypes template:"
+            printf '%s\n' "${unchanged_files[@]}"
+          fi
+
+          if [ ${#missing_files[@]} -ne 0 ] || [ ${#unchanged_files[@]} -ne 0 ]; then
+            echo "OSS required file check failed."
+            exit 1
+          else
+            echo "All OSS files are present and have been updated from their original templated content."
+          fi
+
+      - name: Check GitHub template files are present
+        run: |
+          echo "Checking for pull request and issue template files"
+
+          missing_templates=()
+
+          files_to_check=(
+            ".github/PULL_REQUEST_TEMPLATE.md"
+            ".github/ISSUE_TEMPLATE/bug_report.md"
+            ".github/ISSUE_TEMPLATE/feature_request.md"
+          )
+
+          for file in "${files_to_check[@]}"; do
+            if [ ! -f "$file" ]; then
+              missing_templates+=("$file")
+            fi
+          done
+
+          if [ ${#missing_templates[@]} -ne 0 ]; then
+            echo ""
+            echo "Required GitHub template files not found:"
+            printf '  - %s\n' "${missing_templates[@]}"
+            echo ""
+            echo "These files help improve project collaboration and are considered best practice."
+            echo "These need to be included in repository contents to improve the developer and repository consumer experience."
+
+            # Fail the job
+            echo "Missing required GitHub template files."
+            exit 1
+          else
+            echo "Required pull request and issue template files present."
+          fi

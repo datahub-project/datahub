@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # DataHub GraphQL CLI
 
 The `datahub graphql` command provides a powerful interface to interact with DataHub's GraphQL API directly from the command line. This enables you to query metadata, perform mutations, and explore the GraphQL schema without writing custom applications.

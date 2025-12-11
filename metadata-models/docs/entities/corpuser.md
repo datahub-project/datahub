@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # CorpUser
 
 CorpUser represents an individual user (or account) in the enterprise. These entities serve as the identity layer within DataHub, representing people who interact with data assets, own resources, belong to groups, and have roles and permissions within the organization. CorpUsers can represent LDAP users, Active Directory accounts, SSO identities, or native DataHub users.

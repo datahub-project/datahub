@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# This file is unmodified from its original version developed by Acryl Data, Inc.,
+# and is now included as part of a repository maintained by the National Digital Twin Programme.
+# All support, maintenance and further development of this code is now the responsibility
+# of the National Digital Twin Programme.
+
 # On SQLAlchemy 1.4.x, the mypy plugin is built-in.
 # However, with SQLAlchemy 1.3.x, it requires the sqlalchemy-stubs package and hence has a separate import.
 # This file serves as a thin shim layer that directs mypy to the appropriate plugin implementation.

@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # VersionSet
 
 The VersionSet entity is a core metadata model entity in DataHub that groups together related versions of other entities. Version Sets are primarily used to manage versioned entities like ML models, datasets, and other assets that evolve over time with distinct versions. They provide a structured way to organize, track, and navigate between different versions of the same logical asset.

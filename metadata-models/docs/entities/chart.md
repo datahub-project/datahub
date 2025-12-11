@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Chart
 
 Charts are visual representations of data, typically found in Business Intelligence (BI) platforms and dashboarding tools. In DataHub, charts represent individual visualizations such as bar charts, pie charts, line graphs, tables, and other data displays. Charts are typically ingested from platforms like Looker, Tableau, PowerBI, Superset, Mode, and other BI tools.

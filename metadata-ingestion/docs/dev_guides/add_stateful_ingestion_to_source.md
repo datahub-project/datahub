@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Adding Stateful Ingestion to a Source
 
 Currently, datahub supports the [Stale Metadata Removal](./stateful.md#stale-entity-removal) and

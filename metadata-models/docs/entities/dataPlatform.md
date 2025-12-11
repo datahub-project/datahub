@@ -1,3 +1,9 @@
+<!--
+  ~ © Crown Copyright 2025. This work has been developed by the National Digital Twin Programme and is legally attributed to the Department for Business and Trade (UK) as the governing entity.
+  ~
+  ~ Licensed under the Open Government Licence v3.0.
+-->
+
 # Data Platform
 
 A Data Platform is a metadata entity that represents a source system, technology, or tool that contains and manages data assets. Data Platforms are the foundational building blocks in DataHub's metadata model, serving as the namespace and classification system for all datasets, dashboards, charts, jobs, and other data assets.
