@@ -88,18 +88,20 @@ MAX_RUN_MESSAGE_LENGTH = 500  # Truncate long error/status messages
 MAX_RUN_PARAMETERS = 10  # Limit number of parameters to store
 MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
 
-# Mapping of ADF linked service types to DataHub platforms
+# Mapping of ADF linked service types to DataHub platforms.
+# Platform identifiers must match those defined in:
+# metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
 LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
-    # Azure Storage
-    "AzureBlobStorage": "azure_blob_storage",
-    "AzureBlobFS": "azure_data_lake",
-    "AzureDataLakeStore": "azure_data_lake",
-    "AzureDataLakeStoreCosmosStructuredStream": "azure_data_lake",
-    "AzureFileStorage": "azure_file_storage",
-    # Azure Databases
+    # Azure Storage - all Azure storage types map to "abs" (Azure Blob Storage)
+    "AzureBlobStorage": "abs",
+    "AzureBlobFS": "abs",  # Azure Data Lake Storage Gen2 (uses abfs:// protocol)
+    "AzureDataLakeStore": "abs",  # Azure Data Lake Storage Gen1
+    "AzureDataLakeStoreCosmosStructuredStream": "abs",
+    "AzureFileStorage": "abs",
+    # Azure Databases - Synapse uses mssql protocol
     "AzureSqlDatabase": "mssql",
-    "AzureSqlDW": "synapse",
-    "AzureSynapseAnalytics": "synapse",
+    "AzureSqlDW": "mssql",  # Azure Synapse (formerly SQL DW)
+    "AzureSynapseAnalytics": "mssql",  # Azure Synapse Analytics
     "AzureSqlMI": "mssql",
     "SqlServer": "mssql",
     "AzurePostgreSql": "postgres",
@@ -234,7 +236,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             subscription_id=config.subscription_id,
         )
 
-        # Cache for datasets, linked services, data flows, pipelines, and triggers (per factory)
+        # Cache for datasets, linked services, data flows, pipelines, and triggers.
+        # Structure: {factory_key: {resource_name: resource_object}}
+        # - factory_key: "{resource_group}/{factory_name}" - uniquely identifies a factory
+        # - resource_name: Name of the ADF resource (e.g., "MyDataset", "MyPipeline")
+        # - resource_object: Parsed ADF resource model
+        # These caches enable resolution of cross-references (e.g., dataset -> linked service)
         self._datasets_cache: dict[str, dict[str, AdfDataset]] = {}
         self._linked_services_cache: dict[str, dict[str, LinkedService]] = {}
         self._data_flows_cache: dict[str, dict[str, AdfDataFlow]] = {}
@@ -616,7 +623,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
             if dataset_urn:
                 inputs.append(str(dataset_urn))
-                self.report.report_lineage_extracted()
+                self.report.report_lineage_extracted("dataset")
 
         # Process Data Flow activities - extract sources as inputs
         if activity.type == "ExecuteDataFlow":
@@ -650,7 +657,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
             if dataset_urn:
                 outputs.append(str(dataset_urn))
-                self.report.report_lineage_extracted()
+                self.report.report_lineage_extracted("dataset")
 
         # Process Data Flow activities - extract sinks as outputs
         if activity.type == "ExecuteDataFlow":
@@ -816,7 +823,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     )
                     if dataset_urn:
                         urns.append(str(dataset_urn))
-                        self.report.report_lineage_extracted()
+                        self.report.report_lineage_extracted("dataflow")
                         logger.debug(
                             f"Extracted Data Flow {endpoint_label}: {endpoint.name} -> {dataset_urn}"
                         )
@@ -911,7 +918,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             current_props["child_first_activity"] = first_activity_name
         datajob.set_custom_properties(current_props)
 
-        self.report.report_lineage_extracted()
+        self.report.report_lineage_extracted("pipeline")
 
         # Emit DataJobInputOutput on the CHILD's first activity, setting ExecutePipeline as upstream
         # This creates lineage: ExecutePipeline -> ChildFirstActivity

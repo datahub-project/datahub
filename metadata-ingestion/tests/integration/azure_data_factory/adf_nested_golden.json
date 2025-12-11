@@ -551,7 +551,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
             ]
         }
     },

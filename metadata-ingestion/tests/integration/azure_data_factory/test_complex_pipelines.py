@@ -30,7 +30,7 @@ Test Coverage:
 5. **Multi-Source ETL Pipelines**
    - Full ETL chains: SQL → Blob → Synapse → DataLake
    - Tests end-to-end lineage across multiple hops
-   - Validates platform mapping (mssql, azure_blob_storage, synapse)
+   - Validates platform mapping (mssql, abs)
 
 Why These Tests Matter:
 ======================
@@ -173,7 +173,7 @@ def create_mock_client(
     mock_client.datasets.list_by_factory.return_value = MockPagedIterator(datasets)
 
     # Mock linked services - determine the platform type for datasets
-    # (e.g., AzureSqlDatabase → mssql, AzureBlobStorage → azure_blob_storage)
+    # (e.g., AzureSqlDatabase → mssql, AzureBlobStorage → abs)
     mock_client.linked_services.list_by_factory.return_value = MockPagedIterator(
         linked_services
     )
@@ -662,9 +662,9 @@ def test_dataflow_pipeline_with_lineage(pytestconfig, tmp_path):
 # - Multi-hop lineage is captured correctly
 # - Platform mapping works for different linked services:
 #   - AzureSqlDatabase → mssql
-#   - AzureBlobStorage → azure_blob_storage
-#   - AzureSynapseAnalytics → synapse
-#   - AzureBlobFS → azure_data_lake
+#   - AzureBlobStorage → abs
+#   - AzureSynapseAnalytics → mssql
+#   - AzureBlobFS → abs
 # - Dependencies between activities are respected
 #
 # Why this matters:
@@ -686,10 +686,8 @@ def test_multisource_etl_pipeline(pytestconfig, tmp_path):
     The test verifies:
     - All Copy activities are captured with correct subtypes
     - Platform mapping produces correct URNs:
-      - mssql for SQL datasets
-      - azure_blob_storage for Blob datasets
-      - synapse for Synapse datasets
-      - azure_data_lake for Data Lake datasets
+      - mssql for SQL and Synapse datasets
+      - abs for Blob and Data Lake datasets
     - Activity dependencies are reflected in job order
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
@@ -755,7 +753,7 @@ def test_multisource_lineage_accuracy(tmp_path):
     This test programmatically inspects the generated MCPs to verify that:
     1. dataJobInputOutput aspects are emitted (lineage is captured)
     2. SQL sources appear as input datasets with 'mssql' platform
-    3. Synapse destinations appear as output datasets with 'synapse' platform
+    3. Synapse destinations appear as output datasets with 'mssql' platform (Synapse uses mssql protocol)
 
     This complements the golden file test by focusing on specific lineage
     properties that are critical for data governance use cases.
@@ -823,10 +821,11 @@ def test_multisource_lineage_accuracy(tmp_path):
     assert len(sql_inputs) > 0, "Expected SQL dataset inputs with 'mssql' platform"
 
     # Verify Synapse destinations are captured with correct platform
-    # Synapse outputs should have URNs containing 'synapse'
-    synapse_outputs = [o for o in all_outputs if "synapse" in o]
-    assert len(synapse_outputs) > 0, (
-        "Expected Synapse dataset outputs with 'synapse' platform"
+    # Synapse outputs should have URNs containing 'mssql' (Synapse uses mssql protocol)
+    # Check for output datasets that contain common Synapse table naming patterns
+    mssql_outputs = [o for o in all_outputs if "mssql" in o]
+    assert len(mssql_outputs) > 0, (
+        "Expected Synapse dataset outputs with 'mssql' platform"
     )
 
 
@@ -1367,20 +1366,21 @@ def test_mixed_pipeline_and_dataset_dependencies(tmp_path: Path) -> None:
         "TransformInMain should have at least 1 input dataset"
     )
     # The URN uses platform and dataset path from typeProperties, not the ADF dataset name
-    # BlobStagingCustomers maps to azure_blob_storage platform with path staging/customers
+    # BlobStagingCustomers maps to abs platform with path staging/customers
     assert any(
-        "azure_blob_storage" in urn or "staging" in urn
-        for urn in transform_lineage["inputs"]
+        "abs" in urn or "staging" in urn for urn in transform_lineage["inputs"]
     ), f"TransformInMain should read from blob storage: {transform_lineage['inputs']}"
 
-    # TransformInMain should write to SynapseCustomersDim (synapse)
+    # TransformInMain should write to SynapseSalesTable (mssql platform)
     assert len(transform_lineage["outputs"]) >= 1, (
         "TransformInMain should have at least 1 output dataset"
     )
-    # SynapseCustomersDim maps to synapse platform with schema Sales.CustomersDim
+    # SynapseSalesTable maps to mssql platform (Synapse uses mssql protocol)
     assert any(
-        "synapse" in urn or "Customers" in urn for urn in transform_lineage["outputs"]
-    ), f"TransformInMain should write to synapse: {transform_lineage['outputs']}"
+        "mssql" in urn or "Sales" in urn for urn in transform_lineage["outputs"]
+    ), (
+        f"TransformInMain should write to Synapse (mssql): {transform_lineage['outputs']}"
+    )
 
     # =========================================================================
     # Verify Both Lineage Types Coexist

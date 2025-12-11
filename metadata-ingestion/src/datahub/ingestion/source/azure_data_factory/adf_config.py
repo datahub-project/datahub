@@ -86,19 +86,19 @@ class AzureDataFactoryConfig(
     )
 
     include_column_lineage: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Extract column-level lineage from Data Flow activities. "
-            "Requires parsing Data Flow definitions. "
-            "Note: This is an advanced feature and may increase ingestion time."
+            "Requires parsing Data Flow definitions."
         ),
     )
 
     include_execution_history: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Extract pipeline and activity execution history as DataProcessInstance. "
-            "Includes run status, duration, and parameters."
+            "Includes run status, duration, and parameters. "
+            "Enables lineage extraction from parameterized activities using actual runtime values."
         ),
     )
 
@@ -116,8 +116,11 @@ class AzureDataFactoryConfig(
     include_datasets: bool = Field(
         default=True,
         description=(
-            "Include ADF dataset definitions in the metadata. "
-            "Datasets are used to resolve lineage to external platforms."
+            "Extract ADF dataset definitions to enable lineage resolution. "
+            "When enabled, the connector reads dataset configurations (linked service, "
+            "table names, file paths) to map ADF datasets to DataHub dataset URNs. "
+            "This is required for table-level lineage. Disable only if you want to "
+            "extract just pipeline/activity structure without lineage."
         ),
     )
 

@@ -146,10 +146,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_data_lake,sales,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,sales,DEV)"
             ]
         }
     },
@@ -346,7 +346,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Orders,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/orders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/orders,DEV)"
             ]
         }
     },
@@ -435,7 +435,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
             ]
         }
     },
@@ -571,10 +571,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/orders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/orders,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:synapse,FactOrders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,FactOrders,DEV)"
             ]
         }
     },
@@ -708,10 +708,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:synapse,DimCustomers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,DimCustomers,DEV)"
             ]
         }
     },

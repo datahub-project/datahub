@@ -35,12 +35,12 @@ class TestLinkedServicePlatformMapping:
                 f"{sql_type} should map to 'mssql'"
             )
 
-    def test_synapse_variants_map_correctly(self) -> None:
-        """Azure Synapse variants should map to synapse platform."""
+    def test_synapse_variants_map_to_mssql(self) -> None:
+        """Azure Synapse variants should map to mssql platform (same protocol)."""
         synapse_types = ["AzureSynapseAnalytics", "AzureSqlDW"]
         for synapse_type in synapse_types:
-            assert LINKED_SERVICE_PLATFORM_MAP.get(synapse_type) == "synapse", (
-                f"{synapse_type} should map to 'synapse'"
+            assert LINKED_SERVICE_PLATFORM_MAP.get(synapse_type) == "mssql", (
+                f"{synapse_type} should map to 'mssql'"
             )
 
     def test_databricks_variants_map_correctly(self) -> None:
@@ -51,11 +51,11 @@ class TestLinkedServicePlatformMapping:
                 f"{db_type} should map to 'databricks'"
             )
 
-    def test_azure_storage_types_map_to_distinct_platforms(self) -> None:
-        """Different Azure storage types should map to distinct platforms."""
-        assert LINKED_SERVICE_PLATFORM_MAP["AzureBlobStorage"] == "azure_blob_storage"
-        assert LINKED_SERVICE_PLATFORM_MAP["AzureBlobFS"] == "azure_data_lake"
-        assert LINKED_SERVICE_PLATFORM_MAP["AzureDataLakeStore"] == "azure_data_lake"
+    def test_azure_storage_types_map_to_abs_platform(self) -> None:
+        """All Azure storage types should map to abs (Azure Blob Storage) platform."""
+        assert LINKED_SERVICE_PLATFORM_MAP["AzureBlobStorage"] == "abs"
+        assert LINKED_SERVICE_PLATFORM_MAP["AzureBlobFS"] == "abs"
+        assert LINKED_SERVICE_PLATFORM_MAP["AzureDataLakeStore"] == "abs"
 
     def test_major_cloud_databases_covered(self) -> None:
         """Major cloud databases should be mapped."""

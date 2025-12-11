@@ -91,21 +91,19 @@ The child pipeline's first activity will have the ExecutePipeline as its input/u
 
 ### Supported Linked Service Mappings
 
-| ADF Linked Service                         | DataHub Platform     |
-| ------------------------------------------ | -------------------- |
-| AzureBlobStorage, AzureBlobFS              | `azure_blob_storage` |
-| AzureDataLakeStore, AzureDataLakeStoreGen2 | `azure_data_lake`    |
-| AzureSqlDatabase, AzureSqlDW               | `mssql`              |
-| AzureSynapseAnalytics                      | `synapse`            |
-| Snowflake                                  | `snowflake`          |
-| AmazonS3                                   | `s3`                 |
-| GoogleBigQuery                             | `bigquery`           |
-| PostgreSql, AzurePostgreSql                | `postgres`           |
-| MySql, AzureMySql                          | `mysql`              |
-| Oracle                                     | `oracle`             |
-| Salesforce                                 | `salesforce`         |
-| CosmosDb                                   | `cosmos`             |
-| AzureDatabricks, DatabricksDeltaLake       | `databricks`         |
+| ADF Linked Service                                  | DataHub Platform |
+| --------------------------------------------------- | ---------------- |
+| AzureBlobStorage, AzureBlobFS, AzureDataLakeStore   | `abs`            |
+| AzureSqlDatabase, AzureSqlDW, AzureSynapseAnalytics | `mssql`          |
+| Snowflake                                           | `snowflake`      |
+| AmazonS3                                            | `s3`             |
+| GoogleBigQuery                                      | `bigquery`       |
+| PostgreSql, AzurePostgreSql                         | `postgres`       |
+| MySql, AzureMySql                                   | `mysql`          |
+| Oracle                                              | `oracle`         |
+| Salesforce                                          | `salesforce`     |
+| CosmosDb                                            | `cosmosdb`       |
+| AzureDatabricks, AzureDatabricksDeltaLake           | `databricks`     |
 
 ### Platform Instance Mapping
 
@@ -232,3 +230,67 @@ urn:li:dataFlow:(azure-data-factory,{platform_instance}.{factory_name}.{pipeline
 ```
 
 Example: `urn:li:dataFlow:(azure-data-factory,production.my-factory.ETL-Pipeline,PROD)`
+
+## Naming Rules and Uniqueness
+
+### Azure Naming Rules
+
+Azure Data Factory enforces specific naming rules documented at [Azure Data Factory naming rules](https://learn.microsoft.com/en-us/azure/data-factory/naming-rules):
+
+| Resource        | Uniqueness                   | Case Sensitivity |
+| --------------- | ---------------------------- | ---------------- |
+| Data Factory    | Globally unique across Azure | Case-insensitive |
+| Pipelines       | Unique within a factory      | Case-insensitive |
+| Datasets        | Unique within a factory      | Case-insensitive |
+| Linked Services | Unique within a factory      | Case-insensitive |
+| Data Flows      | Unique within a factory      | Case-insensitive |
+
+### How DataHub Handles Uniqueness
+
+The connector constructs URNs using `{factory_name}.{pipeline_name}` format:
+
+- **Factory names are globally unique** in Azure, preventing collisions within a subscription
+- **Pipeline names are unique within a factory**, so the combination is globally unique
+- **No additional namespacing needed** for single-subscription deployments
+
+### Multi-Subscription and Multi-Tenant Scenarios
+
+:::warning Important
+Factory names are globally unique _within Azure_, but different Azure tenants or subscriptions in different regions could have identically-named factories.
+:::
+
+| Scenario                             | Risk                                  | Solution                                           |
+| ------------------------------------ | ------------------------------------- | -------------------------------------------------- |
+| Single subscription                  | None                                  | Default URN format works                           |
+| Multiple subscriptions (same tenant) | Low - factory names still unique      | Default works, but `platform_instance` recommended |
+| Multiple tenants                     | **High** - same factory name possible | **Must use `platform_instance`**                   |
+
+**Example: Multi-Tenant Setup**
+
+```yaml
+# Tenant A
+source:
+  type: azure-data-factory
+  config:
+    subscription_id: "tenant-a-sub"
+    platform_instance: "tenant-a"
+
+# Tenant B (could have same factory name!)
+source:
+  type: azure-data-factory
+  config:
+    subscription_id: "tenant-b-sub"
+    platform_instance: "tenant-b"
+```
+
+### Case Sensitivity
+
+Azure treats names as **case-insensitive** (e.g., `MyFactory` and `myfactory` are the same factory). DataHub URNs are case-sensitive, but this doesn't cause issues because:
+
+1. Azure prevents creating duplicate names with different casing at the source
+2. The connector uses exact names from the Azure API response
+3. Consistent casing is maintained throughout ingestion
+
+:::tip
+If you're ingesting from multiple Azure tenants and see unexpected entity overwrites in DataHub, ensure each ingestion recipe uses a unique `platform_instance` value.
+:::

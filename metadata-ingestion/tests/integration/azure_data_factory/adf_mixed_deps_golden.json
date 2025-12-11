@@ -347,10 +347,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:synapse,DimCustomers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,DimCustomers,DEV)"
             ]
         }
     },
@@ -656,7 +656,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,staging/customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
             ]
         }
     },
@@ -852,10 +852,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:synapse,DimCustomers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,DimCustomers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_data_lake,sales_summary,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,sales_summary,DEV)"
             ]
         }
     },

@@ -17,7 +17,9 @@ from typing_extensions import TypedDict
 JsonPrimitive = Union[str, int, float, bool, None]
 
 
-# TypedDict for well-known structures in ADF API responses
+# TypedDict for well-known structures in ADF API responses.
+# These provide type hints for commonly-used nested dictionaries from Azure SDK.
+# Using total=False makes all fields optional, matching Azure's inconsistent responses.
 class FolderInfo(TypedDict, total=False):
     """Folder organization structure used by pipelines, datasets, etc."""
 

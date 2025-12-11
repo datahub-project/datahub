@@ -1,6 +1,7 @@
 """Custom report class for Azure Data Factory connector."""
 
 from dataclasses import dataclass, field
+from typing import Dict
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -29,8 +30,12 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     filtered_factories: LossyList[str] = field(default_factory=LossyList)
     filtered_pipelines: LossyList[str] = field(default_factory=LossyList)
 
-    # Lineage metrics
-    lineage_edges_extracted: int = 0
+    # Lineage metrics - split by type for better visibility
+    dataset_lineage_extracted: int = 0  # Dataset-to-dataset lineage (Copy activities)
+    pipeline_lineage_extracted: int = (
+        0  # Pipeline-to-pipeline lineage (ExecutePipeline)
+    )
+    dataflow_lineage_extracted: int = 0  # Data Flow source/sink lineage
     lineage_extraction_failures: int = 0
     datasets_with_lineage: int = 0
     datasets_without_platform_mapping: LossyList[str] = field(default_factory=LossyList)
@@ -39,9 +44,11 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     pipeline_runs_scanned: int = 0
     activity_runs_scanned: int = 0
 
-    # API metrics
-    api_calls: int = 0
-    api_errors: int = 0
+    # API metrics - granular tracking by endpoint type
+    api_calls_total_count: int = 0
+    api_calls_total_error_count: int = 0
+    api_call_counts_by_type: Dict[str, int] = field(default_factory=dict)
+    total_api_response_time_seconds: float = 0.0
 
     def report_factory_scanned(self) -> None:
         """Increment factories scanned counter."""
@@ -79,9 +86,18 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
         """Increment triggers scanned counter."""
         self.triggers_scanned += 1
 
-    def report_lineage_extracted(self) -> None:
-        """Increment lineage edges counter."""
-        self.lineage_edges_extracted += 1
+    def report_lineage_extracted(self, lineage_type: str = "dataset") -> None:
+        """Increment lineage edges counter by type.
+
+        Args:
+            lineage_type: One of "dataset", "pipeline", or "dataflow"
+        """
+        if lineage_type == "dataset":
+            self.dataset_lineage_extracted += 1
+        elif lineage_type == "pipeline":
+            self.pipeline_lineage_extracted += 1
+        elif lineage_type == "dataflow":
+            self.dataflow_lineage_extracted += 1
         self.datasets_with_lineage += 1
 
     def report_lineage_failed(self, entity_name: str, error: str) -> None:
@@ -109,13 +125,24 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
         """Increment activity runs scanned counter."""
         self.activity_runs_scanned += 1
 
-    def report_api_call(self) -> None:
-        """Track an API call."""
-        self.api_calls += 1
+    def report_api_call(
+        self, api_type: str = "general", duration_seconds: float = 0.0
+    ) -> None:
+        """Track an API call with timing.
+
+        Args:
+            api_type: Type of API call (e.g., "factories", "pipelines", "datasets")
+            duration_seconds: Time taken for the API call
+        """
+        self.api_calls_total_count += 1
+        self.total_api_response_time_seconds += duration_seconds
+        if api_type not in self.api_call_counts_by_type:
+            self.api_call_counts_by_type[api_type] = 0
+        self.api_call_counts_by_type[api_type] += 1
 
     def report_api_error(self, endpoint: str, error: str) -> None:
         """Record an API error."""
-        self.api_errors += 1
+        self.api_calls_total_error_count += 1
         self.report_warning(
             title="API Error",
             message="Failed to call Azure Data Factory API.",

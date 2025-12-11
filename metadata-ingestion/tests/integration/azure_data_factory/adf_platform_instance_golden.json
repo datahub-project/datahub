@@ -261,7 +261,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,raw-data/input/data.csv,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,raw-data/input/data.csv,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,ProcessedData,DEV)"
@@ -479,7 +479,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:azure_blob_storage,config/settings.json,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:abs,config/settings.json,DEV)"
             ],
             "outputDatasets": []
         }
