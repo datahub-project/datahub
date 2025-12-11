@@ -1,7 +1,7 @@
 import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { Button, Dropdown, Empty, Image, Modal, Tag, Typography, message } from 'antd';
-import React from 'react';
+import { Button, Dropdown, Empty, Image, Tag, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
@@ -14,6 +14,7 @@ import {
     getResultText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { Assertion, AssertionRunStatus } from '@types';
@@ -55,6 +56,7 @@ type Props = {
  */
 export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const [assertionToBeDeleted, setAssertionToBeDeleted] = useState<string | null>(null);
 
     const deleteAssertion = async (urn: string) => {
         try {
@@ -69,20 +71,6 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
             }
         }
         onDelete?.(urn);
-    };
-
-    const onDeleteAssertion = (urn: string) => {
-        Modal.confirm({
-            title: `Confirm Assertion Removal`,
-            content: `Are you sure you want to remove this assertion from the dataset?`,
-            onOk() {
-                deleteAssertion(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
     };
 
     const assertionsTableData = assertions.map((assertion) => ({
@@ -156,7 +144,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                             )}
                         </PlatformContainer>
                     </Tooltip>
-                    <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
+                    <Button onClick={() => setAssertionToBeDeleted(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
                     <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
@@ -191,6 +179,15 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                 }}
                 showHeader={false}
                 pagination={false}
+            />
+            <ConfirmationModal
+                isOpen={!!assertionToBeDeleted}
+                handleClose={() => setAssertionToBeDeleted(null)}
+                handleConfirm={() => {
+                    if (assertionToBeDeleted) deleteAssertion(assertionToBeDeleted);
+                }}
+                modalTitle="Confirm Assertion Removal"
+                modalText="Are you sure you want to remove this assertion from the dataset?"
             />
         </>
     );

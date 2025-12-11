@@ -4,6 +4,7 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
+from functools import cached_property as functools_cached_property
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -27,6 +28,7 @@ from pydantic.fields import Field
 from typing_extensions import Protocol, Self
 
 from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
+from datahub.configuration.env_vars import get_debug
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -132,8 +134,9 @@ def _config_model_schema_extra(schema: Dict[str, Any], model: Type[BaseModel]) -
 class ConfigModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        ignored_types=(cached_property,),
+        ignored_types=(cached_property, functools_cached_property),
         json_schema_extra=_config_model_schema_extra,
+        hide_input_in_errors=not get_debug(),
     )
 
     @model_validator(mode="wrap")
@@ -258,7 +261,7 @@ class PermissiveConfigModel(ConfigModel):
 class ConnectionModel(BaseModel):
     """Represents the config associated with a connection"""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", hide_input_in_errors=not get_debug())
 
 
 class TransformerSemantics(ConfigEnum):
@@ -382,6 +385,16 @@ class AllowDenyPattern(ConfigModel):
     def regex_flags(self) -> int:
         return re.IGNORECASE if self.ignoreCase else 0
 
+    @functools_cached_property
+    def _compiled_allow(self) -> "List[re.Pattern]":
+        """Evaluating compiled allow patterns is 1000x faster and this is in the hot path, so we cache them here for the life of this object."""
+        return [re.compile(pattern, self.regex_flags) for pattern in self.allow]
+
+    @functools_cached_property
+    def _compiled_deny(self) -> "List[re.Pattern]":
+        """Evaluating compiled deny patterns is 1000x faster and this is in the hot path, so we cache them here for the life of this object."""
+        return [re.compile(pattern, self.regex_flags) for pattern in self.deny]
+
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
@@ -390,17 +403,10 @@ class AllowDenyPattern(ConfigModel):
         if self.denied(string):
             return False
 
-        return any(
-            re.match(allow_pattern, string, self.regex_flags)
-            for allow_pattern in self.allow
-        )
+        return any(pattern.match(string) for pattern in self._compiled_allow)
 
     def denied(self, string: str) -> bool:
-        for deny_pattern in self.deny:
-            if re.match(deny_pattern, string, self.regex_flags):
-                return True
-
-        return False
+        return any(pattern.match(string) for pattern in self._compiled_deny)
 
     def is_fully_specified_allow_list(self) -> bool:
         """

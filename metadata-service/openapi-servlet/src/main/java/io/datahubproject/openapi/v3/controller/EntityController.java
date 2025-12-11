@@ -228,12 +228,22 @@ public class EntityController
     if (entityAspectsBody.getSortCriteria() != null) {
       sortCriteria =
           entityAspectsBody.getSortCriteria().stream()
-              .map(io.datahubproject.openapi.v3.models.SortCriterion::toRecordTemplate)
+              .map(
+                  sortCriterion -> {
+                    SortCriterion pegasusSortCriterion = sortCriterion.toRecordTemplate();
+                    if (sortCriterion.getMissingValue() != null) {
+                      pegasusSortCriterion
+                          .data()
+                          .put("missingValue", sortCriterion.getMissingValue().getValue());
+                    }
+                    return pegasusSortCriterion;
+                  })
               .toList();
     } else if (!CollectionUtils.isEmpty(sortFields)) {
-      sortCriteria = new ArrayList<>();
-      sortFields.forEach(
-          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+      sortCriteria =
+          sortFields.stream()
+              .map(field -> SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder)))
+              .toList();
     } else {
       sortCriteria =
           Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
