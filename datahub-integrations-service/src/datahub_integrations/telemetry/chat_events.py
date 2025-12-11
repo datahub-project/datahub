@@ -92,6 +92,7 @@ class ChatbotToolCallEvent(BaseEvent):
 
     # Tool-specific fields
     tool_name: str
+    tool_input: Optional[dict] = None  # Input dictionary/arguments passed to the tool
     tool_execution_duration_sec: float
     tool_result_length: Optional[int] = None
     tool_result_is_error: bool = False

@@ -121,6 +121,7 @@ def track_saas_event(
                     "user_urn",
                     "full_history",  # Entire conversation history as JSON
                     "reduction_sequence",  # Can be large JSON
+                    "tool_input",
                 }
             ),
             "distinct_id": event.user_urn or _get_server_id(),
