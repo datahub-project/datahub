@@ -12,6 +12,7 @@ import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FormHeader';
+import TestConnectionModal from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionModal';
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
 import { FiltersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/FiltersSection';
 import { SettingsSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/SettingsSection';
@@ -159,6 +160,7 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
                             selectedSource={selectedSource}
                             size="xs"
                             textWeight="semiBold"
+                            renderModal={(props) => <TestConnectionModal {...props} />}
                             hideIcon
                         />
                     </TestConnectionWrapper>

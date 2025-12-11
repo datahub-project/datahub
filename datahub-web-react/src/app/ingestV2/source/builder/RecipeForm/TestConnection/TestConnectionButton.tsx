@@ -6,7 +6,6 @@ import { FontWeightOptions, SizeOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
 import { EXECUTION_REQUEST_STATUS_FAILURE, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
-import TestConnectionModal from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionModal';
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
@@ -54,10 +53,25 @@ interface Props {
     size?: SizeOptions;
     textWeight?: FontWeightOptions;
     hideIcon?: boolean;
+    renderModal: (props: {
+        isLoading: boolean;
+        testConnectionFailed: boolean;
+        sourceConfig: SourceConfig | undefined;
+        testConnectionResult: TestConnectionResult | null;
+        hideModal: () => void;
+    }) => React.ReactNode;
 }
 
-function TestConnectionButton(props: Props) {
-    const { recipe, sourceConfigs, version, selectedSource, size, textWeight, hideIcon } = props;
+function TestConnectionButton({
+    recipe,
+    sourceConfigs,
+    version,
+    selectedSource,
+    size,
+    textWeight,
+    hideIcon,
+    renderModal,
+}: Props) {
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
@@ -152,15 +166,14 @@ function TestConnectionButton(props: Props) {
                     Test Connection
                 </Text>
             </Button>
-            {isModalVisible && (
-                <TestConnectionModal
-                    isLoading={isLoading}
-                    testConnectionFailed={testConnectionFailed}
-                    sourceConfig={sourceConfigs}
-                    testConnectionResult={testConnectionResult}
-                    hideModal={() => setIsModalVisible(false)}
-                />
-            )}
+            {isModalVisible &&
+                renderModal({
+                    isLoading,
+                    testConnectionFailed,
+                    sourceConfig: sourceConfigs,
+                    testConnectionResult,
+                    hideModal: () => setIsModalVisible(false),
+                })}
         </>
     );
 }
