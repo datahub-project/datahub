@@ -316,6 +316,19 @@ These privileges are not generalizable.
 | Domain | View Direct Domain Children   | Allow actor to view the direct child domains of this domain               |
 | Domain | View All Domain Children      | Allow actor to view all child domains underneath this domain              |
 
+**Note on Transitive Permissions to Domain Contents:**
+
+The domain privileges above control access to domain entities themselves. To grant access to **datasets, dashboards, and other entities** within a domain hierarchy, use a separate policy with `View Entity Page` privilege and a domain-based resource filter:
+
+```yaml
+Policy: "View Finance Domain Contents"
+Resources: ALL entity types
+Privilege: View Entity Page
+Filter: Domain = urn:li:domain:finance
+```
+
+This will automatically grant view access to all entities in the `finance` domain **and all of its child domains** (e.g., `finance-us`, `finance-us-california`), because DataHub's authorization system includes parent domains when evaluating policies on entities with domain associations.
+
 #### Glossary
 
 | Entity       | Privilege                       | Description                                                         |
@@ -324,6 +337,8 @@ These privileges are not generalizable.
 | GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity  |
 | GlossaryNode | View Direct Glossary Children   | Allow actor to view the direct children of this entity              |
 | GlossaryNode | View All Glossary Children      | Allow actor to view everything underneath this entity               |
+
+**Note:** The glossary privileges above control access to glossary term and node entities themselves, enabling hierarchical visibility control within the glossary structure.
 
 #### Tag
 
