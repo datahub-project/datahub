@@ -483,3 +483,140 @@ class TestErrorHandling:
         # Logs a warning but doesn't raise
         result = mssql_source.is_temp_table("db.schema.table")
         assert result is True
+
+
+class TestColumnLineageFiltering:
+    """Test column lineage filtering in _filter_procedure_lineage."""
+
+    def test_filter_column_lineage_with_aliases(self, mssql_source):
+        """Test that column lineage with alias tables is filtered out."""
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import (
+            DataJobInputOutputClass,
+            FineGrainedLineageClass,
+            FineGrainedLineageDownstreamTypeClass,
+            FineGrainedLineageUpstreamTypeClass,
+        )
+
+        # Create MCPs with column lineage including aliases
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataJob:(urn:li:dataFlow:(mssql,test_proc,PROD),test_proc,PROD)",
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=[
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,alias_table,PROD)",  # 1-part alias
+                    ],
+                    outputDatasets=[
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",  # 1-part alias
+                    ],
+                    fineGrainedLineages=[
+                        # Valid column lineage (3-part tables)
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD),col1)"
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                            downstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD),col2)"
+                            ],
+                        ),
+                        # Column lineage with alias upstream (should be filtered)
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,alias_table,PROD),col3)"
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                            downstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD),col4)"
+                            ],
+                        ),
+                        # Column lineage with alias downstream (should be filtered)
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD),col5)"
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                            downstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD),col6)"
+                            ],
+                        ),
+                    ],
+                ),
+            )
+        ]
+
+        # Filter the MCPs
+        filtered_mcps = list(mssql_source._filter_procedure_lineage(mcps, "test_proc"))
+
+        # Should have 1 MCP
+        assert len(filtered_mcps) == 1
+
+        aspect = filtered_mcps[0].aspect
+        assert isinstance(aspect, DataJobInputOutputClass)
+
+        # Check that aliases are filtered from inputDatasets and outputDatasets
+        assert len(aspect.inputDatasets) == 1
+        assert "test_instance.db1.dbo.real_table" in aspect.inputDatasets[0]
+
+        assert len(aspect.outputDatasets) == 1
+        assert "test_instance.db1.dbo.another_real_table" in aspect.outputDatasets[0]
+
+        # Check that column lineage with aliases is filtered
+        assert aspect.fineGrainedLineages is not None
+        assert len(aspect.fineGrainedLineages) == 1
+
+        # Only the valid column lineage should remain
+        cll = aspect.fineGrainedLineages[0]
+        assert "test_instance.db1.dbo.real_table" in cll.upstreams[0]
+        assert "test_instance.db1.dbo.another_real_table" in cll.downstreams[0]
+
+    def test_filter_column_lineage_all_filtered(self, mssql_source):
+        """Test that when all column lineage is filtered, fineGrainedLineages is None."""
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import (
+            DataJobInputOutputClass,
+            FineGrainedLineageClass,
+            FineGrainedLineageDownstreamTypeClass,
+            FineGrainedLineageUpstreamTypeClass,
+        )
+
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataJob:(urn:li:dataFlow:(mssql,test_proc,PROD),test_proc,PROD)",
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=[
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.real_table,PROD)",
+                    ],
+                    outputDatasets=[
+                        "urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD)",
+                    ],
+                    fineGrainedLineages=[
+                        # All column lineage with aliases (should be filtered)
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,alias,PROD),col1)"
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                            downstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD),col2)"
+                            ],
+                        ),
+                    ],
+                ),
+            )
+        ]
+
+        filtered_mcps = list(mssql_source._filter_procedure_lineage(mcps, "test_proc"))
+
+        assert len(filtered_mcps) == 1
+        aspect = filtered_mcps[0].aspect
+        assert isinstance(aspect, DataJobInputOutputClass)
+
+        # fineGrainedLineages should be None when all are filtered
+        assert aspect.fineGrainedLineages is None

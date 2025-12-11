@@ -1149,6 +1149,54 @@ class SQLServerSource(SQLAlchemySource):
                         if self._is_qualified_table_urn(urn, platform_instance)
                     ]
 
+                # Filter column lineage (fineGrainedLineages)
+                if aspect.fineGrainedLineages:
+                    filtered_column_lineage = []
+                    field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
+
+                    for cll in aspect.fineGrainedLineages:
+                        # Filter upstreams (field URNs contain table URNs)
+                        if cll.upstreams:
+                            filtered_upstreams = []
+                            for field_urn in cll.upstreams:
+                                # Extract table URN from field URN (format: urn:li:schemaField:(TABLE_URN,COLUMN))
+                                match = field_urn_pattern.search(field_urn)
+                                if match:
+                                    table_urn = match.group(1)
+                                    if self._is_qualified_table_urn(
+                                        table_urn, platform_instance
+                                    ):
+                                        filtered_upstreams.append(field_urn)
+                                else:
+                                    # Keep non-standard URNs as-is
+                                    filtered_upstreams.append(field_urn)
+                            cll.upstreams = filtered_upstreams
+
+                        # Filter downstreams (field URNs contain table URNs)
+                        if cll.downstreams:
+                            filtered_downstreams = []
+                            for field_urn in cll.downstreams:
+                                # Extract table URN from field URN
+                                match = field_urn_pattern.search(field_urn)
+                                if match:
+                                    table_urn = match.group(1)
+                                    if self._is_qualified_table_urn(
+                                        table_urn, platform_instance
+                                    ):
+                                        filtered_downstreams.append(field_urn)
+                                else:
+                                    # Keep non-standard URNs as-is
+                                    filtered_downstreams.append(field_urn)
+                            cll.downstreams = filtered_downstreams
+
+                        # Only keep column lineage if it has both upstreams and downstreams
+                        if cll.upstreams and cll.downstreams:
+                            filtered_column_lineage.append(cll)
+
+                    aspect.fineGrainedLineages = (
+                        filtered_column_lineage if filtered_column_lineage else None
+                    )
+
                 filtered_input_count = len(aspect.inputDatasets or [])
                 filtered_output_count = len(aspect.outputDatasets or [])
 
