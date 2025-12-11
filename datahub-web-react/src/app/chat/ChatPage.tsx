@@ -16,7 +16,7 @@ import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 import { PageRoutes } from '@conf/Global';
 
 import { useCreateDataHubAiConversationMutation, useListDataHubAiConversationsQuery } from '@graphql/aiChat.generated';
-import { Entity } from '@types';
+import { DataHubAiConversationOriginType, Entity } from '@types';
 
 const LAST_CONVERSATION_KEY = 'datahub_last_conversation_urn';
 
@@ -107,12 +107,17 @@ export const ChatPage = () => {
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
 
     // Fetch conversations list - TODO: Add pagination / infinite scroll
+    // Filter to only show conversations created in the main DataHub UI
     const {
         data: conversationsData,
         loading: loadingConversations,
         refetch: refetchConversations,
     } = useListDataHubAiConversationsQuery({
-        variables: { count: 50, start: 0 },
+        variables: {
+            count: 50,
+            start: 0,
+            originType: DataHubAiConversationOriginType.DatahubUi,
+        },
         fetchPolicy: 'cache-and-network',
     });
 
@@ -137,6 +142,7 @@ export const ChatPage = () => {
                     variables: {
                         input: {
                             title: null, // Title will be set from first message
+                            originType: DataHubAiConversationOriginType.DatahubUi,
                         },
                     },
                 });

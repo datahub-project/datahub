@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.ai;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -16,9 +18,12 @@ import com.linkedin.conversation.DataHubAiConversationInfo;
 import com.linkedin.conversation.DataHubAiConversationMessageArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubAiConversationConnection;
+import com.linkedin.datahub.graphql.generated.DataHubAiConversationOriginType;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -35,7 +40,7 @@ public class ListDataHubAiConversationsResolverTest {
     // Create mock service
     DataHubAiConversationService mockService = mock(DataHubAiConversationService.class);
     when(mockService.listConversations(
-            any(OperationContext.class), any(Urn.class), any(Integer.class), any(Integer.class)))
+            any(OperationContext.class), any(Urn.class), anyInt(), anyInt(), isNull()))
         .thenReturn(
             new DataHubAiConversationService.ConversationListResult(
                 ImmutableList.of(
@@ -54,6 +59,7 @@ public class ListDataHubAiConversationsResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(20);
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("originType"))).thenReturn(null);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     DataHubAiConversationConnection result = resolver.get(mockEnv).get();
@@ -65,7 +71,7 @@ public class ListDataHubAiConversationsResolverTest {
 
     // Verify service was called
     verify(mockService, times(1))
-        .listConversations(any(OperationContext.class), eq(TEST_USER_URN), eq(20), eq(0));
+        .listConversations(any(OperationContext.class), eq(TEST_USER_URN), eq(20), eq(0), isNull());
   }
 
   @Test
@@ -73,7 +79,7 @@ public class ListDataHubAiConversationsResolverTest {
     // Create mock service
     DataHubAiConversationService mockService = mock(DataHubAiConversationService.class);
     when(mockService.listConversations(
-            any(OperationContext.class), any(Urn.class), any(Integer.class), any(Integer.class)))
+            any(OperationContext.class), any(Urn.class), anyInt(), anyInt(), isNull()))
         .thenReturn(new DataHubAiConversationService.ConversationListResult(ImmutableList.of(), 0));
 
     // Create resolver
@@ -85,6 +91,7 @@ public class ListDataHubAiConversationsResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(20);
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("originType"))).thenReturn(null);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     DataHubAiConversationConnection result = resolver.get(mockEnv).get();
@@ -100,7 +107,7 @@ public class ListDataHubAiConversationsResolverTest {
     // Create mock service
     DataHubAiConversationService mockService = mock(DataHubAiConversationService.class);
     when(mockService.listConversations(
-            any(OperationContext.class), any(Urn.class), any(Integer.class), any(Integer.class)))
+            any(OperationContext.class), any(Urn.class), anyInt(), anyInt(), isNull()))
         .thenReturn(new DataHubAiConversationService.ConversationListResult(ImmutableList.of(), 0));
 
     // Create resolver
@@ -112,13 +119,64 @@ public class ListDataHubAiConversationsResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(null);
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("originType"))).thenReturn(null);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     resolver.get(mockEnv).get();
 
     // Verify service was called with defaults
     verify(mockService, times(1))
-        .listConversations(any(OperationContext.class), eq(TEST_USER_URN), eq(20), eq(0));
+        .listConversations(any(OperationContext.class), eq(TEST_USER_URN), eq(20), eq(0), isNull());
+  }
+
+  @Test
+  public void testListConversationsWithOriginTypeFilter() throws Exception {
+    // Create mock service
+    DataHubAiConversationService mockService = mock(DataHubAiConversationService.class);
+    when(mockService.listConversations(
+            any(OperationContext.class), any(Urn.class), anyInt(), anyInt(), any(Filter.class)))
+        .thenReturn(
+            new DataHubAiConversationService.ConversationListResult(
+                ImmutableList.of(
+                    new DataHubAiConversationService.ConversationResult(
+                        TEST_CONVERSATION_URN_1, createMockConversationInfo())),
+                1));
+
+    // Create resolver
+    ListDataHubAiConversationsResolver resolver =
+        new ListDataHubAiConversationsResolver(mockService);
+
+    // Execute resolver with originType filter
+    QueryContext mockContext = getMockAllowContext(TEST_USER_URN.toString());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(20);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("originType")))
+        .thenReturn(DataHubAiConversationOriginType.INGESTION_UI);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    DataHubAiConversationConnection result = resolver.get(mockEnv).get();
+
+    // Verify result
+    assertNotNull(result);
+    assertEquals(result.getConversations().size(), 1);
+    assertEquals(result.getTotal(), 1);
+
+    // Verify service was called with a filter
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .listConversations(
+            any(OperationContext.class), eq(TEST_USER_URN), eq(20), eq(0), filterCaptor.capture());
+
+    // Verify the filter contains the originType criterion
+    Filter capturedFilter = filterCaptor.getValue();
+    assertNotNull(capturedFilter);
+    assertNotNull(capturedFilter.getOr());
+    assertEquals(capturedFilter.getOr().size(), 1);
+    assertNotNull(capturedFilter.getOr().get(0).getAnd());
+    assertEquals(capturedFilter.getOr().get(0).getAnd().size(), 1);
+    assertEquals(capturedFilter.getOr().get(0).getAnd().get(0).getField(), "originType");
+    assertTrue(capturedFilter.getOr().get(0).getAnd().get(0).getValues().contains("INGESTION_UI"));
   }
 
   private DataHubAiConversationInfo createMockConversationInfo() {

@@ -42,7 +42,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
                     <EmbeddedChat
                         context=""
                         agentName="IngestionTroubleshooter"
-                        originType={DataHubAiConversationOriginType.DatahubUi}
+                        originType={DataHubAiConversationOriginType.IngestionUi}
                         title={isEditing ? 'Ask DataHub - Edit Source' : 'Ask DataHub - Create Source'}
                         getMessageContext={getMessageContext}
                     />
