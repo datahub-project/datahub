@@ -3386,6 +3386,202 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 % (report.id, workspace.name, str(e)),
             )
 
+    def extract_dataset_via_xmla(
+        self,
+        workspace: powerbi_data_classes.Workspace,
+        dataset: powerbi_data_classes.PowerBIDataset,
+    ) -> bool:
+        """
+        Extract dataset metadata via XMLA endpoint for Premium Files datasets.
+
+        This is used as a fallback when PBIX export fails due to Premium Files storage mode.
+
+        Args:
+            workspace: The workspace containing the dataset
+            dataset: The dataset to extract metadata for
+
+        Returns:
+            True if successful, False otherwise
+        """
+        from datahub.ingestion.source.powerbi.rest_api_wrapper.xmla_client import (
+            create_xmla_client,
+        )
+
+        try:
+            self.reporter.xmla_extraction_attempts += 1
+
+            # Create XMLA client with existing access token
+            access_token = self.powerbi_client._get_resolver().get_access_token()
+            xmla_client = create_xmla_client(
+                access_token=access_token,
+                timeout=self.source_config.xmla_endpoint_timeout_seconds,
+            )
+
+            # Extract metadata via DAX INFO queries
+            logger.info(
+                "Extracting dataset %s metadata via XMLA endpoint",
+                dataset.name,
+            )
+            metadata = xmla_client.get_dataset_metadata(workspace.id, dataset.id)
+
+            if not metadata:
+                logger.warning(
+                    "XMLA extraction returned no metadata for dataset %s",
+                    dataset.name,
+                )
+                self.reporter.xmla_extraction_failures += 1
+                return False
+
+            # Parse and populate dataset with XMLA metadata
+            self._populate_dataset_from_xmla(dataset, metadata)
+
+            logger.info(
+                "Successfully extracted dataset %s via XMLA: %s tables, %s columns, %s measures",
+                dataset.name,
+                len(dataset.tables),
+                sum(len(t.columns) for t in dataset.tables if t.columns),
+                sum(len(t.measures) for t in dataset.tables if t.measures),
+            )
+
+            self.reporter.xmla_extraction_successes += 1
+            return True
+
+        except Exception as e:
+            logger.warning(
+                "Failed to extract dataset %s via XMLA: %s",
+                dataset.name,
+                e,
+                exc_info=True,
+            )
+            self.reporter.xmla_extraction_failures += 1
+            return False
+
+    def _populate_dataset_from_xmla(
+        self,
+        dataset: powerbi_data_classes.PowerBIDataset,
+        metadata: Dict[str, Any],
+    ) -> None:
+        """
+        Populate dataset object with metadata from XMLA extraction.
+
+        Converts XMLA DAX query results into Table, Column, and Measure objects.
+
+        Args:
+            dataset: The dataset to populate
+            metadata: Metadata from XMLA extraction (contains tables, columns, measures, relationships)
+        """
+        # Build a mapping of table names to Table objects
+        table_map: Dict[str, powerbi_data_classes.Table] = {}
+
+        # Parse tables
+        for table_row in metadata.get("tables", []):
+            table_name = table_row.get("Table[Table]")
+            if not table_name:
+                continue
+
+            table = powerbi_data_classes.Table(
+                name=table_name,
+                full_name=f"{dataset.name}.{table_name}",
+                columns=[],
+                measures=[],
+            )
+            # Note: Table dataclass doesn't have description or isHidden attributes
+            # These are tracked at the column/measure level
+
+            table_map[table_name] = table
+
+        # Parse columns for each table
+        for col_row in metadata.get("columns", []):
+            table_name = col_row.get("Column[Table]")
+            column_name = col_row.get("Column[Column]")
+
+            if not table_name or not column_name or table_name not in table_map:
+                continue
+
+            is_hidden = col_row.get("Column[IsHidden]", False)
+            data_type = col_row.get("Column[DataType]", "String")
+
+            # Map PowerBI data types to DataHub types
+            datahub_type = powerbi_data_classes.FIELD_TYPE_MAPPING.get(
+                data_type, powerbi_data_classes.FIELD_TYPE_MAPPING["String"]
+            )
+
+            column = powerbi_data_classes.Column(
+                name=column_name,
+                dataType=data_type,
+                datahubDataType=datahub_type,
+                isHidden=is_hidden
+                if isinstance(is_hidden, bool)
+                else str(is_hidden).lower() == "true",
+                columnType="Data",
+            )
+            column.description = col_row.get("Column[Description]")
+
+            if table_map[table_name].columns:
+                table_map[table_name].columns.append(column)  # type: ignore
+            else:
+                table_map[table_name].columns = [column]
+
+        # Parse measures for each table
+        for meas_row in metadata.get("measures", []):
+            table_name = meas_row.get("Measure[Table]")
+            measure_name = meas_row.get("Measure[Measure]")
+
+            if not table_name or not measure_name or table_name not in table_map:
+                continue
+
+            is_hidden = meas_row.get("Measure[IsHidden]", False)
+            measure = powerbi_data_classes.Measure(
+                name=measure_name,
+                expression=meas_row.get("Measure[Expression]", ""),
+                isHidden=is_hidden
+                if isinstance(is_hidden, bool)
+                else str(is_hidden).lower() == "true",
+            )
+            measure.description = meas_row.get("Measure[Description]")
+
+            if table_map[table_name].measures:
+                table_map[table_name].measures.append(measure)  # type: ignore
+            else:
+                table_map[table_name].measures = [measure]
+
+        # Update dataset with parsed tables
+        dataset.tables = list(table_map.values())
+
+        # Parse relationships (if available)
+        relationships = []
+        for rel_row in metadata.get("relationships", []):
+            from_table = rel_row.get("Relationship[FromTable]")
+            from_column = rel_row.get("Relationship[FromColumn]")
+            to_table = rel_row.get("Relationship[ToTable]")
+            to_column = rel_row.get("Relationship[ToColumn]")
+
+            if all([from_table, from_column, to_table, to_column]):
+                relationships.append(
+                    {
+                        "fromTable": from_table,
+                        "fromColumn": from_column,
+                        "toTable": to_table,
+                        "toColumn": to_column,
+                        "crossFilterDirection": rel_row.get(
+                            "Relationship[CrossFilterDirection]", "OneDirection"
+                        ),
+                        "cardinality": rel_row.get(
+                            "Relationship[Cardinality]", "ManyToOne"
+                        ),
+                    }
+                )
+
+        if relationships:
+            dataset.relationships = relationships  # type: ignore[assignment]
+
+        logger.debug(
+            "Populated dataset %s from XMLA: %s tables, %s relationships",
+            dataset.name,
+            len(dataset.tables),
+            len(relationships),
+        )
+
     def emit_app(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -3538,6 +3734,32 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                                 )
                     continue
                 else:
+                    # PBIX export failed - try XMLA fallback for Premium Files
+                    dataset = (
+                        workspace.datasets.get(report.dataset_id)
+                        if report.dataset_id
+                        else None
+                    )
+                    if (
+                        dataset
+                        and dataset.targetStorageMode == "PremiumFiles"
+                        and self.source_config.use_xmla_endpoint_for_premium_files
+                    ):
+                        logger.info(
+                            "PBIX export failed for Premium Files dataset %s, attempting XMLA extraction",
+                            dataset.name,
+                        )
+                        if self.extract_dataset_via_xmla(workspace, dataset):
+                            logger.info(
+                                "Successfully extracted dataset %s via XMLA endpoint",
+                                dataset.name,
+                            )
+                        else:
+                            logger.warning(
+                                "XMLA extraction failed for dataset %s, using API-based extraction",
+                                dataset.name,
+                            )
+
                     # PBIX export failed, fall back to API-based extraction
                     logger.warning(
                         "Failed to export report %s to PBIX, falling back to API-based extraction",

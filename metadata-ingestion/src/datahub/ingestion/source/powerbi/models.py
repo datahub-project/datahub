@@ -264,6 +264,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     dax_parse_attempts: int = 0
     dax_parse_successes: int = 0
     dax_parse_failures: int = 0
+    xmla_extraction_attempts: int = 0
+    xmla_extraction_successes: int = 0
+    xmla_extraction_failures: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -579,6 +582,22 @@ class PowerBiDashboardSourceConfig(
         "Large PBIX files may require longer timeouts. Default is 180 seconds (3 minutes).",
     )
 
+    use_xmla_endpoint_for_premium_files: bool = pydantic.Field(
+        default=True,
+        description="Use XMLA endpoint as fallback for Premium Files datasets when PBIX export fails. "
+        "When enabled, if a dataset uses Premium Files storage mode (which blocks PBIX export), "
+        "the connector will use Power BI's XMLA endpoint to extract data model metadata via DAX queries. "
+        "This allows extraction of tables, columns, measures, and relationships even when PBIX download "
+        "is not possible. Requires Premium or Premium Per User (PPU) capacity. Default is True.",
+    )
+
+    xmla_endpoint_timeout_seconds: int = pydantic.Field(
+        default=60,
+        gt=0,
+        description="Timeout in seconds for XMLA endpoint queries. "
+        "Default is 60 seconds (1 minute).",
+    )
+
     @model_validator(mode="after")
     def validate_report_container_requirements(self) -> "PowerBiDashboardSourceConfig":
         if self.extract_reports_as_containers and not self.extract_from_pbix_file:
@@ -884,6 +903,9 @@ class PowerBIDataset:
     tables: List["Table"]
     tags: List[str]
     configuredBy: Optional[str] = None
+    targetStorageMode: Optional[str] = (
+        None  # e.g., "PremiumFiles", "Import", "DirectQuery"
+    )
     # PBIX-extracted metadata (optional, populated when extracted from PBIX)
     hierarchies: Optional[List["PBIXHierarchy"]] = None
     roles: Optional[List["PBIXRole"]] = None

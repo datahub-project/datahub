@@ -210,6 +210,7 @@ def create_powerbi_dataset(
         tables=[],
         tags=[],
         configuredBy=raw_instance.get("configuredBy"),
+        targetStorageMode=raw_instance.get("targetStorageMode"),
     )
 
 
