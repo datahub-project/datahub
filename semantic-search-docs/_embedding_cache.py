@@ -8,7 +8,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Dict, Any, TypedDict
-from embeddings_base import BaseEmbeddings
+from _embeddings_base import BaseEmbeddings
 
 
 class CacheStats(TypedDict):

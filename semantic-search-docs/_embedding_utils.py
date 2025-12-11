@@ -11,9 +11,9 @@ LangChain types while preserving IDE/typing support.
 import os
 from typing import List, Dict, Any, Optional
 
-from embedding_cache import LocalFileEmbeddingCache, CachedEmbeddings
-from litellm_embeddings import LiteLLMEmbeddings
-from embeddings_base import BaseEmbeddings
+from _embedding_cache import LocalFileEmbeddingCache, CachedEmbeddings
+from _litellm_embeddings import LiteLLMEmbeddings
+from _embeddings_base import BaseEmbeddings
 
 
 def create_bedrock_embeddings(

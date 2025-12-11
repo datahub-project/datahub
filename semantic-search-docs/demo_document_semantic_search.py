@@ -58,7 +58,7 @@ import requests
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
 
-from embedding_utils import create_embeddings
+from _embedding_utils import create_embeddings
 
 # Load environment variables
 load_dotenv()
@@ -94,7 +94,7 @@ class SearchTestResult:
 
 
 @dataclass
-class TestSuiteResults:
+class DemoSuiteResults:
     """Aggregated results from the test suite."""
 
     tests_run: int = 0
@@ -522,9 +522,9 @@ def run_tests(
     queries: List[Dict[str, str]],
     opensearch_only: bool = False,
     verbose: bool = False,
-) -> TestSuiteResults:
+) -> DemoSuiteResults:
     """Run the full test suite."""
-    results = TestSuiteResults()
+    results = DemoSuiteResults()
 
     # Initialize testers
     os_tester = OpenSearchTester(verbose=verbose)

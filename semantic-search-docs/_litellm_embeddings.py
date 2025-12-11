@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from litellm import embedding as litellm_embedding
-from embeddings_base import BaseEmbeddings
+from _embeddings_base import BaseEmbeddings
 
 
 class LiteLLMEmbeddings(BaseEmbeddings):

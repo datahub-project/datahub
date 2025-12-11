@@ -279,7 +279,7 @@ def write_embeddings_to_opensearch(config: IngestConfig, doc_id: str, title: str
     the document data (race condition handling).
     """
     from opensearchpy import OpenSearch
-    from embedding_utils import create_embeddings
+    from _embedding_utils import create_embeddings
 
     opensearch_doc_id = get_opensearch_doc_id(doc_id)
     index_name = "documentindex_v2_semantic"
