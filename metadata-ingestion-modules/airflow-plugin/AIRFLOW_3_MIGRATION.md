@@ -55,17 +55,6 @@ pip install 'acryl-datahub-airflow-plugin[airflow3]'
 pip install 'acryl-datahub-airflow-plugin'  # Works with both Airflow 2.7+ and 3.x
 ```
 
-**Backward Compatibility:**
-
-The old extra names are still supported as aliases:
-
-- `plugin-v2` → `airflow2`
-- `plugin-v2-airflow3` → `airflow3`
-
-**Module Aliases:**
-
-For backward compatibility, `plugin_v2` is aliased to `airflow2` (via symlink), so existing imports continue to work.
-
 ### 🎯 Key Architectural Change: Moved Away from Operator-Specific Overrides
 
 **The most significant change** is how lineage extraction works:

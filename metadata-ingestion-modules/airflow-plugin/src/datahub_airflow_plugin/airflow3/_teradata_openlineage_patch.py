@@ -261,17 +261,17 @@ def patch_teradata_operator() -> None:
     which provides column-level lineage extraction for Teradata operators.
     """
     try:
-        logger.info("Attempting to patch TeradataOperator for OpenLineage")
+        logger.debug("Attempting to patch TeradataOperator for OpenLineage")
         from airflow.providers.teradata.operators.teradata import TeradataOperator
 
-        logger.info(f"Successfully imported TeradataOperator: {TeradataOperator}")
+        logger.debug(f"Successfully imported TeradataOperator: {TeradataOperator}")
 
         if not _should_patch_teradata_operator(TeradataOperator):
             logger.warning(
                 "TeradataOperator patch check failed - patch will not be applied"
             )
             return
-        logger.info("TeradataOperator patch check passed - proceeding with patch")
+        logger.debug("TeradataOperator patch check passed - proceeding with patch")
 
         # Store original method
         original_get_openlineage_facets_on_complete = (
@@ -298,7 +298,7 @@ def patch_teradata_operator() -> None:
         )
         TeradataOperator._datahub_openlineage_patched = True  # type: ignore[attr-defined]
 
-        logger.info(
+        logger.debug(
             "Successfully patched TeradataOperator.get_openlineage_facets_on_complete to use DataHub SQL parser"
         )
 

@@ -73,8 +73,6 @@ def _make_api_request(
             raise
 
 
-pytestmark = pytest.mark.integration
-
 logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 

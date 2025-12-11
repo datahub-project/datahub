@@ -189,6 +189,20 @@ class ExtractorManager(OLExtractorManager):
                 )
 
         extractor = super()._get_extractor(task)
+
+        # For OpenLineage Provider: If no extractor was found, check if this is a SQL operator
+        # that should use GenericSqlExtractor (e.g., SqliteOperator which provider doesn't support)
+        if (
+            USE_OPENLINEAGE_PROVIDER
+            and extractor is None
+            and GenericSqlExtractor is not None
+        ):
+            clazz = get_operator_class(task)  # type: ignore[arg-type]
+            # Check if this is SqliteOperator (provider doesn't have an extractor for it)
+            if clazz.__name__ == "SqliteOperator":
+                # Create a GenericSqlExtractor instance for this operator
+                extractor = GenericSqlExtractor(task)  # type: ignore[call-arg]
+
         if extractor and not USE_OPENLINEAGE_PROVIDER:
             # set_context only exists in Legacy OpenLineage
             extractor.set_context(_DATAHUB_GRAPH_CONTEXT_KEY, self._graph)  # type: ignore[attr-defined]
@@ -223,6 +237,7 @@ if SqlExtractor is not None:
 
                 return self.conn.schema
             return None
+
 else:
     # SqlExtractor is not available (OpenLineage Provider package)
     GenericSqlExtractor = None  # type: ignore

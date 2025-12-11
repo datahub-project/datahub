@@ -60,9 +60,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Additionally, there have been changes to the catalog connection configuration details - especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`, `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version `0.8.0`. To check whether your configuration will work, consult https://py.iceberg.apache.org/configuration/#catalogs. Because of that, `pyiceberg` dependency has been restricted to be `0.8.0` at least.
   - Anyway, **there are no changes needed for iceberg recipes orchestrated via the Managed Ingestion UI**
 - The `acryl-datahub-airflow-plugin` now requires specifying the appropriate installation extra based on your Airflow version due to different OpenLineage dependencies:
-  - **For Airflow 2.x (2.7+)**: Install with `pip install 'acryl-datahub-airflow-plugin[plugin-v2]'`
-  - **For Airflow 3.x (3.0+)**: Install with `pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3]'`
-  - **For Airflow 3.0.x specifically**: You'll also need to bump pydantic: `pip install 'acryl-datahub-airflow-plugin[plugin-v2-airflow3]' 'pydantic>=2.11.8'`
+  - **For Airflow 2.x (2.7+)**: Install with `pip install 'acryl-datahub-airflow-plugin[airflow2]'`
+  - **For Airflow 3.x (3.0+)**: Install with `pip install 'acryl-datahub-airflow-plugin[airflow3]'`
+  - **For Airflow 3.0.x specifically**: You'll also need to bump pydantic: `pip install 'acryl-datahub-airflow-plugin[airflow3]' 'pydantic>=2.11.8'`
   - Installing without the appropriate extra will result in missing OpenLineage dependencies and lineage extraction will not work properly. The plugin automatically detects your Airflow version and uses the appropriate integration once the correct extra is installed.
 - Auto-detection for SearchClientShim requires permission for the cluster info endpoint on ElasticSearch/OpenSearch. If you are using a restrictive account to access your cluster, you may need to directly configure the engine type rather than relying on auto-detection. These are the two environment variables needed to be configured for GMS as well as MCE & MAE consumers (available in helm charts as well):
   - ELASTICSEARCH_SHIM_ENGINE_TYPE & ELASTICSEARCH_SHIM_AUTO_DETECT (.Values.global.elasticsearch.engineType and .Values.global.elasticsearch.autoDetect respectively for helm)

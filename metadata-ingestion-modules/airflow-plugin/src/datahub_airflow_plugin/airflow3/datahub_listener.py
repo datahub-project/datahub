@@ -614,8 +614,8 @@ class DataHubListener:
                 )
 
                 if not operator_lineage:
-                    logger.info(
-                        f"⚠️ OpenLineage facet method {facet_method_name} returned None for task {task.task_id} - this is expected for BigQuery when no job_id is found"
+                    logger.debug(
+                        f"OpenLineage facet method {facet_method_name} returned None for task {task.task_id} - this is expected for BigQuery when no job_id is found"
                     )
                     # Even if operator_lineage is None, we might have SQL parsing result from a patch
                     # that created a new OperatorLineage. But if it's None, there's nothing to process.
@@ -768,7 +768,7 @@ class DataHubListener:
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
-        logger.info(
+        logger.debug(
             f"_extract_lineage called for task {task.task_id} (complete={complete}, enable_datajob_lineage={self.config.enable_datajob_lineage})"
         )
         if not self.config.enable_datajob_lineage:

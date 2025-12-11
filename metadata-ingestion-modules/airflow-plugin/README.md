@@ -58,6 +58,43 @@ pip install 'acryl-datahub-airflow-plugin[airflow3]' 'pydantic>=2.11.8'
 
 We recommend using Airflow 3.1.0+ which resolves this issue. See the Version Compatibility section above for details.
 
+### What Gets Installed
+
+#### Base Installation (No Extras)
+
+When you install without any extras:
+
+```bash
+pip install acryl-datahub-airflow-plugin
+```
+
+You get:
+
+- `acryl-datahub[sql-parser,datahub-rest]` - DataHub SDK with SQL parsing and REST emitter
+- `pydantic>=2.4.0` - Required for data validation
+- `apache-airflow>=2.5.0,<4.0.0` - Airflow itself
+- **No OpenLineage package** - You'll need to provide your own or use one of the extras below
+
+#### With `[airflow2]` Extra
+
+```bash
+pip install 'acryl-datahub-airflow-plugin[airflow2]'
+```
+
+Adds:
+
+- `openlineage-airflow>=1.2.0` - Standalone OpenLineage package for Airflow 2.x
+
+#### With `[airflow3]` Extra
+
+```bash
+pip install 'acryl-datahub-airflow-plugin[airflow3]'
+```
+
+Adds:
+
+- `apache-airflow-providers-openlineage>=1.0.0` - Native OpenLineage provider for Airflow 3.x
+
 ### Additional Extras
 
 You can combine multiple extras if needed:
@@ -72,10 +109,10 @@ pip install 'acryl-datahub-airflow-plugin[airflow2,datahub-file]'
 
 Available extras:
 
-- `airflow2`: OpenLineage support for Airflow 2.x
-- `airflow3`: OpenLineage support for Airflow 3.x
-- `datahub-kafka`: Kafka-based metadata emission
-- `datahub-file`: File-based metadata emission (useful for testing)
+- `airflow2`: OpenLineage support for Airflow 2.x (adds `openlineage-airflow>=1.2.0`)
+- `airflow3`: OpenLineage support for Airflow 3.x (adds `apache-airflow-providers-openlineage>=1.0.0`)
+- `datahub-kafka`: Kafka-based metadata emission (adds `acryl-datahub[datahub-kafka]`)
+- `datahub-file`: File-based metadata emission (adds `acryl-datahub[sync-file-emitter]`) - useful for testing
 
 ### Why Different Extras?
 
