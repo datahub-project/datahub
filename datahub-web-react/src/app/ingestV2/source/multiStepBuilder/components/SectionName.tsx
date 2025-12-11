@@ -7,17 +7,31 @@ const Wrapper = styled.div`
     flex-direction: column;
 `;
 
+const TopRow = styled.div`
+    display: flex;
+    flex-direction: row;
+`;
+
+const Spacer = styled.div`
+    flex: 1;
+`;
+
 interface Props {
     name: string;
     description?: string;
+    topRowRightItems?: React.ReactNode;
 }
 
-export function SectionName({ name, description }: Props) {
+export function SectionName({ name, description, topRowRightItems }: Props) {
     return (
         <Wrapper>
-            <Text weight="semiBold" size="lg">
-                {name}
-            </Text>
+            <TopRow>
+                <Text weight="semiBold" size="lg">
+                    {name}
+                </Text>
+                <Spacer />
+                {topRowRightItems}
+            </TopRow>
             {description && <Text color="gray">{description}</Text>}
         </Wrapper>
     );

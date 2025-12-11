@@ -252,24 +252,68 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
         downstream_table_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
+        # Extract table-level upstreams
+        upstreams = self.map_query_result_upstreams(
+            db_row.UPSTREAM_TABLES, query.query_id
+        )
+
+        # Extract column-level lineage
+        column_lineage = None
+        if self.config.include_column_lineage and db_row.UPSTREAM_COLUMNS:
+            column_lineage = self.map_query_result_fine_upstreams(
+                downstream_table_urn,
+                db_row.UPSTREAM_COLUMNS,
+                query.query_id,
+            )
+
+            # It can happen tables are only showing up in CLL and we have to correct
+            # upstream tables with that
+            if column_lineage:
+                tables_from_column_lineage: Set[str] = set()
+                for fg_lineage in column_lineage:
+                    for upstream_col_ref in fg_lineage.upstreams:
+                        tables_from_column_lineage.add(upstream_col_ref.table)
+
+                # Check for tables in column lineage but not in table lineage
+                upstreams_set = set(upstreams)
+                missing_tables = tables_from_column_lineage - upstreams_set
+
+                if missing_tables:
+                    logger.info(
+                        f"Found {len(missing_tables)} table(s) in column lineage "
+                        f"but not in table lineage for {dataset_name}. "
+                        f"This indicates Snowflake's directSources metadata was incomplete. "
+                        f"Adding missing tables to table lineage to ensure consistency. "
+                        f"Missing tables: {sorted(missing_tables)}. The affected query id: {query.query_id}"
+                    )
+                    # Add missing tables to upstreams list
+                    upstreams.extend(list(missing_tables))
+                    self.report.num_tables_added_from_column_lineage += len(
+                        missing_tables
+                    )
+
+        # Log warning if table lineage exists but column lineage is empty
+        # This helps identify cases where Snowflake's directSources is completely empty
+        if (
+            self.config.include_column_lineage
+            and db_row.UPSTREAM_TABLES
+            and not db_row.UPSTREAM_COLUMNS
+        ):
+            logger.debug(
+                f"Table lineage present but column lineage empty for {dataset_name}. "
+                f"Query will rely on SQL parsing for column-level lineage. "
+                f"This may indicate Snowflake's directSources field was empty. The affected query id: {query.query_id}"
+            )
+            self.report.num_queries_with_empty_directsources += 1
+
         known_lineage = KnownQueryLineageInfo(
             query_id=get_query_fingerprint(
                 query.query_text, self.identifiers.platform, fast=True
             ),
             query_text=query.query_text,
             downstream=downstream_table_urn,
-            upstreams=self.map_query_result_upstreams(
-                db_row.UPSTREAM_TABLES, query.query_id
-            ),
-            column_lineage=(
-                self.map_query_result_fine_upstreams(
-                    downstream_table_urn,
-                    db_row.UPSTREAM_COLUMNS,
-                    query.query_id,
-                )
-                if (self.config.include_column_lineage and db_row.UPSTREAM_COLUMNS)
-                else None
-            ),
+            upstreams=upstreams,  # Now includes tables from column lineage
+            column_lineage=column_lineage,
             timestamp=parse_absolute_time(query.start_time),
         )
 

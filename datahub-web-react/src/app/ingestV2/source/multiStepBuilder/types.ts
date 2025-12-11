@@ -13,6 +13,8 @@ export interface MultiStepSourceBuilderState extends SourceBuilderState {
     shouldRun?: boolean;
     ingestionSource?: IngestionSource;
     isEditing?: boolean;
+    // To restore last validation state after moving back
+    isConnectionDetailsValid?: boolean;
 }
 
 export interface SubmitOptions {

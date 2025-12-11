@@ -8,6 +8,7 @@ import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { AdvancedSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/AdvansedSection';
 import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
 import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -28,12 +29,15 @@ export function ConnectionDetailsStep() {
 
     const existingRecipeJson = state.ingestionSource?.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+    const existingRecipeFromStateJson = state.config?.recipe;
+    const existingRecipeFromStateYaml = existingRecipeFromStateJson && jsonToYaml(existingRecipeFromStateJson);
     const { type } = state;
+    const isEditing = !!state.isEditing;
     const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
-    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(false);
-
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || placeholderRecipe);
+    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(isEditing || !!state.isConnectionDetailsValid);
+    const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
     useEffect(() => {
         if (existingRecipeYaml) {
@@ -41,16 +45,17 @@ export function ConnectionDetailsStep() {
         }
     }, [existingRecipeYaml, state.name]);
 
-    const isEditing = !!state.isEditing;
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
 
     useEffect(() => {
         if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
             setCurrentStepCompleted();
+            updateState({ isConnectionDetailsValid: true });
         } else {
             setCurrentStepUncompleted();
+            updateState({ isConnectionDetailsValid: false });
         }
-    }, [isRecipeValid, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+    }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
     const sourceName = useMemo(() => state.name || '', [state.name]);
     const updateSourceName = useCallback(
@@ -80,6 +85,7 @@ export function ConnectionDetailsStep() {
                 recipe: recipeJson,
             },
             type: JSON.parse(recipeJson).source.type,
+            isRecipeValid: true,
         };
         updateState(newState);
     }, [stagedRecipeYml, state, updateState]);
@@ -110,6 +116,8 @@ export function ConnectionDetailsStep() {
                     setStagedRecipe={setStagedRecipeYml}
                     setIsRecipeValid={setIsRecipeValid}
                 />
+
+                <AdvancedSection state={state} updateState={updateState} />
             </Container>
         </>
     );
