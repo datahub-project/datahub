@@ -93,21 +93,35 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 count);
             String keepAlive = input.getKeepAlive() != null ? input.getKeepAlive() : "5m";
 
+            // Determine final entity types after applying view constraints
+            List<String> finalEntities =
+                maybeResolvedView != null
+                    ? SearchUtils.intersectEntityTypes(
+                        entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                    : entityNames;
+
+            // Build the final filter, combining view filter and entity-specific defaults
+            Filter combinedFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
+
+            // Add default entity filters (e.g., for DOCUMENT: require PUBLISHED state,
+            // showInGlobalContext=true, and exclude drafts)
+            combinedFilter =
+                DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                    combinedFilter, finalEntities, true);
+
             return UrnScrollResultsMapper.map(
                 context,
                 _entityClient.scrollAcrossEntities(
                     context
                         .getOperationContext()
                         .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                    combinedFilter,
                     scrollId,
                     keepAlive,
                     sortCriteria,

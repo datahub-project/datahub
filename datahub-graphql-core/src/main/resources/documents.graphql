@@ -113,6 +113,11 @@ type Document implements Entity {
   dataPlatformInstance: DataPlatformInstance
 
   """
+  The Platform that this Document belongs to (defaults to DataHub for internal documents)
+  """
+  platform: DataPlatform!
+
+  """
   Ownership metadata of the Document
   """
   ownership: Ownership

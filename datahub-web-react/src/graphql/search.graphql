@@ -370,8 +370,18 @@ fragment autoCompleteFields on Entity {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         info {
-            title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
             created {
                 time
                 actor {
@@ -1199,8 +1209,19 @@ fragment searchResultsWithoutSchemaField on Entity {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         info {
             title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
             created {
                 time
                 actor {

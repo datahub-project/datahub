@@ -159,6 +159,9 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             hideActionsMenu
             maxHeight={400}
             searchDisabled={isCreating}
+            // Search all document types (both native and external/ingested)
+            // to allow linking documents from third-party sources like Notion
+            sourceType={null}
         />
     );
 };
