@@ -658,19 +658,45 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
                 # Determine source platform and dataset id from asset (bigquery, gcs, etc.)
+                # Use double-checked locking to avoid holding lock during API calls
+                needs_fetch = False
+                asset_name = entity.asset
+
                 with self._asset_metadata_lock:
-                    if entity.asset in self.asset_metadata:
-                        source_platform, dataset_id = self.asset_metadata[entity.asset]
+                    if asset_name in self.asset_metadata:
+                        source_platform, dataset_id = self.asset_metadata[asset_name]
                     else:
-                        source_platform, dataset_id = extract_entity_metadata(
-                            project_id,
-                            lake_id,
-                            zone_id,
-                            entity_id,
-                            entity.asset,
-                            self.config.location,
-                            self.dataplex_client,
-                        )
+                        # Not in cache - need to fetch. Release lock before API call.
+                        needs_fetch = True
+
+                if needs_fetch:
+                    # Make API call WITHOUT holding the lock (allows parallel processing)
+                    fetched_platform, fetched_dataset_id = extract_entity_metadata(
+                        project_id,
+                        lake_id,
+                        zone_id,
+                        entity_id,
+                        asset_name,
+                        self.config.location,
+                        self.dataplex_client,
+                    )
+
+                    # Re-acquire lock to update cache
+                    with self._asset_metadata_lock:
+                        # Check again in case another thread already cached it
+                        if asset_name in self.asset_metadata:
+                            source_platform, dataset_id = self.asset_metadata[
+                                asset_name
+                            ]
+                        else:
+                            source_platform, dataset_id = (
+                                fetched_platform,
+                                fetched_dataset_id,
+                            )
+                            self.asset_metadata[asset_name] = (
+                                source_platform,
+                                dataset_id,
+                            )
 
                 # Skip entities where we couldn't determine platform or dataset
                 if not source_platform or not dataset_id:
