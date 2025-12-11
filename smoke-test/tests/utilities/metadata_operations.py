@@ -1565,6 +1565,74 @@ def poll_execution_requests(
     return results
 
 
+def set_domain(
+    auth_session,
+    entity_urn: str,
+    domain_urn: str,
+) -> bool:
+    """Set a domain on an entity."""
+    variables: Dict[str, Any] = {
+        "entityUrn": entity_urn,
+        "domainUrn": domain_urn,
+    }
+
+    query = """mutation setDomain($entityUrn: String!, $domainUrn: String!) {
+        setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["setDomain"]
+
+
+def unset_domain(
+    auth_session,
+    entity_urn: str,
+) -> bool:
+    """Remove domain from an entity."""
+    variables: Dict[str, Any] = {
+        "entityUrn": entity_urn,
+    }
+
+    query = """mutation unsetDomain($entityUrn: String!) {
+        unsetDomain(entityUrn: $entityUrn)
+    }"""
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["unsetDomain"]
+
+
+@with_test_retry()
+def get_dataset_domain(auth_session, dataset_urn: str) -> Optional[Dict[str, Any]]:
+    """Get domain information for a dataset.
+
+    Args:
+        auth_session: Authenticated session
+        dataset_urn: URN of the dataset
+
+    Returns:
+        Dictionary containing domain data with 'domain' object, or None if no domain
+    """
+    query = """
+        query getDatasetDomain($urn: String!) {
+            dataset(urn: $urn) {
+                urn
+                domain {
+                    domain {
+                        urn
+                        properties {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    """
+    variables: Dict[str, Any] = {"urn": dataset_urn}
+
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["dataset"]["domain"]
+
+
 def get_prometheus_metrics(auth_session, gms_url: str) -> str:
     """Get Prometheus metrics from GMS actuator endpoint.
 
