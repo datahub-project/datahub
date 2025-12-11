@@ -313,29 +313,28 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         """Cache datasets and linked services for a factory."""
         factory_key = f"{resource_group}/{factory_name}"
 
-        # Cache datasets
-        if self.config.include_datasets:
+        # Cache datasets (needed for lineage resolution)
+        if self.config.include_lineage:
             self._datasets_cache[factory_key] = {}
             for dataset in self.client.get_datasets(resource_group, factory_name):
                 self.report.report_api_call()
                 self.report.report_dataset_scanned()
                 self._datasets_cache[factory_key][dataset.name] = dataset
 
-        # Cache linked services
-        if self.config.include_linked_services:
+        # Cache linked services (needed for lineage resolution - maps datasets to platforms)
+        if self.config.include_lineage:
             self._linked_services_cache[factory_key] = {}
             for ls in self.client.get_linked_services(resource_group, factory_name):
                 self.report.report_api_call()
                 self.report.report_linked_service_scanned()
                 self._linked_services_cache[factory_key][ls.name] = ls
 
-        # Cache triggers
-        if self.config.include_triggers:
-            self._triggers_cache[factory_key] = []
-            for trigger in self.client.get_triggers(resource_group, factory_name):
-                self.report.report_api_call()
-                self.report.report_trigger_scanned()
-                self._triggers_cache[factory_key].append(trigger)
+        # Cache triggers (for custom properties on pipelines)
+        self._triggers_cache[factory_key] = []
+        for trigger in self.client.get_triggers(resource_group, factory_name):
+            self.report.report_api_call()
+            self.report.report_trigger_scanned()
+            self._triggers_cache[factory_key].append(trigger)
 
         # Cache data flows (for lineage extraction from Data Flow activities)
         if self.config.include_lineage:
@@ -525,9 +524,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self, resource_group: str, factory_name: str, pipeline_name: str
     ) -> list[str]:
         """Get trigger names associated with a pipeline."""
-        if not self.config.include_triggers:
-            return []
-
         factory_key = f"{resource_group}/{factory_name}"
         triggers = self._triggers_cache.get(factory_key, [])
 

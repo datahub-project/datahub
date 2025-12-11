@@ -34,9 +34,6 @@ source:
     include_column_lineage: false  # Advanced: requires Data Flow parsing
     include_execution_history: false  # Set to true for pipeline run history
     execution_history_days: 7  # Only used when include_execution_history is true
-    include_datasets: true
-    include_linked_services: true
-    include_triggers: true
     
     # Optional: Map linked services to platform instances for accurate lineage
     # platform_instance_map:

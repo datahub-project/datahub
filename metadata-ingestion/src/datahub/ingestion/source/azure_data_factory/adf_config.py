@@ -113,33 +113,6 @@ class AzureDataFactoryConfig(
         le=90,
     )
 
-    include_datasets: bool = Field(
-        default=True,
-        description=(
-            "Extract ADF dataset definitions to enable lineage resolution. "
-            "When enabled, the connector reads dataset configurations (linked service, "
-            "table names, file paths) to map ADF datasets to DataHub dataset URNs. "
-            "This is required for table-level lineage. Disable only if you want to "
-            "extract just pipeline/activity structure without lineage."
-        ),
-    )
-
-    include_linked_services: bool = Field(
-        default=True,
-        description=(
-            "Include linked service connection information as custom properties. "
-            "Sensitive connection strings are not extracted."
-        ),
-    )
-
-    include_triggers: bool = Field(
-        default=True,
-        description=(
-            "Include trigger information as custom properties on pipelines. "
-            "Shows schedule and event triggers associated with pipelines."
-        ),
-    )
-
     # Platform Mapping
     platform_instance_map: dict[str, str] = Field(
         default_factory=dict,
