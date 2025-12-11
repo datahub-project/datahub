@@ -59,8 +59,9 @@ public interface Authorizer extends Plugin {
   /**
    * Authorizes an actions based on the actor, the resource, and required privileges.
    *
-   * <p>Returned map with results <b>MUST</b> be thread safe for {@link Map#get} operation. For an
-   * ease to use implementation take a look at the {@link LazyAuthorizationResultMap}
+   * <p>Returned map with results <b>MUST</b> be thread safe against {@link Map#get} operation. It
+   * means that {@link Map#get} either should not update {@link Map} under the cover or should
+   * consider thread safety
    */
   default BatchAuthorizationResult authorizeBatch(
       @Nonnull final BatchAuthorizationRequest batchRequest) {
