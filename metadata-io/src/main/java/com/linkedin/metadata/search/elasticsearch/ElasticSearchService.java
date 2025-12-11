@@ -107,7 +107,28 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public void clear(@Nonnull OperationContext opContext) {
-    esWriteDAO.clear(opContext);
+    Set<String> deletedIndexNames = esWriteDAO.clear(opContext);
+
+    // Recreate the indices that were deleted
+    if (!deletedIndexNames.isEmpty()) {
+      try {
+        List<ReindexConfig> allConfigs =
+            indexBuilder.buildReindexConfigs(
+                opContext, settingsBuilder, mappingsBuilder, Collections.emptySet());
+
+        // Filter to only recreate indices that were deleted
+        for (ReindexConfig config : allConfigs) {
+          if (deletedIndexNames.contains(config.name())) {
+            indexBuilder.buildIndex(config);
+            log.info("Recreated index {} after clearing", config.name());
+          }
+        }
+        log.info("Recreated {} indices after clearing", deletedIndexNames.size());
+      } catch (IOException e) {
+        log.error("Failed to recreate indices after clearing", e);
+        throw new RuntimeException("Failed to recreate indices after clearing", e);
+      }
+    }
   }
 
   @Override

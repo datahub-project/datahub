@@ -2,13 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
@@ -35,7 +35,10 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Resolver used for searching Documents with hybrid semantic search and advanced filtering support.
- * By default, only PUBLISHED documents are returned unless specific states are requested.
+ *
+ * <p>Filtering behavior: - PUBLISHED documents are shown to all users - UNPUBLISHED documents are
+ * only shown if owned by the current user or a group they belong to - By default, only PUBLISHED
+ * documents are searched unless specific states are requested via input
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -48,6 +51,7 @@ public class SearchDocumentsResolver
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
+  private final GroupService _groupService;
 
   @Override
   public CompletableFuture<SearchDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -64,8 +68,19 @@ public class SearchDocumentsResolver
           final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
           try {
-            // Build filter combining all the ANDed conditions
-            Filter filter = buildCombinedFilter(input);
+            // Get current user and their groups for ownership filtering
+            final Urn currentUserUrn = Urn.createFromString(context.getActorUrn());
+            final List<Urn> userGroupUrns =
+                _groupService.getGroupsForUser(context.getOperationContext(), currentUserUrn);
+            final List<String> userAndGroupUrns = new ArrayList<>();
+            userAndGroupUrns.add(currentUserUrn.toString());
+            userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
+
+            // Build filter that combines user filters with ownership constraints
+            // Filter logic: (PUBLISHED) OR (UNPUBLISHED AND owned-by-user-or-groups)
+            List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            Filter filter =
+                DocumentSearchFilterUtils.buildCombinedFilter(baseUserCriteria, userAndGroupUrns);
 
             // Step 1: Search using service to get URNs
             final SearchResult gmsResult;
@@ -132,20 +147,18 @@ public class SearchDocumentsResolver
         "get");
   }
 
-  /** Builds a combined filter that ANDs together all provided filters. */
-  private Filter buildCombinedFilter(SearchDocumentsInput input) {
+  /**
+   * Builds the base user criteria from the search input (excludes state filtering). These criteria
+   * are common to both published and unpublished document searches.
+   */
+  private List<Criterion> buildBaseUserCriteria(SearchDocumentsInput input) {
     List<Criterion> criteria = new ArrayList<>();
 
-    // Add parent document filter if provided
-    // If parentDocuments (plural) is provided, use it; otherwise fall back to single parentDocument
+    // Add parent documents filter if provided
     if (input.getParentDocuments() != null && !input.getParentDocuments().isEmpty()) {
       criteria.add(
           CriterionUtils.buildCriterion(
               "parentDocument", Condition.EQUAL, input.getParentDocuments()));
-    } else if (input.getParentDocument() != null) {
-      criteria.add(
-          CriterionUtils.buildCriterion(
-              "parentDocument", Condition.EQUAL, input.getParentDocument()));
     } else if (input.getRootOnly() != null && input.getRootOnly()) {
       // Filter for root-level documents only (no parent)
       Criterion noParentCriterion = new Criterion();
@@ -164,56 +177,22 @@ public class SearchDocumentsResolver
       criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
     }
 
-    // Add states filter - defaults to PUBLISHED if not provided
-    if (input.getStates() == null || input.getStates().isEmpty()) {
-      // Default to PUBLISHED only
-      criteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
-    } else {
-      // Convert DocumentState enums to strings
-      List<String> stateStrings =
-          input.getStates().stream().map(state -> state.toString()).collect(Collectors.toList());
-      criteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, stateStrings));
+    // Add relatedAssets filter if provided
+    if (input.getRelatedAssets() != null && !input.getRelatedAssets().isEmpty()) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              "relatedAssets", Condition.EQUAL, input.getRelatedAssets()));
     }
 
-    // Exclude documents that are drafts by default, unless explicitly requested
-    if (input.getIncludeDrafts() == null || !input.getIncludeDrafts()) {
-      Criterion notDraftCriterion = new Criterion();
-      notDraftCriterion.setField("draftOf");
-      notDraftCriterion.setCondition(Condition.IS_NULL);
-      criteria.add(notDraftCriterion);
+    // Add source type filter if provided (if null, search all)
+    if (input.getSourceType() != null) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              "sourceType",
+              Condition.EQUAL,
+              Collections.singletonList(input.getSourceType().toString())));
     }
 
-    // Add custom facet filters if provided - convert to AndFilterInput format
-    if (input.getFilters() != null && !input.getFilters().isEmpty()) {
-      final List<com.linkedin.datahub.graphql.generated.AndFilterInput> orFilters =
-          new ArrayList<>();
-      final com.linkedin.datahub.graphql.generated.AndFilterInput andFilter =
-          new com.linkedin.datahub.graphql.generated.AndFilterInput();
-      andFilter.setAnd(input.getFilters());
-      orFilters.add(andFilter);
-      Filter additionalFilter = ResolverUtils.buildFilter(null, orFilters);
-      if (additionalFilter != null && additionalFilter.getOr() != null) {
-        additionalFilter
-            .getOr()
-            .forEach(
-                conj -> {
-                  if (conj.getAnd() != null) {
-                    criteria.addAll(conj.getAnd());
-                  }
-                });
-      }
-    }
-
-    // If no filters, return null (search everything)
-    if (criteria.isEmpty()) {
-      return null;
-    }
-
-    // Create a conjunctive filter (AND all criteria together)
-    return new com.linkedin.metadata.query.filter.Filter()
-        .setOr(
-            new com.linkedin.metadata.query.filter.ConjunctiveCriterionArray(
-                new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
-                    .setAnd(new com.linkedin.metadata.query.filter.CriterionArray(criteria))));
+    return criteria;
   }
 }
