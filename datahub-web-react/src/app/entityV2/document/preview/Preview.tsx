@@ -49,6 +49,9 @@ export const Preview = ({
     const truncatedDescription =
         description && description.length > 200 ? `${description.substring(0, 200)}...` : description;
 
+    // Only show entity icon if there's no platform logo (following Dataset pattern)
+    const showEntityIcon = !platformLogo;
+
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Document, urn)}
@@ -67,7 +70,11 @@ export const Preview = ({
             parentEntities={
                 document.parentDocuments?.documents ? (document.parentDocuments.documents as any[]) : undefined
             }
-            entityIcon={<FileText size={28} color={isPublished ? '#1890ff' : '#8c8c8c'} weight="duotone" />}
+            entityIcon={
+                showEntityIcon ? (
+                    <FileText size={28} color={isPublished ? '#1890ff' : '#8c8c8c'} weight="duotone" />
+                ) : undefined
+            }
             externalUrl={externalUrl}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}

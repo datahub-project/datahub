@@ -72,14 +72,28 @@ public class DocumentMapper {
       }
     }
 
-    // Map DataPlatformInstance aspect
+    // Map DataPlatformInstance aspect (following pattern from
+    // DataJobMapper/DataProcessInstanceMapper)
     final EnvelopedAspect envelopedDataPlatformInstance =
         aspects.get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     if (envelopedDataPlatformInstance != null) {
       final DataPlatformInstance dataPlatformInstance =
           new DataPlatformInstance(envelopedDataPlatformInstance.getValue().data());
-      result.setDataPlatformInstance(
-          DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance));
+      final com.linkedin.datahub.graphql.generated.DataPlatformInstance value =
+          DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance);
+      // Always set platform directly (resolved by platform resolver)
+      result.setPlatform(value.getPlatform());
+      // Only set dataPlatformInstance if there's an actual instance (to avoid null urn/type errors)
+      if (dataPlatformInstance.hasInstance()) {
+        result.setDataPlatformInstance(value);
+      }
+    } else {
+      // No DataPlatformInstance aspect - default to DataHub platform for internal documents
+      result.setPlatform(
+          com.linkedin.datahub.graphql.generated.DataPlatform.builder()
+              .setType(EntityType.DATA_PLATFORM)
+              .setUrn("urn:li:dataPlatform:datahub")
+              .build());
     }
 
     // Map Ownership aspect

@@ -94,17 +94,28 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
 }) => {
     const linkProps = useEmbeddedProfileLinkProps();
 
+    // Handle click on the link - run custom onClick before navigation
+    const handleLinkClick = React.useCallback(
+        (_: React.MouseEvent) => {
+            if (onClick) {
+                onClick();
+            }
+            // Don't prevent default - let the Link navigate normally
+        },
+        [onClick],
+    );
+
     return (
         <EntityTitleContainer>
-            <StyledLink to={`${url}/`} {...linkProps}>
+            <StyledLink to={`${url}/`} {...linkProps} onClick={handleLinkClick}>
                 {previewType === PreviewType.HOVER_CARD ? (
                     <Tooltip title={name} zIndex={zIndices.tooltip}>
-                        <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                        <CardEntityTitle $titleSizePx={titleSizePx} data-testid="entity-title">
                             {name || urn}
                         </CardEntityTitle>
                     </Tooltip>
                 ) : (
-                    <EntityTitle title={name} onClick={onClick} $titleSizePx={titleSizePx} data-testid="entity-title">
+                    <EntityTitle title={name} $titleSizePx={titleSizePx} data-testid="entity-title">
                         <SearchTextHighlighter field="name" text={name || urn} />
                     </EntityTitle>
                 )}

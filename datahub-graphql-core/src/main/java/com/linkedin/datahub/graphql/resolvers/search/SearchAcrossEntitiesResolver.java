@@ -93,6 +93,19 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
               return SearchUtils.createEmptySearchResults(start, count);
             }
 
+            // Build the final filter, combining view filter and entity-specific defaults
+            Filter combinedFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
+
+            // Add default entity filters (e.g., for DOCUMENT: require PUBLISHED state,
+            // showInGlobalContext=true, and exclude drafts)
+            combinedFilter =
+                DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                    combinedFilter, finalEntities, true);
+
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
                         && input.getSearchFlags().getIncludeStructuredPropertyFacets() != null
@@ -107,10 +120,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                    combinedFilter,
                     start,
                     count,
                     sortCriteria,

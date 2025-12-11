@@ -3021,10 +3021,13 @@ public class GmsGraphQLEngine {
 
   private void configureDocumentResolvers(final RuntimeWiring.Builder builder) {
     // Delegate Knowledge Article wiring to consolidated resolver class
+    // Delegate Knowledge Article wiring to consolidated resolver class
     new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentResolvers(
             this.documentService,
             entityTypes,
             documentType,
+            dataPlatformType,
+            dataPlatformInstanceType,
             entityClient,
             this.entityService,
             this.graphClient,

@@ -74,7 +74,8 @@ export class DocumentEntity implements Entity<Document> {
 
     renderPreview = (previewType: PreviewType, data: Document) => {
         const genericProperties = this.getGenericEntityProperties(data);
-        const platform = genericProperties?.platform;
+        // Access platform directly from data (like DatasetEntity does) for proper properties resolution
+        const platform = data.platform?.urn !== 'urn:li:dataPlatform:datahub' ? data.platform : undefined;
         return (
             <Preview
                 document={data}
@@ -98,7 +99,8 @@ export class DocumentEntity implements Entity<Document> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Document;
         const genericProperties = this.getGenericEntityProperties(data);
-        const platform = genericProperties?.platform;
+        // Access platform directly from data (like DatasetEntity does) for proper properties resolution
+        const platform = data.platform?.urn !== 'urn:li:dataPlatform:datahub' ? data.platform : undefined;
         return (
             <Preview
                 document={data}
@@ -124,8 +126,22 @@ export class DocumentEntity implements Entity<Document> {
     };
 
     getOverridePropertiesFromEntity = (data: Document) => {
+        const externalUrl = data.info?.source?.externalUrl;
+        // Prefer direct platform field (from getDocument query), fallback to dataPlatformInstance.platform (from search)
+        const rawPlatform = data.platform || data.dataPlatformInstance?.platform;
+        // Hide platform logo for internal DataHub documents
+        const platform = rawPlatform?.urn === 'urn:li:dataPlatform:datahub' ? undefined : rawPlatform;
         return {
             name: data.info?.title,
+            // Set externalUrl at top level for DefaultPreviewCard
+            externalUrl,
+            // Set platform for "View in X" button and platform logo
+            platform,
+            // Also set in properties for usePlatformLinks "View in X" button
+            properties: {
+                name: data.info?.title,
+                externalUrl,
+            },
         };
     };
 
