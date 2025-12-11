@@ -2583,6 +2583,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.platform_instance,
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
+            
+            logger.debug(
+                f"Creating lineage aspect for {node.dbt_name}: "
+                f"node_type={node.node_type}, upstream_nodes={len(node.upstream_nodes)}, "
+                f"upstream_urns={len(upstream_urns)}, upstream_cll={len(node.upstream_cll)}"
+            )
 
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
                 return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
@@ -2685,6 +2691,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
 
             if not upstream_urns:
+                logger.debug(
+                    f"No upstream URNs for {node.dbt_name} - returning None for lineage aspect. "
+                    f"CLL entries={len(node.upstream_cll)}, upstream_nodes={node.upstream_nodes}"
+                )
                 return None
 
             auditStamp = AuditStamp(
