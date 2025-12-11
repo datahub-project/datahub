@@ -1,6 +1,9 @@
 from typing import Dict, List, Union
 from unittest import mock
 
+import pytest
+
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig, CSVEnricherSource
@@ -213,3 +216,68 @@ def test_get_resource_domain_work_unit_produced():
     new_domain = "domain"
     maybe_domain_wu = source.get_resource_domain_work_unit(DATASET_URN, new_domain)
     assert maybe_domain_wu
+
+
+def test_is_s3_uri():
+    source = create_mocked_csv_enricher_source()
+    assert source._is_s3_uri("s3://bucket/path/file.csv")
+    assert source._is_s3_uri("s3://my-bucket/data.csv")
+    assert not source._is_s3_uri("https://example.com/file.csv")
+    assert not source._is_s3_uri("http://example.com/file.csv")
+    assert not source._is_s3_uri("/local/path/file.csv")
+    assert not source._is_s3_uri("relative/path/file.csv")
+
+
+def test_s3_uri_without_aws_config_raises_error():
+    """Test that using an S3 URI without aws_config raises ConfigurationError at runtime."""
+    ctx = PipelineContext("test-run-id")
+    graph = mock.MagicMock()
+    ctx.graph = graph
+
+    config = CSVEnricherConfig(
+        filename="s3://bucket/path/file.csv",
+        write_semantics="PATCH",
+    )
+    source = CSVEnricherSource(config, ctx)
+
+    with pytest.raises(ConfigurationError, match="AWS configuration required"):
+        list(source.get_workunits_internal())
+
+
+def test_s3_file_reading_with_mocked_client():
+    """Test that S3 file reading works with mocked AWS client."""
+    ctx = PipelineContext("test-run-id")
+    graph = mock.MagicMock()
+    graph.get_ownership.return_value = None
+    graph.get_glossary_terms.return_value = None
+    graph.get_tags.return_value = None
+    graph.get_domain.return_value = None
+    graph.get_aspect.return_value = None
+    ctx.graph = graph
+
+    # Create config with a placeholder aws_config (will be mocked)
+    config = CSVEnricherConfig(
+        filename="s3://bucket/path/file.csv",
+        write_semantics="PATCH",
+        aws_config={},  # Minimal valid config that will be overridden
+    )
+    source = CSVEnricherSource(config, ctx)
+
+    # Create mock AWS config and patch the source's config
+    mock_aws_config = mock.MagicMock()
+    mock_s3_client = mock.MagicMock()
+    mock_aws_config.get_s3_client.return_value = mock_s3_client
+    source.config.aws_config = mock_aws_config
+
+    # Mock smart_open to return CSV content
+    csv_content = """resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
+"urn:li:dataset:(urn:li:dataPlatform:hive,test.table,PROD)",,[urn:li:glossaryTerm:TestTerm],[urn:li:tag:TestTag],[urn:li:corpuser:testuser],DATAOWNER,"test description",urn:li:domain:TestDomain"""
+
+    with mock.patch(
+        "datahub.ingestion.source.csv_enricher.smart_open.open",
+        mock.mock_open(read_data=csv_content),
+    ):
+        workunits = list(source.get_workunits_internal())
+        # We should get workunits for glossary terms, tags, owners, domain, and description
+        assert len(workunits) > 0
+        mock_aws_config.get_s3_client.assert_called_once()
