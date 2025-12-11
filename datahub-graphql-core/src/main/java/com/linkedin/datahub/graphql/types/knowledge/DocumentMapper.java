@@ -39,6 +39,8 @@ import javax.annotation.Nullable;
 /** Maps GMS EntityResponse representing a Document to a GraphQL Document object. */
 public class DocumentMapper {
 
+  private static final String DATAHUB_DATA_PLATFORM_URN = "urn:li:dataPlatform:datahub";
+
   public static Document map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Document result = new Document();
     final Urn entityUrn = entityResponse.getUrn();
@@ -88,11 +90,11 @@ public class DocumentMapper {
         result.setDataPlatformInstance(value);
       }
     } else {
-      // No DataPlatformInstance aspect - default to DataHub platform for internal documents
+      // Platform is ALWAYS required, so we set the platform to "datahub" for internal documents.
       result.setPlatform(
           com.linkedin.datahub.graphql.generated.DataPlatform.builder()
               .setType(EntityType.DATA_PLATFORM)
-              .setUrn("urn:li:dataPlatform:datahub")
+              .setUrn(DATAHUB_DATA_PLATFORM_URN)
               .build());
     }
 

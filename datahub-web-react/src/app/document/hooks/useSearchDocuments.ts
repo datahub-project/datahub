@@ -14,18 +14,29 @@ export interface SearchDocumentsInput {
     fetchPolicy?: 'cache-first' | 'cache-and-network' | 'network-only';
     includeParentDocuments?: boolean;
     /**
-     * Source type filter for documents.
-     * - DocumentSourceType.Native: Only search native (DataHub-created) documents
-     * - DocumentSourceType.External: Only search external (ingested from third-party sources) documents
-     * - undefined: Search all documents (both native and external)
-     * Defaults to Native for backward compatibility.
+     * Source type filter for documents (required).
+     * - [DocumentSourceType.Native]: Only search native (DataHub-created) documents
+     * - [DocumentSourceType.External]: Only search external (ingested from third-party sources) documents
+     * - [DocumentSourceType.Native, DocumentSourceType.External]: Search all documents (both native and external)
      */
-    sourceType?: DocumentSourceType | null;
+    sourceTypes: DocumentSourceType[];
+}
+
+/**
+ * Converts a sourceTypes array to a single sourceType for the GraphQL query.
+ * - If both types are specified, returns undefined to search all
+ * - If only one type is specified, returns that type
+ */
+function getSourceTypeForQuery(sourceTypes: DocumentSourceType[]): DocumentSourceType | undefined {
+    if (sourceTypes.length === 0 || sourceTypes.length === 2) {
+        // Empty array or both types = search all
+        return undefined;
+    }
+    return sourceTypes[0];
 }
 
 export function useSearchDocuments(input: SearchDocumentsInput) {
-    // Determine source type: use provided value, or default to Native for backward compatibility
-    const sourceType = input.sourceType !== undefined ? input.sourceType : DocumentSourceType.Native;
+    const sourceType = getSourceTypeForQuery(input.sourceTypes);
 
     const { data, loading, error, refetch } = useSearchDocumentsQuery({
         variables: {
@@ -36,7 +47,7 @@ export function useSearchDocuments(input: SearchDocumentsInput) {
                 parentDocuments: input.parentDocument ? [input.parentDocument] : undefined,
                 rootOnly: input.rootOnly,
                 types: input.types,
-                sourceType: sourceType ?? undefined, // null becomes undefined to search all
+                sourceType,
             },
             includeParentDocuments: input.includeParentDocuments || false,
         },

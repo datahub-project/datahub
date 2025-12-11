@@ -100,8 +100,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
-            // Add default entity filters (e.g., for DOCUMENT: require PUBLISHED state,
-            // showInGlobalContext=true, and exclude drafts)
+            // Add default entity filters that should be applied to all queries
             combinedFilter =
                 DefaultEntityFiltersUtil.addDefaultEntityFilters(
                     combinedFilter, finalEntities, true);

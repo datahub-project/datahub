@@ -22,8 +22,8 @@ import javax.annotation.Nullable;
  * entity types may have default filters that should be applied. This utility ensures those filters
  * only affect the target entity types without excluding other entities from search results.
  *
- * <p>Currently supports default filters for: - DOCUMENT: Filters out unpublished documents,
- * excludes drafts, and optionally filters out documents not meant for global visibility
+ * <p>Currently supports default filters for: - DOCUMENT: Filters out unpublished documents and
+ * optionally filters out documents not meant for global visibility
  */
 public class DefaultEntityFiltersUtil {
 
@@ -75,7 +75,6 @@ public class DefaultEntityFiltersUtil {
    *       published documents
    *   <li>`showInGlobalContext != false` (negated) - passes for non-documents and documents meant
    *       for global visibility
-   *   <li>`draftOf IS_NULL` - passes for non-documents and non-draft documents
    * </ul>
    *
    * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents
@@ -92,9 +91,6 @@ public class DefaultEntityFiltersUtil {
     if (applyShowInGlobalContext) {
       criteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
     }
-
-    // Exclude draft documents (draftOf field must be null/not set)
-    criteria.add(buildIsNullCriterion("draftOf"));
 
     return new Filter()
         .setOr(
@@ -116,19 +112,6 @@ public class DefaultEntityFiltersUtil {
     criterion.setValues(
         new com.linkedin.data.template.StringArray(Collections.singletonList(value)));
     criterion.setNegated(true);
-    return criterion;
-  }
-
-  /**
-   * Helper to build a Criterion that checks if a field is null or doesn't exist.
-   *
-   * @param field The field name to check
-   * @return A Criterion with IS_NULL condition
-   */
-  private static Criterion buildIsNullCriterion(String field) {
-    Criterion criterion = new Criterion();
-    criterion.setField(field);
-    criterion.setCondition(Condition.IS_NULL);
     return criterion;
   }
 }
