@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
-import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
+import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
@@ -14,7 +14,7 @@ import {
     groupByCategory,
     sortByPopularFirst,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 const StepContainer = styled.div`
@@ -67,7 +67,7 @@ const RightSection = styled.div`
 
 export function SelectSourceStep() {
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
-        SourceBuilderState,
+        MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');

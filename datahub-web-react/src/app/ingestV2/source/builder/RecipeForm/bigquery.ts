@@ -3,6 +3,7 @@ import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/
 export const BIGQUERY_PROJECT_ID: RecipeField = {
     name: 'project_id',
     label: 'Project ID',
+    helper: 'Project ID for queries',
     tooltip: 'Project ID where you have rights to run queries and create tables.',
     placeholder: 'my-project-123',
     type: FieldType.TEXT,
@@ -14,6 +15,7 @@ export const BIGQUERY_PROJECT_ID: RecipeField = {
 export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
     name: 'credential.project_id',
     label: 'Credentials Project ID',
+    helper: 'Project ID from service account',
     tooltip: "The Project ID, which can be found in your service account's JSON Key (project_id)",
     placeholder: 'my-project-123',
     type: FieldType.TEXT,
@@ -24,6 +26,7 @@ export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
 export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
     name: 'credential.private_key_id',
     label: 'Private Key Id',
+    helper: 'Private Key ID from service account',
     tooltip: "The Private Key id, which can be found in your service account's JSON Key (private_key_id)",
     type: FieldType.SECRET,
     fieldPath: 'source.config.credential.private_key_id',
@@ -35,6 +38,7 @@ export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
 export const BIGQUERY_PRIVATE_KEY: RecipeField = {
     name: 'credential.private_key',
     label: 'Private Key',
+    helper: 'Private key from service account',
     tooltip: "The Private key, which can be found in your service account's JSON Key (private_key).",
     placeholder: '-----BEGIN PRIVATE KEY-----....\n-----END PRIVATE KEY-----',
     type: FieldType.SECRET,
@@ -46,6 +50,7 @@ export const BIGQUERY_PRIVATE_KEY: RecipeField = {
 export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
     name: 'credential.client_email',
     label: 'Client Email',
+    helper: 'Client email from service account',
     tooltip: "The Client Email, which can be found in your service account's JSON Key (client_email).",
     placeholder: 'client_email@gmail.com',
     type: FieldType.TEXT,
@@ -57,6 +62,7 @@ export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
 export const BIGQUERY_CLIENT_ID: RecipeField = {
     name: 'credential.client_id',
     label: 'Client ID',
+    helper: 'Client ID from service account',
     tooltip: "The Client ID, which can be found in your service account's JSON Key (client_id).",
     placeholder: '123456789098765432101',
     type: FieldType.TEXT,

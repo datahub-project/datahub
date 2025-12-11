@@ -2,13 +2,15 @@ import { CheckCircleOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
+import { FontWeightOptions, SizeOptions } from '@components/theme/config';
+
 import analytics, { EventType } from '@app/analytics';
 import { EXECUTION_REQUEST_STATUS_FAILURE, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import TestConnectionModal from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionModal';
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
-import { Button } from '@src/alchemy-components';
+import { Button, Text } from '@src/alchemy-components';
 
 import {
     useCreateTestConnectionRequestMutation,
@@ -49,10 +51,13 @@ interface Props {
     sourceConfigs?: SourceConfig;
     version?: string | null;
     selectedSource?: IngestionSource;
+    size?: SizeOptions;
+    textWeight?: FontWeightOptions;
+    hideIcon?: boolean;
 }
 
 function TestConnectionButton(props: Props) {
-    const { recipe, sourceConfigs, version, selectedSource } = props;
+    const { recipe, sourceConfigs, version, selectedSource, size, textWeight, hideIcon } = props;
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
@@ -141,9 +146,11 @@ function TestConnectionButton(props: Props) {
 
     return (
         <>
-            <Button variant="outline" type="button" onClick={testConnection}>
-                <CheckCircleOutlined />
-                Test Connection
+            <Button variant="outline" type="button" size={size} onClick={testConnection}>
+                {!hideIcon && <CheckCircleOutlined />}
+                <Text weight={textWeight} lineHeight="none">
+                    Test Connection
+                </Text>
             </Button>
             {isModalVisible && (
                 <TestConnectionModal

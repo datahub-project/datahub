@@ -3,7 +3,7 @@ import { TextareaHTMLAttributes } from 'react';
 import { IconNames } from '@components/components/Icon';
 
 export interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
-    label: string;
+    label?: string;
     placeholder?: string;
     icon?: IconNames;
     error?: string;

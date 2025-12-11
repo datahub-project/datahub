@@ -1,27 +1,116 @@
-import React, { useEffect } from 'react';
+import { message } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
+import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
+import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
+import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { NameAndOwnersSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/NameAndOwnersSection';
+import { RecipeSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/RecipeSection';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
+const Container = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+`;
+
 export function ConnectionDetailsStep() {
-    const { updateState, setCurrentStepCompleted, isCurrentStepCompleted } = useMultiStepContext<
-        SourceBuilderState,
-        IngestionSourceFormStep
-    >();
+    const { state, updateState, setCurrentStepCompleted, setCurrentStepUncompleted, setOnNextHandler } =
+        useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
+
+    const { ingestionSources } = useIngestionSources();
+
+    const existingRecipeJson = state.ingestionSource?.config?.recipe;
+    const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+    const { type } = state;
+    const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
+    const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
+    const [isRecipeValid, setIsRecipeValid] = useState<boolean>(false);
+
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || placeholderRecipe);
 
     useEffect(() => {
-        if (!isCurrentStepCompleted()) {
-            setCurrentStepCompleted();
-            updateState({
-                config: {
-                    recipe: '{"source":{"type":"cassandra","config":{"contact_point":"localhost","port":9042,"username":"admin","password":"password","keyspace_pattern":{"allow":[".*"]},"table_pattern":{"allow":[".*"]}}}}',
-                },
-                name: `test-${Date.now().toString()}`,
-            });
+        if (existingRecipeYaml) {
+            setStagedRecipeYml(existingRecipeYaml);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [existingRecipeYaml, state.name]);
 
-    return <>Connection Details Step</>;
+    const isEditing = !!state.isEditing;
+    const displayRecipe = stagedRecipeYml || placeholderRecipe;
+
+    useEffect(() => {
+        if (isRecipeValid && state.name && stagedRecipeYml && stagedRecipeYml.length > 0) {
+            setCurrentStepCompleted();
+        } else {
+            setCurrentStepUncompleted();
+        }
+    }, [isRecipeValid, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+
+    const sourceName = useMemo(() => state.name || '', [state.name]);
+    const updateSourceName = useCallback(
+        (newSourceName: string) => updateState({ name: newSourceName }),
+        [updateState],
+    );
+
+    const ownerUrns = useMemo(() => state.owners?.map((owner) => owner.urn) ?? [], [state.owners]);
+    const updateOwners = useCallback((newOwners: ActorEntity[]) => updateState({ owners: newOwners }), [updateState]);
+
+    const onNextHandler = useCallback(() => {
+        const recipeJson = getRecipeJson(stagedRecipeYml);
+        if (!recipeJson) return;
+
+        if (!JSON.parse(recipeJson).source?.type) {
+            message.warning({
+                content: `Please add valid ingestion type`,
+                duration: 3,
+            });
+            throw Error('Ingestion type is undefined');
+        }
+
+        const newState = {
+            ...state,
+            config: {
+                ...state.config,
+                recipe: recipeJson,
+            },
+            type: JSON.parse(recipeJson).source.type,
+        };
+        updateState(newState);
+    }, [stagedRecipeYml, state, updateState]);
+
+    useEffect(() => {
+        setOnNextHandler(() => onNextHandler);
+        return () => setOnNextHandler(undefined);
+    }, [onNextHandler, setOnNextHandler]);
+
+    return (
+        <>
+            {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
+            {type === CSV && <CSVInfo />}
+            <Container>
+                <NameAndOwnersSection
+                    source={state.ingestionSource}
+                    sourceName={sourceName}
+                    updateSourceName={updateSourceName}
+                    ownerUrns={ownerUrns}
+                    updateOwners={updateOwners}
+                    isEditing={isEditing}
+                />
+
+                <RecipeSection
+                    state={state}
+                    displayRecipe={displayRecipe}
+                    sourceConfigs={sourceConfigs}
+                    setStagedRecipe={setStagedRecipeYml}
+                    setIsRecipeValid={setIsRecipeValid}
+                />
+            </Container>
+        </>
+    );
 }
