@@ -22,6 +22,7 @@ from typing import (
 
 import pydantic
 import pydantic_core
+from pydantic.fields import ModelField
 from cached_property import cached_property
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, model_validator
 from pydantic.fields import Field
@@ -247,6 +248,13 @@ class ConfigModel(BaseModel):
                 return cls.model_validate(obj)
         finally:
             cls.model_rebuild(force=True)  # type: ignore
+
+    @classmethod
+    def is_field_required(cls, field_name: str) -> bool:
+        field: ModelField | None = cls.__fields__.get(field_name, None)
+        if field:
+            return field.required
+        return False
 
 
 class PermissiveConfigModel(ConfigModel):
