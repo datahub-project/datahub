@@ -21,9 +21,9 @@ import lombok.extern.slf4j.Slf4j;
  * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an
  * inbound request.
  *
- * <p>Individual {@link Authorizer}s are registered with the chain using {@link
- * #register(Authorizer)}. The chain can be executed by invoking {@link
- * #authorize(AuthorizationRequest)}.
+ * <p>Individual {@link Authorizer}s are registered at the instance creation time. The chain can be
+ * executed by invoking either {@link #authorize(AuthorizationRequest)} or {@link
+ * #authorizeBatch(BatchAuthorizationRequest)}
  */
 @Slf4j
 public class AuthorizerChain implements Authorizer {
@@ -43,53 +43,13 @@ public class AuthorizerChain implements Authorizer {
   }
 
   /**
-   * Executes a set of {@link Authorizer}s and returns the first successful authentication result.
-   *
-   * <p>Returns an instance of {@link AuthorizationResult}.
+   * Should never be invoked as it's superseded by {@link
+   * #authorizeBatch(BatchAuthorizationRequest)}
    */
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
-    Objects.requireNonNull(request);
-    // Save contextClassLoader
-    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-
-    for (final Authorizer authorizer : this.authorizers) {
-      try {
-        log.debug(
-            "Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
-        log.debug("Authorization Request: {}", request.toString());
-        // The library came with plugin can use the contextClassLoader to load the classes. For
-        // example apache-ranger library does this.
-        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
-        // loading request from plugin's home directory,
-        // otherwise plugin's internal library wouldn't be able to find their dependent classes
-        Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
-        AuthorizationResult result = authorizer.authorize(request);
-        // reset
-        Thread.currentThread().setContextClassLoader(contextClassLoader);
-
-        if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
-          // Authorization was successful - Short circuit
-          log.debug("Authorization is successful");
-
-          return result;
-        } else {
-          log.debug(
-              "Received DENY result from Authorizer with class name {}. message: {}",
-              authorizer.getClass().getCanonicalName(),
-              result.getMessage());
-        }
-      } catch (Exception e) {
-        log.error(
-            "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
-            authorizer.getClass().getCanonicalName(),
-            e);
-      } finally {
-        Thread.currentThread().setContextClassLoader(contextClassLoader);
-      }
-    }
-    // Return failed Authorization result.
-    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+    throw new UnsupportedOperationException(
+        "This method should never be invoked with DataHub itself. Use authorizeBatch method");
   }
 
   /**
@@ -143,9 +103,9 @@ public class AuthorizerChain implements Authorizer {
         request, composeAuthorizersResults(request, authorizersResults));
   }
 
-  private static LazyHashMap<String, AuthorizationResult> composeAuthorizersResults(
+  private static LazyAuthorizationResultMap composeAuthorizersResults(
       BatchAuthorizationRequest request, ArrayList<BatchAuthorizationResult> authorizersResults) {
-    return new LazyHashMap<>(
+    return new LazyAuthorizationResultMap(
         privilege -> {
           for (BatchAuthorizationResult authorizerResult : authorizersResults) {
             var authorizationResult = authorizerResult.getResults().get(privilege);
