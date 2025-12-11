@@ -14,6 +14,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -478,10 +479,12 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     public Authorizer authorizer() {
-      Authorizer authorizer = mock(Authorizer.class);
+      Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
+      when(authorizer.authorize(any()))
+          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizer;
