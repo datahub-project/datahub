@@ -388,10 +388,6 @@ elasticsearch:
           spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
-      # Embeddings update configuration for semantic search CLI
-      embeddingsUpdate:
-        batchSize: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_BATCH_SIZE:100}
-        maxTextLength: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_MAX_TEXT_LENGTH:8000}
       # Embedding provider configuration for generating query embeddings
       # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
       embeddingProvider:
