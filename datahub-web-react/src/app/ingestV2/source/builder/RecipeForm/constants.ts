@@ -33,6 +33,7 @@ import {
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
     FieldType,
+    FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
     INCLUDE_TABLE_LINEAGE,
@@ -270,7 +271,7 @@ export enum RecipeSections {
 interface RecipeFields {
     [key: string]: {
         fields: RecipeField[];
-        filterFields: RecipeField[];
+        filterFields: FilterRecipeField[];
         advancedFields: RecipeField[];
         connectionSectionTooltip?: string;
         filterSectionTooltip?: string;
@@ -607,8 +608,6 @@ export const RECIPE_FIELDS: RecipeFields = {
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
         filterFields: [
-            INGEST_STORIES,
-            INGEST_APPLICATIONS,
             RESOURCE_ID_ALLOW,
             RESOURCE_ID_DENY,
             RESOURCE_NAME_ALLOW,
@@ -616,7 +615,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_ALLOW,
             FOLDER_DENY,
         ],
-        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        advancedFields: [INGEST_STORIES, INGEST_APPLICATIONS, STATEFUL_INGESTION_ENABLED],
     },
     [RDF]: {
         fields: [RDF_SOURCE],
