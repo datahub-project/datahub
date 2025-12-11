@@ -35,6 +35,8 @@ public class RelationshipsControllerTest {
 
   @Mock private GraphService graphService;
 
+  @Mock private Authorizer authorizer;
+
   @Mock private HttpServletRequest httpServletRequest;
 
   @Mock private Authentication authentication;
