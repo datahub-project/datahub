@@ -4,7 +4,7 @@
 **Description:** `This repository contains the code required to build and run the NDT data catalogue`  
 **SPDX-License-Identifier:** `Apache-2.0 AND OGL-UK-3.0 ` 
 
-# National Digital Twins (NDT) Data Catalogue
+# National Digital Twin (NDT) Data Catalogue
 
 ## Overview  
 
@@ -28,7 +28,7 @@ Included in this repository is an example [PULL_REQUEST_TEMPLATE.md](./.github/P
 
 ## Development
 
-As we are going to modify datahub to build the NDT Data Catalogue, please take a look at the [Development Guide](./docs/quickstart.md). There are various other documents within this repo in the `docs` folder that may also be of interest.
+As DataHub will be modified to build the NDT Data Catalogue, developers should consult the [Development Guide](./docs/quickstart.md). Additional relevant documentation is available within the repository's `docs` folder.
 
 ## Other Source Code and Repositories from DataHub
 

@@ -198,6 +198,7 @@ This work is licensed under the Apache License, Version 2.0.
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
+   Copyright 2015 LinkedIn Corp. All rights reserved.
    Copyright 2025 Crown Copyright, National Digital Twin Programme,
    legally attributed to the Department for Business and Trade (UK)
 
