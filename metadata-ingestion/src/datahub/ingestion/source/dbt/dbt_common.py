@@ -1196,15 +1196,26 @@ def get_upstreams(
         upstream_manifest_node = all_nodes[upstream]
 
         # This logic creates lineages among dbt nodes.
-        upstream_urns.append(
-            upstream_manifest_node.get_urn_for_upstream_lineage(
-                dbt_platform_instance=platform_instance,
-                target_platform=target_platform,
-                target_platform_instance=target_platform_instance,
-                env=environment,
-                skip_sources_in_lineage=skip_sources_in_lineage,
-            )
+        urn = upstream_manifest_node.get_urn_for_upstream_lineage(
+            dbt_platform_instance=platform_instance,
+            target_platform=target_platform,
+            target_platform_instance=target_platform_instance,
+            env=environment,
+            skip_sources_in_lineage=skip_sources_in_lineage,
         )
+        upstream_urns.append(urn)
+        
+        # Debug: Log each upstream URN generation
+        logger.debug(
+            f"get_upstreams: upstream={upstream} -> urn={urn}, "
+            f"node_type={upstream_manifest_node.node_type}"
+        )
+    
+    # Debug: Log final upstream URN count
+    logger.debug(
+        f"get_upstreams: returning {len(upstream_urns)} URNs from {len(upstreams)} upstream nodes"
+    )
+    
     return upstream_urns
 
 
@@ -1991,6 +2002,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             if upstream_lineage_class:
                 aspects.append(upstream_lineage_class)
+                if node.node_type == "semantic_view":
+                    num_cll = len(upstream_lineage_class.fineGrainedLineages or [])
+                    logger.debug(
+                        f"Appended UpstreamLineageClass to aspects for {node.dbt_name}: "
+                        f"upstreams={len(upstream_lineage_class.upstreams)}, "
+                        f"fineGrainedLineages={num_cll}"
+                    )
+            else:
+                if node.node_type == "semantic_view":
+                    logger.warning(
+                        f"UpstreamLineageClass is None for semantic view {node.dbt_name} - "
+                        f"lineage will not be emitted"
+                    )
 
             # View properties.
             view_prop_aspect = self._create_view_properties_aspect(node)
@@ -2018,6 +2042,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ),
                     aspects,
                 )
+                
+                # Debug: Track aspect partitioning for semantic views
+                if node.node_type == "semantic_view":
+                    standalone_list = list(standalone_aspects)
+                    snapshot_list = list(snapshot_aspects)
+                    logger.debug(
+                        f"Aspect partitioning for {node.dbt_name}: "
+                        f"standalone={len(standalone_list)} types={[type(a).__name__ for a in standalone_list]}, "
+                        f"snapshot={len(snapshot_list)} types={[type(a).__name__ for a in snapshot_list]}"
+                    )
+                    standalone_aspects = iter(standalone_list)
+                    snapshot_aspects = iter(snapshot_list)
+                
                 for aspect in standalone_aspects:
                     # The domains aspect, and some others, may not support being added to the snapshot.
                     yield MetadataChangeProposalWrapper(
@@ -2028,6 +2065,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
+                
+                # Debug: Track DatasetSnapshot creation for semantic views
+                if node.node_type == "semantic_view":
+                    aspect_types = [type(a).__name__ for a in dataset_snapshot.aspects]
+                    has_upstream = "UpstreamLineageClass" in aspect_types
+                    logger.debug(
+                        f"Created DatasetSnapshot for {node.dbt_name}: "
+                        f"aspects={len(dataset_snapshot.aspects)}, "
+                        f"has_UpstreamLineageClass={has_upstream}, "
+                        f"types={aspect_types}"
+                    )
+                
                 # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                 if self._should_create_sibling_relationships(node):
                     # Get the target platform URN
@@ -2048,6 +2097,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
+                
+                # Debug: Track MCE emission for semantic views
+                if node.node_type == "semantic_view":
+                    final_aspect_types = [type(a).__name__ for a in mce.proposedSnapshot.aspects]
+                    has_upstream = "UpstreamLineageClass" in final_aspect_types
+                    logger.debug(
+                        f"Emitting MCE for {node.dbt_name}: "
+                        f"aspects={len(mce.proposedSnapshot.aspects)}, "
+                        f"has_UpstreamLineageClass={has_upstream}, "
+                        f"types={final_aspect_types}"
+                    )
+                
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
@@ -2565,6 +2626,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             env=self.config.env,
             data_platform_instance=self.config.platform_instance,
         )
+        
+        # Debug: Log entry point for semantic views
+        if node.node_type == "semantic_view":
+            logger.debug(
+                f"_create_lineage_aspect_for_dbt_node called for {node.dbt_name}: "
+                f"upstream_nodes={node.upstream_nodes}, "
+                f"upstream_cll={len(node.upstream_cll)}"
+            )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
         # from the platform. This code block is executed when we are generating entities of type "dbt".
@@ -2698,10 +2767,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
 
             if not upstream_urns:
-                logger.debug(
-                    f"No upstream URNs for {node.dbt_name} - returning None for lineage aspect. "
-                    f"CLL entries={len(node.upstream_cll)}, upstream_nodes={node.upstream_nodes}"
-                )
+                if node.node_type == "semantic_view":
+                    logger.warning(
+                        f"SEMANTIC VIEW: No upstream URNs for {node.dbt_name} - returning None (lineage aspect will NOT be emitted). "
+                        f"This means the dbt entity will show a red X in DataHub UI. "
+                        f"Details: upstream_nodes={node.upstream_nodes}, "
+                        f"CLL entries={len(node.upstream_cll)}, "
+                        f"fineGrainedLineages_created={len(cll) if cll else 0}"
+                    )
+                else:
+                    logger.debug(
+                        f"No upstream URNs for {node.dbt_name} - returning None for lineage aspect. "
+                        f"CLL entries={len(node.upstream_cll)}, upstream_nodes={node.upstream_nodes}"
+                    )
                 return None
 
             auditStamp = AuditStamp(
