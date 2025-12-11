@@ -1456,6 +1456,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
 
         all_nodes, additional_custom_props = self.load_nodes()
+        
+        # Debug: Count semantic views at each stage
+        sv_nodes_raw = [n for n in all_nodes if n.node_type == "semantic_view"]
+        sv_count_raw = len(sv_nodes_raw)
+        sv_names_raw = [n.dbt_name for n in sv_nodes_raw]
+        sv_name_counts = {}
+        for name in sv_names_raw:
+            sv_name_counts[name] = sv_name_counts.get(name, 0) + 1
+        duplicates = {name: count for name, count in sv_name_counts.items() if count > 1}
+        logger.debug(
+            f"load_nodes returned {len(all_nodes)} nodes, {sv_count_raw} semantic views. "
+            f"Unique SV names: {len(sv_name_counts)}. Duplicates: {duplicates if duplicates else 'None'}"
+        )
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         additional_custom_props_filtered = {
@@ -1463,14 +1476,37 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for key, value in additional_custom_props.items()
             if value is not None
         }
+        
+        # Debug: Count unique semantic view names in map
+        sv_count_map = sum(1 for n in all_nodes_map.values() if n.node_type == "semantic_view")
+        logger.debug(f"all_nodes_map has {len(all_nodes_map)} unique nodes, {sv_count_map} semantic views")
 
         # We need to run this before filtering nodes, because the info generated
         # for a filtered node may be used by an unfiltered node.
         # NOTE: This method mutates the DBTNode objects directly.
         self._infer_schemas_and_update_cll(all_nodes_map)
 
+        # CRITICAL: Reconstruct all_nodes from the map to ensure we use the mutated instances.
+        # If load_nodes() returned duplicate node names, only the last instance is in the map,
+        # and only that instance has CLL. By reconstructing from the map, we ensure all
+        # downstream processing uses the mutated nodes with CLL.
+        all_nodes = list(all_nodes_map.values())
+        
+        # Debug: Count after reconstruction
+        sv_count_reconstructed = sum(1 for n in all_nodes if n.node_type == "semantic_view")
+        logger.debug(f"Reconstructed all_nodes has {len(all_nodes)} nodes, {sv_count_reconstructed} semantic views")
+
         nodes = self._filter_nodes(all_nodes)
+        
+        # Debug: Count after filtering
+        sv_count_filtered = sum(1 for n in nodes if n.node_type == "semantic_view")
+        logger.debug(f"After _filter_nodes: {len(nodes)} nodes, {sv_count_filtered} semantic views")
+        
         nodes = self._drop_duplicate_sources(nodes)
+        
+        # Debug: Count after dropping duplicates
+        sv_count_final = sum(1 for n in nodes if n.node_type == "semantic_view")
+        logger.debug(f"After _drop_duplicate_sources: {len(nodes)} nodes, {sv_count_final} semantic views")
 
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
@@ -1954,6 +1990,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the dbt platform."""
+        
+        # Debug: Count semantic views in input
+        sv_count = sum(1 for n in dbt_nodes if n.node_type == "semantic_view")
+        sv_names = [n.dbt_name for n in dbt_nodes if n.node_type == "semantic_view"]
+        logger.debug(
+            f"create_dbt_platform_mces called with {len(dbt_nodes)} nodes, "
+            f"{sv_count} semantic views: {sv_names}"
+        )
 
         action_processor = OperationProcessor(
             self.config.meta_mapping,
