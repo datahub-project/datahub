@@ -2,15 +2,20 @@ package com.linkedin.datahub.graphql.resolvers.query;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.PredefinedAuthorizationResultMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
@@ -38,10 +43,10 @@ import com.linkedin.query.QueryStatement;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
-import com.linkedin.util.Pair;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -216,61 +221,27 @@ public class UpdateQueryResolverTest {
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
-    AuthorizationResult editQueriesResult1 = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(editQueriesResult1.getType())
-        .thenReturn(
-            allowEditEntityQueries
-                ? AuthorizationResult.Type.ALLOW
-                : AuthorizationResult.Type.DENY);
-
-    AuthorizationResult editAllResult1 = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(editAllResult1.getType())
-        .thenReturn(
-            allowEditEntityQueries
-                ? AuthorizationResult.Type.ALLOW
-                : AuthorizationResult.Type.DENY);
-
-    AuthorizationResult editQueriesResult2 = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(editQueriesResult2.getType())
-        .thenReturn(
-            allowEditEntityQueries
-                ? AuthorizationResult.Type.ALLOW
-                : AuthorizationResult.Type.DENY);
-
-    AuthorizationResult editAllResult2 = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(editAllResult2.getType())
-        .thenReturn(
-            allowEditEntityQueries
-                ? AuthorizationResult.Type.ALLOW
-                : AuthorizationResult.Type.DENY);
-
-    Map<Pair<String, EntitySpec>, AuthorizationResult> responses =
-        Map.of(
-            Pair.of(
-                    PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-                    new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())),
-                editQueriesResult1,
-            Pair.of(
+    var operationContext = mockContext.getOperationContext();
+    Map<String, AuthorizationResult> results =
+        allowEditEntityQueries
+            ? new PredefinedAuthorizationResultMap(
+                Set.of(
                     PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
-                    new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())),
-                editAllResult1,
-            Pair.of(
-                    PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-                    new EntitySpec(
-                        TEST_DATASET_URN_2.getEntityType(), TEST_DATASET_URN_2.toString())),
-                editQueriesResult2,
-            Pair.of(
-                    PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
-                    new EntitySpec(
-                        TEST_DATASET_URN_2.getEntityType(), TEST_DATASET_URN_2.toString())),
-                editAllResult2);
+                    PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))
+            : new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY);
+    doReturn(new BatchAuthorizationResult(null, results))
+        .when(operationContext)
+        .authorize(
+            anySet(),
+            eq(new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())),
+            anyCollection());
 
-    when(mockContext.getOperationContext().authorize(any(), any(), any()))
-        .thenAnswer(
-            args ->
-                responses.getOrDefault(
-                    Pair.of(args.getArgument(0), args.getArgument(1)),
-                    new AuthorizationResult(null, AuthorizationResult.Type.DENY, "")));
+    doReturn(new BatchAuthorizationResult(null, results))
+        .when(operationContext)
+        .authorize(
+            anySet(),
+            eq(new EntitySpec(TEST_DATASET_URN_2.getEntityType(), TEST_DATASET_URN_2.toString())),
+            anyCollection());
 
     Mockito.when(mockContext.getAuthentication())
         .thenReturn(new Authentication(new Actor(ActorType.USER, TEST_ACTOR_URN.getId()), "creds"));

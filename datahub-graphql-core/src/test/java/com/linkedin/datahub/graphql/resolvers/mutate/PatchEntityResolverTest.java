@@ -10,6 +10,8 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
@@ -82,9 +84,10 @@ public class PatchEntityResolverTest {
     when(mockEntitySpec.getAspectSpec("glossaryTermInfo")).thenReturn(mockAspectSpec);
 
     // Mock authorization result
-    AuthorizationResult mockAuthResult = mock(AuthorizationResult.class);
-    when(mockAuthResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(_operationContext.authorize(any(), any(), any())).thenReturn(mockAuthResult);
+    when(_operationContext.authorize(any(), any(), any()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
 
     // Act
     CompletableFuture<PatchEntityResult> future = _resolver.get(_environment);
@@ -130,9 +133,10 @@ public class PatchEntityResolverTest {
     when(mockEntitySpec.getAspectSpec("glossaryTermInfo")).thenReturn(mockAspectSpec);
 
     // Mock authorization result
-    AuthorizationResult mockAuthResult = mock(AuthorizationResult.class);
-    when(mockAuthResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(_operationContext.authorize(any(), any(), any())).thenReturn(mockAuthResult);
+    when(_operationContext.authorize(any(), any(), any()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
 
     // Act
     CompletableFuture<PatchEntityResult> future = _resolver.get(_environment);

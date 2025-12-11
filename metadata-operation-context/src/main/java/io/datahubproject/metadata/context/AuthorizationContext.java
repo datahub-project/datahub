@@ -2,11 +2,14 @@ package io.datahubproject.metadata.context;
 
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.LazyHashMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,49 +33,50 @@ public class AuthorizationContext implements ContextInterface {
    * Run authorization through the actor's session cache
    *
    * @param actorContext the actor context
-   * @param privilege privilege
+   * @param privileges privileges
    * @param resourceSpec resource to access
-   * @return authorization result
+   * @param subResources
+   * @return batch authorization result
    */
-  public AuthorizationResult authorize(
+  public BatchAuthorizationResult authorize(
       @Nonnull ActorContext actorContext,
-      @Nonnull final String privilege,
-      @Nullable final EntitySpec resourceSpec) {
-    final AuthorizationRequest request =
-        new AuthorizationRequest(
+      @Nonnull Set<String> privileges,
+      @Nullable EntitySpec resourceSpec,
+      Collection<EntitySpec> subResources) {
+    BatchAuthorizationRequest request =
+        new BatchAuthorizationRequest(
             actorContext.getActorUrn().toString(),
-            privilege,
-            Optional.ofNullable(resourceSpec),
-            Collections.emptyList());
-    // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
-    // outside a blocking function
-    AuthorizationResult result = sessionAuthorizationCache.get(request);
-    if (result == null) {
-      result = authorizer.authorize(request);
-      sessionAuthorizationCache.putIfAbsent(request, result);
-    }
-    return result;
-  }
-
-  public AuthorizationResult authorize(
-      @Nonnull ActorContext actorContext,
-      @Nonnull final String privilege,
-      @Nullable final EntitySpec resourceSpec,
-      @Nonnull final Collection<EntitySpec> subResources) {
-    final AuthorizationRequest request =
-        new AuthorizationRequest(
-            actorContext.getActorUrn().toString(),
-            privilege,
+            privileges,
             Optional.ofNullable(resourceSpec),
             subResources);
-    // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent and do work
-    // outside a blocking function
-    AuthorizationResult result = sessionAuthorizationCache.get(request);
-    if (result == null) {
-      result = authorizer.authorize(request);
-      sessionAuthorizationCache.putIfAbsent(request, result);
-    }
-    return result;
+
+    BatchAuthorizationResult result = authorizer.authorizeBatch(request);
+
+    return new BatchAuthorizationResult(request, toCacheFirstResult(request, result));
+  }
+
+  private LazyHashMap<String, AuthorizationResult> toCacheFirstResult(
+      BatchAuthorizationRequest request, BatchAuthorizationResult result) {
+    return new LazyHashMap<>(
+        privilege -> {
+          var authorizationRequest =
+              new AuthorizationRequest(
+                  request.getActorUrn(),
+                  privilege,
+                  request.getResourceSpec(),
+                  request.getSubResources());
+          // Graphql CompletableFutures causes a recursive exception, we avoid computeIfAbsent
+          // and do
+          // work outside a blocking function
+          AuthorizationResult authorizationResult =
+              sessionAuthorizationCache.get(authorizationRequest);
+          if (authorizationResult != null) {
+            return authorizationResult;
+          }
+          AuthorizationResult nonCachedResult = result.getResults().get(privilege);
+          sessionAuthorizationCache.putIfAbsent(authorizationRequest, nonCachedResult);
+          return nonCachedResult;
+        });
   }
 
   /**

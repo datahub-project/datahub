@@ -1,12 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -33,8 +34,13 @@ public class IngestTestUtils {
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
-    when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class), any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    Mockito.when(
+            mockContext
+                .getOperationContext()
+                .authorize(anySet(), nullable(EntitySpec.class), anyCollection()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
     return mockContext;
   }
 
@@ -43,8 +49,13 @@ public class IngestTestUtils {
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
-    when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class), any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    Mockito.when(
+            mockContext
+                .getOperationContext()
+                .authorize(anySet(), nullable(EntitySpec.class), anyCollection()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));
     return mockContext;
   }
 

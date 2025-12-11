@@ -528,31 +528,28 @@ public class AuthUtil {
       @Nullable final EntitySpec resourceSpec,
       @Nonnull final Collection<EntitySpec> subResources) {
 
-    for (ConjunctivePrivilegeGroup conjunctive : privilegeGroup.getAuthorizedPrivilegeGroups()) {
-      if (isAuthorized(session, conjunctive, resourceSpec, subResources)) {
+    Set<String> privileges =
+        privilegeGroup.getAuthorizedPrivilegeGroups().stream()
+            .map(ConjunctivePrivilegeGroup::getRequiredPrivileges)
+            .flatMap(Collection::stream)
+            .collect(Collectors.toSet());
+
+    final BatchAuthorizationResult result =
+        session.authorize(privileges, resourceSpec, subResources);
+
+    for (ConjunctivePrivilegeGroup group : privilegeGroup.getAuthorizedPrivilegeGroups()) {
+      if (isGroupAuthorized(group, result.getResults())) {
         return true;
       }
     }
-
     return false;
   }
 
-  private static boolean isAuthorized(
-      @Nonnull final AuthorizationSession session,
-      @Nonnull final ConjunctivePrivilegeGroup requiredPrivileges,
-      @Nullable final EntitySpec resourceSpec,
-      @Nonnull final Collection<EntitySpec> subResources) {
-
-    // if no privileges are required, deny
-    if (requiredPrivileges.getRequiredPrivileges().isEmpty()) {
-      return false;
-    }
-
-    // Each privilege in a group _must_ all be true to permit the operation.
-    for (final String privilege : requiredPrivileges.getRequiredPrivileges()) {
-      // Create and evaluate an Authorization request.
-      if (isDenied(session, privilege, resourceSpec, subResources)) {
-        // Short circuit.
+  private static boolean isGroupAuthorized(
+      ConjunctivePrivilegeGroup group, Map<String, AuthorizationResult> privilegeResults) {
+    for (String privilege : group.getRequiredPrivileges()) {
+      AuthorizationResult authorizationResult = privilegeResults.get(privilege);
+      if (authorizationResult.getType() == AuthorizationResult.Type.DENY) {
         return false;
       }
     }
@@ -665,16 +662,6 @@ public class AuthUtil {
                             .map(PoliciesConfig.Privilege::getType)
                             .collect(Collectors.toList())))
             .collect(Collectors.toList()));
-  }
-
-  private static boolean isDenied(
-      @Nonnull final AuthorizationSession session,
-      @Nonnull final String privilege,
-      @Nullable final EntitySpec resourceSpec,
-      @Nonnull final Collection<EntitySpec> subResources) {
-    // Create and evaluate an Authorization request.
-    final AuthorizationResult result = session.authorize(privilege, resourceSpec, subResources);
-    return AuthorizationResult.Type.DENY.equals(result.getType());
   }
 
   protected AuthUtil() {}
