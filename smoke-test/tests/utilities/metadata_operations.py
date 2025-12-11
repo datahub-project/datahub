@@ -5,7 +5,18 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
+import requests
+
 from datahub.cli.cli_utils import get_entity as get_entity_cli
+from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.env_vars import (
+    get_release_test_notification_channel,
+    get_release_test_notification_token,
+)
+from tests.utilities.slack_helpers import (
+    check_slack_notification,
+    get_channel_id_by_name,
+)
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
@@ -1394,6 +1405,41 @@ def get_dataset_deprecation(auth_session, dataset_urn: str) -> Optional[Dict[str
     return res_data["data"]["dataset"]["deprecation"]
 
 
+def create_ingestion_source(
+    auth_session, name: str, source_type: str, recipe: str, executor_id: str = "default"
+) -> str:
+    """Create an ingestion source.
+
+    Args:
+        auth_session: Authentication session
+        name: Name of the ingestion source
+        source_type: Type of the source (e.g., "demo-data", "mysql")
+        recipe: Recipe JSON string
+        executor_id: Executor ID (default: "default")
+
+    Returns: ingestion source URN
+    """
+    query = """
+        mutation createIngestionSource($input: UpdateIngestionSourceInput!) {
+            createIngestionSource(input: $input)
+        }
+    """
+    variables: Dict[str, Any] = {
+        "input": {
+            "type": source_type,
+            "name": name,
+            "config": {
+                "recipe": recipe,
+                "executorId": executor_id,
+                "debugMode": False,
+                "extraArgs": [],
+            },
+        }
+    }
+    res_data = execute_graphql(auth_session, query, variables)
+    return res_data["data"]["createIngestionSource"]
+
+
 def create_ingestion_execution_request(auth_session, ingestion_source_urn: str) -> str:
     """Submit execution request for an ingestion source.
 
@@ -1535,8 +1581,6 @@ def get_prometheus_metrics(auth_session, gms_url: str) -> str:
     Raises:
         HTTPError: If the request fails
     """
-    import requests
-
     prometheus_url = f"{gms_url}/actuator/prometheus"
     headers = {"Authorization": f"Bearer {auth_session.gms_token()}"}
 
@@ -1544,3 +1588,180 @@ def get_prometheus_metrics(auth_session, gms_url: str) -> str:
     response.raise_for_status()
 
     return response.text
+
+
+def find_ingestion_source_by_name(auth_session, source_name: str) -> Optional[str]:
+    """Find an ingestion source by name.
+
+    Args:
+        auth_session: Authenticated session
+        source_name: Name of the ingestion source to find
+
+    Returns:
+        Source URN if found, None otherwise
+    """
+    existing_sources = list_ingestion_sources_with_filter(
+        auth_session,
+        filters=[],
+        include_executions=False,
+    )
+
+    for source in existing_sources.get("ingestionSources", []):
+        if source["name"] == source_name:
+            source_urn = source["urn"]
+            logger.info(f"Found existing source '{source_name}': {source_urn}")
+            return source_urn
+
+    logger.info(f"Source '{source_name}' not found")
+    return None
+
+
+def verify_ingestion_slack_notification(
+    source_name: str,
+    timestamp_seconds: str,
+    expected_text: str,
+) -> None:
+    """Verify a Slack notification was sent for an ingestion event.
+
+    This helper:
+    1. Retrieves Slack channel and token from environment variables
+    2. Resolves the channel name to a channel ID
+    3. Checks for a Slack notification containing the expected text
+
+    Args:
+        source_name: Name of the ingestion source (used to search messages)
+        timestamp_seconds: Unix timestamp (seconds) when the event occurred
+        expected_text: Text to search for in the notification (e.g., "started", "failed")
+
+    Raises:
+        ValueError: If RELEASE_TEST_NOTIFICATION_CHANNEL or RELEASE_TEST_NOTIFICATION_TOKEN not set
+        AssertionError: If channel cannot be resolved or notification not found
+    """
+    slack_channel = get_release_test_notification_channel()
+    slack_token = get_release_test_notification_token()
+    if not slack_channel or not slack_token:
+        raise ValueError(
+            "RELEASE_TEST_NOTIFICATION_CHANNEL or RELEASE_TEST_NOTIFICATION_TOKEN not set"
+        )
+
+    logger.info(
+        f"Verifying Slack notification for '{source_name}' (expected: '{expected_text}')"
+    )
+    channel_id = get_channel_id_by_name(slack_token, slack_channel)
+    assert channel_id is not None, f"Failed to resolve channel '{slack_channel}' to ID"
+
+    check_slack_notification(
+        slack_token,
+        channel_id,
+        source_name,
+        timestamp_seconds,
+        expected_text=expected_text,
+    )
+    logger.info(f"Slack notification verified for '{source_name}'")
+
+
+def poll_until_execution_starts(
+    auth_session,
+    execution_urn: str,
+    timeout_seconds: int = 120,
+    poll_interval_seconds: int = 5,
+) -> bool:
+    """Poll until an ingestion execution starts (transitions from PENDING to any active/terminal state).
+
+    Args:
+        auth_session: Authenticated session
+        execution_urn: URN of the execution request
+        timeout_seconds: Maximum time to wait for execution to start
+        poll_interval_seconds: Seconds between polls
+
+    Returns:
+        True if execution started, False if timeout
+
+    Raises:
+        Exception: If unexpected errors occur during polling (other than timeout)
+    """
+    logger.info(f"Polling until execution starts (timeout: {timeout_seconds}s)...")
+    start_time = time.time()
+
+    while time.time() - start_time < timeout_seconds:
+        wait_for_writes_to_sync()
+        try:
+            result = get_execution_request_status(auth_session, execution_urn)
+
+            if result is not None:
+                status = result.get("status")
+                logger.info(f"Execution status: {status}")
+                # Execution has started if it's in any of these states
+                if status in ["RUNNING", "SUCCESS", "FAILURE", "CANCELLED", "ABORTED"]:
+                    logger.info(f"Execution has started with status: {status}")
+                    return True
+            else:
+                logger.debug("Execution not yet started, continuing to poll...")
+        except Exception as e:
+            logger.error(f"Error polling execution status: {e}")
+            # Continue polling unless we hit timeout
+
+        time.sleep(poll_interval_seconds)
+
+    logger.warning(f"Execution did not start within {timeout_seconds} seconds")
+    return False
+
+
+def poll_until_execution_fails(
+    auth_session,
+    execution_urn: str,
+    timeout_seconds: int = 120,
+    poll_interval_seconds: int = 5,
+) -> bool:
+    """Poll until an ingestion execution fails.
+
+    Args:
+        auth_session: Authenticated session
+        execution_urn: URN of the execution request
+        timeout_seconds: Maximum time to wait for execution to fail
+        poll_interval_seconds: Seconds between polls
+
+    Returns:
+        True if execution failed, False if timeout
+
+    Raises:
+        AssertionError: If execution completes with unexpected status (SUCCESS, CANCELLED, ABORTED)
+        Exception: If unexpected errors occur during polling (other than timeout)
+    """
+    logger.info(f"Polling until execution fails (timeout: {timeout_seconds}s)...")
+    start_time = time.time()
+    last_status = None
+
+    while time.time() - start_time < timeout_seconds:
+        wait_for_writes_to_sync()
+        try:
+            result = get_execution_request_status(auth_session, execution_urn)
+
+            if result is not None:
+                status = result.get("status")
+                last_status = status
+                logger.info(f"Execution status: {status}")
+
+                if status == "FAILURE":
+                    logger.info("Execution failed as expected")
+                    return True
+                elif status in ["SUCCESS", "CANCELLED", "ABORTED"]:
+                    raise AssertionError(
+                        f"Expected execution to fail, but got status: {status}"
+                    )
+            else:
+                logger.debug("Execution not yet completed, continuing to poll...")
+        except AssertionError:
+            # Re-raise assertion errors (unexpected success/cancelled/aborted)
+            raise
+        except Exception as e:
+            logger.error(f"Error polling execution status: {e}")
+            # Continue polling unless we hit timeout
+
+        time.sleep(poll_interval_seconds)
+
+    logger.warning(
+        f"Execution did not fail within {timeout_seconds} seconds. "
+        f"Last status: {last_status if last_status else 'PENDING'}"
+    )
+    return False
