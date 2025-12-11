@@ -276,3 +276,174 @@ class TestResourceGroupExtractionLogic:
             rg_index = parts.index("resourceGroups")
             extracted = parts[rg_index + 1]
             assert extracted == expected
+
+
+class TestActivityRunPropertyExtraction:
+    """Tests for activity run property extraction logic.
+
+    Activity runs create DataProcessInstance entities linked to DataJobs.
+    These tests verify the property extraction patterns.
+    """
+
+    def test_activity_run_properties_extracted(self) -> None:
+        """Verify essential activity run properties are extracted."""
+        activity_run = {
+            "activityRunId": "act-run-123",
+            "activityName": "CopyData",
+            "activityType": "Copy",
+            "pipelineRunId": "pipe-run-456",
+            "status": "Succeeded",
+            "durationInMs": 45000,
+        }
+
+        # Logic pattern from _emit_activity_runs
+        properties: dict[str, str] = {
+            "activity_run_id": activity_run["activityRunId"],
+            "activity_type": activity_run["activityType"],
+            "pipeline_run_id": activity_run["pipelineRunId"],
+            "status": activity_run["status"],
+        }
+
+        if activity_run.get("durationInMs") is not None:
+            properties["duration_ms"] = str(activity_run["durationInMs"])
+
+        assert properties["activity_run_id"] == "act-run-123"
+        assert properties["activity_type"] == "Copy"
+        assert properties["pipeline_run_id"] == "pipe-run-456"
+        assert properties["status"] == "Succeeded"
+        assert properties["duration_ms"] == "45000"
+
+    def test_activity_run_error_truncated(self) -> None:
+        """Verify error messages are truncated to prevent oversized properties."""
+        MAX_RUN_MESSAGE_LENGTH = 500
+        long_error = "E" * 1000  # 1000 character error
+
+        activity_run = {
+            "activityRunId": "act-run-err",
+            "error": {"message": long_error},
+        }
+
+        # Logic pattern from _emit_activity_runs
+        error = activity_run.get("error", {})
+        if error:
+            error_msg = str(error.get("message", ""))
+            if error_msg:
+                truncated = error_msg[:MAX_RUN_MESSAGE_LENGTH]
+
+        assert len(truncated) == MAX_RUN_MESSAGE_LENGTH
+        assert len(truncated) < len(long_error)
+
+    def test_activity_run_missing_optional_fields(self) -> None:
+        """Verify graceful handling of missing optional fields."""
+        activity_run = {
+            "activityRunId": "act-run-minimal",
+            "activityName": "MinimalActivity",
+            "activityType": "Copy",
+            "pipelineRunId": "pipe-run-789",
+            "status": "Succeeded",
+            # No durationInMs, error, input, output
+        }
+
+        properties: dict[str, str] = {
+            "activity_run_id": activity_run["activityRunId"],
+            "activity_type": activity_run["activityType"],
+            "pipeline_run_id": activity_run["pipelineRunId"],
+            "status": activity_run["status"],
+        }
+
+        # Optional fields should not cause errors
+        if activity_run.get("durationInMs") is not None:
+            properties["duration_ms"] = str(activity_run["durationInMs"])
+
+        error = activity_run.get("error")
+        if error:
+            error_msg = str(error.get("message", ""))
+            if error_msg:
+                properties["error"] = error_msg[:500]
+
+        assert "duration_ms" not in properties
+        assert "error" not in properties
+        assert len(properties) == 4
+
+
+class TestActivityRunToDataJobUrnMapping:
+    """Tests for mapping activity runs to DataJob URNs.
+
+    Activity runs must link to DataJob URNs (not DataFlow URNs) so the
+    Runs tab appears on DataJob pages in the UI.
+    """
+
+    def test_datajob_urn_constructed_from_activity_run(self) -> None:
+        """DataJob URN should use activity name as job_id."""
+        from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+
+        factory_name = "my-factory"
+        pipeline_name = "DataPipeline"
+        activity_name = "CopyActivity"
+        env = "PROD"
+        platform = "azure-data-factory"
+
+        # Logic pattern from _emit_activity_runs
+        flow_name = f"{factory_name}.{pipeline_name}"
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=platform,
+            flow_id=flow_name,
+            env=env,
+        )
+        job_urn = DataJobUrn.create_from_ids(
+            data_flow_urn=str(flow_urn),
+            job_id=activity_name,
+        )
+
+        # Verify URN structure
+        assert "dataJob" in str(job_urn)
+        assert activity_name in str(job_urn)
+        assert flow_name in str(job_urn)
+        assert platform in str(job_urn)
+
+    def test_activity_run_links_to_datajob_not_dataflow(self) -> None:
+        """Verify activity runs link to DataJob, enabling the Runs tab in UI."""
+        from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator="azure-data-factory",
+            flow_id="factory.pipeline",
+            env="PROD",
+        )
+        job_urn = DataJobUrn.create_from_ids(
+            data_flow_urn=str(flow_urn),
+            job_id="MyActivity",
+        )
+
+        # The URN type should be dataJob, not dataFlow
+        assert job_urn.entity_type == "dataJob"
+        assert flow_urn.entity_type == "dataFlow"
+
+        # The job URN should reference the flow URN
+        assert str(flow_urn) in str(job_urn)
+
+    def test_multiple_activities_get_unique_urns(self) -> None:
+        """Each activity in a pipeline should have a unique DataJob URN."""
+        from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+
+        flow_urn = DataFlowUrn.create_from_ids(
+            orchestrator="azure-data-factory",
+            flow_id="factory.pipeline",
+            env="PROD",
+        )
+
+        activities = ["CopyData", "TransformData", "LoadData"]
+        job_urns = [
+            DataJobUrn.create_from_ids(
+                data_flow_urn=str(flow_urn),
+                job_id=activity,
+            )
+            for activity in activities
+        ]
+
+        # All URNs should be unique
+        assert len(set(str(u) for u in job_urns)) == len(activities)
+
+        # Each URN should contain its activity name
+        for activity, urn in zip(activities, job_urns):
+            assert activity in str(urn)

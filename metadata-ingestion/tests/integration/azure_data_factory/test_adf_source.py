@@ -191,6 +191,39 @@ def create_mock_pipeline_run(
     }
 
 
+def create_mock_activity_run(
+    activity_run_id: str,
+    activity_name: str,
+    activity_type: str,
+    pipeline_run_id: str,
+    pipeline_name: str,
+    status: str = "Succeeded",
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    duration_ms: int = 30000,
+    error: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Create a mock activity run response."""
+    return {
+        "activityRunId": activity_run_id,
+        "activityName": activity_name,
+        "activityType": activity_type,
+        "pipelineRunId": pipeline_run_id,
+        "pipelineName": pipeline_name,
+        "status": status,
+        "activityRunStart": (
+            start_time or datetime(2024, 1, 15, 10, 5, 0, tzinfo=timezone.utc)
+        ).isoformat(),
+        "activityRunEnd": (
+            end_time or datetime(2024, 1, 15, 10, 10, 0, tzinfo=timezone.utc)
+        ).isoformat(),
+        "durationInMs": duration_ms,
+        "input": {},
+        "output": {},
+        "error": error,
+    }
+
+
 class MockAzureResource:
     """Mock class to simulate Azure SDK resource objects."""
 
@@ -388,6 +421,76 @@ def get_mock_test_data() -> Dict[str, Any]:
         ),
     ]
 
+    # Create activity runs for each pipeline run
+    # Activity runs are linked to DataJobs (activities), not DataFlows (pipelines)
+    activity_runs = {
+        "run-001-abc": [  # DataIngestionPipeline - Succeeded
+            create_mock_activity_run(
+                activity_run_id="act-001-copy",
+                activity_name="CopyBlobToSQL",
+                activity_type="Copy",
+                pipeline_run_id="run-001-abc",
+                pipeline_name="DataIngestionPipeline",
+                status="Succeeded",
+                start_time=datetime(2024, 1, 15, 8, 5, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, 8, 20, 0, tzinfo=timezone.utc),
+                duration_ms=900000,
+            ),
+            create_mock_activity_run(
+                activity_run_id="act-001-lookup",
+                activity_name="LookupConfig",
+                activity_type="Lookup",
+                pipeline_run_id="run-001-abc",
+                pipeline_name="DataIngestionPipeline",
+                status="Succeeded",
+                start_time=datetime(2024, 1, 15, 8, 20, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, 8, 21, 0, tzinfo=timezone.utc),
+                duration_ms=60000,
+            ),
+            create_mock_activity_run(
+                activity_run_id="act-001-transform",
+                activity_name="TransformData",
+                activity_type="ExecuteDataFlow",
+                pipeline_run_id="run-001-abc",
+                pipeline_name="DataIngestionPipeline",
+                status="Succeeded",
+                start_time=datetime(2024, 1, 15, 8, 21, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, 8, 45, 0, tzinfo=timezone.utc),
+                duration_ms=1440000,
+            ),
+        ],
+        "run-002-def": [  # DataIngestionPipeline - Failed
+            create_mock_activity_run(
+                activity_run_id="act-002-copy",
+                activity_name="CopyBlobToSQL",
+                activity_type="Copy",
+                pipeline_run_id="run-002-def",
+                pipeline_name="DataIngestionPipeline",
+                status="Failed",
+                start_time=datetime(2024, 1, 14, 8, 5, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 14, 8, 15, 0, tzinfo=timezone.utc),
+                duration_ms=600000,
+                error={
+                    "message": "Connection timeout to SQL database",
+                    "errorCode": "2200",
+                },
+            ),
+        ],
+        "run-003-ghi": [  # DataProcessingPipeline - Succeeded
+            create_mock_activity_run(
+                activity_run_id="act-003-proc",
+                activity_name="CallStoredProc",
+                activity_type="SqlServerStoredProcedure",
+                pipeline_run_id="run-003-ghi",
+                pipeline_name="DataProcessingPipeline",
+                status="Succeeded",
+                start_time=datetime(2024, 1, 15, 9, 5, 0, tzinfo=timezone.utc),
+                end_time=datetime(2024, 1, 15, 9, 30, 0, tzinfo=timezone.utc),
+                duration_ms=1500000,
+            ),
+        ],
+    }
+
     return {
         "factories": factories,
         "pipelines": pipelines,
@@ -395,11 +498,20 @@ def get_mock_test_data() -> Dict[str, Any]:
         "linked_services": linked_services,
         "triggers": triggers,
         "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
     }
 
 
-def create_mock_client(test_data: Dict[str, Any]) -> MagicMock:
-    """Create a mock DataFactoryManagementClient."""
+def create_mock_client(
+    test_data: Dict[str, Any], include_activity_runs: bool = False
+) -> MagicMock:
+    """Create a mock DataFactoryManagementClient.
+
+    Args:
+        test_data: Dictionary containing mock data for factories, pipelines, etc.
+        include_activity_runs: If True, return activity runs for each pipeline run.
+            This enables testing of the activity run extraction feature.
+    """
     mock_client = MagicMock()
 
     # Mock factories
@@ -436,8 +548,22 @@ def create_mock_client(test_data: Dict[str, Any]) -> MagicMock:
         test_data["pipeline_runs"]
     )
 
-    # Mock activity runs (empty for basic tests)
-    mock_client.activity_runs.query_by_pipeline_run.return_value = MockQueryResponse([])
+    # Mock activity runs - return based on pipeline run ID if enabled
+    if include_activity_runs and "activity_runs" in test_data:
+        activity_runs_by_pipeline = test_data["activity_runs"]
+
+        def get_activity_runs(
+            resource_group_name: str, factory_name: str, run_id: str, filter_parameters
+        ) -> MockQueryResponse:
+            """Return activity runs for the given pipeline run ID."""
+            runs = activity_runs_by_pipeline.get(run_id, [])
+            return MockQueryResponse(runs)
+
+        mock_client.activity_runs.query_by_pipeline_run.side_effect = get_activity_runs
+    else:
+        mock_client.activity_runs.query_by_pipeline_run.return_value = (
+            MockQueryResponse([])
+        )
 
     return mock_client
 
@@ -501,13 +627,21 @@ def test_adf_source_basic(pytestconfig, tmp_path):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_adf_source_with_execution_history(pytestconfig, tmp_path):
-    """Test ADF metadata extraction with execution history."""
+    """Test ADF metadata extraction with execution history.
+
+    This test verifies:
+    - Pipeline runs are extracted as DataProcessInstance linked to DataFlow
+    - Activity runs are extracted as DataProcessInstance linked to DataJob
+    - Run status (Succeeded, Failed) is correctly mapped
+    - Both start and end events are emitted for completed runs
+    """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/azure_data_factory"
     output_file = tmp_path / "adf_with_runs_events.json"
     golden_file = test_resources_dir / "adf_with_runs_golden.json"
 
     test_data = get_mock_test_data()
-    mock_client = create_mock_client(test_data)
+    # Enable activity runs to test DataJob-level run history
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
 
     with mock.patch(
         "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"

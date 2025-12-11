@@ -1128,6 +1128,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             ):
                 yield mcp.as_workunit()
 
+        # Emit activity runs for this pipeline run
+        yield from self._emit_activity_runs(pipeline_run, factory, resource_group)
+
     def _map_run_status(self, status: str) -> Optional[InstanceRunResult]:
         """Map ADF run status to DataHub InstanceRunResult."""
         status_map = {
@@ -1150,6 +1153,99 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             f"/resourceGroups/{resource_group}"
             f"/providers/Microsoft.DataFactory/factories/{factory.name}"
         )
+
+    def _emit_activity_runs(
+        self,
+        pipeline_run: PipelineRun,
+        factory: Factory,
+        resource_group: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit activity runs as DataProcessInstance for each DataJob."""
+        try:
+            for activity_run in self.client.get_activity_runs(
+                resource_group,
+                factory.name,
+                pipeline_run.run_id,
+            ):
+                self.report.report_api_call()
+                self.report.report_activity_run_scanned()
+
+                # Build DataJob URN for the template
+                flow_name = f"{factory.name}.{activity_run.pipeline_name}"
+                flow_urn = DataFlowUrn.create_from_ids(
+                    orchestrator=PLATFORM,
+                    flow_id=flow_name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
+                job_urn = DataJobUrn.create_from_ids(
+                    data_flow_urn=str(flow_urn),
+                    job_id=activity_run.activity_name,
+                )
+
+                # Map ADF status to InstanceRunResult
+                result = self._map_run_status(activity_run.status)
+
+                # Build custom properties
+                properties: dict[str, str] = {
+                    "activity_run_id": activity_run.activity_run_id,
+                    "activity_type": activity_run.activity_type,
+                    "pipeline_run_id": activity_run.pipeline_run_id,
+                    "status": activity_run.status,
+                }
+                if activity_run.duration_in_ms is not None:
+                    properties["duration_ms"] = str(activity_run.duration_in_ms)
+                if activity_run.error:
+                    error_msg = str(activity_run.error.get("message", ""))
+                    if error_msg:
+                        properties["error"] = error_msg[:MAX_RUN_MESSAGE_LENGTH]
+
+                # Create DataProcessInstance linked to DataJob
+                dpi = DataProcessInstance(
+                    id=activity_run.activity_run_id,
+                    orchestrator=PLATFORM,
+                    cluster=self.config.env,
+                    type=DataProcessTypeClass.BATCH_SCHEDULED,
+                    template_urn=job_urn,
+                    properties=properties,
+                    url=self._get_pipeline_run_url(
+                        factory, resource_group, pipeline_run.run_id
+                    ),
+                    data_platform_instance=self.config.platform_instance,
+                    subtype="Activity Run",
+                )
+
+                # Emit the instance
+                for mcp in dpi.generate_mcp(
+                    created_ts_millis=(
+                        int(activity_run.activity_run_start.timestamp() * 1000)
+                        if activity_run.activity_run_start
+                        else None
+                    ),
+                    materialize_iolets=False,
+                ):
+                    yield mcp.as_workunit()
+
+                # Emit start event
+                if activity_run.activity_run_start:
+                    start_ts = int(activity_run.activity_run_start.timestamp() * 1000)
+                    for mcp in dpi.start_event_mcp(start_ts):
+                        yield mcp.as_workunit()
+
+                # Emit end event if run is complete
+                if activity_run.activity_run_end and result:
+                    end_ts = int(activity_run.activity_run_end.timestamp() * 1000)
+                    for mcp in dpi.end_event_mcp(
+                        end_timestamp_millis=end_ts,
+                        result=result,
+                        result_type=activity_run.status,
+                    ):
+                        yield mcp.as_workunit()
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch activity runs for pipeline run {pipeline_run.run_id}: {e}"
+            )
 
     def get_report(self) -> AzureDataFactorySourceReport:
         return self.report
