@@ -57,7 +57,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemClientSecret",
           "datahub.gms.truststore.password",
           "datasourcePassword",
-
           "keyStorePassword",
           "salt",
           // Database passwords

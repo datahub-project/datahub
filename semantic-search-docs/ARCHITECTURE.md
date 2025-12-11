@@ -12,7 +12,7 @@ Traditional keyword search has limitations:
 2. **Synonym Blindness**: "access request" won't match "permission request"
 3. **Context Ignorance**: Keywords lack understanding of meaning
 
-Semantic search addresses these by understanding the *meaning* of text through vector embeddings—numerical representations that capture semantic similarity.
+Semantic search addresses these by understanding the _meaning_ of text through vector embeddings—numerical representations that capture semantic similarity.
 
 ### Core Principles
 
@@ -70,6 +70,7 @@ The dual-index approach is a **transitional architecture**. The long-term plan i
 **Future State:**
 
 Once the transition is complete, the `_semantic` indices will become the primary (and only) search indices. They will support both:
+
 - **Keyword search**: Using standard OpenSearch text matching on the same index
 - **Semantic search**: Using k-NN vector similarity
 
@@ -129,6 +130,7 @@ The embeddings structure supports multiple embedding models:
 ```
 
 This allows:
+
 - A/B testing different models
 - Gradual migration between models
 - Model-specific optimizations
@@ -270,7 +272,7 @@ Embedding models have token limits (512 tokens for cohere's embed-english-v3.0).
 def chunk_text(text, max_tokens=400):
     """
     Chunk text at sentence boundaries, respecting token limits.
-    
+
     1. Split text into sentences
     2. Accumulate sentences until approaching limit
     3. Save chunk, start new accumulation
@@ -279,6 +281,7 @@ def chunk_text(text, max_tokens=400):
 ```
 
 **Parameters:**
+
 - `max_tokens`: Target chunk size (default: 400)
 - `chars_per_token`: Estimation ratio (default: 4 characters ≈ 1 token)
 
@@ -345,11 +348,11 @@ The semantic index uses OpenSearch's k-NN plugin with FAISS engine:
 
 ### HNSW Parameters
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `ef_construction` | 128 | Build-time accuracy (higher = more accurate, slower build) |
-| `m` | 16 | Number of connections per node (higher = more accurate, more memory) |
-| `space_type` | cosinesimil | Similarity metric (cosine similarity) |
+| Parameter         | Value       | Description                                                          |
+| ----------------- | ----------- | -------------------------------------------------------------------- |
+| `ef_construction` | 128         | Build-time accuracy (higher = more accurate, slower build)           |
+| `m`               | 16          | Number of connections per node (higher = more accurate, more memory) |
+| `space_type`      | cosinesimil | Similarity metric (cosine similarity)                                |
 
 ## Security Considerations
 
@@ -362,6 +365,7 @@ The semantic index uses OpenSearch's k-NN plugin with FAISS engine:
 ### Access Control
 
 Semantic search respects DataHub's existing access controls:
+
 - Users only see results they have permission to view
 - Entity-level permissions are enforced before returning results
 
@@ -381,11 +385,11 @@ Semantic search respects DataHub's existing access controls:
 
 ### Scaling Recommendations
 
-| Index Size | Recommendation |
-|------------|----------------|
-| < 100K docs | Single node sufficient |
-| 100K - 1M docs | Consider dedicated k-NN nodes |
-| > 1M docs | Sharding and replicas recommended |
+| Index Size     | Recommendation                    |
+| -------------- | --------------------------------- |
+| < 100K docs    | Single node sufficient            |
+| 100K - 1M docs | Consider dedicated k-NN nodes     |
+| > 1M docs      | Sharding and replicas recommended |
 
 ## Future Enhancements
 

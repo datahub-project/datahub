@@ -274,11 +274,17 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
 
     // #region agent debug log - dual-write decision point
-    log.info("[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'", entityName, docId);
+    log.info(
+        "[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'",
+        entityName,
+        docId);
     boolean shouldWrite = shouldWriteToSemanticIndex(opContext, entityName);
-    log.info("[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'", shouldWrite, entityName);
+    log.info(
+        "[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'",
+        shouldWrite,
+        entityName);
     // #endregion
-    
+
     // Dual-write to semantic index if enabled for this entity
     if (shouldWrite) {
       writeToSemanticIndex(entityName, finalDocument, docId);
