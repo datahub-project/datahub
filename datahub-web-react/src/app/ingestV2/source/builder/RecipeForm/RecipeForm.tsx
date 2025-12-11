@@ -10,7 +10,7 @@ import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySu
 import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import TestConnectionModal from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionModal';
-import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { FilterRecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS, RecipeSections } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
@@ -90,7 +90,7 @@ function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string
     );
 }
 
-function shouldRenderFilterSectionHeader(field: RecipeField, index: number, filterFields: RecipeField[]) {
+function shouldRenderFilterSectionHeader(field: FilterRecipeField, index: number, filterFields: FilterRecipeField[]) {
     if (index === 0 && field.section) return true;
     if (field.section && filterFields[index - 1].section !== field.section) return true;
     return false;
