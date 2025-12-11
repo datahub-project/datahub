@@ -357,7 +357,8 @@ When `CDC_CONFIGURE_SOURCE=true`:
 - Creates CDC user with required permissions on the local database
 - Validates binary logging configuration
 - Configures Debezium connector
-  :::
+
+:::
 
 ### PostgreSQL Requirements
 
@@ -437,7 +438,8 @@ When `CDC_CONFIGURE_SOURCE=true`:
 - Creates replication slot named `debezium`
 - Validates logical replication configuration
 - Configures Debezium connector with correct publication and slot names
-  :::
+
+:::
 
 :::danger Important PostgreSQL Notes
 
@@ -447,7 +449,8 @@ When `CDC_CONFIGURE_SOURCE=true`:
 - **Database restarts may be required**: Changing WAL-related configuration parameters typically requires a restart.
 - **Default names**: The publication name `dbz_publication` and slot name `debezium` are DataHub's defaults - if you use
   different names, update your Debezium connector configuration accordingly.
-  :::
+
+:::
 
 ---
 
