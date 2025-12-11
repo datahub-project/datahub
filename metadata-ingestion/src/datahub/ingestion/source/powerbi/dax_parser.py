@@ -145,20 +145,13 @@ def parse_dax_expression(
     if not dax_expression:
         return DAXParseResult()
 
-    # Extract table.column references
     table_col_refs = extract_table_column_references(
         dax_expression, include_measure_refs
     )
-    table_column_references = [
-        TableColumnReference(table_name=table, column_name=col)
-        for table, col in table_col_refs
-        if table  # Only include if table name is present
-    ]
+    table_column_references = [ref for ref in table_col_refs if ref.table_name]
 
-    # Extract references from additional DAX functions (iterators, time intelligence, etc.)
     if include_all_functions:
         additional_refs = extract_additional_dax_functions(dax_expression)
-        # Add unique references only
         existing_refs = {
             (ref.table_name, ref.column_name) for ref in table_column_references
         }
@@ -167,20 +160,15 @@ def parse_dax_expression(
                 table_column_references.append(ref)
                 existing_refs.add((ref.table_name, ref.column_name))
 
-    # Extract measure references
     measure_refs = (
         extract_measure_dependencies(dax_expression) if include_measure_refs else []
     )
 
-    # Extract table-only references
     table_only_refs = [
         ref.table_name for ref in table_column_references if not ref.column_name
     ]
 
-    # Extract variables
     variables = extract_variables(dax_expression)
-
-    # Extract parameters (dropdown, what-if, query parameters, slicer values)
     parameters = extract_dax_parameters(dax_expression) if extract_parameters else []
 
     # Resolve field parameters to their possible column values
@@ -193,10 +181,8 @@ def parse_dax_expression(
                 possible_values = resolve_field_parameter_values(
                     param.table_name, data_model_tables
                 )
-                # Update parameter with possible values
                 param.possible_values = possible_values
 
-                # Extract column references from possible values and add to lineage
                 param_col_refs = get_all_column_references_for_parameter(param)
                 for ref in param_col_refs:
                     ref_tuple = (ref.table_name, ref.column_name)
@@ -216,7 +202,6 @@ def parse_dax_expression(
     # Merge parameter-resolved references with main references
     table_column_references.extend(parameter_resolved_refs)
 
-    # Extract advanced DAX patterns if requested
     calculate_exprs: List[CalculateExpression] = []
     filter_modifiers: List[FilterContextModifier] = []
     if include_advanced_analysis:
@@ -408,7 +393,6 @@ def extract_table_column_references(
         column = match[2]
         references.add((table, column))
 
-    # Convert set to sorted list of TableColumnReference objects
     # Ensure we convert None to empty string for Pydantic validation
     result = [
         TableColumnReference(

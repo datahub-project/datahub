@@ -347,7 +347,7 @@ class PowerBiDashboardSourceConfig(
     dataset_type_mapping: HiddenFromDocs[
         Union[Dict[str, str], Dict[str, PlatformDetail]]
     ] = pydantic.Field(
-        default_factory=lambda: {},
+        default_factory=dict,
         description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
         "DataHub supported datasources."
         "You can configured platform instance for dataset lineage. "
@@ -666,6 +666,19 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(
                 "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
             )
+
+        # Populate dataset_type_mapping with defaults if not explicitly provided
+        # This ensures all supported platforms are processed for lineage even when
+        # server_to_platform_instance is used
+        if (
+            values.get("dataset_type_mapping") is None
+            or values.get("dataset_type_mapping") == {}
+        ):
+            from datahub.ingestion.source.powerbi.utils import (
+                default_for_dataset_type_mapping,
+            )
+
+            values["dataset_type_mapping"] = default_for_dataset_type_mapping()
 
         return values
 

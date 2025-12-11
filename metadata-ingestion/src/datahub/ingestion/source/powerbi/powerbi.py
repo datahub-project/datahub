@@ -6,6 +6,8 @@
 import functools
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
@@ -662,7 +664,7 @@ class Mapper:
                     if ds_table.measures and any(
                         m.name == ref_measure_name for m in ds_table.measures
                     ):
-                        ref_table_full_name = ds_table.full_name.lower()
+                        ref_table_full_name = ds_table.full_name
                         ref_measure_table_urn = (
                             builder.make_dataset_urn_with_platform_instance(
                                 platform=self.__config.platform_name,
@@ -670,6 +672,10 @@ class Mapper:
                                 platform_instance=self.__config.platform_instance,
                                 env=self.__config.env,
                             )
+                        )
+                        # Apply URN lowercasing if configured
+                        ref_measure_table_urn = self.assets_urn_to_lowercase(
+                            ref_measure_table_urn
                         )
                         break
 
@@ -733,7 +739,6 @@ class Mapper:
                         upstream_tables_map[table_name] = upstream_dpt.urn
                         upstream_tables_map[table_name.lower()] = upstream_dpt.urn
 
-            # Add column level lineage
             cll_lineage.extend(
                 self.make_fine_grained_lineage_class(
                     lineage=lineage,
@@ -769,15 +774,12 @@ class Mapper:
                     f"{len(summarize_parsed.calculated_mappings)} calculated mappings"
                 )
 
-            # Extract referenced tables and create upstream
             referenced_tables, _ = self._extract_referenced_tables_from_dax(
                 table.expression
             )
             upstream = self._create_upstream_for_dax_tables(
                 referenced_tables, upstream_tables_map, table.full_name
             )
-
-            # Process SUMMARIZE or fallback to generic processing
             if summarize_parsed:
                 cll_lineage.extend(
                     self._process_summarize_direct_mappings(
@@ -886,10 +888,7 @@ class Mapper:
             f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
         )
 
-        # Extract M-Query lineage (if not DAX)
         upstream_lineage = self._extract_m_query_lineage(table)
-
-        # Build upstream tables map for DAX reference resolution
         upstream_tables_map = self._build_upstream_tables_map(dax_table_mappings)
 
         # Handle DAX table expressions (calculated tables)
@@ -984,7 +983,6 @@ class Mapper:
                     f"Created {calculated_column_lineage_count} column-level lineage edges from DAX calculated columns in {table.name}"
                 )
 
-        # Process M-Query upstream lineage
         self._process_m_query_upstream_lineage(
             upstream_lineage, ds_urn, upstream, upstream_tables_map, cll_lineage
         )
@@ -1268,16 +1266,15 @@ class Mapper:
             dataset_mcps.extend(self.generate_container_for_dataset(dataset))
 
         for table in dataset.tables:
-            # Create a URN for dataset (always lowercase for consistency)
             ds_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.__config.platform_name,
-                name=table.full_name.lower(),
+                name=table.full_name,
                 platform_instance=self.__config.platform_instance,
                 env=self.__config.env,
             )
+            ds_urn = self.assets_urn_to_lowercase(ds_urn)
 
             logger.debug("dataset_urn=%s", ds_urn)
-            # Create datasetProperties mcp
             if table.expression:
                 view_properties = ViewPropertiesClass(
                     materialized=False,
@@ -1289,10 +1286,9 @@ class Mapper:
                     aspect=view_properties,
                 )
                 dataset_mcps.extend([view_prop_mcp])
-            # Build custom properties including PBIX metadata
+
             custom_props = {"datasetId": dataset.id}
 
-            # Add PBIX-extracted metadata as custom properties using helper methods
             self._add_pbix_hierarchies_to_props(table, custom_props)
             self._add_pbix_rls_to_props(dataset, table, custom_props)
             self._add_pbix_data_sources_to_props(dataset, custom_props)
@@ -1314,7 +1310,6 @@ class Mapper:
                 aspect=ds_properties,
             )
 
-            # Remove status mcp
             status_mcp = MetadataChangeProposalWrapper(
                 entityUrn=ds_urn,
                 aspect=StatusClass(removed=False),
@@ -1330,22 +1325,22 @@ class Mapper:
                     ]
                 ),
             )
-            # normally, the person who configures the dataset will be the most accurate person for ownership
             if (
                 self.__config.extract_ownership
                 and self.__config.ownership.dataset_configured_by_as_owner
                 and dataset.configuredBy
             ):
-                # Dashboard Ownership
                 user_urn = self.create_datahub_owner_urn(dataset.configuredBy)
                 owner_class = OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
-                # Dashboard owner MCP
                 ownership = OwnershipClass(owners=[owner_class])
-                owner_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=ds_urn,
-                    aspect=ownership,
+                dataset_mcps.extend(
+                    [
+                        MetadataChangeProposalWrapper(
+                            entityUrn=ds_urn,
+                            aspect=ownership,
+                        )
+                    ]
                 )
-                dataset_mcps.extend([owner_mcp])
 
             dataset_mcps.extend([info_mcp, status_mcp, subtype_mcp])
 
@@ -1453,7 +1448,6 @@ class Mapper:
         Map PowerBi tile to datahub chart
         """
         logger.info("Converting tile %s(id=%s) to chart", tile.title, tile.id)
-        # Create a URN for chart
         chart_urn = builder.make_chart_urn(
             platform=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
@@ -1485,8 +1479,6 @@ class Mapper:
 
             return custom_properties
 
-        # Create chartInfo mcp
-        # Set chartUrl only if tile is created from Report
         chart_info_instance = ChartInfoClass(
             title=tile.title or "",
             description=tile.title or "",
@@ -1501,13 +1493,11 @@ class Mapper:
             aspect=chart_info_instance,
         )
 
-        # removed status mcp
         status_mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=StatusClass(removed=False),
         )
 
-        # Subtype mcp
         subtype_mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=SubTypesClass(
@@ -1515,16 +1505,11 @@ class Mapper:
             ),
         )
 
-        # ChartKey aspect
-        # Note: we previously would emit a ChartKey aspect with incorrect information.
-        # Explicitly emitting this aspect isn't necessary, but we do it here to ensure that
-        # the old, bad data gets overwritten.
         chart_key_mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
 
-        # Browse path
         browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
         browse_path_mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
@@ -1566,7 +1551,6 @@ class Mapper:
         """
         Map PowerBi dashboard to Datahub dashboard
         """
-
         dashboard_urn = builder.make_dashboard_urn(
             platform=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
@@ -1583,7 +1567,6 @@ class Mapper:
                 Constant.WORKSPACE_ID: dashboard.workspace_id,
             }
 
-        # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
             description=dashboard.description,
             title=dashboard.displayName or "",
@@ -1599,25 +1582,21 @@ class Mapper:
             aspect=dashboard_info_cls,
         )
 
-        # removed status mcp
         removed_status_mcp = MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
 
-        # dashboardKey mcp
         dashboard_key_cls = DashboardKeyClass(
             dashboardTool=self.__config.platform_name,
             dashboardId=Constant.DASHBOARD_ID.format(dashboard.id),
         )
 
-        # Dashboard key
         dashboard_key_mcp = MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
 
-        # Dashboard Ownership
         owners = [
             OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
             for user_urn in user_urn_list
@@ -1633,7 +1612,6 @@ class Mapper:
                 aspect=ownership,
             )
 
-        # Dashboard browsePaths
         browse_path = BrowsePathsClass(
             paths=[f"/{Constant.PLATFORM_NAME}/{dashboard.workspace_name}"]
         )
@@ -1809,7 +1787,6 @@ class Mapper:
         ds_mcps = []
         chart_mcps = []
 
-        # Return empty list if input list is empty
         if not tiles:
             return [], []
 
@@ -1818,15 +1795,11 @@ class Mapper:
         for tile in tiles:
             if tile is None:
                 continue
-            # First convert the dataset to MCP, because dataset mcp is used in input attribute of chart mcp
             dataset_mcps = self.to_datahub_dataset(tile.dataset, workspace)
-            # Now convert tile to chart MCP
             chart_mcp = self.to_datahub_chart_mcp(tile, dataset_mcps, workspace)
 
             ds_mcps.extend(dataset_mcps)
             chart_mcps.extend(chart_mcp)
-
-        # Return dataset and chart MCPs
 
         return ds_mcps, chart_mcps
 
@@ -1841,11 +1814,9 @@ class Mapper:
             f"Converting dashboard={dashboard.displayName} to datahub dashboard"
         )
 
-        # Convert user to CorpUser
         user_mcps: List[MetadataChangeProposalWrapper] = self.to_datahub_users(
             dashboard.users
         )
-        # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
 
         # collect all downstream reports (dashboards)
@@ -1873,16 +1844,13 @@ class Mapper:
             )
         )
 
-        # Now add MCPs in sequence
         mcps.extend(ds_mcps)
         if self.__config.ownership.create_corp_user:
             mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
 
-        # Convert MCP to work_units
         work_units = map(self._to_work_unit, mcps)
-        # Return set of work_unit
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
     def extract_visualizations_from_pbix(
@@ -1946,7 +1914,6 @@ class Mapper:
                 logger.warning("Skipping visualization without ID in %s", section_name)
                 continue
 
-            # Create chart URN for this visualization
             chart_urn = builder.make_chart_urn(
                 platform=self.__config.platform_name,
                 platform_instance=self.__config.platform_instance,
@@ -1964,7 +1931,6 @@ class Mapper:
             columns_processed = set()
             datasets_used = set()
 
-            # Process columns
             for col_lineage in viz_lineage.columns:
                 source_table = col_lineage.sourceTable
                 source_column = col_lineage.sourceColumn
@@ -1999,7 +1965,6 @@ class Mapper:
                                 )
                             )
 
-            # Process measures
             for measure_lineage in viz_lineage.measures:
                 source_entity = measure_lineage.sourceEntity
                 measure_name = measure_lineage.measureName
@@ -2040,7 +2005,6 @@ class Mapper:
             else:
                 viz_without_columns += 1
 
-            # Create ChartInfo with meaningful title
             # Priority: visualization title > page + type fallback
             viz_title = viz_lineage.visualizationTitle
             chart_title = (
@@ -2066,7 +2030,6 @@ class Mapper:
                 },
             )
 
-            # Create MCPs for this visualization
             chart_mcps_list = [
                 MetadataChangeProposalWrapper(entityUrn=chart_urn, aspect=chart_info),
                 MetadataChangeProposalWrapper(
@@ -2138,7 +2101,6 @@ class Mapper:
             if page is None:
                 continue
 
-            # Create dashboard URN for the page
             dashboard_urn = builder.make_dashboard_urn(
                 platform=self.__config.platform_name,
                 platform_instance=self.__config.platform_instance,
@@ -2152,7 +2114,6 @@ class Mapper:
                 f"Converting page {page.displayName} to dashboard with {len(chart_urn_list)} visualizations"
             )
 
-            # Create DashboardInfo
             dashboard_info = DashboardInfoClass(
                 title=page.displayName or f"Page {page.order}",
                 description=f"Power BI Page from report {report.name}",
@@ -2208,7 +2169,6 @@ class Mapper:
         """
         chart_mcps = []
 
-        # Return empty list if input list is empty
         if not pages:
             return []
 
@@ -2219,7 +2179,6 @@ class Mapper:
             ds_mcps: List[MetadataChangeProposalWrapper],
         ) -> List[MetadataChangeProposalWrapper]:
             logger.debug("Converting page %s to chart", page.displayName)
-            # Create a URN for chart
             chart_urn = builder.make_chart_urn(
                 platform=self.__config.platform_name,
                 platform_instance=self.__config.platform_instance,
@@ -2232,7 +2191,6 @@ class Mapper:
                 [x for x in ds_mcps if x.entityType == Constant.DATASET]
             )
 
-            # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
             chart_info_instance = ChartInfoClass(
                 title=page.displayName or "",
@@ -2247,12 +2205,10 @@ class Mapper:
                 aspect=chart_info_instance,
             )
 
-            # removed status mcp
             status_mcp = MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=StatusClass(removed=False),
             )
-            # Subtype mcp
             subtype_mcp = MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=SubTypesClass(
@@ -2260,7 +2216,6 @@ class Mapper:
                 ),
             )
 
-            # Browse path
             browse_path = BrowsePathsClass(
                 paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
             )
@@ -2280,7 +2235,6 @@ class Mapper:
         for page in pages:
             if page is None:
                 continue
-            # Now convert tile to chart MCP
             chart_mcp = to_chart_mcps(page, ds_mcps)
             chart_mcps.extend(chart_mcp)
 
@@ -2349,7 +2303,6 @@ class Mapper:
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
         user_urn_list: List[str] = self.to_urn_set(user_mcps)
 
-        # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
             description=report.description,
             title=report.name or "",
@@ -2366,24 +2319,20 @@ class Mapper:
             aspect=dashboard_info_cls,
         )
 
-        # removed status mcp
         removed_status_mcp = MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=StatusClass(removed=False),
         )
 
-        # dashboardKey mcp
         dashboard_key_cls = DashboardKeyClass(
             dashboardTool=self.__config.platform_name,
             dashboardId=Constant.DASHBOARD_ID.format(report.id),
         )
 
-        # Dashboard key
         dashboard_key_mcp = MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
             aspect=dashboard_key_cls,
         )
-        # Report Ownership
         owners = [
             OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
             for user_urn in user_urn_list
@@ -2392,14 +2341,12 @@ class Mapper:
 
         owner_mcp = None
         if len(owners) > 0:
-            # Report owner MCP
             ownership = OwnershipClass(owners=owners)
             owner_mcp = MetadataChangeProposalWrapper(
                 entityUrn=dashboard_urn,
                 aspect=ownership,
             )
 
-        # Report browsePaths
         browse_path = BrowsePathsClass(
             paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
         )
@@ -2457,7 +2404,6 @@ class Mapper:
         # Convert dataset tables to dataset entities
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
 
-        # Collect all upstream datasets for lineage
         dataset_urns = {
             dataset.entityUrn
             for dataset in ds_mcps
@@ -2474,13 +2420,11 @@ class Mapper:
 
             # Enhanced hierarchy: Report is a Container, Pages are Dashboards, Visualizations are Charts
 
-            # Emit Report as Container
             yield from self.emit_report_as_container(workspace, report, user_mcps)
 
             # Get report container key for embedded datasources
             report_container_key = self.gen_report_key(report.id)
 
-            # Convert dataset tables - if embedded, place in Report container
             is_embedded_dataset = (
                 report.dataset is not None and report.dataset_id is not None
             )
@@ -2516,7 +2460,6 @@ class Mapper:
                     "No PBIX metadata available, skipping individual visualization extraction"
                 )
 
-            # Create Pages as Dashboards within the Report container
             page_dashboard_mcps = self.pages_as_dashboards_v2(
                 report, report.pages, workspace, ds_mcps, page_to_viz_map
             )
@@ -2533,10 +2476,8 @@ class Mapper:
 
             # Legacy hierarchy (default, backward compatible): Report is a Dashboard, Pages are Charts
 
-            # Convert pages to charts
             chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
 
-            # Convert report to dashboard
             report_mcps = self.report_to_dashboard(
                 workspace=workspace,
                 report=report,
@@ -2551,7 +2492,8 @@ class Mapper:
             mcps.extend(chart_mcps)
             mcps.extend(report_mcps)
 
-        return map(self._to_work_unit, mcps)  # type: ignore[return-value]
+        for mcp in mcps:
+            yield self._to_work_unit(mcp)
 
 
 @platform_name("PowerBI")
@@ -2625,7 +2567,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             ctx, config, self.reporter, self.dataplatform_instance_resolver
         )
 
-        # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
             self, self.source_config, self.ctx
         )
@@ -2778,7 +2719,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
             logger.debug("Processing table: %s", table_name)
 
-            # Create columns
             columns = []
             for pbix_col in pbix_columns:
                 if hasattr(pbix_col, "name"):  # Pydantic model
@@ -2809,7 +2749,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 columns.append(column)
 
-            # Create measures
             measures = []
             for pbix_measure in pbix_measures:
                 if hasattr(pbix_measure, "name"):  # Pydantic model
@@ -2947,7 +2886,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             viz_type = viz_lineage.visualizationType or "visual"
             section_name = viz_lineage.sectionName or "Unknown Page"
 
-            # Create chart URN
             chart_urn = builder.make_chart_urn(
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance,
@@ -2963,7 +2901,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             columns_processed = set()  # Track unique column references
             datasets_used = set()  # Track which datasets are actually used
 
-            # Process columns
             for col_lineage in viz_lineage.columns:
                 source_table = col_lineage.sourceTable
                 source_column = col_lineage.sourceColumn
@@ -3008,7 +2945,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                             f"  Added InputField: {source_table}.{source_column}"
                         )
 
-            # Process measures
             for measure_lineage in viz_lineage.measures:
                 source_entity = measure_lineage.sourceEntity
                 measure_name = measure_lineage.measureName
@@ -3090,7 +3026,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 inputs=chart_inputs,
             )
 
-            # Browse path
             browse_path = BrowsePathsClass(
                 paths=[f"/powerbi/{workspace.name}/{report.name}/{section_name}"]
             )
@@ -3214,22 +3149,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         logger.debug("Successfully parsed PBIX file for report %s", report.name)
 
-        # Store PBIX metadata on the report for later use
         report.pbix_metadata = pbix_metadata
-
-        # Convert PBIX data to PowerBI data classes
         dataset = self.pbix_to_powerbi_dataset(pbix_metadata, report, workspace)
-
-        # Initialize DAX table mappings
         all_dax_table_mappings: Dict[str, str] = {}
-
-        # Extract tables from PBIX data model if available
         if pbix_metadata.data_model_parsed:
             pbix_tables = pbix_metadata.data_model_parsed.tables
             tables = self.pbix_to_powerbi_tables(pbix_tables, dataset)
             dataset.tables = tables
 
-            # Attach PBIX metadata to dataset for emission
             dataset.hierarchies = pbix_metadata.data_model_parsed.hierarchies
             dataset.roles = pbix_metadata.data_model_parsed.roles
             dataset.dataSources = pbix_metadata.data_model_parsed.dataSources
@@ -3243,43 +3170,41 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 "Extracted %d tables from PBIX for report %s", len(tables), report.name
             )
 
-            # Build complete table URN mapping from dataset tables
             if dataset.tables:
                 logger.debug(
                     "Building complete table URN mapping from %d dataset tables",
                     len(dataset.tables),
                 )
                 for table in dataset.tables:
-                    # Lowercase only the name, not the entire URN
+                    # Create URN with original table name for backwards compatibility
                     table_full_name = "%s.%s" % (dataset.name, table.name)
                     table_urn = builder.make_dataset_urn_with_platform_instance(
                         self.source_config.platform_name,
-                        table_full_name.lower(),
+                        table_full_name,
                         self.source_config.platform_instance,
                         self.source_config.env,
                     )
+                    # Apply URN lowercasing if configured
+                    table_urn = self.mapper.assets_urn_to_lowercase(table_urn)
                     all_dax_table_mappings[table.name] = table_urn
                     all_dax_table_mappings[table.name.lower()] = table_urn
-                logger.debug("  Pre-mapped '%s' -> %s", table.name, table_urn)
+                    logger.debug("  Pre-mapped '%s' -> %s", table.name, table_urn)
 
             logger.debug(
                 "Pre-built table mapping with %d entries", len(all_dax_table_mappings)
             )
 
-            # Process DAX expressions for each table
             for table in dataset.tables:
                 dax_mappings = self.extract_dax_column_lineage(
                     table, dataset, workspace, all_dax_table_mappings
                 )
                 all_dax_table_mappings.update(dax_mappings)
 
-        # Extract pages from PBIX layout
         if pbix_metadata.layout_parsed:
             pbix_sections = pbix_metadata.layout_parsed.sections
             pages = self.pbix_to_powerbi_pages(pbix_sections, dataset)
             report.pages = pages
 
-            # Attach bookmarks and interactions to dataset for emission
             dataset.bookmarks = pbix_metadata.layout_parsed.bookmarks
             dataset.interactions = pbix_metadata.layout_parsed.interactions
 
@@ -3305,19 +3230,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             "Using container mode: Report as Container, Pages as Dashboards, Visualizations as Charts"
         )
 
-        # Convert users
         user_mcps = self.mapper.to_datahub_users(report.users)
-
-        # Emit Report as Container first
         for wu in self.mapper.emit_report_as_container(workspace, report, user_mcps):
             patched_wu = self._get_dashboard_patch_work_unit(wu)
             if patched_wu:
                 yield patched_wu
 
-        # Get report container key for embedded datasources
         report_container_key = self.mapper.gen_report_key(report.id)
-
-        # Convert dataset tables - if embedded, place in Report container
         is_embedded_dataset = report.dataset_id is not None
         ds_mcps = self.mapper.to_datahub_dataset(
             dataset,
@@ -3327,7 +3246,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             is_embedded=is_embedded_dataset,
         )
 
-        # Extract individual visualizations as Charts
         visualization_mcps: List[MetadataChangeProposalWrapper] = []
         page_to_viz_map: Dict[str, List[str]] = {}
 
@@ -3339,7 +3257,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
-        # Create Pages as Dashboards within the Report container
         page_dashboard_mcps = self.mapper.pages_as_dashboards_v2(
             report, report.pages, workspace, ds_mcps, page_to_viz_map
         )
@@ -3366,15 +3283,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         """Emit entities using legacy mode (Report as Dashboard)."""
         logger.info("Using legacy mode: Report as Dashboard, Pages as Charts")
 
-        # Convert users
         user_mcps = self.mapper.to_datahub_users(report.users)
-
-        # Convert dataset tables to MCPs
         ds_mcps = self.mapper.to_datahub_dataset(
             dataset, workspace, all_dax_table_mappings
         )
-
-        # Process visualizations and column-level lineage from PBIX
         chart_mcps = []
         if pbix_metadata.lineage and pbix_metadata.layout_parsed:
             logger.info("Processing visualizations and column-level lineage from PBIX")
@@ -3382,10 +3294,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 pbix_metadata, report, workspace, ds_mcps
             )
         else:
-            # Fallback to basic page conversion if no lineage available
             chart_mcps = self.mapper.pages_to_chart(report.pages, workspace, ds_mcps)
-
-        # Collect dataset edges
         dataset_urns = {
             dataset.entityUrn
             for dataset in ds_mcps
@@ -3452,7 +3361,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 self._parse_and_prepare_pbix_data(report, workspace, pbix_path)
             )
 
-            # Emit entities based on configuration mode
             if self.source_config.extract_reports_as_containers:
                 yield from self._emit_container_mode_entities(
                     report, workspace, dataset, pbix_metadata, all_dax_table_mappings
@@ -3552,7 +3460,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 dashboards=assets_within_app,
             )
 
-            # Browse path
             browse_path: BrowsePathsClass = BrowsePathsClass(
                 paths=[f"/powerbi/{workspace.name}"]
             )
@@ -3583,7 +3490,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         for dashboard in workspace.dashboards.values():
             try:
-                # Fetch PowerBi users for dashboards
                 dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
                 # Increase dashboard and tiles count in report
                 self.reporter.report_dashboards_scanned()
@@ -3593,7 +3499,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
                 logger.exception(message, e)
                 self.reporter.report_warning(dashboard.id, message)
-            # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
             workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
             for workunit in workunits:
                 wu = self._get_dashboard_patch_work_unit(workunit)
@@ -3603,9 +3508,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         for report in workspace.reports.values():
             if self.source_config.extract_from_pbix_file:
                 # Try PBIX-based extraction
-                import os
-                import tempfile
-
                 temp_dir = tempfile.gettempdir()
                 pbix_output_path = os.path.join(temp_dir, f"powerbi_{report.id}.pbix")
 
@@ -3636,13 +3538,17 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                                 )
                     continue
                 else:
-                    # Skip this report on failure
+                    # PBIX export failed, fall back to API-based extraction
+                    logger.warning(
+                        "Failed to export report %s to PBIX, falling back to API-based extraction",
+                        report.name,
+                    )
                     self.reporter.warning(
                         title="PBIX Export Failed",
-                        message=f"Failed to export report {report.name} to PBIX. Skipping report.",
+                        message=f"Failed to export report {report.name} to PBIX. Using API-based extraction instead.",
                         context=f"report_id={report.id}, workspace={workspace.name}",
                     )
-                    continue
+                    # Fall through to API-based extraction below
 
             # Existing API-based extraction
             for work_unit in self.mapper.report_to_datahub_work_units(
