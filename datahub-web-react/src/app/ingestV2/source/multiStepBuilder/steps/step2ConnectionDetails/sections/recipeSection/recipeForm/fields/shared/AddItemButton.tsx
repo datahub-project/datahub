@@ -9,9 +9,10 @@ export const CentredButton = styled(Button)`
 interface Props {
     onClick: () => void;
     text?: string;
+    className?: string;
 }
 
-export function AddItemButton({ onClick, text }: Props) {
+export function AddItemButton({ onClick, text, className }: Props) {
     return (
         <CentredButton
             onClick={(e) => {
@@ -22,6 +23,7 @@ export function AddItemButton({ onClick, text }: Props) {
             variant="text"
             type="button"
             size="xs"
+            className={className}
         >
             <Icon source="phosphor" icon="Plus" size="lg" />
             <Text>{text}</Text>
