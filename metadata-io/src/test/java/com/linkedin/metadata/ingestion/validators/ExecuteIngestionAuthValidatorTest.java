@@ -1,15 +1,11 @@
 package com.linkedin.metadata.ingestion.validators;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.AssertJUnit.assertTrue;
 
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
@@ -25,13 +21,13 @@ import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.test.metadata.context.TestAuthSession;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -46,8 +42,6 @@ public class ExecuteIngestionAuthValidatorTest {
   private ExecuteIngestionAuthValidator validator;
 
   @Mock private RetrieverContext mockRetrieverContext;
-
-  @Mock private AuthorizationSession mockSession = Mockito.mock(AuthorizationSession.class);
 
   @Mock private AspectRetriever mockAspectRetriever;
 
@@ -92,13 +86,10 @@ public class ExecuteIngestionAuthValidatorTest {
     executionRequestInput.setSource(
         new ExecutionRequestSource().setIngestionSource(INGESTION_SOURCE_URN));
 
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(result);
+    EntitySpec entitySpec = new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING);
+
+    AuthorizationSession authorizationSession =
+        TestAuthSession.allowOnly(entitySpec, allowedPrivileges);
 
     assertEquals(
         validator
@@ -127,7 +118,7 @@ public class ExecuteIngestionAuthValidatorTest {
                         .recordTemplate(executionRequestInput)
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                authorizationSession)
             .count(),
         0,
         "Expected Execution Request to be allowed when the user has execute permission on the Ingestion source");
@@ -135,21 +126,9 @@ public class ExecuteIngestionAuthValidatorTest {
 
   @Test
   public void testDenied() {
-    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EXECUTE_ENTITY");
     final ExecutionRequestInput executionRequestInput = new ExecutionRequestInput();
     executionRequestInput.setSource(
         new ExecutionRequestSource().setIngestionSource(INGESTION_SOURCE_URN));
-
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockSession.authorize(
-            argThat(allowedPrivileges::contains),
-            argThat(
-                entity ->
-                    entity.equals(
-                        new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING))),
-            anyCollection()))
-        .thenReturn(result);
 
     assertEquals(
         validator
@@ -178,7 +157,7 @@ public class ExecuteIngestionAuthValidatorTest {
                         .recordTemplate(executionRequestInput)
                         .build()),
                 mockRetrieverContext,
-                mockSession)
+                TestAuthSession.DENY_ALL)
             .count(),
         2,
         "Expected Execution Request to be denied when the user doesn't have the execute permission on the Ingestion source");
@@ -229,7 +208,7 @@ public class ExecuteIngestionAuthValidatorTest {
 
     List<AspectValidationException> exceptions =
         validator
-            .validateProposed(Set.of(testItem), mockRetrieverContext, mockSession)
+            .validateProposed(Set.of(testItem), mockRetrieverContext, TestAuthSession.DENY_ALL)
             .collect(Collectors.toList());
 
     assertEquals(exceptions.size(), 0);
@@ -252,7 +231,7 @@ public class ExecuteIngestionAuthValidatorTest {
 
     List<AspectValidationException> exceptions =
         validator
-            .validateProposed(Set.of(testItem), mockRetrieverContext, mockSession)
+            .validateProposed(Set.of(testItem), mockRetrieverContext, TestAuthSession.DENY_ALL)
             .collect(Collectors.toList());
 
     assertEquals(exceptions.size(), 0);
@@ -263,7 +242,8 @@ public class ExecuteIngestionAuthValidatorTest {
     // Test with empty collection of batch items
     assertEquals(
         validator
-            .validateProposed(Collections.emptySet(), mockRetrieverContext, mockSession)
+            .validateProposed(
+                Collections.emptySet(), mockRetrieverContext, TestAuthSession.DENY_ALL)
             .count(),
         0,
         "Expected no exceptions for empty batch items");
@@ -285,24 +265,10 @@ public class ExecuteIngestionAuthValidatorTest {
     deniedInput.setSource(
         new ExecutionRequestSource().setIngestionSource(deniedIngestionSourceUrn));
 
-    // Setup authorization results
-    AuthorizationResult allowResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(allowResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+    EntitySpec allowedEntitySpec =
+        new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING);
 
-    AuthorizationResult denyResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(denyResult.getType()).thenReturn(AuthorizationResult.Type.DENY);
-
-    when(mockSession.authorize(
-            any(String.class),
-            eq(new EntitySpec("dataHubIngestionSource", INGESTION_SOURCE_URN_STRING)),
-            anyCollection()))
-        .thenReturn(allowResult);
-
-    when(mockSession.authorize(
-            any(String.class),
-            eq(new EntitySpec("dataHubIngestionSource", "urn:li:dataHubIngestionSource:denied")),
-            anyCollection()))
-        .thenReturn(denyResult);
+    AuthorizationSession authorizationSession = TestAuthSession.allowAnyFor(allowedEntitySpec);
 
     BatchItem allowedItem =
         TestMCP.builder()
@@ -330,7 +296,8 @@ public class ExecuteIngestionAuthValidatorTest {
 
     List<AspectValidationException> exceptions =
         validator
-            .validateProposed(Set.of(allowedItem, deniedItem), mockRetrieverContext, mockSession)
+            .validateProposed(
+                Set.of(allowedItem, deniedItem), mockRetrieverContext, authorizationSession)
             .collect(Collectors.toList());
 
     assertEquals(exceptions.size(), 1, "Expected only one denied item");
@@ -353,12 +320,6 @@ public class ExecuteIngestionAuthValidatorTest {
 
       input1.setSource(new ExecutionRequestSource().setIngestionSource(deniedUrn1));
       input2.setSource(new ExecutionRequestSource().setIngestionSource(deniedUrn2));
-
-      AuthorizationResult denyResult = Mockito.mock(AuthorizationResult.class);
-      Mockito.when(denyResult.getType()).thenReturn(AuthorizationResult.Type.DENY);
-
-      when(mockSession.authorize(any(String.class), any(EntitySpec.class), anyCollection()))
-          .thenReturn(denyResult);
 
       BatchItem item1 =
           TestMCP.builder()
@@ -386,7 +347,8 @@ public class ExecuteIngestionAuthValidatorTest {
 
       List<AspectValidationException> exceptions =
           validator
-              .validateProposed(Set.of(item1, item2), mockRetrieverContext, mockSession)
+              .validateProposed(
+                  Set.of(item1, item2), mockRetrieverContext, TestAuthSession.DENY_ALL)
               .collect(Collectors.toList());
 
       assertEquals(exceptions.size(), 2, "Expected both items to be denied");

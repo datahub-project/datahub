@@ -1,14 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.PredefinedAuthorizationResultMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
@@ -25,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -107,35 +108,44 @@ public class GlossaryUtilsTest {
 
     final EntitySpec resourceSpec3 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest(
+        Set.of("MANAGE_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec3);
 
     final EntitySpec resourceSpec2 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest(
+        Set.of("MANAGE_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec2);
 
     final EntitySpec resourceSpec1 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest(
+        Set.of("MANAGE_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec1);
   }
 
   private void mockAuthRequest(
-      String privilege, AuthorizationResult.Type allowOrDeny, EntitySpec resourceSpec) {
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(allowOrDeny);
-    when(mockContext.getOperationContext().authorize(eq(privilege), eq(resourceSpec), any()))
-        .thenReturn(result);
+      Set<String> privileges, AuthorizationResult.Type allowOrDeny, EntitySpec resourceSpec) {
+    OperationContext operationContext = mockContext.getOperationContext();
+    if (allowOrDeny == AuthorizationResult.Type.DENY) {
+      doReturn(new BatchAuthorizationResult(null, new PredefinedAuthorizationResultMap(Set.of())))
+          .when(operationContext)
+          .authorize(anySet(), eq(resourceSpec), any());
+      return;
+    }
+    doReturn(new BatchAuthorizationResult(null, new PredefinedAuthorizationResultMap(privileges)))
+        .when(operationContext)
+        .authorize(anySet(), eq(resourceSpec), any());
   }
 
   @Test
   public void testCanManageGlossariesAuthorized() throws Exception {
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.ALLOW, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.ALLOW, null);
 
     assertTrue(GlossaryUtils.canManageGlossaries(mockContext));
   }
 
   @Test
   public void testCanManageGlossariesUnauthorized() throws Exception {
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     assertFalse(GlossaryUtils.canManageGlossaries(mockContext));
   }
@@ -143,7 +153,7 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenEntitiesWithManageGlossaries() throws Exception {
     // they have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.ALLOW, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.ALLOW, null);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn, mockClient));
   }
@@ -151,7 +161,7 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenEntitiesNoParentNode() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, null, mockClient));
   }
@@ -159,11 +169,12 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenEntitiesAuthorized() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec);
+    mockAuthRequest(
+        Set.of("MANAGE_GLOSSARY_CHILDREN"), AuthorizationResult.Type.ALLOW, resourceSpec);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn, mockClient));
   }
@@ -171,12 +182,14 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenEntitiesUnauthorized() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec);
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec);
+    mockAuthRequest(
+        Set.of("MANAGE_GLOSSARY_CHILDREN", "MANAGE_ALL_GLOSSARY_CHILDREN"),
+        AuthorizationResult.Type.DENY,
+        resourceSpec);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn, mockClient));
   }
@@ -184,19 +197,22 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenRecursivelyEntitiesAuthorized() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec3 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec3);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.ALLOW, resourceSpec3);
 
     final EntitySpec resourceSpec2 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec2);
 
     final EntitySpec resourceSpec1 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
   }
@@ -204,19 +220,22 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenRecursivelyEntitiesUnauthorized() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec3 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec3);
 
     final EntitySpec resourceSpec2 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec2);
 
     final EntitySpec resourceSpec1 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
   }
@@ -224,15 +243,17 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenRecursivelyEntitiesAuthorizedLevel2() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec2 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec2);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.ALLOW, resourceSpec2);
 
     final EntitySpec resourceSpec1 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
   }
@@ -240,15 +261,17 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenRecursivelyEntitiesUnauthorizedLevel2() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec3 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec3);
 
     final EntitySpec resourceSpec2 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec2);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn2, mockClient));
   }
@@ -256,11 +279,12 @@ public class GlossaryUtilsTest {
   @Test
   public void testCanManageChildrenRecursivelyEntitiesNoLevel2() throws Exception {
     // they do NOT have the MANAGE_GLOSSARIES platform privilege
-    mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
+    mockAuthRequest(Set.of("MANAGE_GLOSSARIES"), AuthorizationResult.Type.DENY, null);
 
     final EntitySpec resourceSpec3 =
         new EntitySpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest(
+        Set.of("MANAGE_ALL_GLOSSARY_CHILDREN"), AuthorizationResult.Type.DENY, resourceSpec3);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn3, mockClient));
   }

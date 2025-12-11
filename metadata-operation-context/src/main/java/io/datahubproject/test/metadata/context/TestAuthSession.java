@@ -4,18 +4,66 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.LazyHashMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class TestAuthSession implements AuthorizationSession {
   public static AuthorizationSession ALLOW_ALL =
-      from((priv, authorizer) -> new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      from(
+          (priv, entitySpec) ->
+              new AuthorizationResult(
+                  new AuthorizationRequest(null, priv, Optional.ofNullable(entitySpec), List.of()),
+                  AuthorizationResult.Type.ALLOW,
+                  ""));
+
+  public static AuthorizationSession DENY_ALL =
+      from(
+          (priv, entitySpec) ->
+              new AuthorizationResult(
+                  new AuthorizationRequest(null, priv, Optional.ofNullable(entitySpec), List.of()),
+                  AuthorizationResult.Type.DENY,
+                  ""));
+
+  public static AuthorizationSession allowOnly(EntitySpec entitySpec, Set<String> privileges) {
+    return from(
+        (privilege, resourceSpec) -> {
+          AuthorizationRequest request =
+              new AuthorizationRequest(null, privilege, Optional.ofNullable(entitySpec), List.of());
+          if (Objects.equals(entitySpec, resourceSpec) && privileges.contains(privilege)) {
+            return new AuthorizationResult(
+                request, AuthorizationResult.Type.ALLOW, "Allowed via TestAuthSession");
+          }
+          return new AuthorizationResult(
+              request,
+              AuthorizationResult.Type.DENY,
+              "Either entity spec does not match or privilege is not allowed");
+        });
+  }
+
+  public static AuthorizationSession allowAnyFor(EntitySpec entitySpec) {
+    return from(
+        (privilege, resourceSpec) -> {
+          AuthorizationRequest request =
+              new AuthorizationRequest(null, privilege, Optional.ofNullable(entitySpec), List.of());
+          if (Objects.equals(entitySpec, resourceSpec)) {
+            return new AuthorizationResult(
+                request, AuthorizationResult.Type.ALLOW, "Allowed via TestAuthSession");
+          }
+          return new AuthorizationResult(
+              request, AuthorizationResult.Type.DENY, "Entity spec does not match");
+        });
+  }
 
   public static AuthorizationSession from(Authentication auth, Authorizer authorizer) {
     return from(
@@ -42,16 +90,11 @@ public class TestAuthSession implements AuthorizationSession {
   }
 
   @Override
-  public AuthorizationResult authorize(
-      @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
-    return authFunction.apply(privilege, resourceSpec);
-  }
-
-  @Override
-  public AuthorizationResult authorize(
-      @Nonnull String privilege,
-      @Nullable EntitySpec resourceSpec,
+  public BatchAuthorizationResult authorize(
+      @Nonnull final Set<String> privileges,
+      @Nullable final EntitySpec resourceSpec,
       @Nonnull Collection<EntitySpec> subResources) {
-    return authorize(privilege, resourceSpec);
+    return new BatchAuthorizationResult(
+        null, new LazyHashMap<>(privilege -> authFunction.apply(privilege, resourceSpec)));
   }
 }

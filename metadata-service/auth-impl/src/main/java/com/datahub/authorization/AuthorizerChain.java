@@ -92,6 +92,82 @@ public class AuthorizerChain implements Authorizer {
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
+  /**
+   * Executes a set of {@link Authorizer}s and returns the composition of the authentication
+   * results.
+   *
+   * <p>Each {@link Authorizer}'s result per specific privilege is accessed:
+   *
+   * <ol>
+   *   <li>in order of the {@link #authorizers} is defined
+   *   <li>only if all previous {@link Authorizer}s denied that privilege
+   * </ol>
+   */
+  @Nullable
+  public BatchAuthorizationResult authorizeBatch(@Nonnull final BatchAuthorizationRequest request) {
+    Objects.requireNonNull(request);
+    // Save contextClassLoader
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+
+    var authorizersResults = new ArrayList<BatchAuthorizationResult>();
+
+    for (final Authorizer authorizer : this.authorizers) {
+      try {
+        log.debug(
+            "Executing authorizeBatch on Authorizer with class name {}",
+            authorizer.getClass().getCanonicalName());
+        log.debug("Batch Authorization Request: {}", request);
+        // The library came with plugin can use the contextClassLoader to load the classes. For
+        // example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
+        // loading request from plugin's home directory,
+        // otherwise plugin's internal library wouldn't be able to find their dependent classes
+        Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
+        BatchAuthorizationResult result = authorizer.authorizeBatch(request);
+        // reset
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
+
+        log.debug("Batch authorization is successful");
+        authorizersResults.add(result);
+      } catch (Exception e) {
+        log.error(
+            "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
+            authorizer.getClass().getCanonicalName(),
+            e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
+      }
+    }
+
+    return new BatchAuthorizationResult(
+        request, composeAuthorizersResults(request, authorizersResults));
+  }
+
+  private static LazyHashMap<String, AuthorizationResult> composeAuthorizersResults(
+      BatchAuthorizationRequest request, ArrayList<BatchAuthorizationResult> authorizersResults) {
+    return new LazyHashMap<>(
+        privilege -> {
+          for (BatchAuthorizationResult authorizerResult : authorizersResults) {
+            var authorizationResult = authorizerResult.getResults().get(privilege);
+            if (AuthorizationResult.Type.ALLOW == authorizationResult.getType()) {
+              return authorizationResult;
+            }
+
+            log.debug(
+                "Received DENY from Authorizer. message: {}", authorizationResult.getMessage());
+          }
+
+          return new AuthorizationResult(
+              new AuthorizationRequest(
+                  request.getActorUrn(),
+                  privilege,
+                  request.getResourceSpec(),
+                  request.getSubResources()),
+              AuthorizationResult.Type.DENY,
+              "No Authorizer has approved the request");
+        });
+  }
+
   @Override
   public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
     if (this.authorizers.isEmpty()) {

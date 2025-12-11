@@ -1,21 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
-import com.datahub.authorization.AuthorizationRequest;
-import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.PredefinedAuthorizationResultMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
-import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -23,21 +18,21 @@ import org.testng.annotations.Test;
 public class IngestionAuthUtilsTest {
 
   @Test
-  public void testCanManageIngestionAuthorized() throws Exception {
+  public void testCanManageIngestionAuthorized() {
     Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EDIT_ENTITY", "DELETE_ENTITY");
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
     Mockito.when(
             mockContext
                 .getOperationContext()
                 .authorize(
-                    argThat(allowedPrivileges::contains),
+                    any(),
                     eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")),
                     anyCollection()))
-        .thenReturn(result);
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new PredefinedAuthorizationResultMap(allowedPrivileges)));
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
 
@@ -45,21 +40,19 @@ public class IngestionAuthUtilsTest {
   }
 
   @Test
-  public void testCanManageIngestionUnauthorized() throws Exception {
-    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EDIT_ENTITY", "DELETE_ENTITY");
+  public void testCanManageIngestionUnauthorized() {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
     Mockito.when(
             mockContext
                 .getOperationContext()
                 .authorize(
-                    argThat(allowedPrivileges::contains),
+                    anySet(),
                     eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")),
                     anyCollection()))
-        .thenReturn(result);
+        .thenReturn(
+            new BatchAuthorizationResult(null, new PredefinedAuthorizationResultMap(Set.of())));
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
@@ -67,20 +60,20 @@ public class IngestionAuthUtilsTest {
   }
 
   @Test
-  public void testCanManageSecretsAuthorized() throws Exception {
+  public void testCanManageSecretsAuthorized() {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
     Mockito.when(
             mockContext
                 .getOperationContext()
                 .authorize(
-                    eq("MANAGE_SECRETS"),
+                    anySet(),
                     eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
-                    any()))
-        .thenReturn(result);
+                    anyCollection()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new PredefinedAuthorizationResultMap(Set.of("MANAGE_SECRETS"))));
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
 
@@ -88,27 +81,19 @@ public class IngestionAuthUtilsTest {
   }
 
   @Test
-  public void testCanManageSecretsUnauthorized() throws Exception {
+  public void testCanManageSecretsUnauthorized() {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
-    AuthorizationRequest request =
-        new AuthorizationRequest(
-            "urn:li:corpuser:unauthorized",
-            "MANAGE_SECRETS",
-            Optional.of(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
-            Collections.emptyList());
-
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
     Mockito.when(
             mockContext
                 .getOperationContext()
                 .authorize(
-                    eq("MANAGE_SECRETS"),
+                    anySet(),
                     eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
-                    any()))
-        .thenReturn(result);
+                    anyCollection()))
+        .thenReturn(
+            new BatchAuthorizationResult(null, new PredefinedAuthorizationResultMap(Set.of())));
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
