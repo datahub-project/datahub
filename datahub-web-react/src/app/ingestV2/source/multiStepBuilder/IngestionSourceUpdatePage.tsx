@@ -39,6 +39,7 @@ const STEPS: IngestionSourceFormStep[] = [
         label: 'Sync Schedule ',
         key: 'syncSchedule',
         content: <ScheduleStep />,
+        subTitle: 'Configure an ingestion schedule',
     },
 ];
 

@@ -15,15 +15,15 @@ export function IngestionSourceBottomPanel() {
         IngestionSourceFormStep,
         SubmitOptions
     >();
-    const [isSaveAndRunInProgress, setIsSaveAndRunInPropgress] = useState<boolean>(false);
+    const [isSaveAndRunInProgress, setIsSaveAndRunInProgress] = useState<boolean>(false);
 
     const save = useCallback(
         async (options: SubmitOptions) => {
-            setIsSaveAndRunInPropgress(true);
+            setIsSaveAndRunInProgress(true);
             try {
                 await submit?.(options);
             } finally {
-                setIsSaveAndRunInPropgress(false);
+                setIsSaveAndRunInProgress(false);
             }
         },
         [submit],
