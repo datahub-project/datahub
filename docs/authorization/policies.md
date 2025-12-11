@@ -284,40 +284,52 @@ These privileges are not generalizable.
 
 #### Dataset
 
-| Entity       | Privilege                                 | Description                                                                                                                                                                       |
-| ------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                          |
-| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                       |
-| Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
-| Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
-| Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
-| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                               |
-| Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
-| Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
-| Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
-| Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
-| Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
-| Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
-| Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
-| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
-| Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
-| Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
-| Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
-| Dataset      | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
-| Dataset      | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
-| Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                         |
-| Domain       | Manage Data Products                      | Allow actor to create, edit, and delete Data Products within a Domain                                                                                                             |
-| GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                              |
-| GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |
+| Entity  | Privilege                                 | Description                                                                                                                                                                       |
+| ------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dataset | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                          |
+| Dataset | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                       |
+| Dataset | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
+| Dataset | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
+| Dataset | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
+| Dataset | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                               |
+| Dataset | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
+| Dataset | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
+| Dataset | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
+| Dataset | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
+| Dataset | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
+| Dataset | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
+| Dataset | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
+| Dataset | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
+| Dataset | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
+| Dataset | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
+| Dataset | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
+| Dataset | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
+| Dataset | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
 
-#### Misc
+#### Domain
 
-| Entity       | Privilege                       | Description                                                           |
-| ------------ | ------------------------------- | --------------------------------------------------------------------- |
-| Tag          | Edit Tag Color                  | Allow actor to change the color of a Tag.                             |
-| Domain       | Manage Data Products            | Allow actor to create, edit, and delete Data Products within a Domain |
-| GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity.  |
-| GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.   |
+| Entity | Privilege                     | Description                                                               |
+| ------ | ----------------------------- | ------------------------------------------------------------------------- |
+| Domain | Manage Data Products          | Allow actor to create, edit, and delete Data Products within a Domain     |
+| Domain | Manage Direct Domain Children | Allow actor to create and delete the direct child domains of this domain  |
+| Domain | Manage All Domain Children    | Allow actor to create and delete all child domains underneath this domain |
+| Domain | View Direct Domain Children   | Allow actor to view the direct child domains of this domain               |
+| Domain | View All Domain Children      | Allow actor to view all child domains underneath this domain              |
+
+#### Glossary
+
+| Entity       | Privilege                       | Description                                                         |
+| ------------ | ------------------------------- | ------------------------------------------------------------------- |
+| GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity |
+| GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity  |
+| GlossaryNode | View Direct Glossary Children   | Allow actor to view the direct children of this entity              |
+| GlossaryNode | View All Glossary Children      | Allow actor to view everything underneath this entity               |
+
+#### Tag
+
+| Entity | Privilege      | Description                               |
+| ------ | -------------- | ----------------------------------------- |
+| Tag    | Edit Tag Color | Allow actor to change the color of a Tag. |
 
 ## Coming Soon
 

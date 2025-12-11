@@ -64,21 +64,56 @@ public class GlossaryUtils {
       return true;
     }
     if (parentNodeUrn == null) {
-      return false; // if no parent node, we must rely on the canManageGlossaries method above
+      return false;
     }
 
-    // Check for the MANAGE_GLOSSARY_CHILDREN_PRIVILEGE privilege
     if (hasManagePrivilege(
         context, parentNodeUrn, PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE)) {
       return true;
     }
 
-    // Check for the MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE privilege recursively until there is no
-    // parent associated.
     Urn currentParentNodeUrn = parentNodeUrn;
     while (currentParentNodeUrn != null) {
       if (hasManagePrivilege(
           context, currentParentNodeUrn, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
+        return true;
+      }
+      currentParentNodeUrn = getParentUrn(currentParentNodeUrn, context, entityClient);
+    }
+
+    return false;
+  }
+
+  /**
+   * Returns true if the current user is able to view Glossary Terms and Nodes under a parent Node.
+   * They can do this with either the global MANAGE_GLOSSARIES privilege, VIEW_ENTITY_PAGE privilege
+   * on the node, or if they have the VIEW_GLOSSARY_CHILDREN or VIEW_ALL_GLOSSARY_CHILDREN privilege
+   * on the relevant parent node in the Glossary.
+   */
+  public static boolean canViewChildrenEntities(
+      @Nonnull QueryContext context, @Nullable Urn nodeUrn, @Nonnull EntityClient entityClient) {
+    if (canManageGlossaries(context)) {
+      return true;
+    }
+    if (nodeUrn == null) {
+      return false;
+    }
+
+    if (hasViewPrivilege(context, nodeUrn, PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE)) {
+      return true;
+    }
+
+    Urn parentNodeUrn = getParentUrn(nodeUrn, context, entityClient);
+    if (parentNodeUrn != null
+        && hasViewPrivilege(
+            context, parentNodeUrn, PoliciesConfig.VIEW_GLOSSARY_CHILDREN_PRIVILEGE)) {
+      return true;
+    }
+
+    Urn currentParentNodeUrn = parentNodeUrn;
+    while (currentParentNodeUrn != null) {
+      if (hasViewPrivilege(
+          context, currentParentNodeUrn, PoliciesConfig.VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
         return true;
       }
       currentParentNodeUrn = getParentUrn(currentParentNodeUrn, context, entityClient);
@@ -95,6 +130,16 @@ public class GlossaryUtils {
 
     return AuthorizationUtils.isAuthorized(
         context, parentNodeUrn.getEntityType(), parentNodeUrn.toString(), orPrivilegeGroups);
+  }
+
+  public static boolean hasViewPrivilege(
+      @Nonnull QueryContext context, @Nullable Urn nodeUrn, Privilege privilege) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, nodeUrn.getEntityType(), nodeUrn.toString(), orPrivilegeGroups);
   }
 
   /**

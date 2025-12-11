@@ -5,9 +5,11 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -36,6 +38,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -59,11 +62,160 @@ public class DomainUtils {
 
   private DomainUtils() {}
 
+  /**
+   * Checks the Platform Privilege MANAGE_DOMAINS to see if a user is authorized. If true, the user
+   * has global control of Domains to create, edit, move, and delete them.
+   */
+  public static boolean canManageDomains(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the current user is able to create, delete, or move child Domains under a
+   * parent Domain. They can do this with either the global MANAGE_DOMAINS privilege, or if they
+   * have the MANAGE_DOMAIN_CHILDREN privilege on the relevant parent domain.
+   */
+  public static boolean canManageChildDomains(
+      @Nonnull QueryContext context,
+      @Nullable Urn parentDomainUrn,
+      @Nonnull EntityClient entityClient) {
+    if (canManageDomains(context)) {
+      return true;
+    }
+    if (parentDomainUrn == null) {
+      return false;
+    }
+
+    if (hasManagePrivilege(
+        context, parentDomainUrn, PoliciesConfig.MANAGE_DOMAIN_CHILDREN_PRIVILEGE)) {
+      return true;
+    }
+
+    Urn currentParentDomainUrn = parentDomainUrn;
+    while (currentParentDomainUrn != null) {
+      if (hasManagePrivilege(
+          context, currentParentDomainUrn, PoliciesConfig.MANAGE_ALL_DOMAIN_CHILDREN_PRIVILEGE)) {
+        return true;
+      }
+      currentParentDomainUrn = getDomainParentUrn(currentParentDomainUrn, context, entityClient);
+    }
+
+    return false;
+  }
+
+  /**
+   * Returns whether this is a domain entity and whether you can edit this domain with the Manage
+   * all children or Manage direct children privileges
+   */
+  public static boolean canUpdateDomainEntity(
+      Urn targetUrn, QueryContext context, EntityClient entityClient) {
+    final boolean isDomainEntity = targetUrn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME);
+    if (!isDomainEntity) {
+      return false;
+    }
+    final Urn parentDomainUrn = getDomainParentUrn(targetUrn, context, entityClient);
+    return canManageChildDomains(context, parentDomainUrn, entityClient);
+  }
+
+  public static boolean hasManagePrivilege(
+      @Nonnull QueryContext context,
+      @Nullable Urn parentDomainUrn,
+      PoliciesConfig.Privilege privilege) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, parentDomainUrn.getEntityType(), parentDomainUrn.toString(), orPrivilegeGroups);
+  }
+
+  public static boolean hasViewPrivilege(
+      @Nonnull QueryContext context, @Nullable Urn domainUrn, PoliciesConfig.Privilege privilege) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, domainUrn.getEntityType(), domainUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Returns true if the current user is able to view Domains under a parent Domain. They can do
+   * this with either the global MANAGE_DOMAINS privilege, VIEW_ENTITY_PAGE privilege on the domain,
+   * or if they have the VIEW_DOMAIN_CHILDREN or VIEW_ALL_DOMAIN_CHILDREN privilege on the relevant
+   * parent domain.
+   */
+  public static boolean canViewChildDomains(
+      @Nonnull QueryContext context, @Nullable Urn domainUrn, @Nonnull EntityClient entityClient) {
+    if (canManageDomains(context)) {
+      return true;
+    }
+    if (domainUrn == null) {
+      return false;
+    }
+
+    if (hasViewPrivilege(context, domainUrn, PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE)) {
+      return true;
+    }
+
+    Urn parentDomainUrn = getDomainParentUrn(domainUrn, context, entityClient);
+    if (parentDomainUrn != null
+        && hasViewPrivilege(
+            context, parentDomainUrn, PoliciesConfig.VIEW_DOMAIN_CHILDREN_PRIVILEGE)) {
+      return true;
+    }
+
+    Urn currentParentDomainUrn = parentDomainUrn;
+    while (currentParentDomainUrn != null) {
+      if (hasViewPrivilege(
+          context, currentParentDomainUrn, PoliciesConfig.VIEW_ALL_DOMAIN_CHILDREN_PRIVILEGE)) {
+        return true;
+      }
+      currentParentDomainUrn = getDomainParentUrn(currentParentDomainUrn, context, entityClient);
+    }
+
+    return false;
+  }
+
+  /** Returns the urn of the parent domain for a given Domain. Returns null if it doesn't exist. */
+  @Nullable
+  private static Urn getDomainParentUrn(
+      @Nonnull Urn domainUrn, @Nonnull QueryContext context, @Nonnull EntityClient entityClient) {
+    try {
+      EntityResponse response =
+          entityClient.getV2(
+              context.getOperationContext(),
+              Constants.DOMAIN_ENTITY_NAME,
+              domainUrn,
+              ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME));
+      if (response != null
+          && response.getAspects().get(Constants.DOMAIN_PROPERTIES_ASPECT_NAME) != null) {
+        DomainProperties domainProperties =
+            new DomainProperties(
+                response
+                    .getAspects()
+                    .get(Constants.DOMAIN_PROPERTIES_ASPECT_NAME)
+                    .getValue()
+                    .data());
+        return getParentDomainSafely(domainProperties);
+      }
+      return null;
+    } catch (URISyntaxException | RemoteInvocationException e) {
+      throw new RuntimeException("Failed to fetch Domain to check for privileges", e);
+    }
+  }
+
   public static boolean isAuthorizedToUpdateDomainsForEntity(
       @Nonnull QueryContext context, Urn entityUrn, EntityClient entityClient) {
 
     if (GlossaryUtils.canUpdateGlossaryEntity(entityUrn, context, entityClient)) {
       return true;
+    }
+
+    // Check if it's a domain entity and handle with recursive permissions
+    if (entityUrn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME)) {
+      return canUpdateDomainEntity(entityUrn, context, entityClient);
     }
 
     final DisjunctivePrivilegeGroup orPrivilegeGroups =

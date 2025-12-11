@@ -59,6 +59,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getGlossaryTermPrivileges(urn, context);
             case Constants.GLOSSARY_NODE_ENTITY_NAME:
               return getGlossaryNodePrivileges(urn, context);
+            case Constants.DOMAIN_ENTITY_NAME:
+              return getDomainPrivileges(urn, context);
             case Constants.DATASET_ENTITY_NAME:
               return getDatasetPrivileges(urn, context);
             case Constants.CHART_ENTITY_NAME:
@@ -126,6 +128,25 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
+    return result;
+  }
+
+  private EntityPrivileges getDomainPrivileges(Urn domainUrn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, domainUrn, context);
+    result.setCanManageEntity(false);
+    if (DomainUtils.canManageDomains(context)) {
+      result.setCanManageEntity(true);
+      result.setCanManageChildren(true);
+      return result;
+    }
+    Boolean canManageChildren =
+        DomainUtils.canManageChildDomains(context, domainUrn, _entityClient);
+    result.setCanManageChildren(canManageChildren);
+
+    // Check if user can manage this domain via its parent
+    Boolean canManage = DomainUtils.canUpdateDomainEntity(domainUrn, context, _entityClient);
+    result.setCanManageEntity(canManage);
     return result;
   }
 

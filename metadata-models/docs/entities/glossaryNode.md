@@ -394,6 +394,25 @@ Users with this privilege on a node can:
 
 **Use case**: Data governance team managing an entire domain (e.g., all PII-related terms)
 
+#### View Direct Glossary Children
+
+Users with this privilege on a node can:
+
+- View terms and nodes directly under this node
+- Cannot view grandchildren or deeper descendants
+
+**Use case**: Restricting visibility to immediate child categories while hiding deeper structure
+
+#### View All Glossary Children
+
+Users with this privilege on a node can:
+
+- View any term or node in the entire subtree
+- Access nested hierarchies of any depth
+- Full read access to the category and all descendants
+
+**Use case**: Granting read-only access to an entire glossary hierarchy based on operating company or department affiliation, without requiring explicit policies for each sub-glossary
+
 #### Global Privilege: Manage Glossaries
 
 Users with this platform-level privilege can:
@@ -401,8 +420,9 @@ Users with this platform-level privilege can:
 - Manage any node or term across the entire glossary
 - Create root-level nodes
 - Full administrative control
+- View all glossary content
 
-These privileges are checked hierarchically - if you have permission on a parent node, it may grant permissions on children depending on the privilege type.
+These privileges are checked hierarchically - if you have permission on a parent node, it may grant permissions on children depending on the privilege type. View privileges enable restricting who can see which glossaries based on organizational structure without the overhead of managing policies for every sub-glossary.
 
 ### Integration with Search and Discovery
 

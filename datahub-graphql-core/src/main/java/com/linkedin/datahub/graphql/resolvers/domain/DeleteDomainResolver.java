@@ -30,8 +30,11 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
     final Urn urn = Urn.createFromString(domainUrn);
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          // Check authorization - need MANAGE_DOMAINS platform privilege, DELETE_ENTITY privilege,
+          // OR recursive MANAGE_DOMAIN_CHILDREN/MANAGE_ALL_DOMAIN_CHILDREN permission
           if (AuthorizationUtils.canManageDomains(context)
-              || AuthorizationUtils.canDeleteEntity(urn, context)) {
+              || AuthorizationUtils.canDeleteEntity(urn, context)
+              || DomainUtils.canUpdateDomainEntity(urn, context, _entityClient)) {
             try {
               // Make sure there are no child domains
               if (DomainUtils.hasChildDomains(urn, context, _entityClient)) {
