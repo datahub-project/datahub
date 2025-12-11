@@ -12,7 +12,21 @@ Please read the section to understand how to set up application default credenti
 
 Grant the following permissions to the Service Account on every project where you would like to extract metadata from.
 
-Default GCP Role which contains these permissions: [roles/dataplex.viewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.viewer)
+**For Universal Catalog Entries API** (default, `include_entries: true`):
+
+Default GCP Role: [roles/dataplex.catalogViewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.catalogViewer)
+
+| Permission                  | Description                           |
+| --------------------------- | ------------------------------------- |
+| `dataplex.entryGroups.get`  | Retrieve specific entry group details |
+| `dataplex.entryGroups.list` | View all entry groups in a location   |
+| `dataplex.entries.get`      | Access entry metadata and details     |
+| `dataplex.entries.getData`  | View data aspects within entries      |
+| `dataplex.entries.list`     | Enumerate entries within groups       |
+
+**For Lakes/Zones Entities API** (optional, `include_entities: true`):
+
+Default GCP Role: [roles/dataplex.viewer](https://cloud.google.com/dataplex/docs/iam-roles#dataplex.viewer)
 
 | Permission               | Description                                           |
 | ------------------------ | ----------------------------------------------------- |
@@ -25,16 +39,16 @@ Default GCP Role which contains these permissions: [roles/dataplex.viewer](https
 | `dataplex.entities.get`  | Allows a user to view details of a specific entity    |
 | `dataplex.entities.list` | Allows a user to view and list all entities in a zone |
 
-**Optional permissions for lineage extraction:**
+**For lineage extraction** (optional, `include_lineage: true`):
 
-If you want to extract lineage information, you'll also need:
+Default GCP Role: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
 
 | Permission                 | Description                               |
 | -------------------------- | ----------------------------------------- |
 | `datalineage.links.get`    | Allows a user to view lineage links       |
 | `datalineage.links.search` | Allows a user to search for lineage links |
 
-Default GCP Role for lineage: [roles/datalineage.viewer](https://docs.cloud.google.com/iam/docs/roles-permissions/datalineage#datalineage.viewer)
+**Note:** If using both APIs, grant both sets of permissions. Most users only need `roles/dataplex.catalogViewer` for Entries API access.
 
 #### Create a service account and assign roles
 
@@ -97,7 +111,7 @@ The Dataplex connector extracts metadata from Google Dataplex using two compleme
    - **Dataform**: repositories and workflows
    - **Dataproc Metastore**: services and databases
 
-2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you are using the legacy Data Catalog and need entity-level details not available in the Entries API.
+2. **Lakes/Zones Entities API** (Optional, default disabled): Extracts entities from Dataplex lakes and zones. Use this if you are using the legacy Data Catalog and need lake/zone information not available in the Entries API. See [API Selection Guide](#api-selection-guide) below for detailed guidance on when to use each API as using both APIs can cause loss of custom properties.
 
 **Datasets are ingested using their source platform URNs** (BigQuery, GCS, etc.) to align with native source connectors.
 
@@ -123,7 +137,7 @@ This ingestion source maps the following Dataplex Concepts to DataHub Concepts:
 
 **When to use Entities API** (`include_entities: true`):
 
-- Use this if you need entity-level details specific to lakes/zones that aren't available in the Entries API
+- Use this if you need lake/zone information that isn't available in the Entries API
 - Provides Dataplex organizational context (lake, zone, asset metadata)
 - Can be used alongside Entries API, but see warning below
 
