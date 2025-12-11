@@ -41,14 +41,11 @@ public class DocumentSearchFilterUtils {
    * Builds a combined filter with ownership constraints and optional showInGlobalContext filter.
    *
    * <p>The filter structure is: - With showInGlobalContext: (user-filters AND PUBLISHED AND
-   * NOT-DRAFT AND showInGlobalContext=true) OR (user-filters AND UNPUBLISHED AND
-   * owned-by-user-or-groups AND NOT-DRAFT AND showInGlobalContext=true)
+   * showInGlobalContext=true) OR (user-filters AND UNPUBLISHED AND owned-by-user-or-groups AND
+   * showInGlobalContext=true)
    *
-   * <p>- Without showInGlobalContext: (user-filters AND PUBLISHED AND NOT-DRAFT) OR (user-filters
-   * AND UNPUBLISHED AND owned-by-user-or-groups AND NOT-DRAFT)
-   *
-   * <p>Drafts (documents with draftOf field set) are always excluded from search results. They
-   * should only be accessed directly by URN or through the DocumentDrafts resolver.
+   * <p>- Without showInGlobalContext: (user-filters AND PUBLISHED) OR (user-filters AND UNPUBLISHED
+   * AND owned-by-user-or-groups)
    *
    * @param baseCriteria The base user criteria (without state filtering)
    * @param userAndGroupUrns List of URNs for the current user and their groups
@@ -64,33 +61,21 @@ public class DocumentSearchFilterUtils {
 
     List<ConjunctiveCriterion> orClauses = new ArrayList<>();
 
-    // Create criterion to exclude drafts (draftOf field must be null/not set)
-    Criterion notDraftCriterion = new Criterion();
-    notDraftCriterion.setField("draftOf");
-    notDraftCriterion.setCondition(Condition.IS_NULL);
-
-    // Clause 1: Published documents (with user filters, excluding drafts)
+    // Clause 1: Published documents (with user filters)
     List<Criterion> publishedCriteria = new ArrayList<>(baseCriteria);
     publishedCriteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
-    publishedCriteria.add(notDraftCriterion);
     if (applyShowInGlobalContext) {
       publishedCriteria.add(
           CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, "true"));
     }
     orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(publishedCriteria)));
 
-    // Clause 2: Unpublished documents owned by user or their groups (with user filters, excluding
-    // drafts)
+    // Clause 2: Unpublished documents owned by user or their groups (with user filters)
     List<Criterion> unpublishedOwnedCriteria = new ArrayList<>(baseCriteria);
     unpublishedOwnedCriteria.add(
         CriterionUtils.buildCriterion("state", Condition.EQUAL, "UNPUBLISHED"));
     unpublishedOwnedCriteria.add(
         CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
-    // Create new criterion instance for the second clause to avoid sharing mutable state
-    Criterion notDraftCriterion2 = new Criterion();
-    notDraftCriterion2.setField("draftOf");
-    notDraftCriterion2.setCondition(Condition.IS_NULL);
-    unpublishedOwnedCriteria.add(notDraftCriterion2);
     if (applyShowInGlobalContext) {
       unpublishedOwnedCriteria.add(
           CriterionUtils.buildCriterion("showInGlobalContext", Condition.EQUAL, "true"));

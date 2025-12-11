@@ -86,12 +86,11 @@ export interface DocumentPopoverBaseProps {
     filterSearchResults?: (doc: Document) => boolean;
     /**
      * Source type filter for document search.
-     * - DocumentSourceType.Native: Only search native (DataHub-created) documents
-     * - DocumentSourceType.External: Only search external (ingested) documents
-     * - null: Search all documents (both native and external)
-     * Defaults to Native if not specified.
+     * - [DocumentSourceType.Native]: Only search native (DataHub-created) documents
+     * - [DocumentSourceType.External]: Only search external (ingested) documents
+     * - [DocumentSourceType.Native, DocumentSourceType.External]: Search all documents
      */
-    sourceType?: DocumentSourceType | null;
+    sourceTypes: DocumentSourceType[];
 }
 
 /**
@@ -110,7 +109,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     maxHeight = 300,
     searchDisabled = false,
     filterSearchResults,
-    sourceType,
+    sourceTypes,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -130,7 +129,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         count: 50,
         fetchPolicy: 'network-only',
         includeParentDocuments: true,
-        sourceType,
+        sourceTypes,
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;

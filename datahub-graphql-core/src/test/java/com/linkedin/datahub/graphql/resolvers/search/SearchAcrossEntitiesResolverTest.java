@@ -429,7 +429,7 @@ public class SearchAcrossEntitiesResolverTest {
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
     // Note: Since DOCUMENT is now in SEARCHABLE_ENTITY_TYPES, document default filters
-    // (state=PUBLISHED, showInGlobalContext=true, draftOf IS_NULL) are automatically applied.
+    // (state=PUBLISHED, showInGlobalContext=true) are automatically applied.
 
     ViewService mockService = initMockViewService(TEST_VIEW_URN, null);
 
@@ -482,8 +482,7 @@ public class SearchAcrossEntitiesResolverTest {
    * Builds the default document filter that is applied when DOCUMENT is in the search entity types.
    * Uses negated EQUAL conditions which naturally pass through for non-document entities:
    *
-   * <p>state != UNPUBLISHED (negated) AND showInGlobalContext != false (negated) AND draftOf
-   * IS_NULL
+   * <p>state != UNPUBLISHED (negated) AND showInGlobalContext != false (negated)
    */
   private static Filter buildDocumentDefaultFilter() {
     List<Criterion> criteria = new ArrayList<>();
@@ -505,12 +504,6 @@ public class SearchAcrossEntitiesResolverTest {
         new com.linkedin.data.template.StringArray(Collections.singletonList("false")));
     showInGlobalContextCriterion.setNegated(true);
     criteria.add(showInGlobalContextCriterion);
-
-    // Exclude draft documents
-    Criterion draftOfCriterion = new Criterion();
-    draftOfCriterion.setField("draftOf");
-    draftOfCriterion.setCondition(Condition.IS_NULL);
-    criteria.add(draftOfCriterion);
 
     return new Filter()
         .setOr(

@@ -48,12 +48,11 @@ public class DefaultEntityFiltersUtilTest {
     assertEquals(result.getOr().size(), 1); // Single AND clause with negated conditions
 
     ConjunctiveCriterion clause = result.getOr().get(0);
-    assertEquals(clause.getAnd().size(), 3); // state, showInGlobalContext, draftOf
+    assertEquals(clause.getAnd().size(), 2); // state, showInGlobalContext
 
     // Verify negated EQUAL conditions (these pass for non-documents since field doesn't exist)
     assertTrue(hasNegatedFieldWithCondition(clause, "state", Condition.EQUAL));
     assertTrue(hasNegatedFieldWithCondition(clause, "showInGlobalContext", Condition.EQUAL));
-    assertTrue(hasFieldWithCondition(clause, "draftOf", Condition.IS_NULL));
   }
 
   @Test
@@ -69,11 +68,10 @@ public class DefaultEntityFiltersUtilTest {
     assertEquals(result.getOr().size(), 1); // Single AND clause
 
     ConjunctiveCriterion clause = result.getOr().get(0);
-    assertEquals(clause.getAnd().size(), 2); // state, draftOf (no showInGlobalContext)
+    assertEquals(clause.getAnd().size(), 1); // state only (no showInGlobalContext)
 
     assertTrue(hasNegatedFieldWithCondition(clause, "state", Condition.EQUAL));
     assertFalse(hasField(clause, "showInGlobalContext"));
-    assertTrue(hasFieldWithCondition(clause, "draftOf", Condition.IS_NULL));
   }
 
   @Test
@@ -109,12 +107,6 @@ public class DefaultEntityFiltersUtilTest {
     assertEquals(showInGlobalContextCriterion.getCondition(), Condition.EQUAL);
     assertTrue(showInGlobalContextCriterion.isNegated());
     assertTrue(showInGlobalContextCriterion.getValues().contains("false"));
-
-    // Verify draftOf IS_NULL
-    Criterion draftOfCriterion = findCriterion(clause, "draftOf");
-    assertNotNull(draftOfCriterion);
-    assertEquals(draftOfCriterion.getCondition(), Condition.IS_NULL);
-    assertFalse(draftOfCriterion.isNegated());
   }
 
   private static boolean hasField(ConjunctiveCriterion clause, String field) {

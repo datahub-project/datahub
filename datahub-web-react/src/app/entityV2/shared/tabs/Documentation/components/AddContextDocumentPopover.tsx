@@ -10,6 +10,7 @@ import { Button } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';
+import { DocumentSourceType } from '@types';
 
 const NewDocumentButton = styled(Button)`
     width: 100%;
@@ -161,7 +162,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             searchDisabled={isCreating}
             // Search all document types (both native and external/ingested)
             // to allow linking documents from third-party sources like Notion
-            sourceType={null}
+            sourceTypes={[DocumentSourceType.Native, DocumentSourceType.External]}
         />
     );
 };

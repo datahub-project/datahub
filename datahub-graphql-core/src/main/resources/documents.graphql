@@ -74,6 +74,9 @@ extend type Query {
 
   This ensures that unpublished documents remain private to their owners while published
   documents are discoverable by everyone.
+
+  Additionally, this API does NOT return documents that have should not be shown in "global" context via
+  their document settings.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
 }
@@ -113,7 +116,8 @@ type Document implements Entity {
   dataPlatformInstance: DataPlatformInstance
 
   """
-  The Platform that this Document belongs to (defaults to DataHub for internal documents)
+  The platform that this Document originates in. For example, "Notion" for representing docs ingested from Notion.
+  For documents natively authored on DataHub, the platform will be "DataHub".
   """
   platform: DataPlatform!
 
@@ -674,6 +678,7 @@ type SearchDocumentsResult {
 """
 Input for querying context documents related to an entity.
 The relatedAssets filter is automatically set to the parent entity's URN.
+This returns all documents related to the asset, including those hidden from global context.
 """
 input RelatedDocumentsInput {
   """
