@@ -90,7 +90,7 @@ class PowerBiAPI:
         logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
+            logger.warning("HTTP status-code = %s", e.response.status_code)
 
         if isinstance(e, requests.exceptions.Timeout):
             url: str = e.request.url if e.request else "URL not available"
@@ -330,7 +330,7 @@ class PowerBiAPI:
         # Scan is complete lets take the result
         scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
         pretty_json: str = json.dumps(scan_result, indent=1)
-        logger.debug(f"scan result = {pretty_json}")
+        logger.debug("scan result = %s", pretty_json)
 
         return scan_result
 
@@ -392,7 +392,9 @@ class PowerBiAPI:
                 )
                 dataset_instance.parameters = dataset_parameters
             except Exception as e:
-                logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
+                logger.info(
+                    "Unable to fetch dataset parameters for %s: %s", dataset_id, e
+                )
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
@@ -406,7 +408,7 @@ class PowerBiAPI:
                 if dataset_instance.name is not None
                 else dataset_instance.id
             )
-            logger.debug(f"dataset_dict = {dataset_dict}")
+            logger.debug("dataset_dict = %s", dataset_dict)
             for table in dataset_dict.get(Constant.TABLES) or []:
                 expression: Optional[str] = (
                     table[Constant.SOURCE][0][Constant.EXPRESSION]
@@ -493,7 +495,7 @@ class PowerBiAPI:
         # workspace doesn't have an App. Above two loops can be avoided
         # if app_id is available at root level in workspace_metadata
         if app_id is None:
-            logger.debug(f"Workspace {workspace.name} does not contain an app.")
+            logger.debug("Workspace %s does not contain an app.", workspace.name)
             return
 
         app: Optional[App] = self.get_app(app_id=app_id)
@@ -705,7 +707,7 @@ class PowerBiAPI:
         """
         import os
 
-        logger.info(f"Exporting report {report_id} to PBIX file")
+        logger.info("Exporting report %s to PBIX file", report_id)
         self.reporter.pbix_export_attempts += 1
 
         try:
@@ -742,13 +744,13 @@ class PowerBiAPI:
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
             # Write file to disk
-            logger.debug(f"Writing PBIX file to {output_path}")
+            logger.debug("Writing PBIX file to %s", output_path)
             with open(output_path, "wb") as f:
                 for chunk in export_response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
 
-            logger.info(f"Successfully exported report {report_id} to {output_path}")
+            logger.info("Successfully exported report %s to %s", report_id, output_path)
             self.reporter.pbix_export_successes += 1
             return output_path
 

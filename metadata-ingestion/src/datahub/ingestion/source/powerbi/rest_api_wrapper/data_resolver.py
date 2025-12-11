@@ -51,8 +51,8 @@ def is_http_failure(response: Response, message: str) -> bool:
         return False
 
     logger.info(message)
-    logger.debug(f"HTTP Status Code = {response.status_code}")
-    logger.debug(f"HTTP Error Message = {response.text}")
+    logger.debug("HTTP Status Code = %s", response.status_code)
+    logger.debug("HTTP Error Message = %s", response.text)
     return True
 
 
@@ -89,7 +89,7 @@ class DataResolverBase(ABC):
 
         self._tenant_id = tenant_id
         # Test connection by generating access token
-        logger.info(f"Trying to connect to {self._get_authority_url()}")
+        logger.info("Trying to connect to %s", self._get_authority_url())
         # Power-Bi Auth (Service Principal Auth)
         self._msal_client = msal.ConfidentialClientApplication(
             client_id,
@@ -98,7 +98,7 @@ class DataResolverBase(ABC):
         )
         self.get_access_token()
 
-        logger.info(f"Connected to {self._get_authority_url()}")
+        logger.info("Connected to %s", self._get_authority_url())
 
         self._request_session = SessionWithTimeout(timeout=metadata_api_timeout)
 
@@ -204,7 +204,7 @@ class DataResolverBase(ABC):
             )
         )
 
-        logger.debug(f"{Constant.PBIAccessToken}={self._access_token}")
+        logger.debug("%s=%s", Constant.PBIAccessToken, self._access_token)
 
         return self._access_token
 
@@ -222,7 +222,7 @@ class DataResolverBase(ABC):
         """
         dashboard_list_endpoint: str = self.get_dashboards_endpoint(workspace)
 
-        logger.debug(f"Request to URL={dashboard_list_endpoint}")
+        logger.debug("Request to URL=%s", dashboard_list_endpoint)
         response = self._request_session.get(
             dashboard_list_endpoint,
             headers=self.get_authorization_header(),
@@ -277,7 +277,7 @@ class DataResolverBase(ABC):
     ) -> List[Report]:
         reports_endpoint = self.get_reports_endpoint(workspace)
         # Hit PowerBi
-        logger.debug(f"Request to report URL={reports_endpoint}")
+        logger.debug("Request to report URL=%s", reports_endpoint)
         params: Optional[dict] = None
         if _filter is not None:
             params = {"$filter": _filter}
@@ -290,7 +290,7 @@ class DataResolverBase(ABC):
             )
             response.raise_for_status()
             response_dict = response.json()
-            logger.debug(f"Report Request response = {response_dict}")
+            logger.debug("Report Request response = %s", response_dict)
             return response_dict.get(Constant.VALUE, [])
 
         reports: List[Report] = [
@@ -341,17 +341,17 @@ class DataResolverBase(ABC):
             workspace, dashboard_id=dashboard.id
         )
         # Hit PowerBi
-        logger.debug(f"Request to URL={tile_list_endpoint}")
+        logger.debug("Request to URL=%s", tile_list_endpoint)
         response = self._request_session.get(
             tile_list_endpoint,
             headers=self.get_authorization_header(),
         )
-        logger.debug(f"Request response = {response}")
+        logger.debug("Request response = %s", response)
         response.raise_for_status()
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json().get(Constant.VALUE, [])
-        logger.debug(f"Tile Dict = {tile_dict}")
+        logger.debug("Tile Dict = %s", tile_dict)
         tiles: List[Tile] = [
             Tile(
                 id=instance.get(Constant.ID),
@@ -465,8 +465,8 @@ class RegularAPIResolver(DataResolverBase):
         """
         if workspace.id is None or dataset_id is None:
             logger.debug("Input values are None")
-            logger.debug(f"{Constant.WorkspaceId}={workspace.id}")
-            logger.debug(f"{Constant.DatasetId}={dataset_id}")
+            logger.debug("%s=%s", Constant.WorkspaceId, workspace.id)
+            logger.debug("%s=%s", Constant.DatasetId, dataset_id)
             return None
 
         dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
@@ -479,7 +479,7 @@ class RegularAPIResolver(DataResolverBase):
             DATASET_ID=dataset_id,
         )
         # Hit PowerBi
-        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
+        logger.debug("Request to dataset URL=%s", dataset_get_endpoint)
         response = self._request_session.get(
             dataset_get_endpoint,
             headers=self.get_authorization_header(),
@@ -487,7 +487,7 @@ class RegularAPIResolver(DataResolverBase):
         # Check if we got a response from PowerBi
         response.raise_for_status()
         response_dict = response.json()
-        logger.debug(f"datasets = {response_dict}")
+        logger.debug("datasets = %s", response_dict)
         # PowerBi Always return the webURL, in-case if it is None, then setting complete webURL to None instead of
         # None/details
         return create_powerbi_dataset(workspace, response_dict)
@@ -503,7 +503,7 @@ class RegularAPIResolver(DataResolverBase):
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
-        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
+        logger.debug("Request to dataset URL=%s", dataset_get_endpoint)
         params_get_endpoint = dataset_get_endpoint + "/parameters"
 
         params_response = self._request_session.get(
@@ -515,7 +515,7 @@ class RegularAPIResolver(DataResolverBase):
 
         params_values: List[dict] = params_dict.get(Constant.VALUE, [])
 
-        logger.debug(f"dataset {dataset_id} parameters = {params_values}")
+        logger.debug("dataset %s parameters = %s", dataset_id, params_values)
 
         return {
             value[Constant.NAME]: value[Constant.CURRENT_VALUE]
@@ -558,7 +558,7 @@ class RegularAPIResolver(DataResolverBase):
             REPORT_ID=report_id,
         )
         # Hit PowerBi
-        logger.debug(f"Request to pages URL={pages_endpoint}")
+        logger.debug("Request to pages URL=%s", pages_endpoint)
         response = self._request_session.get(
             pages_endpoint,
             headers=self.get_authorization_header(),
@@ -594,7 +594,7 @@ class RegularAPIResolver(DataResolverBase):
             DATASET_ID=dataset.id,
         )
         # Hit PowerBi
-        logger.info(f"Request to query endpoint URL={dataset_query_endpoint}")
+        logger.info("Request to query endpoint URL=%s", dataset_query_endpoint)
 
         # Serializer is configured to include nulls so that the queried fields
         # exist in the returned payloads. Only failed queries will result in KeyError
@@ -654,7 +654,7 @@ class RegularAPIResolver(DataResolverBase):
         self, dataset: PowerBIDataset, table: Table, column: Union[Column, Measure]
     ) -> dict:
         try:
-            logger.debug(f"Column data query for {dataset.name}, {column.name}")
+            logger.debug("Column data query for %s, %s", dataset.name, column.name)
             query = DaxQuery.column_data_query(table.name, column.name)
             data = self._execute_profiling_query(dataset, query)
             return process_column_result(data)
@@ -686,7 +686,7 @@ class RegularAPIResolver(DataResolverBase):
             )
             return
 
-        logger.info(f"Profiling table: {table.name}")
+        logger.info("Profiling table: %s", table.name)
         row_count = self._get_row_count(dataset, table)
         sample = self._get_data_sample(dataset, table)
 
@@ -768,7 +768,7 @@ class AdminAPIResolver(DataResolverBase):
         # Return scan_id of Scan created for the given workspace
         scan_id = res.json()["id"]
 
-        logger.debug(f"Scan id({scan_id})")
+        logger.debug("Scan id(%s)", scan_id)
 
         return scan_id
 
@@ -789,21 +789,21 @@ class AdminAPIResolver(DataResolverBase):
         minimum_sleep_seconds: int,
         scan_id: str,
     ) -> bool:
-        logger.debug(f"Hitting URL={scan_get_endpoint}")
+        logger.debug("Hitting URL=%s", scan_get_endpoint)
         retry = 1
         while True:
-            logger.debug(f"retry = {retry}")
+            logger.debug("retry = %s", retry)
             res = self._request_session.get(
                 scan_get_endpoint,
                 headers=self.get_authorization_header(),
             )
 
-            logger.debug(f"Request response = {res}")
+            logger.debug("Request response = %s", res)
 
             res.raise_for_status()
 
             if res.json()[Constant.STATUS].upper() == Constant.SUCCEEDED:
-                logger.debug(f"Scan result is available for scan id({scan_id})")
+                logger.debug("Scan result is available for scan id(%s)", scan_id)
                 return True
 
             if retry == max_retry:
@@ -858,12 +858,12 @@ class AdminAPIResolver(DataResolverBase):
             ENTITY_ID=entity_id,
         )
         # Hit PowerBi
-        logger.debug(f"Request to URL={user_list_endpoint}")
+        logger.debug("Request to URL=%s", user_list_endpoint)
         response = self._request_session.get(
             user_list_endpoint,
             headers=self.get_authorization_header(),
         )
-        logger.debug(f"Response = {response}")
+        logger.debug("Response = %s", response)
 
         response.raise_for_status()
 
@@ -891,7 +891,7 @@ class AdminAPIResolver(DataResolverBase):
 
     def get_scan_result(self, scan_id: str) -> Optional[dict]:
         logger.debug("Fetching scan result")
-        logger.debug(f"{Constant.SCAN_ID}={scan_id}")
+        logger.debug("%s=%s", Constant.SCAN_ID, scan_id)
         scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[
             Constant.SCAN_RESULT_GET
         ]
@@ -899,7 +899,7 @@ class AdminAPIResolver(DataResolverBase):
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
         )
 
-        logger.debug(f"Hitting URL={scan_result_get_endpoint}")
+        logger.debug("Hitting URL=%s", scan_result_get_endpoint)
         res = self._request_session.get(
             scan_result_get_endpoint,
             headers=self.get_authorization_header(),
@@ -954,7 +954,7 @@ class AdminAPIResolver(DataResolverBase):
             WORKSPACE_ID=workspace.id,
         )
         # Hit PowerBi
-        logger.debug(f"Request to datasets URL={datasets_endpoint}")
+        logger.debug("Request to datasets URL=%s", datasets_endpoint)
         params: dict = {"$filter": f"id eq '{dataset_id}'"}
         logger.debug("params = %s", params)
         response = self._request_session.get(
@@ -1015,7 +1015,7 @@ class AdminAPIResolver(DataResolverBase):
 
         # Return scan_id of Scan created for the given workspace
         workspace_ids = [row["id"] for row in res.json()]
-        logger.debug(f"modified workspace_ids: {workspace_ids}")
+        logger.debug("modified workspace_ids: %s", workspace_ids)
         return workspace_ids
 
     def get_dataset_parameters(
@@ -1043,7 +1043,7 @@ class AdminAPIResolver(DataResolverBase):
             APP_ID=app_id,
         )
         # Hit PowerBi
-        logger.debug(f"Request to app URL={app_endpoint}")
+        logger.debug("Request to app URL=%s", app_endpoint)
 
         for page in self.itr_pages(endpoint=app_endpoint):
             for app in page:

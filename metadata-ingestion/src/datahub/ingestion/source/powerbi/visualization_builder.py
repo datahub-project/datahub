@@ -359,7 +359,7 @@ class VisualizationBatchProcessor:
         visualization_lineages = lineage_info.get("visualization_lineage", [])
 
         if not visualization_lineages:
-            logger.warning(f"No visualization lineage found for report {report.name}")
+            logger.warning("No visualization lineage found for report %s", report.name)
             return all_mcps, page_to_viz_urns
 
         logger.info(
