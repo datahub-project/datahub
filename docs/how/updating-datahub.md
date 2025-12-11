@@ -9,6 +9,8 @@
 - #13726: Default search results per page (new: 5000, old: 10000) can be configured with environment variable `ELASTICSEARCH_LIMIT_RESULTS_API_DEFAULT`
 - #13726: Maximum lineage visualization hops (new: 20, old: 1000) can be configured with environment variable `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`
 - #15044: If using the new system-update sqlSetup, the system-update job must be granted privileges to create users, databases, and tables.
+- #15512: Assertion related data models will enforce strict urn validation including selective existence, format, and supported entity types. This may impact
+          existing assertions which would need to be removed from the system.
 
 ### Known Issues
 
