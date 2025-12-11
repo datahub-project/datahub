@@ -4,9 +4,38 @@ source:
     # Coordinates
     host: 'localhost:9200'
 
-    # Credentials
+    # Credentials - Choose one authentication method:
+    # Option 1: Basic authentication (username/password)
     username: user # optional
     password: pass # optional
+
+    # Option 2: API Key authentication
+    # api_key: ["id", "api_key"] # or base64 encoded string
+
+    # Option 3: AWS IAM authentication (for OpenSearch Service)
+    # When aws_config is provided, it uses AWS IAM authentication (SigV4 signing)
+    # You can use local AWS profiles or explicit credentials:
+    #
+    # Option 3a: Use local AWS profile (auto-detects from ~/.aws/credentials)
+    # aws_config:
+    #   aws_region: us-east-1
+    #   # Will use default profile, or set aws_profile: "my-profile" for specific profile
+    #
+    # Option 3b: Use explicit AWS credentials
+    # aws_config:
+    #   aws_access_key_id: *****
+    #   aws_secret_access_key: *****
+    #   aws_region: us-east-1
+    #
+    # Option 3c: Use AWS profile name
+    # aws_config:
+    #   aws_profile: "my-profile"
+    #   aws_region: us-east-1
+    #
+    # Option 3d: Use IAM role assumption
+    # aws_config:
+    #   aws_region: us-east-1
+    #   aws_role: "arn:aws:iam::123456789012:role/OpenSearchAccess"
 
     # SSL support
     use_ssl: False
