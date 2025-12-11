@@ -393,9 +393,7 @@ source:
 
 ### Python Dependencies
 
-The connector requires the following Python packages:
+The connector requires the following Python packages, which are automatically installed with `acryl-datahub[dataplex]`:
 
-```bash
-pip install 'google-cloud-dataplex>=1.0.0'
-pip install 'google-cloud-datacatalog-lineage==0.2.2'  # Required only if include_lineage is enabled
-```
+- `google-cloud-dataplex>=1.0.0`
+- `google-cloud-datacatalog-lineage==0.2.2` (required for lineage extraction when `include_lineage: true`)
