@@ -7,7 +7,7 @@ import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.BatchAuthorizationRequest;
 import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.authorization.LazyHashMap;
+import com.datahub.authorization.LazyAuthorizationResultMap;
 import com.datahub.plugins.Plugin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
@@ -60,12 +60,12 @@ public interface Authorizer extends Plugin {
    * Authorizes an actions based on the actor, the resource, and required privileges.
    *
    * <p>Returned map with results <b>MUST</b> be thread safe for {@link Map#get} operation. For an
-   * ease to use implementation take a look at the {@link LazyHashMap}
+   * ease to use implementation take a look at the {@link LazyAuthorizationResultMap}
    */
   default BatchAuthorizationResult authorizeBatch(
       @Nonnull final BatchAuthorizationRequest batchRequest) {
     var results =
-        new LazyHashMap<String, AuthorizationResult>(
+        new LazyAuthorizationResultMap(
             privilege ->
                 authorize(
                     new AuthorizationRequest(

@@ -5,7 +5,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.BatchAuthorizationRequest;
 import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.authorization.LazyHashMap;
+import com.datahub.authorization.LazyAuthorizationResultMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Collection;
 import java.util.Optional;
@@ -55,9 +55,9 @@ public class AuthorizationContext implements ContextInterface {
     return new BatchAuthorizationResult(request, toCacheFirstResult(request, result));
   }
 
-  private LazyHashMap<String, AuthorizationResult> toCacheFirstResult(
+  private LazyAuthorizationResultMap toCacheFirstResult(
       BatchAuthorizationRequest request, BatchAuthorizationResult result) {
-    return new LazyHashMap<>(
+    return new LazyAuthorizationResultMap(
         privilege -> {
           var authorizationRequest =
               new AuthorizationRequest(

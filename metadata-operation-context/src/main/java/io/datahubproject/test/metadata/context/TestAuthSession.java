@@ -6,7 +6,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.authorization.LazyHashMap;
+import com.datahub.authorization.LazyAuthorizationResultMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Collection;
 import java.util.Collections;
@@ -95,6 +95,7 @@ public class TestAuthSession implements AuthorizationSession {
       @Nullable final EntitySpec resourceSpec,
       @Nonnull Collection<EntitySpec> subResources) {
     return new BatchAuthorizationResult(
-        null, new LazyHashMap<>(privilege -> authFunction.apply(privilege, resourceSpec)));
+        null,
+        new LazyAuthorizationResultMap(privilege -> authFunction.apply(privilege, resourceSpec)));
   }
 }
