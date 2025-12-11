@@ -5,14 +5,19 @@ import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
 import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
+import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
+import {
+    IngestionSourceFormStep,
+    MultiStepSourceBuilderState,
+    SubmitOptions,
+} from '@app/ingestV2/source/multiStepBuilder/types';
 import {
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
@@ -33,6 +38,7 @@ const STEPS: IngestionSourceFormStep[] = [
     },
     {
         label: 'Connection Details',
+        subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
     },
@@ -40,6 +46,7 @@ const STEPS: IngestionSourceFormStep[] = [
         label: 'Sync Schedule ',
         key: 'syncSchedule',
         content: <ScheduleStep />,
+        subTitle: 'Configure an ingestion schedule',
     },
 ];
 
@@ -51,10 +58,16 @@ export function IngestionSourceCreatePage() {
 
     const { defaultOwnershipType } = useOwnershipTypes();
 
+    const initialState = {
+        schedule: {
+            interval: DAILY_MIDNIGHT_CRON_INTERVAL,
+        },
+    };
+
     const onSubmit = useCallback(
-        async (data: SourceBuilderState | undefined) => {
+        async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
-            const shouldRun = true; // TODO:: set a real value
+            const shouldRun = options?.shouldRun;
             const input = getIngestionSourceMutationInput(data);
 
             try {
@@ -112,5 +125,5 @@ export function IngestionSourceCreatePage() {
         history.push(PageRoutes.INGESTION);
     }, [history]);
 
-    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} />;
+    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />;
 }

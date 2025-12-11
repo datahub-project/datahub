@@ -1435,3 +1435,217 @@ def test_empty_column_in_query_subjects_only_column_usage(
         RESOURCE_DIR
         / "test_empty_column_in_query_subjects_only_column_usage_golden.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_lineage_consistency_fix_tables_added_from_column_lineage() -> None:
+    """Test that tables present in column lineage but missing from table lineage are automatically added.
+
+    This tests the consistency fix where:
+    - Column lineage references upstream tables
+    - Table lineage is missing some of those upstream tables
+    - The fix should automatically add the missing tables to table lineage
+    - Metrics should be tracked for monitoring
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn_1 = DatasetUrn("snowflake", "dev.public.source_table_1").urn()
+    upstream_urn_2 = DatasetUrn("snowflake", "dev.public.source_table_2").urn()
+    upstream_urn_3 = DatasetUrn("snowflake", "dev.public.source_table_3").urn()
+
+    # Simulate inconsistent lineage: column lineage has 3 tables, but table lineage only has 2
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (a, b, c) select t1.a, t2.b, t3.c from source_table_1 t1, source_table_2 t2, source_table_3 t3",
+        downstream=downstream_urn,
+        upstreams=[
+            upstream_urn_1,
+            upstream_urn_2,
+            # upstream_urn_3 is MISSING from table lineage (simulating Snowflake metadata issue)
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn_1, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn_2, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="c"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn_3, column="c")
+                ],  # This table is missing from upstreams
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    # Verify the fix worked: all 3 tables should appear in upstreamLineage
+    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
+    assert len(lineage_mcps) == 1
+
+    lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
+    upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
+
+    # All 3 tables should be present after the fix
+    assert upstream_urn_1 in upstream_urns
+    assert upstream_urn_2 in upstream_urns
+    assert upstream_urn_3 in upstream_urns  # This was added by the fix
+
+    # Verify metrics were tracked
+    assert aggregator.report.num_tables_added_from_column_lineage == 1
+    assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
+
+
+@freeze_time(FROZEN_TIME)
+def test_lineage_consistency_no_fix_needed() -> None:
+    """Test that no fix is applied when lineage is already consistent.
+
+    This tests that:
+    - When table lineage already contains all tables from column lineage
+    - No tables are added
+    - Metrics remain at zero
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn_1 = DatasetUrn("snowflake", "dev.public.source_table_1").urn()
+    upstream_urn_2 = DatasetUrn("snowflake", "dev.public.source_table_2").urn()
+
+    # Both table and column lineage are consistent
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (a, b) select t1.a, t2.b from source_table_1 t1, source_table_2 t2",
+        downstream=downstream_urn,
+        upstreams=[
+            upstream_urn_1,
+            upstream_urn_2,  # Both tables present
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn_1, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn_2, column="b")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    # Verify no fix was needed
+    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
+    assert len(lineage_mcps) == 1
+
+    lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
+    upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
+
+    assert len(upstream_urns) == 2
+    assert upstream_urn_1 in upstream_urns
+    assert upstream_urn_2 in upstream_urns
+
+    # Verify metrics show no inconsistencies
+    assert aggregator.report.num_tables_added_from_column_lineage == 0
+    assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_lineage_consistency_multiple_missing_tables() -> None:
+    """Test that multiple missing tables are all added correctly.
+
+    This tests the fix when:
+    - Multiple tables are missing from table lineage
+    - All of them are present in column lineage
+    - All should be added and metrics should reflect the count
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn_1 = DatasetUrn("snowflake", "dev.public.source_table_1").urn()
+    upstream_urn_2 = DatasetUrn("snowflake", "dev.public.source_table_2").urn()
+    upstream_urn_3 = DatasetUrn("snowflake", "dev.public.source_table_3").urn()
+    upstream_urn_4 = DatasetUrn("snowflake", "dev.public.source_table_4").urn()
+
+    # Only 1 table in table lineage, but 4 in column lineage
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (a, b, c, d) select t1.a, t2.b, t3.c, t4.d from source_table_1 t1, source_table_2 t2, source_table_3 t3, source_table_4 t4",
+        downstream=downstream_urn,
+        upstreams=[
+            upstream_urn_1,
+            # upstream_urn_2, upstream_urn_3, upstream_urn_4 are all MISSING
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn_1, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn_2, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="c"),
+                upstreams=[ColumnRef(table=upstream_urn_3, column="c")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="d"),
+                upstreams=[ColumnRef(table=upstream_urn_4, column="d")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    # Verify all 4 tables are now present
+    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
+    assert len(lineage_mcps) == 1
+
+    lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
+    upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
+
+    assert len(upstream_urns) == 4
+    assert upstream_urn_1 in upstream_urns
+    assert upstream_urn_2 in upstream_urns  # Added by fix
+    assert upstream_urn_3 in upstream_urns  # Added by fix
+    assert upstream_urn_4 in upstream_urns  # Added by fix
+
+    # Verify metrics: 3 tables were added (2, 3, 4)
+    assert aggregator.report.num_tables_added_from_column_lineage == 3
+    assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1

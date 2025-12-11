@@ -707,3 +707,8 @@ export const getIngestionSourceMutationInput = (data: SourceBuilderState, source
             : undefined,
     };
 };
+
+export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
+    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
+    return sourceConfigs?.displayName;
+};

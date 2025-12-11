@@ -1,29 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { deepMerge } from 'remirror';
 
-import { Step, StepKey } from '@app/sharedV2/forms/multiStepForm/types';
-
-export interface MultiStepFormContextType<TState, TStep extends Step = Step> {
-    state: TState;
-    updateState: (newState: Partial<TState>) => void;
-
-    submit: () => Promise<void>;
-    cancel: () => void;
-
-    totalSteps: number;
-    currentStepIndex: number;
-    getCurrentStep: () => TStep | undefined;
-
-    canGoToNext: () => boolean;
-    goToNext: () => void;
-    canGoToPrevious: () => boolean;
-    goToPrevious: () => void;
-    isFinalStep: () => boolean;
-
-    isStepCompleted: (stepKey: StepKey) => boolean;
-    isCurrentStepCompleted: () => boolean;
-    setCurrentStepCompleted: () => void;
-}
+import { MultiStepFormContextType, OnNextHandler, Step, StepKey } from '@app/sharedV2/forms/multiStepForm/types';
 
 const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>({
     state: {},
@@ -31,11 +9,15 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
     canGoToNext: () => false,
     goToNext: () => null,
     canGoToPrevious: () => false,
+    setOnNextHandler: () => {},
     goToPrevious: () => null,
+    goToStep: () => null,
     isFinalStep: () => false,
+    isStepVisited: () => false,
     isStepCompleted: () => false,
     isCurrentStepCompleted: () => false,
     setCurrentStepCompleted: () => null,
+    setCurrentStepUncompleted: () => null,
 
     getCurrentStep: () => undefined,
     submit: () =>
@@ -44,22 +26,23 @@ const MultiStepContext = React.createContext<MultiStepFormContextType<any, any>>
         }),
     cancel: () => null,
 
+    steps: [],
     totalSteps: 0,
     currentStepIndex: 0,
 });
 
-export function useMultiStepContext<TState, TStep extends Step>() {
-    return React.useContext<MultiStepFormContextType<TState, TStep>>(MultiStepContext);
+export function useMultiStepContext<TState, TStep extends Step, TSubmitOptions = any>() {
+    return React.useContext<MultiStepFormContextType<TState, TStep, TSubmitOptions>>(MultiStepContext);
 }
 
-export interface MultiStepFormProviderProps<TState> {
+export interface MultiStepFormProviderProps<TState, TSubmitOptions = any> {
     steps: Step[];
     initialState?: TState;
-    onSubmit?: (state: TState | undefined) => Promise<void>;
+    onSubmit?: (state: TState | undefined, options?: TSubmitOptions) => Promise<void>;
     onCancel?: () => void;
 }
 
-export function MultiStepFormProvider<TState>({
+export function MultiStepFormProvider<TState, TSubmitOptions = any>({
     children,
     steps,
     initialState,
@@ -67,8 +50,10 @@ export function MultiStepFormProvider<TState>({
     onCancel,
 }: React.PropsWithChildren<MultiStepFormProviderProps<TState>>) {
     const [state, setState] = useState<TState | undefined>(initialState);
+    const [onNextHandler, setOnNextHandler] = useState<OnNextHandler | undefined>();
 
     const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set());
+    const [visitedSteps, setVisitedSteps] = useState<Set<StepKey>>(new Set());
 
     const totalSteps = useMemo(() => steps.length, [steps]);
 
@@ -77,10 +62,15 @@ export function MultiStepFormProvider<TState>({
     }, []);
 
     const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
-
     const getCurrentStep = useCallback(() => {
-        return steps?.[currentStepIndex];
-    }, [currentStepIndex, steps]);
+        const currentStep = steps?.[currentStepIndex];
+
+        if (currentStep && !visitedSteps.has(currentStep.key)) {
+            setVisitedSteps((currentVisitedSteps) => new Set([...currentVisitedSteps, currentStep?.key]));
+        }
+
+        return currentStep;
+    }, [currentStepIndex, steps, visitedSteps]);
 
     const canGoToNext = useCallback(() => {
         return currentStepIndex < totalSteps - 1;
@@ -88,9 +78,15 @@ export function MultiStepFormProvider<TState>({
 
     const goToNext = useCallback(() => {
         if (canGoToNext()) {
-            setCurrentStepIndex((currentIndex) => currentIndex + 1);
+            try {
+                onNextHandler?.();
+                setCurrentStepIndex((currentIndex) => currentIndex + 1);
+                setOnNextHandler(undefined);
+            } catch (e) {
+                console.error('Go to next error', e);
+            }
         }
-    }, [canGoToNext]);
+    }, [canGoToNext, onNextHandler]);
 
     const canGoToPrevious = useCallback(() => {
         return currentStepIndex > 0;
@@ -102,9 +98,21 @@ export function MultiStepFormProvider<TState>({
         }
     }, [canGoToPrevious]);
 
+    const goToStep = useCallback(
+        (key: StepKey) => {
+            const stepIndex = steps.findIndex((step) => step.key === key);
+            if (stepIndex !== -1) {
+                setCurrentStepIndex(stepIndex);
+            }
+        },
+        [steps],
+    );
+
     const isFinalStep = useCallback(() => {
         return currentStepIndex === totalSteps - 1;
     }, [currentStepIndex, totalSteps]);
+
+    const isStepVisited = useCallback((stepKey: StepKey) => visitedSteps.has(stepKey), [visitedSteps]);
 
     const isStepCompleted = useCallback((stepKey: StepKey) => completedSteps.has(stepKey), [completedSteps]);
     const isCurrentStepCompleted = useCallback(
@@ -116,9 +124,19 @@ export function MultiStepFormProvider<TState>({
         setCompletedSteps((currentCompletedSteps) => new Set([...currentCompletedSteps, getCurrentStep()?.key]));
     }, [getCurrentStep]);
 
-    const submit = useCallback(async () => {
-        await onSubmit?.(state);
-    }, [onSubmit, state]);
+    const setCurrentStepUncompleted = useCallback(() => {
+        setCompletedSteps(
+            (currentCompletedSteps) =>
+                new Set(Array.from(currentCompletedSteps).filter((stepKey) => stepKey !== getCurrentStep()?.key)),
+        );
+    }, [getCurrentStep]);
+
+    const submit = useCallback(
+        async (options?: TSubmitOptions) => {
+            await onSubmit?.(state, options);
+        },
+        [onSubmit, state],
+    );
 
     const cancel = useCallback(() => {
         onCancel?.();
@@ -132,18 +150,23 @@ export function MultiStepFormProvider<TState>({
                 submit,
                 cancel,
 
+                steps,
                 totalSteps,
                 currentStepIndex,
                 getCurrentStep,
 
                 canGoToNext,
+                setOnNextHandler,
                 goToNext,
                 canGoToPrevious,
                 goToPrevious,
+                goToStep,
                 isFinalStep,
+                isStepVisited,
                 isStepCompleted,
                 isCurrentStepCompleted,
                 setCurrentStepCompleted,
+                setCurrentStepUncompleted,
             }}
         >
             {children}
