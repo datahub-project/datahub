@@ -1101,6 +1101,118 @@ class SQLServerSource(SQLAlchemySource):
 
         return filtered
 
+    def _filter_column_lineage(
+        self,
+        aspect: DataJobInputOutputClass,
+        platform_instance: Optional[str],
+        procedure_name: str,
+    ) -> None:
+        """Filter column lineage (fineGrainedLineages) to remove aliases.
+
+        Applies same 2-step filtering as table-level lineage:
+        1. Check if table has 3+ parts (_is_qualified_table_urn)
+        2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
+
+        Modifies aspect.fineGrainedLineages in place.
+        """
+        if not aspect.fineGrainedLineages:
+            return
+
+        original_cll_count = len(aspect.fineGrainedLineages)
+        filtered_column_lineage = []
+        field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
+
+        for cll in aspect.fineGrainedLineages:
+            # Filter upstreams: same logic as inputDatasets
+            if cll.upstreams:
+                # Step 1: Filter by qualification (3+ parts)
+                qualified_upstream_fields = []
+                for field_urn in cll.upstreams:
+                    match = field_urn_pattern.search(field_urn)
+                    if match:
+                        table_urn = match.group(1)
+                        if self._is_qualified_table_urn(table_urn, platform_instance):
+                            qualified_upstream_fields.append(field_urn)
+                        else:
+                            logger.debug(
+                                f"Filtered unqualified upstream field in column lineage for {procedure_name}: {field_urn}"
+                            )
+                    else:
+                        qualified_upstream_fields.append(field_urn)
+
+                # Step 2: Filter aliases (extract table URNs and check)
+                upstream_table_urns = []
+                field_to_table_map = {}
+                for field_urn in qualified_upstream_fields:
+                    match = field_urn_pattern.search(field_urn)
+                    if match:
+                        table_urn = match.group(1)
+                        upstream_table_urns.append(table_urn)
+                        field_to_table_map[field_urn] = table_urn
+
+                # Apply alias filtering to table URNs
+                real_table_urns = set(
+                    self._filter_upstream_aliases(
+                        upstream_table_urns, platform_instance
+                    )
+                )
+
+                # Keep only field URNs whose tables passed the filter
+                filtered_upstreams = [
+                    field_urn
+                    for field_urn in qualified_upstream_fields
+                    if field_to_table_map.get(field_urn) in real_table_urns
+                    or field_urn not in field_to_table_map
+                ]
+
+                # Log filtered aliases
+                for field_urn in qualified_upstream_fields:
+                    if field_urn not in filtered_upstreams:
+                        table_urn = field_to_table_map.get(field_urn, "unknown")
+                        logger.debug(
+                            f"Filtered alias upstream field in column lineage for {procedure_name}: {field_urn} (table: {table_urn})"
+                        )
+
+                cll.upstreams = filtered_upstreams
+
+            # Filter downstreams: only check qualification (same as outputDatasets)
+            if cll.downstreams:
+                filtered_downstreams = []
+                for field_urn in cll.downstreams:
+                    match = field_urn_pattern.search(field_urn)
+                    if match:
+                        table_urn = match.group(1)
+                        if self._is_qualified_table_urn(table_urn, platform_instance):
+                            filtered_downstreams.append(field_urn)
+                        else:
+                            logger.debug(
+                                f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
+                            )
+                    else:
+                        filtered_downstreams.append(field_urn)
+                cll.downstreams = filtered_downstreams
+
+            # Only keep column lineage if it has both upstreams and downstreams
+            if cll.upstreams and cll.downstreams:
+                filtered_column_lineage.append(cll)
+            else:
+                logger.debug(
+                    f"Dropped column lineage entry for {procedure_name}: "
+                    f"upstreams={len(cll.upstreams) if cll.upstreams else 0}, "
+                    f"downstreams={len(cll.downstreams) if cll.downstreams else 0}"
+                )
+
+        filtered_cll_count = len(filtered_column_lineage)
+        if filtered_cll_count < original_cll_count:
+            logger.info(
+                f"Column lineage filtering for {procedure_name}: "
+                f"{original_cll_count} → {filtered_cll_count} entries"
+            )
+
+        aspect.fineGrainedLineages = (
+            filtered_column_lineage if filtered_column_lineage else None
+        )
+
     def _filter_procedure_lineage(
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
@@ -1149,53 +1261,8 @@ class SQLServerSource(SQLAlchemySource):
                         if self._is_qualified_table_urn(urn, platform_instance)
                     ]
 
-                # Filter column lineage (fineGrainedLineages)
-                if aspect.fineGrainedLineages:
-                    filtered_column_lineage = []
-                    field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
-
-                    for cll in aspect.fineGrainedLineages:
-                        # Filter upstreams (field URNs contain table URNs)
-                        if cll.upstreams:
-                            filtered_upstreams = []
-                            for field_urn in cll.upstreams:
-                                # Extract table URN from field URN (format: urn:li:schemaField:(TABLE_URN,COLUMN))
-                                match = field_urn_pattern.search(field_urn)
-                                if match:
-                                    table_urn = match.group(1)
-                                    if self._is_qualified_table_urn(
-                                        table_urn, platform_instance
-                                    ):
-                                        filtered_upstreams.append(field_urn)
-                                else:
-                                    # Keep non-standard URNs as-is
-                                    filtered_upstreams.append(field_urn)
-                            cll.upstreams = filtered_upstreams
-
-                        # Filter downstreams (field URNs contain table URNs)
-                        if cll.downstreams:
-                            filtered_downstreams = []
-                            for field_urn in cll.downstreams:
-                                # Extract table URN from field URN
-                                match = field_urn_pattern.search(field_urn)
-                                if match:
-                                    table_urn = match.group(1)
-                                    if self._is_qualified_table_urn(
-                                        table_urn, platform_instance
-                                    ):
-                                        filtered_downstreams.append(field_urn)
-                                else:
-                                    # Keep non-standard URNs as-is
-                                    filtered_downstreams.append(field_urn)
-                            cll.downstreams = filtered_downstreams
-
-                        # Only keep column lineage if it has both upstreams and downstreams
-                        if cll.upstreams and cll.downstreams:
-                            filtered_column_lineage.append(cll)
-
-                    aspect.fineGrainedLineages = (
-                        filtered_column_lineage if filtered_column_lineage else None
-                    )
+                # Filter column lineage
+                self._filter_column_lineage(aspect, platform_instance, procedure_name)
 
                 filtered_input_count = len(aspect.inputDatasets or [])
                 filtered_output_count = len(aspect.outputDatasets or [])

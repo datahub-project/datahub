@@ -512,7 +512,7 @@ class TestColumnLineageFiltering:
                         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",  # 1-part alias
                     ],
                     fineGrainedLineages=[
-                        # Valid column lineage (3-part tables)
+                        # Valid column lineage (3-part tables, in schema_resolver)
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
@@ -523,7 +523,7 @@ class TestColumnLineageFiltering:
                                 "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD),col2)"
                             ],
                         ),
-                        # Column lineage with alias upstream (should be filtered)
+                        # Column lineage with 1-part alias upstream (filtered by qualification check)
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
@@ -534,7 +534,7 @@ class TestColumnLineageFiltering:
                                 "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD),col4)"
                             ],
                         ),
-                        # Column lineage with alias downstream (should be filtered)
+                        # Column lineage with 1-part alias downstream (filtered by qualification check)
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
@@ -543,6 +543,17 @@ class TestColumnLineageFiltering:
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
                             downstreams=[
                                 "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD),col6)"
+                            ],
+                        ),
+                        # Column lineage with 3-part table NOT in schema_resolver (filtered by alias check)
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db3.dbo.undiscovered_table,PROD),col7)"
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                            downstreams=[
+                                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test_instance.db1.dbo.another_real_table,PROD),col8)"
                             ],
                         ),
                     ],
@@ -570,7 +581,7 @@ class TestColumnLineageFiltering:
         assert aspect.fineGrainedLineages is not None
         assert len(aspect.fineGrainedLineages) == 1
 
-        # Only the valid column lineage should remain
+        # Only the valid column lineage should remain (real table in schema_resolver)
         cll = aspect.fineGrainedLineages[0]
         assert "test_instance.db1.dbo.real_table" in cll.upstreams[0]
         assert "test_instance.db1.dbo.another_real_table" in cll.downstreams[0]
