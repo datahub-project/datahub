@@ -1964,6 +1964,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.env,
                 self.config.platform_instance,
             )
+            
+            # Debug: Track semantic view processing
+            if node.node_type == "semantic_view":
+                logger.debug(
+                    f"Processing semantic view node in create_dbt_platform_mces: {node.dbt_name}, "
+                    f"upstream_cll={len(node.upstream_cll)}, id={id(node)}"
+                )
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
