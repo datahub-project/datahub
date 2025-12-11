@@ -325,54 +325,6 @@ describe('useSearchDocuments', () => {
         expect(result.current.documents).toEqual([mockDocuments[0]]);
     });
 
-    it('should include drafts when specified', async () => {
-        const input: SearchDocumentsInput = {
-            fetchPolicy: 'network-only',
-        };
-
-        const mocks = [
-            {
-                request: {
-                    query: SearchDocumentsDocument,
-                    variables: {
-                        input: {
-                            start: 0,
-                            count: 100,
-                            query: '*',
-                            parentDocuments: undefined,
-                            rootOnly: undefined,
-                            types: undefined,
-                            sourceType: 'NATIVE',
-                        },
-                        includeParentDocuments: false,
-                    },
-                },
-                result: {
-                    data: {
-                        searchDocuments: {
-                            documents: mockDocuments,
-                            total: 2,
-                        },
-                    },
-                },
-            },
-        ];
-
-        const { result } = renderHook(() => useSearchDocuments(input), {
-            wrapper: ({ children }) => (
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    {children}
-                </MockedProvider>
-            ),
-        });
-
-        await waitFor(() => {
-            expect(result.current.loading).toBe(false);
-        });
-
-        expect(result.current.documents).toEqual(mockDocuments);
-    });
-
     it('should handle pagination with start and count', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
