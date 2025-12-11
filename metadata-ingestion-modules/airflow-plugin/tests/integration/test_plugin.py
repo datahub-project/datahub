@@ -329,9 +329,11 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
-        "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
-        if multiple_connections
-        else datahub_connection_name,
+        "AIRFLOW__DATAHUB__CONN_ID": (
+            f"{datahub_connection_name}, {datahub_connection_name_2}"
+            if multiple_connections
+            else datahub_connection_name
+        ),
         "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
@@ -394,9 +396,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
-        "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": "true"
-        if enable_datajob_lineage
-        else "false",
+        "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": (
+            "true" if enable_datajob_lineage else "false"
+        ),
     }
 
     # Configure API authentication based on Airflow version
@@ -534,6 +536,22 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
         # Sleep for a few seconds to make sure the other Airflow processes are ready.
         time.sleep(3)
+
+        # Check for DAG parsing errors in the log file
+        if standalone_log.exists():
+            log_content = standalone_log.read_text()
+            if "Broken DAG" in log_content or "Failed to import" in log_content:
+                print("[DEBUG] Found DAG parsing errors in standalone.log:")
+                # Extract lines with errors
+                error_lines = [
+                    line
+                    for line in log_content.split("\n")
+                    if "Broken DAG" in line
+                    or "Failed to import" in line
+                    or "sqlite_operator" in line.lower()
+                ]
+                for line in error_lines[:10]:  # Show first 10 error lines
+                    print(f"[DEBUG] {line}")
 
         # Create an extra "airflow" user for easy testing.
         # Note: In Airflow 3.0+ the users command is not available by default

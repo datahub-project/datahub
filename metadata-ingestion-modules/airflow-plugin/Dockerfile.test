@@ -45,8 +45,9 @@ COPY . /app/
 # Change to the airflow-plugin directory where tox.ini is located
 WORKDIR /app/metadata-ingestion-modules/airflow-plugin
 
-# Install tox and uv (tox uses uv for faster installations)
-RUN pip install --no-cache-dir tox uv
+# Install tox, uv, and mypy (tox uses uv for faster installations)
+# mypy is needed for type checking in tox environments
+RUN pip install --no-cache-dir tox uv mypy==1.17.1
 
 # Set default tox environment
 ENV TOX_ENV=py311-airflow31
@@ -64,29 +65,49 @@ set -e\n\
 if [ -n "$USER_ID" ] && [ -n "$GROUP_ID" ]; then\n\
   echo "[Entrypoint] Creating testuser with UID=$USER_ID GID=$GROUP_ID"\n\
   \n\
-  # Create group if it does not exist\n\
-  if ! getent group $GROUP_ID > /dev/null 2>&1; then\n\
+  # Check if a group with this GID already exists\n\
+  EXISTING_GROUP=$(getent group $GROUP_ID | cut -d: -f1)\n\
+  if [ -z "$EXISTING_GROUP" ]; then\n\
+    # No group with this GID exists, create one\n\
     groupadd -g $GROUP_ID testgroup\n\
-  fi\n\
-  \n\
-  # Create user with the specified UID/GID\n\
-  if ! id testuser > /dev/null 2>&1; then\n\
-    useradd -u $USER_ID -g $GROUP_ID -d /tmp -s /bin/bash testuser\n\
-  fi\n\
-  \n\
-  # Run tox as the created user using gosu\n\
-  if [ $# -eq 0 ]; then\n\
-    exec gosu testuser tox -e "$TOX_ENV"\n\
-  elif [[ "$1" == py* ]]; then\n\
-    exec gosu testuser tox -e "$@"\n\
+    EXISTING_GROUP=testgroup\n\
   else\n\
-    exec gosu testuser tox -e "$TOX_ENV" -- "$@"\n\
+    echo "[Entrypoint] Using existing group: $EXISTING_GROUP (GID=$GROUP_ID)"\n\
+  fi\n\
+  \n\
+  # Check if a user with this UID already exists\n\
+  EXISTING_USER=$(id -nu $USER_ID 2>/dev/null || true)\n\
+  if [ -z "$EXISTING_USER" ]; then\n\
+    # No user with this UID exists, create one\n\
+    useradd -u $USER_ID -g $GROUP_ID -d /tmp -s /bin/bash testuser\n\
+    EXISTING_USER=testuser\n\
+  fi\n\
+  \n\
+  # Ensure .tox directory will be writable by the user\n\
+  # Instead of fixing permissions on existing .tox (which can be slow),\n\
+  # we'll let tox recreate it if needed, or ensure the parent directory is writable\n\
+  TOX_DIR="/app/metadata-ingestion-modules/airflow-plugin/.tox"\n\
+  TOX_PARENT="/app/metadata-ingestion-modules/airflow-plugin"\n\
+  # Make sure the parent directory is writable so tox can create .tox\n\
+  chown $EXISTING_USER:$EXISTING_GROUP "$TOX_PARENT" 2>/dev/null || true\n\
+  # If .tox exists and is owned by wrong user, remove it to let tox recreate\n\
+  if [ -d "$TOX_DIR" ] && [ "$(stat -c '%U' $TOX_DIR 2>/dev/null)" != "$EXISTING_USER" ]; then\n\
+    rm -rf "$TOX_DIR"\n\
+  fi\n\
+  \n\
+  # Run tox as the created/existing user using gosu\n\
+  if [ $# -eq 0 ]; then\n\
+    exec gosu $EXISTING_USER tox -e "$TOX_ENV"\n\
+  elif [[ "$1" =~ ^py ]]; then\n\
+    exec gosu $EXISTING_USER tox -e "$@"\n\
+  else\n\
+    exec gosu $EXISTING_USER tox -e "$TOX_ENV" -- "$@"\n\
   fi\n\
 else\n\
   # No USER_ID/GROUP_ID provided, run as root (or current user)\n\
   if [ $# -eq 0 ]; then\n\
     exec tox -e "$TOX_ENV"\n\
-  elif [[ "$1" == py* ]]; then\n\
+  elif [[ "$1" =~ ^py ]]; then\n\
     exec tox -e "$@"\n\
   else\n\
     exec tox -e "$TOX_ENV" -- "$@"\n\

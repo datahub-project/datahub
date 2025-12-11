@@ -3,26 +3,51 @@
 import sys
 from unittest import mock
 
+import packaging.version
 import pytest
 
-from datahub_airflow_plugin.airflow2._extractors import (
-    ExtractorManager,
-    TeradataOperatorExtractor,
-)
-from datahub_airflow_plugin.airflow2._openlineage_compat import USE_OPENLINEAGE_PROVIDER
+from datahub_airflow_plugin._airflow_shims import AIRFLOW_VERSION
 
-mock_teradata_module = mock.MagicMock()
-sys.modules["airflow.providers.teradata"] = mock_teradata_module
-sys.modules["airflow.providers.teradata.operators"] = mock_teradata_module
-sys.modules["airflow.providers.teradata.operators.teradata"] = mock_teradata_module
+# Skip all tests for Airflow 3.x since airflow2 extractors are not used
+if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+    pytestmark = pytest.mark.skip(
+        reason="TeradataOperatorExtractor is only used in Airflow 2.x, not Airflow 3.x"
+    )
+    # Define dummy classes to avoid import errors
+    ExtractorManager = None
+    TeradataOperatorExtractor = None
+    USE_OPENLINEAGE_PROVIDER = False
+else:
+    try:
+        from datahub_airflow_plugin.airflow2._extractors import (
+            ExtractorManager,
+            TeradataOperatorExtractor,
+        )
+        from datahub_airflow_plugin.airflow2._openlineage_compat import (
+            USE_OPENLINEAGE_PROVIDER,
+        )
 
+        mock_teradata_module = mock.MagicMock()
+        sys.modules["airflow.providers.teradata"] = mock_teradata_module
+        sys.modules["airflow.providers.teradata.operators"] = mock_teradata_module
+        sys.modules["airflow.providers.teradata.operators.teradata"] = (
+            mock_teradata_module
+        )
 
-# Skip all tests if USE_OPENLINEAGE_PROVIDER is True, since TeradataOperatorExtractor
-# is only registered and used in Legacy OpenLineage environments
-pytestmark = pytest.mark.skipif(
-    USE_OPENLINEAGE_PROVIDER,
-    reason="TeradataOperatorExtractor is only used with Legacy OpenLineage, not OpenLineage Provider",
-)
+        # Skip all tests if USE_OPENLINEAGE_PROVIDER is True, since TeradataOperatorExtractor
+        # is only registered and used in Legacy OpenLineage environments
+        pytestmark = pytest.mark.skipif(
+            USE_OPENLINEAGE_PROVIDER,
+            reason="TeradataOperatorExtractor is only used with Legacy OpenLineage, not OpenLineage Provider",
+        )
+    except (ImportError, ModuleNotFoundError):
+        # If imports fail (e.g., openlineage not installed), skip all tests
+        pytestmark = pytest.mark.skip(
+            reason="airflow2 extractors not available (likely missing openlineage dependency)"
+        )
+        ExtractorManager = None
+        TeradataOperatorExtractor = None
+        USE_OPENLINEAGE_PROVIDER = False
 
 
 class TestTeradataOperatorExtractor:

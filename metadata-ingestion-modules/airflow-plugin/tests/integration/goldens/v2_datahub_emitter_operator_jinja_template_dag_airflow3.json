@@ -164,20 +164,6 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
     "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [],
-            "outputDatasets": [],
-            "inputDatajobs": [],
-            "fineGrainedLineages": []
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_emitter_operator_jinja_template_dag,prod),datahub_emitter_operator_jinja_template_dag_task)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -228,8 +214,8 @@
                 "task_id": "datahub_emitter_operator_jinja_template_dag_task",
                 "dag_id": "datahub_emitter_operator_jinja_template_dag",
                 "end_date": "<end_date>",
-                "max_tries": "0",
                 "operator": "DatahubEmitterOperator",
+                "max_tries": "0",
                 "log_url": "http://airflow.example.com/dags/datahub_emitter_operator_jinja_template_dag/runs/manual_run_test/tasks/datahub_emitter_operator_jinja_template_dag_task?try_number=1",
                 "orchestrator": "airflow"
             },
@@ -237,7 +223,7 @@
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760951257948,
+                "time": 1765379975248,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -262,7 +248,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951257948,
+            "timestampMillis": 1765379975248,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -435,7 +421,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760951261187,
+            "timestampMillis": 1765379975838,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
