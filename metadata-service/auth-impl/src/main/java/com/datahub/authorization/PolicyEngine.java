@@ -51,6 +51,32 @@ public class PolicyEngine {
 
   private final EntityClient _entityClient;
 
+  private static final Set<String> HIERARCHICAL_PRIVILEGES =
+      ImmutableSet.of(
+          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType(),
+          PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_ALL_DOMAIN_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_DOMAIN_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.MANAGE_ALL_DOMAIN_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.MANAGE_DOMAIN_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_GLOSSARY_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE.getType());
+
+  private static final Set<String> DIRECT_PRIVILEGES =
+      ImmutableSet.of(
+          PoliciesConfig.VIEW_DOMAIN_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.MANAGE_DOMAIN_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.VIEW_GLOSSARY_CHILDREN_PRIVILEGE.getType(),
+          PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE.getType());
+
+  private static final Set<String> HIERARCHICAL_ENTITY_TYPES =
+      ImmutableSet.of(
+          Constants.DOMAIN_ENTITY_NAME,
+          Constants.GLOSSARY_NODE_ENTITY_NAME,
+          Constants.GLOSSARY_TERM_ENTITY_NAME);
+
   public PolicyEvaluationResult evaluatePolicy(
       @Nonnull OperationContext opContext,
       final DataHubPolicyInfo policy,
@@ -60,6 +86,7 @@ public class PolicyEngine {
       final List<ResolvedEntitySpec> subResources) {
 
     final PolicyEvaluationContext context = new PolicyEvaluationContext();
+    context.setPrivilege(privilege);
     log.debug("Evaluating policy {}", policy.getDisplayName());
 
     // If the privilege is not in scope, deny the request.
@@ -140,7 +167,7 @@ public class PolicyEngine {
     }
 
     // If the resource is not in scope, deny the request.
-    if (!isResourceMatch(policy.getType(), policy.getResources(), resource)) {
+    if (!isResourceMatch(policy.getType(), policy.getResources(), resource, context)) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Resource does not match");
     }
 
@@ -208,6 +235,14 @@ public class PolicyEngine {
       final String policyType,
       final @Nullable DataHubResourceFilter policyResourceFilter,
       final Optional<ResolvedEntitySpec> requestResource) {
+    return isResourceMatch(policyType, policyResourceFilter, requestResource, null);
+  }
+
+  private boolean isResourceMatch(
+      final String policyType,
+      final @Nullable DataHubResourceFilter policyResourceFilter,
+      final Optional<ResolvedEntitySpec> requestResource,
+      final PolicyEvaluationContext context) {
     if (PoliciesConfig.PLATFORM_POLICY_TYPE.equals(policyType)) {
       // Currently, platform policies have no associated resource.
       return true;
@@ -221,7 +256,9 @@ public class PolicyEngine {
       return false;
     }
     final PolicyMatchFilter filter = getFilter(policyResourceFilter);
-    return checkFilter(filter, requestResource.get());
+    return context != null
+        ? checkFilter(filter, requestResource.get(), context)
+        : checkFilter(filter, requestResource.get());
   }
 
   private boolean isSubResourceAllowed(
@@ -274,11 +311,22 @@ public class PolicyEngine {
   }
 
   private boolean checkFilter(final PolicyMatchFilter filter, final ResolvedEntitySpec resource) {
-    return filter.getCriteria().stream().allMatch(criterion -> checkCriterion(criterion, resource));
+    return filter.getCriteria().stream()
+        .allMatch(criterion -> checkCriterion(criterion, resource, null));
+  }
+
+  private boolean checkFilter(
+      final PolicyMatchFilter filter,
+      final ResolvedEntitySpec resource,
+      PolicyEvaluationContext context) {
+    return filter.getCriteria().stream()
+        .allMatch(criterion -> checkCriterion(criterion, resource, context));
   }
 
   private boolean checkCriterion(
-      final PolicyMatchCriterion criterion, final ResolvedEntitySpec resource) {
+      final PolicyMatchCriterion criterion,
+      final ResolvedEntitySpec resource,
+      PolicyEvaluationContext context) {
     EntityFieldType entityFieldType;
     try {
       entityFieldType = EntityFieldType.valueOf(criterion.getField().toUpperCase());
@@ -288,7 +336,74 @@ public class PolicyEngine {
     }
 
     Set<String> fieldValues = resource.getFieldValues(entityFieldType);
-    return checkCondition(fieldValues, criterion.getValues(), criterion.getCondition());
+    boolean matches = checkCondition(fieldValues, criterion.getValues(), criterion.getCondition());
+
+    if (!matches
+        && context != null
+        && shouldCheckParentField(entityFieldType, resource, context.getPrivilege())) {
+      EntityFieldType parentFieldType = getParentFieldType(entityFieldType, resource);
+      if (parentFieldType != null) {
+        Set<String> parentFieldValues = resource.getFieldValues(parentFieldType);
+
+        if (DIRECT_PRIVILEGES.contains(context.getPrivilege()) && !parentFieldValues.isEmpty()) {
+          parentFieldValues = Collections.singleton(parentFieldValues.iterator().next());
+        }
+
+        matches =
+            checkCondition(parentFieldValues, criterion.getValues(), criterion.getCondition());
+      }
+    }
+
+    return matches;
+  }
+
+  private boolean shouldCheckParentField(
+      EntityFieldType fieldType, ResolvedEntitySpec resource, String privilege) {
+    String entityType = resource.getSpec().getType();
+
+    if (!HIERARCHICAL_ENTITY_TYPES.contains(entityType)) {
+      return false;
+    }
+
+    // For hierarchical entities, check parent field in two cases:
+    // 1. When matching on URN/RESOURCE_URN with hierarchical privileges
+    if ((fieldType == EntityFieldType.RESOURCE_URN || fieldType == EntityFieldType.URN)
+        && privilege != null
+        && isHierarchicalPrivilege(privilege)) {
+      return true;
+    }
+
+    // 2. When matching on DOMAIN field for Domain entities (from "Select Domains" filter)
+    if (fieldType == EntityFieldType.DOMAIN && Constants.DOMAIN_ENTITY_NAME.equals(entityType)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean isHierarchicalPrivilege(String privilege) {
+    return HIERARCHICAL_PRIVILEGES.contains(privilege);
+  }
+
+  private EntityFieldType getParentFieldType(
+      EntityFieldType fieldType, ResolvedEntitySpec resource) {
+    String entityType = resource.getSpec().getType();
+
+    if (Constants.DOMAIN_ENTITY_NAME.equals(entityType)) {
+      return EntityFieldType.PARENT_DOMAIN;
+    } else if (Constants.GLOSSARY_NODE_ENTITY_NAME.equals(entityType)
+        || Constants.GLOSSARY_TERM_ENTITY_NAME.equals(entityType)) {
+      return EntityFieldType.PARENT_GLOSSARY_NODE;
+    }
+
+    return null;
+  }
+
+  private EntityFieldType getParentFieldType(EntityFieldType originalFieldType) {
+    if (originalFieldType == EntityFieldType.DOMAIN) {
+      return EntityFieldType.PARENT_DOMAIN;
+    }
+    return null;
   }
 
   private boolean checkCondition(
@@ -569,6 +684,7 @@ public class PolicyEngine {
   static class PolicyEvaluationContext {
     private Set<String> groups;
     private Set<Urn> roles;
+    private String privilege;
 
     public void setGroups(Set<String> groups) {
       this.groups = groups;
@@ -576,6 +692,14 @@ public class PolicyEngine {
 
     public void setRoles(Set<Urn> roles) {
       this.roles = roles;
+    }
+
+    public void setPrivilege(String privilege) {
+      this.privilege = privilege;
+    }
+
+    public String getPrivilege() {
+      return this.privilege;
     }
   }
 

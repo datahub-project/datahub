@@ -13,7 +13,7 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -73,7 +73,7 @@ public class ParentGlossaryNodeFieldResolverProvider implements EntityFieldResol
 
   private Set<Urn> collectParentNodeUrns(
       @Nonnull OperationContext opContext, @Nonnull Urn startUrn, @Nonnull String startType) {
-    Set<Urn> parentNodeUrns = new HashSet<>();
+    Set<Urn> parentNodeUrns = new LinkedHashSet<>();
     Urn currentUrn = startUrn;
     String currentType = startType;
 

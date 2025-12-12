@@ -316,6 +316,15 @@ These privileges are not generalizable.
 | Domain | View Direct Domain Children   | Allow actor to view the direct child domains of this domain               |
 | Domain | View All Domain Children      | Allow actor to view all child domains underneath this domain              |
 
+**Note on Automatic Hierarchical Matching:**
+
+When you create a policy with one of the hierarchical domain privileges above (`View All Domain Children`, `Manage All Domain Children`, `View Direct Domain Children`, `Manage Direct Domain Children`) and select a parent domain as the resource, the policy **automatically applies to all descendant domains** at any depth (child, grandchild, great-grandchild, etc.). No manual configuration is required.
+
+For example:
+
+- Policy: Grant `View All Domain Children` on "Finance Domain"
+- Automatically grants view access to: Finance Domain itself, all direct children (e.g., Finance-US), all grandchildren (e.g., Finance-US-California), and so on through unlimited hierarchy levels.
+
 **Note on Transitive Permissions to Domain Contents:**
 
 The domain privileges above control access to domain entities themselves. To grant access to **datasets, dashboards, and other entities** within a domain hierarchy, use a separate policy with `View Entity Page` privilege and a domain-based resource filter:
@@ -337,6 +346,15 @@ This will automatically grant view access to all entities in the `finance` domai
 | GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity  |
 | GlossaryNode | View Direct Glossary Children   | Allow actor to view the direct children of this entity              |
 | GlossaryNode | View All Glossary Children      | Allow actor to view everything underneath this entity               |
+
+**Note on Automatic Hierarchical Matching:**
+
+When you create a policy with one of the hierarchical glossary privileges above (`View All Glossary Children`, `Manage All Glossary Children`, `View Direct Glossary Children`, `Manage Direct Glossary Children`) and select a parent glossary node as the resource, the policy **automatically applies to all descendant glossary nodes and terms** at any depth. No manual configuration is required.
+
+For example:
+
+- Policy: Grant `View All Glossary Children` on "Products Glossary"
+- Automatically grants view access to: Products Glossary itself, all child glossary nodes, all grandchild nodes, and all glossary terms within the hierarchy.
 
 **Note:** The glossary privileges above control access to glossary term and node entities themselves, enabling hierarchical visibility control within the glossary structure.
 

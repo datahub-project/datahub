@@ -12,7 +12,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -66,7 +66,7 @@ public class ParentDomainFieldResolverProvider implements EntityFieldResolverPro
 
   private Set<Urn> collectParentDomainUrns(
       @Nonnull OperationContext opContext, @Nonnull Urn startUrn) {
-    Set<Urn> parentDomainUrns = new HashSet<>();
+    Set<Urn> parentDomainUrns = new LinkedHashSet<>();
     Urn currentUrn = startUrn;
 
     while (currentUrn != null) {

@@ -36,9 +36,6 @@ public class GlossaryUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
-  // Returns whether this is a glossary entity and whether you can edit this glossary entity with
-  // the
-  // Manage all children or Manage direct children privileges
   public static boolean canUpdateGlossaryEntity(
       Urn targetUrn, QueryContext context, EntityClient entityClient) {
     final boolean isGlossaryEntity =

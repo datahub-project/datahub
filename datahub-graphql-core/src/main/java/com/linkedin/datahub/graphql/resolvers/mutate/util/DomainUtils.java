@@ -213,7 +213,6 @@ public class DomainUtils {
       return true;
     }
 
-    // Check if it's a domain entity and handle with recursive permissions
     if (entityUrn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME)) {
       return canUpdateDomainEntity(entityUrn, context, entityClient);
     }
