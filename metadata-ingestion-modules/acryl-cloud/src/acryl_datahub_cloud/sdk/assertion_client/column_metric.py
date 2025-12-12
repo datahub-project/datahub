@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion.assertion_base import (
-    _AssertionPublic,
+    AssertionMode,
     _HasColumnMetricFunctionality,
 )
 from acryl_datahub_cloud.sdk.assertion.column_metric_assertion import (
@@ -20,7 +20,6 @@ from acryl_datahub_cloud.sdk.assertion_client.helpers import (
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehaviorInputTypes,
     DetectionMechanismInputTypes,
-    _AssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertion_input.column_metric_assertion_input import (
     ColumnMetricAssertionParameters,
@@ -80,30 +79,21 @@ class ColumnMetricAssertionClient:
 
     def _retrieve_assertion_and_monitor(
         self,
-        assertion_input: Union[_AssertionInput, dict],
+        urn: Union[str, AssertionUrn],
+        dataset_urn: Union[str, DatasetUrn],
     ) -> tuple[Optional[Assertion], MonitorUrn, Optional[Monitor]]:
         """Retrieve the assertion and monitor entities from the DataHub instance.
 
         Args:
-            assertion_input: The validated input to the function or minimal lookup info.
+            urn: The assertion URN.
+            dataset_urn: The dataset URN.
 
         Returns:
             The assertion and monitor entities.
         """
-        # Extract URN and dataset URN from input
-        _urn: Union[str, AssertionUrn]
-        _dataset_urn: Union[str, DatasetUrn]
-        if isinstance(assertion_input, dict):
-            _urn = assertion_input["urn"]
-            _dataset_urn = assertion_input["dataset_urn"]
-        else:
-            assert assertion_input.urn is not None, "URN is required"
-            _urn = assertion_input.urn
-            _dataset_urn = assertion_input.dataset_urn
+        return retrieve_assertion_and_monitor_by_urn(self.client, urn, dataset_urn)
 
-        return retrieve_assertion_and_monitor_by_urn(self.client, _urn, _dataset_urn)
-
-    def sync_column_metric_assertion(  # noqa: C901  # TODO: Refactor
+    def sync_column_metric_assertion(
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
@@ -120,85 +110,7 @@ class ColumnMetricAssertionClient:
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
     ) -> ColumnMetricAssertion:
-        """Upsert and merge a column metric assertion.
-
-        Note:
-            Keyword arguments are required.
-
-        Upsert and merge is a combination of create and update. If the assertion does not exist,
-        it will be created. If it does exist, it will be updated.
-
-        Existing assertion fields will be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
-        empty string), it will be unset.
-
-        Schedule behavior:
-            - Create case: Uses default schedule of every 6 hours or provided schedule
-            - Update case: Uses existing schedule or provided schedule.
-
-        Examples:
-            # Using enum values (recommended for type safety)
-            from acryl_datahub_cloud.sdk.assertion_input.column_metric_constants import MetricType, OperatorType
-            client.sync_column_metric_assertion(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
-                column_name="user_id",
-                metric_type=MetricType.NULL_COUNT,
-                operator=OperatorType.GREATER_THAN,
-                criteria_parameters=10
-            )
-
-            # Using case-insensitive strings (more flexible)
-            client.sync_column_metric_assertion(
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)",
-                column_name="price",
-                metric_type="mean",
-                operator="between",
-                criteria_parameters=(100.0, 500.0)
-            )
-
-        Args:
-            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
-            column_name (Optional[str]): The name of the column to be monitored. Required for creation, optional for updates.
-            metric_type (Optional[MetricInputType]): The type of the metric to be monitored. Required for creation, optional for updates. Valid values are:
-                - Using MetricType enum: MetricType.NULL_COUNT, MetricType.NULL_PERCENTAGE, MetricType.UNIQUE_COUNT,
-                  MetricType.UNIQUE_PERCENTAGE, MetricType.MAX_LENGTH, MetricType.MIN_LENGTH, MetricType.EMPTY_COUNT,
-                  MetricType.EMPTY_PERCENTAGE, MetricType.MIN, MetricType.MAX, MetricType.MEAN, MetricType.MEDIAN,
-                  MetricType.STDDEV, MetricType.NEGATIVE_COUNT, MetricType.NEGATIVE_PERCENTAGE, MetricType.ZERO_COUNT,
-                  MetricType.ZERO_PERCENTAGE
-                - Using case-insensitive strings: "null_count", "MEAN", "Max_Length", etc.
-                - Using models enum: models.FieldMetricTypeClass.NULL_COUNT, etc. (import with: from datahub.metadata import schema_classes as models)
-            operator (Optional[OperatorInputType]): The operator to be used for the assertion. Required for creation, optional for updates. Valid values are:
-                - Using OperatorType enum: OperatorType.EQUAL_TO, OperatorType.NOT_EQUAL_TO, OperatorType.GREATER_THAN,
-                  OperatorType.GREATER_THAN_OR_EQUAL_TO, OperatorType.LESS_THAN, OperatorType.LESS_THAN_OR_EQUAL_TO,
-                  OperatorType.BETWEEN, OperatorType.IN, OperatorType.NOT_IN, OperatorType.NULL, OperatorType.NOT_NULL,
-                  OperatorType.IS_TRUE, OperatorType.IS_FALSE, OperatorType.CONTAIN, OperatorType.END_WITH,
-                  OperatorType.START_WITH, OperatorType.REGEX_MATCH
-                - Using case-insensitive strings: "equal_to", "not_equal_to", "greater_than", "greater_than_or_equal_to",
-                  "less_than", "less_than_or_equal_to", "between", "in", "not_in", "null", "not_null", "is_true",
-                  "is_false", "contain", "end_with", "start_with", "regex_match"
-                - Using models enum: models.AssertionStdOperatorClass.EQUAL_TO, models.AssertionStdOperatorClass.GREATER_THAN, etc.
-            criteria_parameters (Optional[ColumnMetricAssertionParameters]): The criteria parameters for the assertion. Required for creation (except for operators that don't need parameters), optional for updates.
-                - Single value operators (EQUAL_TO, NOT_EQUAL_TO, GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO, CONTAIN, END_WITH, START_WITH, REGEX_MATCH): pass a single number or string
-                - Range operators (BETWEEN): pass a tuple of two numbers (min_value, max_value)
-                - List operators (IN, NOT_IN): pass a list of values
-                - No parameter operators (NULL, NOT_NULL, IS_TRUE, IS_FALSE): pass None or omit this parameter
-            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
-            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
-            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
-            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Valid values are (additional_filter is optional):
-                - "all_rows_query_datahub_dataset_profile" or DetectionMechanism.ALL_ROWS_QUERY_DATAHUB_DATASET_PROFILE
-                - "all_rows_query" or DetectionMechanism.ALL_ROWS_QUERY(), or with additional_filter: {"type": "all_rows_query", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.ALL_ROWS_QUERY(additional_filter='last_modified > 2021-01-01')
-                - {"type": "changed_rows_query", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.CHANGED_ROWS_QUERY(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
-            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass", or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
-            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
-            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-            schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
-
-        Returns:
-            ColumnMetricAssertion: The created or updated assertion.
-        """
         now_utc = datetime.now(timezone.utc)
-        gms_criteria_type_info = None
 
         if updated_by is None:
             logger.warning(
@@ -206,8 +118,61 @@ class ColumnMetricAssertionClient:
             )
             updated_by = DEFAULT_CREATED_BY
 
-        # 1. If urn is not set, create a new assertion
+        # 1. Retrieve and merge the assertion input with any existing assertion and monitor entities,
+        # or build a new assertion input if the assertion does not exist:
+        assertion_input = self._retrieve_and_merge_column_metric_assertion_and_monitor(
+            dataset_urn=dataset_urn,
+            urn=urn,
+            column_name=column_name,
+            metric_type=metric_type,
+            operator=operator,
+            criteria_parameters=criteria_parameters,
+            display_name=display_name,
+            enabled=enabled,
+            detection_mechanism=detection_mechanism,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            updated_by=updated_by,
+            now_utc=now_utc,
+            schedule=schedule,
+        )
+
+        # 2. Upsert the assertion and monitor entities:
+        assertion_entity, monitor_entity = (
+            assertion_input.to_assertion_and_monitor_entities()
+        )
+        # If assertion upsert fails, we won't try to upsert the monitor
+        self.client.entities.upsert(assertion_entity)
+        # TODO: Wrap monitor upsert in a try-except and delete the assertion if monitor upsert fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
+        # try:
+        self.client.entities.upsert(monitor_entity)
+        # except Exception as e:
+        #     logger.error(f"Error upserting monitor: {e}")
+        #     self.client.entities.delete(assertion_entity)
+        #     raise e
+
+        return ColumnMetricAssertion._from_entities(assertion_entity, monitor_entity)
+
+    def _retrieve_and_merge_column_metric_assertion_and_monitor(
+        self,
+        dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]],
+        column_name: Optional[str],
+        metric_type: Optional[MetricInputType],
+        operator: Optional[OperatorInputType],
+        criteria_parameters: Optional[ColumnMetricAssertionParameters],
+        display_name: Optional[str],
+        enabled: Optional[bool],
+        detection_mechanism: DetectionMechanismInputTypes,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
+        tags: Optional[TagsInputType],
+        updated_by: Union[str, CorpUserUrn],
+        now_utc: datetime,
+        schedule: Optional[Union[str, models.CronScheduleClass]],
+    ) -> _ColumnMetricAssertionInput:
+        # 1. If urn is not provided, validate required fields and build a new assertion input directly
         if urn is None:
+            logger.info("URN is not set, building a new assertion input")
             self._validate_required_column_fields_for_creation(
                 column_name, metric_type, operator
             )
@@ -216,8 +181,9 @@ class ColumnMetricAssertionClient:
                 and metric_type is not None
                 and operator is not None
             ), "Fields guaranteed non-None after validation"
-            logger.info("URN is not set, creating a new assertion")
-            return self._create_column_metric_assertion(
+            return _ColumnMetricAssertionInput(
+                urn=None,
+                entity_client=self.client.entities,
                 dataset_urn=dataset_urn,
                 column_name=column_name,
                 metric_type=metric_type,
@@ -229,83 +195,79 @@ class ColumnMetricAssertionClient:
                 incident_behavior=incident_behavior,
                 tags=tags,
                 created_by=updated_by,
+                created_at=now_utc,
+                updated_by=updated_by,
+                updated_at=now_utc,
                 schedule=schedule,
+                gms_criteria_type_info=None,
             )
 
-        # 2.1 If urn is set, fetch missing required parameters from backend if needed:
-        # NOTE: This is a tactical solution. The problem is we fetch twice (once for validation,
-        # once for merge). Strategic solution would be to merge first, then validate after,
-        # but that requires heavy refactor and is skipped for now.
-        if urn is not None and (
-            column_name is None
-            or metric_type is None
-            or operator is None
-            or criteria_parameters is None
-        ):
-            # Fetch existing assertion to get missing required parameters
-            maybe_assertion_entity, _, maybe_monitor_entity = (
-                self._retrieve_assertion_and_monitor(
-                    {"dataset_urn": dataset_urn, "urn": urn}
-                )
-            )
+        # 2. Retrieve any existing assertion and monitor entities:
+        maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
+            self._retrieve_assertion_and_monitor(urn, dataset_urn)
+        )
 
-            if maybe_assertion_entity is not None:
-                assertion_info = maybe_assertion_entity.info
+        # 3. Extract missing required fields and gms_criteria_type_info from existing assertion if available
+        gms_criteria_type_info = None
+        if maybe_assertion_entity is not None:
+            assertion_info = maybe_assertion_entity.info
+            if (
+                hasattr(assertion_info, "fieldMetricAssertion")
+                and assertion_info.fieldMetricAssertion
+            ):
+                field_metric_assertion = assertion_info.fieldMetricAssertion
+                # Use existing values for missing required parameters
                 if (
-                    hasattr(assertion_info, "fieldMetricAssertion")
-                    and assertion_info.fieldMetricAssertion
+                    column_name is None
+                    and hasattr(field_metric_assertion, "field")
+                    and hasattr(field_metric_assertion.field, "path")
                 ):
-                    field_metric_assertion = assertion_info.fieldMetricAssertion
-                    # Use existing values for missing required parameters
-                    if (
-                        column_name is None
-                        and hasattr(field_metric_assertion, "field")
-                        and hasattr(field_metric_assertion.field, "path")
+                    column_name = field_metric_assertion.field.path
+                if metric_type is None and hasattr(field_metric_assertion, "metric"):
+                    metric_type = field_metric_assertion.metric
+                if operator is None and hasattr(field_metric_assertion, "operator"):
+                    operator = field_metric_assertion.operator
+                if criteria_parameters is None and hasattr(
+                    field_metric_assertion, "parameters"
+                ):
+                    # Extract criteria_parameters from existing assertion
+                    params = field_metric_assertion.parameters
+                    if params and hasattr(params, "value") and params.value:
+                        criteria_parameters = params.value.value
+                    elif (
+                        params
+                        and hasattr(params, "minValue")
+                        and hasattr(params, "maxValue")
+                        and params.minValue
+                        and params.maxValue
                     ):
-                        column_name = field_metric_assertion.field.path
-                    if metric_type is None and hasattr(
-                        field_metric_assertion, "metric"
-                    ):
-                        metric_type = field_metric_assertion.metric
-                    if operator is None and hasattr(field_metric_assertion, "operator"):
-                        operator = field_metric_assertion.operator
-                    if criteria_parameters is None and hasattr(
-                        field_metric_assertion, "parameters"
-                    ):
-                        # Extract criteria_parameters from existing assertion
-                        # This logic should match the parameter extraction in the assertion input class
-                        params = field_metric_assertion.parameters
-                        if params and hasattr(params, "value") and params.value:
-                            criteria_parameters = params.value.value
-                        elif (
-                            params
-                            and hasattr(params, "minValue")
-                            and hasattr(params, "maxValue")
-                            and params.minValue
-                            and params.maxValue
-                        ):
-                            criteria_parameters = (
-                                params.minValue.value,
-                                params.maxValue.value,
-                            )
+                        criteria_parameters = (
+                            params.minValue.value,
+                            params.maxValue.value,
+                        )
 
-                # Extract gms_criteria_type_info to preserve original parameter types
-                gms_criteria_type_info = (
-                    _HasColumnMetricFunctionality._get_criteria_parameters_with_type(
-                        maybe_assertion_entity
-                    )
+            # Extract gms_criteria_type_info to preserve original parameter types
+            gms_criteria_type_info = (
+                _HasColumnMetricFunctionality._get_criteria_parameters_with_type(
+                    maybe_assertion_entity
                 )
+            )
 
+        # 4. Build initial assertion input for validation
+        # Note: If assertion doesn't exist, we still need to validate required fields
+        if maybe_assertion_entity is None:
+            self._validate_required_column_fields_for_creation(
+                column_name, metric_type, operator
+            )
+        else:
             self._validate_required_column_fields_for_update(
                 column_name, metric_type, operator, urn
             )
-            assert (
-                column_name is not None
-                and metric_type is not None
-                and operator is not None
-            ), "Fields guaranteed non-None after validation"
 
-        # 2.2 Now validate the input with all required parameters:
+        assert (
+            column_name is not None and metric_type is not None and operator is not None
+        ), "Fields guaranteed non-None after validation"
+
         assertion_input = _ColumnMetricAssertionInput(
             urn=urn,
             entity_client=self.client.entities,
@@ -326,169 +288,12 @@ class ColumnMetricAssertionClient:
             gms_criteria_type_info=gms_criteria_type_info,
         )
 
-        # 3. Merge the assertion input with the existing assertion and monitor entities or create a new assertion
-        # if the assertion does not exist:
-        merged_assertion_input_or_created_assertion = (
-            self._retrieve_and_merge_column_metric_assertion_and_monitor(
-                assertion_input=assertion_input,
-                dataset_urn=dataset_urn,
-                column_name=column_name,
-                metric_type=metric_type,
-                operator=operator,
-                criteria_parameters=criteria_parameters,
-                urn=urn,
-                display_name=display_name,
-                enabled=enabled,
-                detection_mechanism=detection_mechanism,
-                incident_behavior=incident_behavior,
-                tags=tags,
-                updated_by=updated_by,
-                now_utc=now_utc,
-                schedule=schedule,
-            )
-        )
-
-        # Return early if we created a new assertion in the merge:
-        if isinstance(merged_assertion_input_or_created_assertion, _AssertionPublic):
-            # We know this is the correct type because we passed the assertion_class parameter
-            assert isinstance(
-                merged_assertion_input_or_created_assertion, ColumnMetricAssertion
-            )
-            return merged_assertion_input_or_created_assertion
-
-        # 4. Upsert the assertion and monitor entities:
-        assertion_entity, monitor_entity = (
-            merged_assertion_input_or_created_assertion.to_assertion_and_monitor_entities()
-        )
-        # If assertion upsert fails, we won't try to upsert the monitor
-        self.client.entities.upsert(assertion_entity)
-        # TODO: Wrap monitor upsert in a try-except and delete the assertion if monitor upsert fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
-        # try:
-        self.client.entities.upsert(monitor_entity)
-        # except Exception as e:
-        #     logger.error(f"Error upserting monitor: {e}")
-        #     self.client.entities.delete(assertion_entity)
-        #     raise e
-
-        return ColumnMetricAssertion._from_entities(assertion_entity, monitor_entity)
-
-    def _create_column_metric_assertion(
-        self,
-        *,
-        dataset_urn: Union[str, DatasetUrn],
-        urn: Optional[Union[str, AssertionUrn]] = None,
-        column_name: str,
-        metric_type: MetricInputType,
-        operator: OperatorInputType,
-        criteria_parameters: Optional[ColumnMetricAssertionParameters] = None,
-        display_name: Optional[str] = None,
-        enabled: bool = True,
-        detection_mechanism: DetectionMechanismInputTypes = None,
-        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
-        tags: Optional[TagsInputType] = None,
-        created_by: Optional[Union[str, CorpUserUrn]] = None,
-        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
-    ) -> ColumnMetricAssertion:
-        """Create a column metric assertion.
-
-        Note: keyword arguments are required.
-
-        Args:
-            dataset_urn: The urn of the dataset to be monitored. (Required)
-            column_name: The name of the column to be monitored. (Required)
-            metric_type: The type of the metric to be monitored. (Required)
-            operator: The operator to be used for the assertion. (Required)
-            criteria_parameters: The criteria parameters for the assertion. Required for most operators.
-            display_name: The display name of the assertion. If not provided, a random display
-                name will be generated.
-            enabled: Whether the assertion is enabled. Defaults to True.
-            detection_mechanism: The detection mechanism to be used for the assertion.
-            incident_behavior: The incident behavior to be applied to the assertion.
-            tags: The tags to be applied to the assertion.
-            created_by: Optional urn of the user who created the assertion.
-            schedule: Optional cron formatted schedule for the assertion.
-
-        Returns:
-            ColumnMetricAssertion: The created assertion.
-        """
-        now_utc = datetime.now(timezone.utc)
-        if created_by is None:
-            logger.warning(
-                f"Created by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
-            )
-            created_by = DEFAULT_CREATED_BY
-        assertion_input = _ColumnMetricAssertionInput(
-            urn=urn,
-            entity_client=self.client.entities,
-            dataset_urn=dataset_urn,
-            column_name=column_name,
-            metric_type=metric_type,
-            operator=operator,
-            criteria_parameters=criteria_parameters,
-            display_name=display_name,
-            enabled=enabled,
-            detection_mechanism=detection_mechanism,
-            incident_behavior=incident_behavior,
-            tags=tags,
-            created_by=created_by,
-            created_at=now_utc,
-            updated_by=created_by,
-            updated_at=now_utc,
-            schedule=schedule,
-            gms_criteria_type_info=None,
-        )
-        assertion_entity, monitor_entity = (
-            assertion_input.to_assertion_and_monitor_entities()
-        )
-        # If assertion creation fails, we won't try to create the monitor
-        self.client.entities.create(assertion_entity)
-        # TODO: Wrap monitor creation in a try-except and delete the assertion if monitor creation fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
-        # try:
-        self.client.entities.create(monitor_entity)
-        # except Exception as e:
-        #     logger.error(f"Error creating monitor: {e}")
-        #     self.client.entities.delete(assertion_entity)
-        #     raise e
-        return ColumnMetricAssertion._from_entities(assertion_entity, monitor_entity)
-
-    def _retrieve_and_merge_column_metric_assertion_and_monitor(
-        self,
-        assertion_input: _ColumnMetricAssertionInput,
-        dataset_urn: Union[str, DatasetUrn],
-        column_name: str,
-        metric_type: MetricInputType,
-        operator: OperatorInputType,
-        criteria_parameters: Optional[ColumnMetricAssertionParameters],
-        urn: Union[str, AssertionUrn],
-        display_name: Optional[str],
-        enabled: Optional[bool],
-        detection_mechanism: DetectionMechanismInputTypes,
-        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
-        tags: Optional[TagsInputType],
-        updated_by: Optional[Union[str, CorpUserUrn]],
-        now_utc: datetime,
-        schedule: Optional[Union[str, models.CronScheduleClass]],
-    ) -> Union[ColumnMetricAssertion, _ColumnMetricAssertionInput]:
-        # 1. Retrieve any existing assertion and monitor entities:
-        maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
-            self._retrieve_assertion_and_monitor(assertion_input)
-        )
-
-        # Extract gms_criteria_type_info from existing assertion if available
-        gms_criteria_type_info = None
-        if maybe_assertion_entity is not None:
-            gms_criteria_type_info = (
-                _HasColumnMetricFunctionality._get_criteria_parameters_with_type(
-                    maybe_assertion_entity
-                )
-            )
-
-        # 2.1 If the assertion and monitor entities exist, create an assertion object from them:
+        # 5.1 If the assertion and monitor entities exist, create an assertion object from them:
         if maybe_assertion_entity and maybe_monitor_entity:
             existing_assertion = ColumnMetricAssertion._from_entities(
                 maybe_assertion_entity, maybe_monitor_entity
             )
-        # 2.2 If the assertion exists but the monitor does not, create a placeholder monitor entity to be able to create the assertion:
+        # 5.2 If the assertion exists but the monitor does not, create a placeholder monitor entity to be able to create the assertion:
         elif maybe_assertion_entity and not maybe_monitor_entity:
             monitor_mode = (
                 "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
@@ -497,28 +302,33 @@ class ColumnMetricAssertionClient:
                 maybe_assertion_entity,
                 Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
             )
-        # 2.3 If the assertion does not exist, create a new assertion with a generated urn and return the assertion input:
+        # 5.3 If the assertion does not exist, build and return a new assertion input:
         elif not maybe_assertion_entity:
             logger.info(
-                f"No existing assertion entity found for assertion urn {urn}, creating a new assertion with a generated urn"
+                f"No existing assertion entity found for assertion urn {urn}, building a new assertion input"
             )
-            return self._create_column_metric_assertion(
-                dataset_urn=dataset_urn,
+            return _ColumnMetricAssertionInput(
                 urn=urn,
+                entity_client=self.client.entities,
+                dataset_urn=dataset_urn,
                 column_name=column_name,
                 metric_type=metric_type,
                 operator=operator,
                 criteria_parameters=criteria_parameters,
-                schedule=schedule,
                 display_name=display_name,
+                enabled=enabled if enabled is not None else True,
                 detection_mechanism=detection_mechanism,
                 incident_behavior=incident_behavior,
                 tags=tags,
                 created_by=updated_by,
-                enabled=enabled if enabled is not None else True,
+                created_at=now_utc,
+                updated_by=updated_by,
+                updated_at=now_utc,
+                schedule=schedule,
+                gms_criteria_type_info=None,
             )
 
-        # 3. Check for any issues e.g. different dataset urns
+        # 6. Check for any issues e.g. different dataset urns
         if (
             existing_assertion
             and hasattr(existing_assertion, "dataset_urn")
@@ -528,7 +338,7 @@ class ColumnMetricAssertionClient:
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )
 
-        # 4. Merge the existing assertion with the validated input:
+        # 7. Merge the existing assertion with the validated input:
         merged_assertion_input = self._merge_column_metric_input(
             dataset_urn=dataset_urn,
             column_name=column_name,
@@ -552,7 +362,7 @@ class ColumnMetricAssertionClient:
 
         return merged_assertion_input
 
-    def _merge_column_metric_input(  # TODO: Refactor
+    def _merge_column_metric_input(
         self,
         dataset_urn: Union[str, DatasetUrn],
         column_name: str,
@@ -573,77 +383,32 @@ class ColumnMetricAssertionClient:
         existing_assertion: ColumnMetricAssertion,
         gms_criteria_type_info: Optional[tuple] = None,
     ) -> _ColumnMetricAssertionInput:
-        """Merge the validated assertion input with the existing assertion to create an upsert."""
+        """Merge the input with the existing assertion and monitor entities.
 
-        # Extract existing values from entities for merging
-        existing_display_name = None
-        existing_enabled = None
-        existing_schedule = None
-        existing_detection_mechanism = None
-        existing_incident_behavior = None
-        existing_tags = None
+        Args:
+            dataset_urn: The urn of the dataset to be monitored.
+            column_name: The name of the column to be monitored.
+            metric_type: The type of the metric to be monitored.
+            operator: The operator to be used for the assertion.
+            criteria_parameters: The criteria parameters for the assertion.
+            urn: The urn of the assertion.
+            display_name: The display name of the assertion.
+            enabled: Whether the assertion is enabled.
+            schedule: The schedule to be applied to the assertion.
+            detection_mechanism: The detection mechanism to be used for the assertion.
+            incident_behavior: The incident behavior to be applied to the assertion.
+            tags: The tags to be applied to the assertion.
+            now_utc: The current UTC time from when the function is called.
+            assertion_input: The validated input to the function.
+            maybe_assertion_entity: The existing assertion entity from the DataHub instance.
+            maybe_monitor_entity: The existing monitor entity from the DataHub instance.
+            existing_assertion: The existing assertion from the DataHub instance.
+            gms_criteria_type_info: The criteria type info from the existing assertion.
 
-        if maybe_assertion_entity and maybe_assertion_entity.info:
-            if hasattr(maybe_assertion_entity.info, "displayName"):
-                existing_display_name = maybe_assertion_entity.info.displayName
-            if hasattr(maybe_assertion_entity.info, "tags"):
-                existing_tags = maybe_assertion_entity.info.tags
-
-        if maybe_monitor_entity and maybe_monitor_entity.info:
-            if (
-                hasattr(maybe_monitor_entity.info, "status")
-                and maybe_monitor_entity.info.status
-            ):
-                existing_enabled = maybe_monitor_entity.info.status == "ACTIVE"
-            if (
-                hasattr(maybe_monitor_entity.info, "config")
-                and maybe_monitor_entity.info.config
-            ):
-                if hasattr(maybe_monitor_entity.info.config, "schedule"):
-                    existing_schedule = maybe_monitor_entity.info.config.schedule
-                if hasattr(maybe_monitor_entity.info.config, "executorId"):
-                    existing_detection_mechanism = (
-                        maybe_monitor_entity.info.config.executorId
-                    )
-                if hasattr(maybe_monitor_entity.info.config, "actions"):
-                    existing_incident_behavior = (
-                        maybe_monitor_entity.info.config.actions
-                    )
-
-        # Merge each field using the merge logic
-        merged_display_name = _merge_field(
-            display_name,
-            "display_name",
-            assertion_input,
-            existing_assertion,
-            existing_display_name,
-        )
-        merged_enabled = _merge_field(
-            enabled, "mode", assertion_input, existing_assertion, existing_enabled
-        )
-        merged_schedule = _merge_field(
-            schedule, "schedule", assertion_input, existing_assertion, existing_schedule
-        )
-        merged_detection_mechanism = _merge_field(
-            detection_mechanism,
-            "detection_mechanism",
-            assertion_input,
-            existing_assertion,
-            existing_detection_mechanism,
-        )
-        merged_incident_behavior = _merge_field(
-            incident_behavior,
-            "incident_behavior",
-            assertion_input,
-            existing_assertion,
-            existing_incident_behavior,
-        )
-        merged_tags = _merge_field(
-            tags, "tags", assertion_input, existing_assertion, existing_tags
-        )
-
-        # Create the merged assertion input
-        return _ColumnMetricAssertionInput(
+        Returns:
+            The merged assertion input.
+        """
+        merged_assertion_input = _ColumnMetricAssertionInput(
             urn=urn,
             entity_client=assertion_input.entity_client,
             dataset_urn=dataset_urn,
@@ -651,19 +416,63 @@ class ColumnMetricAssertionClient:
             metric_type=metric_type,
             operator=operator,
             criteria_parameters=criteria_parameters,
-            display_name=merged_display_name,
-            enabled=merged_enabled,
-            detection_mechanism=merged_detection_mechanism,
-            incident_behavior=merged_incident_behavior,
-            tags=merged_tags,
+            display_name=_merge_field(
+                display_name,
+                "display_name",
+                assertion_input,
+                existing_assertion,
+                maybe_assertion_entity.description if maybe_assertion_entity else None,
+            ),
+            enabled=_merge_field(
+                enabled,
+                "enabled",
+                assertion_input,
+                existing_assertion,
+                existing_assertion.mode == AssertionMode.ACTIVE
+                if existing_assertion
+                else None,
+            ),
+            schedule=_merge_field(
+                schedule,
+                "schedule",
+                assertion_input,
+                existing_assertion,
+                existing_assertion.schedule if existing_assertion else None,
+            ),
+            detection_mechanism=_merge_field(
+                detection_mechanism,
+                "detection_mechanism",
+                assertion_input,
+                existing_assertion,
+                ColumnMetricAssertion._get_detection_mechanism(
+                    maybe_assertion_entity, maybe_monitor_entity, default=None
+                )
+                if maybe_assertion_entity and maybe_monitor_entity
+                else None,
+            ),
+            incident_behavior=_merge_field(
+                incident_behavior,
+                "incident_behavior",
+                assertion_input,
+                existing_assertion,
+                ColumnMetricAssertion._get_incident_behavior(maybe_assertion_entity)
+                if maybe_assertion_entity
+                else None,
+            ),
+            tags=_merge_field(
+                tags,
+                "tags",
+                assertion_input,
+                existing_assertion,
+                maybe_assertion_entity.tags if maybe_assertion_entity else None,
+            ),
             created_by=existing_assertion.created_by
-            if existing_assertion.created_by
-            else assertion_input.created_by,
+            or DEFAULT_CREATED_BY,  # Override with the existing assertion's created_by or the default created_by if not set
             created_at=existing_assertion.created_at
-            if existing_assertion.created_at
-            else assertion_input.created_at,
-            updated_by=assertion_input.updated_by,
-            updated_at=now_utc,
-            schedule=merged_schedule,
+            or now_utc,  # Override with the existing assertion's created_at or now if not set
+            updated_by=assertion_input.updated_by,  # Override with the input's updated_by
+            updated_at=assertion_input.updated_at,  # Override with the input's updated_at (now)
             gms_criteria_type_info=gms_criteria_type_info,
         )
+
+        return merged_assertion_input

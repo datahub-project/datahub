@@ -59,7 +59,7 @@ class ColumnMetricAssertionCreateParams:
     detection_mechanism: Optional[DetectionMechanismInputTypes] = None
     incident_behavior: Optional[list[AssertionIncidentBehavior]] = None
     tags: Optional[TagsInputType] = None
-    created_by: Optional[CorpUserUrn] = None
+    updated_by: Optional[CorpUserUrn] = None
     enabled: Optional[bool] = None
 
 
@@ -81,13 +81,13 @@ class ColumnMetricAssertionSyncParams:
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_column_metric_assertion_minimal_input(
+def test_sync_column_metric_assertion_creates_with_minimal_input(
     native_column_metric_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test creating a column metric assertion with minimal input parameters."""
+    """Test sync column metric assertion creates with minimal input parameters."""
     # Arrange
     client = AssertionsClient(native_column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     input_params = ColumnMetricAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
@@ -98,10 +98,8 @@ def test_create_column_metric_assertion_minimal_input(
         enabled=True,
     )
 
-    # Act
-    actual_assertion = client._column_metric_client._create_column_metric_assertion(
-        **input_params.__dict__
-    )
+    # Act - sync with urn=None should create
+    actual_assertion = client.sync_column_metric_assertion(**input_params.__dict__)
 
     # Assert
     assert actual_assertion.dataset_urn == _any_dataset_urn
@@ -126,17 +124,17 @@ def test_create_column_metric_assertion_minimal_input(
         "New Assertion"
     )  # Generated display name
     assert actual_assertion.urn is not None  # URN should be generated
-    assert client.client.entities.create.call_count == 2  # assertion + monitor
+    assert client.client.entities.upsert.call_count == 2  # assertion + monitor
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_column_metric_assertion_with_range_parameters(
+def test_sync_column_metric_assertion_creates_with_range_parameters(
     native_column_metric_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test creating a column metric assertion with range parameters."""
+    """Test sync column metric assertion creates with range parameters."""
     # Arrange
     client = AssertionsClient(native_column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     input_params = ColumnMetricAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
@@ -146,10 +144,8 @@ def test_create_column_metric_assertion_with_range_parameters(
         criteria_parameters=(100.0, 500.0),
     )
 
-    # Act
-    actual_assertion = client._column_metric_client._create_column_metric_assertion(
-        **input_params.__dict__
-    )
+    # Act - sync with urn=None should create
+    actual_assertion = client.sync_column_metric_assertion(**input_params.__dict__)
 
     # Assert
     assert actual_assertion.column_name == "amount"
@@ -162,13 +158,13 @@ def test_create_column_metric_assertion_with_range_parameters(
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_column_metric_assertion_null_operator_no_parameters(
+def test_sync_column_metric_assertion_creates_with_null_operator(
     native_column_metric_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test creating a column metric assertion with NULL operator (no parameters needed)."""
+    """Test sync column metric assertion creates with NULL operator (no parameters needed)."""
     # Arrange
     client = AssertionsClient(native_column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     input_params = ColumnMetricAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
@@ -178,10 +174,8 @@ def test_create_column_metric_assertion_null_operator_no_parameters(
         criteria_parameters=None,
     )
 
-    # Act
-    actual_assertion = client._column_metric_client._create_column_metric_assertion(
-        **input_params.__dict__
-    )
+    # Act - sync with urn=None should create
+    actual_assertion = client.sync_column_metric_assertion(**input_params.__dict__)
 
     # Assert
     assert actual_assertion.column_name == "last_modified"
@@ -197,7 +191,7 @@ def test_sync_column_metric_assertion_create_minimal_input(
     """Test syncing a column metric assertion with minimal input (creation case)."""
     # Arrange
     client = AssertionsClient(native_column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     input_params = ColumnMetricAssertionSyncParams(
         dataset_urn=_any_dataset_urn,
@@ -214,7 +208,7 @@ def test_sync_column_metric_assertion_create_minimal_input(
     assert actual_assertion.column_name == "amount"
     assert actual_assertion.criteria_parameters == "5"
     assert actual_assertion.urn is not None
-    assert client.client.entities.create.call_count == 2  # assertion + monitor
+    assert client.client.entities.upsert.call_count == 2  # assertion + monitor
 
 
 # TODO: Fix complex Assertion entity creation for proper type compatibility
@@ -313,7 +307,7 @@ def test_sync_column_metric_assertion_comprehensive_parameters(
     """Test creating a column metric assertion with comprehensive parameters."""
     # Arrange
     client = AssertionsClient(native_column_metric_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     user = CorpUserUrn.from_string("urn:li:corpuser:test_user")
     custom_schedule = models.CronScheduleClass(cron="0 */2 * * *", timezone="UTC")
@@ -350,4 +344,4 @@ def test_sync_column_metric_assertion_comprehensive_parameters(
     assert len(actual_assertion.tags) == 2
     assert actual_assertion.created_by == user
     assert actual_assertion.urn is not None
-    assert client.client.entities.create.call_count == 2  # assertion + monitor
+    assert client.client.entities.upsert.call_count == 2  # assertion + monitor
