@@ -2,8 +2,11 @@ package com.linkedin.datahub.graphql;
 
 import static org.testng.Assert.*;
 
-import graphql.Scalars;
 import graphql.schema.*;
+import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaGenerator;
+import graphql.schema.idl.SchemaParser;
+import graphql.schema.idl.TypeDefinitionRegistry;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
@@ -18,106 +21,32 @@ public class AspectMappingRegistryTest {
 
   @BeforeMethod
   public void setup() {
-    // Create directives
-    GraphQLDirective aspectMappingDirective =
-        GraphQLDirective.newDirective()
-            .name("aspectMapping")
-            .argument(
-                GraphQLArgument.newArgument()
-                    .name("aspects")
-                    .type(GraphQLList.list(GraphQLNonNull.nonNull(Scalars.GraphQLString)))
-                    .build())
-            .validLocation(graphql.introspection.Introspection.DirectiveLocation.FIELD_DEFINITION)
-            .build();
+    // Parse SDL like production does - this is how the real schema is built
+    String schemaDefinition =
+        """
+        directive @aspectMapping(aspects: [String!]!) on FIELD_DEFINITION
+        directive @noAspects on FIELD_DEFINITION
 
-    GraphQLDirective noAspectsDirective =
-        GraphQLDirective.newDirective()
-            .name("noAspects")
-            .validLocation(graphql.introspection.Introspection.DirectiveLocation.FIELD_DEFINITION)
-            .build();
+        type Query {
+          dataset: Dataset
+        }
 
-    // Create a test GraphQL schema with annotated fields
-    GraphQLObjectType datasetType =
-        GraphQLObjectType.newObject()
-            .name("Dataset")
-            .field(
-                GraphQLFieldDefinition.newFieldDefinition()
-                    .name("urn")
-                    .type(Scalars.GraphQLString)
-                    .withDirective(noAspectsDirective)
-                    .build())
-            .field(
-                GraphQLFieldDefinition.newFieldDefinition()
-                    .name("name")
-                    .type(Scalars.GraphQLString)
-                    .withAppliedDirective(
-                        GraphQLAppliedDirective.newDirective()
-                            .name("aspectMapping")
-                            .argument(
-                                GraphQLAppliedDirectiveArgument.newArgument()
-                                    .name("aspects")
-                                    .valueLiteral(
-                                        graphql.language.ArrayValue.newArrayValue()
-                                            .value(
-                                                graphql.language.StringValue.newStringValue(
-                                                        "datasetProperties")
-                                                    .build())
-                                            .value(
-                                                graphql.language.StringValue.newStringValue(
-                                                        "datasetKey")
-                                                    .build())
-                                            .build())
-                                    .build())
-                            .build())
-                    .build())
-            .field(
-                GraphQLFieldDefinition.newFieldDefinition()
-                    .name("ownership")
-                    .type(Scalars.GraphQLString)
-                    .withAppliedDirective(
-                        GraphQLAppliedDirective.newDirective()
-                            .name("aspectMapping")
-                            .argument(
-                                GraphQLAppliedDirectiveArgument.newArgument()
-                                    .name("aspects")
-                                    .valueLiteral(
-                                        graphql.language.ArrayValue.newArrayValue()
-                                            .value(
-                                                graphql.language.StringValue.newStringValue(
-                                                        "ownership")
-                                                    .build())
-                                            .build())
-                                    .build())
-                            .build())
-                    .build())
-            .field(
-                GraphQLFieldDefinition.newFieldDefinition()
-                    .name("unmappedField")
-                    .type(Scalars.GraphQLString)
-                    .build())
-            .field(
-                GraphQLFieldDefinition.newFieldDefinition()
-                    .name("__typename")
-                    .type(Scalars.GraphQLString)
-                    .build())
-            .build();
+        type Dataset {
+          urn: String! @noAspects
+          name: String! @aspectMapping(aspects: ["datasetProperties", "datasetKey"])
+          ownership: String @aspectMapping(aspects: ["ownership"])
+          unmappedField: String
+          __typename: String
+        }
+        """;
 
-    GraphQLObjectType queryType =
-        GraphQLObjectType.newObject()
-            .name("Query")
-            .field(
-                GraphQLFieldDefinition.newFieldDefinition()
-                    .name("dataset")
-                    .type(datasetType)
-                    .build())
-            .build();
+    SchemaParser schemaParser = new SchemaParser();
+    TypeDefinitionRegistry typeRegistry = schemaParser.parse(schemaDefinition);
 
-    schema =
-        GraphQLSchema.newSchema()
-            .query(queryType)
-            .additionalDirective(aspectMappingDirective)
-            .additionalDirective(noAspectsDirective)
-            .build();
+    RuntimeWiring runtimeWiring = RuntimeWiring.newRuntimeWiring().build();
+
+    SchemaGenerator schemaGenerator = new SchemaGenerator();
+    schema = schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
 
     registry = new AspectMappingRegistry(schema);
   }
