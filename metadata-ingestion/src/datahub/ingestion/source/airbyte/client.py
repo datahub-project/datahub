@@ -202,7 +202,13 @@ class AirbyteBaseClient(ABC):
                 url, params=params, timeout=self.config.request_timeout
             )
             response.raise_for_status()
-            return response.json()
+            response_data = response.json()
+            logger.debug(
+                "Airbyte API response from %s: %s",
+                endpoint,
+                response_data,
+            )
+            return response_data
         except requests.HTTPError as e:
             error_message = f"Airbyte API request failed: {e.response.status_code}"
             try:
@@ -882,7 +888,13 @@ class AirbyteCloudClient(AirbyteBaseClient):
                 url, params=params, timeout=self.config.request_timeout
             )
             response.raise_for_status()
-            return response.json()
+            response_data = response.json()
+            logger.debug(
+                "Airbyte API response from %s: %s",
+                endpoint,
+                response_data,
+            )
+            return response_data
         except requests.HTTPError as e:
             if e.response.status_code in (401, 403):
                 logger.warning(
@@ -896,7 +908,13 @@ class AirbyteCloudClient(AirbyteBaseClient):
                         url, params=params, timeout=self.config.request_timeout
                     )
                     response.raise_for_status()
-                    return response.json()
+                    response_data = response.json()
+                    logger.debug(
+                        "Airbyte API response from %s (after token refresh): %s",
+                        endpoint,
+                        response_data,
+                    )
+                    return response_data
                 except Exception:
                     logger.error(
                         "Token refresh failed, authentication error is terminal"
