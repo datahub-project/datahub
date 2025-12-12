@@ -189,7 +189,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         if source_details.platform:
             platform = source_details.platform
-        elif source.source_type:
+        elif source.source_type and source.source_type.strip():
             platform = _map_source_type_to_platform(
                 source.source_type, self.source_config.source_type_mapping
             )
@@ -235,7 +235,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
         if dest_details.platform:
             platform = dest_details.platform
-        elif destination.destination_type:
+        elif destination.destination_type and destination.destination_type.strip():
             platform = _map_source_type_to_platform(
                 destination.destination_type, self.source_config.source_type_mapping
             )
@@ -1211,7 +1211,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     )
                     return dest_config_schema
 
-            elif namespace_def == "customformat":
+            elif namespace_def in ("customformat", "custom_format"):
                 namespace_fmt = connection.get_namespace_format
                 if namespace_fmt:
                     custom_namespace = namespace_fmt.replace(
