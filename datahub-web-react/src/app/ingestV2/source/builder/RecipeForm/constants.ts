@@ -816,14 +816,13 @@ export const RECIPE_FIELDS: RecipeFields = {
             REMOVE_STALE_METADATA_ENABLED,
         ],
         hasDynamicFields: true,
-=======
+    },
     [RDF]: {
         fields: [RDF_SOURCE],
         filterFields: [],
         advancedFields: [RDF_FORMAT, RDF_EXTENSIONS, RDF_RECURSIVE, RDF_ENVIRONMENT, RDF_DIALECT],
         connectionSectionTooltip: 'Configure the RDF source location and basic settings.',
         advancedSectionTooltip: 'Advanced options for RDF format, file processing, and dialect selection.',
->>>>>>> 0133f53ff3 (feat(rdf): add RDF ingestion source with simplified architecture)
     },
 };
 
