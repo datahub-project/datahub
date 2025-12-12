@@ -19,14 +19,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class TestAuthSession implements AuthorizationSession {
-  public static AuthorizationSession ALLOW_ALL =
-      from(
-          (priv, entitySpec) ->
-              new AuthorizationResult(
-                  new AuthorizationRequest(null, priv, Optional.ofNullable(entitySpec), List.of()),
-                  AuthorizationResult.Type.ALLOW,
-                  ""));
-
   public static AuthorizationSession DENY_ALL =
       from(
           (priv, entitySpec) ->
