@@ -55,7 +55,7 @@ public class AuthorizerChainTest {
     var privilege1 = "privilege1";
     var privilege2 = "privilege2";
     Authorizer authorizer1 = Mockito.mock(Authorizer.class, Mockito.CALLS_REAL_METHODS);
-    Authorizer authorizer2 = Mockito.mock(Authorizer.class, Mockito.CALLS_REAL_METHODS);
+    Authorizer authorizer2 = Mockito.mock(Authorizer.class);
     AuthorizationRequest request1 =
         new AuthorizationRequest(actorUrn, privilege1, Optional.empty(), List.of());
     AuthorizationRequest request2 =
