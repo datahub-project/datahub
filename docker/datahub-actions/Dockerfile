@@ -419,7 +419,115 @@ ENTRYPOINT [ ]
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
 
 # =============================================================================
+# FINAL STAGES - Use official Python Debian slim for production (glibc compatible)
+# =============================================================================
+
+ARG PYTHON_VERSION
+
+# Final stage for FULL variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-full
+
+# Install JRE for full variant
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    default-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=final-full /home/datahub /home/datahub
+COPY --from=final-full /opt/datahub/venvs /opt/datahub/venvs
+COPY --from=final-full /metadata-ingestion /metadata-ingestion
+COPY --from=final-full /datahub-actions /datahub-actions
+COPY --from=final-full /etc/datahub /etc/datahub
+COPY --from=final-full /tmp/datahub /tmp/datahub
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub /etc/datahub /tmp/datahub
+
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+RUN chmod a+x /start_datahub_actions.sh
+
+USER datahub
+WORKDIR /home/datahub
+
+ENTRYPOINT [ ]
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+
+# Final stage for SLIM variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-slim
+
+COPY --from=final-slim /home/datahub /home/datahub
+COPY --from=final-slim /opt/datahub/venvs /opt/datahub/venvs
+COPY --from=final-slim /metadata-ingestion /metadata-ingestion
+COPY --from=final-slim /datahub-actions /datahub-actions
+COPY --from=final-slim /etc/datahub /etc/datahub
+COPY --from=final-slim /tmp/datahub /tmp/datahub
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub /etc/datahub /tmp/datahub
+
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+RUN chmod a+x /start_datahub_actions.sh
+
+USER datahub
+WORKDIR /home/datahub
+
+ENTRYPOINT [ ]
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+
+# Final stage for LOCKED variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-locked
+
+COPY --from=final-locked /home/datahub /home/datahub
+COPY --from=final-locked /opt/datahub/venvs /opt/datahub/venvs
+COPY --from=final-locked /datahub-actions /datahub-actions
+COPY --from=final-locked /etc/datahub /etc/datahub
+COPY --from=final-locked /tmp/datahub /tmp/datahub
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub /etc/datahub /tmp/datahub
+
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+RUN chmod a+x /start_datahub_actions.sh
+
+USER datahub
+WORKDIR /home/datahub
+
+ENTRYPOINT [ ]
+CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+
+# =============================================================================
 # DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
 # =============================================================================
 
-FROM final-${APP_ENV} AS final
+FROM final-runtime-${APP_ENV} AS final

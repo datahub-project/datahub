@@ -163,6 +163,79 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
-FROM install-${APP_ENV} AS final
+# =============================================================================
+# FINAL STAGES - Use official Python Debian slim for production (glibc compatible)
+# =============================================================================
+
+ARG PYTHON_VERSION
+
+# Final stage for FULL variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-full
+
+COPY --from=install-full /home/datahub /home/datahub
+COPY --from=install-full /metadata-ingestion /metadata-ingestion
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub
+
+USER datahub
+WORKDIR /home/datahub
 
 ENTRYPOINT [ "datahub" ]
+
+# Final stage for SLIM variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-slim
+
+COPY --from=install-slim /home/datahub /home/datahub
+COPY --from=install-slim /metadata-ingestion /metadata-ingestion
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub
+
+USER datahub
+WORKDIR /home/datahub
+
+ENTRYPOINT [ "datahub" ]
+
+# Final stage for LOCKED variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-locked
+
+COPY --from=install-locked /home/datahub /home/datahub
+COPY --from=install-locked /metadata-ingestion /metadata-ingestion
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub
+
+USER datahub
+WORKDIR /home/datahub
+
+ENTRYPOINT [ "datahub" ]
+
+# =============================================================================
+# DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
+# =============================================================================
+
+FROM final-runtime-${APP_ENV} AS final

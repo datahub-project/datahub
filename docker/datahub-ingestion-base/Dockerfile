@@ -1,6 +1,6 @@
 # This image has two variants: full and slim.
 ARG APP_ENV=full
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
@@ -125,9 +125,67 @@ RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/o
 USER datahub
 # INLINE-END
 
-FROM ingestion-base-${APP_ENV} AS final
+# =============================================================================
+# FINAL STAGES - Use official Python Debian slim for production (glibc compatible)
+# =============================================================================
+
+ARG PYTHON_VERSION
+
+# Final stage for SLIM variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-slim
+
+COPY --from=ingestion-base-slim /home/datahub /home/datahub
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub
 
 COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+
+USER datahub
+WORKDIR /home/datahub
+
 ENTRYPOINT [ "/entrypoint.sh" ]
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"
+
+# Final stage for FULL variant
+FROM python:${PYTHON_VERSION}-slim-bookworm AS final-runtime-full
+
+# Install JRE for full variant
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    default-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ingestion-base-full /home/datahub /home/datahub
+
+ENV HOME=/home/datahub
+ENV VIRTUAL_ENV=$HOME/.venv
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+RUN groupadd --gid 1000 datahub && \
+    useradd --uid 1000 --gid 1000 --home /home/datahub --no-create-home datahub && \
+    chown -R datahub:datahub /home/datahub
+
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+
+USER datahub
+WORKDIR /home/datahub
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+ENV PATH="/datahub-ingestion/.local/bin:$PATH"
+
+# =============================================================================
+# DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
+# =============================================================================
+
+FROM final-runtime-${APP_ENV} AS final
