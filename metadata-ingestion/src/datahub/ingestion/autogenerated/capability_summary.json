@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-11-27T17:08:08.512294+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -1218,8 +1218,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1256,8 +1257,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1269,7 +1271,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive.HiveSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_source.HiveSource",
       "platform_id": "hive",
       "platform_name": "Hive",
       "support_status": "CERTIFIED"
@@ -1293,8 +1295,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1331,9 +1334,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "subtype_modifier": null,
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -1342,7 +1348,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"
@@ -2154,10 +2160,17 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
+            "Stored Procedure",
             "View"
           ],
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Enabled by default via SQL aggregator when processing observed queries",
+          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -2186,8 +2199,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
           "subtype_modifier": [
+            "Stored Procedure",
             "View"
           ],
           "supported": true
@@ -2509,8 +2523,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2547,9 +2562,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "subtype_modifier": null,
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -2558,7 +2576,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"

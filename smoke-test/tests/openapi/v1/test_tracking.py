@@ -15,6 +15,7 @@ Note: Some tests may be skipped if required configuration (e.g., Mixpanel API se
 """
 
 import json
+import logging
 import time
 from datetime import datetime, timezone
 
@@ -25,6 +26,8 @@ from dotenv import load_dotenv
 
 from tests.utilities import env_vars
 from tests.utils import get_kafka_broker_url
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file if it exists
 load_dotenv()
@@ -51,7 +54,7 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
 
     # Create a test event with a unique identifier
     unique_id = f"test_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    print(f"\nLooking for test event with customField: {unique_id}")
+    logger.info(f"\nLooking for test event with customField: {unique_id}")
     now = datetime.now(timezone.utc)
     test_event = {
         "type": EVENT_NAME,
@@ -68,14 +71,14 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
     )
 
     # Print the response for debugging
-    print(f"\nResponse status: {response.status_code}")
-    print(f"Response body: {response.text}")
+    logger.info(f"\nResponse status: {response.status_code}")
+    logger.info(f"Response body: {response.text}")
 
     # Verify the response
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
     # Wait a moment for the event to be processed by Mixpanel
-    print("\nWaiting for event to be processed by Mixpanel...")
+    logger.info("\nWaiting for event to be processed by Mixpanel...")
     time.sleep(10)
 
     # Query Mixpanel's JQL API to retrieve our test event
@@ -83,7 +86,7 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
     project_id = env_vars.get_mixpanel_project_id()
 
     # log the unique_id
-    print(f"\nLooking for test event with customField: {unique_id}")
+    logger.info(f"\nLooking for test event with customField: {unique_id}")
 
     # JQL query
     jql_query = f"""
@@ -130,12 +133,12 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
         )
 
         # Print response
-        print(f"\nMixpanel JQL response status: {response.status_code}")
-        print(response.text)
+        logger.info(f"\nMixpanel JQL response status: {response.status_code}")
+        logger.info(response.text)
 
         if response.status_code == 200:
             events = response.json()
-            print(f"\nFound {len(events)} matching events in Mixpanel")
+            logger.info(f"\nFound {len(events)} matching events in Mixpanel")
 
             if len(events) > 0:
                 # Verify the event properties
@@ -158,14 +161,14 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
                 assert properties.get("customField") == unique_id, (
                     "Mixpanel custom field doesn't match"
                 )
-                print("\nSuccessfully verified event in Mixpanel")
+                logger.info("\nSuccessfully verified event in Mixpanel")
                 return
             else:
-                print(
+                logger.info(
                     "\nNo matching events found in Mixpanel... waiting 1 second and trying again"
                 )
         else:
-            print(f"\nFailed to query Mixpanel: {response.text}")
+            logger.info(f"\nFailed to query Mixpanel: {response.text}")
             if i == 2:
                 raise Exception(f"\nFailed to query Mixpanel: {response.text}")
 
@@ -187,7 +190,7 @@ def test_tracking_api_kafka(auth_session):
 
     # Create a test event with a unique identifier
     unique_id = f"test_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    print(f"\nLooking for test event with customField: {unique_id}")
+    logger.info(f"\nLooking for test event with customField: {unique_id}")
     now = datetime.now(timezone.utc)
     test_event = {
         "type": EVENT_NAME,
@@ -200,7 +203,7 @@ def test_tracking_api_kafka(auth_session):
 
     # Create a Kafka consumer for DUE events BEFORE sending the event
     group_id = f"test_tracking_consumer_{unique_id}"
-    print(
+    logger.info(
         f"\nCreating Kafka consumer for topic {due_topic} with group_id {group_id}..."
     )
 
@@ -213,15 +216,15 @@ def test_tracking_api_kafka(auth_session):
     }
     due_consumer = Consumer(consumer_config)
     due_consumer.subscribe([due_topic])
-    print(f"Subscribed to topic: {due_topic}")
+    logger.info(f"Subscribed to topic: {due_topic}")
 
     # Wait a moment to ensure the consumer is ready
-    print("Waiting for consumer to be ready...")
+    logger.info("Waiting for consumer to be ready...")
     time.sleep(2)
 
     # Get the current timestamp before sending the event
     start_time = int(time.time() * 1000)  # Convert to milliseconds
-    print(f"Starting timestamp: {start_time}")
+    logger.info(f"Starting timestamp: {start_time}")
 
     # Post the event to the tracking endpoint
     response = auth_session.post(
@@ -229,13 +232,13 @@ def test_tracking_api_kafka(auth_session):
     )
 
     # Print the response for debugging
-    print(f"\nResponse status: {response.status_code}")
-    print(f"Response body: {response.text}")
+    logger.info(f"\nResponse status: {response.status_code}")
+    logger.info(f"Response body: {response.text}")
 
     # Verify the response
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
-    print(f"\nWaiting for messages on topic {due_topic}...")
+    logger.info(f"\nWaiting for messages on topic {due_topic}...")
 
     # Read messages from Kafka
     messages = []
@@ -251,12 +254,12 @@ def test_tracking_api_kafka(auth_session):
             if msg.error().code() == KafkaError._PARTITION_EOF:
                 continue
             else:
-                print(f"Consumer error: {msg.error()}")
+                logger.info(f"Consumer error: {msg.error()}")
                 break
 
         try:
             message = json.loads(msg.value().decode("utf-8"))
-            print(f"Found message: {message}")
+            logger.info(f"Found message: {message}")
             messages.append(message)
 
             # Check if this is our test event
@@ -264,10 +267,10 @@ def test_tracking_api_kafka(auth_session):
                 message.get("type") == EVENT_NAME
                 and message.get("customField") == unique_id
             ):
-                print(f"Found our test event: {message}")
+                logger.info(f"Found our test event: {message}")
                 break
         except Exception as e:
-            print(f"Error processing message: {e}")
+            logger.info(f"Error processing message: {e}")
             continue
 
     # Close the consumer
@@ -280,7 +283,7 @@ def test_tracking_api_kafka(auth_session):
     found_event = False
     for message in messages:
         if isinstance(message, dict):
-            print(f"Found message with customField: {message.get('customField')}")
+            logger.info(f"Found message with customField: {message.get('customField')}")
             if (
                 message.get("type") == EVENT_NAME
                 and message.get("customField") == unique_id
@@ -310,7 +313,7 @@ def test_tracking_api_elasticsearch(auth_session):
 
     # Create a test event with a unique identifier
     unique_id = f"test_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    print(f"\nLooking for test event with customField: {unique_id}")
+    logger.info(f"\nLooking for test event with customField: {unique_id}")
     now = datetime.now(timezone.utc)
 
     # Create a test event that mimics a real PageViewEvent
@@ -343,14 +346,14 @@ def test_tracking_api_elasticsearch(auth_session):
     )
 
     # Print the response for debugging
-    print(f"\nResponse status: {response.status_code}")
-    print(f"Response body: {response.text}")
+    logger.info(f"\nResponse status: {response.status_code}")
+    logger.info(f"Response body: {response.text}")
 
     # Verify the response
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
     # Wait a moment for the event to be processed by Kafka and indexed in Elasticsearch
-    print("\nWaiting for event to be processed and indexed in Elasticsearch...")
+    logger.info("\nWaiting for event to be processed and indexed in Elasticsearch...")
     time.sleep(10)  # Give more time for Elasticsearch indexing
 
     # Query Elasticsearch to retrieve our test event
@@ -373,12 +376,12 @@ def test_tracking_api_elasticsearch(auth_session):
 
     try:
         es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
-        print(f"\nElasticsearch response status: {es_response.status_code}")
+        logger.info(f"\nElasticsearch response status: {es_response.status_code}")
 
         if es_response.status_code == 200:
             result = es_response.json()
             hits = result.get("hits", {}).get("hits", [])
-            print(f"\nFound {len(hits)} matching events in Elasticsearch")
+            logger.info(f"\nFound {len(hits)} matching events in Elasticsearch")
 
             # Verify we found our test event
             assert len(hits) > 0, "No matching events found in Elasticsearch"
@@ -399,11 +402,11 @@ def test_tracking_api_elasticsearch(auth_session):
                 "Elasticsearch custom field doesn't match"
             )
 
-            print("\nSuccessfully verified event in Elasticsearch")
+            logger.info("\nSuccessfully verified event in Elasticsearch")
         else:
-            print(f"\nFailed to query Elasticsearch: {es_response.text}")
+            logger.info(f"\nFailed to query Elasticsearch: {es_response.text}")
             # Don't fail the test if Elasticsearch query fails, as this might be due to configuration
             # in the test environment
     except Exception as e:
-        print(f"\nError querying Elasticsearch: {str(e)}")
+        logger.info(f"\nError querying Elasticsearch: {str(e)}")
         # Don't fail the test if Elasticsearch query fails
