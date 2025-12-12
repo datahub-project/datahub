@@ -4,19 +4,21 @@ import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Custom implementation of the {@link Map} for authorization results, that always returns constant
  * decision
  */
-@RequiredArgsConstructor
 public class ConstantAuthorizationResultMap extends AbstractMap<String, AuthorizationResult> {
-  private final AuthorizationResult.Type result;
+  private final AuthorizationResult result;
+
+  public ConstantAuthorizationResultMap(AuthorizationResult.Type type) {
+    this.result = new AuthorizationResult(null, type, "constant");
+  }
 
   @Override
-  public AuthorizationResult get(Object key) {
-    return new AuthorizationResult(null, result, "constant");
+  public AuthorizationResult get(Object privilege) {
+    return result;
   }
 
   @Override
@@ -26,8 +28,8 @@ public class ConstantAuthorizationResultMap extends AbstractMap<String, Authoriz
   }
 
   @Override
-  public boolean containsKey(Object key) {
-    // for any requested privilege we will return the value
+  public boolean containsKey(Object privilege) {
+    // for any requested privilege we will return the constant value
     return true;
   }
 }
