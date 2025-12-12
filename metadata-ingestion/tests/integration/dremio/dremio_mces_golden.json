@@ -7151,37 +7151,37 @@
             "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),id)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD),id)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD),id)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),company)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD),company)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD),company)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),last_name)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD),last_name)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD),last_name)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),first_name)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD),first_name)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD),first_name)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),email_address)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD),email_address)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD),email_address)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),priority)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.customers,PROD),priority)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.customers,PROD),priority)"
@@ -7285,43 +7285,43 @@
             "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),urn)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),urn)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),urn)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),aspect)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),aspect)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),aspect)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),version)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),version)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),version)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),metadata)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),metadata)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),metadata)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),createdon)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),createdon)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),createdon)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),createdby)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),createdby)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),createdby)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD),createdfor)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_aspect,PROD),createdfor)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_aspect,PROD),createdfor)"
@@ -7425,43 +7425,43 @@
             "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),id)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),id)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),id)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),urn)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),urn)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),urn)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),aspect)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),aspect)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),aspect)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),path)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),path)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),path)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),longVal)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),longVal)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),longVal)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),stringVal)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),stringVal)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),stringVal)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index,PROD),doubleVal)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index,PROD),doubleVal)"
@@ -7565,25 +7565,25 @@
             "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index_view,PROD)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),id)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index_view,PROD),id)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index_view,PROD),id)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),urn)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index_view,PROD),urn)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index_view,PROD),urn)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),path)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index_view,PROD),path)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index_view,PROD),path)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.metagalaxy.metadata_index_view,PROD),doubleVal)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.metadata_index_view,PROD),doubleVal)"
@@ -7687,19 +7687,19 @@
             "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.orders,PROD)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.orders,PROD),id)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.orders,PROD),id)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),description)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.orders,PROD),description)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.orders,PROD),description)"
           },
           {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),customer_id)"
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.mysql.northwind.orders,PROD),customer_id)"
           },
           {
             "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.orders,PROD),customer_id)"
