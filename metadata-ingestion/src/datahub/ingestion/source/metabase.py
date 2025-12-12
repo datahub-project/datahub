@@ -675,7 +675,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 self.report.report_warning(
                     title="Failed to Extract Lineage",
                     message="Unable to retrieve lineage from query",
-                    context=f"Query: {raw_query_stripped}",
+                    context=f"Card ID: {card_details.get('id')} Query: {raw_query_stripped}",
                 )
             return result.in_tables
 
