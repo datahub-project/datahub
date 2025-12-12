@@ -35,6 +35,8 @@ class DatasetSubTypes(StrEnum):
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
+    TIMESCALEDB_HYPERTABLE = "Hypertable"
+    TIMESCALEDB_CONTINUOUS_AGGREGATE = "Continuous Aggregate"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
 
@@ -83,12 +85,14 @@ class BIContainerSubTypes(StrEnum):
 class FlowContainerSubTypes(StrEnum):
     MSSQL_JOB = "Job"
     MSSQL_PROCEDURE_CONTAINER = "Procedures Container"
+    TIMESCALEDB_BACKGROUND_JOBS = "Background Jobs"
 
 
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    TIMESCALEDB_BACKGROUND_JOB = "Background Job"
 
 
 class BIAssetSubTypes(StrEnum):
