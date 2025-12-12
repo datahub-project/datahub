@@ -15,6 +15,8 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteDestinationPartial,
     AirbytePipelineInfo,
     AirbyteSourcePartial,
+    AirbyteStream,
+    AirbyteStreamConfig,
     AirbyteStreamDetails,
     AirbyteWorkspacePartial,
     PlatformInfo,
@@ -99,11 +101,6 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
     )
 
     # Create mock stream config
-    from datahub.ingestion.source.airbyte.models import (
-        AirbyteStream,
-        AirbyteStreamConfig,
-    )
-
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
     )
@@ -188,11 +185,6 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
     )
 
     # Create mock stream config
-    from datahub.ingestion.source.airbyte.models import (
-        AirbyteStream,
-        AirbyteStreamConfig,
-    )
-
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
     )
@@ -265,11 +257,6 @@ def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
     )
 
     # Create mock stream config
-    from datahub.ingestion.source.airbyte.models import (
-        AirbyteStream,
-        AirbyteStreamConfig,
-    )
-
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="customers", namespace="mydb"), config={}
     )
@@ -343,11 +330,6 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
     )
 
     # Create mock stream config
-    from datahub.ingestion.source.airbyte.models import (
-        AirbyteStream,
-        AirbyteStreamConfig,
-    )
-
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="customers", namespace="PUBLIC"), config={}
     )
@@ -417,11 +399,6 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
     )
 
     # Create mock stream config
-    from datahub.ingestion.source.airbyte.models import (
-        AirbyteStream,
-        AirbyteStreamConfig,
-    )
-
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="public.customers", namespace="public"), config={}
     )
@@ -457,6 +434,39 @@ def test_known_urns_prevents_phantom_destinations(mock_create_client, mock_ctx):
         ],
     )
 
+    # Create a minimal pipeline_info for the test
+    workspace = AirbyteWorkspacePartial(
+        workspaceId="test", name="Test", workspace_id="test"
+    )
+    source_obj = AirbyteSourcePartial(
+        sourceId="source-1",
+        name="Test Source",
+        sourceType="postgres",
+        source_id="source-1",
+        source_type="postgres",
+    )
+    dest = AirbyteDestinationPartial(
+        destinationId="dest-1",
+        name="Test Dest",
+        destinationType="snowflake",
+        destination_id="dest-1",
+        destination_type="snowflake",
+    )
+    connection = AirbyteConnectionPartial(
+        connectionId="conn-1",
+        name="Test Connection",
+        sourceId="source-1",
+        destinationId="dest-1",
+        status="active",
+        connection_id="conn-1",
+        source_id="source-1",
+        destination_id="dest-1",
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=workspace, connection=connection, source=source_obj, destination=dest
+    )
+
     # Destination is NOT in known_urns
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
     dest_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.customers,PROD)"
@@ -464,6 +474,7 @@ def test_known_urns_prevents_phantom_destinations(mock_create_client, mock_ctx):
 
     work_units = list(
         source._create_dataset_lineage(
+            pipeline_info,
             source_urn,
             dest_urn,
             stream_details,
@@ -505,6 +516,39 @@ def test_known_urns_allows_airbyte_to_airbyte_lineage(mock_create_client, mock_c
         ],
     )
 
+    # Create a minimal pipeline_info for the test
+    workspace = AirbyteWorkspacePartial(
+        workspaceId="test", name="Test", workspace_id="test"
+    )
+    source_obj = AirbyteSourcePartial(
+        sourceId="source-1",
+        name="Test Source",
+        sourceType="postgres",
+        source_id="source-1",
+        source_type="postgres",
+    )
+    dest = AirbyteDestinationPartial(
+        destinationId="dest-1",
+        name="Test Dest",
+        destinationType="snowflake",
+        destination_id="dest-1",
+        destination_type="snowflake",
+    )
+    connection = AirbyteConnectionPartial(
+        connectionId="conn-1",
+        name="Test Connection",
+        sourceId="source-1",
+        destinationId="dest-1",
+        status="active",
+        connection_id="conn-1",
+        source_id="source-1",
+        destination_id="dest-1",
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=workspace, connection=connection, source=source_obj, destination=dest
+    )
+
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
     dest_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.customers,PROD)"
 
@@ -513,6 +557,7 @@ def test_known_urns_allows_airbyte_to_airbyte_lineage(mock_create_client, mock_c
 
     work_units = list(
         source._create_dataset_lineage(
+            pipeline_info,
             source_urn,
             dest_urn,
             stream_details,

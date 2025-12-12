@@ -885,17 +885,45 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_level_lineage:
             property_fields = stream.get_column_names()
             if property_fields:
+                # Get platform info and details for column case handling
+                source_platform_info = self._get_platform_for_source(source)
+                dest_platform_info = self._get_platform_for_destination(destination)
+                source_details = self.source_config.sources_to_platform_instance.get(
+                    source.source_id, PlatformDetail()
+                )
+                dest_details = self.source_config.destinations_to_platform_instance.get(
+                    destination.destination_id, PlatformDetail()
+                )
+
                 logger.debug(
                     f"Processing column-level lineage for {len(property_fields)} columns on DataJob"
                 )
                 for column_name in property_fields:
+                    # Snowflake lowercases columns when convert_urns_to_lowercase is true
+                    # Other platforms keep column case as-is regardless of convert_urns_to_lowercase
+                    source_column = column_name
+                    if (
+                        source_platform_info.platform == "snowflake"
+                        and source_details.convert_urns_to_lowercase
+                    ):
+                        source_column = column_name.lower()
+
+                    dest_column = column_name
+                    if (
+                        dest_platform_info.platform == "snowflake"
+                        and dest_details.convert_urns_to_lowercase
+                    ):
+                        dest_column = column_name.lower()
+
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            upstreams=[make_schema_field_urn(source_urn, column_name)],
+                            upstreams=[
+                                make_schema_field_urn(source_urn, source_column)
+                            ],
                             downstreams=[
-                                make_schema_field_urn(destination_urn, column_name)
+                                make_schema_field_urn(destination_urn, dest_column)
                             ],
                         )
                     )
@@ -934,6 +962,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
 
     def _create_dataset_lineage(
         self,
+        pipeline_info: AirbytePipelineInfo,
         source_urn: str,
         destination_urn: str,
         stream: AirbyteStreamDetails,
@@ -945,14 +974,46 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_level_lineage:
             property_fields = stream.get_column_names()
             if property_fields:
+                # Get platform info and details for column case handling
+                source_platform_info = self._get_platform_for_source(
+                    pipeline_info.source
+                )
+                dest_platform_info = self._get_platform_for_destination(
+                    pipeline_info.destination
+                )
+                source_details = self.source_config.sources_to_platform_instance.get(
+                    pipeline_info.source.source_id, PlatformDetail()
+                )
+                dest_details = self.source_config.destinations_to_platform_instance.get(
+                    pipeline_info.destination.destination_id, PlatformDetail()
+                )
+
                 for column_name in property_fields:
+                    # Snowflake lowercases columns when convert_urns_to_lowercase is true
+                    # Other platforms keep column case as-is regardless of convert_urns_to_lowercase
+                    source_column = column_name
+                    if (
+                        source_platform_info.platform == "snowflake"
+                        and source_details.convert_urns_to_lowercase
+                    ):
+                        source_column = column_name.lower()
+
+                    dest_column = column_name
+                    if (
+                        dest_platform_info.platform == "snowflake"
+                        and dest_details.convert_urns_to_lowercase
+                    ):
+                        dest_column = column_name.lower()
+
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            upstreams=[make_schema_field_urn(source_urn, column_name)],
+                            upstreams=[
+                                make_schema_field_urn(source_urn, source_column)
+                            ],
                             downstreams=[
-                                make_schema_field_urn(destination_urn, column_name)
+                                make_schema_field_urn(destination_urn, dest_column)
                             ],
                         )
                     )
@@ -1406,6 +1467,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     )
 
                 lineage_workunits = self._create_dataset_lineage(
+                    pipeline_info,
                     dataset_urns.source_urn,
                     dataset_urns.destination_urn,
                     stream_info.details,

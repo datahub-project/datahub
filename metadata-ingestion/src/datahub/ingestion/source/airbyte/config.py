@@ -111,7 +111,11 @@ class PlatformDetail(ConfigModel):
     )
     convert_urns_to_lowercase: bool = Field(
         default=True,
-        description="Whether to convert dataset urns to lowercase. Recommended for case-insensitive platforms (Snowflake, BigQuery, PostgreSQL, etc.) to ensure lineage compatibility.",
+        description=(
+            "Whether to convert dataset urns to lowercase. Recommended for case-insensitive platforms to ensure lineage compatibility. "
+            "Note: For Snowflake destinations, this also lowercases column names in lineage to match DataHub's native Snowflake connector behavior. "
+            "For other platforms (MSSQL, Postgres, BigQuery, etc.), only dataset names are lowercased, not column names."
+        ),
     )
 
 

@@ -231,6 +231,11 @@ def test_airbyte_ingest(
         pytestconfig,
         output_path=tmp_path / "airbyte_mces.json",
         golden_path=f"{test_resources_dir}/airbyte_mces_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+        ],
     )
 
 
@@ -259,6 +264,11 @@ def test_airbyte_platform_instance_urns(
         pytestconfig,
         output_path=tmp_path / "airbyte_platform_instance_mces.json",
         golden_path=f"{test_resources_dir}/airbyte_platform_instance_mces_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+        ],
     )
 
 
@@ -287,4 +297,9 @@ def test_airbyte_schema_filter(
         pytestconfig,
         output_path=tmp_path / "airbyte_schema_filter_mces.json",
         golden_path=f"{test_resources_dir}/airbyte_schema_filter_mces_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+        ],
     )
