@@ -65,7 +65,7 @@ public class DatasetType
         BrowsableEntityType<Dataset, String>,
         BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> {
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           DATASET_KEY_ASPECT_NAME,
           DATASET_PROPERTIES_ASPECT_NAME,

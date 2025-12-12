@@ -6,8 +6,8 @@ import graphql.Scalars;
 import graphql.schema.*;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -50,41 +50,45 @@ public class AspectMappingRegistryTest {
                 GraphQLFieldDefinition.newFieldDefinition()
                     .name("name")
                     .type(Scalars.GraphQLString)
-                    .withDirective(
-                        aspectMappingDirective,
-                        directive ->
-                            directive.argument(
-                                arg ->
-                                    arg.name("aspects")
-                                        .valueLiteral(
-                                            graphql.language.ArrayValue.newArrayValue()
-                                                .value(
-                                                    graphql.language.StringValue.newStringValue(
-                                                            "datasetProperties")
-                                                        .build())
-                                                .value(
-                                                    graphql.language.StringValue.newStringValue(
-                                                            "datasetKey")
-                                                        .build())
-                                                .build())))
+                    .withAppliedDirective(
+                        GraphQLAppliedDirective.newDirective()
+                            .name("aspectMapping")
+                            .argument(
+                                GraphQLAppliedDirectiveArgument.newArgument()
+                                    .name("aspects")
+                                    .valueLiteral(
+                                        graphql.language.ArrayValue.newArrayValue()
+                                            .value(
+                                                graphql.language.StringValue.newStringValue(
+                                                        "datasetProperties")
+                                                    .build())
+                                            .value(
+                                                graphql.language.StringValue.newStringValue(
+                                                        "datasetKey")
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .build())
                     .build())
             .field(
                 GraphQLFieldDefinition.newFieldDefinition()
                     .name("ownership")
                     .type(Scalars.GraphQLString)
-                    .withDirective(
-                        aspectMappingDirective,
-                        directive ->
-                            directive.argument(
-                                arg ->
-                                    arg.name("aspects")
-                                        .valueLiteral(
-                                            graphql.language.ArrayValue.newArrayValue()
-                                                .value(
-                                                    graphql.language.StringValue.newStringValue(
-                                                            "ownership")
-                                                        .build())
-                                                .build())))
+                    .withAppliedDirective(
+                        GraphQLAppliedDirective.newDirective()
+                            .name("aspectMapping")
+                            .argument(
+                                GraphQLAppliedDirectiveArgument.newArgument()
+                                    .name("aspects")
+                                    .valueLiteral(
+                                        graphql.language.ArrayValue.newArrayValue()
+                                            .value(
+                                                graphql.language.StringValue.newStringValue(
+                                                        "ownership")
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .build())
                     .build())
             .field(
                 GraphQLFieldDefinition.newFieldDefinition()
@@ -242,71 +246,12 @@ public class AspectMappingRegistryTest {
   }
 
   private graphql.schema.SelectedField createMockSelectedField(String fieldName, String typeName) {
-    return new graphql.schema.SelectedField() {
-      @Override
-      public String getName() {
-        return fieldName;
-      }
-
-      @Override
-      public String getQualifiedName() {
-        return typeName + "." + fieldName;
-      }
-
-      @Override
-      public GraphQLFieldDefinition getFieldDefinition() {
-        return null;
-      }
-
-      @Override
-      public java.util.Map<String, Object> getArguments() {
-        return Collections.emptyMap();
-      }
-
-      @Override
-      public graphql.schema.GraphQLOutputType getType() {
-        return null;
-      }
-
-      @Override
-      public List<graphql.schema.SelectedField> getSelectionSet() {
-        return Collections.emptyList();
-      }
-
-      @Override
-      public int getLevel() {
-        return 0;
-      }
-
-      @Override
-      public boolean isConditional() {
-        return false;
-      }
-
-      @Override
-      public String getFullyQualifiedName() {
-        return typeName + "." + fieldName;
-      }
-
-      @Override
-      public String getResultKey() {
-        return fieldName;
-      }
-
-      @Override
-      public GraphQLObjectType getObjectType() {
-        return null;
-      }
-
-      @Override
-      public List<String> getObjectTypeNames() {
-        return Arrays.asList(typeName);
-      }
-
-      @Override
-      public graphql.schema.GraphQLFieldsContainer getFieldsContainer() {
-        return null;
-      }
-    };
+    graphql.schema.SelectedField field = Mockito.mock(graphql.schema.SelectedField.class);
+    Mockito.when(field.getName()).thenReturn(fieldName);
+    Mockito.when(field.getQualifiedName()).thenReturn(typeName + "." + fieldName);
+    Mockito.when(field.getFullyQualifiedName()).thenReturn(typeName + "." + fieldName);
+    Mockito.when(field.getResultKey()).thenReturn(fieldName);
+    Mockito.when(field.getObjectTypeNames()).thenReturn(Arrays.asList(typeName));
+    return field;
   }
 }
