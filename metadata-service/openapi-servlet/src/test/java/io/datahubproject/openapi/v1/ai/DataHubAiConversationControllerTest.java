@@ -19,6 +19,7 @@ import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.integration.StreamingChatClient.SseEvent;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -245,7 +245,7 @@ public class DataHubAiConversationControllerTest {
     Thread.sleep(500);
   }
 
-  @Test(expectedExceptions = ResponseStatusException.class)
+  @Test(expectedExceptions = UnauthorizedException.class)
   public void testStreamChatUnauthorized() throws Exception {
     // Mock conversation service to deny access
     when(mockConversationService.canAccessConversation(
@@ -257,11 +257,11 @@ public class DataHubAiConversationControllerTest {
     request.setConversationUrn(TEST_CONVERSATION_URN.toString());
     request.setText(TEST_MESSAGE_TEXT);
 
-    // Should throw ResponseStatusException with FORBIDDEN status
+    // Should throw UnauthorizedException
     controller.streamChat(mockHttpServletRequest, request);
   }
 
-  @Test(expectedExceptions = ResponseStatusException.class)
+  @Test(expectedExceptions = UnauthorizedException.class)
   public void testStreamChatConversationDoesNotExist() throws Exception {
     // Mock conversation service to indicate conversation doesn't exist (returns false)
     when(mockConversationService.canAccessConversation(
@@ -273,7 +273,7 @@ public class DataHubAiConversationControllerTest {
     request.setConversationUrn(TEST_CONVERSATION_URN.toString());
     request.setText(TEST_MESSAGE_TEXT);
 
-    // Should throw ResponseStatusException
+    // Should throw UnauthorizedException
     controller.streamChat(mockHttpServletRequest, request);
   }
 

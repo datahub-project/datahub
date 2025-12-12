@@ -10,6 +10,7 @@ import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.HashMap;
@@ -19,13 +20,11 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
@@ -131,8 +130,7 @@ public class DataHubAiConversationController {
           "User {} attempted to send message to conversation {} but is not authorized",
           authenticatedUserUrn,
           request.getConversationUrn());
-      throw new ResponseStatusException(
-          HttpStatus.FORBIDDEN,
+      throw new UnauthorizedException(
           "You are not authorized to send messages to this conversation. Only the conversation creator can send messages.");
     }
 
