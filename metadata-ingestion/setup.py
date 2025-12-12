@@ -728,6 +728,7 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            "dataplex",
             "delta-lake",
             "dremio",
             "druid",

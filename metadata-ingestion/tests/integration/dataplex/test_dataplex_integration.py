@@ -5,10 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
 
-import pytest
-
-pytest.importorskip("google.cloud.dataplex_v1")
-
 from freezegun import freeze_time
 from google.cloud import dataplex_v1
 
