@@ -22,8 +22,7 @@ microFrontends:
     cy.setIsThemeV2Enabled(true);
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
-    cy.loginWithCredentials("datahub", "datahub");
-    cy.visit("/");
+    cy.visitWithLogin("/");
     cy.wait("@mfeConfig");
     // Example of taking screenshots of key moments, for debugging or documentation:
     // cy.screenshot("after-visit");
