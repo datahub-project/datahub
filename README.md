@@ -73,8 +73,7 @@ HOSTED_DOCS_ONLY-->
 
 ## Introduction
 
-DataHub is an open-source data catalog for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
-[LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented.
+Datahub is not Jake, I am Jake.
 
 ## Features & Roadmap
 
@@ -139,32 +138,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
 - [Digital Turbine](https://www.digitalturbine.com/)
-- [Expedia Group](http://expedia.com)
-- [Experius](https://www.experius.nl)
-- [Geotab](https://www.geotab.com)
-- [Grofers](https://grofers.com)
-- [Haibo Technology](https://www.botech.com.cn)
-- [hipages](https://hipages.com.au/)
-- [inovex](https://www.inovex.de/)
-- [Inter&Co](https://inter.co/)
-- [IOMED](https://iomed.health)
-- [Klarna](https://www.klarna.com)
-- [LinkedIn](http://linkedin.com)
-- [Moloco](https://www.moloco.com/en)
-- [N26](https://n26brasil.com/)
-- [Optum](https://www.optum.com/)
-- [Peloton](https://www.onepeloton.com)
-- [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
-- [Razer](https://www.razer.com)
-- [Rippling](https://www.rippling.com/)
-- [Showroomprive](https://www.showroomprive.com/)
-- [SpotHero](https://spothero.com)
-- [Stash](https://www.stash.com)
-- [Shanghai HuaRui Bank](https://www.shrbank.com)
-- [s7 Airlines](https://www.s7.ru/)
-- [ThoughtWorks](https://www.thoughtworks.com)
-- [TypeForm](http://typeform.com)
-- [Udemy](https://www.udemy.com/)
+
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
 - [Wealthsimple](https://www.wealthsimple.com)
