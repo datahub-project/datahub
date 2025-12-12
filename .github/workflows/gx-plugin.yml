@@ -38,7 +38,7 @@ jobs:
         python-version: ["3.9", "3.11"]
         include:
           - python-version: "3.9"
-            extraPythonRequirement: "great-expectations~=0.17.0"
+            extraPythonRequirement: "great-expectations~=0.18.0"
           - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.18.0"
       fail-fast: false
