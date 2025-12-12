@@ -929,6 +929,12 @@ entry_points = {
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
+        "add_tags = datahub.ingestion.transformer.add_tags:AddTags",
+        "simple_add_tags = datahub.ingestion.transformer.add_tags:SimpleAddTags",
+        "pattern_add_tags = datahub.ingestion.transformer.add_tags:PatternAddTags",
+        "add_terms = datahub.ingestion.transformer.add_terms:AddTerms",
+        "simple_add_terms = datahub.ingestion.transformer.add_terms:SimpleAddTerms",
+        "pattern_add_terms = datahub.ingestion.transformer.add_terms:PatternAddTerms",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
