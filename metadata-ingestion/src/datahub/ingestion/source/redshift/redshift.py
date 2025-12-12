@@ -427,13 +427,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.process_schemas(connection, database)
             )
 
-            # Only extract lineage if at least one lineage flag is enabled
-            # Note: include_table_lineage and include_table_location_lineage are not used
-            # in the actual lineage extraction logic - table lineage is controlled by table_lineage_mode
-            # If all specific lineage flags are disabled, skip lineage extraction entirely
-            # (this will also skip table lineage even though table_lineage_mode may be set)
+            # Only extract lineage if at least one lineage flag is enabled.
+            # This addresses a regression introduced in PR #14580 where lineage v1 removal
+            # inadvertently caused lineage extraction to run even when all flags were disabled.
             if (
-                self.config.include_view_lineage
+                self.config.include_table_lineage
+                or self.config.include_view_lineage
                 or self.config.include_copy_lineage
                 or self.config.include_unload_lineage
                 or self.config.include_share_lineage
