@@ -11,27 +11,23 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
-import { Document, EntityType } from '@types';
+import { EntityType } from '@types';
+import { DocumentEntity } from './DocumentEntity';
 
 const headerDropdownItems = new Set([EntityMenuItems.COPY_URL, EntityMenuItems.SHARE]);
+
 
 /**
  * Profile for external documents (documents ingested from external sources like Slack, Notion, etc.)
  * Uses the traditional EntityProfile with tabs instead of the custom DocumentSimpleProfile
  */
 export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element => {
-    const getOverrideProperties = (document: Document) => {
-        return {
-            name: document.info?.title,
-        };
-    };
-
     return (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Document}
             useEntityQuery={useGetDocumentQuery}
-            getOverrideProperties={getOverrideProperties}
+            getOverrideProperties={new DocumentEntity().getOverridePropertiesFromEntity}
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {

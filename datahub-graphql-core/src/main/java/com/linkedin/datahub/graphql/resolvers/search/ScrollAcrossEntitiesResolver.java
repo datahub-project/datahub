@@ -112,8 +112,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 DefaultEntityFiltersUtil.addDefaultEntityFilters(
                     combinedFilter, finalEntities, true);
 
-            return UrnScrollResultsMapper.map(
-                context,
+            // Execute scroll and remove default filter fields from aggregations
+            com.linkedin.metadata.search.ScrollResult scrollResult =
                 _entityClient.scrollAcrossEntities(
                     context
                         .getOperationContext()
@@ -124,7 +124,13 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     scrollId,
                     keepAlive,
                     sortCriteria,
-                    count));
+                    count);
+
+            // Cleanse aggregations to remove hidden/default filter fields
+            scrollResult =
+                DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(scrollResult);
+
+            return UrnScrollResultsMapper.map(context, scrollResult);
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",

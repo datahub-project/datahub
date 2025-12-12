@@ -3,15 +3,23 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -27,8 +35,77 @@ import javax.annotation.Nullable;
  */
 public class DefaultEntityFiltersUtil {
 
+  /**
+   * Set of field names used in default entity filters. These fields should be excluded from
+   * aggregation results since they are system/hidden filters that shouldn't be shown to users.
+   */
+  public static final Set<String> DEFAULT_FILTER_FIELDS =
+      ImmutableSet.of("state", "showInGlobalContext");
+
   private DefaultEntityFiltersUtil() {
     // Utility class - prevent instantiation
+  }
+
+  /**
+   * Removes aggregation metadata for fields that are used in default entity filters. These fields
+   * are hidden/system filters that shouldn't be shown to users in the facet results.
+   *
+   * @param searchResult The search result to cleanse
+   * @return The same search result with default filter fields removed from aggregations
+   */
+  @Nonnull
+  public static SearchResult removeDefaultFilterFieldsFromAggregations(
+      @Nonnull SearchResult searchResult) {
+    if (!searchResult.hasMetadata() || !searchResult.getMetadata().hasAggregations()) {
+      return searchResult;
+    }
+
+    SearchResultMetadata metadata = searchResult.getMetadata();
+    AggregationMetadataArray originalAggs = metadata.getAggregations();
+
+    // Filter out aggregations for default filter fields
+    List<AggregationMetadata> filteredAggs =
+        originalAggs.stream()
+            .filter(agg -> !DEFAULT_FILTER_FIELDS.contains(agg.getName()))
+            .collect(Collectors.toList());
+
+    // Only update if we actually filtered something out
+    if (filteredAggs.size() < originalAggs.size()) {
+      metadata.setAggregations(new AggregationMetadataArray(filteredAggs));
+    }
+
+    return searchResult;
+  }
+
+  /**
+   * Removes aggregation metadata for fields that are used in default entity filters. These fields
+   * are hidden/system filters that shouldn't be shown to users in the facet results.
+   *
+   * @param scrollResult The scroll result to cleanse
+   * @return The same scroll result with default filter fields removed from aggregations
+   */
+  @Nonnull
+  public static ScrollResult removeDefaultFilterFieldsFromAggregations(
+      @Nonnull ScrollResult scrollResult) {
+    if (!scrollResult.hasMetadata() || !scrollResult.getMetadata().hasAggregations()) {
+      return scrollResult;
+    }
+
+    SearchResultMetadata metadata = scrollResult.getMetadata();
+    AggregationMetadataArray originalAggs = metadata.getAggregations();
+
+    // Filter out aggregations for default filter fields
+    List<AggregationMetadata> filteredAggs =
+        originalAggs.stream()
+            .filter(agg -> !DEFAULT_FILTER_FIELDS.contains(agg.getName()))
+            .collect(Collectors.toList());
+
+    // Only update if we actually filtered something out
+    if (filteredAggs.size() < originalAggs.size()) {
+      metadata.setAggregations(new AggregationMetadataArray(filteredAggs));
+    }
+
+    return scrollResult;
   }
 
   /**
