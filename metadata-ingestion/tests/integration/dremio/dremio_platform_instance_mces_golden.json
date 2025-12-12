@@ -7268,6 +7268,74 @@
             "type": "VIEW",
             "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.customers%2CPROD%29"
           }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),id)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD),id)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),company)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD),company)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),last_name)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD),last_name)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),first_name)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD),first_name)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),email_address)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD),email_address)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),priority)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD),priority)"
+            ],
+            "confidenceScore": 1.0
+          }
         ]
       }
     },
@@ -7401,6 +7469,85 @@
             "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
             "type": "VIEW",
             "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_aspect%2CPROD%29"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),urn)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),urn)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),aspect)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),aspect)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),version)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),version)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),metadata)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),metadata)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),createdon)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),createdon)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),createdby)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),createdby)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),createdfor)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD),createdfor)"
+            ],
+            "confidenceScore": 1.0
           }
         ]
       }
@@ -7542,6 +7689,85 @@
             "type": "VIEW",
             "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index%2CPROD%29"
           }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),id)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),id)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),urn)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),urn)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),aspect)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),aspect)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),path)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),path)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),longVal)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),longVal)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),stringVal)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),stringVal)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),doubleVal)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD),doubleVal)"
+            ],
+            "confidenceScore": 1.0
+          }
         ]
       }
     },
@@ -7682,6 +7908,52 @@
             "type": "VIEW",
             "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index_view%2CPROD%29"
           }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),id)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD),id)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),urn)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD),urn)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),path)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD),path)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),doubleVal)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD),doubleVal)"
+            ],
+            "confidenceScore": 1.0
+          }
         ]
       }
     },
@@ -7803,6 +8075,41 @@
             "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
             "type": "VIEW",
             "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.orders%2CPROD%29"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD),id)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD),id)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD),description)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD),description)"
+            ],
+            "confidenceScore": 1.0
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD),customer_id)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD),customer_id)"
+            ],
+            "confidenceScore": 1.0
           }
         ]
       }
