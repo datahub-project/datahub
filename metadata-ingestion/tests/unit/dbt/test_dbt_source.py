@@ -858,9 +858,10 @@ def test_max_loaded_at_in_dataset_properties() -> None:
     expected_timestamp_ms = int(test_timestamp.timestamp() * 1000)
     assert dataset_properties.lastModified.time == expected_timestamp_ms
 
-    # Test that SchemaMetadata.lastModified is NOT set
+    # Test that SchemaMetadata.lastModified is also set from max_loaded_at
     schema_metadata = source.get_schema_metadata(source.report, source_node, "dbt")
-    assert schema_metadata.lastModified is None
+    assert schema_metadata.lastModified is not None
+    assert schema_metadata.lastModified.time == expected_timestamp_ms
 
 
 def test_max_loaded_at_none_in_dataset_properties() -> None:

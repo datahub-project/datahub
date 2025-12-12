@@ -1985,6 +1985,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             canonical_schema.append(field)
 
+        # Set lastModified from max_loaded_at for sources, or from model_performances for models
+        last_modified = None
+        if node.max_loaded_at is not None:
+            # For sources: use max_loaded_at from sources.json
+            actor = mce_builder.make_user_urn("dbt_executor")
+            last_modified = AuditStamp(
+                time=datetime_to_ts_millis(node.max_loaded_at),
+                actor=actor,
+            )
+        elif node.model_performances:
+            # For models: use the most recent successful run end_time
+            successful_runs = [
+                perf for perf in node.model_performances if perf.is_success()
+            ]
+            if successful_runs:
+                latest_run = max(successful_runs, key=lambda p: p.end_time)
+                actor = mce_builder.make_user_urn("dbt_executor")
+                last_modified = AuditStamp(
+                    time=datetime_to_ts_millis(latest_run.end_time),
+                    actor=actor,
+                )
+
         return SchemaMetadata(
             schemaName=node.dbt_name,
             platform=mce_builder.make_data_platform_urn(platform),
@@ -1992,6 +2014,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
             fields=canonical_schema,
+            lastModified=last_modified,
         )
 
     def _aggregate_owners(
