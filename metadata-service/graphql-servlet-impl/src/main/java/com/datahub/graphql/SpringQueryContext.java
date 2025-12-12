@@ -2,10 +2,12 @@ package com.datahub.graphql;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.language.OperationDefinition;
 import graphql.parser.Parser;
+import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +25,10 @@ public class SpringQueryContext implements QueryContext {
   @Getter private final String queryName;
   @Nonnull private final OperationContext operationContext;
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
+
+  // Mutable fields for request-scoped data
+  @Nullable private DataFetchingEnvironment dataFetchingEnvironment;
+  @Nullable private AspectMappingRegistry aspectMappingRegistry;
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -62,5 +68,27 @@ public class SpringQueryContext implements QueryContext {
             true);
 
     this.dataHubAppConfig = dataHubAppConfig;
+  }
+
+  @Override
+  @Nullable
+  public DataFetchingEnvironment getDataFetchingEnvironment() {
+    return dataFetchingEnvironment;
+  }
+
+  @Override
+  public void setDataFetchingEnvironment(@Nullable DataFetchingEnvironment environment) {
+    this.dataFetchingEnvironment = environment;
+  }
+
+  @Override
+  @Nullable
+  public AspectMappingRegistry getAspectMappingRegistry() {
+    return aspectMappingRegistry;
+  }
+
+  @Override
+  public void setAspectMappingRegistry(@Nullable AspectMappingRegistry aspectMappingRegistry) {
+    this.aspectMappingRegistry = aspectMappingRegistry;
   }
 }
