@@ -27,6 +27,11 @@ from datahub_integrations.chat.agents.data_catalog_tools import (
     get_data_catalog_internal_tools,
     is_smart_search_enabled,
 )
+from datahub_integrations.chat.agents.tools.ingestion import (
+    get_ingestion_execution_logs,
+    get_ingestion_execution_request,
+    get_ingestion_source,
+)
 from datahub_integrations.chat.agents.tools.troubleshoot import (
     is_troubleshoot_available,
     troubleshoot,
@@ -94,6 +99,29 @@ def create_ingestion_troubleshooting_agent(
             tools_from_fastmcp(entry) if isinstance(entry, FastMCP) else [entry]
         )
     ]
+
+    plannable_tools.extend(
+        [
+            ToolWrapper.from_function(
+                fn=async_background(get_ingestion_source),
+                name="get_ingestion_source",
+                description=get_ingestion_source.__doc__
+                or "Get ingestion source information",
+            ),
+            ToolWrapper.from_function(
+                fn=async_background(get_ingestion_execution_request),
+                name="get_ingestion_execution_request",
+                description=get_ingestion_execution_request.__doc__
+                or "Get ingestion execution request details",
+            ),
+            ToolWrapper.from_function(
+                fn=async_background(get_ingestion_execution_logs),
+                name="get_ingestion_execution_logs",
+                description=get_ingestion_execution_logs.__doc__
+                or "Get ingestion execution logs",
+            ),
+        ]
+    )
 
     # Add smart_search if enabled
     if is_smart_search_enabled():

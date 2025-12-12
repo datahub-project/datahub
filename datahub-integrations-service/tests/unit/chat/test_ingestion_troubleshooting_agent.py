@@ -66,3 +66,24 @@ class TestIngestionTroubleshootingAgentFactory:
                 assert agent.client == self.mock_client
                 # Should still have other tools
                 assert len(agent.tools) > 0
+
+    def test_ingestion_tools_always_registered(self) -> None:
+        """Ingestion tools are always registered for ingestion troubleshooting agent."""
+        with patch.dict("os.environ", {}, clear=True):
+            # Patch MCP registration to avoid side effects
+            with patch(
+                "datahub_integrations.chat.agents.ingestion_troubleshooting_agent.register_all_tools"
+            ):
+                agent = create_ingestion_troubleshooting_agent(self.mock_client)
+
+                # Check that all three ingestion tools are in the agent's tools
+                tool_names = [tool.name for tool in agent.tools]
+                assert "get_ingestion_source" in tool_names
+                assert "get_ingestion_execution_request" in tool_names
+                assert "get_ingestion_execution_logs" in tool_names
+
+                # Also verify they're in plannable_tools (subset used for planning)
+                plannable_tool_names = [tool.name for tool in agent.plannable_tools]
+                assert "get_ingestion_source" in plannable_tool_names
+                assert "get_ingestion_execution_request" in plannable_tool_names
+                assert "get_ingestion_execution_logs" in plannable_tool_names

@@ -382,7 +382,7 @@ def _is_field_validation_error(error_msg: str) -> bool:
     return "FieldUndefined" in error_msg or "ValidationError" in error_msg
 
 
-def _execute_graphql(
+def execute_graphql(
     graph: DataHubGraph,
     *,
     query: str,
@@ -588,7 +588,7 @@ def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
     }
     """
 
-    result = _execute_graphql(graph, query=query)
+    result = execute_graphql(graph, query=query)
     settings = result.get("globalViewsSettings")
     if settings:
         view_urn = settings.get("defaultView")
@@ -1031,14 +1031,14 @@ def get_entities(urns: List[str] | str) -> List[dict] | dict:
             # Execute the appropriate GraphQL query
             variables = {"urn": urn}
             if is_query:
-                result = _execute_graphql(
+                result = execute_graphql(
                     client._graph,
                     query=query_entity_gql,
                     variables=variables,
                     operation_name="GetQueryEntity",
                 )["entity"]
             else:
-                result = _execute_graphql(
+                result = execute_graphql(
                     client._graph,
                     query=entity_details_fragment_gql,
                     variables=variables,
@@ -1130,7 +1130,7 @@ def list_schema_fields(
 
     # Execute GraphQL query to get full schema
     variables = {"urn": urn}
-    result = _execute_graphql(
+    result = execute_graphql(
         client._graph,
         query=entity_details_fragment_gql,
         variables=variables,
@@ -1392,7 +1392,7 @@ def _search_implementation(
         operation_name = "search"
         response_key = "searchAcrossEntities"
 
-    response = _execute_graphql(
+    response = execute_graphql(
         client._graph,
         query=gql_query,
         variables=variables,
@@ -1744,7 +1744,7 @@ def get_dataset_queries(
         variables["input"]["source"] = source
 
     # Execute the GraphQL query
-    result = _execute_graphql(
+    result = execute_graphql(
         client._graph,
         query=queries_gql,
         variables=variables,
@@ -1830,7 +1830,7 @@ class AssetLineageAPI:
         }
         if asset_lineage_directive.upstream:
             result["upstreams"] = clean_gql_response(
-                _execute_graphql(
+                execute_graphql(
                     self.graph,
                     query=entity_details_fragment_gql,
                     variables={
@@ -1844,7 +1844,7 @@ class AssetLineageAPI:
             )
         if asset_lineage_directive.downstream:
             result["downstreams"] = clean_gql_response(
-                _execute_graphql(
+                execute_graphql(
                     self.graph,
                     query=entity_details_fragment_gql,
                     variables={

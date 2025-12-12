@@ -47,7 +47,7 @@ class TestGetEntitiesSingleURN:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": sample_entity_response}
 
@@ -89,7 +89,7 @@ class TestGetEntitiesSingleURN:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.side_effect = Exception("GraphQL error")
 
@@ -118,7 +118,7 @@ class TestGetEntitiesMultipleURNs:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.side_effect = [
                     {
@@ -178,7 +178,7 @@ class TestGetEntitiesMultipleURNs:
             mock_client._graph.exists.side_effect = [True, False, True]
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.side_effect = [
                     {
@@ -229,7 +229,7 @@ class TestGetEntitiesMultipleURNs:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.side_effect = [
                     {
@@ -295,7 +295,7 @@ class TestGetEntitiesIntegration:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": sample_entity_response}
 
@@ -325,7 +325,7 @@ class TestGetEntitiesIntegration:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": entity_with_long_desc}
 
@@ -357,7 +357,7 @@ class TestGetEntitiesIntegration:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": entity_with_typename}
 

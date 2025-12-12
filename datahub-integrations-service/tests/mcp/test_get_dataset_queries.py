@@ -63,7 +63,7 @@ class TestGetDatasetQueriesParameters:
         }
 
     @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     async def test_get_dataset_queries_with_source_manual(
         self, mock_execute_graphql, mock_get_client, mock_client, mock_gql_response
     ):
@@ -84,7 +84,7 @@ class TestGetDatasetQueriesParameters:
         assert "orFilters" in variables["input"]
 
     @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     async def test_get_dataset_queries_with_source_system(
         self, mock_execute_graphql, mock_get_client, mock_client, mock_gql_response
     ):
@@ -104,7 +104,7 @@ class TestGetDatasetQueriesParameters:
         assert variables["input"]["source"] == "SYSTEM"
 
     @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     async def test_get_dataset_queries_without_source_filter(
         self, mock_execute_graphql, mock_get_client, mock_client, mock_gql_response
     ):
@@ -123,7 +123,7 @@ class TestGetDatasetQueriesParameters:
         assert "source" not in variables["input"]
 
     @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     async def test_get_dataset_queries_with_column_parameter(
         self, mock_execute_graphql, mock_get_client, mock_client, mock_gql_response
     ):
@@ -145,7 +145,7 @@ class TestGetDatasetQueriesParameters:
         assert variables["input"]["source"] == "MANUAL"
 
     @patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     async def test_get_dataset_queries_response_deduplication(
         self, mock_execute_graphql, mock_get_client, mock_client, mock_gql_response
     ):
