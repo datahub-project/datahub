@@ -8,16 +8,18 @@ from sqlalchemy.engine.url import URL, make_url
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
-    ConnectorConfigKeys,
     ConnectorManifest,
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
     get_dataset_name,
     has_three_level_hierarchy,
-    parse_comma_separated_list,
     remove_prefix,
     validate_jdbc_url,
+)
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
+    parse_comma_separated_list,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -57,13 +59,30 @@ class ConfluentS3SinkConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from S3 sink connector configuration."""
+        """
+        Extract topics from S3 sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # S3 sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -139,6 +158,10 @@ class ConfluentS3SinkConnector(BaseConnector):
 
         return []
 
+    def get_platform(self) -> str:
+        """Get the platform for S3 Sink connector."""
+        return "s3"
+
 
 @dataclass
 class SnowflakeSinkConnector(BaseConnector):
@@ -188,8 +211,26 @@ class SnowflakeSinkConnector(BaseConnector):
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
-        # Apply transforms to get final topic names
-        topic_list = list(connector_manifest.topic_names)
+        # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+        available_topics = set(
+            self.all_cluster_topics or connector_manifest.topic_names
+        )
+
+        # Get topics the connector subscribes to from its configuration
+        subscribed_topics = set(self.get_topics_from_config())
+
+        # Filter available topics to only those the connector subscribes to
+        if subscribed_topics:
+            topic_list = list(available_topics.intersection(subscribed_topics))
+            logger.debug(
+                f"Filtered to {len(topic_list)} subscribed topics for {connector_manifest.name}: {topic_list}"
+            )
+        else:
+            # If no subscription config, use all available topics (OSS behavior)
+            topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription filter found, using all {len(topic_list)} available topics"
+            )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
         )
@@ -216,13 +257,30 @@ class SnowflakeSinkConnector(BaseConnector):
         )
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from Snowflake sink connector configuration."""
+        """
+        Extract topics from Snowflake sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # Snowflake sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -251,16 +309,30 @@ class SnowflakeSinkConnector(BaseConnector):
 
         for topic, table in parser.topics_to_tables.items():
             target_dataset: str = f"{parser.database_name}.{parser.schema_name}.{table}"
+
+            # Extract column-level lineage if enabled (uses base class method)
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=topic,
+                source_platform=KAFKA,
+                target_dataset=target_dataset,
+                target_platform="snowflake",
+            )
+
             lineages.append(
                 KafkaConnectLineage(
                     source_dataset=topic,
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform="snowflake",
+                    fine_grained_lineages=fine_grained,
                 )
             )
 
         return lineages
+
+    def get_platform(self) -> str:
+        """Get the platform for Snowflake Sink connector."""
+        return "snowflake"
 
 
 @dataclass
@@ -350,12 +422,15 @@ class BigQuerySinkConnector(BaseConnector):
                 logger.warning(f"Failed to parse mapping entry '{entry}': {e}")
 
     def get_dataset_for_topic_v1(self, topic: str, parser: BQParser) -> Optional[str]:
+        from datahub.ingestion.source.kafka_connect.pattern_matchers import (
+            JavaRegexMatcher,
+        )
+
         topicregex_dataset_map: Dict[str, str] = dict(self.get_list(parser.datasets))  # type: ignore
-        from java.util.regex import Pattern
+        matcher = JavaRegexMatcher()
 
         for pattern, dataset in topicregex_dataset_map.items():
-            patternMatcher = Pattern.compile(pattern).matcher(topic)
-            if patternMatcher.matches():
+            if matcher.matches(pattern, topic):
                 return dataset
         return None
 
@@ -387,14 +462,17 @@ class BigQuerySinkConnector(BaseConnector):
 
             table = topic
             if parser.topicsToTables:
+                from datahub.ingestion.source.kafka_connect.pattern_matchers import (
+                    JavaRegexMatcher,
+                )
+
                 topicregex_table_map: Dict[str, str] = dict(
                     self.get_list(parser.topicsToTables)  # type: ignore
                 )
-                from java.util.regex import Pattern
+                matcher = JavaRegexMatcher()
 
                 for pattern, tbl in topicregex_table_map.items():
-                    patternMatcher = Pattern.compile(pattern).matcher(topic)
-                    if patternMatcher.matches():
+                    if matcher.matches(pattern, topic):
                         table = tbl
                         break
 
@@ -403,13 +481,30 @@ class BigQuerySinkConnector(BaseConnector):
         return f"{dataset}.{table}"
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from BigQuery sink connector configuration."""
+        """
+        Extract topics from BigQuery sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # BigQuery sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -465,15 +560,28 @@ class BigQuerySinkConnector(BaseConnector):
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
 
+            # Extract column-level lineage if enabled (uses base class method)
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=original_topic,
+                source_platform=KAFKA,
+                target_dataset=target_dataset,
+                target_platform=target_platform,
+            )
+
             lineages.append(
                 KafkaConnectLineage(
                     source_dataset=original_topic,  # Keep original topic as source
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
+                    fine_grained_lineages=fine_grained,
                 )
             )
         return lineages
+
+    def get_platform(self) -> str:
+        """Get the platform for BigQuery Sink connector."""
+        return "bigquery"
 
 
 @dataclass
@@ -764,13 +872,30 @@ class JdbcSinkConnector(BaseConnector):
         return table_format
 
     def get_topics_from_config(self) -> List[str]:
-        """Extract topics from JDBC sink connector configuration."""
+        """
+        Extract topics from JDBC sink connector configuration.
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
         config = self.connector_manifest.config
 
-        # JDBC sink connectors use 'topics' field
+        # Priority 1: Explicit 'topics' field
         topics = config.get(ConnectorConfigKeys.TOPICS, "")
         if topics:
             return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            # Expand pattern using available sources
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.connector_manifest.topic_names
+                if self.connector_manifest.topic_names
+                else None,
+            )
 
         return []
 
@@ -840,8 +965,26 @@ class JdbcSinkConnector(BaseConnector):
                 f"database={parser.database_name}, schema={parser.schema_name}"
             )
 
-            # Apply transforms to topics
-            topic_list = list(self.connector_manifest.topic_names)
+            # Get available topics (all cluster topics for Cloud, connector topics for OSS)
+            available_topics = set(
+                self.all_cluster_topics or self.connector_manifest.topic_names
+            )
+
+            # Get topics the connector subscribes to from its configuration
+            subscribed_topics = set(self.get_topics_from_config())
+
+            # Filter available topics to only those the connector subscribes to
+            if subscribed_topics:
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Filtered to {len(topic_list)} subscribed topics for {self.connector_manifest.name}: {topic_list}"
+                )
+            else:
+                # If no subscription config, use all available topics (OSS behavior)
+                topic_list = list(available_topics)
+                logger.debug(
+                    f"No subscription filter found, using all {len(topic_list)} available topics"
+                )
             transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
             )
@@ -881,12 +1024,21 @@ class JdbcSinkConnector(BaseConnector):
                     # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
+                # Extract column-level lineage if enabled (uses base class method)
+                fine_grained = self._extract_fine_grained_lineage(
+                    source_dataset=original_topic,
+                    source_platform=KAFKA,
+                    target_dataset=target_dataset,
+                    target_platform=parser.target_platform,
+                )
+
                 lineages.append(
                     KafkaConnectLineage(
                         source_dataset=original_topic,
                         source_platform=KAFKA,
                         target_dataset=target_dataset,
                         target_platform=parser.target_platform,
+                        fine_grained_lineages=fine_grained,
                     )
                 )
 
@@ -910,6 +1062,10 @@ class JdbcSinkConnector(BaseConnector):
                 exc=e,
             )
             return []
+
+    def get_platform(self) -> str:
+        """Get the platform for JDBC Sink connector."""
+        return self.platform
 
 
 BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
