@@ -148,7 +148,10 @@ public class ParentGlossaryNodeFieldResolverProvider implements EntityFieldResol
 
   private FieldResolver.FieldValue buildFieldValue(Set<Urn> urns) {
     return FieldResolver.FieldValue.builder()
-        .values(urns.stream().map(Object::toString).collect(Collectors.toSet()))
+        .values(
+            urns.stream()
+                .map(Object::toString)
+                .collect(Collectors.toCollection(LinkedHashSet::new)))
         .build();
   }
 }
