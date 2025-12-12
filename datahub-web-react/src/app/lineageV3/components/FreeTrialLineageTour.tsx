@@ -1,11 +1,11 @@
-import { Text, colors } from '@components';
+import { CalloutCard, Text, colors } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { LineageDisplayContext } from '@app/lineageV3/common';
 import { FREE_TRIAL } from '@app/onboarding/configV2/FreeTrialConfig';
-import { FreeTrialPopover, useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
+import { useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
 import { PageRoutes } from '@conf/Global';
 
 const BulletList = styled.ul`
@@ -142,7 +142,7 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
     const isLastStep = currentStepIndex === TOUR_STEPS.length - 1;
 
     return (
-        <FreeTrialPopover
+        <CalloutCard
             icon={currentStep.icon}
             title={currentStep.title}
             position="fixed-bottom-center"
@@ -153,6 +153,6 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
             onClose={handleClose}
         >
             {currentStep.content}
-        </FreeTrialPopover>
+        </CalloutCard>
     );
 }

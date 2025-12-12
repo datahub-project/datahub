@@ -135,7 +135,7 @@ const FreeTrialContent = () => {
                 break;
             case FREE_TRIAL.DATA_LINEAGE_ID:
                 history.push(
-                    '/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)/Lineage?highlightedPath=&is_lineage_mode=false&schemaFilter=',
+                    '/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)/Lineage?highlightedPath=&is_lineage_mode=false&schemaFilter=',
                 );
                 break;
             case FREE_TRIAL.CONNECT_SOURCE_ID:
@@ -152,7 +152,7 @@ const FreeTrialContent = () => {
                 <PageBanner
                     icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
                     content={
-                        <Text color="gray">
+                        <Text color="blue">
                             You&apos;re exploring DataHub with sample e-commerce data. All features are fully functional
                             with demo data.
                         </Text>

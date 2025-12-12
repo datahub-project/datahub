@@ -1,10 +1,10 @@
-import { Text } from '@components';
+import { CalloutCard, CalloutPosition, Text } from '@components';
 import React, { useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { FREE_TRIAL } from '@app/onboarding/configV2/FreeTrialConfig';
-import { FreeTrialPopover, PopoverPosition, useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
+import { useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
 import { PageRoutes } from '@conf/Global';
 
 const ContentText = styled(Text)`
@@ -19,7 +19,7 @@ interface PopoverConfig {
     icon: string;
     title: string;
     content: string;
-    position: PopoverPosition;
+    position: CalloutPosition;
     primaryButtonText: string;
     navigateToHome: boolean;
 }
@@ -77,7 +77,7 @@ export default function FreeTrialAIChatPopover({ variant }: Props) {
     }
 
     return (
-        <FreeTrialPopover
+        <CalloutCard
             icon={config.icon}
             title={config.title}
             position={config.position}
@@ -85,6 +85,6 @@ export default function FreeTrialAIChatPopover({ variant }: Props) {
             onPrimaryClick={handlePrimaryClick}
         >
             <ContentText>{config.content}</ContentText>
-        </FreeTrialPopover>
+        </CalloutCard>
     );
 }
