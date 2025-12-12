@@ -39,12 +39,14 @@ describe('useCreateFile', () => {
         } as any;
 
         // Mock crypto.subtle.digest
-        vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (_algorithm: string, _data: ArrayBuffer) => {
-            // Return the expected SHA-256 hash for 'content'
-            const hashHex = 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73';
-            const hashArray = hashHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16));
-            return new Uint8Array(hashArray).buffer;
-        });
+        vi.spyOn(crypto.subtle, 'digest').mockImplementation(
+            async (_algorithm: AlgorithmIdentifier, _data: BufferSource): Promise<ArrayBuffer> => {
+                // Return the expected SHA-256 hash for 'content'
+                const hashHex = 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73';
+                const hashArray = hashHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16));
+                return new Uint8Array(hashArray).buffer;
+            },
+        );
     });
 
     afterEach(() => {
