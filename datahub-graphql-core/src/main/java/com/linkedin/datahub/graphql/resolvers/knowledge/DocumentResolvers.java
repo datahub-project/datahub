@@ -101,11 +101,7 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "updateDocumentSettings",
                     new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentSettingsResolver(documentService))
-                .dataFetcher(
-                    "mergeDraft",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.MergeDraftResolver(
-                        documentService, entityService)));
+                        .UpdateDocumentSettingsResolver(documentService)));
 
     // Type wiring for Document root
     builder.type(
@@ -121,10 +117,6 @@ public class DocumentResolvers {
                     "privileges",
                     new com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver(
                         entityClient))
-                .dataFetcher(
-                    "drafts",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentDraftsResolver(
-                        documentService))
                 .dataFetcher(
                     "changeHistory",
                     new com.linkedin.datahub.graphql.resolvers.knowledge
@@ -172,19 +164,6 @@ public class DocumentResolvers {
                     (env) ->
                         ((com.linkedin.datahub.graphql.generated.DocumentParentDocument)
                                 env.getSource())
-                            .getDocument()
-                            .getUrn())));
-
-    // Resolve DocumentInfo.draftOf.document -> Document (resolved)
-    builder.type(
-        "DocumentDraftOf",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "document",
-                new LoadableTypeResolver<>(
-                    documentType,
-                    (env) ->
-                        ((com.linkedin.datahub.graphql.generated.DocumentDraftOf) env.getSource())
                             .getDocument()
                             .getUrn())));
 
