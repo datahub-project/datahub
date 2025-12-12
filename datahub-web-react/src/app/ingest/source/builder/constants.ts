@@ -1,5 +1,6 @@
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
+import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
@@ -50,6 +51,8 @@ export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
 export const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
+export const AZURE_DATA_FACTORY = 'azure-data-factory';
+export const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
 export const BIGQUERY = 'bigquery';
 export const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
@@ -162,6 +165,7 @@ export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
+    [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,

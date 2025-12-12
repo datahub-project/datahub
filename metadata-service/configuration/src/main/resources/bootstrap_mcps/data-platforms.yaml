@@ -21,6 +21,16 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:azure-data-factory
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: azure-data-factory
+    displayName: Azure Data Factory
+    type: OTHERS
+    logoUrl: "assets/platforms/azuredatafactorylogo.svg"
 - entityUrn: urn:li:dataPlatform:airflow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
