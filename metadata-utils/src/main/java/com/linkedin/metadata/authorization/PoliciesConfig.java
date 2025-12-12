@@ -543,6 +543,48 @@ public class PoliciesConfig {
           "Manage All Glossary Children",
           "The ability to create and delete everything underneath this entity.");
 
+  // Glossary Node View Privileges
+  public static final Privilege VIEW_GLOSSARY_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "VIEW_GLOSSARY_CHILDREN",
+          "View Direct Glossary Children",
+          "The ability to view the direct children of this glossary node.");
+
+  // Glossary Node View Privileges
+  public static final Privilege VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ALL_GLOSSARY_CHILDREN",
+          "View All Glossary Children",
+          "The ability to view everything underneath this glossary node.");
+
+  // Domain Privileges
+  public static final Privilege MANAGE_DOMAIN_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DOMAIN_CHILDREN",
+          "Manage Direct Domain Children",
+          "The ability to create and delete the direct child domains of this domain.");
+
+  // Domain Privileges
+  public static final Privilege MANAGE_ALL_DOMAIN_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ALL_DOMAIN_CHILDREN",
+          "Manage All Domain Children",
+          "The ability to create and delete all child domains underneath this domain.");
+
+  // Domain View Privileges
+  public static final Privilege VIEW_DOMAIN_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "VIEW_DOMAIN_CHILDREN",
+          "View Direct Domain Children",
+          "The ability to view the direct child domains of this domain.");
+
+  // Domain View Privileges
+  public static final Privilege VIEW_ALL_DOMAIN_CHILDREN_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ALL_DOMAIN_CHILDREN",
+          "View All Domain Children",
+          "The ability to view all child domains underneath this domain.");
+
   // REST API Specific Privileges (not adding to lists of privileges above as those affect GraphQL
   // as well)
   public static final Privilege GET_TIMELINE_PRIVILEGE =
@@ -759,6 +801,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
               MANAGE_DATA_PRODUCTS_PRIVILEGE,
+              MANAGE_DOMAIN_CHILDREN_PRIVILEGE,
+              MANAGE_ALL_DOMAIN_CHILDREN_PRIVILEGE,
+              VIEW_DOMAIN_CHILDREN_PRIVILEGE,
+              VIEW_ALL_DOMAIN_CHILDREN_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
@@ -834,6 +880,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+              VIEW_GLOSSARY_CHILDREN_PRIVILEGE,
+              VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
@@ -1303,6 +1351,90 @@ public class PoliciesConfig {
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,
                               VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  Constants.GLOSSARY_NODE_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(CREATE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_GLOSSARY_CHILDREN_PRIVILEGE,
+                              VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_GLOSSARY_CHILDREN_PRIVILEGE,
+                              VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  Constants.GLOSSARY_TERM_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(CREATE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_GLOSSARY_CHILDREN_PRIVILEGE,
+                              VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_GLOSSARY_CHILDREN_PRIVILEGE,
+                              VIEW_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  Constants.DOMAIN_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(CREATE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_DOMAIN_CHILDREN_PRIVILEGE,
+                              VIEW_ALL_DOMAIN_CHILDREN_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_DOMAIN_CHILDREN_PRIVILEGE,
+                              VIEW_ALL_DOMAIN_CHILDREN_PRIVILEGE,
                               SEARCH_PRIVILEGE))
                       .build())
               .build();
