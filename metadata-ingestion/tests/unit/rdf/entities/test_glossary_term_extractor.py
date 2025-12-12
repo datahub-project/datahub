@@ -68,6 +68,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, uri)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         self.assertEqual(term.name, "Account Identifier")
         self.assertEqual(term.definition, "A unique identifier for an account")
         self.assertEqual(term.source, str(uri))  # Original IRI stored in source
@@ -89,6 +90,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, child)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Terms are now independent - relationships are extracted separately
         # Verify term was extracted correctly
         self.assertEqual(term.name, "Child Term")
@@ -106,6 +108,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, parent)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Terms are now independent - relationships are extracted separately
         # Verify term was extracted correctly
         self.assertEqual(term.name, "Parent Term")
@@ -123,6 +126,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, term1)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Terms are now independent - relationships are extracted separately
         self.assertEqual(term.name, "Term One")
 
@@ -138,6 +142,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, term1)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Terms are now independent - relationships are extracted separately
         self.assertEqual(term.name, "Term One")
 
@@ -164,6 +169,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, uri)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Alternative labels are now in custom_properties as comma-separated string
         self.assertIn("skos:altLabel", term.custom_properties)
         alt_labels = term.custom_properties["skos:altLabel"]
@@ -180,6 +186,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, uri)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Notation is now in custom_properties
         self.assertEqual(term.custom_properties.get("skos:notation"), "NT-001")
 
@@ -195,6 +202,7 @@ class TestGlossaryTermExtractor(unittest.TestCase):
         term = self.extractor.extract(self.graph, uri)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Scope note is now in custom_properties
         self.assertEqual(
             term.custom_properties.get("skos:scopeNote"),
@@ -225,6 +233,7 @@ class TestGlossaryTermExtractorMultipleRelationships(unittest.TestCase):
         term = self.extractor.extract(self.graph, child)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Terms are now independent - relationships are extracted separately
         self.assertEqual(term.name, "Child Term")
         self.assertIn("urn:li:glossaryTerm:", term.urn)
@@ -243,6 +252,7 @@ class TestGlossaryTermExtractorMultipleRelationships(unittest.TestCase):
         term = self.extractor.extract(self.graph, middle)
 
         self.assertIsNotNone(term)
+        assert term is not None  # Type narrowing for mypy
         # Terms are now independent - relationships are extracted separately
         self.assertEqual(term.name, "Middle Term")
         self.assertIn("urn:li:glossaryTerm:", term.urn)

@@ -6,7 +6,7 @@ Creates only inheritance relationships (isRelatedTerms).
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.rdf.entities.base import EntityMCPBuilder
@@ -33,7 +33,9 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
         return "relationship"
 
     def build_mcps(
-        self, relationship: DataHubRelationship, context: Dict[str, Any] | None = None
+        self,
+        relationship: DataHubRelationship,
+        context: Optional[Dict[str, Any]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for a single relationship.
@@ -44,7 +46,7 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
     def build_all_mcps(
         self,
         relationships: List[DataHubRelationship],
-        context: Dict[str, Any] | None = None,
+        context: Optional[Dict[str, Any]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for all relationships.

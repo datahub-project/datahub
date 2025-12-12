@@ -48,7 +48,7 @@ class RelationshipExtractor(EntityExtractor[RDFRelationship]):
         return False
 
     def extract(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
+        self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
     ) -> Optional[RDFRelationship]:
         """
         Extract a single relationship. Not typically used directly.
@@ -57,7 +57,7 @@ class RelationshipExtractor(EntityExtractor[RDFRelationship]):
         return None  # Relationships are extracted in bulk
 
     def extract_all(
-        self, graph: Graph, context: Dict[str, Any] | None = None
+        self, graph: Graph, context: Optional[Dict[str, Any]] = None
     ) -> List[RDFRelationship]:
         """Extract all relationships from the RDF graph."""
         relationships = []

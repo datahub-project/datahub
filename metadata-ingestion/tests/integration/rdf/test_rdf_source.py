@@ -530,6 +530,9 @@ def test_missing_file_error(tmp_path, mock_datahub_graph_instance):
     pipeline.run()
 
     # Should have failures
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSource
+
+    assert isinstance(pipeline.source, RDFSource)
     assert pipeline.source.report.failures, "Expected failures for missing file"
     assert pipeline.source.report.num_workunits_produced == 0, (
         "Should not produce work units"
@@ -564,5 +567,8 @@ def test_malformed_rdf_error(malformed_ttl, tmp_path, mock_datahub_graph_instanc
     pipeline.run()
 
     # Should have failures
+    from datahub.ingestion.source.rdf.ingestion.rdf_source import RDFSource
+
+    assert isinstance(pipeline.source, RDFSource)
     assert pipeline.source.report.failures, "Expected failures for malformed RDF"
     # May or may not produce work units depending on error handling granularity
