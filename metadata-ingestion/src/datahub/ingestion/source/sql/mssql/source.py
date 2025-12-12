@@ -15,7 +15,10 @@ from sqlalchemy.sql import quoted_name
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    dataset_urn_to_key,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -1131,17 +1134,194 @@ class SQLServerSource(SQLAlchemySource):
 
         return filtered
 
+    def _remap_column_lineage_for_alias(
+        self,
+        table_urn: str,
+        column_name: str,
+        aspect: DataJobInputOutputClass,
+        procedure_name: str,
+    ) -> List[str]:
+        """Remap a column lineage entry from a filtered alias to real table(s).
+
+        For MSSQL UPDATE statements, sqlglot often parses aliases with incorrect
+        database/schema (e.g., "staging.dbo.dst" when dst is actually
+        "timeseries.dbo.european_priips_kid_information").
+
+        Strategy:
+        1. Try to match by table name (last component of URN)
+        2. If exactly one match, remap to it
+        3. If multiple matches, remap to all (warn user)
+        4. If no match, remap to all real downstreams (warn user)
+
+        Args:
+            table_urn: The filtered alias table URN
+            column_name: The column name
+            aspect: DataJobInputOutputClass with outputDatasets
+            procedure_name: Procedure name for logging
+
+        Returns:
+            List of remapped field URNs
+        """
+        remapped_urns = []
+
+        logger.info(
+            f"[COLUMN-REMAP-START] {procedure_name}: Remapping {table_urn}.{column_name}"
+        )
+        logger.info(
+            f"[COLUMN-REMAP-START]   Real downstream tables: {len(aspect.outputDatasets) if aspect.outputDatasets else 0}"
+        )
+        if aspect.outputDatasets:
+            for real_urn in aspect.outputDatasets:
+                logger.info(f"[COLUMN-REMAP-START]     {real_urn}")
+
+        try:
+            alias_key = dataset_urn_to_key(table_urn)
+            if not alias_key:
+                logger.warning(
+                    f"[COLUMN-REMAP] {procedure_name}: Could not parse alias URN {table_urn}"
+                )
+                return remapped_urns
+
+            alias_table_name = alias_key.name.split(".")[-1]
+            logger.info(
+                f"[COLUMN-REMAP] {procedure_name}: Extracted alias table name: {alias_table_name}"
+            )
+
+            # Find real tables with matching table name
+            matching_tables = []
+            if aspect.outputDatasets:
+                for real_table_urn in aspect.outputDatasets:
+                    real_key = dataset_urn_to_key(real_table_urn)
+                    if real_key:
+                        real_table_name = real_key.name.split(".")[-1]
+                        if real_table_name == alias_table_name:
+                            matching_tables.append(real_table_urn)
+
+            # Remap based on number of matches
+            if len(matching_tables) == 1:
+                remapped_urn = (
+                    f"urn:li:schemaField:({matching_tables[0]},{column_name})"
+                )
+                remapped_urns.append(remapped_urn)
+                logger.info(
+                    f"[COLUMN-REMAP] {procedure_name}: Remapped column lineage from "
+                    f"alias {table_urn}.{column_name} → real table {matching_tables[0]}.{column_name}"
+                )
+            elif len(matching_tables) > 1:
+                # Multiple matches - remap to all
+                for real_table_urn in matching_tables:
+                    remapped_urn = (
+                        f"urn:li:schemaField:({real_table_urn},{column_name})"
+                    )
+                    remapped_urns.append(remapped_urn)
+                logger.warning(
+                    f"[COLUMN-REMAP] {procedure_name}: Multiple tables match alias {alias_table_name}, "
+                    f"remapped to all {len(matching_tables)} matches for column {column_name}"
+                )
+            else:
+                # No table name match - fallback to all real tables
+                if aspect.outputDatasets:
+                    for real_table_urn in aspect.outputDatasets:
+                        remapped_urn = (
+                            f"urn:li:schemaField:({real_table_urn},{column_name})"
+                        )
+                        remapped_urns.append(remapped_urn)
+                    logger.warning(
+                        f"[COLUMN-REMAP] {procedure_name}: No table name match for alias {alias_table_name}, "
+                        f"remapped to all {len(aspect.outputDatasets)} real tables for column {column_name}"
+                    )
+        except Exception as e:
+            logger.warning(
+                f"[COLUMN-REMAP] {procedure_name}: Error parsing alias URN {table_urn}: {e}"
+            )
+
+        if not remapped_urns:
+            logger.warning(
+                f"[COLUMN-REMAP] {procedure_name}: Could not remap column lineage for "
+                f"filtered alias {table_urn}.{column_name} - no real downstream tables available"
+            )
+
+        return remapped_urns
+
+    def _filter_downstream_fields(
+        self,
+        cll_index: int,
+        downstream_fields: List[str],
+        filtered_downstream_aliases: Optional[set],
+        field_urn_pattern: re.Pattern,
+        platform_instance: Optional[str],
+        aspect: DataJobInputOutputClass,
+        procedure_name: str,
+    ) -> List[str]:
+        """Filter and remap downstream fields in a column lineage entry.
+
+        Args:
+            cll_index: Index of the column lineage entry (for logging)
+            downstream_fields: List of downstream field URNs to filter
+            filtered_downstream_aliases: Set of table URNs that were filtered as aliases
+            field_urn_pattern: Regex pattern to extract table URN and column name
+            platform_instance: Platform instance for URN checking
+            aspect: DataJobInputOutputClass with outputDatasets
+            procedure_name: Procedure name for logging
+
+        Returns:
+            List of filtered downstream field URNs
+        """
+        filtered_downstreams = []
+        for field_urn in downstream_fields:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                column_name = match.group(2)
+
+                # Check if this downstream points to a filtered alias
+                if (
+                    filtered_downstream_aliases
+                    and table_urn in filtered_downstream_aliases
+                ):
+                    logger.info(
+                        f"[COLUMN-FILTER] {procedure_name}: Entry #{cll_index} downstream {column_name} "
+                        f"points to filtered alias {table_urn}, remapping..."
+                    )
+                    # Remap to real table(s)
+                    remapped_urns = self._remap_column_lineage_for_alias(
+                        table_urn, column_name, aspect, procedure_name
+                    )
+                    filtered_downstreams.extend(remapped_urns)
+                    logger.info(
+                        f"[COLUMN-FILTER] {procedure_name}: Remapped to {len(remapped_urns)} real table(s)"
+                    )
+                elif self._is_qualified_table_urn(table_urn, platform_instance):
+                    filtered_downstreams.append(field_urn)
+                else:
+                    logger.debug(
+                        f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
+                    )
+            else:
+                filtered_downstreams.append(field_urn)
+        return filtered_downstreams
+
     def _filter_column_lineage(
         self,
         aspect: DataJobInputOutputClass,
         platform_instance: Optional[str],
         procedure_name: str,
+        filtered_downstream_aliases: Optional[set] = None,
     ) -> None:
         """Filter column lineage (fineGrainedLineages) to remove aliases.
 
         Applies same 2-step filtering as table-level lineage:
         1. Check if table has 3+ parts (_is_qualified_table_urn)
         2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
+        3. Remap column lineages from filtered downstream aliases to real tables
+
+        Args:
+            aspect: DataJobInputOutputClass with lineage to filter
+            platform_instance: Platform instance for URN parsing
+            procedure_name: Procedure name for logging
+            filtered_downstream_aliases: Set of downstream table URNs that were
+                filtered as aliases. Column lineages pointing to these will be
+                remapped to real downstream tables.
 
         Modifies aspect.fineGrainedLineages in place.
         """
@@ -1152,7 +1332,12 @@ class SQLServerSource(SQLAlchemySource):
         filtered_column_lineage = []
         field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
 
-        for cll in aspect.fineGrainedLineages:
+        logger.info(
+            f"[COLUMN-FILTER] {procedure_name}: Processing {original_cll_count} column lineage entries, "
+            f"filtered_downstream_aliases={len(filtered_downstream_aliases) if filtered_downstream_aliases else 0}"
+        )
+
+        for cll_index, cll in enumerate(aspect.fineGrainedLineages, 1):
             # Filter upstreams: same logic as inputDatasets
             if cll.upstreams:
                 # Step 1: Filter by qualification (3+ parts)
@@ -1205,32 +1390,34 @@ class SQLServerSource(SQLAlchemySource):
 
                 cll.upstreams = filtered_upstreams
 
-            # Filter downstreams: only check qualification (same as outputDatasets)
+            # Filter downstreams: check qualification and remap aliases
             if cll.downstreams:
-                filtered_downstreams = []
-                for field_urn in cll.downstreams:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        if self._is_qualified_table_urn(table_urn, platform_instance):
-                            filtered_downstreams.append(field_urn)
-                        else:
-                            logger.debug(
-                                f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
-                            )
-                    else:
-                        filtered_downstreams.append(field_urn)
-                cll.downstreams = filtered_downstreams
+                cll.downstreams = self._filter_downstream_fields(
+                    cll_index,
+                    cll.downstreams,
+                    filtered_downstream_aliases,
+                    field_urn_pattern,
+                    platform_instance,
+                    aspect,
+                    procedure_name,
+                )
 
             # Only keep column lineage if it has both upstreams and downstreams
             if cll.upstreams and cll.downstreams:
                 filtered_column_lineage.append(cll)
             else:
-                logger.debug(
-                    f"Dropped column lineage entry for {procedure_name}: "
+                logger.warning(
+                    f"[COLUMN-DROPPED] {procedure_name}: Entry #{cll_index} dropped - "
                     f"upstreams={len(cll.upstreams) if cll.upstreams else 0}, "
                     f"downstreams={len(cll.downstreams) if cll.downstreams else 0}"
                 )
+                # Log details about what was dropped
+                if cll.downstreams:
+                    for ds in cll.downstreams:
+                        logger.warning(f"[COLUMN-DROPPED]   Had downstream: {ds}")
+                if cll.upstreams:
+                    for us in cll.upstreams[:3]:  # Only first 3 to avoid log spam
+                        logger.warning(f"[COLUMN-DROPPED]   Had upstream: {us}")
 
         filtered_cll_count = len(filtered_column_lineage)
         if filtered_cll_count < original_cll_count:
@@ -1346,15 +1533,43 @@ class SQLServerSource(SQLAlchemySource):
                     )
 
                 # Filter outputs: only unqualified tables
+                # Track filtered downstream aliases for column lineage remapping
+                filtered_downstream_aliases = set()
                 if aspect.outputDatasets:
+                    original_outputs = aspect.outputDatasets.copy()
                     aspect.outputDatasets = [
                         urn
                         for urn in aspect.outputDatasets
                         if self._is_qualified_table_urn(urn, platform_instance)
                     ]
+                    # Identify which outputs were filtered (these are aliases)
+                    filtered_downstream_aliases = set(original_outputs) - set(
+                        aspect.outputDatasets
+                    )
 
-                # Filter column lineage
-                self._filter_column_lineage(aspect, platform_instance, procedure_name)
+                    if filtered_downstream_aliases:
+                        logger.info(
+                            f"[DOWNSTREAM-FILTER] {procedure_name}: Filtered {len(filtered_downstream_aliases)} downstream alias(es)"
+                        )
+                        for alias_urn in filtered_downstream_aliases:
+                            logger.info(
+                                f"[DOWNSTREAM-FILTER]   Filtered alias: {alias_urn}"
+                            )
+
+                # Filter column lineage (with remapping for filtered downstream aliases)
+                logger.info(
+                    f"[COLUMN-FILTER-START] {procedure_name}: Starting column lineage filtering, "
+                    f"filtered_downstream_aliases={len(filtered_downstream_aliases)}"
+                )
+                self._filter_column_lineage(
+                    aspect,
+                    platform_instance,
+                    procedure_name,
+                    filtered_downstream_aliases,
+                )
+                logger.info(
+                    f"[COLUMN-FILTER-END] {procedure_name}: Column lineage filtering complete"
+                )
 
                 filtered_input_count = len(aspect.inputDatasets or [])
                 filtered_output_count = len(aspect.outputDatasets or [])
