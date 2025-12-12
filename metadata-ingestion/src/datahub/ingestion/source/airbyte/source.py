@@ -195,10 +195,20 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
         elif source.name:
             if source.source_id not in self._warned_source_ids:
+                context_parts = [
+                    f"source_id={source.source_id}",
+                    f"source_name={source.name}",
+                ]
+                if source.source_definition_id:
+                    context_parts.append(f"definition_id={source.source_definition_id}")
+                context_parts.append(
+                    "Configure 'sources_to_platform_instance' to specify correct platform"
+                )
+
                 self.report.warning(
                     title="Platform Detection Fallback",
-                    message=f"Source {source.source_id} missing source_type, using name as fallback",
-                    context=f"source_id={source.source_id}, source_name={source.name}",
+                    message=f"Source {source.source_id} missing source_type, using name '{source.name}' as fallback",
+                    context=", ".join(context_parts),
                 )
                 self._warned_source_ids.add(source.source_id)
             platform = _map_source_type_to_platform(
@@ -241,10 +251,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
         elif destination.name:
             if destination.destination_id not in self._warned_destination_ids:
+                context_parts = [
+                    f"destination_id={destination.destination_id}",
+                    f"destination_name={destination.name}",
+                ]
+                if destination.destination_definition_id:
+                    context_parts.append(
+                        f"definition_id={destination.destination_definition_id}"
+                    )
+                context_parts.append(
+                    "Configure 'destinations_to_platform_instance' to specify correct platform"
+                )
+
                 self.report.warning(
                     title="Platform Detection Fallback",
-                    message=f"Destination {destination.destination_id} missing destination_type, using name as fallback",
-                    context=f"destination_id={destination.destination_id}, destination_name={destination.name}",
+                    message=f"Destination {destination.destination_id} missing destination_type, using name '{destination.name}' as fallback",
+                    context=", ".join(context_parts),
                 )
                 self._warned_destination_ids.add(destination.destination_id)
             platform = _map_source_type_to_platform(
@@ -711,13 +733,28 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _extract_connection_tags(
         self, pipeline_info: AirbytePipelineInfo, airbyte_tags: List[AirbyteTagInfo]
     ) -> List[str]:
-        """Extract tag URNs for a connection."""
+        """Extract tag URNs for a connection from both workspace tags and connection tags."""
         tags: List[str] = []
+        tag_names_seen: set[str] = set()
         connection_id = pipeline_info.connection.connection_id
 
+        # First, add tags directly on the connection object
+        if pipeline_info.connection.tags:
+            for tag_dict in pipeline_info.connection.tags:
+                tag_name = tag_dict.get("name")
+                if tag_name and tag_name not in tag_names_seen:
+                    tags.append(make_tag_urn(tag_name))
+                    tag_names_seen.add(tag_name)
+
+        # Then add workspace-level tags linked to this connection
         for tag_info in airbyte_tags:
-            if tag_info.resource_id == connection_id and tag_info.name:
+            if (
+                tag_info.resource_id == connection_id
+                and tag_info.name
+                and tag_info.name not in tag_names_seen
+            ):
                 tags.append(make_tag_urn(tag_info.name))
+                tag_names_seen.add(tag_info.name)
 
         return tags
 
@@ -744,21 +781,30 @@ class AirbyteSource(StatefulIngestionSourceBase):
             cluster=self.source_config.env,
         )
 
+        custom_props = {
+            "connection_id": connection_id,
+            "source_id": source_id,
+            "destination_id": destination_id,
+            "source_name": source_name,
+            "destination_name": destination_name,
+            "workspace_id": workspace_id,
+            "workspace_name": workspace_name,
+            "platform": "airbyte",
+            "deployment_type": self.source_config.deployment_type.value,
+        }
+
+        if connection.created_at:
+            custom_props["created_at"] = str(connection.created_at)
+        if source.created_at:
+            custom_props["source_created_at"] = str(source.created_at)
+        if destination.created_at:
+            custom_props["destination_created_at"] = str(destination.created_at)
+
         dataflow_info = DataFlowInfoClass(
             name=connection_name,
             description=f"Airbyte connection from {source_name} to {destination_name}",
             externalUrl=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}",
-            customProperties={
-                "connection_id": connection_id,
-                "source_id": source_id,
-                "destination_id": destination_id,
-                "source_name": source_name,
-                "destination_name": destination_name,
-                "workspace_id": workspace_id,
-                "workspace_name": workspace_name,
-                "platform": "airbyte",
-                "deployment_type": self.source_config.deployment_type.value,
-            },
+            customProperties=custom_props,
         )
 
         work_units = []
@@ -808,21 +854,31 @@ class AirbyteSource(StatefulIngestionSourceBase):
         job_id = f"{connection_id}_{stream_name}"
         datajob_urn = DataJobUrn(flow=connection_dataflow_urn, job_id=job_id)
 
+        custom_props = {
+            "stream_name": stream_name,
+            "namespace": stream.namespace,
+            "connection_id": connection_id,
+            "connection_name": connection.name or "",
+            "source_id": source.source_id if source else "",
+            "source_name": source_name,
+            "destination_id": destination.destination_id if destination else "",
+            "destination_name": destination_name,
+        }
+
+        # Add stream metadata if available
+        if stream.default_cursor_field:
+            custom_props["cursor_field"] = ",".join(stream.default_cursor_field)
+        if stream.source_defined_primary_key:
+            custom_props["primary_key"] = str(stream.source_defined_primary_key)
+        if stream.source_defined_cursor_field:
+            custom_props["source_defined_cursor"] = "true"
+
         datajob_info = DataJobInfoClass(
             name=stream_name,
             description=f"Airbyte sync for stream {stream_name} from {source_name} to {destination_name}",
             externalUrl=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}",
             type="BATCH",
-            customProperties={
-                "stream_name": stream_name,
-                "namespace": stream.namespace,
-                "connection_id": connection_id,
-                "connection_name": connection.name or "",
-                "source_id": source.source_id if source else "",
-                "source_name": source_name,
-                "destination_id": destination.destination_id if destination else "",
-                "destination_name": destination_name,
-            },
+            customProperties=custom_props,
         )
 
         fine_grained_lineages: List[FineGrainedLineageClass] = []
