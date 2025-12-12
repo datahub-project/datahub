@@ -28,7 +28,10 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.Mock;
@@ -41,8 +44,7 @@ import org.testng.annotations.Test;
  * These tests use real assertion record templates with the actual AspectSpec from the entity
  * registry.
  *
- * <p>Note: All assertion aspects have exist=false (entity type validation only, no existence
- * checks).
+ * <p>Note: All assertion aspects have exist=false (entity type validation only).
  */
 public class AssertionUrnValidationAnnotationTest {
 
@@ -263,7 +265,8 @@ public class AssertionUrnValidationAnnotationTest {
     assertTrue(exceptions.get(0).getMessage().contains("Invalid entity type"));
   }
 
-  // ==================== AssertionRunEvent Tests ====================
+  // ==================== AssertionRunEvent Tests (exist=false, entity type validation only)
+  // ====================
 
   @Test
   public void testAssertionRunEvent_ValidUrns() {
@@ -277,7 +280,7 @@ public class AssertionUrnValidationAnnotationTest {
     setupMockBatchItem(runEvent, "assertionRunEvent");
 
     List<AspectValidationException> exceptions = runValidation();
-    assertTrue(exceptions.isEmpty(), "No exceptions for valid URNs");
+    assertTrue(exceptions.isEmpty(), "No exceptions for valid URN entity types");
   }
 
   @Test
@@ -334,6 +337,19 @@ public class AssertionUrnValidationAnnotationTest {
       com.linkedin.data.template.RecordTemplate recordTemplate, String aspectName) {
     when(mockBatchItem.getAspectSpec()).thenReturn(assertionEntitySpec.getAspectSpec(aspectName));
     when(mockBatchItem.getRecordTemplate()).thenReturn(recordTemplate);
+  }
+
+  private void mockEntityExists(Map<Urn, Boolean> existenceMap) {
+    when(mockAspectRetriever.entityExists(any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> requestedUrns = invocation.getArgument(0);
+              Map<Urn, Boolean> result = new HashMap<>();
+              for (Urn urn : requestedUrns) {
+                result.put(urn, existenceMap.getOrDefault(urn, false));
+              }
+              return result;
+            });
   }
 
   private List<AspectValidationException> runValidation() {

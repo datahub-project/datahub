@@ -14,7 +14,7 @@ import {
 import { TextAreaProps } from '@components/components/TextArea/types';
 
 export const textAreaDefaults: TextAreaProps = {
-    label: 'Label',
+    label: '',
     placeholder: 'Placeholder',
     error: '',
     warning: '',
@@ -55,9 +55,11 @@ export const TextArea = ({
 
     return (
         <TextAreaWrapper>
-            <Label>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+            {label && (
+                <Label aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            )}
             <TextAreaContainer {...textAreaBaseProps}>
                 {icon && <StyledIcon icon={icon} size="lg" />}
                 <TextAreaField

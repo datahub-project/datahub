@@ -346,6 +346,10 @@ class SqlAggregatorReport(Report):
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
 
+    # Lineage consistency tracking
+    num_tables_added_from_column_lineage: int = 0
+    num_queries_with_lineage_inconsistencies_fixed: int = 0
+
     # Queries.
     num_queries_entities_generated: int = 0
     num_queries_used_in_lineage: Optional[int] = None
@@ -1311,6 +1315,69 @@ class SqlParsingAggregator(Closeable):
             return len(query_precedence)
         return idx
 
+    def _process_column_lineage_for_query(
+        self,
+        query: QueryMetadata,
+        upstreams: Dict[UrnStr, QueryId],
+        cll: Dict[str, Dict[SchemaFieldUrn, QueryId]],
+        queries_with_inconsistencies: Set[QueryId],
+    ) -> None:
+        """Process column lineage for a query and apply consistency fixes.
+
+        This method:
+        1. Validates downstream and upstream column references
+        2. Adds missing tables from column lineage to table lineage (consistency fix)
+        3. Updates the column lineage mapping (cll)
+
+        Args:
+            query: The query metadata containing column lineage
+            upstreams: Mapping of upstream URN to query ID (modified in-place)
+            cll: Column lineage mapping (modified in-place)
+            queries_with_inconsistencies: Set tracking queries that needed fixes (modified in-place)
+        """
+        for lineage_info in query.column_lineage:
+            # Validate downstream column
+            if (
+                not lineage_info.downstream.column
+                or not lineage_info.downstream.column.strip()
+            ):
+                logger.debug(
+                    f"Skipping lineage entry with empty downstream column in query {query.query_id}"
+                )
+                continue
+
+            for upstream_ref in lineage_info.upstreams:
+                # Validate upstream reference has required fields
+                if not upstream_ref.table or not upstream_ref.table.strip():
+                    logger.debug(
+                        f"Skipping upstream reference with empty or invalid table URN in query {query.query_id}"
+                    )
+                    continue
+
+                if not upstream_ref.column or not upstream_ref.column.strip():
+                    logger.debug(
+                        f"Skipping empty column reference in lineage for query {query.query_id}"
+                    )
+                    continue
+
+                table_urn = upstream_ref.table
+
+                # Consistency fix: Add table to upstreams if only exists in column lineage
+                # This handles cases where table-level lineage is incomplete but column-level is complete
+                if table_urn not in upstreams:
+                    logger.debug(
+                        f"Found missing table urn {table_urn} in cll. The query_id was: {query.query_id}"
+                    )
+                    upstreams[table_urn] = query.query_id
+                    queries_with_inconsistencies.add(query.query_id)
+                    self.report.num_tables_added_from_column_lineage += 1
+
+                # Add to column lineage mapping
+                cll[lineage_info.downstream.column].setdefault(
+                    SchemaFieldUrn(table_urn, upstream_ref.column),
+                    query.query_id,
+                )
+
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -1348,32 +1415,25 @@ class SqlParsingAggregator(Closeable):
         # mapping of downstream column -> { upstream column -> query id that produced it }
         cll: Dict[str, Dict[SchemaFieldUrn, QueryId]] = defaultdict(dict)
 
+        # FIX: Track queries with lineage inconsistencies for metrics
+        queries_with_inconsistencies: Set[QueryId] = set()
+
         for query in queries:
             # Using setdefault to respect the precedence of queries.
 
             for upstream in query.upstreams:
                 upstreams.setdefault(upstream, query.query_id)
 
-            for lineage_info in query.column_lineage:
-                if (
-                    not lineage_info.downstream.column
-                    or not lineage_info.downstream.column.strip()
-                ):
-                    logger.debug(
-                        f"Skipping lineage entry with empty downstream column in query {query.query_id}"
-                    )
-                    continue
+            # Process column lineage with validation and consistency fixes
+            self._process_column_lineage_for_query(
+                query, upstreams, cll, queries_with_inconsistencies
+            )
 
-                for upstream_ref in lineage_info.upstreams:
-                    if upstream_ref.column and upstream_ref.column.strip():
-                        cll[lineage_info.downstream.column].setdefault(
-                            SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
-                            query.query_id,
-                        )
-                    else:
-                        logger.debug(
-                            f"Skipping empty column reference in lineage for query {query.query_id}"
-                        )
+        # Log and update metrics if we applied the consistency fix
+        if queries_with_inconsistencies:
+            self.report.num_queries_with_lineage_inconsistencies_fixed += len(
+                queries_with_inconsistencies
+            )
 
         # Finally, we can build our lineage edge.
         required_queries = OrderedSet[QueryId]()

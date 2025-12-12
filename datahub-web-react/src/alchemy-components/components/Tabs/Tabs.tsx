@@ -234,6 +234,7 @@ export interface Props {
     tabs: Tab[];
     selectedTab?: string;
     onChange?: (selectedTabKey: string) => void;
+    onTabClick?: (activeKey: string, e: React.KeyboardEvent | React.MouseEvent) => void;
     urlMap?: Record<string, string>;
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
@@ -249,12 +250,14 @@ export interface Props {
     scrollToTopOnChange?: boolean;
     maxHeight?: string;
     stickyHeader?: boolean;
+    destroyInactiveTabPane?: boolean;
 }
 
 export function Tabs({
     tabs,
     selectedTab,
     onChange,
+    onTabClick,
     urlMap,
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
@@ -266,6 +269,7 @@ export function Tabs({
     scrollToTopOnChange = false,
     maxHeight = '100%',
     stickyHeader = false,
+    destroyInactiveTabPane,
 }: Props) {
     const tabsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -323,6 +327,8 @@ export function Tabs({
                     onUrlChange(urlMap[key]);
                 }
             }}
+            onTabClick={onTabClick}
+            destroyInactiveTabPane={destroyInactiveTabPane}
             $navMarginBottom={styleOptions?.navMarginBottom}
             $navMarginTop={styleOptions?.navMarginTop}
             $containerHeight={styleOptions?.containerHeight}

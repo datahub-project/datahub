@@ -232,7 +232,7 @@ const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boo
     const paddingStyles = {
         xs: {
             vertical: 6,
-            horizontal: 6,
+            horizontal: 8,
         },
         sm: {
             vertical: 8,

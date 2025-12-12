@@ -119,6 +119,10 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
 
+    # Lineage consistency tracking
+    num_tables_added_from_column_lineage: int = 0
+    num_queries_with_empty_directsources: int = 0
+
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
     queries_extractor: Optional["SnowflakeQueriesExtractorReport"] = None

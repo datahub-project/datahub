@@ -3,6 +3,7 @@ import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
+    helper: 'Snowflake Account Identifier',
     tooltip:
         'The Snowflake Account Identifier e.g. myorg-account123, account123-eu-central-1, account123.west-us-2.azure',
     type: FieldType.TEXT,
@@ -15,6 +16,7 @@ export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
 export const SNOWFLAKE_WAREHOUSE: RecipeField = {
     name: 'warehouse',
     label: 'Warehouse',
+    helper: 'Snowflake Warehouse name',
     tooltip: 'The name of the Snowflake Warehouse to extract metadata from.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.warehouse',
@@ -26,6 +28,7 @@ export const SNOWFLAKE_WAREHOUSE: RecipeField = {
 export const SNOWFLAKE_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
+    helper: 'Snowflake username for metadata',
     tooltip: 'Snowflake username.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
@@ -37,6 +40,7 @@ export const SNOWFLAKE_USERNAME: RecipeField = {
 export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
+    helper: 'Snowflake password for user',
     tooltip: 'Snowflake password.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
@@ -48,6 +52,7 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
 export const SNOWFLAKE_ROLE: RecipeField = {
     name: 'role',
     label: 'Role',
+    helper: 'Snowflake Role for metadata',
     tooltip: 'The Role to use when extracting metadata from Snowflake.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.role',

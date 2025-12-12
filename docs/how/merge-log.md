@@ -2286,3 +2286,72 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **ed72cf42f0** - fix(es8): fix role creation issues (#15485)
   *by RyanHolstien on 2025-12-08*
 
+
+## Upstream Merge Session - 2025-12-11 04:59:47
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-11-045946`
+- **Merge Base**: `ed72cf42f0b375a19cc6542cb3dd97ef7e0ff451`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: Thu Dec 11 04:59:47 UTC 2025
+
+### Commits Included in This Merge
+- **0ebb76c59d** - docs: Update announcement bar content for Dec Town Hall (#15501)
+  *by Gray Ayer on 2025-12-09*
+
+- **7e7f4a4849** - fix: make published GMS and frontend ports configurable with quickstart (#15494)
+  *by David Haglund on 2025-12-09*
+
+- **d9f305b7b0** - fix(platformsModule): do not show add sources button when an user doesn't have permissions to manage ingestions (#15507)
+  *by v-tarasevich-blitz-brain on 2025-12-09*
+
+- **a1c1d757fe** - feat(ingestion): add the new details form (step 2) (#15474)
+  *by v-tarasevich-blitz-brain on 2025-12-09*
+
+- **a488040ed4** - fix(ingest/snowflake/sqlparser): Ensure table-column lineage consistency across Snowflake source and SQL aggregator (#15377)
+  *by Tamas Nemeth on 2025-12-09*
+
+- **53b4f6355e** - feat(ingestion): add advanced settings section (#15506)
+  *by v-tarasevich-blitz-brain on 2025-12-09*
+
+- **22e968c288** - feat(ui/ingestion): build step 3 of create/edit ingestion source (#15508)
+  *by Purnima Garg on 2025-12-09*
+
+- **b2e0d37898** - fix(security): disable server version disclosure in HTTP headers (#15500)
+  *by Esteban Gutierrez on 2025-12-09*
+
+- **79fef0cbfd** - chore(gradle): bump multiple 3rd party dependencies versions (#15431)
+  *by Esteban Gutierrez on 2025-12-09*
+
+- **47f2653f0e** - feat(assertion): enforce strict urns for assertions (#15512)
+  *by david-leifker on 2025-12-09*
+
+- **5417747d04** - feat(ui/backend): business attributes support for new ui (#15452)
+  *by kartikey-visa on 2025-12-10*
+
+- **35cfbce369** - Added username to pr labeler for Patrick Druley (pdruley) (#15509)
+  *by Patrick Druley on 2025-12-10*
+
+- **a0dded22c1** - feat(ingestion/grafana) add option to pass grafana user email as dashboard owner (#15489)
+  *by David Haglund on 2025-12-10*
+
+- **57a407fb9e** - perf(ingestion): compile regex patterns for ingestion filtering hot path (#15463)
+  *by rob-1019 on 2025-12-10*
+
+- **50ebf0a7fe** - Datahub as a microfrontend host (react) (#15358)
+  *by philip-nikolov-jpmc on 2025-12-10*
+
+- **7cce6da575** - Datahub as a microfrontend host (frontend) (#15359)
+  *by philip-nikolov-jpmc on 2025-12-10*
+
+- **856b6133b2** - feat(ingestion): Restores "Extending file sink to support writing to S3 (#14160) (#14248)" (#15504)
+  *by Esteban Gutierrez on 2025-12-10*
+
+- **3eff4e47e3** - chore(deps): bump actions/checkout from 5 to 6 (#15385)
+  *by dependabot[bot] on 2025-12-11*
+

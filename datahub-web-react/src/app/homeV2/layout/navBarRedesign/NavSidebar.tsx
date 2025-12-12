@@ -31,7 +31,9 @@ import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
 import {
+    NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
+    NavBarMenuGroup,
     NavBarMenuItemTypes,
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
@@ -40,6 +42,8 @@ import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useCon
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
 import { useHasIngestionSources } from '@app/homeV3/freeTrial/useHasIngestionSources';
+import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
+import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
@@ -215,6 +219,33 @@ export const NavSidebar = () => {
 
     const versionLink = generateReleaseNotesLink(config?.appVersion);
 
+    // --- MFE YAML CONFIG ---
+    const mfeConfig: any = useMFEConfigFromBackend();
+
+    // MFE section (dropdown or spread)
+    let mfeSection: any[] = [];
+    if (mfeConfig) {
+        if (mfeConfig.subNavigationMode) {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Dropdown,
+                    title: 'MFE Apps',
+                    icon: <AppWindow />,
+                    key: 'mfe-dropdown',
+                    items: getMfeMenuDropdownItems(mfeConfig),
+                } as NavBarMenuDropdownItem,
+            ];
+        } else {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Group,
+                    key: 'mfe-group',
+                    title: 'MFE Apps',
+                    items: getMfeMenuItems(mfeConfig),
+                } as NavBarMenuGroup,
+            ];
+        }
+    }
     function handleHomeclick() {
         if (isHomePage && showHomepageRedesign) {
             toggle();
@@ -238,6 +269,7 @@ export const NavSidebar = () => {
 
     const mainContentMenu: NavBarMenuItems = {
         items: [
+            ...mfeSection,
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Tasks',

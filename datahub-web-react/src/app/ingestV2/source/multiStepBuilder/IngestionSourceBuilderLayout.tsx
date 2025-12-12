@@ -1,15 +1,25 @@
-import React, { useCallback, useMemo } from 'react';
+import { Breadcrumb } from '@components';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import styled from 'styled-components';
+
+import { VerticalDivider } from '@components/components/Breadcrumb/components';
+import { BreadcrumbItem } from '@components/components/Breadcrumb/types';
 
 import { EmbeddedChat } from '@app/chat/EmbeddedChat';
 import { MessageContext } from '@app/chat/hooks/useChatStream';
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { buildIngestionSourceChatContext } from '@app/ingestV2/source/multiStepBuilder/utils';
-import { MultiStepFormBottomPanel } from '@app/sharedV2/forms/multiStepForm/MultiStepFormBottomPanel';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
 import { DataHubAiConversationOriginType } from '@types';
+
+const ContentWrapper = styled.div`
+    padding: 0 20px 16px 20px;
+    overflow: auto;
+    height: 100%;
+`;
 
 interface Props {
     children: React.ReactNode;
@@ -18,8 +28,40 @@ interface Props {
 }
 
 export function IngestionSourceBuilderLayout({ children, isEditing = false, sourceUrn }: Props) {
-    const { getCurrentStep, state } = useMultiStepContext<SourceBuilderState, IngestionSourceFormStep>();
-    const step = useMemo(() => getCurrentStep(), [getCurrentStep]);
+    const { getCurrentStep, state, steps, goToStep, isStepVisited } = useMultiStepContext<
+        MultiStepSourceBuilderState,
+        IngestionSourceFormStep
+    >();
+    const currentStep = useMemo(() => getCurrentStep(), [getCurrentStep]);
+
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const breadCrumpStepItems: BreadcrumbItem[] = steps.map((step) => {
+        const breadCrumpItem: BreadcrumbItem = {
+            label: step.label,
+            onClick: isStepVisited(step.key) ? () => goToStep(step.key) : undefined,
+        };
+
+        return breadCrumpItem;
+    }, []);
+
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0 });
+        }
+    }, [currentStep]);
+
+    const breadCrumb = (
+        <Breadcrumb
+            items={[
+                {
+                    label: isEditing ? 'Update Source' : 'Create Source',
+                    separator: <VerticalDivider type="vertical" />,
+                },
+                ...breadCrumpStepItems,
+            ]}
+        />
+    );
 
     // Create callback that generates fresh context on each message send
     const getMessageContext = useCallback((): MessageContext => {
@@ -28,17 +70,18 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
             sourceUrn,
             sourceType: state?.type,
             sourceName: state?.name,
-            currentStep: step?.label,
-            stepContext: step?.context,
+            currentStep: currentStep?.label,
+            stepContext: currentStep?.context,
         });
         return { text: contextText };
-    }, [isEditing, sourceUrn, state?.type, state?.name, step?.label, step?.context]);
+    }, [isEditing, sourceUrn, state?.type, state?.name, currentStep?.label, currentStep?.context]);
 
     return (
         <PageLayout
-            title={step?.label}
+            title={currentStep?.label}
+            subTitle={currentStep?.subTitle}
             rightPanelContent={
-                step?.hideRightPanel ? null : (
+                currentStep?.hideRightPanel ? null : (
                     <EmbeddedChat
                         context=""
                         agentName="IngestionTroubleshooter"
@@ -48,9 +91,10 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
                     />
                 )
             }
-            bottomPanelContent={step?.hideBottomPanel ? null : <MultiStepFormBottomPanel />}
+            bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
+            topBreadcrumb={breadCrumb}
         >
-            {children}
+            <ContentWrapper ref={scrollContainerRef}>{children}</ContentWrapper>
         </PageLayout>
     );
 }
