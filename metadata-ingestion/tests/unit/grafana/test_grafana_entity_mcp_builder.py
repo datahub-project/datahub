@@ -41,7 +41,7 @@ def mock_dashboard():
         tags=["tag1", "environment:prod"],
         timezone="UTC",
         schemaVersion="1.0",
-        meta={"folderId": "123"},
+        folder_id="123",
         created_by="test@test.com",
     )
 

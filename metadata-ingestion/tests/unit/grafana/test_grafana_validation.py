@@ -352,6 +352,27 @@ def test_realistic_grafana_api_response():
     """Test validation with a realistic Grafana API response format."""
     # Simulates a typical Grafana API response with some optional fields missing
     real_response = {
+        "meta": {
+            "type": "db",
+            "canSave": True,
+            "canEdit": True,
+            "slug": "production-metrics",
+            "url": "/d/real-dashboard/production-metrics",
+            "expires": "0001-01-01T00:00:00Z",
+            "created": "2024-01-01T10:00:00Z",
+            "updated": "2024-01-15T14:30:00Z",
+            "updatedBy": "admin@localhost",
+            "createdBy": "admin@localhost",
+            "version": 5,
+            "hasAcl": False,
+            "isFolder": False,
+            "folderId": 1,
+            "folderUid": "general",
+            "folderTitle": "General",
+            "folderUrl": "",
+            "provisioned": False,
+            "provisionedExternalId": "",
+        },
         "dashboard": {
             "id": 450,
             "uid": "real-dashboard",
@@ -378,29 +399,8 @@ def test_realistic_grafana_api_response():
             "refresh": "30s",
             "schemaVersion": 30,
             "version": 5,
-            "meta": {
-                "type": "db",
-                "canSave": True,
-                "canEdit": True,
-                "slug": "production-metrics",
-                "url": "/d/real-dashboard/production-metrics",
-                "expires": "0001-01-01T00:00:00Z",
-                "created": "2024-01-01T10:00:00Z",
-                "updated": "2024-01-15T14:30:00Z",
-                "updatedBy": "admin",
-                "createdBy": "admin",
-                "version": 5,
-                "hasAcl": False,
-                "isFolder": False,
-                "folderId": 1,
-                "folderUid": "general",
-                "folderTitle": "General",
-                "folderUrl": "",
-                "provisioned": False,
-                "provisionedExternalId": "",
-            },
             # Note: 'tags' and 'description' fields are not included
-        }
+        },
     }
 
     dashboard = Dashboard.model_validate(real_response)
@@ -411,6 +411,7 @@ def test_realistic_grafana_api_response():
     assert dashboard.version == "5"  # Should be converted to string
     assert dashboard.refresh == "30s"
     assert dashboard.folder_id == "1"  # Extracted from meta
+    assert dashboard.created_by == "admin@localhost"  # Extracted from meta
     assert len(dashboard.panels) == 2
 
     # Verify panels are processed correctly

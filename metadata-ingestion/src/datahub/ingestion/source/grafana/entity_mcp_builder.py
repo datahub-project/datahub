@@ -206,7 +206,7 @@ def build_dashboard_mcps(
     )
 
     # Ownership aspect
-    if dashboard.uid and ingest_owners:
+    if ingest_owners:
         owner = _build_ownership(dashboard, remove_email_suffix)
         if owner:
             mcps.append(
