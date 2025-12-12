@@ -1293,8 +1293,26 @@ def _try_extract_select(
             insert_columns = statement.this.expressions
             select_expressions = select_statement.expressions
 
+            logger.info(
+                f"[INSERT-MAPPING] Processing MSSQL INSERT statement: "
+                f"INSERT cols={len(insert_columns)}, SELECT exprs={len(select_expressions)}"
+            )
+
+            # Log the actual column names
+            insert_col_names = [
+                col.alias_or_name if hasattr(col, "alias_or_name") else str(col)
+                for col in insert_columns
+            ]
+            select_col_names = [
+                expr.alias_or_name if hasattr(expr, "alias_or_name") else str(expr)
+                for expr in select_expressions
+            ]
+            logger.info(f"[INSERT-MAPPING] INSERT columns: {insert_col_names}")
+            logger.info(f"[INSERT-MAPPING] SELECT columns: {select_col_names}")
+
             # Only apply mapping if column counts match
             if len(insert_columns) == len(select_expressions):
+                logger.info("[INSERT-MAPPING] Column counts match, applying mapping")
                 # Create new SELECT with INSERT column names as explicit Alias nodes
                 # This ensures the alias survives sqlglot's optimizer
                 new_selects = []
@@ -1311,13 +1329,22 @@ def _try_extract_select(
                         alias=sqlglot.exp.to_identifier(insert_col_name),
                     )
                     new_selects.append(aliased_expr)
+                    logger.debug(
+                        f"[INSERT-MAPPING] Mapped: {select_expr} AS {insert_col_name}"
+                    )
 
                 # Replace SELECT expressions with aliased versions
                 select_statement = select_statement.copy()
                 select_statement.set("expressions", new_selects)
 
-                logger.debug(
-                    f"Mapped {len(insert_columns)} INSERT columns to SELECT expressions for MSSQL"
+                logger.info(
+                    f"[INSERT-MAPPING] Successfully mapped {len(insert_columns)} INSERT columns to SELECT expressions"
+                )
+            else:
+                logger.warning(
+                    f"[INSERT-MAPPING] Column count mismatch! "
+                    f"INSERT={len(insert_columns)}, SELECT={len(select_expressions)}. "
+                    f"Skipping mapping."
                 )
 
         statement = select_statement
@@ -1654,7 +1681,7 @@ def _parse_stored_procedure_fallback(
     # Build aggregated result
     # Use UNKNOWN instead of CREATE_OTHER so the aggregator treats it as a mutation query
     # and generates lineage MCPs. CREATE_OTHER is treated as DDL and doesn't generate lineage.
-    return SqlParsingResult(
+    result = SqlParsingResult(
         query_type=QueryType.UNKNOWN,
         query_type_props={"kind": "PROCEDURE"},
         in_tables=sorted(all_in_tables),
@@ -1669,6 +1696,27 @@ def _parse_stored_procedure_fallback(
             num_statements_failed=failed_count,
         ),
     )
+
+    logger.info(
+        f"[FALLBACK-RESULT] Returning SqlParsingResult: "
+        f"query_type={result.query_type}, "
+        f"{len(result.in_tables)} in_tables, "
+        f"{len(result.out_tables)} out_tables, "
+        f"{len(result.column_lineage) if result.column_lineage else 0} column_lineage entries"
+    )
+    if result.in_tables:
+        logger.info(f"[FALLBACK-RESULT] Input tables: {result.in_tables}")
+    if result.out_tables:
+        logger.info(f"[FALLBACK-RESULT] Output tables: {result.out_tables}")
+    if result.column_lineage:
+        for i, cll in enumerate(result.column_lineage[:5], 1):  # Log first 5
+            logger.info(
+                f"[FALLBACK-RESULT] Column lineage {i}: "
+                f"downstream={cll.downstream.column}@{cll.downstream.table}, "
+                f"upstreams={[f'{u.column}@{u.table}' for u in cll.upstreams]}"
+            )
+
+    return result
 
 
 def _sqlglot_lineage_inner(

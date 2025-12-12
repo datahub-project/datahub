@@ -1213,6 +1213,32 @@ class SQLServerSource(SQLAlchemySource):
             filtered_column_lineage if filtered_column_lineage else None
         )
 
+    def _log_lineage_details(
+        self,
+        procedure_name: str,
+        aspect: DataJobInputOutputClass,
+        stage: str,
+    ) -> None:
+        """Log detailed lineage information for debugging."""
+        logger.info(
+            f"[LINEAGE-{stage}] Procedure {procedure_name}: "
+            f"{len(aspect.inputDatasets or [])} inputs, "
+            f"{len(aspect.outputDatasets or [])} outputs, "
+            f"{len(aspect.fineGrainedLineages or [])} column lineage entries"
+        )
+        if aspect.inputDatasets:
+            for urn in aspect.inputDatasets:
+                logger.info(f"[LINEAGE-{stage}]   Input: {urn}")
+        if aspect.outputDatasets:
+            for urn in aspect.outputDatasets:
+                logger.info(f"[LINEAGE-{stage}]   Output: {urn}")
+        if aspect.fineGrainedLineages:
+            for i, cll in enumerate(aspect.fineGrainedLineages[:5], 1):
+                logger.info(
+                    f"[LINEAGE-{stage}]   Column lineage {i}: "
+                    f"downstream={cll.downstreams}, upstreams={cll.upstreams}"
+                )
+
     def _filter_procedure_lineage(
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
@@ -1235,12 +1261,29 @@ class SQLServerSource(SQLAlchemySource):
         """
         platform_instance = self.get_schema_resolver().platform_instance
 
+        # Enable detailed logging for the target procedure
+        enable_detailed_logging = (
+            procedure_name and "european_priips_kid_information" in procedure_name
+        )
+
+        if enable_detailed_logging:
+            logger.info(
+                f"[LINEAGE-FILTER] Starting filtering for procedure: {procedure_name}"
+            )
+            logger.info(
+                f"[LINEAGE-FILTER] Platform instance: {platform_instance}, "
+                f"Discovered datasets: {len(self.discovered_datasets)}"
+            )
+
         for mcp in mcps:
             # Only filter dataJobInputOutput aspects
             if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
                 aspect: DataJobInputOutputClass = mcp.aspect
                 original_input_count = len(aspect.inputDatasets or [])
                 original_output_count = len(aspect.outputDatasets or [])
+
+                if enable_detailed_logging:
+                    self._log_lineage_details(procedure_name, aspect, "BEFORE")
 
                 # Filter inputs: first unqualified tables, then aliases
                 if aspect.inputDatasets:
@@ -1267,11 +1310,18 @@ class SQLServerSource(SQLAlchemySource):
                 filtered_input_count = len(aspect.inputDatasets or [])
                 filtered_output_count = len(aspect.outputDatasets or [])
 
+                if enable_detailed_logging:
+                    self._log_lineage_details(procedure_name, aspect, "AFTER")
+
                 # Skip aspect only if BOTH inputs and outputs are empty
                 if not aspect.inputDatasets and not aspect.outputDatasets:
-                    logger.debug(
-                        f"Skipping lineage for {procedure_name}: all tables were filtered"
+                    logger.warning(
+                        f"[LINEAGE-SKIP] Skipping lineage for {procedure_name}: all tables were filtered"
                     )
+                    if enable_detailed_logging:
+                        logger.info(
+                            f"[LINEAGE-SKIP] Original inputs={original_input_count}, outputs={original_output_count}"
+                        )
                     continue
 
                 # Log summary if filtering occurred
@@ -1279,8 +1329,8 @@ class SQLServerSource(SQLAlchemySource):
                     filtered_input_count < original_input_count
                     or filtered_output_count < original_output_count
                 ):
-                    logger.debug(
-                        f"Filtered lineage for {procedure_name}: "
+                    logger.info(
+                        f"[LINEAGE-FILTERED] {procedure_name}: "
                         f"inputs {original_input_count}->{filtered_input_count}, "
                         f"outputs {original_output_count}->{filtered_output_count}"
                     )
@@ -1298,6 +1348,15 @@ class SQLServerSource(SQLAlchemySource):
             )
 
             for procedure in self.stored_procedures:
+                # Log when processing the target procedure
+                if "european_priips_kid_information" in procedure.name:
+                    logger.info(
+                        f"[PROCEDURE-START] Processing procedure: {procedure.full_name} (name={procedure.name})"
+                    )
+                    logger.info(
+                        f"[PROCEDURE-START] Database: {procedure.db}, Schema: {procedure.schema}"
+                    )
+
                 with self.report.report_exc(
                     message="Failed to parse stored procedure lineage",
                     context=procedure.full_name,
@@ -1323,9 +1382,14 @@ class SQLServerSource(SQLAlchemySource):
                         workunit_count += 1
                         yield workunit
 
+                    if "european_priips_kid_information" in procedure.name:
+                        logger.info(
+                            f"[PROCEDURE-END] Generated {workunit_count} workunits for {procedure.name}"
+                        )
+
                     if workunit_count == 0:
-                        logger.debug(
-                            f"No lineage workunits for procedure: {procedure.name}"
+                        logger.warning(
+                            f"[PROCEDURE-NOWU] No lineage workunits for procedure: {procedure.name}"
                         )
 
     def _report_procedure_failure(self, procedure_name: str) -> None:
