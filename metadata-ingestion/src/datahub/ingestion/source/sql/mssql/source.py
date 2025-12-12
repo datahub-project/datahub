@@ -699,6 +699,10 @@ class SQLServerSource(SQLAlchemySource):
                 procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
                 if not self.config.procedure_pattern.allowed(procedure_full_name):
                     self.report.report_dropped(procedure_full_name)
+                    # Log for ALL filtered procedures
+                    logger.warning(
+                        f"[PROCEDURE-FILTERED] Procedure filtered out by procedure_pattern: {procedure_full_name}"
+                    )
                     continue
                 procedures.append(
                     StoredProcedure(flow=mssql_default_job, **procedure_data)
@@ -740,6 +744,13 @@ class SQLServerSource(SQLAlchemySource):
         if self.config.include_lineage:
             # These will be used to construct lineage
             self.stored_procedures.append(procedure)
+            # Log for ALL added procedures
+            logger.debug(
+                f"[PROCEDURE-ADDED] Added procedure to stored_procedures list: {procedure.full_name}"
+            )
+            logger.debug(
+                f"[PROCEDURE-ADDED] Total procedures in list: {len(self.stored_procedures)}"
+            )
         yield from self.construct_job_workunits(
             data_job,
             # For stored procedure lineage is ingested later
@@ -839,6 +850,10 @@ class SQLServerSource(SQLAlchemySource):
                 "Denied permission for read text from procedure '%s'",
                 procedure.full_name,
             )
+            # Log for ALL procedures
+            logger.warning(
+                f"[CODE-EXTRACT] Permission denied for procedure: {procedure.full_name}"
+            )
             return None, None
         code_list = []
         code_slice_index = 0
@@ -850,10 +865,25 @@ class SQLServerSource(SQLAlchemySource):
                     code_slice_index = index
             definition = "".join(code_list[:code_slice_index])
             code = "".join(code_list[code_slice_index:])
+
+            # Log for ALL procedures
+            logger.debug(
+                f"[CODE-EXTRACT] Extracted code for {procedure.full_name}: "
+                f"definition_length={len(definition)}, code_length={len(code)}"
+            )
+            if not code:
+                logger.warning(
+                    f"[CODE-EXTRACT] Code is empty for {procedure.full_name}!"
+                )
+
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",
                 procedure.full_name,
+            )
+            # Log for ALL procedures
+            logger.warning(
+                f"[CODE-EXTRACT] Connection closed for procedure: {procedure.full_name}"
             )
             return None, None
         return definition, code
@@ -1239,6 +1269,25 @@ class SQLServerSource(SQLAlchemySource):
                     f"downstream={cll.downstreams}, upstreams={cll.upstreams}"
                 )
 
+            # Track specific columns for debugging
+            for cll in aspect.fineGrainedLineages:
+                for downstream_urn in cll.downstreams or []:
+                    if "kid_synthetic_risk_indicator" in downstream_urn:
+                        logger.info(
+                            f"[COLUMN-TRACK-{stage}] Found kid_synthetic_risk_indicator downstream: {downstream_urn}"
+                        )
+                        logger.info(
+                            f"[COLUMN-TRACK-{stage}]   Upstreams: {cll.upstreams}"
+                        )
+                for upstream_urn in cll.upstreams or []:
+                    if "kid_summary_risk_indicator" in upstream_urn:
+                        logger.info(
+                            f"[COLUMN-TRACK-{stage}] Found kid_summary_risk_indicator upstream: {upstream_urn}"
+                        )
+                        logger.info(
+                            f"[COLUMN-TRACK-{stage}]   Downstreams: {cll.downstreams}"
+                        )
+
     def _filter_procedure_lineage(
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
@@ -1347,15 +1396,49 @@ class SQLServerSource(SQLAlchemySource):
                 f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
             )
 
-            for procedure in self.stored_procedures:
-                # Log when processing the target procedure
-                if "european_priips_kid_information" in procedure.name:
-                    logger.info(
-                        f"[PROCEDURE-START] Processing procedure: {procedure.full_name} (name={procedure.name})"
-                    )
-                    logger.info(
-                        f"[PROCEDURE-START] Database: {procedure.db}, Schema: {procedure.schema}"
-                    )
+            # Check if target procedure is in the list
+            target_procedures = [
+                p
+                for p in self.stored_procedures
+                if "european_priips_kid_information" in p.name
+            ]
+            if target_procedures:
+                logger.info(
+                    f"[PROCEDURE-CHECK] Found {len(target_procedures)} target procedure(s) in list:"
+                )
+                for p in target_procedures:
+                    logger.info(f"[PROCEDURE-CHECK]   - {p.full_name}")
+            else:
+                logger.warning(
+                    "[PROCEDURE-CHECK] Target procedure 'european_priips_kid_information' NOT found in stored_procedures list!"
+                )
+
+            for procedure_count, procedure in enumerate(
+                self.stored_procedures, start=1
+            ):
+                logger.debug(
+                    f"[PROCEDURE-LOOP] #{procedure_count}: name='{procedure.name}', full_name='{procedure.full_name}'"
+                )
+
+                # Log procedure start info for ALL procedures
+                logger.info(
+                    f"[PROCEDURE-START] Processing procedure: {procedure.full_name} (name={procedure.name})"
+                )
+                logger.info(
+                    f"[PROCEDURE-START] Database: {procedure.db}, Schema: {procedure.schema}"
+                )
+                # Log procedure code status
+                base_proc = procedure.to_base_procedure()
+                has_code = base_proc.procedure_definition is not None
+                code_length = (
+                    len(base_proc.procedure_definition)
+                    if base_proc.procedure_definition
+                    else 0
+                )
+                logger.info(
+                    f"[PROCEDURE-START] Code status: has_code={has_code}, "
+                    f"length={code_length}, language={base_proc.language}"
+                )
 
                 with self.report.report_exc(
                     message="Failed to parse stored procedure lineage",
@@ -1382,10 +1465,10 @@ class SQLServerSource(SQLAlchemySource):
                         workunit_count += 1
                         yield workunit
 
-                    if "european_priips_kid_information" in procedure.name:
-                        logger.info(
-                            f"[PROCEDURE-END] Generated {workunit_count} workunits for {procedure.name}"
-                        )
+                    # Log for ALL procedures
+                    logger.info(
+                        f"[PROCEDURE-END] Generated {workunit_count} workunits for {procedure.name}"
+                    )
 
                     if workunit_count == 0:
                         logger.warning(

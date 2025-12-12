@@ -1340,6 +1340,23 @@ def _try_extract_select(
                 logger.info(
                     f"[INSERT-MAPPING] Successfully mapped {len(insert_columns)} INSERT columns to SELECT expressions"
                 )
+
+                # Track specific columns for debugging
+                for insert_col, select_expr in zip(insert_columns, select_expressions):
+                    insert_col_name = (
+                        insert_col.alias_or_name
+                        if hasattr(insert_col, "alias_or_name")
+                        else str(insert_col)
+                    )
+                    select_expr_str = str(select_expr)
+                    if "kid_synthetic_risk_indicator" in insert_col_name:
+                        logger.info(
+                            f"[COLUMN-MAP] kid_synthetic_risk_indicator (INSERT) <- {select_expr_str} (SELECT)"
+                        )
+                    if "kid_summary_risk_indicator" in select_expr_str:
+                        logger.info(
+                            f"[COLUMN-MAP] {insert_col_name} (INSERT) <- kid_summary_risk_indicator (SELECT)"
+                        )
             else:
                 logger.warning(
                     f"[INSERT-MAPPING] Column count mismatch! "

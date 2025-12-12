@@ -1361,6 +1361,7 @@ class SqlParsingAggregator(Closeable):
             logger.info(
                 f"[GEN-LINEAGE]   Resolved {len(queries)} queries for this downstream"
             )
+
     def _process_column_lineage_for_query(
         self,
         query: QueryMetadata,
