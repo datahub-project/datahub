@@ -15,7 +15,7 @@ const logoStyles = {
 
 interface Props {
     source: SourceConfig;
-    onSelect: (platformName: string) => void;
+    onSelect: (platform: SourceConfig) => void;
 }
 
 export default function SourcePlatformCard({ source, onSelect }: Props) {
@@ -30,7 +30,7 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
             iconAlignment="horizontal"
             iconStyles={logoStyles}
             pillLabel={getPillLabel(source)}
-            onClick={() => onSelect(source.name)}
+            onClick={() => onSelect(source)}
             isCardClickable
         />
     );

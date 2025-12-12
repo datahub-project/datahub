@@ -1,5 +1,9 @@
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 
+export const MISCELLANEOUS_CATEGORY_NAME = 'Miscellaneous';
+
+export const EXTERNAL_SOURCE_REDIRECT_URL = 'https://docs.datahub.com/docs/metadata-ingestion/cli-ingestion';
+
 export const CARD_HEIGHT = 94;
 export const CARD_WIDTH = 318;
 
