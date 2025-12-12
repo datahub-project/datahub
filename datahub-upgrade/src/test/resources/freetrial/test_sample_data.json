@@ -1,0 +1,14 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,TestDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "TestDataset",
+        "description": "A test dataset for free trial sample data"
+      }
+    }
+  }
+]

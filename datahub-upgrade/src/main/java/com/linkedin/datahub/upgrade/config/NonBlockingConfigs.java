@@ -7,6 +7,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
+import com.linkedin.datahub.upgrade.system.freetrial.IngestFreeTrialData;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
@@ -202,5 +203,16 @@ public class NonBlockingConfigs {
         configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch(),
         indexConvention,
         enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestFreeTrialData(
+      final OperationContext opContext,
+      final EntityService<?> entityService,
+      @Value("${systemUpdate.ingestFreeTrialData.enabled:false}") final boolean enabled,
+      @Value("${systemUpdate.ingestFreeTrialData.reprocess.enabled:false}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.ingestFreeTrialData.batchSize:500}") final int batchSize) {
+    return new IngestFreeTrialData(opContext, entityService, enabled, reprocessEnabled, batchSize);
   }
 }

@@ -343,15 +343,23 @@ def _build_retry_decorator(resolver: "ExecutorConfigResolver"):
         DATAHUB_EXECUTOR_CONFIG_FETCHER_MAX_RETRIES,
     )
 
+    def _retry_error_callback(retry_state: RetryCallState) -> None:
+        """Called when retries are exhausted. Log metric and re-raise the exception."""
+        METRIC("WORKER_CONFIG_FETCHER_ERRORS", exception="Retry").inc()
+        # Re-raise the last exception instead of returning None
+        if retry_state.outcome is not None:
+            exc = retry_state.outcome.exception()
+            if exc is not None:
+                raise exc
+        raise Exception("Retry exhausted with no exception captured")
+
     # No "retry" condition specified - tenacity will retry on all exceptions by default
     # The stop condition (ExceptionTypeBasedStop) determines when to stop retrying
     return retry(
         wait=wait_exponential(multiplier=2, min=4, max=60),
         before_sleep=_before_sleep_callback,
         stop=stop_condition,
-        retry_error_callback=lambda x: METRIC(
-            "WORKER_CONFIG_FETCHER_ERRORS", exception="Retry"
-        ).inc(),
+        retry_error_callback=_retry_error_callback,
     )
 
 

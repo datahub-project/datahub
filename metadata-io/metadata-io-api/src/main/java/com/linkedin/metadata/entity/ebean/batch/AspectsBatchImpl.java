@@ -142,7 +142,8 @@ public class AspectsBatchImpl implements AspectsBatch {
     Stream<? extends BatchItem> proposedItemsToChangeItems =
         mutatedItems.stream()
             .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
-            // Filter on proposed items again to avoid applying builder to Patch Item side effects
+            // Filter on proposed items again to avoid applying builder to Patch Item side
+            // effects
             .filter(mcpItem -> mcpItem instanceof ProposedItem)
             .map(mcpItem -> patchDiscriminator(mcpItem, retrieverContext.getAspectRetriever()));
     Stream<? extends BatchItem> sideEffectItems =

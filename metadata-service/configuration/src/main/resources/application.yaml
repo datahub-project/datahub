@@ -126,7 +126,7 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   serverEnv: ${DATAHUB_SERVER_ENV:core}
-  isFreeTrialInstance: ${IS_FREE_TRIAL_INSTANCE:false}
+  freeTrialInstance: ${IS_FREE_TRIAL_INSTANCE:false}
   # The base path for the URL where DataHub will be deployed
   basePath: ${DATAHUB_BASE_PATH:}
   # For special deployment modes intended to point at read replicas. WARNING: THIS WILL DROP WRITE OPERATIONS WITHOUT ERRORS, intended for analytics based deploys to offload work from user serving deploys
@@ -1034,6 +1034,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_REPROCESS:false}
+  ingestFreeTrialData:
+    enabled: ${IS_FREE_TRIAL_INSTANCE:false}
+    batchSize: ${SYSTEM_UPDATE_INGEST_FREE_TRIAL_DATA_BATCH_SIZE:500}
+    reprocess:
+      enabled: ${SYSTEM_UPDATE_INGEST_FREE_TRIAL_DATA_REPROCESS:false}
   copyDocumentsToSemanticIndex:
     enabled: ${SYSTEM_UPDATE_COPY_DOCUMENTS_TO_SEMANTIC_INDEX_ENABLED:false}
 
