@@ -37,11 +37,3 @@ mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
         urn
     }
 }
-
-query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
-    dataJob(urn: $urn) {
-        runs(start: $start, count: $count) {
-            ...runResults
-        }
-    }
-}
