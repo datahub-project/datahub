@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { BookOpen, ListBullets } from '@phosphor-icons/react';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
@@ -90,7 +90,7 @@ const sidebarSections = [
  */
 export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading = false, refetch }) => {
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
-    const isCompact = React.useContext(CompactContext);
+    const isCompact = useContext(CompactContext);
 
     if (!document) {
         return null;
