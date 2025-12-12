@@ -246,6 +246,19 @@ class AirbyteSourcePartial(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    def get_schema_for_table(self, table_name: str) -> Optional[str]:
+        """Get schema for a specific table (for connectors with table-level schema config)."""
+        if not self.configuration:
+            return None
+
+        tables = self.configuration.get("tables")
+        if tables and isinstance(tables, list):
+            for table in tables:
+                if isinstance(table, dict) and table.get("name") == table_name:
+                    return table.get("schema")
+
+        return None
+
     @property
     def get_schema(self) -> Optional[str]:
         """
