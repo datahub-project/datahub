@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-08T22:40:15.320940+00:00",
+  "generated_at": "2025-12-12T22:09:52.396845+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -557,14 +557,14 @@
           "supported": true
         },
         {
-          "capability": "LINEAGE_COARSE",
-          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
+          "capability": "SCHEMA_METADATA",
+          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
           "subtype_modifier": null,
           "supported": true
         },
         {
-          "capability": "SCHEMA_METADATA",
-          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
           "subtype_modifier": null,
           "supported": true
         },
