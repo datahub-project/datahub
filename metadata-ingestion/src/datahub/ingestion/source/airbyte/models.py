@@ -146,8 +146,9 @@ class AirbyteDataSource(BaseModel):
     name: str
     source_type: str = Field("", alias="sourceType")  # Default to empty string
     source_definition_id: str = Field(
-        "", alias="sourceDefinitionId"
-    )  # Default to empty string
+        "",
+        validation_alias=AliasChoices("definitionId", "sourceDefinitionId"),
+    )
     configuration: AirbyteSourceConfiguration = Field(
         default_factory=AirbyteSourceConfiguration
     )
@@ -165,8 +166,9 @@ class AirbyteDestination(BaseModel):
         "", alias="destinationType"
     )  # Default to empty string
     destination_definition_id: str = Field(
-        "", alias="destinationDefinitionId"
-    )  # Default to empty string
+        "",
+        validation_alias=AliasChoices("definitionId", "destinationDefinitionId"),
+    )
     configuration: AirbyteDestinationConfiguration = Field(
         default_factory=AirbyteDestinationConfiguration
     )
@@ -234,9 +236,13 @@ class AirbyteSourcePartial(BaseModel):
     source_id: str = Field(alias="sourceId")  # Make mandatory
     name: Optional[str] = None
     source_type: Optional[str] = Field(None, alias="sourceType")
-    source_definition_id: Optional[str] = Field(None, alias="sourceDefinitionId")
+    source_definition_id: Optional[str] = Field(
+        None,
+        validation_alias=AliasChoices("definitionId", "sourceDefinitionId"),
+    )
     configuration: Optional[Dict[str, Any]] = None
     workspace_id: Optional[str] = Field(None, alias="workspaceId")
+    created_at: Optional[int] = Field(None, alias="createdAt")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -316,10 +322,12 @@ class AirbyteDestinationPartial(BaseModel):
     name: Optional[str] = None
     destination_type: Optional[str] = Field(None, alias="destinationType")
     destination_definition_id: Optional[str] = Field(
-        None, alias="destinationDefinitionId"
+        None,
+        validation_alias=AliasChoices("definitionId", "destinationDefinitionId"),
     )
     configuration: Optional[Dict[str, Any]] = None
     workspace_id: Optional[str] = Field(None, alias="workspaceId")
+    created_at: Optional[int] = Field(None, alias="createdAt")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -398,6 +406,8 @@ class AirbyteConnectionPartial(BaseModel):
     namespace_definition: Optional[str] = Field(None, alias="namespaceDefinition")
     namespace_format: Optional[str] = Field(None, alias="namespaceFormat")
     prefix: Optional[str] = None
+    created_at: Optional[int] = Field(None, alias="createdAt")
+    tags: List[Dict[str, Any]] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -507,6 +517,13 @@ class AirbyteStreamDetails(BaseModel):
     )
     property_fields: List[PropertyFieldPath] = Field(
         default_factory=list, alias="propertyFields"
+    )
+    default_cursor_field: List[str] = Field(
+        default_factory=list, alias="defaultCursorField"
+    )
+    source_defined_cursor_field: bool = Field(False, alias="sourceDefinedCursorField")
+    source_defined_primary_key: List[List[str]] = Field(
+        default_factory=list, alias="sourceDefinedPrimaryKey"
     )
 
     model_config = ConfigDict(populate_by_name=True)
