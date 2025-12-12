@@ -406,10 +406,10 @@ When contributing to this connector:
 
 1. Follow patterns from `vertexai` and `bigquery_v2` sources
 2. Add type hints to all functions
-3. Update both developer README (this file) and user docs (`../../../docs/sources/dataplex/`)
+3. Update both developer README (this file) and user docs
 4. Add unit tests for new functionality
 5. Run linting: `./gradlew :metadata-ingestion:lintFix`
-6. Follow the [DataHub code standards](../../../../CLAUDE.md)
+6. Follow the DataHub code standards (see CLAUDE.md in the repo root)
 
 ## References
 

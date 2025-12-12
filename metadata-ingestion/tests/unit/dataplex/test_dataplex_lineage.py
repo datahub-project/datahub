@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+pytest.importorskip("google.cloud.dataplex_v1")
+
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntityDataTuple
 from datahub.ingestion.source.dataplex.dataplex_lineage import (

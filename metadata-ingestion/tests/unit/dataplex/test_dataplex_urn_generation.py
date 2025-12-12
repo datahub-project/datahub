@@ -4,6 +4,10 @@ This module tests that Entities API and Entries API generate identical URNs
 for the same resources, ensuring proper deduplication in DataHub.
 """
 
+import pytest
+
+pytest.importorskip("google.cloud.dataplex_v1")
+
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     make_entity_dataset_urn,

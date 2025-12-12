@@ -1,6 +1,9 @@
 """Unit tests for Dataplex configuration."""
 
 import pytest
+
+pytest.importorskip("google.cloud.dataplex_v1")
+
 from pydantic import ValidationError
 
 from datahub.ingestion.source.dataplex.dataplex_config import (
