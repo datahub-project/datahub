@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -12,10 +13,8 @@ import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { EntityType } from '@types';
-import { DocumentEntity } from './DocumentEntity';
 
 const headerDropdownItems = new Set([EntityMenuItems.COPY_URL, EntityMenuItems.SHARE]);
-
 
 /**
  * Profile for external documents (documents ingested from external sources like Slack, Notion, etc.)
