@@ -1101,6 +1101,78 @@ class SQLServerSource(SQLAlchemySource):
 
         return filtered
 
+    def _resolve_downstream_aliases(
+        self,
+        downstreams: List[str],
+        upstreams: List[str],
+        field_urn_pattern: re.Pattern,
+        platform_instance: Optional[str],
+        procedure_name: str,
+    ) -> List[str]:
+        """Resolve unqualified downstream aliases in TSQL UPDATE statements.
+
+        TSQL UPDATE syntax like "UPDATE dst SET ... FROM Table dst" causes
+        sqlglot to extract 'dst' as downstream instead of the real table.
+        We resolve these aliases using upstream tables from the same entry.
+
+        Args:
+            downstreams: List of downstream field URNs
+            upstreams: List of upstream field URNs (already filtered)
+            field_urn_pattern: Regex pattern to extract table URN and column name
+            platform_instance: Platform instance for qualification check
+            procedure_name: Procedure name for logging
+
+        Returns:
+            List of resolved downstream field URNs
+        """
+        # Extract unique upstream table URNs for alias resolution
+        upstream_table_urns_for_resolution = set()
+        for field_urn in upstreams:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                if self._is_qualified_table_urn(table_urn, platform_instance):
+                    upstream_table_urns_for_resolution.add(table_urn)
+
+        filtered_downstreams = []
+        for field_urn in downstreams:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                column_name = match.group(2)
+
+                if self._is_qualified_table_urn(table_urn, platform_instance):
+                    # Qualified downstream, keep as-is
+                    filtered_downstreams.append(field_urn)
+                else:
+                    # Unqualified downstream (likely TSQL alias like 'dst')
+                    # Try to resolve it using upstreams from the same entry
+                    if len(upstream_table_urns_for_resolution) == 1:
+                        # Exactly one qualified upstream: this is likely a self-referencing
+                        # UPDATE where the table reads from itself and writes to itself
+                        # (e.g., "UPDATE dst SET ... FROM Table dst")
+                        resolved_table_urn = next(
+                            iter(upstream_table_urns_for_resolution)
+                        )
+                        resolved_field_urn = (
+                            f"urn:li:schemaField:({resolved_table_urn},{column_name})"
+                        )
+                        filtered_downstreams.append(resolved_field_urn)
+                        logger.info(
+                            f"Resolved TSQL alias in column lineage for {procedure_name}: "
+                            f"{field_urn} → {resolved_field_urn}"
+                        )
+                    else:
+                        # Multiple upstreams or no upstreams: can't safely resolve
+                        logger.debug(
+                            f"Filtered unqualified downstream field in column lineage for {procedure_name}: "
+                            f"{field_urn} (couldn't resolve: {len(upstream_table_urns_for_resolution)} upstream tables)"
+                        )
+            else:
+                filtered_downstreams.append(field_urn)
+
+        return filtered_downstreams
+
     def _filter_column_lineage(
         self,
         aspect: DataJobInputOutputClass,
@@ -1112,6 +1184,7 @@ class SQLServerSource(SQLAlchemySource):
         Applies same 2-step filtering as table-level lineage:
         1. Check if table has 3+ parts (_is_qualified_table_urn)
         2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
+        3. Resolve unqualified downstream aliases using upstream tables
 
         Modifies aspect.fineGrainedLineages in place.
         """
@@ -1175,22 +1248,15 @@ class SQLServerSource(SQLAlchemySource):
 
                 cll.upstreams = filtered_upstreams
 
-            # Filter downstreams: only check qualification (same as outputDatasets)
+            # Filter downstreams: check qualification and resolve TSQL aliases
             if cll.downstreams:
-                filtered_downstreams = []
-                for field_urn in cll.downstreams:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        if self._is_qualified_table_urn(table_urn, platform_instance):
-                            filtered_downstreams.append(field_urn)
-                        else:
-                            logger.debug(
-                                f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
-                            )
-                    else:
-                        filtered_downstreams.append(field_urn)
-                cll.downstreams = filtered_downstreams
+                cll.downstreams = self._resolve_downstream_aliases(
+                    downstreams=cll.downstreams,
+                    upstreams=cll.upstreams if cll.upstreams else [],
+                    field_urn_pattern=field_urn_pattern,
+                    platform_instance=platform_instance,
+                    procedure_name=procedure_name,
+                )
 
             # Only keep column lineage if it has both upstreams and downstreams
             if cll.upstreams and cll.downstreams:
