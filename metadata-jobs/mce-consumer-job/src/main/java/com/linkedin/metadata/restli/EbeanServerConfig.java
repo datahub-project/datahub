@@ -45,6 +45,8 @@ public class EbeanServerConfig {
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
 
+  @Value("${ebean.captureStackTrace:false}")
+  private Boolean captureStackTrace;
   @Value("${ebean.useIamAuth:false}")
   private Boolean useIamAuth;
 
@@ -106,6 +108,7 @@ public class EbeanServerConfig {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
+    dataSourceConfig.setCaptureStackTrace(captureStackTrace);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "mce-consumer"));
 
     // Set custom properties for IAM authentication
