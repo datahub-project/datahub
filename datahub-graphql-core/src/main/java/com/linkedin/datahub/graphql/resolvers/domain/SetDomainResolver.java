@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -11,15 +12,17 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -27,12 +30,37 @@ import lombok.extern.slf4j.Slf4j;
  * privilege for a particular asset.
  */
 @Slf4j
-@RequiredArgsConstructor
 public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
   private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
+
+  /**
+   * Constructor for the new approach - no Authorizer parameter needed. Authorization is obtained
+   * from QueryContext.
+   */
+  public SetDomainResolver(
+      @Nonnull EntityClient entityClient, @Nonnull EntityService<?> entityService) {
+    this._entityClient = entityClient;
+    this._entityService = entityService;
+  }
+
+  /**
+   * Constructor for backward compatibility - accepts Authorizer parameter but ignores it.
+   * Authorization is obtained from QueryContext instead.
+   *
+   * @deprecated Use {@link #SetDomainResolver(EntityClient, EntityService)} instead. The authorizer
+   *     parameter is no longer needed as it's obtained from QueryContext.
+   */
+  @Deprecated
+  public SetDomainResolver(
+      @Nonnull EntityClient entityClient,
+      @Nonnull EntityService<?> entityService,
+      @Nonnull Authorizer authorizer) {
+    this(entityClient, entityService);
+    // Authorizer parameter is ignored for backward compatibility
+  }
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -43,11 +71,21 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
-              environment.getContext(), entityUrn, _entityClient)) {
+          // Get existing domains from the entity
+          Set<Urn> existingDomains =
+              DomainUtils.getEntityDomains(context, _entityClient, entityUrn);
+
+          // Combine existing domains with the new domain being set
+          Set<Urn> allDomains = new HashSet<>(existingDomains);
+          allDomains.add(domainUrn);
+
+          // Check domain-based authorization
+          if (!DomainUtils.isAuthorizedWithDomains(
+              context, ApiOperation.UPDATE, entityUrn, allDomains)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
+
           validateSetDomainInput(
               context.getOperationContext(), entityUrn, domainUrn, _entityService);
           try {

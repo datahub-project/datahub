@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
@@ -25,9 +26,12 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIV
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE;
 
+import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.ApiOperation;
@@ -45,15 +49,21 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -70,6 +80,7 @@ import org.springframework.stereotype.Component;
  * <p>isAPI...() functions are intended for OpenAPI and Rest.li since they are governed by an enable
  * flag. GraphQL is always enabled and should use is...() functions.
  */
+@Slf4j
 @Component
 // TODO: Condense abstractions here, should ideally be on public entrypoint here with an Auth
 // Request Wrapper to reduce
@@ -675,6 +686,85 @@ public class AuthUtil {
     // Create and evaluate an Authorization request.
     final AuthorizationResult result = session.authorize(privilege, resourceSpec, subResources);
     return AuthorizationResult.Type.DENY.equals(result.getType());
+  }
+
+  /**
+   * Authorize MetadataChangeProposals with optional domain-based authorization.
+   * When domainsByEntity is provided and non-empty, uses domain-aware authorization.
+   * Otherwise uses standard authorization without domain context.
+   *
+   * This method should be called by REST resources that:
+   * 1. Check if domain-based auth is enabled via isDomainBasedAuthorizationEnabled()
+   * 2. Extract domains if enabled using helper methods
+   * 3. Pass the extracted domains to this method
+   *
+   * @param session Authorization session (from OperationContext)
+   * @param apiGroup API group for authorization
+   * @param entityRegistry Entity registry for URN resolution
+   * @param mcps Collection of MCPs to authorize
+   * @param domainsByEntity Optional map of entity URN to their domain URNs (pass null or empty for standard auth)
+   * @return List of (MCP, HTTP status code) pairs - 200 for authorized, 403 for denied, 400 for bad request
+   */
+  public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorizedMCPsWithDomains(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final ApiGroup apiGroup,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Collection<MetadataChangeProposal> mcps,
+      @Nullable final Map<Urn, Set<Urn>> domainsByEntity) {
+    
+    boolean useDomainAuth = domainsByEntity != null && !domainsByEntity.isEmpty();
+    
+    List<Pair<MetadataChangeProposal, Integer>> results = new ArrayList<>();
+    
+    for (MetadataChangeProposal mcp : mcps) {
+      Urn urn = mcp.getEntityUrn();
+      if (urn == null) {
+        com.linkedin.metadata.models.EntitySpec entitySpec =
+            entityRegistry.getEntitySpec(mcp.getEntityType());
+        urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+      }
+      
+      if (urn == null) {
+        log.warn("Unable to extract URN from MCP during authorization");
+        results.add(Pair.of(mcp, HttpStatus.SC_BAD_REQUEST));
+        continue;
+      }
+      
+      // Determine operation type based on change type
+      ApiOperation operation;
+      switch (mcp.getChangeType()) {
+        case CREATE:
+        case CREATE_ENTITY:
+          operation = CREATE;
+          break;
+        case DELETE:
+          operation = DELETE;
+          break;
+        case UPSERT:
+        case UPDATE:
+        case RESTATE:
+        case PATCH:
+        default:
+          operation = UPDATE;
+          break;
+      }
+      
+      boolean authorized;
+      if (useDomainAuth) {
+        // Domain-based authorization: use domains as subresources
+        Set<Urn> domains = domainsByEntity.getOrDefault(urn, Collections.emptySet());
+        authorized = isAPIAuthorizedEntityUrnsWithSubResources(
+            session, operation, List.of(urn), domains);
+      } else {
+        // Standard authorization: no domain context
+        authorized = isAPIAuthorizedEntityUrns(session, operation, List.of(urn));
+      }
+      
+      int statusCode = authorized ? HttpStatus.SC_OK : HttpStatus.SC_FORBIDDEN;
+      results.add(Pair.of(mcp, statusCode));
+    }
+    
+    return results;
   }
 
   protected AuthUtil() {}

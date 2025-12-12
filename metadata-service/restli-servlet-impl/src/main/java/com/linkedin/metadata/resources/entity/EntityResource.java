@@ -27,6 +27,7 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.resources.restli.DomainExtractionUtils;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -822,26 +823,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
   }
 
-  /**
-   * Get the domain URNs for an entity to include as subResources in authorization checks.
-   * This allows policies to filter based on entity domains.
-   * @param urn the entity URN
-   * @param opContext the operation context
-   * @return set of domain URNs for the entity
-   */
-  private Set<Urn> getEntityDomains(@Nonnull Urn urn, @Nonnull OperationContext opContext) {
-    try {
-      EnvelopedAspect envelopedAspect = entityService.getLatestEnvelopedAspect(
-          opContext, urn.getEntityType(), urn, DOMAINS_ASPECT_NAME);
-      if (envelopedAspect != null) {
-        Domains domains = RecordUtils.toRecordTemplate(Domains.class, envelopedAspect.getValue().data());
-        return new HashSet<>(domains.getDomains());
-      }
-    } catch (Exception e) {
-      log.warn("Failed to retrieve domains for entity {}: {}", urn, e.getMessage());
-    }
-    return Collections.emptySet();
-  }
 
   /*
   Used to delete all data related to a filter criteria based on registryId, runId etc.
@@ -897,7 +878,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             // Domain-based authorization: check each URN individually with its domains
             for (String urnStr : urns) {
               Urn urn = UrnUtils.getUrn(urnStr);
-              Set<Urn> domainUrns = getEntityDomains(urn, opContext);
+              Set<Urn> domainUrns = DomainExtractionUtils.getEntityDomains(opContext, entityService, urn);
 
               if (!isAPIAuthorizedEntityUrnsWithSubResources(opContext, DELETE, List.of(urn), domainUrns)) {
                 throw new RestLiServiceException(
@@ -958,7 +939,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             ACTION_DELETE, urn.getEntityType()), authorizer, auth, true);
 
     // Perform authorization check with or without domain information based on configuration
-    Set<Urn> domainUrns = isDomainBasedAuthorizationEnabled(authorizer) ? getEntityDomains(urn, opContext) : Collections.emptySet();
+    Set<Urn> domainUrns = isDomainBasedAuthorizationEnabled(authorizer)
+        ? DomainExtractionUtils.getEntityDomains(opContext, entityService, urn)
+        : Collections.emptySet();
 
     if (isDomainBasedAuthorizationEnabled(authorizer)) {
       boolean isAuthorized = isAPIAuthorizedEntityUrnsWithSubResources(

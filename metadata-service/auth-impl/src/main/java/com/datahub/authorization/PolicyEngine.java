@@ -101,6 +101,7 @@ public class PolicyEngine {
       // 0. Determine if we have a wildcard policy.
       if (actorFilter.isAllUsers()) {
         allUsers = true;
+        allGroups = true;
       }
       if (actorFilter.isAllGroups()) {
         allGroups = true;
