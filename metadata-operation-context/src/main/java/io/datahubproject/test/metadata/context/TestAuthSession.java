@@ -96,6 +96,7 @@ public class TestAuthSession implements AuthorizationSession {
       @Nonnull Collection<EntitySpec> subResources) {
     return new BatchAuthorizationResult(
         null,
-        new LazyAuthorizationResultMap(privilege -> authFunction.apply(privilege, resourceSpec)));
+        new LazyAuthorizationResultMap(
+            privileges, privilege -> authFunction.apply(privilege, resourceSpec)));
   }
 }

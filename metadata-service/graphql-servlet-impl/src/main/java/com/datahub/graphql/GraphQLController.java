@@ -1,7 +1,7 @@
 package com.datahub.graphql;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.*;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;

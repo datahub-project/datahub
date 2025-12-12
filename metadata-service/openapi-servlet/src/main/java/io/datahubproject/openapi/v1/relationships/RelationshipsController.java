@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.v1.relationships;
 
-import static com.linkedin.metadata.authorization.ApiGroup.*;
-import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.authorization.ApiGroup.RELATIONSHIP;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.codahale.metrics.MetricRegistry;

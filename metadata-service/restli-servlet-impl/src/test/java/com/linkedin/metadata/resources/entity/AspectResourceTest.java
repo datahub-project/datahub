@@ -1,5 +1,8 @@
 package com.linkedin.metadata.resources.entity;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -38,9 +41,6 @@ import java.util.List;
 import java.util.Optional;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
 
 public class AspectResourceTest {
   private AspectResource aspectResource;

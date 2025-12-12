@@ -1,7 +1,11 @@
 package com.linkedin.metadata.ingestion.validation;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;

@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.delegates;
 
-import static com.linkedin.metadata.authorization.ApiGroup.*;
-import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;

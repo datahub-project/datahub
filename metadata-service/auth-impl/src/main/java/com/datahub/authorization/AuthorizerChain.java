@@ -22,8 +22,11 @@ import lombok.extern.slf4j.Slf4j;
  * inbound request.
  *
  * <p>Individual {@link Authorizer}s are registered at the instance creation time. The chain can be
- * executed by invoking either {@link #authorize(AuthorizationRequest)} or {@link
- * #authorizeBatch(BatchAuthorizationRequest)}
+ * executed by invoking {@link #authorizeBatch(BatchAuthorizationRequest)}
+ *
+ * <p><b>Warning:</b> never use {@link Authorizer#authorize(AuthorizationRequest)}. This method is
+ * solely designed for implementing by {@link Authorizer} subclasses when they do not support batch
+ * authorization
  */
 @Slf4j
 public class AuthorizerChain implements Authorizer {
@@ -87,7 +90,8 @@ public class AuthorizerChain implements Authorizer {
         // reset
         Thread.currentThread().setContextClassLoader(contextClassLoader);
 
-        log.debug("Batch authorization is successful");
+        log.debug(
+            "Batch authorization is successful for {}", authorizer.getClass().getCanonicalName());
         authorizersResults.add(result);
       } catch (Exception e) {
         log.error(
@@ -106,10 +110,13 @@ public class AuthorizerChain implements Authorizer {
   private static LazyAuthorizationResultMap composeAuthorizersResults(
       BatchAuthorizationRequest request, ArrayList<BatchAuthorizationResult> authorizersResults) {
     return new LazyAuthorizationResultMap(
+        request.getPrivileges(),
         privilege -> {
           for (BatchAuthorizationResult authorizerResult : authorizersResults) {
             var authorizationResult = authorizerResult.getResults().get(privilege);
             if (AuthorizationResult.Type.ALLOW == authorizationResult.getType()) {
+              log.debug(
+                  "Received ALLOW from Authorizer. message: {}", authorizationResult.getMessage());
               return authorizationResult;
             }
 

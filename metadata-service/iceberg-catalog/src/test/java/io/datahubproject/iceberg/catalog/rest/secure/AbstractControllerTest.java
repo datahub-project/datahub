@@ -1,6 +1,6 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.datahub.authentication.Actor;

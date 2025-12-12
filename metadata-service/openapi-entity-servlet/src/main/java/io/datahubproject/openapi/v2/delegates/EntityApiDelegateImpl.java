@@ -1,7 +1,8 @@
 package io.datahubproject.openapi.v2.delegates;
 
-import static com.linkedin.metadata.authorization.ApiOperation.*;
-import static io.datahubproject.openapi.util.ReflectionCache.*;
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;

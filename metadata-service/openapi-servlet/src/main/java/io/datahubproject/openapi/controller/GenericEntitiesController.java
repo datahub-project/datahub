@@ -1,7 +1,11 @@
 package io.datahubproject.openapi.controller;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
