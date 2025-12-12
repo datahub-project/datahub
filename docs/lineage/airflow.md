@@ -154,11 +154,148 @@ class DbtOperator(BaseOperator):
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Reference the [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
 
-See example implementation of a custom operator using SQL parser to capture table level lineage [here](../../metadata-ingestion-modules/airflow-plugin/tests/integration/dags/custom_operator_sql_parsing.py)
+See example implementation of a custom operator using SQL parser to capture table level lineage [here](../../metadata-ingestion-modules/airflow-plugin/tests/integration/dags/airflow3/custom_operator_sql_parsing.py)
 
-### Custom Extractors
+### Custom SQL Operators with Automatic Lineage
 
-You can also create a custom extractor to extract lineage from any operator. This is useful if you're using a built-in Airflow operator for which we don't support automatic lineage extraction.
+If you're building a custom SQL operator, you have two approaches depending on your needs:
+
+#### Option 1: Inherit from SQLExecuteQueryOperator (Recommended)
+
+**This is the easiest approach** - inherit from Airflow's `SQLExecuteQueryOperator` and you automatically get:
+
+- ✅ OpenLineage support built-in
+- ✅ DataHub's enhanced SQL parser (via our SQLParser patch)
+- ✅ Column-level lineage extraction
+- ✅ No extra code needed
+
+```python
+from typing import Any
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+
+class MyCustomSQLOperator(SQLExecuteQueryOperator):
+    """
+    Custom SQL operator that inherits OpenLineage support.
+
+    DataHub automatically enhances the SQL parsing with column-level lineage!
+    """
+
+    def __init__(self, my_custom_param: str, **kwargs):
+        # Add your custom parameters
+        self.my_custom_param = my_custom_param
+        super().__init__(**kwargs)
+
+    def execute(self, context: Any) -> Any:
+        # Add any custom logic before SQL execution
+        self.log.info(f"Custom param: {self.my_custom_param}")
+
+        # Parent class handles SQL execution + OpenLineage lineage
+        return super().execute(context)
+```
+
+**How it works:**
+
+1. `SQLExecuteQueryOperator` already has `get_openlineage_facets_on_complete()` implemented
+2. It uses the hook's OpenLineage methods, which internally call `SQLParser`
+3. DataHub patches `SQLParser` globally, so all SQL parsing gets enhanced automatically
+4. You get column-level lineage without writing any lineage-specific code!
+
+**When to use this:**
+
+- Building operators for standard SQL databases (Postgres, MySQL, Snowflake, BigQuery, etc.)
+- Want the simplest integration
+- Don't need custom lineage extraction logic
+
+#### Option 2: Implement OpenLineage Interface from Scratch
+
+Only needed if you're building a completely custom operator that doesn't fit the `SQLExecuteQueryOperator` pattern:
+
+```python
+from typing import Any, Optional
+from airflow.models.baseoperator import BaseOperator
+
+class MyCompletelyCustomOperator(BaseOperator):
+    """
+    For special cases where SQLExecuteQueryOperator doesn't fit.
+    """
+
+    def execute(self, context: Any) -> Any:
+        # Your custom SQL execution logic
+        pass
+
+    def get_openlineage_facets_on_complete(
+        self, task_instance: Any
+    ) -> Optional["OperatorLineage"]:
+        """
+        Implement OpenLineage interface manually.
+        DataHub's SQLParser patch still enhances this automatically!
+        """
+        from airflow.providers.openlineage.sqlparser import SQLParser
+
+        hook = self.get_db_hook()
+        parser = SQLParser(
+            dialect=hook.get_openlineage_database_dialect(hook.get_connection(self.conn_id)),
+            default_schema=hook.get_openlineage_default_schema(),
+        )
+
+        # This uses DataHub's patched SQLParser - column lineage included!
+        return parser.generate_openlineage_metadata_from_sql(
+            sql=self.sql,
+            hook=hook,
+            database_info=hook.get_openlineage_database_info(hook.get_connection(self.conn_id)),
+        )
+```
+
+**When to use this:**
+
+- Building a very specialized operator from scratch
+- Need complete control over lineage extraction
+- The standard SQLExecuteQueryOperator pattern doesn't apply
+
+**Key Point:** DataHub patches `SQLParser.generate_openlineage_metadata_from_sql()` globally at import time, so **any operator** using OpenLineage's SQLParser automatically gets DataHub's enhanced parsing with column-level lineage!
+
+### Alternative: Custom Operators with Manual Lineage (Airflow 2.x and 3.x)
+
+If you prefer not to use OpenLineage, or are on older Airflow versions, you can manually extract and set lineage using DataHub's SQL parser:
+
+```python
+from typing import Any, List, Tuple
+from airflow.models.baseoperator import BaseOperator
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin.entities import Urn
+
+class CustomSQLOperator(BaseOperator):
+    def __init__(self, sql: str, database: str, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.sql = sql
+        self.database = database
+
+    def execute(self, context: Any) -> Any:
+        # Execute SQL
+        # ...
+
+        # Extract and set lineage
+        inlets, outlets = self._get_lineage()
+        context["ti"].task.inlets = inlets
+        context["ti"].task.outlets = outlets
+
+    def _get_lineage(self) -> Tuple[List, List]:
+        sql_parsing_result = create_lineage_sql_parsed_result(
+            query=self.sql,
+            platform="postgres",  # your platform
+            default_db=self.database,
+        )
+
+        inlets = [Urn(table) for table in sql_parsing_result.in_tables]
+        outlets = [Urn(table) for table in sql_parsing_result.out_tables]
+        return inlets, outlets
+```
+
+See [full example](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/airflow3/custom_operator_sql_parsing.py).
+
+### Custom Extractors (Advanced - Legacy OpenLineage)
+
+For advanced use cases with the legacy OpenLineage package (`openlineage-airflow`), you can create a custom extractor. This is useful if you're using a built-in Airflow operator for which we don't support automatic lineage extraction.
 
 See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
 

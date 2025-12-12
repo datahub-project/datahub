@@ -38,18 +38,33 @@ jobs:
       matrix:
         include:
           # Note: this should be kept in sync with tox.ini.
+          # Airflow 2.x versions use standalone openlineage-airflow package (airflow2)
+          # Airflow 3.x versions use native OpenLineage provider (airflow3)
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.7.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.7.3/constraints-3.10.txt"
+            extra_pip_extras: "airflow2"
           - python-version: "3.10"
             extra_pip_requirements: "apache-airflow~=2.8.1"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.8.1/constraints-3.10.txt"
+            extra_pip_extras: "airflow2"
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=2.9.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+            extra_pip_extras: "airflow2"
           - python-version: "3.11"
             extra_pip_requirements: "apache-airflow~=2.10.3"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
+            extra_pip_extras: "airflow2"
+          # Test Airflow 2.10 with apache-airflow-providers-openlineage instead of openlineage-airflow
+          - python-version: "3.11"
+            extra_pip_requirements: "apache-airflow~=2.10.3 apache-airflow-providers-openlineage>=1.0.0"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
+            extra_pip_extras: ""
+          - python-version: "3.11"
+            extra_pip_requirements: "apache-airflow~=3.1.0 apache-airflow-providers-openlineage>=2.8.0"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-3.1.0/constraints-3.11.txt"
+            extra_pip_extras: "airflow3"
       fail-fast: false
     steps:
       - name: Set up JDK 17
