@@ -2,9 +2,7 @@
 
 This directory contains the DataHub connector for Google Dataplex.
 
-**For user documentation, setup instructions, and configuration examples, see:**
-
-- [Dataplex Connector Documentation](../../../docs/sources/dataplex/dataplex_pre.md)
+**For user documentation, setup instructions, and configuration examples, see the Dataplex connector documentation at docs.datahub.com.**
 
 ## Implementation Overview
 
@@ -415,6 +413,5 @@ When contributing to this connector:
 
 ## References
 
-- [User Documentation](../../../docs/sources/dataplex/dataplex_pre.md)
 - [Dataplex API Documentation](https://cloud.google.com/dataplex/docs)
 - [DataHub Developer Guide](https://datahubproject.io/docs/developers)

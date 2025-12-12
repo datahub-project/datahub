@@ -196,8 +196,12 @@ class DataplexLineageExtractor:
         """
         Implementation of searching for lineage links where the entity is a target (to find upstream).
         This method is wrapped with retry logic in _search_links_by_target.
+
+        Raises:
+            RuntimeError: If lineage client is not initialized
         """
-        assert self.lineage_client is not None
+        if self.lineage_client is None:
+            raise RuntimeError("Lineage client is not initialized")
         logger.debug(f"Searching upstream lineage for FQN: {fully_qualified_name}")
         target = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, target=target)
@@ -249,9 +253,11 @@ class DataplexLineageExtractor:
             List of Link objects (all pages automatically retrieved)
 
         Raises:
+            RuntimeError: If lineage client is not initialized
             Exception: If the lineage API call fails
         """
-        assert self.lineage_client is not None
+        if self.lineage_client is None:
+            raise RuntimeError("Lineage client is not initialized")
         logger.debug(f"Searching downstream lineage for FQN: {fully_qualified_name}")
         source = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, source=source)
