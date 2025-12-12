@@ -8287,6 +8287,125 @@
             "type": "VIEW",
             "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
           }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),A)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),A)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"A\" AS \"A\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),B)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),B)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"B\" AS \"B\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),C)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),C)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"C\" AS \"C\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),D)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),D)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"D\" AS \"D\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),E)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),E)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"E\" AS \"E\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),F)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),F)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"F\" AS \"F\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),G)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),G)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"G\" AS \"G\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),H)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),H)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"H\" AS \"H\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          },
+          {
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),I)"
+            ],
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),I)"
+            ],
+            "transformOperation": "COPY: \"NYC-weather.csv\".\"I\" AS \"I\"",
+            "confidenceScore": 0.9,
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Cdremio.space.warehouse%2CPROD%29"
+          }
         ]
       }
     },
@@ -8338,6 +8457,60 @@
           },
           {
             "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),A)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),B)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),C)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),D)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),E)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),F)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),G)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),H)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),I)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),A)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),B)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),C)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),D)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),E)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),F)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),G)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),H)"
+          },
+          {
+            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.warehouse,PROD),I)"
           }
         ]
       }
