@@ -33,7 +33,10 @@
                 "workspace_id": "12345678-1234-1234-1234-123456789012",
                 "workspace_name": "Default Workspace",
                 "platform": "airbyte",
-                "deployment_type": "oss"
+                "deployment_type": "oss",
+                "created_at": "1765570211",
+                "source_created_at": "1765569999",
+                "destination_created_at": "1765570000"
             },
             "externalUrl": "http://localhost:8000/workspaces/12345678-1234-1234-1234-123456789012/connections/66666666-6666-6666-6666-666666666666",
             "name": "MySQL to Postgres Connection",
@@ -78,7 +81,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.customers,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD)"
             ],
             "fineGrainedLineages": [
                 {
@@ -88,7 +91,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.customers,PROD),country)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),country)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -99,7 +102,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.customers,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -110,7 +113,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.customers,PROD),created_at)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),created_at)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -121,7 +124,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.customers,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),customer_id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -132,7 +135,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.customers,PROD),email)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),email)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -177,7 +180,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD)"
             ],
             "fineGrainedLineages": [
                 {
@@ -187,7 +190,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD),quantity)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),quantity)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -198,7 +201,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD),price)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),price)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -209,7 +212,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD),ordered_at)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),ordered_at)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -220,7 +223,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),customer_id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -231,7 +234,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD),order_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),order_id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -242,7 +245,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD),product_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),product_name)"
                     ],
                     "confidenceScore": 1.0
                 }

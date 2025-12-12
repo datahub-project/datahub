@@ -233,7 +233,7 @@ def test_create_stream_datajob(source, pipeline_info, stream):
     assert str(result.datajob_urn) == expected_urn
 
 
-def test_create_dataset_lineage(source, stream):
+def test_create_dataset_lineage(source, pipeline_info, stream):
     """Test the _create_dataset_lineage method."""
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"
     destination_urn = (
@@ -247,6 +247,7 @@ def test_create_dataset_lineage(source, stream):
     source.source_config.extract_column_level_lineage = False
 
     workunits = source._create_dataset_lineage(
+        pipeline_info=pipeline_info,
         source_urn=source_urn,
         destination_urn=destination_urn,
         stream=stream,
