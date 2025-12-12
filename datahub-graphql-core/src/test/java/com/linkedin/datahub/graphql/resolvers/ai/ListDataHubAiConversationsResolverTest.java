@@ -179,6 +179,55 @@ public class ListDataHubAiConversationsResolverTest {
     assertTrue(capturedFilter.getOr().get(0).getAnd().get(0).getValues().contains("INGESTION_UI"));
   }
 
+  @Test
+  public void testListConversationsWithOriginTypeAsString() throws Exception {
+    // Create mock service
+    DataHubAiConversationService mockService = mock(DataHubAiConversationService.class);
+    when(mockService.listConversations(
+            any(OperationContext.class), any(Urn.class), anyInt(), anyInt(), any(Filter.class)))
+        .thenReturn(
+            new DataHubAiConversationService.ConversationListResult(
+                ImmutableList.of(
+                    new DataHubAiConversationService.ConversationResult(
+                        TEST_CONVERSATION_URN_1, createMockConversationInfo())),
+                1));
+
+    // Create resolver
+    ListDataHubAiConversationsResolver resolver =
+        new ListDataHubAiConversationsResolver(mockService);
+
+    // Execute resolver with originType filter as String (simulating real GraphQL behavior)
+    QueryContext mockContext = getMockAllowContext(TEST_USER_URN.toString());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(20);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("originType"))).thenReturn("DATAHUB_UI");
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    DataHubAiConversationConnection result = resolver.get(mockEnv).get();
+
+    // Verify result
+    assertNotNull(result);
+    assertEquals(result.getConversations().size(), 1);
+    assertEquals(result.getTotal(), 1);
+
+    // Verify service was called with a filter
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .listConversations(
+            any(OperationContext.class), eq(TEST_USER_URN), eq(20), eq(0), filterCaptor.capture());
+
+    // Verify the filter contains the originType criterion with correct value
+    Filter capturedFilter = filterCaptor.getValue();
+    assertNotNull(capturedFilter);
+    assertNotNull(capturedFilter.getOr());
+    assertEquals(capturedFilter.getOr().size(), 1);
+    assertNotNull(capturedFilter.getOr().get(0).getAnd());
+    assertEquals(capturedFilter.getOr().get(0).getAnd().size(), 1);
+    assertEquals(capturedFilter.getOr().get(0).getAnd().get(0).getField(), "originType");
+    assertTrue(capturedFilter.getOr().get(0).getAnd().get(0).getValues().contains("DATAHUB_UI"));
+  }
+
   private DataHubAiConversationInfo createMockConversationInfo() {
     DataHubAiConversationInfo info = new DataHubAiConversationInfo();
     info.setMessages(new DataHubAiConversationMessageArray());

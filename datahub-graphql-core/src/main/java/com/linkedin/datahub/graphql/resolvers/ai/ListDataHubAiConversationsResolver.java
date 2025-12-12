@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ai;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubAiConversation;
@@ -40,7 +42,11 @@ public class ListDataHubAiConversationsResolver
     final QueryContext context = environment.getContext();
     final Integer start = environment.getArgument("start");
     final Integer count = environment.getArgument("count");
-    final DataHubAiConversationOriginType originType = environment.getArgument("originType");
+    final Object originTypeArg = environment.getArgument("originType");
+    final DataHubAiConversationOriginType originType =
+        originTypeArg != null
+            ? bindArgument(originTypeArg, DataHubAiConversationOriginType.class)
+            : null;
 
     return CompletableFuture.supplyAsync(
         () -> {
