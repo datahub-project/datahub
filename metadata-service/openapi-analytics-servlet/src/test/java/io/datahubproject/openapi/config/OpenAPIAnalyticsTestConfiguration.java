@@ -1,8 +1,9 @@
 package io.datahubproject.openapi.config;
 
-import static io.datahubproject.openapi.delegates.DatahubUsageEventsImpl.*;
+import static io.datahubproject.openapi.delegates.DatahubUsageEventsImpl.DATAHUB_USAGE_INDEX;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;

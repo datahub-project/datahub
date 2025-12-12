@@ -2,7 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.query;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;

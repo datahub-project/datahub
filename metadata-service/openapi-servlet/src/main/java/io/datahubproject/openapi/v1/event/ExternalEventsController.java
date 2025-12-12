@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.v1.event;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;

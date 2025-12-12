@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;

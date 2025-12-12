@@ -1,9 +1,11 @@
 package io.datahubproject.openapi.v3.controller;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.*;
-import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.*;
-import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
+import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;

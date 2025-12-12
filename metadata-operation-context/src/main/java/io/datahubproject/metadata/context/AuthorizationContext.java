@@ -58,6 +58,7 @@ public class AuthorizationContext implements ContextInterface {
   private LazyAuthorizationResultMap toCacheFirstResult(
       BatchAuthorizationRequest request, BatchAuthorizationResult result) {
     return new LazyAuthorizationResultMap(
+        request.getPrivileges(),
         privilege -> {
           var authorizationRequest =
               new AuthorizationRequest(

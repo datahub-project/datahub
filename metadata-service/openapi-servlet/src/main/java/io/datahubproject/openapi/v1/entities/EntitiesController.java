@@ -1,9 +1,10 @@
 package io.datahubproject.openapi.v1.entities;
 
-import static com.datahub.authorization.AuthUtil.*;
-import static com.linkedin.metadata.authorization.ApiGroup.*;
-import static com.linkedin.metadata.authorization.ApiOperation.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;

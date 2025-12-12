@@ -1,7 +1,6 @@
 package com.linkedin.metadata.ingestion.validators;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 

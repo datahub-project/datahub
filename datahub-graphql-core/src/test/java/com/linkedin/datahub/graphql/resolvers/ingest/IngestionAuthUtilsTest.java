@@ -1,11 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.PredefinedAuthorizationResultMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -52,7 +57,8 @@ public class IngestionAuthUtilsTest {
                     eq(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")),
                     anyCollection()))
         .thenReturn(
-            new BatchAuthorizationResult(null, new PredefinedAuthorizationResultMap(Set.of())));
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
@@ -93,7 +99,8 @@ public class IngestionAuthUtilsTest {
                     eq(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")),
                     anyCollection()))
         .thenReturn(
-            new BatchAuthorizationResult(null, new PredefinedAuthorizationResultMap(Set.of())));
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 

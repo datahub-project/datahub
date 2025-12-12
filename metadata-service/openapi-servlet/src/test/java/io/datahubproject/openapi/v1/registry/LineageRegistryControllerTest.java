@@ -1,11 +1,12 @@
 package io.datahubproject.openapi.v1.registry;
 
-import static io.datahubproject.test.metadata.context.TestOperationContexts.*;
-import static org.hamcrest.Matchers.*;
+import static io.datahubproject.test.metadata.context.TestOperationContexts.TEST_USER_AUTH;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.Mockito.mock;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;

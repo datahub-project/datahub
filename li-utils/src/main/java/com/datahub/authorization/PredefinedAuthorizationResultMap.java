@@ -1,21 +1,33 @@
 package com.datahub.authorization;
 
 import java.util.AbstractMap;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Custom implementation of the {@link Map} for authorization results, that allows only {@link
+ * #allowedPrivileges specified} privileges and denies all others
+ */
 @RequiredArgsConstructor
 public class PredefinedAuthorizationResultMap extends AbstractMap<String, AuthorizationResult> {
   private final Set<String> allowedPrivileges;
 
   @SuppressWarnings("SuspiciousMethodCalls")
   @Override
-  public AuthorizationResult get(Object key) {
-    if (allowedPrivileges.contains(key)) {
-      return new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
-    }
-    return new AuthorizationResult(null, AuthorizationResult.Type.DENY, "");
+  public AuthorizationResult get(Object privilege) {
+    var type =
+        allowedPrivileges.contains(privilege)
+            ? AuthorizationResult.Type.ALLOW
+            : AuthorizationResult.Type.DENY;
+    return new AuthorizationResult(null, type, "");
+  }
+
+  @Override
+  public boolean containsKey(Object privilege) {
+    // for any requested privilege we will return the value
+    return true;
   }
 
   @Override

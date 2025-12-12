@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static com.datahub.authorization.AuthUtil.*;
-import static com.linkedin.metadata.authorization.ApiGroup.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;

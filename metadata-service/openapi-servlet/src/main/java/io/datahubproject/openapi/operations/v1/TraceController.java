@@ -1,6 +1,6 @@
 package io.datahubproject.openapi.operations.v1;
 
-import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
