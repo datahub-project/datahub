@@ -51,6 +51,28 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * DOMAIN-BASED AUTHORIZATION LIMITATIONS:
+ *
+ * This validator requires SYNCHRONOUS batch processing to function correctly.
+ * Domain information must be visible within the same batch during validation.
+ *
+ * ASYNC MODE INCOMPATIBILITY:
+ * - Async processing validates proposals individually or in small batches
+ * - Domain aspects from one proposal are not visible when validating another
+ * - Authorization checks fail or use incorrect domain context
+ *
+ * API COMPATIBILITY:
+ * ✓ GraphQL: Always synchronous (works)
+ * ✓ Python SDK: Defaults to SYNC_PRIMARY mode (works)
+ * ✓ RestAPI: Defaults to async=false (works)
+ * ✗ OpenAPI: Defaults to async=true (FAILS - must explicitly set async=false)
+ *
+ * PERFORMANCE TRADE-OFF:
+ * Synchronous mode has lower throughput but is required for correct authorization.
+ * See ASYNC_DOMAIN_AUTH_ANALYSIS.md for detailed technical explanation.
+ */
+
 @Setter
 @Getter
 @Slf4j
