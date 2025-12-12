@@ -109,9 +109,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
     - Tags and Ownership:
         - Dashboard and chart tags
         - Ownership information derived from:
-            - Dashboard creators
-            - Technical owners based on dashboard UIDs
-            - Custom ownership assignments
+            - Dashboard creators (Technical owner)
 
     The source supports the following capabilities:
     - Platform instance support for multi-Grafana deployments
@@ -392,6 +390,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             chart_urns=chart_urns,
             base_url=self.config.url,
             ingest_owners=self.config.ingest_owners,
+            remove_email_suffix=self.config.remove_email_suffix,
             ingest_tags=self.config.ingest_tags,
         )
 

@@ -66,11 +66,11 @@ extend type Query {
 
   """
   Search Documents with hybrid semantic search and filtering support.
-  Supports filtering by parent document, types, domains, and semantic query.
+  Supports filtering by parent document, types, domains, and query.
 
-  Results are automatically filtered based on document visibility:
+  Results are automatically filtered based on document status:
   - PUBLISHED documents are shown to all users
-  - UNPUBLISHED documents are only shown if owned by the current user or a group they belong to
+  - UNPUBLISHED documents are only shown if owned by the current calling user or a group they belong to
 
   This ensures that unpublished documents remain private to their owners while published
   documents are discoverable by everyone.
@@ -230,12 +230,12 @@ type DocumentInfo {
   """
   The audit stamp for when the document was created
   """
-  created: AuditStamp!
+  created: ResolvedAuditStamp!
 
   """
   The audit stamp for when the document was last modified (any field)
   """
-  lastModified: AuditStamp!
+  lastModified: ResolvedAuditStamp!
 
   """
   Assets referenced by or related to this Document
@@ -603,13 +603,7 @@ input SearchDocumentsInput {
   query: String
 
   """
-  Optional parent document URN to filter by (for hierarchical browsing)
-  """
-  parentDocument: String
-
-  """
-  Optional list of parent document URNs to filter by (for batch child lookups).
-  If both parentDocument and parentDocuments are provided, parentDocuments takes precedence.
+  Optional list of parent document URNs to filter by (for batch child lookups)
   """
   parentDocuments: [String!]
 
@@ -636,44 +630,89 @@ input SearchDocumentsInput {
   relatedAssets: [String!]
 
   """
-  DEPRECATED: This field is no longer used for filtering.
-
-  Document visibility is now automatically determined by ownership:
-  - PUBLISHED documents are shown to all users
-  - UNPUBLISHED documents are only shown if owned by the current user or their groups
-
-  This field is maintained for backward compatibility but has no effect on search results.
-  """
-  states: [DocumentState!]
-
-  """
   Optional document source type to filter by.
   If not provided, searches all documents regardless of source.
   """
   sourceType: DocumentSourceType
-
-  """
-  Whether to include draft documents in the search results.
-  Draft documents have draftOf set and are hidden from normal browsing by default.
-  Defaults to false (excludes drafts).
-  """
-  includeDrafts: Boolean
-
-  """
-  Optional facet filters to apply
-  """
-  filters: [FacetFilterInput!]
-
-  """
-  Optional flags controlling search options
-  """
-  searchFlags: SearchFlags
 }
 
 """
 The result obtained when searching Documents
 """
 type SearchDocumentsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Documents in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Documents in the result set
+  """
+  total: Int!
+
+  """
+  The Documents themselves
+  """
+  documents: [Document!]!
+
+  """
+  Facets for filtering search results
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Input for querying context documents related to an entity.
+The relatedAssets filter is automatically set to the parent entity's URN.
+"""
+input RelatedDocumentsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The maximum number of Documents to return
+  """
+  count: Int
+
+  """
+  Optional list of parent document URNs to filter by (for batch child lookups)
+  """
+  parentDocuments: [String!]
+
+  """
+  If true, only returns documents with no parent (root-level documents).
+  If false or not provided, returns all documents regardless of parent.
+  """
+  rootOnly: Boolean
+
+  """
+  Optional list of document types to filter by (ANDed with other filters)
+  """
+  types: [String!]
+
+  """
+  Optional list of domain URNs to filter by (ANDed with other filters)
+  """
+  domains: [String!]
+
+  """
+  Optional document source type to filter by.
+  """
+  sourceType: DocumentSourceType
+}
+
+"""
+Result containing context documents related to an entity.
+Same structure as SearchDocumentsResult.
+"""
+type RelatedDocumentsResult {
   """
   The starting offset of the result set returned
   """
