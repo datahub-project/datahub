@@ -1,6 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -23,6 +23,7 @@ import {
     getIngestionSourceSystemFilter,
     getNewIngestionSourcePlaceholder,
 } from '@app/ingestV2/source/utils';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { PageRoutes } from '@conf/Global';
 
@@ -53,6 +54,7 @@ const STEPS: IngestionSourceFormStep[] = [
 export function IngestionSourceCreatePage() {
     const history = useHistory();
     const client = useApolloClient();
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const createIngestionSource = useCreateSource();
 
@@ -67,6 +69,7 @@ export function IngestionSourceCreatePage() {
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
+            setIsSubmitting(true);
             const shouldRun = options?.shouldRun;
             const input = getIngestionSourceMutationInput(data);
 
@@ -116,6 +119,7 @@ export function IngestionSourceCreatePage() {
                 }
             }
 
+            setIsSubmitting(false);
             return undefined;
         },
         [createIngestionSource, history, client, defaultOwnershipType],
@@ -125,5 +129,9 @@ export function IngestionSourceCreatePage() {
         history.push(PageRoutes.INGESTION);
     }, [history]);
 
-    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />;
+    return (
+        <DiscardUnsavedChangesConfirmationProvider enableRedirectHandling={!isSubmitting}>
+            <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
+        </DiscardUnsavedChangesConfirmationProvider>
+    );
 }
