@@ -141,7 +141,7 @@ class KafkaEventSource(EventSource):
 
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
             {
-                # Provide a custom group id to subcribe to multiple partitions via separate actions pods.
+                # Provide a custom group id to subscribe to multiple partitions via separate actions pods.
                 "group.id": ctx.pipeline_name,
                 "bootstrap.servers": self.source_config.connection.bootstrap,
                 "enable.auto.commit": False,  # We manually commit offsets.
@@ -245,13 +245,13 @@ class KafkaEventSource(EventSource):
         )
         if retval is None:
             logger.exception(
-                f"Unexpected response when commiting offset to kafka: topic: {event.meta['kafka']['topic']}, partition: {event.meta['kafka']['partition']}, offset: {event.meta['kafka']['offset']}"
+                f"Unexpected response when committing offset to kafka: topic: {event.meta['kafka']['topic']}, partition: {event.meta['kafka']['partition']}, offset: {event.meta['kafka']['offset']}"
             )
             return
         for partition in retval:
             if partition.error is not None:
                 raise KafkaException(
-                    f"Failed to commit offest for topic: {partition.topic}, partition: {partition.partition}, offset: {partition.offset}: {partition.error.str()}"
+                    f"Failed to commit offset for topic: {partition.topic}, partition: {partition.partition}, offset: {partition.offset}: {partition.error.str()}"
                 )
         logger.debug(
             f"Successfully committed offsets at message: topic: {event.meta['kafka']['topic']}, partition: {event.meta['kafka']['partition']}, offset: {event.meta['kafka']['offset']}"

@@ -3,13 +3,19 @@ repos:
     hooks:
       - id: smoke-test-cypress-lint-fix
         name: smoke-test cypress Lint Fix
-        entry: ./gradlew :smoke-test:cypressLintFix
+        entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
         language: system
         files: ^smoke-test/tests/cypress/.*\.tsx$
         pass_filenames: false
       - id: update-lineage-file
         name: update-lineage-file
-        entry: ./gradlew :metadata-ingestion:lineageGen
+        entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
         language: system
         files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
+        pass_filenames: false
+      - id: check-gradle-lockfiles
+        name: Check gradle lockfiles are updated
+        entry: python .github/scripts/check_gradle_lockfiles.py
+        language: system
+        files: ^.*build\.gradle(\.kts)?$
         pass_filenames: false

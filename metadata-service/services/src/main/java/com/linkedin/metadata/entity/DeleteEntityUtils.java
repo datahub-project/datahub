@@ -148,7 +148,7 @@ public class DeleteEntityUtils {
           return null;
         }
       } else {
-        log.error(
+        log.warn(
             "[Reference removal logic] Unable to find value {} in data map {} at path {}",
             value,
             record,
@@ -212,7 +212,7 @@ public class DeleteEntityUtils {
     if (index == pathComponents.size() - 1) {
       final boolean found = aspectList.remove(value);
       if (!found) {
-        log.error(
+        log.warn(
             String.format(
                 "Unable to find value %s in aspect list %s at path %s",
                 value, aspectList, pathComponents.subList(0, index)));

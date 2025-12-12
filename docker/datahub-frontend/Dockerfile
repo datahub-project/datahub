@@ -32,6 +32,8 @@ FROM base AS prod-install
 COPY --chown=datahub:datahub --chmod=755 ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
 COPY --chown=datahub:datahub --chmod=755 ./datahub-frontend/build/stage/main /datahub-frontend/
+#Copy all mfe config yamls
+COPY --chown=datahub:datahub --chmod=755 ./datahub-frontend/conf/mfe.*.yaml /datahub-frontend/conf/
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -48,6 +50,8 @@ ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
 
 ARG SERVER_PORT=9002
 ENV SERVER_PORT=$SERVER_PORT
+#ENV gets overwritten by docker-compose file, this sets a fallback value in case not set
+ENV MFE_CONFIG_FILE_PATH=/datahub-frontend/conf/mfe.config.dev.yaml
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 

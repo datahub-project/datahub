@@ -42,18 +42,21 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     software-properties-common \
     lsb-release \
     gnupg \
     ca-certificates \
-    && add-apt-repository --no-update ppa:deadsnakes/ppa \
-    && rm -rf /var/lib/apt/lists/*
+    && add-apt-repository --no-update ppa:deadsnakes/ppa
 
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-venv \
     python${PYTHON_VERSION}-dev \
@@ -64,8 +67,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     zip \
     unzip \
-    nano \
-    && rm -rf /var/lib/apt/lists/*
+    nano
 
 # Set the default python version.
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
@@ -93,7 +95,9 @@ ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \
@@ -107,23 +111,26 @@ RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     ldap-utils \
     unixodbc \
-    libodbc2 \
-    && rm -rf /var/lib/apt/lists/*
+    libodbc2
 USER datahub
 
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
 # We need to install build-essential in order to build some Python packages (e.g. python-ldap)
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install --no-install-recommends -y -qq \
     default-jre-headless \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    build-essential
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
 
 USER datahub
+
+# Locked variant uses the same base as slim (no JRE/Oracle needed)
+FROM ingestion-base-slim AS ingestion-base-locked
 # INLINE-END
 
 FROM ingestion-base-${APP_ENV} AS add-code
@@ -139,7 +146,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 FROM add-code AS install-slim
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
-    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
 FROM add-code AS install-full
@@ -148,6 +155,17 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
+
+FROM add-code AS install-locked
+
+# Locked variant: minimal install with s3-slim, network will be blocked
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+    UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
+    datahub --version
+
+# Block network access to PyPI in locked variant
+ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 FROM install-${APP_ENV} AS final
 
