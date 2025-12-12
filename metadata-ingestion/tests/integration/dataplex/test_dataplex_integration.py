@@ -97,6 +97,7 @@ def create_mock_entity(
     entity.asset = asset_id
     entity.data_path = f"gs://test-bucket/data/{entity_id}"
     entity.system = dataplex_v1.StorageSystem.BIGQUERY
+    entity.type_ = dataplex_v1.Entity.Type.TABLE
     entity.format_ = Mock()
     entity.format_.format_ = dataplex_v1.StorageFormat.Format.PARQUET
 
@@ -116,17 +117,25 @@ def create_mock_entity(
 
 
 @freeze_time(FROZEN_TIME)
+@patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.DataplexServiceClient")
 @patch("google.cloud.dataplex_v1.MetadataServiceClient")
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
 def test_dataplex_integration_with_golden_file(
     mock_lineage_client_class,
+    mock_catalog_client_class,
     mock_metadata_client_class,
     mock_dataplex_client_class,
+    mock_google_auth,
     pytestconfig,
     tmp_path,
 ):
     """Test Dataplex source with mocked API and golden file validation."""
+
+    # Mock Google Application Default Credentials
+    mock_credentials = Mock()
+    mock_google_auth.return_value = (mock_credentials, "test-project")
 
     # Setup mock clients
     mock_dataplex_client = Mock()
@@ -134,6 +143,11 @@ def test_dataplex_integration_with_golden_file(
 
     mock_metadata_client = Mock()
     mock_metadata_client_class.return_value = mock_metadata_client
+
+    mock_catalog_client = Mock()
+    mock_catalog_client_class.return_value = mock_catalog_client
+    # Mock empty entry groups to skip Entries API processing
+    mock_catalog_client.list_entry_groups.return_value = []
 
     mock_lineage_client = Mock()
     mock_lineage_client_class.return_value = mock_lineage_client
@@ -183,17 +197,25 @@ def test_dataplex_integration_with_golden_file(
 
 
 @freeze_time(FROZEN_TIME)
+@patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.DataplexServiceClient")
 @patch("google.cloud.dataplex_v1.MetadataServiceClient")
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
 @patch("google.cloud.datacatalog.lineage_v1.LineageClient")
 def test_dataplex_integration_multiple_lakes(
     mock_lineage_client_class,
+    mock_catalog_client_class,
     mock_metadata_client_class,
     mock_dataplex_client_class,
+    mock_google_auth,
     pytestconfig,
     tmp_path,
 ):
     """Test Dataplex source with multiple lakes."""
+
+    # Mock Google Application Default Credentials
+    mock_credentials = Mock()
+    mock_google_auth.return_value = (mock_credentials, "test-project")
 
     # Setup mock clients
     mock_dataplex_client = Mock()
@@ -201,6 +223,11 @@ def test_dataplex_integration_multiple_lakes(
 
     mock_metadata_client = Mock()
     mock_metadata_client_class.return_value = mock_metadata_client
+
+    mock_catalog_client = Mock()
+    mock_catalog_client_class.return_value = mock_catalog_client
+    # Mock empty entry groups to skip Entries API processing
+    mock_catalog_client.list_entry_groups.return_value = []
 
     mock_lineage_client = Mock()
     mock_lineage_client_class.return_value = mock_lineage_client
