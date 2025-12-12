@@ -25,11 +25,7 @@ import {
 import { TaskItemComponent } from '@app/homeV3/freeTrial/TaskItemComponent';
 import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
-import {
-    FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID,
-    FREE_TRIAL_ONBOARDING_ID,
-    FreeTrialOnboardingConfig,
-} from '@app/onboarding/configV2/FreeTrialConfig';
+import { FREE_TRIAL, FreeTrialOnboardingConfig } from '@app/onboarding/configV2/FreeTrialConfig';
 import { getStepPropertyByKey } from '@app/onboarding/utils';
 import PageBanner from '@app/sharedV2/PageBanner';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
@@ -88,7 +84,7 @@ const FreeTrialContent = () => {
     const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     // Check if the parent Get Started card should be shown
-    const parentState = getStepPropertyByKey(educationSteps, FREE_TRIAL_ONBOARDING_ID, STEP_STATE_KEY);
+    const parentState = getStepPropertyByKey(educationSteps, FREE_TRIAL.ONBOARDING_ID, STEP_STATE_KEY);
     const isParentDismissed = parentState === STEP_STATE_DISMISSED;
 
     // Helper to check if a step is dismissed
@@ -102,14 +98,14 @@ const FreeTrialContent = () => {
         const state = getStepPropertyByKey(educationSteps, stepId, STEP_STATE_KEY);
         if (state === STEP_STATE_COMPLETE) return true;
         // For connect source step, also check ingestion data
-        if (stepId === FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID && hasSuccessfulIngestion) return true;
+        if (stepId === FREE_TRIAL.CONNECT_SOURCE_ID && hasSuccessfulIngestion) return true;
         return false;
     };
 
     const handleDismissCard = () => {
-        // TODO: Call API to update FREE_TRIAL_ONBOARDING_ID state to DISMISSED
+        // TODO: Call API to update FREE_TRIAL.ONBOARDING_ID state to DISMISSED
         setMenuOpen(false);
-        console.log('Dismiss card clicked for:', FREE_TRIAL_ONBOARDING_ID);
+        console.log('Dismiss card clicked for:', FREE_TRIAL.ONBOARDING_ID);
     };
 
     const cardMenuItems = [
@@ -136,9 +132,20 @@ const FreeTrialContent = () => {
     };
 
     const handleStart = (stepId: string) => {
-        // TODO: Navigate to the appropriate page based on stepId
-        if (stepId === FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID) {
-            history.push(ingestionLink);
+        switch (stepId) {
+            case FREE_TRIAL.ASK_DATAHUB_ID:
+                history.push('/ai-chat');
+                break;
+            case FREE_TRIAL.DATA_LINEAGE_ID:
+                history.push(
+                    '/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)/Lineage?highlightedPath=&is_lineage_mode=false&schemaFilter=',
+                );
+                break;
+            case FREE_TRIAL.CONNECT_SOURCE_ID:
+                history.push(ingestionLink);
+                break;
+            default:
+                break;
         }
     };
 
@@ -148,7 +155,7 @@ const FreeTrialContent = () => {
                 <PageBanner
                     icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
                     content={
-                        <Text color="gray">
+                        <Text color="blue">
                             You&apos;re exploring DataHub with sample e-commerce data. All features are fully functional
                             with demo data.
                         </Text>

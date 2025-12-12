@@ -4,7 +4,7 @@ import styled from 'styled-components';
 export const Container = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 8px;
     padding: 0 42px;
 `;
 
@@ -17,7 +17,7 @@ export const CardTitle = styled(Text)`
 export const CardDescription = styled(Text)`
     color: ${colors.gray[1700]};
     line-height: 1.5;
-    margin-top: 16px;
+    margin-top: 4px;
 `;
 
 // Get Started Card Styles
@@ -54,7 +54,7 @@ export const GetStartedSubtitle = styled(Text)`
 export const ProgressSection = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 14px;
     margin-bottom: 20px;
 `;
 
@@ -128,7 +128,7 @@ export const TaskContent = styled.div`
 export const TaskTitle = styled(Text)`
     font-weight: ${typography.fontWeights.semiBold};
     color: ${colors.gray[600]};
-    margin-bottom: 2px;
+    margin-bottom: 0;
 `;
 
 export const TaskDescription = styled(Text)`

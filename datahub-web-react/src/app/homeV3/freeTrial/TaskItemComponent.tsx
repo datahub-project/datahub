@@ -35,7 +35,7 @@ export const TaskItemComponent = ({ step, isCompleted, onDismiss, onStart }: Tas
             <TaskActions>
                 <DismissButton onClick={() => onDismiss(step.id || '')}>Dismiss</DismissButton>
                 {!isCompleted && (
-                    <Button size="sm" variant="outline" onClick={() => onStart(step.id || '')}>
+                    <Button size="sm" variant="secondary" onClick={() => onStart(step.id || '')}>
                         Start
                     </Button>
                 )}

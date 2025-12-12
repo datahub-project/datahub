@@ -3,6 +3,7 @@ import { ChatCircle } from '@phosphor-icons/react';
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
+import FreeTrialAIChatPopover from '@app/chat/FreeTrialAIChatPopover';
 import { MessageList } from '@app/chat/components/MessageList';
 import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
@@ -287,6 +288,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                         isWelcomeState
                                     />
                                     <SuggestedQuestions onQuestionSelect={handleQuestionSelect} />
+                                    <FreeTrialAIChatPopover variant="welcome" />
                                 </EmptyStateInputWrapper>
                             </EmptyState>
                         ) : (
@@ -318,6 +320,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                     </InputContainer>
                 )}
             </ContentWrapper>
+            {messages.length > 1 && !isStreaming && <FreeTrialAIChatPopover variant="completion" />}
         </Container>
     );
 };

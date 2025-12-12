@@ -33,6 +33,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         setHoveredNode,
         displayedMenuNode,
         setDisplayedMenuNode,
+        tourExpandColumnsUrn,
     } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
@@ -44,6 +45,13 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     useEffect(() => {
         setPageIndex(0);
     }, [filterText, onlyWithLineage, setPageIndex]);
+
+    // Auto-expand columns when triggered by the free trial tour
+    useEffect(() => {
+        if (tourExpandColumnsUrn === urn) {
+            setShowColumns(true);
+        }
+    }, [tourExpandColumnsUrn, urn]);
 
     const transitionDuration = shownUrns.length <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
 

@@ -6,6 +6,7 @@ import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/Linea
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
+import FreeTrialLineageTour from '@app/lineageV3/components/FreeTrialLineageTour';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
@@ -29,6 +30,7 @@ export default function LineageDisplay({
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
+    const [tourExpandColumnsUrn, setTourExpandColumnsUrn] = useState<string | null>(null);
 
     const { fineGrainedLineage, flowNodes, flowEdges, resetPositions, levelsInfo, levelsMap } = useComputeGraph();
     const shownUrns = useMemo(
@@ -103,6 +105,8 @@ export default function LineageDisplay({
                 fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,
                 shownUrns,
                 refetchUrn,
+                tourExpandColumnsUrn,
+                setTourExpandColumnsUrn,
             }}
         >
             <LineageVisualization
@@ -112,6 +116,7 @@ export default function LineageDisplay({
                 levelsMap={levelsMap ?? new Map()}
             />
             <LineageSidebar />
+            <FreeTrialLineageTour rootUrn={rootUrn} />
         </LineageDisplayContext.Provider>
     );
 }
