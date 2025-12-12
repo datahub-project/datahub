@@ -1,6 +1,6 @@
 from typing import Any, Dict, Iterable, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -501,7 +501,10 @@ class AirbyteStreamDetails(BaseModel):
     """Model for Airbyte stream details from API."""
 
     stream_name: str = Field(alias="streamName")
-    namespace: str = ""  # Default to empty string instead of Optional
+    namespace: str = Field(
+        default="",
+        validation_alias=AliasChoices("namespace", "streamnamespace"),
+    )
     property_fields: List[PropertyFieldPath] = Field(
         default_factory=list, alias="propertyFields"
     )
