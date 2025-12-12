@@ -57,7 +57,13 @@ class TestRelationshipMCPStage3(unittest.TestCase):
             None,
         )
         self.assertIsNotNone(child_mcp, "Should have MCP for child")
+        assert child_mcp is not None  # Type narrowing for mypy
+        assert child_mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
+
+        assert isinstance(child_mcp.aspect, GlossaryRelatedTermsClass)
         self.assertIsNotNone(child_mcp.aspect.isRelatedTerms)
+        assert child_mcp.aspect.isRelatedTerms is not None  # Type narrowing for mypy
         self.assertIn(
             "urn:li:glossaryTerm:AccountIdentifier", child_mcp.aspect.isRelatedTerms
         )
@@ -89,7 +95,13 @@ class TestRelationshipMCPStage3(unittest.TestCase):
             None,
         )
         self.assertIsNotNone(child_mcp, "Should have MCP for child")
+        assert child_mcp is not None  # Type narrowing for mypy
+        assert child_mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
+
+        assert isinstance(child_mcp.aspect, GlossaryRelatedTermsClass)
         self.assertIsNotNone(child_mcp.aspect.isRelatedTerms)
+        assert child_mcp.aspect.isRelatedTerms is not None  # Type narrowing for mypy
         self.assertIn(
             "urn:li:glossaryTerm:AccountIdentifier", child_mcp.aspect.isRelatedTerms
         )
@@ -122,7 +134,13 @@ class TestRelationshipMCPStage3(unittest.TestCase):
             None,
         )
         self.assertIsNotNone(child_mcp)
+        assert child_mcp is not None  # Type narrowing for mypy
+        assert child_mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
+
+        assert isinstance(child_mcp.aspect, GlossaryRelatedTermsClass)
         self.assertIsNotNone(child_mcp.aspect.isRelatedTerms)
+        assert child_mcp.aspect.isRelatedTerms is not None  # Type narrowing for mypy
         self.assertEqual(len(child_mcp.aspect.isRelatedTerms), 2)
         self.assertIn(
             "urn:li:glossaryTerm:AccountIdentifier", child_mcp.aspect.isRelatedTerms
@@ -155,6 +173,12 @@ class TestRelationshipMCPStage3(unittest.TestCase):
             None,
         )
         self.assertIsNotNone(child_mcp)
+        assert child_mcp is not None  # Type narrowing for mypy
+        assert child_mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
+
+        assert isinstance(child_mcp.aspect, GlossaryRelatedTermsClass)
+        assert child_mcp.aspect.isRelatedTerms is not None  # Type narrowing for mypy
         self.assertEqual(
             len(child_mcp.aspect.isRelatedTerms),
             1,

@@ -42,6 +42,7 @@ class TestEntityRegistry(unittest.TestCase):
         extractor = registry.get_extractor("glossary_term")
 
         self.assertIsNotNone(extractor)
+        assert extractor is not None  # Type narrowing for mypy
         self.assertEqual(extractor.entity_type, "glossary_term")
 
     def test_get_converter(self):
@@ -60,6 +61,7 @@ class TestEntityRegistry(unittest.TestCase):
         mcp_builder = registry.get_mcp_builder("glossary_term")
 
         self.assertIsNotNone(mcp_builder)
+        assert mcp_builder is not None  # Type narrowing for mypy
         self.assertEqual(mcp_builder.entity_type, "glossary_term")
 
     def test_get_nonexistent_processor(self):
@@ -89,6 +91,7 @@ class TestDirectEntityProcessing(unittest.TestCase):
     def test_extract_entities(self):
         """Test extracting entities directly using extractor."""
         extractor = self.registry.get_extractor("glossary_term")
+        assert extractor is not None  # Type narrowing for mypy
         datahub_terms = extractor.extract_all(self.graph)
 
         self.assertEqual(len(datahub_terms), 3)
@@ -98,9 +101,11 @@ class TestDirectEntityProcessing(unittest.TestCase):
     def test_build_mcps(self):
         """Test building MCPs from DataHub AST entities."""
         extractor = self.registry.get_extractor("glossary_term")
+        assert extractor is not None  # Type narrowing for mypy
         datahub_terms = extractor.extract_all(self.graph)
 
         mcp_builder = self.registry.get_mcp_builder("glossary_term")
+        assert mcp_builder is not None  # Type narrowing for mypy
         mcps = mcp_builder.build_all_mcps(datahub_terms)
 
         self.assertEqual(len(mcps), 3)  # One MCP per term
@@ -108,9 +113,11 @@ class TestDirectEntityProcessing(unittest.TestCase):
     def test_full_pipeline_direct(self):
         """Test full pipeline using registry directly."""
         extractor = self.registry.get_extractor("glossary_term")
+        assert extractor is not None  # Type narrowing for mypy
         datahub_terms = extractor.extract_all(self.graph)
 
         mcp_builder = self.registry.get_mcp_builder("glossary_term")
+        assert mcp_builder is not None  # Type narrowing for mypy
         mcps = mcp_builder.build_all_mcps(datahub_terms)
 
         self.assertEqual(len(mcps), 3)
@@ -141,12 +148,15 @@ class TestDirectEntityProcessingRelationships(unittest.TestCase):
         """Test building relationship MCPs directly."""
         # Extract relationships independently using RelationshipExtractor
         relationship_extractor = self.registry.get_extractor("relationship")
+        assert relationship_extractor is not None  # Type narrowing for mypy
         relationship_converter = self.registry.get_converter("relationship")
+        assert relationship_converter is not None  # Type narrowing for mypy
 
         rdf_relationships = relationship_extractor.extract_all(self.graph)
         datahub_relationships = relationship_converter.convert_all(rdf_relationships)
 
         mcp_builder = self.registry.get_mcp_builder("relationship")
+        assert mcp_builder is not None  # Type narrowing for mypy
         rel_mcps = mcp_builder.build_all_mcps(datahub_relationships)
 
         # Should have 2 isRelatedTerms MCPs (one for each child inheriting from parent)
@@ -156,19 +166,24 @@ class TestDirectEntityProcessingRelationships(unittest.TestCase):
         """Test full pipeline produces both term and relationship MCPs."""
         # Extract glossary terms independently
         term_extractor = self.registry.get_extractor("glossary_term")
+        assert term_extractor is not None  # Type narrowing for mypy
         datahub_terms = term_extractor.extract_all(self.graph)
 
         # Extract relationships independently
         relationship_extractor = self.registry.get_extractor("relationship")
+        assert relationship_extractor is not None  # Type narrowing for mypy
         relationship_converter = self.registry.get_converter("relationship")
+        assert relationship_converter is not None  # Type narrowing for mypy
 
         rdf_relationships = relationship_extractor.extract_all(self.graph)
         datahub_relationships = relationship_converter.convert_all(rdf_relationships)
 
         term_mcp_builder = self.registry.get_mcp_builder("glossary_term")
+        assert term_mcp_builder is not None  # Type narrowing for mypy
         term_mcps = term_mcp_builder.build_all_mcps(datahub_terms)
 
         relationship_mcp_builder = self.registry.get_mcp_builder("relationship")
+        assert relationship_mcp_builder is not None  # Type narrowing for mypy
         rel_mcps = relationship_mcp_builder.build_all_mcps(datahub_relationships)
 
         # Should have 3 term MCPs + 2 relationship MCPs (isRelatedTerms only)
@@ -191,8 +206,10 @@ class TestDirectEntityProcessingIntegration(unittest.TestCase):
         graph.add((uri, SKOS.prefLabel, Literal("Test Term")))
 
         extractor = registry.get_extractor("glossary_term")
+        assert extractor is not None  # Type narrowing for mypy
         datahub_terms = extractor.extract_all(graph)
         mcp_builder = registry.get_mcp_builder("glossary_term")
+        assert mcp_builder is not None  # Type narrowing for mypy
         mcps = mcp_builder.build_all_mcps(datahub_terms)
 
         self.assertEqual(len(mcps), 1)
@@ -213,8 +230,10 @@ class TestDirectEntityProcessingIntegration(unittest.TestCase):
 
         # Should not raise errors with context
         extractor = registry.get_extractor("glossary_term")
+        assert extractor is not None  # Type narrowing for mypy
         datahub_terms = extractor.extract_all(graph, context)
         mcp_builder = registry.get_mcp_builder("glossary_term")
+        assert mcp_builder is not None  # Type narrowing for mypy
         mcps = mcp_builder.build_all_mcps(datahub_terms, context)
 
         self.assertEqual(len(mcps), 1)

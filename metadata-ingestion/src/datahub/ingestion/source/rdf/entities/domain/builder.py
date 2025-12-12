@@ -6,7 +6,7 @@ Domains are derived from IRI path segments, not extracted directly from RDF.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.rdf.entities.domain.ast import DataHubDomain
 from datahub.ingestion.source.rdf.entities.domain.urn_generator import (
@@ -32,7 +32,7 @@ class DomainBuilder:
     Domains with glossary terms in their hierarchy are created.
     """
 
-    def __init__(self, urn_generator: DomainUrnGenerator | None = None):
+    def __init__(self, urn_generator: Optional[DomainUrnGenerator] = None):
         """
         Initialize the builder.
 
@@ -44,7 +44,7 @@ class DomainBuilder:
     def build_domains(
         self,
         glossary_terms: List["DataHubGlossaryTerm"],
-        context: Dict[str, Any] | None = None,
+        context: Optional[Dict[str, Any]] = None,
     ) -> List[DataHubDomain]:
         """
         Build domain hierarchy from glossary terms.

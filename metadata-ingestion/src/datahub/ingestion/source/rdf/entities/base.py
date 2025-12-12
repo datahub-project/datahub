@@ -53,7 +53,7 @@ class EntityExtractor(ABC, Generic[RDFEntityT]):
 
     @abstractmethod
     def extract(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
+        self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
     ) -> Optional[RDFEntityT]:
         """
         Extract an entity from the RDF graph.
@@ -70,7 +70,7 @@ class EntityExtractor(ABC, Generic[RDFEntityT]):
 
     @abstractmethod
     def extract_all(
-        self, graph: Graph, context: Dict[str, Any] | None = None
+        self, graph: Graph, context: Optional[Dict[str, Any]] = None
     ) -> List[RDFEntityT]:
         """
         Extract all entities of this type from the RDF graph.
@@ -101,7 +101,7 @@ class EntityConverter(ABC, Generic[RDFEntityT, DataHubEntityT]):
 
     @abstractmethod
     def convert(
-        self, rdf_entity: RDFEntityT, context: Dict[str, Any] | None = None
+        self, rdf_entity: RDFEntityT, context: Optional[Dict[str, Any]] = None
     ) -> Optional[DataHubEntityT]:
         """
         Convert an RDF AST entity to a DataHub AST entity.
@@ -117,7 +117,7 @@ class EntityConverter(ABC, Generic[RDFEntityT, DataHubEntityT]):
 
     @abstractmethod
     def convert_all(
-        self, rdf_entities: List[RDFEntityT], context: Dict[str, Any] | None = None
+        self, rdf_entities: List[RDFEntityT], context: Optional[Dict[str, Any]] = None
     ) -> List[DataHubEntityT]:
         """
         Convert all RDF AST entities to DataHub AST entities.
@@ -148,7 +148,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
 
     @abstractmethod
     def build_mcps(
-        self, entity: DataHubEntityT, context: Dict[str, Any] | None = None
+        self, entity: DataHubEntityT, context: Optional[Dict[str, Any]] = None
     ) -> List["MetadataChangeProposalWrapper"]:
         """
         Build MCPs for a DataHub AST entity.
@@ -164,7 +164,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
 
     @abstractmethod
     def build_all_mcps(
-        self, entities: List[DataHubEntityT], context: Dict[str, Any] | None = None
+        self, entities: List[DataHubEntityT], context: Optional[Dict[str, Any]] = None
     ) -> List["MetadataChangeProposalWrapper"]:
         """
         Build MCPs for all DataHub AST entities of this type.
@@ -179,7 +179,7 @@ class EntityMCPBuilder(ABC, Generic[DataHubEntityT]):
         pass
 
     def build_post_processing_mcps(
-        self, datahub_graph: "DataHubGraph", context: Dict[str, Any] | None = None
+        self, datahub_graph: "DataHubGraph", context: Optional[Dict[str, Any]] = None
     ) -> List["MetadataChangeProposalWrapper"]:
         """
         Optional hook for building MCPs that depend on other entities.
@@ -216,7 +216,7 @@ class EntityProcessor(Generic[RDFEntityT, DataHubEntityT]):
         return self.extractor.entity_type
 
     def process(
-        self, graph: Graph, context: Dict[str, Any] | None = None
+        self, graph: Graph, context: Optional[Dict[str, Any]] = None
     ) -> List["MetadataChangeProposalWrapper"]:
         """
         Complete pipeline: extract → convert → build MCPs.
