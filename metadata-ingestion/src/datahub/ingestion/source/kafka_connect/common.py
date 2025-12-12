@@ -218,10 +218,10 @@ class KafkaConnectSourceConfig(
     # Schema resolver configuration for enhanced lineage
     use_schema_resolver: bool = Field(
         default=False,
-        description="Use DataHub's schema metadata to enhance CDC connector lineage. "
+        description="Use DataHub's schema metadata to enhance Kafka Connect connector lineage. "
         "When enabled (requires DataHub graph connection): "
         "1) Expands table patterns (e.g., 'database.*') to actual tables using DataHub metadata "
-        "2) Generates fine-grained column-level lineage for CDC sources/sinks. "
+        "2) Generates fine-grained column-level lineage for Kafka Connect sources/sinks. "
         "\n\n"
         "**Auto-enabled for Confluent Cloud:** This feature is automatically enabled for Confluent Cloud "
         "environments where DataHub graph connection is required. Set `use_schema_resolver: false` to disable. "
@@ -734,9 +734,9 @@ class BaseConnector:
         It's used when connectors don't have table.include.list configured, meaning they
         capture ALL tables from the database.
 
-        The method first tries to use cached URNs from SchemaResolver (populated from
-        previous ingestion runs or lineage resolution). If the cache is empty, it queries
-        DataHub's GraphQL API directly using the graph client's get_urns_by_filter() method.
+        The SchemaResolver cache is pre-populated during initialization via
+        initialize_schema_resolver_from_datahub(), which fetches all schema metadata
+        from DataHub for the configured platform and environment.
 
         Args:
             database_name: The database name (e.g., "mydb", "testdb")
@@ -750,46 +750,18 @@ class BaseConnector:
             return []
 
         try:
-            # First try to get URNs from cache (fast path)
+            # Get URNs from pre-populated SchemaResolver cache
             all_urns = self.schema_resolver.get_urns()
 
-            # If cache is empty, query DataHub directly
             if not all_urns:
-                if not self.schema_resolver.graph:
-                    logger.warning(
-                        "Cannot discover tables - no DataHub graph connection available"
-                    )
-                    return []
-
-                logger.info(
-                    f"SchemaResolver cache is empty. Querying DataHub for datasets "
-                    f"with platform={platform}, env={self.schema_resolver.env}"
+                logger.warning(
+                    f"No datasets found in DataHub for platform={platform}, env={self.schema_resolver.env}. "
+                    f"Make sure you've ingested {platform} datasets into DataHub before running Kafka Connect ingestion."
                 )
-
-                # Use graph.get_urns_by_filter() to get all datasets for this platform
-                # This is more efficient than a search query and uses the proper filtering API
-                all_urns = set(
-                    self.schema_resolver.graph.get_urns_by_filter(
-                        entity_types=["dataset"],
-                        platform=platform,
-                        platform_instance=self.schema_resolver.platform_instance,
-                        env=self.schema_resolver.env,
-                    )
-                )
-
-                if not all_urns:
-                    logger.warning(
-                        f"No datasets found in DataHub for platform={platform}, env={self.schema_resolver.env}. "
-                        f"Make sure you've ingested {platform} datasets into DataHub before running Kafka Connect ingestion."
-                    )
-                    return []
-
-                logger.info(
-                    f"Found {len(all_urns)} datasets in DataHub for platform={platform}"
-                )
+                return []
 
             logger.debug(
-                f"Processing {len(all_urns)} URNs for platform={platform}, database={database_name}"
+                f"Processing {len(all_urns)} URNs from SchemaResolver cache for platform={platform}, database={database_name}"
             )
 
             discovered_tables = []
@@ -798,10 +770,6 @@ class BaseConnector:
                 # URN format: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
                 table_name = self._extract_table_name_from_urn(urn)
                 if not table_name:
-                    continue
-
-                # Filter by platform
-                if f"dataPlatform:{platform}" not in urn:
                     continue
 
                 # Filter by database - check if table_name starts with database prefix
@@ -923,7 +891,7 @@ class BaseConnector:
         Extract column-level lineage using schema metadata from DataHub.
 
         This unified implementation works for all source connectors that preserve
-        column names in a 1:1 mapping (e.g., CDC connectors, JDBC polling connectors).
+        column names in a 1:1 mapping (e.g., Debezium connectors, JDBC polling connectors).
 
         Args:
             source_dataset: Source table name (e.g., "database.schema.table")
@@ -973,10 +941,17 @@ class BaseConnector:
                 return None
 
             # Build target URN using DatasetUrn helper with correct target platform
+            # Use platform_instance if configured in platform_instance_map for Kafka
+            kafka_platform_instance = (
+                self.config.platform_instance_map.get(target_platform)
+                if self.config.platform_instance_map
+                else None
+            )
             target_urn = DatasetUrn.create_from_ids(
                 platform_id=target_platform,
                 table_name=target_dataset,
                 env=self.config.env,
+                platform_instance=kafka_platform_instance,
             )
 
             # Apply ReplaceField transforms to column mappings
@@ -1072,11 +1047,12 @@ class BaseConnector:
             return lineages
 
         try:
-            # Get all URNs from schema resolver and filter for the source platform
-            # The cache may contain URNs from other platforms if shared across runs
+            # Get all URNs from pre-populated SchemaResolver cache
+            # The cache was initialized with platform-specific datasets from DataHub
             all_urns = self.schema_resolver.get_urns()
 
-            # Filter URNs by platform using DatasetUrn parser
+            # Filter URNs by platform to ensure we only process the expected source platform
+            # (defensive check, though cache should already be platform-specific)
             platform_urns = []
             for urn in all_urns:
                 try:

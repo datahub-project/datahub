@@ -1,7 +1,6 @@
 """Tests for config_constants module."""
 
 from datahub.ingestion.source.kafka_connect.config_constants import (
-    ConnectorConfigKeys,
     parse_comma_separated_list,
 )
 
@@ -99,78 +98,6 @@ class TestParseCommaSeparatedList:
         assert parse_comma_separated_list(input_str) == items
 
 
-class TestConnectorConfigKeys:
-    """Test ConnectorConfigKeys constants."""
-
-    def test_core_connector_keys(self) -> None:
-        """Verify core connector configuration keys."""
-        assert ConnectorConfigKeys.CONNECTOR_CLASS == "connector.class"
-        assert ConnectorConfigKeys.TRANSFORMS == "transforms"
-
-    def test_topic_keys(self) -> None:
-        """Verify topic-related configuration keys."""
-        assert ConnectorConfigKeys.TOPICS == "topics"
-        assert ConnectorConfigKeys.TOPICS_REGEX == "topics.regex"
-        assert ConnectorConfigKeys.KAFKA_TOPIC == "kafka.topic"
-        assert ConnectorConfigKeys.TOPIC == "topic"
-        assert ConnectorConfigKeys.TOPIC_PREFIX == "topic.prefix"
-
-    def test_jdbc_keys(self) -> None:
-        """Verify JDBC configuration keys."""
-        assert ConnectorConfigKeys.CONNECTION_URL == "connection.url"
-        assert ConnectorConfigKeys.TABLE_INCLUDE_LIST == "table.include.list"
-        assert ConnectorConfigKeys.TABLE_WHITELIST == "table.whitelist"
-        assert ConnectorConfigKeys.QUERY == "query"
-        assert ConnectorConfigKeys.MODE == "mode"
-
-    def test_debezium_keys(self) -> None:
-        """Verify Debezium/CDC configuration keys."""
-        assert ConnectorConfigKeys.DATABASE_SERVER_NAME == "database.server.name"
-        assert ConnectorConfigKeys.DATABASE_HOSTNAME == "database.hostname"
-        assert ConnectorConfigKeys.DATABASE_PORT == "database.port"
-        assert ConnectorConfigKeys.DATABASE_DBNAME == "database.dbname"
-        assert ConnectorConfigKeys.DATABASE_INCLUDE_LIST == "database.include.list"
-
-    def test_kafka_keys(self) -> None:
-        """Verify Kafka configuration keys."""
-        assert ConnectorConfigKeys.KAFKA_ENDPOINT == "kafka.endpoint"
-        assert ConnectorConfigKeys.BOOTSTRAP_SERVERS == "bootstrap.servers"
-        assert ConnectorConfigKeys.KAFKA_BOOTSTRAP_SERVERS == "kafka.bootstrap.servers"
-
-    def test_bigquery_keys(self) -> None:
-        """Verify BigQuery configuration keys."""
-        assert ConnectorConfigKeys.PROJECT == "project"
-        assert ConnectorConfigKeys.DEFAULT_DATASET == "defaultDataset"
-        assert ConnectorConfigKeys.DATASETS == "datasets"
-        assert ConnectorConfigKeys.TOPICS_TO_TABLES == "topicsToTables"
-        assert ConnectorConfigKeys.SANITIZE_TOPICS == "sanitizeTopics"
-        assert ConnectorConfigKeys.KEYFILE == "keyfile"
-
-    def test_snowflake_keys(self) -> None:
-        """Verify Snowflake configuration keys."""
-        assert ConnectorConfigKeys.SNOWFLAKE_DATABASE_NAME == "snowflake.database.name"
-        assert ConnectorConfigKeys.SNOWFLAKE_SCHEMA_NAME == "snowflake.schema.name"
-        assert (
-            ConnectorConfigKeys.SNOWFLAKE_TOPIC2TABLE_MAP == "snowflake.topic2table.map"
-        )
-        assert ConnectorConfigKeys.SNOWFLAKE_PRIVATE_KEY == "snowflake.private.key"
-        assert (
-            ConnectorConfigKeys.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE
-            == "snowflake.private.key.passphrase"
-        )
-
-    def test_s3_keys(self) -> None:
-        """Verify S3 configuration keys."""
-        assert ConnectorConfigKeys.S3_BUCKET_NAME == "s3.bucket.name"
-        assert ConnectorConfigKeys.TOPICS_DIR == "topics.dir"
-        assert ConnectorConfigKeys.AWS_ACCESS_KEY_ID == "aws.access.key.id"
-        assert ConnectorConfigKeys.AWS_SECRET_ACCESS_KEY == "aws.secret.access.key"
-        assert ConnectorConfigKeys.S3_SSE_CUSTOMER_KEY == "s3.sse.customer.key"
-        assert ConnectorConfigKeys.S3_PROXY_PASSWORD == "s3.proxy.password"
-
-    def test_auth_keys(self) -> None:
-        """Verify authentication configuration keys."""
-        assert (
-            ConnectorConfigKeys.VALUE_CONVERTER_BASIC_AUTH_USER_INFO
-            == "value.converter.basic.auth.user.info"
-        )
+# TestConnectorConfigKeys class removed - testing string constant assignments
+# provides no value as typos would be immediately visible in code.
+# These are simple string assignments, not business logic that needs protection.

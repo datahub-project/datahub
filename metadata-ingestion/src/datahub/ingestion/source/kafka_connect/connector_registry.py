@@ -75,8 +75,6 @@ class ConnectorRegistry:
             return None
 
         try:
-            from datahub.sql_parsing.schema_resolver import SchemaResolver
-
             # Get platform from connector instance (single source of truth)
             platform = connector.get_platform()
 
@@ -86,15 +84,17 @@ class ConnectorRegistry:
             )
 
             logger.info(
-                f"Creating SchemaResolver for connector {connector.connector_manifest.name} "
-                f"with platform={platform}, platform_instance={platform_instance}"
+                f"Initializing SchemaResolver for connector {connector.connector_manifest.name} "
+                f"with platform={platform}, platform_instance={platform_instance}, env={config.env}"
             )
 
-            return SchemaResolver(
+            # Use initialize_schema_resolver_from_datahub to create and populate the cache
+            # This pre-fetches all schema metadata from DataHub for the given platform/env
+            # Similar to BigQuery's approach for schema resolution
+            return ctx.graph.initialize_schema_resolver_from_datahub(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=config.env,
-                graph=ctx.graph,
             )
         except Exception as e:
             logger.warning(

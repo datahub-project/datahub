@@ -1,6 +1,6 @@
 """Tests for connector_registry module."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka_connect.common import (
@@ -387,22 +387,20 @@ class TestConnectorRegistrySchemaResolver:
         assert connector is not None
         assert connector.schema_resolver is None
 
-    @patch("datahub.sql_parsing.schema_resolver.SchemaResolver")
-    def test_schema_resolver_created_successfully(
-        self, mock_schema_resolver_class: Mock
-    ) -> None:
+    def test_schema_resolver_created_successfully(self) -> None:
         """Test schema resolver created when all conditions are met."""
         manifest = create_manifest(SOURCE, POSTGRES_CDC_SOURCE_CLOUD)
         config = create_mock_config()
         config.use_schema_resolver = True
         report = create_mock_report()
 
+        mock_schema_resolver = Mock()
         mock_graph = Mock()
+        mock_graph.initialize_schema_resolver_from_datahub.return_value = (
+            mock_schema_resolver
+        )
         ctx = Mock(spec=PipelineContext)
         ctx.graph = mock_graph
-
-        mock_schema_resolver = Mock()
-        mock_schema_resolver_class.return_value = mock_schema_resolver
 
         connector = ConnectorRegistry.get_connector_for_manifest(
             manifest, config, report, ctx=ctx
@@ -411,18 +409,14 @@ class TestConnectorRegistrySchemaResolver:
         assert connector is not None
         assert connector.schema_resolver == mock_schema_resolver
 
-        # Verify SchemaResolver was created with correct parameters
-        mock_schema_resolver_class.assert_called_once_with(
+        # Verify initialize_schema_resolver_from_datahub was called with correct parameters
+        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once_with(
             platform="postgres",
             platform_instance=None,
             env="PROD",
-            graph=mock_graph,
         )
 
-    @patch("datahub.sql_parsing.schema_resolver.SchemaResolver")
-    def test_schema_resolver_with_platform_instance(
-        self, mock_schema_resolver_class: Mock
-    ) -> None:
+    def test_schema_resolver_with_platform_instance(self) -> None:
         """Test schema resolver created with platform instance."""
         manifest = create_manifest(
             SOURCE, POSTGRES_CDC_SOURCE_CLOUD, name="my-connector"
@@ -435,12 +429,13 @@ class TestConnectorRegistrySchemaResolver:
         }
         report = create_mock_report()
 
+        mock_schema_resolver = Mock()
         mock_graph = Mock()
+        mock_graph.initialize_schema_resolver_from_datahub.return_value = (
+            mock_schema_resolver
+        )
         ctx = Mock(spec=PipelineContext)
         ctx.graph = mock_graph
-
-        mock_schema_resolver = Mock()
-        mock_schema_resolver_class.return_value = mock_schema_resolver
 
         connector = ConnectorRegistry.get_connector_for_manifest(
             manifest, config, report, ctx=ctx
@@ -448,21 +443,14 @@ class TestConnectorRegistrySchemaResolver:
 
         assert connector is not None
 
-        # Verify SchemaResolver was created with platform instance
-        mock_schema_resolver_class.assert_called_once_with(
+        # Verify initialize_schema_resolver_from_datahub was called with platform instance
+        mock_graph.initialize_schema_resolver_from_datahub.assert_called_once_with(
             platform="postgres",
             platform_instance="my-instance",
             env="PROD",
-            graph=mock_graph,
         )
 
-    @patch(
-        "datahub.sql_parsing.schema_resolver.SchemaResolver",
-        side_effect=Exception("Schema resolver creation failed"),
-    )
-    def test_schema_resolver_creation_fails_gracefully(
-        self, mock_schema_resolver_class: Mock
-    ) -> None:
+    def test_schema_resolver_creation_fails_gracefully(self) -> None:
         """Test that schema resolver creation failure doesn't break connector creation."""
         manifest = create_manifest(SOURCE, POSTGRES_CDC_SOURCE_CLOUD)
         config = create_mock_config()
@@ -470,6 +458,9 @@ class TestConnectorRegistrySchemaResolver:
         report = create_mock_report()
 
         mock_graph = Mock()
+        mock_graph.initialize_schema_resolver_from_datahub.side_effect = Exception(
+            "Schema resolver creation failed"
+        )
         ctx = Mock(spec=PipelineContext)
         ctx.graph = mock_graph
 
