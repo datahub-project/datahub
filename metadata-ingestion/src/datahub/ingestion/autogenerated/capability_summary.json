@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-12-11T16:42:52.613271+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2300,6 +2300,7 @@
           "description": "Enabled by default",
           "subtype_modifier": [
             "Workspace",
+            "Report",
             "Semantic Model"
           ],
           "supported": true
