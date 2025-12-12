@@ -93,7 +93,8 @@ public class RelatedDocumentsResolver
             // Build filter that combines user filters with ownership constraints
             // Filter logic: (PUBLISHED) OR (UNPUBLISHED AND owned-by-user-or-groups)
             // Note: applyShowInGlobalContext=false because related documents should show
-            // all context documents (those are meant to be discovered through their related entities)
+            // all context documents (those are meant to be discovered through their related
+            // entities)
             Filter filter =
                 DocumentSearchFilterUtils.buildCombinedFilter(
                     baseUserCriteria, userAndGroupUrns, false);
