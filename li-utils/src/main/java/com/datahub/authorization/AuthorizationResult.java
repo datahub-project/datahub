@@ -1,10 +1,10 @@
 package com.datahub.authorization;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Value;
 
 /** A result returned after requesting authorization for a particular privilege. */
-@Data
+@Value
 @AllArgsConstructor
 public class AuthorizationResult {
   /** The original authorization request */
@@ -19,7 +19,7 @@ public class AuthorizationResult {
   }
 
   /** The decision - whether to allow or deny the request. */
-  public Type type;
+  Type type;
 
   /** Optional message associated with the decision. Useful for debugging. */
   String message;
