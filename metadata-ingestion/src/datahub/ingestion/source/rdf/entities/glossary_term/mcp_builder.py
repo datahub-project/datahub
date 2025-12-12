@@ -5,7 +5,7 @@ Creates DataHub MCPs (Metadata Change Proposals) for glossary terms.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.rdf.entities.base import EntityMCPBuilder
@@ -33,7 +33,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return "glossary_term"
 
     def build_mcps(
-        self, term: DataHubGlossaryTerm, context: Dict[str, Any] | None = None
+        self, term: DataHubGlossaryTerm, context: Optional[Dict[str, Any]] = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for a single glossary term.
@@ -43,7 +43,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
             context: Optional context with 'parent_node_urn' for hierarchy
         """
         mcps = []
-        parent_node_urn: str | None = None
+        parent_node_urn: Optional[str] = None
         if context:
             parent_node_urn = context.get("parent_node_urn")  # type: ignore[assignment]
 
@@ -58,7 +58,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return mcps
 
     def build_all_mcps(
-        self, terms: List[DataHubGlossaryTerm], context: Dict[str, Any] | None = None
+        self, terms: List[DataHubGlossaryTerm], context: Optional[Dict[str, Any]] = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for glossary terms.
@@ -121,7 +121,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         return mcps
 
     def _create_term_info_mcp(
-        self, term: DataHubGlossaryTerm, parent_node_urn: str | None = None
+        self, term: DataHubGlossaryTerm, parent_node_urn: Optional[str] = None
     ) -> MetadataChangeProposalWrapper:
         """Create the GlossaryTermInfo MCP."""
         term_info = GlossaryTermInfoClass(
@@ -138,7 +138,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
 
     @staticmethod
     def create_glossary_node_mcp(
-        node_urn: str, node_name: str, parent_urn: str | None = None
+        node_urn: str, node_name: str, parent_urn: Optional[str] = None
     ) -> MetadataChangeProposalWrapper:
         """Create MCP for a glossary node."""
         node_info = GlossaryNodeInfoClass(
@@ -153,7 +153,7 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
         )
 
     def build_post_processing_mcps(
-        self, datahub_graph: Any, context: Dict[str, Any] | None = None
+        self, datahub_graph: Any, context: Optional[Dict[str, Any]] = None
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Build MCPs for glossary nodes and terms from domain hierarchy.

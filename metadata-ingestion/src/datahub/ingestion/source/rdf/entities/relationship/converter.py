@@ -26,7 +26,7 @@ class RelationshipConverter(EntityConverter[RDFRelationship, DataHubRelationship
     Handles URN generation for source and target terms.
     """
 
-    def __init__(self, urn_generator: GlossaryTermUrnGenerator | None = None):
+    def __init__(self, urn_generator: Optional[GlossaryTermUrnGenerator] = None):
         """
         Initialize the converter.
 
@@ -40,7 +40,7 @@ class RelationshipConverter(EntityConverter[RDFRelationship, DataHubRelationship
         return "relationship"
 
     def convert(
-        self, rdf_rel: RDFRelationship, context: Dict[str, Any] | None = None
+        self, rdf_rel: RDFRelationship, context: Optional[Dict[str, Any]] = None
     ) -> Optional[DataHubRelationship]:
         """Convert a single RDF relationship to DataHub format."""
         try:
@@ -65,7 +65,7 @@ class RelationshipConverter(EntityConverter[RDFRelationship, DataHubRelationship
     def convert_all(
         self,
         rdf_relationships: List[RDFRelationship],
-        context: Dict[str, Any] | None = None,
+        context: Optional[Dict[str, Any]] = None,
     ) -> List[DataHubRelationship]:
         """Convert all RDF relationships to DataHub format."""
         datahub_relationships = []

@@ -31,13 +31,17 @@ class TestGlossaryTermMCPBuilder(unittest.TestCase):
             custom_properties={
                 "rdf:originalIRI": "http://example.org/AccountIdentifier"
             },
-            path_segments=("example.org", "AccountIdentifier"),
+            path_segments=["example.org", "AccountIdentifier"],
         )
 
         mcps = self.mcp_builder.build_mcps(term)
 
         self.assertEqual(len(mcps), 1)
         mcp = mcps[0]
+        assert mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
+        assert isinstance(mcp.aspect, GlossaryTermInfoClass)
         self.assertEqual(mcp.entityUrn, term.urn)
         self.assertEqual(mcp.aspect.name, "Account Identifier")
         self.assertEqual(mcp.aspect.definition, "A unique identifier for an account")
@@ -49,13 +53,17 @@ class TestGlossaryTermMCPBuilder(unittest.TestCase):
             name="No Definition Term",
             definition=None,
             custom_properties={},
-            path_segments=("example.org", "NoDefTerm"),
+            path_segments=["example.org", "NoDefTerm"],
         )
 
         mcps = self.mcp_builder.build_mcps(term)
 
         self.assertEqual(len(mcps), 1)
         # Default definition should be generated
+        assert mcps[0].aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
+        assert isinstance(mcps[0].aspect, GlossaryTermInfoClass)
         self.assertIn("Glossary term:", mcps[0].aspect.definition)
 
     def test_build_term_info_mcp_with_custom_properties(self):
@@ -68,11 +76,15 @@ class TestGlossaryTermMCPBuilder(unittest.TestCase):
                 "rdf:originalIRI": "http://example.org/CustomPropTerm",
                 "skos:notation": "CPT-001",
             },
-            path_segments=("example.org", "CustomPropTerm"),
+            path_segments=["example.org", "CustomPropTerm"],
         )
 
         mcps = self.mcp_builder.build_mcps(term)
 
+        assert mcps[0].aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
+        assert isinstance(mcps[0].aspect, GlossaryTermInfoClass)
         self.assertEqual(mcps[0].aspect.customProperties["skos:notation"], "CPT-001")
 
     def test_build_all_mcps(self):
@@ -83,7 +95,7 @@ class TestGlossaryTermMCPBuilder(unittest.TestCase):
                 name=f"Term {i}",
                 definition=f"Definition {i}",
                 custom_properties={},
-                path_segments=("example.org", f"Term{i}"),
+                path_segments=["example.org", f"Term{i}"],
             )
             for i in range(3)
         ]
@@ -110,7 +122,7 @@ class TestGlossaryTermMCPBuilderIntegration(unittest.TestCase):
             custom_properties={
                 "rdf:originalIRI": "http://example.org/AccountIdentifier"
             },
-            path_segments=("example.org", "AccountIdentifier"),
+            path_segments=["example.org", "AccountIdentifier"],
         )
 
         # Build term MCPs

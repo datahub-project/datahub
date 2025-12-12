@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import Field, field_validator
+from rdflib import Graph
 
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -205,7 +206,7 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
     # File-level tracking
     files_processed: List[str] = field(default_factory=list)
 
-    def report_triples_processed(self, count: int):
+    def report_triples_processed(self, count: int) -> None:
         """Add to triples counter."""
         self.num_triples_processed += count
 
@@ -229,7 +230,7 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
         """Increment relationship counter."""
         self.num_relationships += 1
 
-    def report_file_processed(self, file_path: str):
+    def report_file_processed(self, file_path: str) -> None:
         """Record a processed file."""
         self.num_files_processed += 1
         self.files_processed.append(file_path)
@@ -636,7 +637,7 @@ class RDFSource(StatefulIngestionSourceBase):
 
     def _convert_rdf_to_datahub_ast(
         self,
-        graph,
+        graph: Graph,
         environment: str,
         export_only: Optional[List[str]] = None,
         skip_export: Optional[List[str]] = None,

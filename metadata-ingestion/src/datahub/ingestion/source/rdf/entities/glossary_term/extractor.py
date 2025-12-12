@@ -36,7 +36,9 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
     """
 
     def __init__(
-        self, dialect=None, urn_generator: GlossaryTermUrnGenerator | None = None
+        self,
+        dialect: Any = None,
+        urn_generator: Optional[GlossaryTermUrnGenerator] = None,
     ):
         """
         Initialize the extractor.
@@ -82,7 +84,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
         return False
 
     def extract(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
+        self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
     ) -> Optional[DataHubGlossaryTerm]:
         """
         Extract a single glossary term from the RDF graph and return DataHub AST directly.
@@ -147,7 +149,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
             return None
 
     def extract_all(
-        self, graph: Graph, context: Dict[str, Any] | None = None
+        self, graph: Graph, context: Optional[Dict[str, Any]] = None
     ) -> List[DataHubGlossaryTerm]:
         """Extract all glossary terms from the RDF graph."""
         terms = []
@@ -235,7 +237,7 @@ class GlossaryTermExtractor(EntityExtractor[DataHubGlossaryTerm]):
         return None
 
     def _extract_custom_properties(
-        self, graph: Graph, uri: URIRef, context: Dict[str, Any] | None = None
+        self, graph: Graph, uri: URIRef, context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Extract custom properties, including dialect-specific ones."""
         properties = {}

@@ -10,6 +10,7 @@ the same behavior is preserved.
 """
 
 import unittest
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 from rdflib import Graph
@@ -19,6 +20,9 @@ from datahub.ingestion.source.rdf.ingestion.rdf_source import (
     RDFSource,
     RDFSourceConfig,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.rdf.core.ast import DataHubGraph
 
 
 class TestGlossaryTermBehavior(unittest.TestCase):
@@ -35,7 +39,7 @@ class TestGlossaryTermBehavior(unittest.TestCase):
         )
         self.source = RDFSource(self.config, self.ctx)
 
-    def _get_datahub_graph(self, graph: Graph):
+    def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
         return self.source._convert_rdf_to_datahub_ast(
             graph,
@@ -156,7 +160,7 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
         )
         self.source = RDFSource(self.config, self.ctx)
 
-    def _get_datahub_graph(self, graph: Graph):
+    def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
         return self.source._convert_rdf_to_datahub_ast(
             graph,
@@ -216,7 +220,7 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
         loans_domain = next(
             (
                 sd
-                for sd in trading_domain.subdomains
+                for sd in trading_domain.subdomains  # type: ignore[union-attr]
                 if tuple(sd.path_segments) == ("bank.com", "trading", "loans")
             ),
             None,
@@ -277,11 +281,13 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
                 break
 
         self.assertIsNotNone(bank_domain, "Root domain bank.com should exist")
+        assert bank_domain is not None  # Type narrowing for mypy
         self.assertIsNone(bank_domain.parent_domain_urn, "Root should have no parent")
 
         # Find subdomains through parent's subdomains list
         trading_domain = None
         loans_domain = None
+        assert bank_domain is not None  # Type narrowing for mypy
         for subdomain in bank_domain.subdomains:
             if tuple(subdomain.path_segments) == ("bank.com", "trading"):
                 trading_domain = subdomain
@@ -297,6 +303,8 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
                 break
 
         self.assertIsNotNone(trading_domain, "trading subdomain should exist")
+        assert trading_domain is not None  # Type narrowing for mypy
+        assert bank_domain is not None  # Type narrowing for mypy
         self.assertEqual(
             trading_domain.parent_domain_urn,
             bank_domain.urn,
@@ -304,6 +312,7 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
         )
 
         self.assertIsNotNone(loans_domain, "loans subdomain should exist")
+        assert loans_domain is not None  # Type narrowing for mypy
         self.assertEqual(
             loans_domain.parent_domain_urn,
             trading_domain.urn,
@@ -322,6 +331,8 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
             trading_in_list, "Subdomain trading should be in domains list"
         )
         self.assertIsNotNone(loans_in_list, "Subdomain loans should be in domains list")
+        assert trading_in_list is not None  # Type narrowing for mypy
+        assert loans_in_list is not None  # Type narrowing for mypy
         self.assertIsNotNone(
             trading_in_list.parent_domain_urn, "Subdomain should have parent_domain_urn"
         )
@@ -353,10 +364,12 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
                 break
 
         self.assertIsNotNone(bank_domain, "Root domain bank.com should exist")
+        assert bank_domain is not None  # Type narrowing for mypy
 
         # Find subdomains through parent's subdomains list
         trading_domain = None
         loans_domain = None
+        assert bank_domain is not None  # Type narrowing for mypy
         for subdomain in bank_domain.subdomains:
             if tuple(subdomain.path_segments) == ("bank.com", "trading"):
                 trading_domain = subdomain
@@ -373,12 +386,13 @@ class TestDomainHierarchyBehavior(unittest.TestCase):
 
         self.assertIsNotNone(trading_domain, "trading subdomain should exist")
         self.assertIsNotNone(loans_domain, "loans subdomain should exist")
-
+        assert trading_domain is not None  # Type narrowing for mypy
         # Trade ID should be in trading domain
         trading_term_names = {t.name for t in trading_domain.glossary_terms}
         self.assertIn("Trade ID", trading_term_names)
 
         # Loan Amount should be in loans domain
+        assert loans_domain is not None  # Type narrowing for mypy
         loans_term_names = {t.name for t in loans_domain.glossary_terms}
         self.assertIn("Loan Amount", loans_term_names)
 
@@ -404,7 +418,7 @@ class TestRelationshipBehavior(unittest.TestCase):
         )
         self.source = RDFSource(self.config, self.ctx)
 
-    def _get_datahub_graph(self, graph: Graph):
+    def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
         return self.source._convert_rdf_to_datahub_ast(
             graph,
@@ -675,7 +689,7 @@ class TestEndToEndBehavior(unittest.TestCase):
         )
         self.source = RDFSource(self.config, self.ctx)
 
-    def _get_datahub_graph(self, graph: Graph):
+    def _get_datahub_graph(self, graph: Graph) -> "DataHubGraph":
         """Helper to get DataHubGraph from RDF graph."""
         return self.source._convert_rdf_to_datahub_ast(
             graph,

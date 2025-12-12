@@ -34,8 +34,13 @@ class TestMCPFactory(unittest.TestCase):
         )
 
         self.assertIsNotNone(mcp)
+        assert mcp is not None  # Type narrowing for mypy
         self.assertEqual(str(mcp.entityUrn), "urn:li:glossaryNode:test")
         self.assertIsNotNone(mcp.aspect)
+        assert mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryNodeInfoClass
+
+        assert isinstance(mcp.aspect, GlossaryNodeInfoClass)
         self.assertEqual(mcp.aspect.name, "test")
         self.assertEqual(mcp.aspect.parentNode, "urn:li:glossaryNode:parent")
 
@@ -46,6 +51,11 @@ class TestMCPFactory(unittest.TestCase):
         )
 
         self.assertIsNotNone(mcp)
+        assert mcp is not None  # Type narrowing for mypy
+        assert mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryNodeInfoClass
+
+        assert isinstance(mcp.aspect, GlossaryNodeInfoClass)
         self.assertIsNone(mcp.aspect.parentNode)
 
     def test_create_glossary_term_mcp(self):
@@ -65,7 +75,12 @@ class TestMCPFactory(unittest.TestCase):
         mcp = mcps[0] if mcps else None
 
         self.assertIsNotNone(mcp)
+        assert mcp is not None  # Type narrowing for mypy
         self.assertEqual(str(mcp.entityUrn), "urn:li:glossaryTerm:test")
+        assert mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
+        assert isinstance(mcp.aspect, GlossaryTermInfoClass)
         self.assertEqual(mcp.aspect.name, "Test Term")
         self.assertEqual(mcp.aspect.definition, "Test definition")
         # parentNode should be set when provided in context
@@ -86,6 +101,11 @@ class TestMCPFactory(unittest.TestCase):
         mcp = mcps[0] if mcps else None
 
         self.assertIsNotNone(mcp)
+        assert mcp is not None  # Type narrowing for mypy
+        assert mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryTermInfoClass
+
+        assert isinstance(mcp.aspect, GlossaryTermInfoClass)
         self.assertIsNone(mcp.aspect.parentNode)
 
     # Dataset, structured property, data product, and lineage tests removed - not supported in MVP
@@ -109,8 +129,14 @@ class TestMCPFactory(unittest.TestCase):
         mcp = mcps[0] if mcps else None
 
         self.assertIsNotNone(mcp)
+        assert mcp is not None  # Type narrowing for mypy
         self.assertEqual(str(mcp.entityUrn), "urn:li:glossaryTerm:term1")
         self.assertIsNotNone(mcp.aspect)
+        assert mcp.aspect is not None  # Type narrowing for mypy
+        from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
+
+        assert isinstance(mcp.aspect, GlossaryRelatedTermsClass)
+        assert mcp.aspect.isRelatedTerms is not None  # Type narrowing for mypy
         self.assertIn("urn:li:glossaryTerm:term2", mcp.aspect.isRelatedTerms)
 
     # Dataset domain association and structured property value tests removed - not supported in MVP
