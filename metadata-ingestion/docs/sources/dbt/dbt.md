@@ -356,3 +356,81 @@ source:
 ```
 
 [Experimental] It's also possible to use `skip_sources_in_lineage: true` without disabling sources entirely. If you do this, sources will not participate in the lineage graph - they'll have upstreams but no downstreams. However, they will still contribute to docs, tags, etc to the warehouse entity.
+
+### Ingesting dbt Contracts as DataHub Data Contracts
+
+[dbt model contracts](https://docs.getdbt.com/docs/collaborate/govern/model-contracts) (introduced in dbt 1.5) allow you to define and enforce schema guarantees on your models. DataHub can ingest these contracts and represent them as [Data Contracts](/docs/managed-datahub/observe/data-contract.md), providing a unified view of your data quality guarantees.
+
+#### Enabling Contract Ingestion
+
+To enable contract ingestion, set `ingest_contracts: true` in your recipe:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: _path_to_manifest_json
+    catalog_path: _path_to_catalog_json
+    target_platform: postgres
+
+    # Enable Data Contract ingestion
+    ingest_contracts: true
+```
+
+#### What Gets Ingested
+
+When a dbt model has `contract.enforced: true`, DataHub will create:
+
+1. **Schema Assertion** - Validates that the model's columns match the contract definition
+2. **Constraint Assertions** (optional) - Individual assertions for column constraints like `not_null`, `unique`, and `primary_key`
+3. **Data Contract Entity** - Bundles all assertions together and links them to the dataset
+
+#### Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `ingest_contracts` | `false` | Enable Data Contract creation from dbt contracts |
+| `contract_test_tag` | `"contract"` | Tag for dbt tests to include in the contract's data quality section |
+| `ingest_column_constraints_as_assertions` | `true` | Create assertions from column constraints (`not_null`, `unique`, `primary_key`) |
+
+#### Including dbt Tests in Contracts
+
+You can include specific dbt tests as data quality assertions in your contracts by tagging them:
+
+```yaml
+# In your dbt schema.yml
+models:
+  - name: orders
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: order_id
+        data_type: int
+        constraints:
+          - type: not_null
+          - type: primary_key
+    tests:
+      - unique:
+          tags: ["contract"]  # This test will be included in the Data Contract
+      - not_null:
+          tags: ["contract"]
+```
+
+With the default `contract_test_tag: "contract"`, any test tagged with `contract` will be added to the Data Contract's data quality assertions.
+
+:::note dbt Cloud Support
+
+For dbt Cloud, contract information is not directly exposed via the API. As a workaround, you can add contract metadata to your model's `meta` field:
+
+```yaml
+models:
+  - name: orders
+    meta:
+      datahub_contract:
+        enforced: true
+```
+
+The dbt Cloud source will read this and create the corresponding Data Contract in DataHub.
+
+:::
