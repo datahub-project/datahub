@@ -185,7 +185,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                                     onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
                                     showClear={false}
                                     width="full"
-                                    placeholder="[Table]"
+                                    placeholder="Select Asset type"
                                     size="lg"
                                 />
                             </FieldWrapper>
