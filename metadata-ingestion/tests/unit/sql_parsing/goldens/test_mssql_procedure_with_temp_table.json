@@ -63,7 +63,7 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,temp_data,PROD)",
-                "column": "name",
+                "column": "value",
                 "column_type": null,
                 "native_column_type": null
             },
@@ -75,7 +75,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[customers].[name] AS [name]"
+                "column_logic": "[customers].[name] AS [value]"
             }
         },
         {
