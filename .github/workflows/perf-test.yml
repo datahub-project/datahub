@@ -98,6 +98,51 @@ jobs:
             --run-time="${{ github.event.inputs.run_time }}" \
             --html=results.html \
             --csv=results
+      - name: Upload results to s3
+        env:
+          AWS_ACCESS_KEY_ID: "${{ secrets.AWS_PERF_TEST_BUCKET_KEY_ID }}"
+          AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_PERF_TEST_BUCKET_KEY_SECRET }}"
+          AWS_REGION: "us-west-2"
+          AWS_BUCKET_NAME: "acryl-perf-test-metrics"
+        run: |
+          cd perf-test
+
+          # Compute S3 directory structure
+          TEST_NAME=$(basename "${{ github.event.inputs.locustfile }}" .py)
+          DATE=$(date -u +%Y-%m-%d)
+          TIME=$(date -u +%H-%M-%S)
+          RUNNER="github-actions"
+          S3_PREFIX="s3://${AWS_BUCKET_NAME}/${TEST_NAME}/${DATE}/${TIME}/${RUNNER}"
+
+          echo "Uploading results to: ${S3_PREFIX}"
+
+          # Create metadata.json
+          cat > metadata.json <<EOF
+          {
+            "test_name": "${TEST_NAME}",
+            "locustfile": "${{ github.event.inputs.locustfile }}",
+            "target_url": "${{ github.event.inputs.target_url }}",
+            "users": ${{ github.event.inputs.users }},
+            "spawn_rate": ${{ github.event.inputs.spawn_rate }},
+            "run_time": "${{ github.event.inputs.run_time }}",
+            "branch": "${{ github.event.inputs.branch }}",
+            "github_run_id": "${{ github.run_id }}",
+            "github_run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runner": "${RUNNER}"
+          }
+          EOF
+
+          # Upload all results
+          aws s3 cp results.html "${S3_PREFIX}/results.html"
+          aws s3 cp metadata.json "${S3_PREFIX}/metadata.json"
+
+          # Upload CSV files (some may not exist depending on test type)
+          for csv_file in results_*.csv; do
+            if [ -f "$csv_file" ]; then
+              aws s3 cp "$csv_file" "${S3_PREFIX}/${csv_file}"
+            fi
+          done
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
