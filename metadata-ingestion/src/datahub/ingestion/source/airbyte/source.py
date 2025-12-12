@@ -1054,9 +1054,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 table_prefix or "None",
             )
 
+        # For MSSQL and connectors with table-level schema, try table-specific lookup first
+        table_level_schema = source.get_schema_for_table(stream.stream_name)
+        config_schema = table_level_schema or source.get_schema
+
         schema_name = self._resolve_schema_name(
             stream.namespace,
-            source.get_schema,
+            config_schema,
             stream.stream_name,
             source.source_id,
         )
