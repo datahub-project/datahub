@@ -7,7 +7,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Document, DocumentState, EntityType, Owner, SearchInsight } from '@types';
+import { Document, EntityType, Owner, SearchInsight } from '@types';
 
 export const Preview = ({
     document,
@@ -39,18 +39,9 @@ export const Preview = ({
     previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const status = document.info?.status?.state;
-    const isPublished = status === DocumentState.Published;
-
-    // Get external URL from source if document is external
-    const externalUrl = document.info?.source?.externalUrl || null;
-
-    // Truncate description for preview
+    const externalUrl = data?.externalUrl || null;
     const truncatedDescription =
         description && description.length > 200 ? `${description.substring(0, 200)}...` : description;
-
-    // Only show entity icon if there's no platform logo (following Dataset pattern)
-    const showEntityIcon = !platformLogo;
 
     return (
         <DefaultPreviewCard
@@ -69,11 +60,6 @@ export const Preview = ({
             logoComponent={logoComponent}
             parentEntities={
                 document.parentDocuments?.documents ? (document.parentDocuments.documents as any[]) : undefined
-            }
-            entityIcon={
-                showEntityIcon ? (
-                    <FileText size={28} color={isPublished ? '#1890ff' : '#8c8c8c'} weight="duotone" />
-                ) : undefined
             }
             externalUrl={externalUrl}
             headerDropdownItems={headerDropdownItems}

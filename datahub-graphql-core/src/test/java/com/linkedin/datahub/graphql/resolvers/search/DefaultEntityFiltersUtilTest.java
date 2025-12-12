@@ -5,10 +5,17 @@ import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -134,5 +141,225 @@ public class DefaultEntityFiltersUtilTest {
       }
     }
     return null;
+  }
+
+  // ============================================================================
+  // Tests for removeDefaultFilterFieldsFromAggregations (SearchResult)
+  // ============================================================================
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_SearchResult_NoMetadata() {
+    // When search result has no metadata, should return unchanged
+    SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(0);
+
+    SearchResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+    assertSame(result, searchResult);
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_SearchResult_NoAggregations() {
+    // When search result has metadata but no aggregations, should return unchanged
+    SearchResult searchResult = new SearchResult();
+    searchResult.setMetadata(new SearchResultMetadata());
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(0);
+
+    SearchResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+    assertSame(result, searchResult);
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_SearchResult_RemovesDefaultFields() {
+    // Should remove aggregations for "state" and "showInGlobalContext"
+    SearchResult searchResult =
+        createSearchResultWithAggregations(
+            ImmutableList.of("platform", "state", "owners", "showInGlobalContext", "tags"));
+
+    SearchResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+    AggregationMetadataArray aggs = result.getMetadata().getAggregations();
+    assertEquals(aggs.size(), 3);
+    assertTrue(hasAggregation(aggs, "platform"));
+    assertTrue(hasAggregation(aggs, "owners"));
+    assertTrue(hasAggregation(aggs, "tags"));
+    assertFalse(hasAggregation(aggs, "state"));
+    assertFalse(hasAggregation(aggs, "showInGlobalContext"));
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_SearchResult_NoDefaultFieldsPresent() {
+    // When no default filter fields are present, aggregations should remain unchanged
+    SearchResult searchResult =
+        createSearchResultWithAggregations(ImmutableList.of("platform", "owners", "tags"));
+
+    int originalSize = searchResult.getMetadata().getAggregations().size();
+
+    SearchResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+    assertEquals(result.getMetadata().getAggregations().size(), originalSize);
+    assertTrue(hasAggregation(result.getMetadata().getAggregations(), "platform"));
+    assertTrue(hasAggregation(result.getMetadata().getAggregations(), "owners"));
+    assertTrue(hasAggregation(result.getMetadata().getAggregations(), "tags"));
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_SearchResult_OnlyDefaultFields() {
+    // When only default filter fields are present, should return empty aggregations
+    SearchResult searchResult =
+        createSearchResultWithAggregations(ImmutableList.of("state", "showInGlobalContext"));
+
+    SearchResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+    assertEquals(result.getMetadata().getAggregations().size(), 0);
+  }
+
+  // ============================================================================
+  // Tests for removeDefaultFilterFieldsFromAggregations (ScrollResult)
+  // ============================================================================
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_ScrollResult_NoMetadata() {
+    // When scroll result has no metadata, should return unchanged
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setEntities(new SearchEntityArray());
+    scrollResult.setPageSize(10);
+    scrollResult.setNumEntities(0);
+
+    ScrollResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(scrollResult);
+
+    assertSame(result, scrollResult);
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_ScrollResult_NoAggregations() {
+    // When scroll result has metadata but no aggregations, should return unchanged
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setMetadata(new SearchResultMetadata());
+    scrollResult.setEntities(new SearchEntityArray());
+    scrollResult.setPageSize(10);
+    scrollResult.setNumEntities(0);
+
+    ScrollResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(scrollResult);
+
+    assertSame(result, scrollResult);
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_ScrollResult_RemovesDefaultFields() {
+    // Should remove aggregations for "state" and "showInGlobalContext"
+    ScrollResult scrollResult =
+        createScrollResultWithAggregations(
+            ImmutableList.of("platform", "state", "domains", "showInGlobalContext"));
+
+    ScrollResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(scrollResult);
+
+    AggregationMetadataArray aggs = result.getMetadata().getAggregations();
+    assertEquals(aggs.size(), 2);
+    assertTrue(hasAggregation(aggs, "platform"));
+    assertTrue(hasAggregation(aggs, "domains"));
+    assertFalse(hasAggregation(aggs, "state"));
+    assertFalse(hasAggregation(aggs, "showInGlobalContext"));
+  }
+
+  @Test
+  public void testRemoveDefaultFilterFieldsFromAggregations_ScrollResult_NoDefaultFieldsPresent() {
+    // When no default filter fields are present, aggregations should remain unchanged
+    ScrollResult scrollResult =
+        createScrollResultWithAggregations(ImmutableList.of("platform", "domains"));
+
+    int originalSize = scrollResult.getMetadata().getAggregations().size();
+
+    ScrollResult result =
+        DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(scrollResult);
+
+    assertEquals(result.getMetadata().getAggregations().size(), originalSize);
+  }
+
+  // ============================================================================
+  // Test for DEFAULT_FILTER_FIELDS constant
+  // ============================================================================
+
+  @Test
+  public void testDefaultFilterFieldsConstant() {
+    // Verify the expected fields are in the constant
+    assertTrue(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.contains("state"));
+    assertTrue(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.contains("showInGlobalContext"));
+    assertEquals(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.size(), 2);
+  }
+
+  // ============================================================================
+  // Helper methods
+  // ============================================================================
+
+  private static SearchResult createSearchResultWithAggregations(List<String> aggregationNames) {
+    SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(0);
+
+    SearchResultMetadata metadata = new SearchResultMetadata();
+    AggregationMetadataArray aggs = new AggregationMetadataArray();
+
+    for (String name : aggregationNames) {
+      aggs.add(createAggregationMetadata(name));
+    }
+
+    metadata.setAggregations(aggs);
+    searchResult.setMetadata(metadata);
+
+    return searchResult;
+  }
+
+  private static ScrollResult createScrollResultWithAggregations(List<String> aggregationNames) {
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setEntities(new SearchEntityArray());
+    scrollResult.setPageSize(10);
+    scrollResult.setNumEntities(0);
+
+    SearchResultMetadata metadata = new SearchResultMetadata();
+    AggregationMetadataArray aggs = new AggregationMetadataArray();
+
+    for (String name : aggregationNames) {
+      aggs.add(createAggregationMetadata(name));
+    }
+
+    metadata.setAggregations(aggs);
+    scrollResult.setMetadata(metadata);
+
+    return scrollResult;
+  }
+
+  private static AggregationMetadata createAggregationMetadata(String name) {
+    AggregationMetadata agg = new AggregationMetadata();
+    agg.setName(name);
+    agg.setDisplayName(name);
+    agg.setAggregations(new LongMap());
+    return agg;
+  }
+
+  private static boolean hasAggregation(AggregationMetadataArray aggs, String name) {
+    for (AggregationMetadata agg : aggs) {
+      if (name.equals(agg.getName())) {
+        return true;
+      }
+    }
+    return false;
   }
 }

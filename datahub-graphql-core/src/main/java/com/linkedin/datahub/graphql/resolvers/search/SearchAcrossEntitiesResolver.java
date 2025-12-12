@@ -113,8 +113,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             List<String> structuredPropertyFacets =
                 shouldIncludeStructuredPropertyFacets ? getStructuredPropertyFacets(context) : null;
 
-            return UrnSearchResultsMapper.map(
-                context,
+            // Execute search and remove default filter fields from aggregations
+            SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
@@ -123,7 +123,13 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     start,
                     count,
                     sortCriteria,
-                    structuredPropertyFacets));
+                    structuredPropertyFacets);
+
+            // Cleanse aggregations to remove hidden/default filter fields
+            searchResult =
+                DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+            return UrnSearchResultsMapper.map(context, searchResult);
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

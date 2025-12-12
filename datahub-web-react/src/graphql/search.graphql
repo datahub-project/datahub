@@ -373,36 +373,12 @@ fragment autoCompleteFields on Entity {
         platform {
             ...platformFields
         }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
         info {
+            title
             source {
                 sourceType
                 externalUrl
                 externalId
-            }
-            created {
-                time
-                actor {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                    editableProperties {
-                        pictureLink
-                    }
-                }
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    ...entityDisplayNameFields
-                    editableProperties {
-                        pictureLink
-                    }
-                }
             }
         }
         parentDocuments {
