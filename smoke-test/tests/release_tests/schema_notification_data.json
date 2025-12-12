@@ -1,0 +1,55 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "SampleHdfsSchema",
+        "platform": "urn:li:dataPlatform:hdfs",
+        "version": 0,
+        "created": {
+          "time": 1581407189000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1581407189000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.MySqlDDL": {
+            "tableSchema": "schema"
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "field_foo",
+            "nullable": false,
+            "description": "Foo field description",
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar(100)",
+            "recursive": false
+          },
+          {
+            "fieldPath": "field_bar",
+            "nullable": false,
+            "description": "Bar field description",
+            "type": {
+              "type": {
+                "com.linkedin.schema.BooleanType": {}
+              }
+            },
+            "nativeDataType": "boolean",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  }
+]

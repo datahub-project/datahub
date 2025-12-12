@@ -219,7 +219,10 @@ class AgentRunner:
             conversational_parser=config.conversational_parser,
         )
 
-        logger.info(
+        # Create bound logger with session_id for consistent logging
+        self._logger = logger.bind(session_id=self.session_id)
+
+        self._logger.info(
             f"Initialized {config.agent_name} (session={self.session_id}) with {len(self.tools)} tools"
         )
 
@@ -253,15 +256,15 @@ class AgentRunner:
         """
         # Log messages for debugging
         if isinstance(message, ToolResult):
-            logger.debug(
+            self._logger.debug(
                 f"Adding ToolResult for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000, show_length=True)}"
             )
         elif isinstance(message, ToolResultError):
-            logger.debug(
+            self._logger.debug(
                 f"Adding ToolResultError for {message.tool_request.tool_name}: {truncate(str(message), max_length=1000, show_length=True)}"
             )
         else:
-            logger.debug(
+            self._logger.debug(
                 f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400, show_length=True)}"
             )
 
@@ -408,7 +411,7 @@ class AgentRunner:
         # Log multiple tool calls in single response
         tool_use_blocks = [block for block in response_content if "toolUse" in block]
         if len(tool_use_blocks) > 1:
-            logger.info(
+            self._logger.info(
                 f"LLM returned {len(tool_use_blocks)} tool calls in a single response. "
                 f"Executing sequentially. Tools: {[block['toolUse']['name'] for block in tool_use_blocks]}"
             )
@@ -452,7 +455,7 @@ class AgentRunner:
             # Direct response without using tools (fallback case)
             response_text = content_block["text"]
             response_text = _strip_reasoning_tag(response_text)
-            logger.info(f"Adding AssistantMessage: {response_text}")
+            self._logger.info(f"Adding AssistantMessage: {response_text}")
             self._add_message(AssistantMessage(text=response_text))
 
             # Log to MLflow
@@ -539,6 +542,7 @@ class AgentRunner:
             ChatbotToolCallEvent(
                 chat_session_id=self.session_id,
                 tool_name=tool_name,
+                tool_input=tool_request.tool_input,
                 tool_execution_duration_sec=timer.elapsed_seconds(),
                 tool_result_length=len(str(result)) if result else None,
                 tool_result_is_error=error is not None,

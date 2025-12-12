@@ -234,19 +234,23 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 is_followup_question=is_followup_question,
             )
         )
-        logger.debug(f"Successfully sent Slack response to channel {channel_id}")
+        logger.bind(session_id=agent.session_id).debug(
+            f"Successfully sent Slack response. channel_id={channel_id}, thread_id={event.thread_ts}, message_id={event.message_ts}"
+        )
     except Exception as e:
         if response_ts is not None:
-            logger.exception(f"Failed to send successful response {channel_id}: {e}")
+            logger.exception(
+                f"Failed to send successful response. channel_id={channel_id}, thread_id={event.thread_ts} message_id={event.message_ts}: {e}"
+            )
             if isinstance(e, AgentMaxToolCallsExceededError):
-                text = ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question."
+                text = f":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question.\n\n_Reference: message_id={event.message_ts}_"
             elif isinstance(
                 e, (AgentMaxTokensExceededError, AgentOutputMaxTokensExceededError)
             ):
                 # Keeping this for now, however this case should not appear with context reducers.
-                text = ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread."
+                text = f":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread.\n\n_Reference: message_id={event.message_ts}_"
             else:
-                text = ":x: Encountered an internal error"
+                text = f":x: Encountered an internal error\n\n_Reference: message_id={event.message_ts}_"
             app.client.chat_update(
                 channel=channel_id,
                 ts=response_ts,
@@ -256,7 +260,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             )
         else:
             logger.exception(
-                f"Failed to send Slack response to channel {channel_id}: {e}"
+                f"Failed to send Slack response. channel_id={channel_id}, thread_id={event.thread_ts} message_id={event.message_ts}: {e}"
             )
         # Track failed interaction with None defaults, updated if agent exists
         event_data = ChatbotInteractionEvent(

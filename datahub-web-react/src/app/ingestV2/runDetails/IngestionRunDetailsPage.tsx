@@ -79,7 +79,7 @@ export default function IngestionRunDetailsPage() {
                 <EmbeddedChat
                     context={chatContext}
                     agentName="IngestionTroubleshooter"
-                    originType={DataHubAiConversationOriginType.DatahubUi}
+                    originType={DataHubAiConversationOriginType.IngestionUi}
                     title="Ask DataHub - Run Details"
                 />
             }

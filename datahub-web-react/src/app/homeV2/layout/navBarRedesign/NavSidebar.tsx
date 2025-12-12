@@ -40,6 +40,8 @@ import {
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useContextMenuItems';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
+import { useHasIngestionSources } from '@app/homeV3/freeTrial/useHasIngestionSources';
 import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
@@ -158,6 +160,8 @@ export const NavSidebar = () => {
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
+    const { hasIngestionSources } = useHasIngestionSources();
+    const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showStructuredProperties =
@@ -407,7 +411,7 @@ export const NavSidebar = () => {
                         isHidden: !showDataSources,
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
-                        link: PageRoutes.INGESTION,
+                        link: ingestionLink,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

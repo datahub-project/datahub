@@ -239,36 +239,40 @@ def check_slack_notification(
     for message in messages:
         message_text = message.get("text", "")
         if incident_title in message_text:
-            logger.info(f"Found notification message: {message_text}")
-            found_message = message
-            break
+            if expected_text:
+                # Check if expected_text is in message text or blocks
+                text_found = expected_text in message_text
+
+                if not text_found:
+                    blocks = message.get("blocks", [])
+                    text_found = _find_text_in_blocks(blocks, expected_text)
+
+                if not text_found:
+                    attachments = message.get("attachments", [])
+                    for attachment in attachments:
+                        attachment_blocks = attachment.get("blocks", [])
+                        if _find_text_in_blocks(attachment_blocks, expected_text):
+                            text_found = True
+                            break
+
+                # Only use this message if it contains both incident_title and expected_text
+                if text_found:
+                    logger.info(f"Found notification message: {message_text}")
+                    found_message = message
+                    break
+            else:
+                # No expected_text filter, just match on incident_title
+                logger.info(f"Found notification message: {message_text}")
+                found_message = message
+                break
 
     assert found_message is not None, (
         f"Slack notification not found for incident '{incident_title}'"
+        + (f" with text '{expected_text}'" if expected_text else "")
     )
 
+    # If we found a message and expected_text was provided, we already verified it contains the text
     if expected_text:
-        message_text = found_message.get("text", "")
-        text_found = expected_text in message_text
-
-        if not text_found:
-            blocks = found_message.get("blocks", [])
-            text_found = _find_text_in_blocks(blocks, expected_text)
-
-        if not text_found:
-            attachments = found_message.get("attachments", [])
-            for attachment in attachments:
-                attachment_blocks = attachment.get("blocks", [])
-                if _find_text_in_blocks(attachment_blocks, expected_text):
-                    text_found = True
-                    break
-
-        assert text_found, (
-            f"Expected text '{expected_text}' not found in message text or blocks. "
-            f"Message text: {message_text}, "
-            f"Blocks: {found_message.get('blocks', [])}, "
-            f"Attachments: {found_message.get('attachments', [])}"
-        )
         logger.info(f"Verified message contains expected text: '{expected_text}'")
 
     return found_message

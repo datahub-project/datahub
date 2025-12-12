@@ -85,7 +85,7 @@ public class StreamingChatClientTest {
     // Execute
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, testAuthentication, callback);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, null, testAuthentication, callback);
 
     // Wait for completion
     future.get();
@@ -119,7 +119,7 @@ public class StreamingChatClientTest {
     // Execute without callback (should not throw)
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, testAuthentication, null);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, null, testAuthentication, null);
 
     future.get(); // Should complete successfully
   }
@@ -138,7 +138,7 @@ public class StreamingChatClientTest {
     // Execute - should throw
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, testAuthentication, null);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, null, testAuthentication, null);
 
     try {
       future.get();
@@ -186,7 +186,7 @@ public class StreamingChatClientTest {
 
     CompletableFuture<Void> future =
         streamingChatClient.sendStreamingMessage(
-            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, testAuthentication, callback);
+            TEST_CONVERSATION_URN, TEST_MESSAGE_TEXT, null, null, testAuthentication, callback);
 
     future.get();
 

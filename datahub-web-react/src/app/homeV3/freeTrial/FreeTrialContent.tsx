@@ -23,6 +23,7 @@ import {
     TaskList,
 } from '@app/homeV3/freeTrial/FreeTrialContent.styles';
 import { TaskItemComponent } from '@app/homeV3/freeTrial/TaskItemComponent';
+import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
     FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID,
@@ -31,7 +32,6 @@ import {
 } from '@app/onboarding/configV2/FreeTrialConfig';
 import { getStepPropertyByKey } from '@app/onboarding/utils';
 import PageBanner from '@app/sharedV2/PageBanner';
-import { PageRoutes } from '@conf/Global';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
@@ -46,6 +46,7 @@ const STEP_STATE_KEY = 'state';
  */
 const FreeTrialContent = () => {
     const history = useHistory();
+
     const { educationSteps } = useContext(EducationStepsContext);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -83,6 +84,8 @@ const FreeTrialContent = () => {
         const total = ingestionSourcesData?.listIngestionSources?.total || 0;
         return total > 0;
     }, [ingestionSourcesData]);
+
+    const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     // Check if the parent Get Started card should be shown
     const parentState = getStepPropertyByKey(educationSteps, FREE_TRIAL_ONBOARDING_ID, STEP_STATE_KEY);
@@ -124,7 +127,7 @@ const FreeTrialContent = () => {
     const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
     const handleConnectData = () => {
-        history.push(PageRoutes.INGESTION);
+        history.push(ingestionLink);
     };
 
     const handleDismiss = (stepId: string) => {
@@ -134,7 +137,9 @@ const FreeTrialContent = () => {
 
     const handleStart = (stepId: string) => {
         // TODO: Navigate to the appropriate page based on stepId
-        console.log('Start clicked for:', stepId);
+        if (stepId === FREE_TRIAL_ONBOARDING_CONNECT_SOURCE_ID) {
+            history.push(ingestionLink);
+        }
     };
 
     return (

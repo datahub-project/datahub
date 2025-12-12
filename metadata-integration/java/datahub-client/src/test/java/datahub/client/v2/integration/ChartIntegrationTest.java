@@ -8,7 +8,6 @@ import datahub.client.v2.entity.Chart;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -18,10 +17,7 @@ import org.junit.Test;
  *
  * <p>To run: export DATAHUB_SERVER=http://localhost:8080 ./gradlew
  * :metadata-integration:java:datahub-client:test --tests "*Integration*"
- *
- * <p>NOTE: These tests are temporarily disabled due to flaky lineage-related failures.
  */
-@Ignore("Temporarily disabled due to flaky lineage-related test failures")
 public class ChartIntegrationTest extends BaseIntegrationTest {
 
   @Test

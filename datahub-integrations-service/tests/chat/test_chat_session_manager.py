@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
+from datahub_integrations.chat.chat_api import ChatContext
 from datahub_integrations.chat.chat_history import ChatHistory
 from datahub_integrations.chat.chat_session_manager import (
     ChatMessageEvent,
@@ -255,7 +256,7 @@ def test_send_message_loads_existing_session(
             )
 
             # Should load the existing session
-            mock_load.assert_called_once_with(urn, "DataCatalogExplorer")
+            mock_load.assert_called_once_with(urn, "DataCatalogExplorer", None)
 
             # Check conversation_urn is set correctly in events
             assert all(e.conversation_urn == urn for e in events)
@@ -933,6 +934,191 @@ def test_send_message_stops_saving_on_early_exit(
             ]
             # Should only have the initial user TEXT message, not the final AI response
             assert len(text_saves) == 1
+
+
+def test_load_session_with_message_context(mock_datahub_client: Mock) -> None:
+    """Test that load_session accepts and combines message context."""
+    with (
+        patch(
+            "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+        ) as mock_cm,
+        patch(
+            "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES"
+        ) as mock_factories,
+        patch("datahub_integrations.chat.chat_session_manager.mcp") as mock_mcp,
+    ):
+        mock_instance = mock_cm.return_value
+        mock_agent = Mock()
+        mock_factory = Mock(return_value=mock_agent)
+        mock_factories.__contains__ = Mock(return_value=True)
+        mock_factories.__getitem__ = Mock(return_value=mock_factory)
+
+        conversation_context = "User is editing a source"
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            conversation_context,
+        )
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        message_context = ChatContext(
+            text="Current step: Configure Recipe",
+            entity_urns=["urn:li:dataSource:123"],
+        )
+
+        manager.load_session(
+            "urn:li:dataHubAiConversation:123", message_context=message_context
+        )
+
+        # Verify factory was called with combined context
+        expected_context = (
+            "User is editing a source\n\n"
+            "Current Context: Current step: Configure Recipe"
+        )
+        mock_factory.assert_called_with(
+            client=mock_datahub_client,
+            chat_type=ChatType.DATAHUB_UI,
+            history=ChatHistory(messages=[]),
+            tools=[mock_mcp],
+            context=expected_context,
+        )
+
+
+def test_load_session_with_only_message_context(mock_datahub_client: Mock) -> None:
+    """Test load_session when only message context is provided."""
+    with (
+        patch(
+            "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+        ) as mock_cm,
+        patch(
+            "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES"
+        ) as mock_factories,
+        patch("datahub_integrations.chat.chat_session_manager.mcp") as mock_mcp,
+    ):
+        mock_instance = mock_cm.return_value
+        mock_agent = Mock()
+        mock_factory = Mock(return_value=mock_agent)
+        mock_factories.__contains__ = Mock(return_value=True)
+        mock_factories.__getitem__ = Mock(return_value=mock_factory)
+
+        # No conversation context
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        message_context = ChatContext(text="Current step: Test Connection")
+
+        manager.load_session(
+            "urn:li:dataHubAiConversation:123", message_context=message_context
+        )
+
+        # Only message context should be used
+        mock_factory.assert_called_with(
+            client=mock_datahub_client,
+            chat_type=ChatType.DATAHUB_UI,
+            history=ChatHistory(messages=[]),
+            tools=[mock_mcp],
+            context="Current step: Test Connection",
+        )
+
+
+def test_load_session_without_message_context(mock_datahub_client: Mock) -> None:
+    """Test load_session without message context uses only conversation context."""
+    with (
+        patch(
+            "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+        ) as mock_cm,
+        patch(
+            "datahub_integrations.chat.chat_session_manager.AGENT_FACTORIES"
+        ) as mock_factories,
+        patch("datahub_integrations.chat.chat_session_manager.mcp") as mock_mcp,
+    ):
+        mock_instance = mock_cm.return_value
+        mock_agent = Mock()
+        mock_factory = Mock(return_value=mock_agent)
+        mock_factories.__contains__ = Mock(return_value=True)
+        mock_factories.__getitem__ = Mock(return_value=mock_factory)
+
+        conversation_context = "User is viewing run details"
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            conversation_context,
+        )
+
+        manager = ChatSessionManager(
+            system_client=mock_datahub_client, tools_client=mock_datahub_client
+        )
+
+        # No message context provided
+        manager.load_session("urn:li:dataHubAiConversation:123")
+
+        # Only conversation context should be used
+        mock_factory.assert_called_with(
+            client=mock_datahub_client,
+            chat_type=ChatType.DATAHUB_UI,
+            history=ChatHistory(messages=[]),
+            tools=[mock_mcp],
+            context=conversation_context,
+        )
+
+
+def test_send_message_with_message_context(mock_datahub_client: Mock) -> None:
+    """Test send_message passes message context to load_session."""
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
+
+    message_context = ChatContext(
+        text="Current step: Configure Recipe",
+        entity_urns=["urn:li:dataSource:123"],
+    )
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            "Base context",
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        with patch.object(manager, "load_session") as mock_load:
+            mock_session = Mock()
+            mock_session.history = ChatHistory(messages=[])
+            mock_session.generate_formatted_message = Mock(
+                return_value=NextMessage(text="Response", suggestions=[])
+            )
+            mock_session.set_progress_callback = Mock(
+                return_value=Mock(__enter__=Mock(), __exit__=Mock())
+            )
+            mock_load.return_value = mock_session
+
+            urn = "urn:li:dataHubAiConversation:123"
+            list(
+                manager.send_message(
+                    text="Hello",
+                    user_urn="urn:li:corpuser:test",
+                    conversation_urn=urn,
+                    message_context=message_context,
+                )
+            )
+
+            # Verify load_session was called with message_context
+            mock_load.assert_called_once_with(
+                urn, "DataCatalogExplorer", message_context
+            )
 
 
 if __name__ == "__main__":

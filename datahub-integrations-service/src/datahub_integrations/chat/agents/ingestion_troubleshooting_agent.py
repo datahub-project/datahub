@@ -28,6 +28,7 @@ from datahub_integrations.chat.agents.data_catalog_tools import (
     is_smart_search_enabled,
 )
 from datahub_integrations.chat.agents.tools.troubleshoot import (
+    is_troubleshoot_available,
     troubleshoot,
 )
 from datahub_integrations.chat.chat_history import (
@@ -104,17 +105,16 @@ def create_ingestion_troubleshooting_agent(
             )
         )
 
-    # Add custom tools for ingestion troubleshooting
-    plannable_tools.extend(
-        [
+    # Add troubleshoot tool if a provider is configured
+    if is_troubleshoot_available():
+        plannable_tools.append(
             ToolWrapper.from_function(
                 fn=async_background(troubleshoot),
                 name="troubleshoot",
                 description=troubleshoot.__doc__
                 or "Search DataHub documentation and troubleshoot issues",
-            ),
-        ]
-    )
+            )
+        )
 
     # Create agent configuration (internal tools will be added after AgentRunner creation)
     config = AgentConfig(
