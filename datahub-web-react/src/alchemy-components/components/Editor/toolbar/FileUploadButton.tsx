@@ -26,7 +26,7 @@ export const FileUploadButton = () => {
     const [showDropdown, setShowDropdown] = useState(false);
 
     // Hide the button when uploading of files is disabled
-    if (!fileExtension.options.onFileUpload) return null;
+    if (!fileExtension.options.uploadFileProps?.onFileUpload) return null;
 
     return (
         <Dropdown

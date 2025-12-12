@@ -425,6 +425,7 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000`                          | Maximum number of relationships for impact analysis (impact.maxRelations)                             | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `${elasticsearch.dataNodeCount}` | Number of slices for parallel search operations (impact.slices), defaults to dataNodeCount, minimum 2 | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`                             | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive)                       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_PARTIAL_RESULTS`         | `false`                          | If true, return partial results when maxRelations is reached; if false (default), throw an error      | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`                             | Maximum parallel lineage graph queries                                                                | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`                           | Reduce query nesting if possible                                                                      | GMS        |
 | `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`                           | Enable creation of point in time snapshots for graph queries                                          | GMS        |
@@ -493,10 +494,12 @@ Reference Links:
 
 ### Consumer Pool Configuration
 
-| Environment Variable               | Default | Description                | Components |
-| ---------------------------------- | ------- | -------------------------- | ---------- |
-| `KAFKA_CONSUMER_POOL_INITIAL_SIZE` | `1`     | Consumer pool initial size | GMS        |
-| `KAFKA_CONSUMER_POOL_MAX_SIZE`     | `5`     | Consumer pool maximum size | GMS        |
+| Environment Variable                                    | Default | Description                                                 | Components |
+| ------------------------------------------------------- | ------- | ----------------------------------------------------------- | ---------- |
+| `KAFKA_CONSUMER_POOL_INITIAL_SIZE`                      | `1`     | Consumer pool initial size                                  | GMS        |
+| `KAFKA_CONSUMER_POOL_MAX_SIZE`                          | `5`     | Consumer pool maximum size                                  | GMS        |
+| `KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS`        | `5`     | Timeout in seconds for validating consumer health           | GMS        |
+| `KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES` | `5`     | Interval in minutes for caching consumer validation results | GMS        |
 
 ### Schema Registry Configuration
 
@@ -772,6 +775,7 @@ The following environment variables are used in the codebase but may not be expl
 | `SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT`               | `false` | Skip reindexing data job input/output              | System Update |
 | `SKIP_GENERATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA` | `false` | Skip generating schema fields from schema metadata | System Update |
 | `SKIP_MIGRATE_SCHEMA_FIELDS_DOC_ID`                | `false` | Skip migrating schema fields doc IDs               | System Update |
+| `SKIP_CREATE_USAGE_EVENT_INDICES_STEP`             | `false` | Skip creating usage event indices/data streams     | System Update |
 | `BACKFILL_BROWSE_PATHS_V2`                         | `false` | Enable backfilling browse paths V2                 | System Update |
 | `READER_POOL_SIZE`                                 | `null`  | Reader pool size for restore operations            | System Update |
 | `WRITER_POOL_SIZE`                                 | `null`  | Writer pool size for restore operations            | System Update |

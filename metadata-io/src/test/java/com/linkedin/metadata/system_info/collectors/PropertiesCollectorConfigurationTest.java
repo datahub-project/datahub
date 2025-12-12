@@ -118,6 +118,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
+          "systemUpdate.*.limit",
+          "systemUpdate.*.delayMs",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
@@ -272,6 +274,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumer.stopOnDeserializationError",
           "kafka.consumerPool.initialSize",
           "kafka.consumerPool.maxSize",
+          "kafka.consumerPool.validationTimeoutSeconds",
+          "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.compressionType",
@@ -461,11 +465,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedUploadUrlExpirationSeconds",
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
+          "datahub.readOnly",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
           "featureFlags.assetSummaryPageV1",
+          "featureFlags.datasetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
           "featureFlags.dataContractsEnabled",
@@ -498,6 +504,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
           "featureFlags.showIngestionPageRedesign",
+          "featureFlags.ingestionOnboardingRedesignV1",
           "featureFlags.showIntroducePage",
           "featureFlags.showLineageExpandMore",
           "featureFlags.showManageStructuredProperties",
@@ -604,6 +611,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.impact.keepAlive",
           "elasticsearch.search.graph.impact.maxHops",
           "elasticsearch.search.graph.impact.maxRelations",
+          "elasticsearch.search.graph.impact.partialResults",
+          "elasticsearch.search.graph.impact.searchQueryTimeReservation",
           "elasticsearch.search.graph.impact.slices",
           "elasticsearch.search.graph.lineageMaxHops",
           "elasticsearch.search.graph.maxThreads",

@@ -22,7 +22,7 @@ export default function OwnersProperty(props: PropertyComponentProps) {
 
         return (
             <HoverEntityTooltip entity={owner} showArrow={false}>
-                <Link to={`${entityRegistry.getEntityUrl(owner.type, owner.urn)}`}>
+                <Link to={`${entityRegistry.getEntityUrl(owner.type, owner.urn)}`} data-testid={`owner-${owner.urn}`}>
                     <Avatar name={displayName} imageUrl={avatarUrl} size="sm" showInPill />
                 </Link>
             </HoverEntityTooltip>

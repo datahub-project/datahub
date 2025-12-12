@@ -20,9 +20,15 @@ type Props = {
 const RichTextContent = ({ content, form }: Props) => {
     return (
         <Form form={form} initialValues={{ content }}>
-            <Form.Item name="content" data-testid="rich-text-documentation">
+            <Form.Item name="content">
                 <EditorContainer>
-                    <Editor content={content} placeholder="Write some text here..." hideBorder />
+                    <Editor
+                        content={content}
+                        placeholder="Write some text here..."
+                        hideBorder
+                        dataTestId="rich-text-documentation"
+                        onChange={(newContent) => form.setFieldValue('content', newContent)}
+                    />
                 </EditorContainer>
             </Form.Item>
         </Form>

@@ -98,6 +98,7 @@ integration_test_requirements = {
     "snowflake-connector-python>=2.7.10",
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
+    "apache-airflow-providers-teradata",
 }
 
 

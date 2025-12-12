@@ -45,6 +45,12 @@ module.exports = {
       items: [
         // "docs/how/ui-tabs-guide",
         {
+          label: "Ask DataHub",
+          type: "doc",
+          id: "docs/features/feature-guides/ask-datahub",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -213,12 +219,12 @@ module.exports = {
           ],
         },
         {
-          label: "Custom Asset Summaries",
+          label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",
         },
         {
-          label: "Custom Home Page",
+          label: "Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
         },
@@ -241,6 +247,11 @@ module.exports = {
           label: "Domains",
           type: "doc",
           id: "docs/domains",
+        },
+        {
+          label: "File Upload and Download in Documentation",
+          type: "doc",
+          id: "docs/features/feature-guides/file-upload-download",
         },
         {
           label: "Incidents",
@@ -348,6 +359,12 @@ module.exports = {
           label: "Search",
           type: "doc",
           id: "docs/how/search",
+        },
+        {
+          label: "Search Access Controls",
+          type: "doc",
+          id: "docs/features/feature-guides/search-access-controls",
+          className: "saasOnly",
         },
         {
           label: "Sync Status",
@@ -491,6 +508,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_15",
         "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
@@ -894,15 +912,55 @@ module.exports = {
       ],
     },
     {
-      type: "doc",
+      type: "category",
       label: "Java SDK",
-      id: "metadata-integration/java/as-a-library",
+      items: [
+        {
+          type: "doc",
+          label: "Java SDK V1 (Legacy)",
+          id: "metadata-integration/java/as-a-library",
+        },
+        {
+          type: "category",
+          label: "SDK V2",
+          link: {
+            type: "doc",
+            id: "metadata-integration/java/as-a-library-v2",
+          },
+          items: [
+            "metadata-integration/java/docs/sdk-v2/getting-started",
+            "metadata-integration/java/docs/sdk-v2/client",
+            "metadata-integration/java/docs/sdk-v2/entities-overview",
+            {
+              type: "category",
+              label: "Entity Guides",
+              items: [
+                "metadata-integration/java/docs/sdk-v2/dataset-entity",
+                "metadata-integration/java/docs/sdk-v2/chart-entity",
+                "metadata-integration/java/docs/sdk-v2/dashboard-entity",
+                "metadata-integration/java/docs/sdk-v2/container-entity",
+                "metadata-integration/java/docs/sdk-v2/dataflow-entity",
+                "metadata-integration/java/docs/sdk-v2/datajob-entity",
+                "metadata-integration/java/docs/sdk-v2/mlmodel-entity",
+                "metadata-integration/java/docs/sdk-v2/mlmodelgroup-entity",
+              ],
+            },
+            "metadata-integration/java/docs/sdk-v2/patch-operations",
+            "metadata-integration/java/docs/sdk-v2/migration-from-v1",
+            "metadata-integration/java/docs/sdk-v2/design-principles",
+          ],
+        },
+      ],
     },
     {
       type: "category",
       label: "DataHub CLI",
       link: { type: "doc", id: "docs/cli" },
-      items: ["docs/cli-commands/dataset", "docs/datahub_lite"],
+      items: [
+        "docs/cli-commands/dataset",
+        "docs/cli-commands/graphql",
+        "docs/datahub_lite",
+      ],
     },
     {
       type: "category",
@@ -1093,6 +1151,7 @@ module.exports = {
     {
       "Developing on DataHub": [
         "docs/developers",
+        "docs/developers/java-sdk-v2-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1121,7 +1180,9 @@ module.exports = {
         "docs/advanced/writing-mcps",
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/api-tracing",
+        "docs/advanced/micrometer-best-practices",
         "datahub-web-react/src/app/analytics/README",
+        // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",

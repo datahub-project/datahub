@@ -259,6 +259,7 @@ snowflake_common = {
     "cryptography",
     "msal",
     *cachetools_lib,
+    *classification_lib,
 }
 
 trino = {
@@ -323,6 +324,8 @@ s3_base = {
     # moto 5.0.0 drops support for Python 3.7
     "moto[s3]<5.0.0",
     *path_spec_common,
+    # cachetools is used by operation_config which is imported by profiling config
+    *cachetools_lib,
 }
 
 threading_timeout_common = {
@@ -458,7 +461,10 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
-    "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
+    "cockroachdb": sql_common
+    | postgres_common
+    | aws_common
+    | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
@@ -540,7 +546,7 @@ plugins: Dict[str, Set[str]] = {
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": sql_common | mysql | aws_common,
     # mariadb should have same dependency as mysql
-    "mariadb": sql_common | mysql,
+    "mariadb": sql_common | mysql | aws_common,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -558,7 +564,11 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
+    # S3 includes PySpark by default for profiling support (backward compatible)
+    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
+    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
     "s3": {*s3_base, *data_lake_profiling},
+    "s3-slim": {*s3_base},
     "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1"},
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
@@ -568,7 +578,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
-    "sql-queries": usage_common | sqlglot_lib,
+    "sql-queries": usage_common | sqlglot_lib | aws_common | {"smart-open[s3]>=5.2.1"},
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
@@ -828,8 +838,8 @@ entry_points = {
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
-        "hive = datahub.ingestion.source.sql.hive:HiveSource",
-        "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
+        "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
@@ -872,7 +882,7 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
-        "presto-on-hive = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",

@@ -4,29 +4,19 @@ from typing import Any, Optional
 import sqlglot
 from pydantic import BaseModel
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
-
 
 class _ParserBaseModel(
     BaseModel,
     arbitrary_types_allowed=True,
-    json_encoders={
-        SchemaFieldDataTypeClass: lambda v: v.to_obj(),
-    },
 ):
     def json(self, *args: Any, **kwargs: Any) -> str:
-        if PYDANTIC_VERSION_2:
-            return super().model_dump_json(*args, **kwargs)  # type: ignore
-        else:
-            return super().json(*args, **kwargs)
+        return super().model_dump_json(*args, **kwargs)  # type: ignore
 
 
 @functools.total_ordering
 class _FrozenModel(_ParserBaseModel, frozen=True):
     def __lt__(self, other: "_FrozenModel") -> bool:
-        # TODO: The __fields__ attribute is deprecated in Pydantic v2.
-        for field in self.__fields__:
+        for field in self.__class__.model_fields:
             self_v = getattr(self, field)
             other_v = getattr(other, field)
 

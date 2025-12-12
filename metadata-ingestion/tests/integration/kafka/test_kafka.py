@@ -161,7 +161,7 @@ def test_kafka_source_oauth_cb_signature():
         ConfigurationError,
         match=("oauth_cb function must accept single positional argument."),
     ):
-        KafkaSourceConfig.parse_obj(
+        KafkaSourceConfig.model_validate(
             {
                 "connection": {
                     "bootstrap": "foobar:9092",
@@ -174,7 +174,7 @@ def test_kafka_source_oauth_cb_signature():
         ConfigurationError,
         match=("oauth_cb function must accept single positional argument."),
     ):
-        KafkaSourceConfig.parse_obj(
+        KafkaSourceConfig.model_validate(
             {
                 "connection": {
                     "bootstrap": "foobar:9092",

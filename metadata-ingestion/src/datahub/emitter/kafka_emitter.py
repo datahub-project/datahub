@@ -6,6 +6,7 @@ from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import SerializationContext, StringSerializer
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
@@ -49,10 +50,15 @@ class KafkaEmitterConfig(ConfigModel):
         },
     )
 
-    @pydantic.validator("topic_routes")
+    @field_validator("topic_routes", mode="after")
+    @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
-        assert MCE_KEY in v, f"topic_routes must contain a route for {MCE_KEY}"
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
+        if MCE_KEY not in v:
+            logger.warning(
+                f"MCE topic not configured in topic_routes. MCE emissions will fail. "
+                f"To enable MCE emission, add '{MCE_KEY}' to topic_routes."
+            )
         return v
 
 
@@ -105,7 +111,9 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
 
         self.producers = {
-            key: SerializingProducer(value) for (key, value) in producers_config.items()
+            key: SerializingProducer(value)
+            for (key, value) in producers_config.items()
+            if key in self.config.topic_routes
         }
 
     def emit(
@@ -127,6 +135,13 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
     ) -> None:
+        # Report error via callback if MCE_KEY is not configured
+        if MCE_KEY not in self.config.topic_routes:
+            error = Exception(
+                f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
+            )
+            callback(error, "MCE emission failed - topic not configured")
+            return
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
         producer.poll(0)

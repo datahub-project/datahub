@@ -21,7 +21,7 @@ class DataHubLiteSinkConfig(LiteLocalConfig):
 
 class DataHubLiteSink(Sink[DataHubLiteSinkConfig, SinkReport]):
     def __post_init__(self) -> None:
-        self.datahub_lite = get_datahub_lite(self.config.dict())
+        self.datahub_lite = get_datahub_lite(self.config.model_dump())
 
     def write_record_async(
         self,

@@ -56,6 +56,8 @@ public enum DataHubUsageEventType {
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
+  INGESTION_TEST_CONNECTION_CLICK_EVENT("IngestionTestConnectionClickEvent"),
+  INGESTION_TEST_CONNECTION_CLOSE_EVENT("IngestionTestConnectionCloseEvent"),
   INGESTION_EXECUTION_RESULT_VIEWED_EVENT("IngestionExecutionResultViewedEvent"),
   INGESTION_SOURCE_CONFIGURATION_IMPRESSION_EVENT("IngestionSourceConfigurationImpressionEvent"),
   INGESTION_VIEW_ALL_CLICK_EVENT("IngestionViewAllClickEvent"),
@@ -143,6 +145,8 @@ public enum DataHubUsageEventType {
   FILE_UPLOAD_FAILED_EVENT("FileUploadFailedEvent"),
   FILE_UPLOAD_SUCCEEDED_EVENT("FileUploadSucceededEvent"),
   FILE_DOWNLOAD_VIEW_EVENT("FileDownloadViewEvent"),
+  FILE_UPLOAD_LATENCY_EVENT("FileUploadLatencyEvent"),
+  FILE_DOWNLOAD_LATENCY_EVENT("FileDownloadLatencyEvent"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),
@@ -156,7 +160,11 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
-  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent");
+  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+  CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
+  MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
+  EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent");
 
   private final String type;
 

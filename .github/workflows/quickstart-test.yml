@@ -34,7 +34,7 @@ jobs:
           sudo docker image prune -a -f || true
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -98,13 +98,13 @@ jobs:
 
       - name: bring up datahub using old cli
         run: |
-          datahub docker quickstart
+          datahub docker quickstart --version v1.2.0
           datahub docker check
           datahub docker ingest-sample-data
           datahub docker check
 
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
