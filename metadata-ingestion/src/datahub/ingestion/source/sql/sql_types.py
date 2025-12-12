@@ -478,6 +478,26 @@ NEO4J_TYPES_MAP: Dict[str, Any] = {
     "relationship": StringType,  # Neo4j object type
 }
 
+# Google Dataplex type mapping
+# https://cloud.google.com/dataplex/docs/reference/rest/v1/projects.locations.lakes.zones.entities#Schema.Type
+DATAPLEX_TYPES_MAP: Dict[str, Any] = {
+    "BOOL": BooleanType,
+    "BYTE": BytesType,
+    "INT16": NumberType,
+    "INT32": NumberType,
+    "INT64": NumberType,
+    "FLOAT": NumberType,
+    "DOUBLE": NumberType,
+    "DECIMAL": NumberType,
+    "STRING": StringType,
+    "BINARY": BytesType,
+    "TIMESTAMP": TimeType,
+    "DATE": DateType,
+    "TIME": TimeType,
+    "RECORD": RecordType,
+    "NULL": NullType,
+}
+
 
 _merged_mapping = {
     "boolean": BooleanType,
@@ -498,6 +518,7 @@ _merged_mapping = {
     **ATHENA_SQL_TYPES_MAP,
     **VERTICA_SQL_TYPES_MAP,
     **NEO4J_TYPES_MAP,
+    **DATAPLEX_TYPES_MAP,
 }
 
 
