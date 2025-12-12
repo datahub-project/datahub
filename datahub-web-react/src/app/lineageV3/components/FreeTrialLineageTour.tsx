@@ -1,4 +1,4 @@
-import { CalloutCard, Text, colors } from '@components';
+import { CalloutCard, Icon, Text, colors } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -26,16 +26,16 @@ const ParagraphContent = styled(Text)`
 
 interface TourStep {
     id: string;
-    icon: string;
+    icon: React.ReactNode;
     title: string;
     content: React.ReactNode;
-    expandColumns?: boolean; // If true, expand columns before showing this step
+    expandColumns?: boolean;
 }
 
 const TOUR_STEPS: TourStep[] = [
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_1_ID,
-        icon: 'Graph',
+        icon: <Icon icon="Graph" source="phosphor" color="violet" size="2xl" weight="duotone" />,
         title: 'DataHub Lineage Features',
         content: (
             <ParagraphContent>
@@ -46,7 +46,7 @@ const TOUR_STEPS: TourStep[] = [
     },
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_2_ID,
-        icon: 'Graph',
+        icon: <Icon icon="Graph" source="phosphor" color="violet" size="2xl" weight="duotone" />,
         title: 'DataHub Lineage Features',
         content: (
             <BulletList>
@@ -58,7 +58,7 @@ const TOUR_STEPS: TourStep[] = [
     },
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_3_ID,
-        icon: 'Graph',
+        icon: <Icon icon="Graph" source="phosphor" color="violet" size="2xl" weight="duotone" />,
         title: 'Column-Level Lineage',
         expandColumns: true,
         content: (
@@ -71,7 +71,7 @@ const TOUR_STEPS: TourStep[] = [
     },
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_4_ID,
-        icon: 'Confetti',
+        icon: <Icon icon="Confetti" source="phosphor" color="violet" size="2xl" weight="duotone" />,
         title: "You've Seen Lineage!",
         content: (
             <ParagraphContent>Continue learning about DataHub next with Ask Datahub and our Sources.</ParagraphContent>

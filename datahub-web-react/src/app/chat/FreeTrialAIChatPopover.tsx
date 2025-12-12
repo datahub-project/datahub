@@ -1,4 +1,4 @@
-import { CalloutCard, CalloutPosition, Text } from '@components';
+import { CalloutCard, CalloutPosition, Icon, Text } from '@components';
 import React, { useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -16,7 +16,7 @@ export type AIChatPopoverVariant = 'welcome' | 'completion';
 
 interface PopoverConfig {
     stepIds: string[];
-    icon: string;
+    icon: React.ReactNode;
     title: string;
     content: string;
     position: CalloutPosition;
@@ -27,7 +27,7 @@ interface PopoverConfig {
 const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
     welcome: {
         stepIds: [FREE_TRIAL.AI_CHAT_POPOVER_ID],
-        icon: 'Sparkle',
+        icon: <Icon icon="Sparkle" source="phosphor" color="violet" size="xl" weight="fill" />,
         title: 'Ask DataHub',
         content: 'Chat interface for asking questions about your data and metadata.',
         position: 'inline',
@@ -36,7 +36,7 @@ const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
     },
     completion: {
         stepIds: [FREE_TRIAL.AI_CHAT_COMPLETION_POPOVER_ID],
-        icon: 'Sparkle',
+        icon: <Icon icon="Sparkle" source="phosphor" color="violet" size="xl" weight="fill" />,
         title: "You've Seen Ask DataHub",
         content: 'Continue learning about the platform and our connections to your Sources.',
         position: 'fixed-top-right',

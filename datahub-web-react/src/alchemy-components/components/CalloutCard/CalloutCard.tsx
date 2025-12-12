@@ -3,8 +3,8 @@ import styled, { css } from 'styled-components';
 
 import { Button } from '@components/components/Button';
 import { Card } from '@components/components/Card';
-import { Icon } from '@components/components/Icon';
 import { Text } from '@components/components/Text';
+
 import { colors } from '@src/alchemy-components/theme';
 
 export type CalloutPosition = 'inline' | 'fixed-top-right' | 'fixed-bottom-center';
@@ -69,8 +69,8 @@ const Footer = styled.div`
 `;
 
 export interface CalloutCardProps {
-    /** Icon name from Phosphor icons */
-    icon: string;
+    /** Icon element to display */
+    icon: React.ReactNode;
     /** Title text */
     title: string;
     /** Content - can be string or React node */
@@ -116,15 +116,7 @@ export const CalloutCard = ({
                             {title}
                         </Text>
                     }
-                    icon={
-                        <Icon
-                            icon={icon}
-                            source="phosphor"
-                            color="violet"
-                            size={size === 'sm' ? 'xl' : '2xl'}
-                            weight="duotone"
-                        />
-                    }
+                    icon={icon}
                     iconAlignment="horizontal"
                     isCardClickable={false}
                     width="100%"
@@ -145,4 +137,3 @@ export const CalloutCard = ({
         </CalloutContainer>
     );
 };
-
