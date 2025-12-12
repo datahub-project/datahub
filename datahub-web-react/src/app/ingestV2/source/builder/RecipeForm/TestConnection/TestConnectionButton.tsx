@@ -6,6 +6,7 @@ import { FontWeightOptions, SizeOptions } from '@components/theme/config';
 
 import analytics, { EventType } from '@app/analytics';
 import { EXECUTION_REQUEST_STATUS_FAILURE, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { yamlToJson } from '@app/ingestV2/source/utils';
@@ -79,6 +80,7 @@ function TestConnectionButton({
     const [hasEmittedAnalytics, setHasEmittedAnalytics] = useState(false);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
     const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
+    const ingestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
     useEffect(() => {
         if (requestData && requestData.createTestConnectionRequest) {
@@ -149,6 +151,13 @@ function TestConnectionButton({
                     );
                 });
 
+            analytics.event({
+                type: EventType.IngestionTestConnectionClickEvent,
+                sourceType: getSourceTypeFromRecipeJson(recipeJson) || '',
+                sourceUrn: selectedSource?.urn,
+                ingestionOnboardingRedesignV1,
+            });
+
             setIsLoading(true);
             setIsModalVisible(true);
         }
@@ -157,6 +166,38 @@ function TestConnectionButton({
     const internalFailure = !!testConnectionResult?.internal_failure;
     const basicConnectivityFailure = testConnectionResult?.basic_connectivity?.capable === false;
     const testConnectionFailed = internalFailure || basicConnectivityFailure;
+
+    function hideModal() {
+        // Emit analytics event for closing the modal with status and completion status
+        const hasCompleted = testConnectionResult !== null;
+        let status: 'success' | 'failure' | 'partialSuccess' | 'running' = 'running';
+        const recipeJson = getRecipeJson(recipe);
+
+        if (testConnectionResult) {
+            // Determine status based on test connection results
+            const basicConnectivity = testConnectionResult?.basic_connectivity?.capable;
+            if (basicConnectivity) {
+                status = 'success';
+            } else {
+                // Use testConnectionFailed to determine if it's failure or partial success
+                status = testConnectionFailed ? 'failure' : 'partialSuccess';
+            }
+        } else {
+            // If no test results, determine from hasEmittedAnalytics
+            status = hasEmittedAnalytics ? 'success' : 'running';
+        }
+
+        analytics.event({
+            type: EventType.IngestionTestConnectionCloseEvent,
+            sourceType: selectedSource?.type || getSourceTypeFromRecipeJson(recipeJson) || '',
+            sourceUrn: selectedSource?.urn,
+            hasCompleted,
+            status,
+            ingestionOnboardingRedesignV1,
+        });
+
+        setIsModalVisible(false);
+    }
 
     return (
         <>
@@ -172,7 +213,7 @@ function TestConnectionButton({
                     testConnectionFailed,
                     sourceConfig: sourceConfigs,
                     testConnectionResult,
-                    hideModal: () => setIsModalVisible(false),
+                    hideModal,
                 })}
         </>
     );
