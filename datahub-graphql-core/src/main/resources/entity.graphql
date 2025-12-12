@@ -1788,7 +1788,8 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   The application associated with the dataset
   """
   application: ApplicationAssociation
-    @deprecated(reason: "Use applications instead") @aspectMapping(aspects: ["applications"])
+    @deprecated(reason: "Use applications instead")
+    @aspectMapping(aspects: ["applications"])
 
   """
   The forms associated with the Dataset
