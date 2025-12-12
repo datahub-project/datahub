@@ -12,15 +12,16 @@ Reference implementation based on VertexAI and BigQuery V2 sources.
 
 import json
 import logging
+from collections.abc import Mapping
 from threading import Lock
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
 from google.cloud.datacatalog.lineage_v1 import LineageClient
 from google.oauth2 import service_account
 
-from datahub.emitter import mcp_builder as builder
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
@@ -32,6 +33,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
+    CapabilityReport,
     MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
@@ -79,6 +81,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
     SubTypesClass,
+    TimeStampClass,
     TimeTypeClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
@@ -123,7 +126,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: DataplexConfig):
         super().__init__(config, ctx)
         self.config = config
-        self.report = DataplexReport()
+        self.report: DataplexReport = DataplexReport()
 
         # Track entity IDs for lineage extraction
         # Key: project_id, Value: set of tuples (entity_id, zone_id, lake_id)
@@ -158,20 +161,26 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         if self.config.include_lineage:
-            self.lineage_client = LineageClient(credentials=credentials)
-            self.lineage_extractor = DataplexLineageExtractor(
-                config=self.config,
-                report=self.report,
-                lineage_client=self.lineage_client,
-                dataplex_client=self.dataplex_client,
-                redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+            self.lineage_client: Optional[LineageClient] = LineageClient(
+                credentials=credentials
+            )
+            self.lineage_extractor: Optional[DataplexLineageExtractor] = (
+                DataplexLineageExtractor(
+                    config=self.config,
+                    report=self.report,
+                    lineage_client=self.lineage_client,
+                    dataplex_client=self.dataplex_client,
+                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+                )
             )
         else:
             self.lineage_client = None
             self.lineage_extractor = None
 
-        self.asset_metadata = {}
-        self.zone_metadata = {}  # Store zone types for adding to entity custom properties
+        self.asset_metadata: dict[str, tuple[str, str]] = {}
+        self.zone_metadata: dict[
+            str, str
+        ] = {}  # Store zone types for adding to entity custom properties
 
         # Track BigQuery containers to create (project_id -> set of dataset_ids)
         self.bq_containers: dict[str, set[str]] = {}
@@ -202,17 +211,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 project_id = config.project_ids[0]
                 # Try to list lakes to verify access
                 parent = f"projects/{project_id}/locations/{config.location}"
-                list(dataplex_client.list_lakes(parent=parent, page_size=1))
+                list(dataplex_client.list_lakes(parent=parent))
 
-            test_report.basic_connectivity = TestConnectionReport.Capability(
-                capable=True
-            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
         except exceptions.GoogleAPICallError as e:
-            test_report.basic_connectivity = TestConnectionReport.Capability(
+            test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=f"Failed to connect to Dataplex: {e}"
             )
         except Exception as e:
-            test_report.basic_connectivity = TestConnectionReport.Capability(
+            test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=f"Unexpected error: {e}"
             )
 
@@ -310,7 +317,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 cached_entities_mcps.append(mcp)
 
                 # Emit batch if we've reached the batch size
-                if should_batch and len(cached_entities_mcps) >= batch_size:
+                if (
+                    should_batch
+                    and batch_size
+                    and len(cached_entities_mcps) >= batch_size
+                ):
                     yield from auto_workunit(cached_entities_mcps)
                     entities_emitted += len(cached_entities_mcps)
                     logger.info(
@@ -333,7 +344,11 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 cached_entries_mcps.append(mcp)
 
                 # Emit batch if we've reached the batch size
-                if should_batch and len(cached_entries_mcps) >= batch_size:
+                if (
+                    should_batch
+                    and batch_size
+                    and len(cached_entries_mcps) >= batch_size
+                ):
                     yield from auto_workunit(cached_entries_mcps)
                     entries_emitted += len(cached_entries_mcps)
                     logger.info(
@@ -353,7 +368,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_lineage and self.lineage_extractor:
             yield from self._get_lineage_workunits(project_id)
 
-    def _serialize_field_value(self, field_value) -> str:
+    def _serialize_field_value(self, field_value: Any) -> str:
         """Serialize a protobuf field value to string.
 
         Handles proto MapComposite objects, RepeatedComposite (proto lists), and primitives.
@@ -399,7 +414,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                                 )
                             else:
                                 # Primitives - keep as is
-                                item_dict[key] = value
+                                item_dict[key] = str(value)
                         serializable_list.append(item_dict)
                     else:
                         # Handle primitives in the list
@@ -434,15 +449,15 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     # Try to serialize as JSON
                     try:
                         # Convert proto objects to dicts if possible
-                        serializable_list = []
+                        serializable_list2: list[Any] = []
                         for item in field_value:
                             if hasattr(item, "__class__") and "MapComposite" in str(
                                 item.__class__
                             ):
-                                serializable_list.append(dict(item))
+                                serializable_list2.append(dict(item))
                             else:
-                                serializable_list.append(str(item))
-                        return json.dumps(serializable_list)
+                                serializable_list2.append(str(item))
+                        return json.dumps(serializable_list2)
                     except Exception as e:
                         logger.warning(
                             f"Failed to serialize list of proto objects: {e}. Returning length."
@@ -462,7 +477,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             return str(field_value)
 
     def _extract_aspects_to_custom_properties(
-        self, aspects: dict, custom_properties: dict[str, str]
+        self, aspects: Mapping[Any, Any], custom_properties: dict[str, str]
     ) -> None:
         """Extract aspects as custom properties.
 
@@ -680,6 +695,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 # Use double-checked locking to avoid holding lock during API calls
                 needs_fetch = False
                 asset_name = entity.asset
+                source_platform: Optional[str] = None
+                dataset_id: Optional[str] = None
 
                 with self._asset_metadata_lock:
                     if asset_name in self.asset_metadata:
@@ -708,17 +725,16 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                                 asset_name
                             ]
                         else:
-                            source_platform, dataset_id = (
-                                fetched_platform,
-                                fetched_dataset_id,
-                            )
-                            self.asset_metadata[asset_name] = (
-                                source_platform,
-                                dataset_id,
-                            )
+                            source_platform = fetched_platform
+                            dataset_id = fetched_dataset_id
+                            if source_platform and dataset_id:
+                                self.asset_metadata[asset_name] = (
+                                    source_platform,
+                                    dataset_id,
+                                )
 
                 # Skip entities where we couldn't determine platform or dataset
-                if not source_platform or not dataset_id:
+                if source_platform is None or dataset_id is None:
                     logger.debug(
                         f"Skipping entity {entity_id} - unable to determine platform or dataset from asset {entity.asset}"
                     )
@@ -794,13 +810,19 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
                 # Build aspects list
+                created_time = make_audit_stamp(entity_full.create_time)
+                modified_time = make_audit_stamp(entity_full.update_time)
                 aspects = [
                     DatasetPropertiesClass(
                         name=entity_id,
                         description=entity_full.description or "",
                         customProperties=custom_properties,
-                        created=make_audit_stamp(entity_full.create_time),
-                        lastModified=make_audit_stamp(entity_full.update_time),
+                        created=TimeStampClass(**created_time)
+                        if created_time
+                        else None,
+                        lastModified=TimeStampClass(**modified_time)
+                        if modified_time
+                        else None,
                     ),
                     DataPlatformInstanceClass(
                         platform=str(DataPlatformUrn(source_platform))
@@ -821,7 +843,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     container_urn = self._track_bigquery_container(
                         project_id, dataset_id
                     )
-                    aspects.append(ContainerClass(container=container_urn))
+                    if container_urn:
+                        aspects.append(ContainerClass(container=container_urn))
 
                 # Construct MCPs
                 yield from self._construct_mcps(dataset_urn, aspects)
@@ -848,7 +871,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         zones_to_process = []
 
         try:
-            with self.report.dataplex_api_timer:
+            with self.report.dataplex_api_timer as _:
                 lakes_request = dataplex_v1.ListLakesRequest(parent=parent)
                 lakes = self.dataplex_client.list_lakes(request=lakes_request)
 
@@ -922,7 +945,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         parent = f"projects/{project_id}/locations/{entries_location}"
 
         try:
-            with self.report.catalog_api_timer:
+            with self.report.catalog_api_timer as _:
                 entry_groups_request = dataplex_v1.ListEntryGroupsRequest(parent=parent)
                 entry_groups = self.catalog_client.list_entry_groups(
                     request=entry_groups_request
@@ -933,7 +956,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 logger.debug(f"Processing entry group: {entry_group_id}")
                 with self._report_lock:
                     self.report.report_entry_group_scanned()
-
                 entries_request = dataplex_v1.ListEntriesRequest(
                     parent=entry_group.name
                 )
@@ -963,7 +985,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
                     with self._report_lock:
                         self.report.report_entry_scanned(entry_id)
-
                     yield from self._process_entry(
                         project_id, entry_details, entry_group_id
                     )
@@ -1078,7 +1099,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         else:
             dataset_name = entry_id
 
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+        dataset_urn = make_dataset_urn_with_platform_instance(
             platform=source_platform,
             name=dataset_name,
             platform_instance=None,
@@ -1101,21 +1122,23 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # Build aspects list
+        created_time = (
+            make_audit_stamp(entry.entry_source.create_time)
+            if entry.entry_source.create_time
+            else None
+        )
+        modified_time = (
+            make_audit_stamp(entry.entry_source.update_time)
+            if entry.entry_source.update_time
+            else None
+        )
         aspects = [
             DatasetPropertiesClass(
                 name=entry_id,
                 description=entry.entry_source.description or "",
                 customProperties=custom_properties,
-                created=(
-                    make_audit_stamp(entry.entry_source.create_time)
-                    if entry.entry_source.create_time
-                    else None
-                ),
-                lastModified=(
-                    make_audit_stamp(entry.entry_source.update_time)
-                    if entry.entry_source.update_time
-                    else None
-                ),
+                created=TimeStampClass(**created_time) if created_time else None,
+                lastModified=TimeStampClass(**modified_time) if modified_time else None,
             ),
             DataPlatformInstanceClass(platform=str(DataPlatformUrn(source_platform))),
         ]
@@ -1138,7 +1161,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 container_urn = self._track_bigquery_container(
                     bq_project_id, bq_dataset_id
                 )
-                aspects.append(ContainerClass(container=container_urn))
+                if container_urn:
+                    aspects.append(ContainerClass(container=container_urn))
             else:
                 logger.warning(
                     f"Could not extract BigQuery project and dataset from dataset_id '{dataset_id}' for entry {entry_id}"
@@ -1242,7 +1266,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _extract_field_value(
-        self, field_data: any, field_key: str, default: str = ""
+        self, field_data: Any, field_key: str, default: str = ""
     ) -> str:
         """Extract a field value from protobuf field data (dict or object).
 
@@ -1270,8 +1294,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             return str(val) if val else default
 
     def _process_schema_field_item(
-        self, field_value: any, entry_id: str
-    ) -> Optional[any]:
+        self, field_value: Any, entry_id: str
+    ) -> Optional[Any]:
         """Process a single schema field item from protobuf data.
 
         Args:
@@ -1362,7 +1386,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         # Extract schema fields from aspect data
-        fields = []
+        fields: list[SchemaFieldClass] = []
         try:
             # The aspect.data is a Struct (protobuf)
             data_dict = dict(schema_aspect.data)

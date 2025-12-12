@@ -78,7 +78,15 @@ def test_lineage_extraction_disabled(
         lineage_client=None,
     )
 
-    result = extractor.get_lineage_for_entity("test-project", "test-entity")
+    entity_data = EntityDataTuple(
+        lake_id="test-lake",
+        zone_id="test-zone",
+        entity_id="test-entity",
+        asset_id="test-asset",
+        source_platform="bigquery",
+        dataset_id="test-dataset",
+    )
+    result = extractor.get_lineage_for_entity("test-project", entity_data)
     assert result is None
 
 
@@ -180,7 +188,7 @@ def test_search_links_by_target(lineage_extractor: DataplexLineageExtractor) -> 
     # Setup mock response
     mock_link = Mock()
     mock_link.source.fully_qualified_name = "upstream:source-entity"
-    lineage_extractor.lineage_client.search_links.return_value = [mock_link]
+    lineage_extractor.lineage_client.search_links.return_value = [mock_link]  # type: ignore[union-attr]
 
     # Search
     parent = "projects/test-project/locations/us-central1"
@@ -196,7 +204,7 @@ def test_search_links_by_source(lineage_extractor: DataplexLineageExtractor) -> 
     # Setup mock response
     mock_link = Mock()
     mock_link.target.fully_qualified_name = "downstream:target-entity"
-    lineage_extractor.lineage_client.search_links.return_value = [mock_link]
+    lineage_extractor.lineage_client.search_links.return_value = [mock_link]  # type: ignore[union-attr]
 
     # Search
     parent = "projects/test-project/locations/us-central1"
@@ -227,7 +235,7 @@ def test_get_lineage_for_entity_with_upstream(
             return [mock_downstream_link]
         return []
 
-    lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect
+    lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
 
     # Create EntityDataTuple for the test entity
     test_entity = EntityDataTuple(
@@ -259,7 +267,7 @@ def test_build_lineage_map(lineage_extractor: DataplexLineageExtractor) -> None:
         "dataplex:test-project.test-dataset.upstream-entity"
     )
 
-    lineage_extractor.lineage_client.search_links.return_value = [mock_link]
+    lineage_extractor.lineage_client.search_links.return_value = [mock_link]  # type: ignore[union-attr]
 
     # Create EntityDataTuple objects for test entities
     entity_data = [
@@ -345,7 +353,7 @@ def test_gen_lineage_workunits(lineage_extractor: DataplexLineageExtractor) -> N
     )
 
     assert len(workunits) == 1
-    assert workunits[0].metadata.entityUrn == dataset_urn
+    assert workunits[0].metadata.entityUrn == dataset_urn  # type: ignore[union-attr]
 
 
 def test_fqn_round_trip_bigquery(lineage_extractor: DataplexLineageExtractor) -> None:
@@ -410,7 +418,7 @@ def test_lineage_with_cross_platform_references(
             return [mock_gcs_link]
         return []
 
-    lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect
+    lineage_extractor.lineage_client.search_links.side_effect = search_links_side_effect  # type: ignore[union-attr]
 
     test_entity = EntityDataTuple(
         lake_id="test-lake",
@@ -453,15 +461,15 @@ def test_workunit_urn_structure_validation(
     workunit = workunits[0]
 
     # Validate URN structure
-    assert workunit.metadata.entityUrn == dataset_urn
-    assert workunit.metadata.entityUrn.startswith("urn:li:dataset:")
-    assert "urn:li:dataPlatform:dataplex" in workunit.metadata.entityUrn
-    assert "PROD" in workunit.metadata.entityUrn
+    assert workunit.metadata.entityUrn == dataset_urn  # type: ignore[union-attr]
+    assert workunit.metadata.entityUrn.startswith("urn:li:dataset:")  # type: ignore[union-attr]
+    assert "urn:li:dataPlatform:dataplex" in workunit.metadata.entityUrn  # type: ignore[union-attr]
+    assert "PROD" in workunit.metadata.entityUrn  # type: ignore[union-attr]
 
     # Validate aspect type
     from datahub.metadata.schema_classes import UpstreamLineageClass
 
-    assert isinstance(workunit.metadata.aspect, UpstreamLineageClass)
+    assert isinstance(workunit.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
 
 
 def test_workunit_aspect_completeness(
@@ -490,15 +498,15 @@ def test_workunit_aspect_completeness(
 
     assert len(workunits) == 1
     workunit = workunits[0]
-    aspect = workunit.metadata.aspect
+    aspect = workunit.metadata.aspect  # type: ignore[union-attr]
 
     # Validate UpstreamLineageClass has required fields
     assert hasattr(aspect, "upstreams")
-    assert aspect.upstreams is not None
-    assert len(aspect.upstreams) == 2
+    assert aspect.upstreams is not None  # type: ignore[union-attr]
+    assert len(aspect.upstreams) == 2  # type: ignore[union-attr]
 
     # Validate each upstream has required fields
-    for upstream in aspect.upstreams:
+    for upstream in aspect.upstreams:  # type: ignore[union-attr]
         assert hasattr(upstream, "dataset")
         assert upstream.dataset is not None
         assert upstream.dataset.startswith("urn:li:dataset:")
@@ -537,7 +545,7 @@ def test_workunit_upstream_urn_format(
     )
 
     assert len(workunits) == 1
-    upstream_urn = workunits[0].metadata.aspect.upstreams[0].dataset
+    upstream_urn = workunits[0].metadata.aspect.upstreams[0].dataset  # type: ignore[union-attr]
 
     # Validate upstream URN structure - now uses bigquery platform for consistency
     assert upstream_urn.startswith("urn:li:dataset:")

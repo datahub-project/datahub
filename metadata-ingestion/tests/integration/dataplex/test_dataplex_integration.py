@@ -2,7 +2,7 @@
 
 import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import Mock, patch
 
 from freezegun import freeze_time
@@ -31,7 +31,7 @@ def dataplex_recipe(mcp_output_path: str) -> Dict[str, Any]:
 
 
 def create_mock_lake(
-    lake_id: str, display_name: str = None, description: str = None
+    lake_id: str, display_name: Optional[str] = None, description: Optional[str] = None
 ) -> Mock:
     """Create a mock Dataplex Lake."""
     lake = Mock(spec=dataplex_v1.Lake)
@@ -47,7 +47,7 @@ def create_mock_lake(
 def create_mock_zone(
     lake_id: str,
     zone_id: str,
-    zone_type: dataplex_v1.Zone.Type = dataplex_v1.Zone.Type.RAW,
+    zone_type: int = dataplex_v1.Zone.Type.RAW,
 ) -> Mock:
     """Create a mock Dataplex Zone."""
     zone = Mock(spec=dataplex_v1.Zone)
@@ -67,7 +67,7 @@ def create_mock_asset(
     lake_id: str,
     zone_id: str,
     asset_id: str,
-    resource_type: dataplex_v1.Asset.ResourceSpec.Type = dataplex_v1.Asset.ResourceSpec.Type.BIGQUERY_DATASET,
+    resource_type: int = dataplex_v1.Asset.ResourceSpec.Type.BIGQUERY_DATASET,
 ) -> Mock:
     """Create a mock Dataplex Asset."""
     asset = Mock(spec=dataplex_v1.Asset)
@@ -141,13 +141,15 @@ def test_dataplex_integration_with_golden_file(
     # Create mock data hierarchy
     mock_lake = create_mock_lake("test-lake-1", "Test Lake", "A test lake")
     mock_zone = create_mock_zone(
-        "test-lake-1", "test-zone-1", dataplex_v1.Zone.Type.RAW
+        "test-lake-1",
+        "test-zone-1",
+        dataplex_v1.Zone.Type.RAW,  # type: ignore[arg-type]
     )
     mock_asset = create_mock_asset(
         "test-lake-1",
         "test-zone-1",
         "test-asset-1",
-        dataplex_v1.Asset.ResourceSpec.Type.BIGQUERY_DATASET,
+        dataplex_v1.Asset.ResourceSpec.Type.BIGQUERY_DATASET,  # type: ignore[arg-type]
     )
     mock_entity = create_mock_entity(
         "test-lake-1", "test-zone-1", "test-asset-1", "test-entity-1"
@@ -210,7 +212,9 @@ def test_dataplex_integration_multiple_lakes(
     # Create zones for each lake
     mock_zone1 = create_mock_zone("test-lake-1", "raw-zone")
     mock_zone2 = create_mock_zone(
-        "test-lake-2", "curated-zone", dataplex_v1.Zone.Type.CURATED
+        "test-lake-2",
+        "curated-zone",
+        dataplex_v1.Zone.Type.CURATED,  # type: ignore[arg-type]
     )
 
     # Configure mock responses

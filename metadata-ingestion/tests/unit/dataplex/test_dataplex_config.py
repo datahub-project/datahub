@@ -212,7 +212,7 @@ class TestDataplexConfig:
     def test_config_project_id_backward_compatibility(self):
         """Test backward compatibility for project_id field."""
         # Using deprecated project_id (single)
-        config = DataplexConfig(project_id="test-project")
+        config = DataplexConfig(project_ids=["test-project"])
 
         # Should be migrated to project_ids
         assert config.project_ids == ["test-project"]

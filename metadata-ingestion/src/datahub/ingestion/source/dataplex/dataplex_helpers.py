@@ -1,7 +1,7 @@
 """Helper functions and utilities for Dataplex source."""
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from google.api_core import exceptions
 from google.cloud import dataplex_v1
@@ -83,7 +83,7 @@ def make_entity_dataset_urn(
     )
 
 
-def make_audit_stamp(timestamp) -> Optional[Dict]:
+def make_audit_stamp(timestamp: Any) -> Optional[Dict[str, Any]]:
     """Create audit stamp from GCP timestamp."""
     if timestamp:
         return {
@@ -160,8 +160,7 @@ def map_dataplex_field_to_datahub(
 
     # Handle array types (REPEATED mode)
     if mode == "REPEATED":
-        inner_type = map_dataplex_type_to_datahub(type_name)
-        return SchemaFieldDataTypeClass(type=ArrayTypeClass(nestedType=[inner_type]))
+        return SchemaFieldDataTypeClass(type=ArrayTypeClass(nestedType=["string"]))
 
     return map_dataplex_type_to_datahub(type_name)
 

@@ -131,7 +131,7 @@ class DataplexLineageExtractor:
                 entity.entity_id,
                 entity.is_entry,
             )
-            lineage_data = {"upstream": [], "downstream": []}
+            lineage_data: dict[str, list[Any]] = {"upstream": [], "downstream": []}
             # We only need multi-region name like US, EU, etc., specific region name like us-central1, eu-central1, etc. does not work
             parent = (
                 f"projects/{project_id}/locations/{self.config.location.split('-')[0]}"
@@ -197,6 +197,7 @@ class DataplexLineageExtractor:
         Implementation of searching for lineage links where the entity is a target (to find upstream).
         This method is wrapped with retry logic in _search_links_by_target.
         """
+        assert self.lineage_client is not None
         logger.debug(f"Searching upstream lineage for FQN: {fully_qualified_name}")
         target = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, target=target)
@@ -250,6 +251,7 @@ class DataplexLineageExtractor:
         Raises:
             Exception: If the lineage API call fails
         """
+        assert self.lineage_client is not None
         logger.debug(f"Searching downstream lineage for FQN: {fully_qualified_name}")
         source = EntityReference(fully_qualified_name=fully_qualified_name)
         request = SearchLinksRequest(parent=parent, source=source)
