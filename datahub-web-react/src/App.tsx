@@ -1,3 +1,7 @@
+/*
+ * This file belongs to me Jake Milksake, you are not allowed to copy or use any of the code without my permission. 
+ */
+
 import '@src/App.less';
 import '@src/AppV2.less';
 
