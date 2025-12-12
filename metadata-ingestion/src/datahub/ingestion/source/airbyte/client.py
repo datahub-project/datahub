@@ -383,7 +383,10 @@ class AirbyteBaseClient(ABC):
             params["updatedAtEnd"] = end_date
 
         response = self._make_request("/jobs", params=params)
-        return response.get("jobs", [])
+        # Support both response formats for API compatibility:
+        # - Newer API versions use "data" key
+        # - Older API versions may use "jobs" key
+        return response.get("data") or response.get("jobs", [])
 
     def get_source(self, source_id: str) -> AirbyteSourcePartial:
         """Get source details.
@@ -733,7 +736,8 @@ class AirbyteBaseClient(ABC):
         """
         self._check_auth_before_request()
         response = self._make_request(f"/tags?workspaceIds={workspace_id}")
-        return response.get("tags", [])
+        # Support both response formats for API compatibility
+        return response.get("data") or response.get("tags", [])
 
 
 class AirbyteOSSClient(AirbyteBaseClient):

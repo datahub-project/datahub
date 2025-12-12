@@ -1045,7 +1045,7 @@ class TestClientListJobs:
     def test_list_jobs_basic(self, mock_make_request):
         """Test basic list_jobs call."""
         mock_make_request.return_value = {
-            "jobs": [
+            "data": [
                 {"jobId": "job-1", "status": "succeeded"},
                 {"jobId": "job-2", "status": "failed"},
             ]
@@ -1064,7 +1064,7 @@ class TestClientListJobs:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_jobs_with_date_filters(self, mock_make_request):
         """Test list_jobs with date filters."""
-        mock_make_request.return_value = {"jobs": [{"jobId": "job-1"}]}
+        mock_make_request.return_value = {"data": [{"jobId": "job-1"}]}
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1084,6 +1084,26 @@ class TestClientListJobs:
         assert params["workspaceId"] == "workspace-1"
         assert params["updatedAtStart"] == "2024-01-01T00:00:00Z"
         assert params["updatedAtEnd"] == "2024-12-31T23:59:59Z"
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_list_jobs_legacy_format(self, mock_make_request):
+        """Test list_jobs with legacy API format (jobs key)."""
+        mock_make_request.return_value = {
+            "jobs": [
+                {"jobId": "job-1", "status": "succeeded"},
+                {"jobId": "job-2", "status": "failed"},
+            ]
+        }
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+        jobs = client.list_jobs("connection-123")
+
+        assert len(jobs) == 2
+        assert jobs[0]["jobId"] == "job-1"
 
 
 class TestClientGetMethods:
