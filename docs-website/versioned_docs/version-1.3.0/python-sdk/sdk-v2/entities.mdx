@@ -1,0 +1,1601 @@
+---
+title: Entities
+---
+<div className="sphinx-api-docs">
+<a id="entities"></a>
+
+
+The DataHub SDK provides a set of entities that can be used to interact with DataHub’s metadata.
+
+
+
+### <span className="visually-hidden">Dataset</span> {#datahub.sdk.dataset.Dataset}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.dataset.</span><span class="class-name">Dataset</span>(*, <span class="arg-name">platform</span>, <span class="arg-name">name</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">env</span> = <span class="arg-default">'PROD'</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">display_name</span> = <span class="arg-default">None</span>, <span class="arg-name">qualified_name</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">view_definition</span> = <span class="arg-default">None</span>, <span class="arg-name">parent_container</span> = <span class="arg-default">Unset.token</span>, <span class="arg-name">subtype</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">schema</span> = <span class="arg-default">None</span>, <span class="arg-name">upstreams</span> = <span class="arg-default">None</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.dataset.Dataset" class="hash-link"></a></div>
+
+
+Bases: `HasPlatformInstance`, `HasSubtype`, `HasContainer`, `HasOwnership`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `HasStructuredProperties`, `Entity`
+
+Represents a dataset in DataHub.
+
+A dataset represents a collection of data, such as a table, view, or file.
+This class provides methods for managing dataset metadata including schema,
+lineage, and various aspects like ownership, tags, and terms.
+
+* **Parameters:**
+  * **platform** (*str*)
+  * **name** (*str*)
+  * **platform_instance** (*Optional* *[**str**]*)
+  * **env** (*str*)
+  * **description** (*Optional* *[**str**]*)
+  * **display_name** (*Optional* *[**str**]*)
+  * **qualified_name** (*Optional* *[**str**]*)
+  * **external_url** (*Optional* *[**str**]*)
+  * **custom_properties** (*Optional* *[**Dict**[**str**,**str**]* *]*)
+  * **created** (*Optional* *[**datetime**]*)
+  * **last_modified** (*Optional* *[**datetime**]*)
+  * **view_definition** (*Optional* *[**ViewDefinitionInputType**]*)
+  * **parent_container** (*ParentContainerInputType* *|* *Unset*)
+  * **subtype** (*Optional* *[**str**]*)
+  * **owners** (*Optional* *[**OwnersInputType**]*)
+  * **links** (*Optional* *[**LinksInputType**]*)
+  * **tags** (*Optional* *[**TagsInputType**]*)
+  * **terms** (*Optional* *[**TermsInputType**]*)
+  * **domain** (*Optional* *[**DomainInputType**]*)
+  * **schema** (*Optional* *[**SchemaFieldsInputType**]*)
+  * **upstreams** (*Optional* *[**models.UpstreamLineageClass**]*)
+  * **structured_properties** (*Optional* *[**StructuredPropertyInputType**]*)
+  * **extra_aspects** (*ExtraAspectsType*)
+#### *property* created *: datetime | None*
+
+Get the creation timestamp of the dataset.
+
+* **Returns:**
+  The creation timestamp if set, None otherwise.
+
+#### *property* custom_properties *: Dict[str, str]*
+
+Get the custom properties of the dataset.
+
+* **Returns:**
+  Dictionary of custom properties.
+
+#### *property* description *: str | None*
+
+Get the description of the dataset.
+
+* **Returns:**
+  The description if set, None otherwise.
+
+#### *property* display_name *: str | None*
+
+Get the display name of the dataset.
+
+* **Returns:**
+  The display name if set, None otherwise.
+
+#### *property* external_url *: str | None*
+
+Get the external URL of the dataset.
+
+* **Returns:**
+  The external URL if set, None otherwise.
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for datasets.
+
+* **Return type:**
+  `Type`[[`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]
+* **Returns:**
+  The DatasetUrn class.
+
+#### *property* last_modified *: datetime | None*
+
+Get the last modification timestamp of the dataset.
+
+* **Returns:**
+  The last modification timestamp if set, None otherwise.
+
+#### *property* qualified_name *: str | None*
+
+Get the qualified name of the dataset.
+
+* **Returns:**
+  The qualified name if set, None otherwise.
+
+#### *property* schema *: List[[SchemaField](#datahub.sdk.dataset.SchemaField)]*
+
+Get the schema fields of the dataset.
+
+* **Returns:**
+  List of SchemaField objects representing the dataset’s schema.
+
+#### set_created(created)
+
+Set the creation timestamp of the dataset.
+
+* **Parameters:**
+  **created** (`datetime`) – The creation timestamp to set.
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+Set the custom properties of the dataset.
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`]) – Dictionary of custom properties to set.
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+Set the description of the dataset.
+
+* **Parameters:**
+  **description** (`str`) – The description to set.
+* **Return type:**
+  `None`
+
+#### NOTE
+If called during ingestion, this will warn if overwriting
+a non-ingestion description.
+
+#### set_display_name(display_name)
+
+Set the display name of the dataset.
+
+* **Parameters:**
+  **display_name** (`str`) – The display name to set.
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+Set the external URL of the dataset.
+
+* **Parameters:**
+  **external_url** (`str`) – The external URL to set.
+* **Return type:**
+  `None`
+
+#### set_last_modified(last_modified)
+
+* **Parameters:**
+  **last_modified** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_qualified_name(qualified_name)
+
+Set the qualified name of the dataset.
+
+* **Parameters:**
+  **qualified_name** (`str`) – The qualified name to set.
+* **Return type:**
+  `None`
+
+#### set_upstreams(upstreams)
+
+* **Parameters:**
+  **upstreams** (`Union`[[`UpstreamLineageClass`](../models.mdx#datahub.metadata.schema_classes.UpstreamLineageClass), `List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`UpstreamClass`](../models.mdx#datahub.metadata.schema_classes.UpstreamClass), [`FineGrainedLineageClass`](../models.mdx#datahub.metadata.schema_classes.FineGrainedLineageClass)]], `Dict`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)], `Dict`[`str`, `List`[`str`]]]]) – 
+* **Return type:**
+  `None`
+
+#### set_view_definition(view_definition)
+
+Set the view definition of the dataset.
+
+If you’re setting a view definition, subtype should typically be set to “view”.
+
+If a string is provided, it will be treated as a SQL view definition. To set
+a custom language or other properties, provide a ViewPropertiesClass object.
+
+* **Parameters:**
+  **view_definition** (`Union`[`str`, [`ViewPropertiesClass`](../models.mdx#datahub.metadata.schema_classes.ViewPropertiesClass)]) – The view definition to set.
+* **Return type:**
+  `None`
+
+#### *property* upstreams *: [UpstreamLineageClass](../models.mdx#datahub.metadata.schema_classes.UpstreamLineageClass) | None*
+
+#### *property* urn *: [DatasetUrn](../urns.mdx#datahub.metadata.urns.DatasetUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+#### *property* view_definition *: [ViewPropertiesClass](../models.mdx#datahub.metadata.schema_classes.ViewPropertiesClass) | None*
+
+Get the view definition of the dataset.
+
+Under typical usage, this will be present if the subtype is “View”.
+
+* **Returns:**
+  The view definition if set, None otherwise.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">SchemaField</span> {#datahub.sdk.dataset.SchemaField}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.dataset.</span><span class="class-name">SchemaField</span>(<span class="arg-name">parent</span>, <span class="arg-name">field_path</span>)<a href="#datahub.sdk.dataset.SchemaField" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  * **parent** ([`Dataset`](#datahub.sdk.dataset.Dataset)) – 
+  * **field_path** (`str`)
+#### add_tag(tag)
+
+* **Parameters:**
+  **tag** (`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]) – 
+* **Return type:**
+  `None`
+
+#### add_term(term)
+
+* **Parameters:**
+  **term** (`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]) – 
+* **Return type:**
+  `None`
+
+#### *property* description *: str | None*
+
+#### *property* field_path *: str*
+
+#### *property* mapped_type *: [SchemaFieldDataTypeClass](../models.mdx#datahub.metadata.schema_classes.SchemaFieldDataTypeClass)*
+
+#### *property* native_type *: str*
+
+#### remove_tag(tag)
+
+* **Parameters:**
+  **tag** (`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]) – 
+* **Return type:**
+  `None`
+
+#### remove_term(term)
+
+* **Parameters:**
+  **term** (`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]) – 
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_tags(tags)
+
+* **Parameters:**
+  **tags** (`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]) – 
+* **Return type:**
+  `None`
+
+#### set_terms(terms)
+
+* **Parameters:**
+  **terms** (`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]) – 
+* **Return type:**
+  `None`
+
+#### *property* tags *: List[[TagAssociationClass](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)] | None*
+
+#### *property* terms *: List[[GlossaryTermAssociationClass](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)] | None*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">parse_cll_mapping</span> {#datahub.sdk.dataset.parse_cll_mapping}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.sdk.dataset.</span><span class="class-name">parse_cll_mapping</span>(*, <span class="arg-name">upstream</span>, <span class="arg-name">downstream</span>, <span class="arg-name">cll_mapping</span>)<a href="#datahub.sdk.dataset.parse_cll_mapping" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **upstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]) – 
+  * **downstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]) – 
+  * **cll_mapping** (`Dict`[`str`, `List`[`str`]])
+* **Return type:**
+  `List`[[`FineGrainedLineageClass`](../models.mdx#datahub.metadata.schema_classes.FineGrainedLineageClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">Container</span> {#datahub.sdk.container.Container}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.container.</span><span class="class-name">Container</span>(<span class="arg-name">container_key</span>, *, <span class="arg-name">display_name</span>, <span class="arg-name">qualified_name</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">parent_container</span> = <span class="arg-default">Auto.token</span>, <span class="arg-name">subtype</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.container.Container" class="hash-link"></a></div>
+
+
+Bases: `HasPlatformInstance`, `HasSubtype`, `HasContainer`, `HasOwnership`, `HasInstitutionalMemory`, `HasStructuredProperties`, `HasTags`, `HasTerms`, `HasDomain`, `Entity`
+
+* **Parameters:**
+  * **container_key** ([`ContainerKey`](../builder/mcp-builder.mdx#datahub.emitter.mcp_builder.ContainerKey)) – 
+  * **display_name** (`str`)
+  * **qualified_name** (`Optional`[`str`])
+  * **description** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **extra_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **created** (`Optional`[`datetime`])
+  * **last_modified** (`Optional`[`datetime`])
+  * **parent_container** (`Union`[`Auto`, [`Container`](#datahub.sdk.container.Container), [`ContainerKey`](../builder/mcp-builder.mdx#datahub.emitter.mcp_builder.ContainerKey), `Sequence`[`Union`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn), `str`]], `None`]) – 
+  * **subtype** (`Optional`[`str`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **structured_properties** (`Optional`[`Dict`[`Union`[`str`, [`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn)], `Sequence`[`Union`[`str`, `float`, `int`]]]]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### *property* created *: datetime | None*
+
+#### *property* custom_properties *: Dict[str, str] | None*
+
+#### *property* description *: str | None*
+
+#### *property* display_name *: str*
+
+#### *property* external_url *: str | None*
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for this entity class.
+
+* **Return type:**
+  `Type`[[`ContainerUrn`](../urns.mdx#datahub.metadata.urns.ContainerUrn)]
+* **Returns:**
+  The URN type class that corresponds to this entity type.
+
+#### *property* last_modified *: datetime | None*
+
+#### *property* qualified_name *: str | None*
+
+#### set_created(created)
+
+* **Parameters:**
+  **created** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`])
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_display_name(value)
+
+* **Parameters:**
+  **value** (`str`)
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+* **Parameters:**
+  **external_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_last_modified(last_modified)
+
+* **Parameters:**
+  **last_modified** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_qualified_name(qualified_name)
+
+* **Parameters:**
+  **qualified_name** (`str`)
+* **Return type:**
+  `None`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">MLModel</span> {#datahub.sdk.mlmodel.MLModel}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.mlmodel.</span><span class="class-name">MLModel</span>(<span class="arg-name">id</span>, <span class="arg-name">platform</span>, <span class="arg-name">version</span> = <span class="arg-default">None</span>, <span class="arg-name">aliases</span> = <span class="arg-default">None</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">env</span> = <span class="arg-default">'PROD'</span>, <span class="arg-name">name</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">training_metrics</span> = <span class="arg-default">None</span>, <span class="arg-name">hyper_params</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">model_group</span> = <span class="arg-default">None</span>, <span class="arg-name">training_jobs</span> = <span class="arg-default">None</span>, <span class="arg-name">downstream_jobs</span> = <span class="arg-default">None</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.mlmodel.MLModel" class="hash-link"></a></div>
+
+
+Bases: `HasPlatformInstance`, `HasOwnership`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `HasVersion`, `HasStructuredProperties`, `Entity`
+
+* **Parameters:**
+  * **id** (`str`)
+  * **platform** (`str`)
+  * **version** (`Optional`[`str`])
+  * **aliases** (`Optional`[`List`[`str`]])
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+  * **name** (`Optional`[`str`])
+  * **description** (`Optional`[`str`])
+  * **training_metrics** (`Union`[`List`[[`MLMetricClass`](../models.mdx#datahub.metadata.schema_classes.MLMetricClass)], `Dict`[`str`, `Optional`[`str`]], `None`]) – 
+  * **hyper_params** (`Union`[`List`[[`MLHyperParamClass`](../models.mdx#datahub.metadata.schema_classes.MLHyperParamClass)], `Dict`[`str`, `Optional`[`str`]], `None`]) – 
+  * **external_url** (`Optional`[`str`])
+  * **custom_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **created** (`Optional`[`datetime`])
+  * **last_modified** (`Optional`[`datetime`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **model_group** (`Union`[`str`, [`MlModelGroupUrn`](../urns.mdx#datahub.metadata.urns.MlModelGroupUrn), `None`]) – 
+  * **training_jobs** (`Optional`[`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]]) – 
+  * **downstream_jobs** (`Optional`[`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]]) – 
+  * **structured_properties** (`Optional`[`Dict`[`Union`[`str`, [`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn)], `Sequence`[`Union`[`str`, `float`, `int`]]]]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### add_downstream_job(downstream_job)
+
+* **Parameters:**
+  **downstream_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### add_hyper_params(params)
+
+* **Parameters:**
+  **params** (`Union`[`List`[[`MLHyperParamClass`](../models.mdx#datahub.metadata.schema_classes.MLHyperParamClass)], `Dict`[`str`, `Optional`[`str`]]]) – 
+* **Return type:**
+  `None`
+
+#### add_training_job(training_job)
+
+* **Parameters:**
+  **training_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### add_training_metrics(metrics)
+
+* **Parameters:**
+  **metrics** (`Union`[`List`[[`MLMetricClass`](../models.mdx#datahub.metadata.schema_classes.MLMetricClass)], `Dict`[`str`, `Optional`[`str`]]]) – 
+* **Return type:**
+  `None`
+
+#### *property* created *: datetime | None*
+
+#### *property* custom_properties *: Dict[str, str] | None*
+
+#### *property* description *: str | None*
+
+#### *property* downstream_jobs *: List[str] | None*
+
+#### *property* external_url *: str | None*
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for this entity class.
+
+* **Return type:**
+  `Type`[[`MlModelUrn`](../urns.mdx#datahub.metadata.urns.MlModelUrn)]
+* **Returns:**
+  The URN type class that corresponds to this entity type.
+
+#### *property* hyper_params *: List[[MLHyperParamClass](../models.mdx#datahub.metadata.schema_classes.MLHyperParamClass)] | None*
+
+#### *property* last_modified *: datetime | None*
+
+#### *property* model_group *: str | None*
+
+#### *property* name *: str | None*
+
+#### remove_downstream_job(downstream_job)
+
+* **Parameters:**
+  **downstream_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### remove_training_job(training_job)
+
+* **Parameters:**
+  **training_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### set_created(created)
+
+* **Parameters:**
+  **created** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`])
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_downstream_jobs(downstream_jobs)
+
+* **Parameters:**
+  **downstream_jobs** (`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]) – 
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+* **Parameters:**
+  **external_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_hyper_params(params)
+
+* **Parameters:**
+  **params** (`Union`[`List`[[`MLHyperParamClass`](../models.mdx#datahub.metadata.schema_classes.MLHyperParamClass)], `Dict`[`str`, `Optional`[`str`]]]) – 
+* **Return type:**
+  `None`
+
+#### set_last_modified(last_modified)
+
+* **Parameters:**
+  **last_modified** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_model_group(group)
+
+* **Parameters:**
+  **group** (`Union`[`str`, [`MlModelGroupUrn`](../urns.mdx#datahub.metadata.urns.MlModelGroupUrn)]) – 
+* **Return type:**
+  `None`
+
+#### set_name(name)
+
+* **Parameters:**
+  **name** (`str`)
+* **Return type:**
+  `None`
+
+#### set_training_jobs(training_jobs)
+
+* **Parameters:**
+  **training_jobs** (`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]) – 
+* **Return type:**
+  `None`
+
+#### set_training_metrics(metrics)
+
+* **Parameters:**
+  **metrics** (`Union`[`List`[[`MLMetricClass`](../models.mdx#datahub.metadata.schema_classes.MLMetricClass)], `Dict`[`str`, `Optional`[`str`]]]) – 
+* **Return type:**
+  `None`
+
+#### *property* training_jobs *: List[str] | None*
+
+#### *property* training_metrics *: List[[MLMetricClass](../models.mdx#datahub.metadata.schema_classes.MLMetricClass)] | None*
+
+#### *property* urn *: [MlModelUrn](../urns.mdx#datahub.metadata.urns.MlModelUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">MLModelGroup</span> {#datahub.sdk.mlmodelgroup.MLModelGroup}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.mlmodelgroup.</span><span class="class-name">MLModelGroup</span>(<span class="arg-name">id</span>, <span class="arg-name">platform</span>, <span class="arg-name">name</span> = <span class="arg-default">''</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">env</span> = <span class="arg-default">'PROD'</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">display_name</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">training_jobs</span> = <span class="arg-default">None</span>, <span class="arg-name">downstream_jobs</span> = <span class="arg-default">None</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.mlmodelgroup.MLModelGroup" class="hash-link"></a></div>
+
+
+Bases: `HasPlatformInstance`, `HasOwnership`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `HasStructuredProperties`, `Entity`
+
+* **Parameters:**
+  * **id** (`str`)
+  * **platform** (`str`)
+  * **name** (`Optional`[`str`])
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+  * **description** (`Optional`[`str`])
+  * **display_name** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **custom_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **created** (`Optional`[`datetime`])
+  * **last_modified** (`Optional`[`datetime`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **training_jobs** (`Optional`[`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]]) – 
+  * **downstream_jobs** (`Optional`[`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]]) – 
+  * **structured_properties** (`Optional`[`Dict`[`Union`[`str`, [`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn)], `Sequence`[`Union`[`str`, `float`, `int`]]]]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### add_downstream_job(downstream_job)
+
+* **Parameters:**
+  **downstream_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### add_training_job(training_job)
+
+* **Parameters:**
+  **training_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### *property* created *: datetime | None*
+
+#### *property* custom_properties *: Dict[str, str] | None*
+
+#### *property* description *: str | None*
+
+#### *property* downstream_jobs *: List[str] | None*
+
+#### *property* external_url *: str | None*
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for this entity class.
+
+* **Return type:**
+  `Type`[[`MlModelGroupUrn`](../urns.mdx#datahub.metadata.urns.MlModelGroupUrn)]
+* **Returns:**
+  The URN type class that corresponds to this entity type.
+
+#### *property* last_modified *: datetime | None*
+
+#### *property* name *: str | None*
+
+#### remove_downstream_job(downstream_job)
+
+* **Parameters:**
+  **downstream_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### remove_training_job(training_job)
+
+* **Parameters:**
+  **training_job** (`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]) – 
+* **Return type:**
+  `None`
+
+#### set_created(created)
+
+* **Parameters:**
+  **created** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`])
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_downstream_jobs(downstream_jobs)
+
+* **Parameters:**
+  **downstream_jobs** (`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]) – 
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+* **Parameters:**
+  **external_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_last_modified(last_modified)
+
+* **Parameters:**
+  **last_modified** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_name(display_name)
+
+* **Parameters:**
+  **display_name** (`str`)
+* **Return type:**
+  `None`
+
+#### set_training_jobs(training_jobs)
+
+* **Parameters:**
+  **training_jobs** (`Sequence`[`Union`[`str`, [`DataProcessInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataProcessInstanceUrn)]]) – 
+* **Return type:**
+  `None`
+
+#### *property* training_jobs *: List[str] | None*
+
+#### *property* urn *: [MlModelGroupUrn](../urns.mdx#datahub.metadata.urns.MlModelGroupUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">Dashboard</span> {#datahub.sdk.dashboard.Dashboard}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.dashboard.</span><span class="class-name">Dashboard</span>(*, <span class="arg-name">name</span>, <span class="arg-name">platform</span>, <span class="arg-name">display_name</span> = <span class="arg-default">None</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">dashboard_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified_by</span> = <span class="arg-default">None</span>, <span class="arg-name">created_at</span> = <span class="arg-default">None</span>, <span class="arg-name">created_by</span> = <span class="arg-default">None</span>, <span class="arg-name">deleted_on</span> = <span class="arg-default">None</span>, <span class="arg-name">deleted_by</span> = <span class="arg-default">None</span>, <span class="arg-name">last_refreshed</span> = <span class="arg-default">None</span>, <span class="arg-name">input_datasets</span> = <span class="arg-default">None</span>, <span class="arg-name">charts</span> = <span class="arg-default">None</span>, <span class="arg-name">dashboards</span> = <span class="arg-default">None</span>, <span class="arg-name">parent_container</span> = <span class="arg-default">Unset.token</span>, <span class="arg-name">subtype</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.dashboard.Dashboard" class="hash-link"></a></div>
+
+
+Bases: `ChangeAuditStampsMixin`, `HasPlatformInstance`, `HasSubtype`, `HasOwnership`, `HasContainer`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `Entity`
+
+Represents a dashboard in DataHub.
+
+* **Parameters:**
+  * **name** (`str`)
+  * **platform** (`Union`[`str`, [`DataPlatformUrn`](../urns.mdx#datahub.metadata.urns.DataPlatformUrn)]) – 
+  * **display_name** (`Optional`[`str`])
+  * **platform_instance** (`Union`[`str`, [`DataPlatformInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataPlatformInstanceUrn), `None`]) – 
+  * **description** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **dashboard_url** (`Optional`[`str`])
+  * **custom_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **last_modified** (`Optional`[`datetime`])
+  * **last_modified_by** (`Union`[`str`, [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `None`]) – 
+  * **created_at** (`Optional`[`datetime`])
+  * **created_by** (`Union`[`str`, [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `None`]) – 
+  * **deleted_on** (`Optional`[`datetime`])
+  * **deleted_by** (`Union`[`str`, [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `None`]) – 
+  * **last_refreshed** (`Optional`[`datetime`])
+  * **input_datasets** (`Optional`[`Sequence`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]]]) – 
+  * **charts** (`Optional`[`Sequence`[`Union`[`str`, [`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn), [`Chart`](#datahub.sdk.chart.Chart)]]]) – 
+  * **dashboards** (`Optional`[`Sequence`[`Union`[`str`, [`DashboardUrn`](../urns.mdx#datahub.metadata.urns.DashboardUrn), [`Dashboard`](#datahub.sdk.dashboard.Dashboard)]]]) – 
+  * **parent_container** (`Union`[[`Container`](#datahub.sdk.container.Container), [`ContainerKey`](../builder/mcp-builder.mdx#datahub.emitter.mcp_builder.ContainerKey), `Sequence`[`Union`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn), `str`]], `Unset`]) – 
+  * **subtype** (`Optional`[`str`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### add_chart(chart)
+
+Add a chart to the dashboard.
+
+* **Parameters:**
+  **chart** (`Union`[`str`, [`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn), [`Chart`](#datahub.sdk.chart.Chart)]) – 
+* **Return type:**
+  `None`
+
+#### add_dashboard(dashboard)
+
+Add a dashboard to the dashboard.
+
+* **Parameters:**
+  **dashboard** (`Union`[`str`, [`DashboardUrn`](../urns.mdx#datahub.metadata.urns.DashboardUrn), [`Dashboard`](#datahub.sdk.dashboard.Dashboard)]) – 
+* **Return type:**
+  `None`
+
+#### add_input_dataset(input_dataset)
+
+Add an input dataset to the dashboard.
+
+* **Parameters:**
+  **input_dataset** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]) – 
+* **Return type:**
+  `None`
+
+#### *property* charts *: List[[ChartUrn](../urns.mdx#datahub.metadata.urns.ChartUrn)]*
+
+Get the charts of the dashboard.
+
+#### *property* custom_properties *: Dict[str, str]*
+
+Get the custom properties of the dashboard.
+
+#### *property* dashboard_url *: str | None*
+
+Get the dashboard URL.
+
+#### *property* dashboards *: List[[DashboardUrn](../urns.mdx#datahub.metadata.urns.DashboardUrn)]*
+
+Get the dashboards of the dashboard.
+
+#### *property* description *: str | None*
+
+Get the description of the dashboard.
+
+#### *property* display_name *: str*
+
+Get the display name of the dashboard.
+
+#### *property* external_url *: str | None*
+
+Get the external URL of the dashboard.
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for dashboards.
+:rtype: `Type`[[`DashboardUrn`](../urns.mdx#datahub.metadata.urns.DashboardUrn)]
+:returns: The DashboardUrn class.
+
+* **Return type:**
+  *Type*[[*DashboardUrn*](../urns.mdx#datahub.metadata.urns.DashboardUrn)]
+
+#### *property* input_datasets *: List[[DatasetUrn](../urns.mdx#datahub.metadata.urns.DatasetUrn)]*
+
+Get the input datasets of the dashboard.
+
+#### *property* last_refreshed *: datetime | None*
+
+Get the last refresh timestamp of the dashboard.
+
+#### *property* name *: str*
+
+Get the name of the dashboard.
+
+#### remove_chart(chart)
+
+Remove a chart from the dashboard.
+
+* **Parameters:**
+  **chart** (`Union`[`str`, [`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn), [`Chart`](#datahub.sdk.chart.Chart)]) – 
+* **Return type:**
+  `None`
+
+#### remove_input_dataset(input_dataset)
+
+Remove an input dataset from the dashboard.
+
+* **Parameters:**
+  **input_dataset** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]) – 
+* **Return type:**
+  `None`
+
+#### set_charts(charts)
+
+Set the charts of the dashboard.
+
+* **Parameters:**
+  **charts** (`Sequence`[`Union`[`str`, [`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn), [`Chart`](#datahub.sdk.chart.Chart)]]) – 
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+Set the custom properties of the dashboard.
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`])
+* **Return type:**
+  `None`
+
+#### set_dashboard_url(dashboard_url)
+
+Set the dashboard URL.
+
+* **Parameters:**
+  **dashboard_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_dashboards(dashboards)
+
+Set the dashboards of the dashboard.
+
+* **Parameters:**
+  **dashboards** (`Sequence`[`Union`[`str`, [`DashboardUrn`](../urns.mdx#datahub.metadata.urns.DashboardUrn), [`Dashboard`](#datahub.sdk.dashboard.Dashboard)]]) – 
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+Set the description of the dashboard.
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_display_name(display_name)
+
+Set the display name of the dashboard.
+
+* **Parameters:**
+  **display_name** (`str`)
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+Set the external URL of the dashboard.
+
+* **Parameters:**
+  **external_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_input_datasets(input_datasets)
+
+Set the input datasets of the dashboard.
+
+* **Parameters:**
+  **input_datasets** (`Sequence`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]]) – 
+* **Return type:**
+  `None`
+
+#### set_last_refreshed(last_refreshed)
+
+Set the last refresh timestamp of the dashboard.
+
+* **Parameters:**
+  **last_refreshed** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_title(title)
+
+Set the display name of the dashboard.
+
+#### Deprecated
+Deprecated since version 1.2.0.7: Use set_display_name instead
+
+* **Parameters:**
+  **title** (`str`)
+* **Return type:**
+  `None`
+
+#### *property* title *: str*
+
+Get the display name of the dashboard.
+
+#### Deprecated
+Deprecated since version 1.2.0.7: Use display_name instead
+
+#### *property* urn *: [DashboardUrn](../urns.mdx#datahub.metadata.urns.DashboardUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">Chart</span> {#datahub.sdk.chart.Chart}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.chart.</span><span class="class-name">Chart</span>(*, <span class="arg-name">name</span>, <span class="arg-name">platform</span>, <span class="arg-name">display_name</span> = <span class="arg-default">None</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">''</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">chart_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified_by</span> = <span class="arg-default">None</span>, <span class="arg-name">created_at</span> = <span class="arg-default">None</span>, <span class="arg-name">created_by</span> = <span class="arg-default">None</span>, <span class="arg-name">deleted_on</span> = <span class="arg-default">None</span>, <span class="arg-name">deleted_by</span> = <span class="arg-default">None</span>, <span class="arg-name">last_refreshed</span> = <span class="arg-default">None</span>, <span class="arg-name">chart_type</span> = <span class="arg-default">None</span>, <span class="arg-name">access</span> = <span class="arg-default">None</span>, <span class="arg-name">input_datasets</span> = <span class="arg-default">None</span>, <span class="arg-name">parent_container</span> = <span class="arg-default">Unset.token</span>, <span class="arg-name">subtype</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.chart.Chart" class="hash-link"></a></div>
+
+
+Bases: `ChangeAuditStampsMixin`, `HasPlatformInstance`, `HasSubtype`, `HasOwnership`, `HasContainer`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `Entity`
+
+Represents a chart in DataHub.
+
+* **Parameters:**
+  * **name** (`str`)
+  * **platform** (`Union`[`str`, [`DataPlatformUrn`](../urns.mdx#datahub.metadata.urns.DataPlatformUrn)]) – 
+  * **display_name** (`Optional`[`str`])
+  * **platform_instance** (`Union`[`str`, [`DataPlatformInstanceUrn`](../urns.mdx#datahub.metadata.urns.DataPlatformInstanceUrn), `None`]) – 
+  * **description** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **chart_url** (`Optional`[`str`])
+  * **custom_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **last_modified** (`Optional`[`datetime`])
+  * **last_modified_by** (`Union`[`str`, [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `None`]) – 
+  * **created_at** (`Optional`[`datetime`])
+  * **created_by** (`Union`[`str`, [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `None`]) – 
+  * **deleted_on** (`Optional`[`datetime`])
+  * **deleted_by** (`Union`[`str`, [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `None`]) – 
+  * **last_refreshed** (`Optional`[`datetime`])
+  * **chart_type** (`Union`[`str`, [`ChartTypeClass`](../models.mdx#datahub.metadata.schema_classes.ChartTypeClass), `None`]) – 
+  * **access** (`Optional`[`str`])
+  * **input_datasets** (`Optional`[`Sequence`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]]]) – 
+  * **parent_container** (`Union`[[`Container`](#datahub.sdk.container.Container), [`ContainerKey`](../builder/mcp-builder.mdx#datahub.emitter.mcp_builder.ContainerKey), `Sequence`[`Union`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn), `str`]], `Unset`]) – 
+  * **subtype** (`Optional`[`str`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### *property* access *: str | None*
+
+Get the access level of the chart as a string.
+
+#### add_input_dataset(input_dataset)
+
+Add an input to the chart.
+
+* **Parameters:**
+  **input_dataset** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]) – 
+* **Return type:**
+  `None`
+
+#### *property* chart_type *: str | None*
+
+Get the type of the chart as a string.
+
+#### *property* chart_url *: str | None*
+
+Get the chart URL.
+
+#### *property* custom_properties *: Dict[str, str]*
+
+Get the custom properties of the chart.
+
+#### *property* description *: str | None*
+
+Get the description of the chart.
+
+#### *property* display_name *: str*
+
+Get the display name of the chart.
+
+#### *property* external_url *: str | None*
+
+Get the external URL of the chart.
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for charts.
+:rtype: `Type`[[`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn)]
+:returns: The ChartUrn class.
+
+* **Return type:**
+  *Type*[[*ChartUrn*](../urns.mdx#datahub.metadata.urns.ChartUrn)]
+
+#### *property* input_datasets *: List[[DatasetUrn](../urns.mdx#datahub.metadata.urns.DatasetUrn)]*
+
+Get the input datasets of the chart.
+
+#### *property* last_refreshed *: datetime | None*
+
+Get the last refresh timestamp of the chart.
+
+#### *property* name *: str*
+
+Get the name of the chart.
+
+#### remove_input_dataset(input_dataset)
+
+Remove an input from the chart.
+
+* **Parameters:**
+  **input_dataset** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]) – 
+* **Return type:**
+  `None`
+
+#### set_access(access)
+
+Set the access level of the chart.
+
+* **Parameters:**
+  **access** (`Union`[`str`, [`AccessLevelClass`](../models.mdx#datahub.metadata.schema_classes.AccessLevelClass)]) – 
+* **Return type:**
+  `None`
+
+#### set_chart_type(chart_type)
+
+Set the type of the chart.
+
+* **Parameters:**
+  **chart_type** (`Union`[`str`, [`ChartTypeClass`](../models.mdx#datahub.metadata.schema_classes.ChartTypeClass)]) – 
+* **Return type:**
+  `None`
+
+#### set_chart_url(chart_url)
+
+Set the chart URL.
+
+* **Parameters:**
+  **chart_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+Set the custom properties of the chart.
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`])
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+Set the description of the chart.
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_display_name(display_name)
+
+Set the display name of the chart.
+
+* **Parameters:**
+  **display_name** (`str`)
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+Set the external URL of the chart.
+
+* **Parameters:**
+  **external_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_input_datasets(input_datasets)
+
+Set the input datasets of the chart.
+
+* **Parameters:**
+  **input_datasets** (`Sequence`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`Dataset`](#datahub.sdk.dataset.Dataset)]]) – 
+* **Return type:**
+  `None`
+
+#### set_last_refreshed(last_refreshed)
+
+Set the last refresh timestamp of the chart.
+
+* **Parameters:**
+  **last_refreshed** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_title(title)
+
+Set the display name of the chart.
+
+#### Deprecated
+Deprecated since version 1.2.0.7: Use set_display_name instead
+
+* **Parameters:**
+  **title** (`str`)
+* **Return type:**
+  `None`
+
+#### *property* title *: str*
+
+Get the display name of the chart.
+
+#### Deprecated
+Deprecated since version 1.2.0.7: Use display_name instead
+
+#### *property* urn *: [ChartUrn](../urns.mdx#datahub.metadata.urns.ChartUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DataJob</span> {#datahub.sdk.datajob.DataJob}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.datajob.</span><span class="class-name">DataJob</span>(*, <span class="arg-name">name</span>, <span class="arg-name">flow</span> = <span class="arg-default">None</span>, <span class="arg-name">flow_urn</span> = <span class="arg-default">None</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">display_name</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">subtype</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">inlets</span> = <span class="arg-default">None</span>, <span class="arg-name">outlets</span> = <span class="arg-default">None</span>, <span class="arg-name">fine_grained_lineages</span> = <span class="arg-default">None</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.datajob.DataJob" class="hash-link"></a></div>
+
+
+Bases: `HasPlatformInstance`, `HasSubtype`, `HasContainer`, `HasOwnership`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `HasStructuredProperties`, `Entity`
+
+Represents a data job in DataHub.
+A data job is an executable unit of a data pipeline, such as an Airflow task or a Spark job.
+
+* **Parameters:**
+  * **name** (`str`)
+  * **flow** (`Optional`[[`DataFlow`](#datahub.sdk.dataflow.DataFlow)]) – 
+  * **flow_urn** (`Union`[`str`, [`DataFlowUrn`](../urns.mdx#datahub.metadata.urns.DataFlowUrn), `None`]) – 
+  * **platform_instance** (`Optional`[`str`])
+  * **display_name** (`Optional`[`str`])
+  * **description** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **custom_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **created** (`Optional`[`datetime`])
+  * **last_modified** (`Optional`[`datetime`])
+  * **subtype** (`Optional`[`str`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **inlets** (`Optional`[`List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]]]) – 
+  * **outlets** (`Optional`[`List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]]]) – 
+  * **fine_grained_lineages** (`Optional`[`List`[[`FineGrainedLineageClass`](../models.mdx#datahub.metadata.schema_classes.FineGrainedLineageClass)]]) – 
+  * **structured_properties** (`Optional`[`Dict`[`Union`[`str`, [`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn)], `Sequence`[`Union`[`str`, `float`, `int`]]]]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### *property* created *: datetime | None*
+
+Get the creation timestamp of the data job.
+
+#### *property* custom_properties *: Dict[str, str]*
+
+Get the custom properties of the data job.
+
+#### *property* description *: str | None*
+
+Get the description of the data job.
+
+#### *property* display_name *: str | None*
+
+Get the display name of the data job.
+
+#### *property* env *: str | None*
+
+Get the environment of the data job.
+
+#### *property* external_url *: str | None*
+
+Get the external URL of the data job.
+
+#### *property* fine_grained_lineages *: List[[FineGrainedLineageClass](../models.mdx#datahub.metadata.schema_classes.FineGrainedLineageClass)]*
+
+#### *property* flow_urn *: [DataFlowUrn](../urns.mdx#datahub.metadata.urns.DataFlowUrn)*
+
+Get the data flow associated with the data job.
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for data jobs.
+
+* **Return type:**
+  `Type`[[`DataJobUrn`](../urns.mdx#datahub.metadata.urns.DataJobUrn)]
+
+#### *property* inlets *: List[[DatasetUrn](../urns.mdx#datahub.metadata.urns.DatasetUrn)]*
+
+Get the inlets of the data job.
+
+#### *property* last_modified *: datetime | None*
+
+Get the last modification timestamp of the data job.
+
+#### *property* name *: str*
+
+Get the name of the data job.
+
+#### *property* outlets *: List[[DatasetUrn](../urns.mdx#datahub.metadata.urns.DatasetUrn)]*
+
+Get the outlets of the data job.
+
+#### set_created(created)
+
+Set the creation timestamp of the data job.
+
+* **Parameters:**
+  **created** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_custom_properties(custom_properties)
+
+Set the custom properties of the data job.
+
+* **Parameters:**
+  **custom_properties** (`Dict`[`str`, `str`])
+* **Return type:**
+  `None`
+
+#### set_description(description)
+
+Set the description of the data job.
+
+* **Parameters:**
+  **description** (`str`)
+* **Return type:**
+  `None`
+
+#### set_display_name(display_name)
+
+Set the display name of the data job.
+
+* **Parameters:**
+  **display_name** (`str`)
+* **Return type:**
+  `None`
+
+#### set_external_url(external_url)
+
+Set the external URL of the data job.
+
+* **Parameters:**
+  **external_url** (`str`)
+* **Return type:**
+  `None`
+
+#### set_fine_grained_lineages(lineages)
+
+* **Parameters:**
+  **lineages** (`List`[[`FineGrainedLineageClass`](../models.mdx#datahub.metadata.schema_classes.FineGrainedLineageClass)]) – 
+* **Return type:**
+  `None`
+
+#### set_inlets(inlets)
+
+Set the inlets of the data job.
+
+* **Parameters:**
+  **inlets** (`List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]]) – 
+* **Return type:**
+  `None`
+
+#### set_last_modified(last_modified)
+
+Set the last modification timestamp of the data job.
+
+* **Parameters:**
+  **last_modified** (`datetime`)
+* **Return type:**
+  `None`
+
+#### set_outlets(outlets)
+
+Set the outlets of the data job.
+
+* **Parameters:**
+  **outlets** (`List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]]) – 
+* **Return type:**
+  `None`
+
+#### *property* urn *: [DataJobUrn](../urns.mdx#datahub.metadata.urns.DataJobUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DataFlow</span> {#datahub.sdk.dataflow.DataFlow}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.dataflow.</span><span class="class-name">DataFlow</span>(*, <span class="arg-name">name</span>, <span class="arg-name">platform</span>, <span class="arg-name">display_name</span> = <span class="arg-default">None</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>, <span class="arg-name">env</span> = <span class="arg-default">'PROD'</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">external_url</span> = <span class="arg-default">None</span>, <span class="arg-name">custom_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">created</span> = <span class="arg-default">None</span>, <span class="arg-name">last_modified</span> = <span class="arg-default">None</span>, <span class="arg-name">subtype</span> = <span class="arg-default">None</span>, <span class="arg-name">owners</span> = <span class="arg-default">None</span>, <span class="arg-name">links</span> = <span class="arg-default">None</span>, <span class="arg-name">tags</span> = <span class="arg-default">None</span>, <span class="arg-name">terms</span> = <span class="arg-default">None</span>, <span class="arg-name">domain</span> = <span class="arg-default">None</span>, <span class="arg-name">parent_container</span> = <span class="arg-default">Unset.token</span>, <span class="arg-name">structured_properties</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_aspects</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.dataflow.DataFlow" class="hash-link"></a></div>
+
+
+Bases: `HasPlatformInstance`, `HasSubtype`, `HasOwnership`, `HasContainer`, `HasInstitutionalMemory`, `HasTags`, `HasTerms`, `HasDomain`, `HasStructuredProperties`, `Entity`
+
+Represents a dataflow in DataHub.
+A dataflow represents a collection of data, such as a table, view, or file.
+This class provides methods for managing dataflow metadata including schema,
+lineage, and various aspects like ownership, tags, and terms.
+
+* **Parameters:**
+  * **name** (`str`)
+  * **platform** (`str`)
+  * **display_name** (`Optional`[`str`])
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+  * **description** (`Optional`[`str`])
+  * **external_url** (`Optional`[`str`])
+  * **custom_properties** (`Optional`[`Dict`[`str`, `str`]])
+  * **created** (`Optional`[`datetime`])
+  * **last_modified** (`Optional`[`datetime`])
+  * **subtype** (`Optional`[`str`])
+  * **owners** (`Optional`[`Sequence`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn), `Tuple`[`Union`[[`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn), [`CorpGroupUrn`](../urns.mdx#datahub.metadata.urns.CorpGroupUrn)], `Union`[`str`, [`OwnershipTypeUrn`](../urns.mdx#datahub.metadata.urns.OwnershipTypeUrn)]], [`OwnerClass`](../models.mdx#datahub.metadata.schema_classes.OwnerClass)]]]) – 
+  * **links** (`Optional`[`Sequence`[`Union`[`str`, `Tuple`[`str`, `str`], [`InstitutionalMemoryMetadataClass`](../models.mdx#datahub.metadata.schema_classes.InstitutionalMemoryMetadataClass)]]]) – 
+  * **tags** (`Optional`[`Sequence`[`Union`[`str`, [`TagUrn`](../urns.mdx#datahub.metadata.urns.TagUrn), [`TagAssociationClass`](../models.mdx#datahub.metadata.schema_classes.TagAssociationClass)]]]) – 
+  * **terms** (`Optional`[`Sequence`[`Union`[`str`, [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn), [`GlossaryTermAssociationClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermAssociationClass)]]]) – 
+  * **domain** (`Union`[`str`, [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn), `None`]) – 
+  * **parent_container** (`Union`[[`Container`](#datahub.sdk.container.Container), [`ContainerKey`](../builder/mcp-builder.mdx#datahub.emitter.mcp_builder.ContainerKey), `Sequence`[`Union`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn), `str`]], `Unset`]) – 
+  * **structured_properties** (`Optional`[`Dict`[`Union`[`str`, [`StructuredPropertyUrn`](../urns.mdx#datahub.metadata.urns.StructuredPropertyUrn)], `Sequence`[`Union`[`str`, `float`, `int`]]]]) – 
+  * **extra_aspects** (`Optional`[`List`[`TypeVar`(`Aspect`, bound= `_Aspect`)]]) – 
+
+#### *property* created *: datetime | None*
+
+Get the creation timestamp of the dataflow.
+:returns: The creation timestamp if set, None otherwise.
+
+#### *property* custom_properties *: Dict[str, str]*
+
+Get the custom properties of the dataflow.
+:returns: Dictionary of custom properties.
+
+#### *property* description *: str | None*
+
+Get the description of the dataflow.
+:returns: The description if set, None otherwise.
+
+#### *property* display_name *: str | None*
+
+Get the display name of the dataflow.
+:returns: The display name if set, None otherwise.
+
+#### *property* env *: str | [FabricTypeClass](../models.mdx#datahub.metadata.schema_classes.FabricTypeClass) | None*
+
+Get the environment of the dataflow.
+
+#### *property* external_url *: str | None*
+
+Get the external URL of the dataflow.
+:returns: The external URL if set, None otherwise.
+
+#### *classmethod* get_urn_type()
+
+Get the URN type for dataflows.
+:rtype: `Type`[[`DataFlowUrn`](../urns.mdx#datahub.metadata.urns.DataFlowUrn)]
+:returns: The DataflowUrn class.
+
+* **Return type:**
+  *Type*[[*DataFlowUrn*](../urns.mdx#datahub.metadata.urns.DataFlowUrn)]
+
+#### *property* last_modified *: datetime | None*
+
+Get the last modification timestamp of the dataflow.
+:returns: The last modification timestamp if set, None otherwise.
+
+#### *property* name *: str*
+
+Get the name of the dataflow.
+:returns: The name of the dataflow.
+
+#### set_created(created)
+
+Set the creation timestamp of the dataflow.
+:type created: `datetime`
+:param created: The creation timestamp to set.
+
+* **Return type:**
+  `None`
+* **Parameters:**
+  **created** (*datetime*)
+#### set_custom_properties(custom_properties)
+
+Set the custom properties of the dataflow.
+:type custom_properties: `Dict`[`str`, `str`]
+:param custom_properties: Dictionary of custom properties to set.
+
+* **Return type:**
+  `None`
+* **Parameters:**
+  **custom_properties** (*Dict* *[**str**,**str**]*)
+#### set_description(description)
+
+Set the description of the dataflow.
+:type description: `str`
+:param description: The description to set.
+:rtype: `None`
+
+#### NOTE
+If called during ingestion, this will warn if overwriting
+a non-ingestion description.
+
+* **Parameters:**
+  **description** (*str*)
+* **Return type:**
+  None
+
+#### set_display_name(display_name)
+
+Set the display name of the dataflow.
+:type display_name: `str`
+:param display_name: The display name to set.
+
+* **Return type:**
+  `None`
+* **Parameters:**
+  **display_name** (*str*)
+#### set_external_url(external_url)
+
+Set the external URL of the dataflow.
+:type external_url: `str`
+:param external_url: The external URL to set.
+
+* **Return type:**
+  `None`
+* **Parameters:**
+  **external_url** (*str*)
+#### set_last_modified(last_modified)
+
+* **Parameters:**
+  **last_modified** (`datetime`)
+* **Return type:**
+  `None`
+
+#### *property* urn *: [DataFlowUrn](../urns.mdx#datahub.metadata.urns.DataFlowUrn)*
+
+Get the entity’s URN.
+
+* **Returns:**
+  The URN that uniquely identifies this entity.
+
+
+</div>
+</div>

@@ -1,0 +1,1083 @@
+---
+title: MCE Builder
+---
+<div className="sphinx-api-docs">
+<a id="mce-builder"></a>
+
+
+These classes and methods make it easier to construct MetadataChangeEvents.
+
+Convenience functions for creating MCEs
+
+
+
+### <span className="visually-hidden">OwnerType</span> {#datahub.emitter.mce_builder.OwnerType}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">OwnerType</span>(<span class="arg-name">value</span>, <span class="arg-name">names</span> = <span class="arg-default">None</span>, *, <span class="arg-name">module</span> = <span class="arg-default">None</span>, <span class="arg-name">qualname</span> = <span class="arg-default">None</span>, <span class="arg-name">type</span> = <span class="arg-default">None</span>, <span class="arg-name">start</span> = <span class="arg-default">1</span>, <span class="arg-name">boundary</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mce_builder.OwnerType" class="hash-link"></a></div>
+
+
+Bases: `Enum`
+
+#### GROUP *= 'corpGroup'*
+
+#### USER *= 'corpuser'*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">assert_can_add_aspect</span> {#datahub.emitter.mce_builder.assert_can_add_aspect}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">assert_can_add_aspect</span>(<span class="arg-name">mce</span>, <span class="arg-name">AspectType</span>)<a href="#datahub.emitter.mce_builder.assert_can_add_aspect" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **AspectType** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `None`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">assertion_urn_to_key</span> {#datahub.emitter.mce_builder.assertion_urn_to_key}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">assertion_urn_to_key</span>(<span class="arg-name">assertion_urn</span>)<a href="#datahub.emitter.mce_builder.assertion_urn_to_key" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **assertion_urn** (`str`)
+* **Return type:**
+  `Optional`[[`AssertionKeyClass`](../models.mdx#datahub.metadata.schema_classes.AssertionKeyClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">can_add_aspect</span> {#datahub.emitter.mce_builder.can_add_aspect}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">can_add_aspect</span>(<span class="arg-name">mce</span>, <span class="arg-name">AspectType</span>)<a href="#datahub.emitter.mce_builder.can_add_aspect" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **AspectType** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `bool`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">can_add_aspect_to_snapshot</span> {#datahub.emitter.mce_builder.can_add_aspect_to_snapshot}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">can_add_aspect_to_snapshot</span>(<span class="arg-name">SnapshotType</span>, <span class="arg-name">AspectType</span>)<a href="#datahub.emitter.mce_builder.can_add_aspect_to_snapshot" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **SnapshotType** (`Type`[`DictWrapper`])
+  * **AspectType** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `bool`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">chart_urn_to_key</span> {#datahub.emitter.mce_builder.chart_urn_to_key}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">chart_urn_to_key</span>(<span class="arg-name">chart_urn</span>)<a href="#datahub.emitter.mce_builder.chart_urn_to_key" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **chart_urn** (`str`)
+* **Return type:**
+  `Optional`[[`ChartKeyClass`](../models.mdx#datahub.metadata.schema_classes.ChartKeyClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">container_urn_to_key</span> {#datahub.emitter.mce_builder.container_urn_to_key}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">container_urn_to_key</span>(<span class="arg-name">guid</span>)<a href="#datahub.emitter.mce_builder.container_urn_to_key" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **guid** (`str`)
+* **Return type:**
+  `Optional`[[`ContainerKeyClass`](../models.mdx#datahub.metadata.schema_classes.ContainerKeyClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">dashboard_urn_to_key</span> {#datahub.emitter.mce_builder.dashboard_urn_to_key}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">dashboard_urn_to_key</span>(<span class="arg-name">dashboard_urn</span>)<a href="#datahub.emitter.mce_builder.dashboard_urn_to_key" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **dashboard_urn** (`str`)
+* **Return type:**
+  `Optional`[[`DashboardKeyClass`](../models.mdx#datahub.metadata.schema_classes.DashboardKeyClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">datahub_guid</span> {#datahub.emitter.mce_builder.datahub_guid}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">datahub_guid</span>(<span class="arg-name">obj</span>)<a href="#datahub.emitter.mce_builder.datahub_guid" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **obj** (`dict`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">dataset_key_to_urn</span> {#datahub.emitter.mce_builder.dataset_key_to_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">dataset_key_to_urn</span>(<span class="arg-name">key</span>)<a href="#datahub.emitter.mce_builder.dataset_key_to_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **key** ([`DatasetKeyClass`](../models.mdx#datahub.metadata.schema_classes.DatasetKeyClass)) – 
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">dataset_urn_to_key</span> {#datahub.emitter.mce_builder.dataset_urn_to_key}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">dataset_urn_to_key</span>(<span class="arg-name">dataset_urn</span>)<a href="#datahub.emitter.mce_builder.dataset_urn_to_key" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **dataset_urn** (`str`)
+* **Return type:**
+  `Optional`[[`DatasetKeyClass`](../models.mdx#datahub.metadata.schema_classes.DatasetKeyClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">get_aspect_if_available</span> {#datahub.emitter.mce_builder.get_aspect_if_available}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">get_aspect_if_available</span>(<span class="arg-name">mce</span>, <span class="arg-name">AspectType</span>)<a href="#datahub.emitter.mce_builder.get_aspect_if_available" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **AspectType** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `Optional`[`TypeVar`(`Aspect`, bound= `_Aspect`)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">get_or_add_aspect</span> {#datahub.emitter.mce_builder.get_or_add_aspect}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">get_or_add_aspect</span>(<span class="arg-name">mce</span>, <span class="arg-name">default</span>)<a href="#datahub.emitter.mce_builder.get_or_add_aspect" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **default** (`TypeVar`(`Aspect`, bound= `_Aspect`)) – 
+* **Return type:**
+  `TypeVar`(`Aspect`, bound= `_Aspect`)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">get_sys_time</span> {#datahub.emitter.mce_builder.get_sys_time}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">get_sys_time</span>()<a href="#datahub.emitter.mce_builder.get_sys_time" class="hash-link"></a></div>
+
+
+* **Return type:**
+  `int`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_assertion_urn</span> {#datahub.emitter.mce_builder.make_assertion_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_assertion_urn</span>(<span class="arg-name">assertion_id</span>)<a href="#datahub.emitter.mce_builder.make_assertion_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **assertion_id** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_chart_urn</span> {#datahub.emitter.mce_builder.make_chart_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_chart_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">name</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mce_builder.make_chart_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **name** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_container_urn</span> {#datahub.emitter.mce_builder.make_container_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_container_urn</span>(<span class="arg-name">guid</span>)<a href="#datahub.emitter.mce_builder.make_container_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **guid** (`Union`[`str`, [`DatahubKey`](mcp-builder.mdx#datahub.emitter.mcp_builder.DatahubKey)]) – 
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_dashboard_urn</span> {#datahub.emitter.mce_builder.make_dashboard_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_dashboard_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">name</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mce_builder.make_dashboard_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **name** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_data_flow_urn</span> {#datahub.emitter.mce_builder.make_data_flow_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_data_flow_urn</span>(<span class="arg-name">orchestrator</span>, <span class="arg-name">flow_id</span>, <span class="arg-name">cluster</span> = <span class="arg-default">'prod'</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mce_builder.make_data_flow_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **orchestrator** (`str`)
+  * **flow_id** (`str`)
+  * **cluster** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_data_job_urn</span> {#datahub.emitter.mce_builder.make_data_job_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_data_job_urn</span>(<span class="arg-name">orchestrator</span>, <span class="arg-name">flow_id</span>, <span class="arg-name">job_id</span>, <span class="arg-name">cluster</span> = <span class="arg-default">'prod'</span>, <span class="arg-name">platform_instance</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.mce_builder.make_data_job_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **orchestrator** (`str`)
+  * **flow_id** (`str`)
+  * **job_id** (`str`)
+  * **cluster** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_data_job_urn_with_flow</span> {#datahub.emitter.mce_builder.make_data_job_urn_with_flow}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_data_job_urn_with_flow</span>(<span class="arg-name">flow_urn</span>, <span class="arg-name">job_id</span>)<a href="#datahub.emitter.mce_builder.make_data_job_urn_with_flow" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **flow_urn** (`str`)
+  * **job_id** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_data_platform_urn</span> {#datahub.emitter.mce_builder.make_data_platform_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_data_platform_urn</span>(<span class="arg-name">platform</span>)<a href="#datahub.emitter.mce_builder.make_data_platform_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **platform** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_data_process_instance_urn</span> {#datahub.emitter.mce_builder.make_data_process_instance_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_data_process_instance_urn</span>(<span class="arg-name">dataProcessInstanceId</span>)<a href="#datahub.emitter.mce_builder.make_data_process_instance_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **dataProcessInstanceId** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_dataplatform_instance_urn</span> {#datahub.emitter.mce_builder.make_dataplatform_instance_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_dataplatform_instance_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">instance</span>)<a href="#datahub.emitter.mce_builder.make_dataplatform_instance_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **instance** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_dataset_urn</span> {#datahub.emitter.mce_builder.make_dataset_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_dataset_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">name</span>, <span class="arg-name">env</span> = <span class="arg-default">'PROD'</span>)<a href="#datahub.emitter.mce_builder.make_dataset_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **name** (`str`)
+  * **env** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_dataset_urn_with_platform_instance</span> {#datahub.emitter.mce_builder.make_dataset_urn_with_platform_instance}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_dataset_urn_with_platform_instance</span>(<span class="arg-name">platform</span>, <span class="arg-name">name</span>, <span class="arg-name">platform_instance</span>, <span class="arg-name">env</span> = <span class="arg-default">'PROD'</span>)<a href="#datahub.emitter.mce_builder.make_dataset_urn_with_platform_instance" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **name** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_domain_urn</span> {#datahub.emitter.mce_builder.make_domain_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_domain_urn</span>(<span class="arg-name">domain</span>)<a href="#datahub.emitter.mce_builder.make_domain_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **domain** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_global_tag_aspect_with_tag_list</span> {#datahub.emitter.mce_builder.make_global_tag_aspect_with_tag_list}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_global_tag_aspect_with_tag_list</span>(<span class="arg-name">tags</span>)<a href="#datahub.emitter.mce_builder.make_global_tag_aspect_with_tag_list" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **tags** (`List`[`str`])
+* **Return type:**
+  [`GlobalTagsClass`](../models.mdx#datahub.metadata.schema_classes.GlobalTagsClass)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_glossary_terms_aspect_from_urn_list</span> {#datahub.emitter.mce_builder.make_glossary_terms_aspect_from_urn_list}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_glossary_terms_aspect_from_urn_list</span>(<span class="arg-name">term_urns</span>)<a href="#datahub.emitter.mce_builder.make_glossary_terms_aspect_from_urn_list" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **term_urns** (`List`[`str`])
+* **Return type:**
+  [`GlossaryTermsClass`](../models.mdx#datahub.metadata.schema_classes.GlossaryTermsClass)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_group_urn</span> {#datahub.emitter.mce_builder.make_group_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_group_urn</span>(<span class="arg-name">groupname</span>)<a href="#datahub.emitter.mce_builder.make_group_urn" class="hash-link"></a></div>
+
+
+Makes a group urn if the input is not a user or group urn already
+
+* **Parameters:**
+  **groupname** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_lineage_mce</span> {#datahub.emitter.mce_builder.make_lineage_mce}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_lineage_mce</span>(<span class="arg-name">upstream_urns</span>, <span class="arg-name">downstream_urn</span>, <span class="arg-name">lineage_type</span> = <span class="arg-default">'TRANSFORMED'</span>)<a href="#datahub.emitter.mce_builder.make_lineage_mce" class="hash-link"></a></div>
+
+
+Note: this function only supports lineage for dataset aspects. It will not
+update lineage for any other aspect types.
+
+* **Parameters:**
+  * **upstream_urns** (`List`[`str`])
+  * **downstream_urn** (`str`)
+  * **lineage_type** (`str`)
+* **Return type:**
+  [`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ml_feature_table_urn</span> {#datahub.emitter.mce_builder.make_ml_feature_table_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ml_feature_table_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">feature_table_name</span>)<a href="#datahub.emitter.mce_builder.make_ml_feature_table_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **feature_table_name** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ml_feature_urn</span> {#datahub.emitter.mce_builder.make_ml_feature_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ml_feature_urn</span>(<span class="arg-name">feature_table_name</span>, <span class="arg-name">feature_name</span>)<a href="#datahub.emitter.mce_builder.make_ml_feature_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **feature_table_name** (`str`)
+  * **feature_name** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ml_model_deployment_urn</span> {#datahub.emitter.mce_builder.make_ml_model_deployment_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ml_model_deployment_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">deployment_name</span>, <span class="arg-name">env</span>)<a href="#datahub.emitter.mce_builder.make_ml_model_deployment_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **deployment_name** (`str`)
+  * **env** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ml_model_group_urn</span> {#datahub.emitter.mce_builder.make_ml_model_group_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ml_model_group_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">group_name</span>, <span class="arg-name">env</span>)<a href="#datahub.emitter.mce_builder.make_ml_model_group_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **group_name** (`str`)
+  * **env** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ml_model_urn</span> {#datahub.emitter.mce_builder.make_ml_model_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ml_model_urn</span>(<span class="arg-name">platform</span>, <span class="arg-name">model_name</span>, <span class="arg-name">env</span>)<a href="#datahub.emitter.mce_builder.make_ml_model_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **platform** (`str`)
+  * **model_name** (`str`)
+  * **env** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ml_primary_key_urn</span> {#datahub.emitter.mce_builder.make_ml_primary_key_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ml_primary_key_urn</span>(<span class="arg-name">feature_table_name</span>, <span class="arg-name">primary_key_name</span>)<a href="#datahub.emitter.mce_builder.make_ml_primary_key_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **feature_table_name** (`str`)
+  * **primary_key_name** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_owner_urn</span> {#datahub.emitter.mce_builder.make_owner_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_owner_urn</span>(<span class="arg-name">owner</span>, <span class="arg-name">owner_type</span>)<a href="#datahub.emitter.mce_builder.make_owner_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **owner** (`str`)
+  * **owner_type** ([`OwnerType`](#datahub.emitter.mce_builder.OwnerType)) – 
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ownership_aspect_from_urn_list</span> {#datahub.emitter.mce_builder.make_ownership_aspect_from_urn_list}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ownership_aspect_from_urn_list</span>(<span class="arg-name">owner_urns</span>, <span class="arg-name">source_type</span>, <span class="arg-name">owner_type</span> = <span class="arg-default">'DATAOWNER'</span>)<a href="#datahub.emitter.mce_builder.make_ownership_aspect_from_urn_list" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **owner_urns** (`List`[`str`])
+  * **source_type** (`Union`[`str`, [`OwnershipSourceTypeClass`](../models.mdx#datahub.metadata.schema_classes.OwnershipSourceTypeClass), `None`]) – 
+  * **owner_type** (`Union`[`str`, [`OwnershipTypeClass`](../models.mdx#datahub.metadata.schema_classes.OwnershipTypeClass)]) – 
+* **Return type:**
+  [`OwnershipClass`](../models.mdx#datahub.metadata.schema_classes.OwnershipClass)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ownership_type_urn</span> {#datahub.emitter.mce_builder.make_ownership_type_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ownership_type_urn</span>(<span class="arg-name">type</span>)<a href="#datahub.emitter.mce_builder.make_ownership_type_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **type** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_schema_field_urn</span> {#datahub.emitter.mce_builder.make_schema_field_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_schema_field_urn</span>(<span class="arg-name">parent_urn</span>, <span class="arg-name">field_path</span>)<a href="#datahub.emitter.mce_builder.make_schema_field_urn" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **parent_urn** (`str`)
+  * **field_path** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_tag_urn</span> {#datahub.emitter.mce_builder.make_tag_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_tag_urn</span>(<span class="arg-name">tag</span>)<a href="#datahub.emitter.mce_builder.make_tag_urn" class="hash-link"></a></div>
+
+
+Makes a tag urn if the input is not a tag urn already
+
+* **Parameters:**
+  **tag** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_term_urn</span> {#datahub.emitter.mce_builder.make_term_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_term_urn</span>(<span class="arg-name">term</span>)<a href="#datahub.emitter.mce_builder.make_term_urn" class="hash-link"></a></div>
+
+
+Makes a term urn if the input is not a term urn already
+
+* **Parameters:**
+  **term** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_ts_millis</span> {#datahub.emitter.mce_builder.make_ts_millis}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_ts_millis</span>(<span class="arg-name">ts</span>)<a href="#datahub.emitter.mce_builder.make_ts_millis" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **ts** (`Optional`[`datetime`])
+* **Return type:**
+  `Optional`[`int`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">make_user_urn</span> {#datahub.emitter.mce_builder.make_user_urn}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">make_user_urn</span>(<span class="arg-name">username</span>)<a href="#datahub.emitter.mce_builder.make_user_urn" class="hash-link"></a></div>
+
+
+Makes a user urn if the input is not a user or group urn already
+
+* **Parameters:**
+  **username** (`str`)
+* **Return type:**
+  `str`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">parse_ts_millis</span> {#datahub.emitter.mce_builder.parse_ts_millis}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">parse_ts_millis</span>(<span class="arg-name">ts</span>)<a href="#datahub.emitter.mce_builder.parse_ts_millis" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **ts** (`Optional`[`float`])
+* **Return type:**
+  `Optional`[`datetime`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">remove_aspect_if_available</span> {#datahub.emitter.mce_builder.remove_aspect_if_available}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">remove_aspect_if_available</span>(<span class="arg-name">mce</span>, <span class="arg-name">aspect_type</span>)<a href="#datahub.emitter.mce_builder.remove_aspect_if_available" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `bool`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">schema_field_urn_to_key</span> {#datahub.emitter.mce_builder.schema_field_urn_to_key}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">schema_field_urn_to_key</span>(<span class="arg-name">schema_field_urn</span>)<a href="#datahub.emitter.mce_builder.schema_field_urn_to_key" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **schema_field_urn** (`str`)
+* **Return type:**
+  `Optional`[[`SchemaFieldKeyClass`](../models.mdx#datahub.metadata.schema_classes.SchemaFieldKeyClass)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">set_aspect</span> {#datahub.emitter.mce_builder.set_aspect}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">set_aspect</span>(<span class="arg-name">mce</span>, <span class="arg-name">aspect</span>, <span class="arg-name">aspect_type</span>)<a href="#datahub.emitter.mce_builder.set_aspect" class="hash-link"></a></div>
+
+
+Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
+If passed in aspect is None, then the existing aspect value will be removed
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **aspect** (`Optional`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+  * **aspect_type** (`Type`[`TypeVar`(`Aspect`, bound= `_Aspect`)]) – 
+* **Return type:**
+  `None`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">set_dataset_urn_to_lower</span> {#datahub.emitter.mce_builder.set_dataset_urn_to_lower}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">set_dataset_urn_to_lower</span>(<span class="arg-name">value</span>)<a href="#datahub.emitter.mce_builder.set_dataset_urn_to_lower" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **value** (`bool`)
+* **Return type:**
+  `None`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">validate_ownership_type</span> {#datahub.emitter.mce_builder.validate_ownership_type}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.mce_builder.</span><span class="class-name">validate_ownership_type</span>(<span class="arg-name">ownership_type</span>)<a href="#datahub.emitter.mce_builder.validate_ownership_type" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **ownership_type** (`str`)
+* **Return type:**
+  `Tuple`[`str`, `Optional`[`str`]]
+
+
+</div>
+</div>

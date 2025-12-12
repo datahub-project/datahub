@@ -18,8 +18,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from locust import HttpUser, constant, task
 from threading import Lock, Thread
 
+from test_utils.datahub_sessions import DataHubSessions
+
+
+datahub_instances = DataHubSessions()
 lock = Lock()
 num_ingested = 0
+
 
 class IngestUser(HttpUser):
     wait_time = constant(1)
@@ -30,7 +35,8 @@ class IngestUser(HttpUser):
 
     @task
     def config(self):
-        self.client.get("/config")
+        session = datahub_instances.get_session(self.host)
+        self.client.get("/api/gms/config", cookies=session.get_cookies())
 
     @task
     def ingest(self):
@@ -45,8 +51,9 @@ class IngestUser(HttpUser):
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{proposed_snapshot.RECORD_SCHEMA.name}"
         )
+        session = datahub_instances.get_session(self.host)
         self.client.post(
-            "/entities?action=ingest",
+            "/api/gms/entities?action=ingest",
             json.dumps(
                 {
                     "entity": {
@@ -56,6 +63,7 @@ class IngestUser(HttpUser):
                     }
                 }
             ),
+            cookies=session.get_cookies()
         )
 
     def _build_snapshot(self, id: int):

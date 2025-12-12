@@ -17,9 +17,15 @@ const Container = styled.div`
 interface Props {
     url: string;
     className?: string;
+    /**
+     * Whether to use primary color. Defaults to true (primary color).
+     * If false, uses gray color with level 600.
+     */
+    usePrimaryColor?: boolean;
+    style?: React.CSSProperties;
 }
 
-export function LinkIcon({ url, className }: Props) {
+export function LinkIcon({ url, className, usePrimaryColor = true, style }: Props) {
     const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
 
     const renderIcon = useCallback(() => {
@@ -29,8 +35,20 @@ export function LinkIcon({ url, className }: Props) {
             return <FileIcon extension={extension} />;
         }
 
-        return <Icon icon="LinkSimple" source="phosphor" color="primary" size="lg" />;
-    }, [isDocumentationFileUploadV1Enabled, url]);
+        return (
+            <Icon
+                icon="LinkSimple"
+                source="phosphor"
+                color={usePrimaryColor ? 'primary' : 'gray'}
+                colorLevel={usePrimaryColor ? undefined : 600}
+                size="lg"
+            />
+        );
+    }, [isDocumentationFileUploadV1Enabled, url, usePrimaryColor]);
 
-    return <Container className={className}>{renderIcon()}</Container>;
+    return (
+        <Container className={className} style={style}>
+            {renderIcon()}
+        </Container>
+    );
 }

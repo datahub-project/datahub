@@ -1799,6 +1799,11 @@ type FeatureFlagsConfig {
   documentationFileUploadV1: Boolean!
 
   """
+  If enabled, allows tuning of freshness assertions.
+  """
+  freshnessAssertionTuningEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!

@@ -13,6 +13,9 @@ from datahub_executor.common.exceptions import SourceConnectionErrorException
 
 logger = logging.getLogger(__name__)
 
+# User agent entry for Databricks connections
+DATABRICKS_USER_AGENT_ENTRY = "datahub"
+
 
 class DatabricksConnection(Connection):
     """A connection to Databricks with proper lifecycle management"""
@@ -54,6 +57,7 @@ class DatabricksConnection(Connection):
                     server_hostname=self._get_server_hostname(),
                     http_path=f"/sql/1.0/warehouses/{self.config.warehouse_id}",
                     access_token=self.config.token,
+                    user_agent_entry=DATABRICKS_USER_AGENT_ENTRY,
                 )
                 # Update the finalizer with the new connection
                 self._finalizer.detach()

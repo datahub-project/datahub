@@ -69,6 +69,11 @@ export function useIsAiChatEnabled() {
     return appConfig.config.featureFlags.showAskDataHub;
 }
 
+export function useIsFreshnessAssertionTuningEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.freshnessAssertionTuningEnabled;
+}
+
 /**
  * Check if the instance is configured for a free trial
  */

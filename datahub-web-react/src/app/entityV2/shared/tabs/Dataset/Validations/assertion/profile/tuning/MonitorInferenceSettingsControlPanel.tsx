@@ -21,15 +21,16 @@ const SettingsSection = styled.div`
     margin-bottom: 24px;
 `;
 
-const ExclusionWindowItem = styled.div`
+const ExclusionWindowItem = styled.div<{ $isDisabled?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px;
+    padding: 3px 8px;
     border: 1px solid ${colors.gray[100]};
     border-radius: 8px;
     margin-bottom: 8px;
-    background-color: ${colors.gray[50]};
+    background-color: ${(props) => (props.$isDisabled ? colors.gray[1500] : colors.gray[50])};
+    cursor: ${(props) => (props.$isDisabled ? 'not-allowed' : 'default')};
 `;
 
 const SectionTitleContainer = styled.div`
@@ -49,6 +50,26 @@ const HelpIcon = styled(Icon)`
 
     &:hover {
         color: ${colors.gray[700]};
+    }
+`;
+
+const StyledRangePickerWrapper = styled.div`
+    &&& .ant-picker-disabled {
+        background-color: ${colors.gray[1500]};
+        color: ${colors.gray[300]};
+        cursor: not-allowed;
+
+        .ant-picker-input > input {
+            color: ${colors.gray[300]};
+        }
+
+        .ant-picker-separator {
+            color: ${colors.gray[300]};
+        }
+
+        .ant-picker-suffix {
+            color: ${colors.gray[300]};
+        }
     }
 `;
 
@@ -189,7 +210,7 @@ export const MonitorInferenceSettingsControlPanel = ({
                         {/* Existing Exclusion Windows */}
                         <ExclusionWindowsContainer>
                             {exclusionWindows.map((window, index) => (
-                                <ExclusionWindowItem key={window.fixedRange?.startTimeMillis}>
+                                <ExclusionWindowItem key={window.fixedRange?.startTimeMillis} $isDisabled={isUpdating}>
                                     <Text color="gray" size="sm" colorLevel={600} weight="medium">
                                         {window.displayName || 'Exclusion Window'}
                                     </Text>
@@ -206,21 +227,23 @@ export const MonitorInferenceSettingsControlPanel = ({
 
                         {/* Add New Exclusion Window */}
                         {showDatePicker ? (
-                            <RangePicker
-                                open
-                                value={null}
-                                onChange={handleDateRangeSelect}
-                                placeholder={['Start Date & Time', 'End Date & Time']}
-                                style={{ width: '100%' }}
-                                disabled={isUpdating}
-                                onBlur={() => setShowDatePicker(false)}
-                                autoFocus
-                                showTime={{
-                                    format: 'HH:mm',
-                                    defaultValue: [moment('00:00', 'HH:mm'), moment('23:59', 'HH:mm')],
-                                }}
-                                format="MMM D, YYYY HH:mm"
-                            />
+                            <StyledRangePickerWrapper>
+                                <RangePicker
+                                    open
+                                    value={null}
+                                    onChange={handleDateRangeSelect}
+                                    placeholder={['Start Date & Time', 'End Date & Time']}
+                                    style={{ width: '100%' }}
+                                    disabled={isUpdating}
+                                    onBlur={() => setShowDatePicker(false)}
+                                    autoFocus
+                                    showTime={{
+                                        format: 'HH:mm',
+                                        defaultValue: [moment('00:00', 'HH:mm'), moment('23:59', 'HH:mm')],
+                                    }}
+                                    format="MMM D, YYYY HH:mm"
+                                />
+                            </StyledRangePickerWrapper>
                         ) : (
                             <Button
                                 variant="text"

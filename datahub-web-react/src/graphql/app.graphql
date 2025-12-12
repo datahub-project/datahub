@@ -178,6 +178,7 @@ query appConfig {
             datasetSummaryPageV1
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
+            freshnessAssertionTuningEnabled
             contextDocumentsEnabled
         }
         chromeExtensionConfig {

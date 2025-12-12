@@ -1,3 +1,2 @@
-locust-plugins
--e ../metadata-ingestion[datahub-rest,datahub-kafka]
-kubernetes
+locust-plugins==5.0.0
+acryl-datahub==1.3.1.4

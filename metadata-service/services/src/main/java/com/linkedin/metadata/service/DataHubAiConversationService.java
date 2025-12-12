@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -161,13 +162,27 @@ public class DataHubAiConversationService {
    * @param actorUrn the user URN
    * @param count the number of conversations to return
    * @param start the starting offset for pagination
+   * @param additionalFilters optional additional filters to apply (e.g., originType filter)
    * @return a conversation list result containing both conversations and total count
    * @throws Exception if listing fails
    */
   @Nonnull
   public ConversationListResult listConversations(
-      @Nonnull OperationContext opContext, @Nonnull Urn actorUrn, int count, int start)
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn actorUrn,
+      int count,
+      int start,
+      @Nullable Filter additionalFilters)
       throws Exception {
+
+    // Create base filter for conversations created by the user
+    final Filter creatorFilter = createCreatorFilter(actorUrn);
+
+    // Combine with additional filters if provided
+    final Filter finalFilter =
+        additionalFilters != null
+            ? FilterUtils.combineFilters(creatorFilter, additionalFilters)
+            : creatorFilter;
 
     // Search for conversations created by the user
     final SortCriterion sortCriterion =
@@ -177,7 +192,7 @@ public class DataHubAiConversationService {
             opContext,
             ENTITY_NAME,
             "*",
-            createCreatorFilter(actorUrn),
+            finalFilter,
             ImmutableList.of(sortCriterion),
             start,
             count);

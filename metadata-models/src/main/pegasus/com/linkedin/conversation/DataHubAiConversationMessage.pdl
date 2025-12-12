@@ -34,4 +34,12 @@ record DataHubAiConversationMessage {
       * The name of the agent that generated this message (if applicable).
       */
      agentName: optional string
+
+     /**
+      * Optional context about where and how this message is being sent.
+      * When provided, this context is combined with the conversation-level context
+      * to give the AI agent the most up-to-date information about what the user is working on.
+      * This allows for dynamic context that changes as the user navigates through different screens or steps.
+      */
+     context: optional DataHubAiConversationContext
 }

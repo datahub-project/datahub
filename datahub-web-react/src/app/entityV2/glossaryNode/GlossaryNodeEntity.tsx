@@ -221,6 +221,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

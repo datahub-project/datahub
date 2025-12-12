@@ -1,0 +1,110 @@
+name: Run Performance Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Remote DataHub instance URL"
+        required: true
+        type: choice
+        options:
+          - "https://deploy-perf-01.acryl.io"
+        default: "https://deploy-perf-01.acryl.io"
+      locustfile:
+        description: "Locustfile to run"
+        required: true
+        type: choice
+        options:
+          - "ingest.py"
+          - "ingest_small.py"
+          - "ingest_graph.py"
+          - "search.py"
+          - "search_graphql.py"
+          - "browse.py"
+          - "graph.py"
+          - "get_entities.py"
+          - "graphql_performance.py"
+        default: "search.py"
+      users:
+        description: "Number of concurrent users"
+        required: false
+        type: number
+        default: 10
+      spawn_rate:
+        description: "Spawn rate (users per second)"
+        required: false
+        type: number
+        default: 1
+      run_time:
+        description: "Test duration (e.g., 5m, 1h)"
+        required: false
+        type: string
+        default: "5m"
+      branch:
+        description: "Branch to test"
+        required: false
+        type: string
+        default: "acryl-main"
+
+jobs:
+  run-perf-test:
+    name: Run Locust Performance Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7.1.3
+        with:
+          version: "0.9.9"
+
+      - name: Install dependencies
+        run: |
+          cd perf-test
+          uv venv venv --python 3.11
+          source venv/bin/activate
+          uv pip install -r requirements.txt
+
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ADMIN_USERNAME: op://Engineering/Shared Accounts for dev0x/admin email
+          ADMIN_PASSWORD: op://Engineering/Shared Accounts for dev0x/admin pass
+
+      - name: Run Locust performance test
+        env:
+          DATAHUB_GMS_URL: ${{ github.event.inputs.target_url }}
+        run: |
+          cd perf-test
+          source venv/bin/activate
+          locust \
+            --headless \
+            --host="${{ github.event.inputs.target_url }}" \
+            --locustfile="locustfiles/${{ github.event.inputs.locustfile }}" \
+            --users="${{ github.event.inputs.users }}" \
+            --spawn-rate="${{ github.event.inputs.spawn_rate }}" \
+            --run-time="${{ github.event.inputs.run_time }}" \
+            --html=results.html \
+            --csv=results
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-test-results-${{ github.event.inputs.locustfile }}-${{ github.run_id }}
+          path: |
+            perf-test/results.html
+            perf-test/results_*.csv
+          retention-days: 30

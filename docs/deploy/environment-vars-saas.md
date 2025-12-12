@@ -32,6 +32,7 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 | `VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED`    | `false` | boolean   | [`GMS`]    | If enabled, any user with permissions to view an ingestion source will be able to get to the ingestion page.          |
 | `DOCUMENTATION_FILE_UPLOAD_V1`                | `false` | boolean   | [`GMS`]    | Turns on the ability to upload files for asset documentation in the UI.                                               |
 | `SHOW_ASK_DATAHUB`                            | `false` | boolean   | [`GMS`]    | Turns on the ability to chat with DataHub AI assistant (Ask DataHub) through the UI.                                  |
+| `FRESHNESS_ASSERTION_TUNING_ENABLED`          | `false` | boolean   | [`GMS`]    | Turns on the ability to tune smart freshness assertions.                                                              |
 
 ## Compliance Forms
 

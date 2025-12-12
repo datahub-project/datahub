@@ -12,7 +12,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,13 @@ public class DataHubAiConversationController {
     private String conversationUrn;
     private String text;
     private String agentName;
+    private ChatContext context;
+  }
+
+  @Data
+  public static class ChatContext {
+    private String text;
+    private List<String> entityUrns;
   }
 
   /**
@@ -142,11 +151,23 @@ public class DataHubAiConversationController {
                 // Stream response from Python integrations service
                 // Python handles both message persistence and AI response generation
                 StreamingChatClient streamingClient = integrationsService.getStreamingChatClient();
+
+                // Convert ChatContext to Map for Python service
+                Map<String, Object> contextMap = null;
+                if (request.getContext() != null) {
+                  contextMap = new HashMap<>();
+                  contextMap.put("text", request.getContext().getText());
+                  if (request.getContext().getEntityUrns() != null) {
+                    contextMap.put("entity_urns", request.getContext().getEntityUrns());
+                  }
+                }
+
                 streamingClient
                     .sendStreamingMessage(
                         request.getConversationUrn(),
                         request.getText(),
                         request.getAgentName(),
+                        contextMap,
                         authentication, // Forward user's authentication to integrations service
                         (sseEvent) -> {
                           try {
