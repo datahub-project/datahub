@@ -143,7 +143,7 @@ public class EntityController
                     requestMap.keySet().stream()
                         .map(Urn::getEntityType)
                         .collect(Collectors.toSet())),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 
@@ -215,7 +215,7 @@ public class EntityController
                     request,
                     "scrollEntities",
                     resolvedEntityNames),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 
@@ -324,7 +324,7 @@ public class EntityController
                     request,
                     "linkLatestVersion",
                     ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
@@ -376,7 +376,7 @@ public class EntityController
                     request,
                     "unlinkVersion",
                     ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
@@ -417,7 +417,7 @@ public class EntityController
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "patchEntity", entityName),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 
@@ -479,7 +479,7 @@ public class EntityController
                     request,
                     "createGenericEntities",
                     entityTypes),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 

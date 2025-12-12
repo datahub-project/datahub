@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
@@ -42,7 +43,7 @@ public class DataContractUtilsTest {
 
               @Override
               public Authorizer getAuthorizer() {
-                Authorizer authorizer = mock(Authorizer.class);
+                Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
                 Mockito.when(authorizer.authorize(Mockito.any(AuthorizationRequest.class)))
                     .thenReturn(
                         new AuthorizationResult(

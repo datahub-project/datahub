@@ -100,7 +100,7 @@ public class EntityController
                     httpServletRequest,
                     "getEntityBatch",
                     entityName),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 

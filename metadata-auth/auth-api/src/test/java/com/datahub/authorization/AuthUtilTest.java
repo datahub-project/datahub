@@ -7,6 +7,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_ENTITY_PRIVILEGE_MAP;
 import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_MAP;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -330,7 +331,7 @@ public class AuthUtilTest {
   }
 
   private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {
-    Authorizer authorizer = mock(Authorizer.class);
+    Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
     when(authorizer.authorize(any()))
         .thenAnswer(
             args -> {

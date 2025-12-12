@@ -6,7 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -49,7 +49,7 @@ public class TimeseriesController {
 
   @Autowired private TimeseriesAspectService timeseriesAspectService;
 
-  @Autowired private AuthorizerChain authorizationChain;
+  @Autowired private Authorizer authorizer;
 
   @Autowired
   @Qualifier("systemOperationContext")
@@ -75,7 +75,7 @@ public class TimeseriesController {
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "getAspects", entityName),
-            authorizationChain,
+            authorizer,
             authentication,
             true);
 

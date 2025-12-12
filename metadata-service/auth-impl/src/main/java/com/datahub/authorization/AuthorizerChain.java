@@ -21,9 +21,12 @@ import lombok.extern.slf4j.Slf4j;
  * A configurable chain of {@link Authorizer}s executed in series to attempt to authenticate an
  * inbound request.
  *
- * <p>Individual {@link Authorizer}s are registered with the chain using {@link
- * #register(Authorizer)}. The chain can be executed by invoking {@link
- * #authorize(AuthorizationRequest)}.
+ * <p>Individual {@link Authorizer}s are registered at the instance creation time. The chain can be
+ * executed by invoking {@link #authorizeBatch(BatchAuthorizationRequest)}
+ *
+ * <p><b>Warning:</b> never use {@link Authorizer#authorize(AuthorizationRequest)}. This method is
+ * solely designed for implementing by {@link Authorizer} subclasses when they do not support batch
+ * authorization
  */
 @Slf4j
 public class AuthorizerChain implements Authorizer {
@@ -43,42 +46,53 @@ public class AuthorizerChain implements Authorizer {
   }
 
   /**
-   * Executes a set of {@link Authorizer}s and returns the first successful authentication result.
-   *
-   * <p>Returns an instance of {@link AuthorizationResult}.
+   * Should never be invoked as it's superseded by {@link
+   * #authorizeBatch(BatchAuthorizationRequest)}
    */
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
+    throw new UnsupportedOperationException(
+        "This method should never be invoked with DataHub itself. Use authorizeBatch method");
+  }
+
+  /**
+   * Executes a set of {@link Authorizer}s and returns the composition of the authentication
+   * results.
+   *
+   * <p>Each {@link Authorizer}'s result per specific privilege is accessed:
+   *
+   * <ol>
+   *   <li>in order of the {@link #authorizers} is defined
+   *   <li>only if all previous {@link Authorizer}s denied that privilege
+   * </ol>
+   */
+  @Nullable
+  public BatchAuthorizationResult authorizeBatch(@Nonnull final BatchAuthorizationRequest request) {
     Objects.requireNonNull(request);
     // Save contextClassLoader
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
 
+    var authorizersResults = new ArrayList<BatchAuthorizationResult>();
+
     for (final Authorizer authorizer : this.authorizers) {
       try {
         log.debug(
-            "Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
-        log.debug("Authorization Request: {}", request.toString());
+            "Executing authorizeBatch on Authorizer with class name {}",
+            authorizer.getClass().getCanonicalName());
+        log.debug("Batch Authorization Request: {}", request);
         // The library came with plugin can use the contextClassLoader to load the classes. For
         // example apache-ranger library does this.
         // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
         // loading request from plugin's home directory,
         // otherwise plugin's internal library wouldn't be able to find their dependent classes
         Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
-        AuthorizationResult result = authorizer.authorize(request);
+        BatchAuthorizationResult result = authorizer.authorizeBatch(request);
         // reset
         Thread.currentThread().setContextClassLoader(contextClassLoader);
 
-        if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
-          // Authorization was successful - Short circuit
-          log.debug("Authorization is successful");
-
-          return result;
-        } else {
-          log.debug(
-              "Received DENY result from Authorizer with class name {}. message: {}",
-              authorizer.getClass().getCanonicalName(),
-              result.getMessage());
-        }
+        log.debug(
+            "Batch authorization is successful for {}", authorizer.getClass().getCanonicalName());
+        authorizersResults.add(result);
       } catch (Exception e) {
         log.error(
             "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
@@ -88,8 +102,37 @@ public class AuthorizerChain implements Authorizer {
         Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
     }
-    // Return failed Authorization result.
-    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+
+    return new BatchAuthorizationResult(
+        request, composeAuthorizersResults(request, authorizersResults));
+  }
+
+  private static LazyAuthorizationResultMap composeAuthorizersResults(
+      BatchAuthorizationRequest request, ArrayList<BatchAuthorizationResult> authorizersResults) {
+    return new LazyAuthorizationResultMap(
+        request.getPrivileges(),
+        privilege -> {
+          for (BatchAuthorizationResult authorizerResult : authorizersResults) {
+            var authorizationResult = authorizerResult.getResults().get(privilege);
+            if (AuthorizationResult.Type.ALLOW == authorizationResult.getType()) {
+              log.debug(
+                  "Received ALLOW from Authorizer. message: {}", authorizationResult.getMessage());
+              return authorizationResult;
+            }
+
+            log.debug(
+                "Received DENY from Authorizer. message: {}", authorizationResult.getMessage());
+          }
+
+          return new AuthorizationResult(
+              new AuthorizationRequest(
+                  request.getActorUrn(),
+                  privilege,
+                  request.getResourceSpec(),
+                  request.getSubResources()),
+              AuthorizationResult.Type.DENY,
+              "No Authorizer has approved the request");
+        });
   }
 
   @Override

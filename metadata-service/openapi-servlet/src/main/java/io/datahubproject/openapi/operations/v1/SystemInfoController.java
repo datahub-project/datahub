@@ -3,7 +3,7 @@ package io.datahubproject.openapi.operations.v1;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.system_info.SpringComponentsInfo;
@@ -60,17 +60,17 @@ public class SystemInfoController {
 
   private final SystemInfoService systemInfoService;
   private final ObjectMapper objectMapper;
-  private final AuthorizerChain authorizerChain;
+  private final Authorizer authorizer;
   private final OperationContext systemOperationContext;
 
   public SystemInfoController(
       SystemInfoService systemInfoService,
       ObjectMapper objectMapper,
-      AuthorizerChain authorizerChain,
+      Authorizer authorizer,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
     this.systemInfoService = systemInfoService;
     this.objectMapper = objectMapper;
-    this.authorizerChain = authorizerChain;
+    this.authorizer = authorizer;
     this.systemOperationContext = systemOperationContext;
   }
 
@@ -88,7 +88,7 @@ public class SystemInfoController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder().buildOpenapi(actorUrnStr, request, "systemInfo", List.of()),
-            authorizerChain,
+            authorizer,
             authentication,
             true);
 

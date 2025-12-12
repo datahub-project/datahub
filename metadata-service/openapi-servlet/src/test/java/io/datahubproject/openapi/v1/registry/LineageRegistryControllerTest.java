@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 public class LineageRegistryControllerTest {
   private MockMvc mockMvc;
   private LineageRegistryController controller;
-  private AuthorizerChain mockAuthorizerChain;
+  private Authorizer mockAuthorizer;
   private OperationContext operationContext;
   private MockedStatic<AuthUtil> authUtilMock;
   private MockedStatic<AuthenticationContext> authContextMock;
@@ -36,16 +36,16 @@ public class LineageRegistryControllerTest {
   @BeforeMethod
   public void setup() {
     // Create mocks
-    mockAuthorizerChain = mock(AuthorizerChain.class);
+    mockAuthorizer = mock(Authorizer.class);
 
     operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizerChain, TEST_USER_AUTH);
+        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, TEST_USER_AUTH);
 
     authContextMock = Mockito.mockStatic(AuthenticationContext.class);
     authContextMock.when(AuthenticationContext::getAuthentication).thenReturn(TEST_USER_AUTH);
 
     // Create controller
-    controller = new LineageRegistryController(mockAuthorizerChain, operationContext);
+    controller = new LineageRegistryController(mockAuthorizer, operationContext);
 
     // Setup MockMvc
     mockMvc = MockMvcBuilders.standaloneSetup(controller).build();

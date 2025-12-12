@@ -8,7 +8,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.GraphService;
@@ -63,7 +63,7 @@ public class RelationshipsController {
   private static final int MAX_DOWNSTREAM_CNT = 200;
   private final OperationContext systemOperationContext;
   private final GraphService _graphService;
-  private final AuthorizerChain _authorizerChain;
+  private final Authorizer _authorizer;
 
   @InitBinder
   public void initBinder(WebDataBinder binder) {
@@ -170,7 +170,7 @@ public class RelationshipsController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getRelationships", entityUrn.getEntityType()),
-            _authorizerChain,
+            _authorizer,
             authentication,
             true);
 

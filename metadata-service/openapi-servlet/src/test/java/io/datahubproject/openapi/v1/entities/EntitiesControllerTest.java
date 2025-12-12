@@ -20,7 +20,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -60,7 +60,7 @@ public class EntitiesControllerTest {
 
   @Mock private ObjectMapper objectMapper;
 
-  @Mock private AuthorizerChain authorizerChain;
+  @Mock private Authorizer authorizer;
 
   @Mock private MetricUtils metricUtils;
 
@@ -86,8 +86,7 @@ public class EntitiesControllerTest {
 
     // Create controller
     controller =
-        new EntitiesController(
-            systemOperationContext, entityService, objectMapper, authorizerChain);
+        new EntitiesController(systemOperationContext, entityService, objectMapper, authorizer);
 
     // Setup authentication
     Actor actor = new Actor(ActorType.USER, "urn:li:corpuser:testuser");
