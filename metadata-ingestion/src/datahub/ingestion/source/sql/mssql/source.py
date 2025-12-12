@@ -1101,11 +1101,136 @@ class SQLServerSource(SQLAlchemySource):
 
         return filtered
 
+    def _filter_upstream_fields(
+        self,
+        field_urns: list,
+        platform_instance: Optional[str],
+        procedure_name: str,
+        field_urn_pattern: re.Pattern,
+        diagnostic_log: Optional[list],
+    ) -> list:
+        """Filter upstream field URNs (qualification + alias filtering)."""
+        if diagnostic_log is not None:
+            diagnostic_log.append("\n    Step 1: Filter unqualified upstream fields")
+
+        # Step 1: Filter by qualification
+        qualified_upstream_fields = []
+        for field_urn in field_urns:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                is_qualified = self._is_qualified_table_urn(
+                    table_urn, platform_instance
+                )
+                if is_qualified:
+                    qualified_upstream_fields.append(field_urn)
+                    if diagnostic_log is not None:
+                        diagnostic_log.append(f"      KEPT: {field_urn} (qualified)")
+                else:
+                    if diagnostic_log is not None:
+                        diagnostic_log.append(
+                            f"      FILTERED: {field_urn} (unqualified, table: {table_urn})"
+                        )
+                    logger.debug(
+                        f"Filtered unqualified upstream field in column lineage for {procedure_name}: {field_urn}"
+                    )
+            else:
+                qualified_upstream_fields.append(field_urn)
+                if diagnostic_log is not None:
+                    diagnostic_log.append(f"      KEPT: {field_urn} (no table match)")
+
+        # Step 2: Filter aliases
+        if diagnostic_log is not None:
+            diagnostic_log.append("\n    Step 2: Filter alias upstream fields")
+
+        upstream_table_urns = []
+        field_to_table_map = {}
+        for field_urn in qualified_upstream_fields:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                upstream_table_urns.append(table_urn)
+                field_to_table_map[field_urn] = table_urn
+
+        real_table_urns = set(
+            self._filter_upstream_aliases(upstream_table_urns, platform_instance)
+        )
+
+        filtered_upstreams = [
+            field_urn
+            for field_urn in qualified_upstream_fields
+            if field_to_table_map.get(field_urn) in real_table_urns
+            or field_urn not in field_to_table_map
+        ]
+
+        for field_urn in qualified_upstream_fields:
+            if field_urn not in filtered_upstreams:
+                table_urn = field_to_table_map.get(field_urn, "unknown")
+                if diagnostic_log is not None:
+                    diagnostic_log.append(
+                        f"      FILTERED: {field_urn} (alias, table: {table_urn})"
+                    )
+                logger.debug(
+                    f"Filtered alias upstream field in column lineage for {procedure_name}: {field_urn} (table: {table_urn})"
+                )
+
+        if diagnostic_log is not None:
+            diagnostic_log.append(
+                f"\n    Final upstream fields: {len(filtered_upstreams)}/{len(field_urns)}"
+            )
+
+        return filtered_upstreams
+
+    def _filter_downstream_fields(
+        self,
+        field_urns: list,
+        platform_instance: Optional[str],
+        procedure_name: str,
+        field_urn_pattern: re.Pattern,
+        diagnostic_log: Optional[list],
+    ) -> list:
+        """Filter downstream field URNs (qualification only)."""
+        if diagnostic_log is not None:
+            diagnostic_log.append("\n    Step 3: Filter unqualified downstream fields")
+
+        filtered_downstreams = []
+        for field_urn in field_urns:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                is_qualified = self._is_qualified_table_urn(
+                    table_urn, platform_instance
+                )
+                if is_qualified:
+                    filtered_downstreams.append(field_urn)
+                    if diagnostic_log is not None:
+                        diagnostic_log.append(f"      KEPT: {field_urn} (qualified)")
+                else:
+                    if diagnostic_log is not None:
+                        diagnostic_log.append(
+                            f"      FILTERED: {field_urn} (unqualified, table: {table_urn})"
+                        )
+                    logger.debug(
+                        f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
+                    )
+            else:
+                filtered_downstreams.append(field_urn)
+                if diagnostic_log is not None:
+                    diagnostic_log.append(f"      KEPT: {field_urn} (no table match)")
+
+        if diagnostic_log is not None:
+            diagnostic_log.append(
+                f"\n    Final downstream fields: {len(filtered_downstreams)}/{len(field_urns)}"
+            )
+
+        return filtered_downstreams
+
     def _filter_column_lineage(
         self,
         aspect: DataJobInputOutputClass,
         platform_instance: Optional[str],
         procedure_name: str,
+        diagnostic_log: Optional[list] = None,
     ) -> None:
         """Filter column lineage (fineGrainedLineages) to remove aliases.
 
@@ -1122,80 +1247,47 @@ class SQLServerSource(SQLAlchemySource):
         filtered_column_lineage = []
         field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
 
-        for cll in aspect.fineGrainedLineages:
-            # Filter upstreams: same logic as inputDatasets
+        for i, cll in enumerate(aspect.fineGrainedLineages, 1):
+            if diagnostic_log is not None:
+                diagnostic_log.append(f"\n  Column Lineage Entry {i}:")
+                diagnostic_log.append(f"    Downstreams: {len(cll.downstreams or [])}")
+                for ds in cll.downstreams or []:
+                    diagnostic_log.append(f"      {ds}")
+                diagnostic_log.append(f"    Upstreams: {len(cll.upstreams or [])}")
+                for us in cll.upstreams or []:
+                    diagnostic_log.append(f"      {us}")
+            # Filter upstreams and downstreams using helper methods
             if cll.upstreams:
-                # Step 1: Filter by qualification (3+ parts)
-                qualified_upstream_fields = []
-                for field_urn in cll.upstreams:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        if self._is_qualified_table_urn(table_urn, platform_instance):
-                            qualified_upstream_fields.append(field_urn)
-                        else:
-                            logger.debug(
-                                f"Filtered unqualified upstream field in column lineage for {procedure_name}: {field_urn}"
-                            )
-                    else:
-                        qualified_upstream_fields.append(field_urn)
-
-                # Step 2: Filter aliases (extract table URNs and check)
-                upstream_table_urns = []
-                field_to_table_map = {}
-                for field_urn in qualified_upstream_fields:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        upstream_table_urns.append(table_urn)
-                        field_to_table_map[field_urn] = table_urn
-
-                # Apply alias filtering to table URNs
-                real_table_urns = set(
-                    self._filter_upstream_aliases(
-                        upstream_table_urns, platform_instance
-                    )
+                cll.upstreams = self._filter_upstream_fields(
+                    cll.upstreams,
+                    platform_instance,
+                    procedure_name,
+                    field_urn_pattern,
+                    diagnostic_log,
                 )
 
-                # Keep only field URNs whose tables passed the filter
-                filtered_upstreams = [
-                    field_urn
-                    for field_urn in qualified_upstream_fields
-                    if field_to_table_map.get(field_urn) in real_table_urns
-                    or field_urn not in field_to_table_map
-                ]
-
-                # Log filtered aliases
-                for field_urn in qualified_upstream_fields:
-                    if field_urn not in filtered_upstreams:
-                        table_urn = field_to_table_map.get(field_urn, "unknown")
-                        logger.debug(
-                            f"Filtered alias upstream field in column lineage for {procedure_name}: {field_urn} (table: {table_urn})"
-                        )
-
-                cll.upstreams = filtered_upstreams
-
-            # Filter downstreams: only check qualification (same as outputDatasets)
             if cll.downstreams:
-                filtered_downstreams = []
-                for field_urn in cll.downstreams:
-                    match = field_urn_pattern.search(field_urn)
-                    if match:
-                        table_urn = match.group(1)
-                        if self._is_qualified_table_urn(table_urn, platform_instance):
-                            filtered_downstreams.append(field_urn)
-                        else:
-                            logger.debug(
-                                f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
-                            )
-                    else:
-                        filtered_downstreams.append(field_urn)
-                cll.downstreams = filtered_downstreams
+                cll.downstreams = self._filter_downstream_fields(
+                    cll.downstreams,
+                    platform_instance,
+                    procedure_name,
+                    field_urn_pattern,
+                    diagnostic_log,
+                )
 
             # Only keep column lineage if it has both upstreams and downstreams
             if cll.upstreams and cll.downstreams:
                 filtered_column_lineage.append(cll)
+                if diagnostic_log is not None:
+                    diagnostic_log.append(
+                        f"\n    KEPT: Entry has {len(cll.upstreams)} upstreams and {len(cll.downstreams)} downstreams"
+                    )
             else:
+                if diagnostic_log is not None:
+                    diagnostic_log.append(
+                        f"\n    DROPPED: Entry missing upstreams ({len(cll.upstreams) if cll.upstreams else 0}) "
+                        f"or downstreams ({len(cll.downstreams) if cll.downstreams else 0})"
+                    )
                 logger.debug(
                     f"Dropped column lineage entry for {procedure_name}: "
                     f"upstreams={len(cll.upstreams) if cll.upstreams else 0}, "
@@ -1212,6 +1304,178 @@ class SQLServerSource(SQLAlchemySource):
         aspect.fineGrainedLineages = (
             filtered_column_lineage if filtered_column_lineage else None
         )
+
+    def _log_lineage_diagnostics(
+        self,
+        diagnostic_log: list,
+        aspect: DataJobInputOutputClass,
+        stage: str,
+    ) -> None:
+        """Log lineage details for diagnostic purposes."""
+        input_count = len(aspect.inputDatasets or [])
+        output_count = len(aspect.outputDatasets or [])
+        cll_count = len(aspect.fineGrainedLineages or [])
+
+        diagnostic_log.append(f"\n--- {stage} ---")
+        diagnostic_log.append(f"Input datasets ({input_count}):")
+        for urn in aspect.inputDatasets or []:
+            diagnostic_log.append(f"  {urn}")
+        diagnostic_log.append(f"Output datasets ({output_count}):")
+        for urn in aspect.outputDatasets or []:
+            diagnostic_log.append(f"  {urn}")
+        diagnostic_log.append(f"Column lineage entries: {cll_count}")
+        for i, cll in enumerate(aspect.fineGrainedLineages or [], 1):
+            diagnostic_log.append(f"  Entry {i}:")
+            for ds in cll.downstreams or []:
+                diagnostic_log.append(f"    Downstream: {ds}")
+            for us in cll.upstreams or []:
+                diagnostic_log.append(f"    Upstream: {us}")
+
+    def _log_filtering_decision(
+        self,
+        diagnostic_log: list,
+        urn: str,
+        decision: str,
+        reason: str,
+        details: Optional[dict] = None,
+    ) -> None:
+        """Log a detailed filtering decision for a dataset URN."""
+        diagnostic_log.append(f"\n  Processing: {urn}")
+        diagnostic_log.append(f"    Decision: {decision}")
+        diagnostic_log.append(f"    Reason: {reason}")
+        if details:
+            for key, value in details.items():
+                diagnostic_log.append(f"    {key}: {value}")
+
+    def _filter_input_datasets_with_diagnostics(
+        self,
+        aspect: DataJobInputOutputClass,
+        platform_instance: Optional[str],
+        diagnostic_log: Optional[list],
+    ) -> None:
+        """Filter input datasets with detailed diagnostic logging."""
+        if not aspect.inputDatasets:
+            return
+
+        if diagnostic_log is not None:
+            diagnostic_log.append("\n=== FILTERING INPUT DATASETS ===")
+
+        # Step 1: Filter unqualified
+        qualified_inputs = []
+        for urn in aspect.inputDatasets:
+            is_qualified = self._is_qualified_table_urn(urn, platform_instance)
+            if is_qualified:
+                qualified_inputs.append(urn)
+                if diagnostic_log is not None:
+                    self._log_filtering_decision(
+                        diagnostic_log,
+                        urn,
+                        "KEPT",
+                        "Has 3+ name parts (database.schema.table)",
+                    )
+            else:
+                if diagnostic_log is not None:
+                    self._log_filtering_decision(
+                        diagnostic_log,
+                        urn,
+                        "FILTERED",
+                        "Missing database or schema qualifier (< 3 parts)",
+                    )
+
+        # Step 2: Filter aliases
+        if diagnostic_log is not None:
+            diagnostic_log.append("\n=== FILTERING ALIASES FROM INPUTS ===")
+
+        filtered_inputs = []
+        for urn in qualified_inputs:
+            try:
+                from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_name = dataset_urn.name
+                original_table_name = table_name
+
+                # Strip platform_instance prefix
+                if platform_instance and table_name.startswith(f"{platform_instance}."):
+                    table_name = table_name[len(platform_instance) + 1 :]
+
+                is_temp = self.is_temp_table(table_name)
+
+                if not is_temp:
+                    filtered_inputs.append(urn)
+                    if diagnostic_log is not None:
+                        self._log_filtering_decision(
+                            diagnostic_log,
+                            urn,
+                            "KEPT",
+                            "Real table (not alias/temp)",
+                            {
+                                "Original table name": original_table_name,
+                                "After prefix strip": table_name,
+                                "is_temp_table() result": is_temp,
+                            },
+                        )
+                else:
+                    if diagnostic_log is not None:
+                        self._log_filtering_decision(
+                            diagnostic_log,
+                            urn,
+                            "FILTERED",
+                            "Identified as alias or temp table",
+                            {
+                                "Original table name": original_table_name,
+                                "After prefix strip": table_name,
+                                "is_temp_table() result": is_temp,
+                            },
+                        )
+            except Exception as e:
+                # Keep on error
+                filtered_inputs.append(urn)
+                if diagnostic_log is not None:
+                    self._log_filtering_decision(
+                        diagnostic_log,
+                        urn,
+                        "KEPT",
+                        f"Error parsing URN: {e}",
+                    )
+
+        aspect.inputDatasets = filtered_inputs
+
+    def _filter_output_datasets_with_diagnostics(
+        self,
+        aspect: DataJobInputOutputClass,
+        platform_instance: Optional[str],
+        diagnostic_log: Optional[list],
+    ) -> None:
+        """Filter output datasets with detailed diagnostic logging."""
+        if not aspect.outputDatasets:
+            return
+
+        if diagnostic_log is not None:
+            diagnostic_log.append("\n=== FILTERING OUTPUT DATASETS ===")
+
+        filtered_outputs = []
+        for urn in aspect.outputDatasets:
+            is_qualified = self._is_qualified_table_urn(urn, platform_instance)
+            if is_qualified:
+                filtered_outputs.append(urn)
+                if diagnostic_log is not None:
+                    self._log_filtering_decision(
+                        diagnostic_log,
+                        urn,
+                        "KEPT",
+                        "Has 3+ name parts (database.schema.table)",
+                    )
+            else:
+                if diagnostic_log is not None:
+                    self._log_filtering_decision(
+                        diagnostic_log,
+                        urn,
+                        "FILTERED",
+                        "Missing database or schema qualifier (< 3 parts)",
+                    )
+
+        aspect.outputDatasets = filtered_outputs
 
     def _filter_procedure_lineage(
         self,
@@ -1235,6 +1499,24 @@ class SQLServerSource(SQLAlchemySource):
         """
         platform_instance = self.get_schema_resolver().platform_instance
 
+        # Collect diagnostic info for target procedure
+        enable_diagnostics = (
+            procedure_name
+            and "upd_european_priips_kid_information_lh" in procedure_name
+        )
+        diagnostic_log = []
+        diagnostic_complete = False
+
+        if enable_diagnostics:
+            diagnostic_log.append(f"=== Diagnostic Logging for {procedure_name} ===")
+            diagnostic_log.append(f"Platform instance: {platform_instance}")
+            diagnostic_log.append(
+                f"Discovered datasets count: {len(self.discovered_datasets)}"
+            )
+            diagnostic_log.append("Sample discovered datasets (first 10):")
+            for ds in list(self.discovered_datasets)[:10]:
+                diagnostic_log.append(f"  {ds}")
+
         for mcp in mcps:
             # Only filter dataJobInputOutput aspects
             if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
@@ -1242,36 +1524,51 @@ class SQLServerSource(SQLAlchemySource):
                 original_input_count = len(aspect.inputDatasets or [])
                 original_output_count = len(aspect.outputDatasets or [])
 
-                # Filter inputs: first unqualified tables, then aliases
-                if aspect.inputDatasets:
-                    qualified_inputs = [
-                        urn
-                        for urn in aspect.inputDatasets
-                        if self._is_qualified_table_urn(urn, platform_instance)
-                    ]
-                    aspect.inputDatasets = self._filter_upstream_aliases(
-                        qualified_inputs, platform_instance
+                if enable_diagnostics:
+                    self._log_lineage_diagnostics(
+                        diagnostic_log, aspect, "BEFORE FILTERING"
                     )
 
-                # Filter outputs: only unqualified tables
-                if aspect.outputDatasets:
-                    aspect.outputDatasets = [
-                        urn
-                        for urn in aspect.outputDatasets
-                        if self._is_qualified_table_urn(urn, platform_instance)
-                    ]
+                # Filter inputs and outputs using helper methods
+                self._filter_input_datasets_with_diagnostics(
+                    aspect,
+                    platform_instance,
+                    diagnostic_log if enable_diagnostics else None,
+                )
+                self._filter_output_datasets_with_diagnostics(
+                    aspect,
+                    platform_instance,
+                    diagnostic_log if enable_diagnostics else None,
+                )
 
                 # Filter column lineage
-                self._filter_column_lineage(aspect, platform_instance, procedure_name)
+                if enable_diagnostics:
+                    diagnostic_log.append("\n=== FILTERING COLUMN LINEAGE ===")
+                    if not aspect.fineGrainedLineages:
+                        diagnostic_log.append("No column lineage to filter")
+
+                self._filter_column_lineage(
+                    aspect,
+                    platform_instance,
+                    procedure_name,
+                    diagnostic_log if enable_diagnostics else None,
+                )
 
                 filtered_input_count = len(aspect.inputDatasets or [])
                 filtered_output_count = len(aspect.outputDatasets or [])
+
+                if enable_diagnostics:
+                    self._log_lineage_diagnostics(
+                        diagnostic_log, aspect, "AFTER FILTERING"
+                    )
 
                 # Skip aspect only if BOTH inputs and outputs are empty
                 if not aspect.inputDatasets and not aspect.outputDatasets:
                     logger.debug(
                         f"Skipping lineage for {procedure_name}: all tables were filtered"
                     )
+                    if enable_diagnostics:
+                        diagnostic_log.append("\nSKIPPED: All tables were filtered out")
                     continue
 
                 # Log summary if filtering occurred
@@ -1283,6 +1580,29 @@ class SQLServerSource(SQLAlchemySource):
                         f"Filtered lineage for {procedure_name}: "
                         f"inputs {original_input_count}->{filtered_input_count}, "
                         f"outputs {original_output_count}->{filtered_output_count}"
+                    )
+                    if enable_diagnostics:
+                        diagnostic_log.append(
+                            f"\nFiltering summary: inputs {original_input_count}->{filtered_input_count}, "
+                            f"outputs {original_output_count}->{filtered_output_count}"
+                        )
+
+            # Attach diagnostic log as a custom property for the target procedure
+            if enable_diagnostics and diagnostic_log and not diagnostic_complete:
+                from datahub.metadata.schema_classes import DataJobInfoClass
+
+                # Check if this is a dataJobInfo aspect and add the diagnostic log
+                if isinstance(mcp.aspect, DataJobInfoClass):
+                    if not mcp.aspect.customProperties:
+                        mcp.aspect.customProperties = {}
+                    diagnostic_log.append("\n=== End of Diagnostic Log ===")
+                    mcp.aspect.customProperties["lineage_diagnostic_log"] = "\n".join(
+                        diagnostic_log
+                    )
+                    diagnostic_complete = True
+                    logger.info(
+                        f"Attached diagnostic log to procedure {procedure_name} "
+                        f"({len(diagnostic_log)} lines)"
                     )
 
             yield mcp
