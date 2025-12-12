@@ -5,6 +5,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalVal
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
 import static com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator.softDeleteCheck;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -83,7 +84,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     return validateImmutable(
         changeMCPs.stream()
             .filter(

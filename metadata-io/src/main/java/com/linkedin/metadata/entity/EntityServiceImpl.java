@@ -1138,7 +1138,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // do final pre-commit checks with previous aspect value
                     ValidationExceptionCollection exceptions =
-                        AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext());
+                        AspectsBatch.validatePreCommit(
+                            changeMCPs, opContext.getRetrieverContext(), opContext);
 
                     List<Pair<ChangeMCP, Set<AspectValidationException>>> failedUpsertResults =
                         new ArrayList<>();
@@ -2787,6 +2788,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 4. Fetch all preceding aspects, that match
                   List<SystemAspect> aspectsToDelete = new ArrayList<>();
+
                   Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
                   long minVersion = Math.max(0, versionRange.getFirst());
                   long maxVersion = Math.max(0, versionRange.getSecond());
@@ -2794,7 +2796,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   EntityAspect.EntitySystemAspect survivingAspect = null;
 
                   boolean filterMatch = true;
-                  while (maxVersion > minVersion && filterMatch) {
+                  while (maxVersion >= minVersion && filterMatch) {
                     EntityAspect.EntitySystemAspect candidateAspect =
                         (EntityAspect.EntitySystemAspect)
                             EntityUtils.toSystemAspect(
@@ -2829,7 +2831,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                           .auditStamp(auditStamp)
                                           .build(opContext.getAspectRetriever()))
                               .collect(Collectors.toList()),
-                          opContext.getRetrieverContext());
+                          opContext.getRetrieverContext(),
+                          opContext);
                   if (!preCommitExceptions.isEmpty()) {
                     throw new ValidationException(
                         collectMetrics(opContext.getMetricUtils().orElse(null), preCommitExceptions)
