@@ -8,6 +8,15 @@ from datahub_integrations.chat.agents.tools.ingestion import (
     get_ingestion_source,
 )
 
+SAMPLE_RECIPE_WITH_SECRETS = """
+source:
+  type: snowflake
+  config:
+    account_id: abc123
+    password: my-secret-password
+    warehouse: COMPUTE_WH
+"""
+
 
 class TestGetIngestionSource:
     """Tests for get_ingestion_source function."""
@@ -40,6 +49,62 @@ class TestGetIngestionSource:
         assert isinstance(result, dict)
         assert "urn" in result
 
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_redacts_secrets_in_recipe(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test that secrets in recipe are redacted."""
+        mock_execute_graphql.return_value = {
+            "ingestionSource": {
+                "urn": "test",
+                "name": "Test Source",
+                "config": {"recipe": SAMPLE_RECIPE_WITH_SECRETS, "version": "1.0"},
+            }
+        }
+
+        result = get_ingestion_source("urn:li:dataHubIngestionSource:test")
+
+        assert "my-secret-password" not in str(result)
+        assert "********" in result["config"]["recipe"]
+        assert "abc123" in result["config"]["recipe"]
+        assert "COMPUTE_WH" in result["config"]["recipe"]
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_missing_recipe(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test that missing recipe is handled gracefully."""
+        mock_execute_graphql.return_value = {
+            "ingestionSource": {"urn": "test", "name": "Test Source", "config": {}}
+        }
+
+        result = get_ingestion_source("urn:li:dataHubIngestionSource:test")
+
+        assert "urn" in result
+        assert "name" in result
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_none_recipe(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test that None recipe is handled gracefully (cleaned response removes None values)."""
+        mock_execute_graphql.return_value = {
+            "ingestionSource": {
+                "urn": "test",
+                "name": "Test Source",
+                "config": {"recipe": None, "version": "1.0"},
+            }
+        }
+
+        result = get_ingestion_source("urn:li:dataHubIngestionSource:test")
+
+        # clean_gql_response removes None values, so recipe field won't be present
+        assert "urn" in result
+        assert "name" in result
+
 
 class TestGetIngestionExecutionRequest:
     """Tests for get_ingestion_execution_request function."""
@@ -56,6 +121,41 @@ class TestGetIngestionExecutionRequest:
 
         mock_execute_graphql.assert_called_once()
         assert mock_execute_graphql.call_args[1]["operation_name"] == "executionRequest"
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_redacts_secrets_in_source_recipe(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test that secrets in source recipe are redacted."""
+        mock_execute_graphql.return_value = {
+            "executionRequest": {
+                "urn": "test",
+                "source": {
+                    "urn": "source-test",
+                    "name": "Test Source",
+                    "config": {"recipe": SAMPLE_RECIPE_WITH_SECRETS, "version": "1.0"},
+                },
+            }
+        }
+
+        result = get_ingestion_execution_request("urn:li:executionRequest:test")
+
+        assert "my-secret-password" not in str(result)
+        assert "********" in result["source"]["config"]["recipe"]
+        assert "abc123" in result["source"]["config"]["recipe"]
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_missing_source(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test that missing source is handled gracefully."""
+        mock_execute_graphql.return_value = {"executionRequest": {"urn": "test"}}
+
+        result = get_ingestion_execution_request("urn:li:executionRequest:test")
+
+        assert "urn" in result
 
 
 class TestGetIngestionExecutionLogs:

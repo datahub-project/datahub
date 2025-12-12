@@ -1,5 +1,8 @@
 import pathlib
 
+from datahub_integrations.chat.agents.tools.recipe_redaction import (
+    redact_recipe_in_dict,
+)
 from datahub_integrations.mcp.mcp_server import (
     clean_gql_response,
     execute_graphql,
@@ -23,6 +26,9 @@ def get_ingestion_source(urn: str) -> dict:
     An ingestion source can have many ingestion runs associated with it. The source
     contains all of the configurations that the run executes.
 
+    IMPORTANT: Secret fields (passwords, tokens, API keys, etc.) in the recipe
+    are automatically redacted and replaced with "********" for security.
+
     PARAMETERS:
 
     urn - The urn of the ingestion source
@@ -45,7 +51,12 @@ def get_ingestion_source(urn: str) -> dict:
         operation_name="ingestionSource",
     )["ingestionSource"]
 
-    return clean_gql_response(result)
+    cleaned_result = clean_gql_response(result)
+
+    # Redact sensitive fields in the recipe
+    redact_recipe_in_dict(cleaned_result, ["config", "recipe"])
+
+    return cleaned_result
 
 
 def get_ingestion_execution_request(urn: str) -> dict:
@@ -61,6 +72,9 @@ def get_ingestion_execution_request(urn: str) -> dict:
     the status of the ingestion run, the start time and duration, and a structured report
     of the execution request which contains a sampling of errors, warnings, and infos
     from the ingestion run.
+
+    IMPORTANT: Secret fields (passwords, tokens, API keys, etc.) in the recipe
+    are automatically redacted and replaced with "********" for security.
 
     PARAMETERS:
 
@@ -82,7 +96,12 @@ def get_ingestion_execution_request(urn: str) -> dict:
         operation_name="executionRequest",
     )["executionRequest"]
 
-    return clean_gql_response(result)
+    cleaned_result = clean_gql_response(result)
+
+    # Redact sensitive fields in the recipe (nested under source.config.recipe)
+    redact_recipe_in_dict(cleaned_result, ["source", "config", "recipe"])
+
+    return cleaned_result
 
 
 def get_ingestion_execution_logs(
