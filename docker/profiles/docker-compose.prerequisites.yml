@@ -67,6 +67,16 @@ x-neo4j-profiles: &neo4j-profiles
 # Search Storage Profiles
 x-elasticsearch-profiles: &elasticsearch-profiles
   - debug-elasticsearch
+  - quickstart
+  - quickstart-datahub-actions
+  - quickstart-backend
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-cassandra
+  - quickstart-postgres
+  - quickstart-postgres-cdc
+  - quickstart-consumers
+  - quickstart-consumers-cdc
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
