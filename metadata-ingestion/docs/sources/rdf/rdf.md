@@ -231,7 +231,7 @@ source:
 | `ignore_old_state` |    ❌    | `false` | Ignore previous checkpoint state    |
 | `ignore_new_state` |    ❌    | `false` | Don't save current checkpoint state |
 
-For more details, see the [Stateful Ingestion documentation](../../../docs/dev_guides/stateful.md).
+For more details, see the [Stateful Ingestion documentation](../../../../metadata-ingestion/docs/dev_guides/stateful.md).
 
 ## Example RDF Files
 
@@ -483,6 +483,6 @@ If stale entities aren't being removed:
 
 ## Additional Resources
 
-- **[RDF Specification](../../../src/datahub/ingestion/source/rdf/docs/rdf-specification.md)** - Complete technical specification
-- **[Entity Plugin Contract](../../../src/datahub/ingestion/source/rdf/docs/ENTITY_PLUGIN_CONTRACT.md)** - Guide for adding new entity types
-- **[Stateful Ingestion Guide](../../../docs/dev_guides/stateful.md)** - Stateful ingestion documentation
+- **[RDF Specification](../../../../metadata-ingestion/src/datahub/ingestion/source/rdf/docs/rdf-specification.md)** - Complete technical specification
+- **[Entity Plugin Contract](../../../../metadata-ingestion/src/datahub/ingestion/source/rdf/docs/ENTITY_PLUGIN_CONTRACT.md)** - Guide for adding new entity types
+- **[Stateful Ingestion Guide](../../../../metadata-ingestion/docs/dev_guides/stateful.md)** - Stateful ingestion documentation
