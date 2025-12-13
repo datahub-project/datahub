@@ -1,6 +1,12 @@
 import { get } from 'lodash';
 
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const POWERBI_CLIENT_ID: RecipeField = {
     name: 'client_id',
@@ -149,13 +155,14 @@ export const EXTRACT_OWNERSHIP: RecipeField = {
 };
 
 const workspaceIdAllowFieldPath = 'source.config.workspace_id_pattern.allow';
-export const WORKSPACE_ID_ALLOW: RecipeField = {
+export const WORKSPACE_ID_ALLOW: FilterRecipeField = {
     name: 'workspace_id_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Include specific Workspaces',
     tooltip:
         'Only include specific Workspaces by providing the unique id of a Workspace, or a Regular Expression (REGEX). If not provided, all Workspaces will be included.',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: workspaceIdAllowFieldPath,
     rules: null,
@@ -166,13 +173,14 @@ export const WORKSPACE_ID_ALLOW: RecipeField = {
 };
 
 const workspaceIdDenyFieldPath = 'source.config.workspace_id_pattern.deny';
-export const WORKSPACE_ID_DENY: RecipeField = {
+export const WORKSPACE_ID_DENY: FilterRecipeField = {
     name: 'workspace_id_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific Workspaces',
     tooltip:
         'Exclude specific Workspaces by providing the unique id of a Workspace, or a Regular Expression (REGEX). If not provided, all Workspaces will be included. Deny patterns always take precendence over Allow patterns.',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: workspaceIdDenyFieldPath,
     rules: null,

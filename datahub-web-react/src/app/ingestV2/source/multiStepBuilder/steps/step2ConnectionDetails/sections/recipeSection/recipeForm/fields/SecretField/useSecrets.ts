@@ -15,7 +15,7 @@ export function useSecrets() {
 
     const secrets = useMemo(() => {
         const fetchedSecrets = data?.listSecrets?.secrets || [];
-        return fetchedSecrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name));
+        return [...fetchedSecrets].sort((secretA, secretB) => secretA.name.localeCompare(secretB.name));
     }, [data?.listSecrets?.secrets]);
 
     return { secrets, refetchSecrets };
