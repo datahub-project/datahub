@@ -568,7 +568,109 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
+      - name: Detect workflow retry
+        id: retry-detection
+        run: |
+          if [[ "${{ github.run_attempt }}" -gt 1 ]]; then
+            echo "This is retry attempt ${{ github.run_attempt }}"
+            echo "is_retry=true" >> "$GITHUB_OUTPUT"
+            PREVIOUS_ATTEMPT=$(($(echo "${{ github.run_attempt }}") - 1))
+            echo "previous_attempt=${PREVIOUS_ATTEMPT}" >> "$GITHUB_OUTPUT"
+          else
+            echo "This is the first attempt"
+            echo "is_retry=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download previous test results
+        if: steps.retry-detection.outputs.is_retry == 'true' && matrix.test_strategy == 'cypress'
+        id: download-artifacts
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+
+          echo "Downloading artifacts from run ${{ github.run_id }}, attempt ${{ steps.retry-detection.outputs.previous_attempt }}"
+
+          # Create directory for previous results
+          mkdir -p "${{ github.workspace }}/previous-test-results"
+
+          # Get artifact ID for this batch's test results
+          ARTIFACT_NAME="Test Results (smoke tests) cypress ${{ matrix.batch }}"
+          echo "Looking for artifact: ${ARTIFACT_NAME}"
+
+          # Query artifacts for this workflow run
+          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
+
+          if [[ -z "$ARTIFACT_ID" ]]; then
+            echo "No artifact found for batch ${{ matrix.batch }}"
+            echo "download_success=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found artifact ID: ${ARTIFACT_ID}"
+
+          # Download and extract artifact
+          cd "${{ github.workspace }}/previous-test-results"
+          gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
+          unzip -q artifact.zip
+
+          # Verify we got XML files
+          if ls smoke-test-results/cypress-test-*.xml 1> /dev/null 2>&1; then
+            echo "Successfully downloaded test results"
+            echo "download_success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No cypress test XML files found in artifact"
+            echo "download_success=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Parse failed tests
+        if: |
+          steps.retry-detection.outputs.is_retry == 'true' &&
+          matrix.test_strategy == 'cypress' &&
+          steps.download-artifacts.outputs.download_success == 'true'
+        id: parse-failures
+        run: |
+          set +e
+
+          OUTPUT_FILE="${{ github.workspace }}/failed-tests-batch-${{ matrix.batch }}.txt"
+
+          python3 .github/scripts/parse_failed_cypress_tests.py \
+            --input-dir "${{ github.workspace }}/previous-test-results" \
+            --output "${OUTPUT_FILE}"
+
+          EXIT_CODE=$?
+
+          case $EXIT_CODE in
+            0)
+              echo "parse_result=has_failures" >> "$GITHUB_OUTPUT"
+              echo "filtered_tests_file=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
+              echo "Will retry $(wc -l < ${OUTPUT_FILE}) failed test(s)"
+              ;;
+            2)
+              echo "parse_result=all_passed" >> "$GITHUB_OUTPUT"
+              echo "All tests passed in previous attempt - will skip batch"
+              ;;
+            3)
+              echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
+              echo "No test results found - will run all tests"
+              ;;
+            *)
+              echo "parse_result=error" >> "$GITHUB_OUTPUT"
+              echo "Error parsing test results - will run all tests"
+              ;;
+          esac
+
+      - name: Skip batch if all tests passed
+        if: steps.parse-failures.outputs.parse_result == 'all_passed'
+        run: |
+          echo "✓ All tests passed in previous attempt for batch ${{ matrix.batch }}"
+          echo "Skipping this batch to optimize CI time"
+          exit 0
+
       - name: Smoke test
+        if: steps.parse-failures.outputs.parse_result != 'all_passed'
         env:
           RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
@@ -577,7 +679,19 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          FILTERED_TESTS: ${{ steps.parse-failures.outputs.filtered_tests_file || '' }}
         run: |
+          if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
+            echo "=========================================="
+            echo "RETRY MODE: Running only failed tests"
+            echo "=========================================="
+            echo "Failed tests to retry:"
+            cat "$FILTERED_TESTS"
+            echo "=========================================="
+          elif [[ "${{ steps.retry-detection.outputs.is_retry }}" == "true" ]]; then
+            echo "RETRY MODE: Running all tests (fallback)"
+          fi
+
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
