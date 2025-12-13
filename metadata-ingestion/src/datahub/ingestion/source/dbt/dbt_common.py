@@ -96,6 +96,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeStampClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
@@ -1799,6 +1800,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         dbt_properties.externalUrl = self.get_external_url(node)
 
+        # Set lastModified from max_loaded_at for sources, or from model_performances for models
+        if node.max_loaded_at is not None:
+            # For sources: use max_loaded_at from sources.json
+            timestamp_millis = datetime_to_ts_millis(node.max_loaded_at)
+            dbt_properties.lastModified = TimeStampClass(timestamp_millis)
+        elif node.model_performances:
+            # For models: use the most recent successful run end_time
+            # Get the latest successful run (most recent end_time)
+            successful_runs = [
+                perf for perf in node.model_performances if perf.is_success()
+            ]
+            if successful_runs:
+                latest_run = max(successful_runs, key=lambda p: p.end_time)
+                timestamp_millis = datetime_to_ts_millis(latest_run.end_time)
+                dbt_properties.lastModified = TimeStampClass(timestamp_millis)
+
         return dbt_properties
 
     @abstractmethod
@@ -1968,13 +1985,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             canonical_schema.append(field)
 
+        # Set lastModified from max_loaded_at for sources, or from model_performances for models
         last_modified = None
         if node.max_loaded_at is not None:
+            # For sources: use max_loaded_at from sources.json
             actor = mce_builder.make_user_urn("dbt_executor")
             last_modified = AuditStamp(
                 time=datetime_to_ts_millis(node.max_loaded_at),
                 actor=actor,
             )
+        elif node.model_performances:
+            # For models: use the most recent successful run end_time
+            successful_runs = [
+                perf for perf in node.model_performances if perf.is_success()
+            ]
+            if successful_runs:
+                latest_run = max(successful_runs, key=lambda p: p.end_time)
+                actor = mce_builder.make_user_urn("dbt_executor")
+                last_modified = AuditStamp(
+                    time=datetime_to_ts_millis(latest_run.end_time),
+                    actor=actor,
+                )
 
         return SchemaMetadata(
             schemaName=node.dbt_name,
@@ -1982,8 +2013,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            lastModified=last_modified,
             fields=canonical_schema,
+            lastModified=last_modified,
         )
 
     def _aggregate_owners(
