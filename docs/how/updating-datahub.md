@@ -52,6 +52,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #15526: The csv-enricher source now supports reading CSV files from S3. Specify an S3 URI (`s3://bucket/path/file.csv`) in the `filename` config and provide AWS credentials via the `aws_config` field.
+
 ## 1.3.0
 
 ### Breaking Changes

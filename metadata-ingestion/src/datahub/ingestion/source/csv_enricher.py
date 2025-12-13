@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib import parse
 
 import requests
+import smart_open
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -113,6 +114,9 @@ class CSVEnricherSource(Source):
     glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
     or append existing values.
 
+    The CSV file can be read from a local file path, an HTTP/HTTPS URL, or an S3 URI (s3://bucket/path/file.csv).
+    When using S3, provide the `aws_config` field with your AWS credentials.
+
     The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
 
     ```
@@ -149,6 +153,32 @@ class CSVEnricherSource(Source):
 
         if not self.should_overwrite:
             self.ctx.require_graph(operation="The csv-enricher's PATCH semantics flag")
+
+    def _is_s3_uri(self, path: str) -> bool:
+        """Check if the path is an S3 URI."""
+        return path.startswith("s3://")
+
+    def _read_s3_file(self) -> List[Dict[str, str]]:
+        """Read CSV file from S3 using smart_open."""
+        if not self.config.aws_config:
+            raise ConfigurationError(
+                "AWS configuration required for S3 file access. "
+                "Please provide aws_config in your recipe."
+            )
+
+        try:
+            s3_client = self.config.aws_config.get_s3_client()
+            with smart_open.open(
+                self.config.filename,
+                mode="r",
+                encoding="utf-8-sig",
+                transport_params={"client": s3_client},
+            ) as f:
+                return list(csv.DictReader(f, delimiter=self.config.delimiter))
+        except Exception as e:
+            raise ConfigurationError(
+                f"Cannot read S3 file {self.config.filename}: {e}"
+            ) from e
 
     def get_resource_glossary_terms_work_unit(
         self,
@@ -628,8 +658,9 @@ class CSVEnricherSource(Source):
         # present in the file. Excel is known to add a BOM to CSV files.
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
-        parsed_location = parse.urlparse(self.config.filename)
-        if parsed_location.scheme in ("http", "https"):
+        if self._is_s3_uri(self.config.filename):
+            rows = self._read_s3_file()
+        elif parse.urlparse(self.config.filename).scheme in ("http", "https"):
             try:
                 resp = requests.get(self.config.filename)
                 resp.raise_for_status()  # Raise an exception for HTTP error status codes
