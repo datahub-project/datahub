@@ -162,13 +162,6 @@ def save_capability_report(summary: CapabilitySummary, output_dir: str) -> None:
     summary_dict = dataclasses.asdict(summary)
     summary_dict["generated_by"] = "metadata-ingestion/scripts/capability_summary.py"
     summary_dict["generated_at"] = datetime.now(timezone.utc).isoformat()
-
-    # Ensure plugin_details is sorted alphabetically for consistent output
-    if "plugin_details" in summary_dict:
-        summary_dict["plugin_details"] = dict(
-            sorted(summary_dict["plugin_details"].items())
-        )
-
     summary_json = json.dumps(summary_dict, indent=2, sort_keys=True)
 
     summary_file = output_path / "capability_summary.json"
