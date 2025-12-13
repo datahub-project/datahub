@@ -110,7 +110,7 @@ To profile BigQuery external tables backed by Google Drive document, you need to
 
 ### Lineage and Usage Computation Details
 
-DataHub's BigQuery connector supports two approaches for extracting lineage and usage statistics:
+DataHub's BigQuery connector supports multiple approaches for extracting lineage and usage statistics:
 
 #### Modern Approach (Default): `use_queries_v2: true`
 
@@ -184,6 +184,65 @@ source:
 - **Benefits**: No Cloud Logging API limits, better for large-scale ingestion
 - **Setup**: Follow [BigQuery audit logs export guide](https://cloud.google.com/bigquery/docs/reference/auditlogs#defining_a_bigquery_log_sink_using_gcloud)
 - **Note**: The `bigquery_audit_metadata_datasets` parameter accepts datasets in `$PROJECT.$DATASET` format, allowing lineage computation from multiple projects.
+
+#### Alternative: Data Catalog Lineage API
+
+**Optional lineage extraction method** - Uses Google's Data Catalog Lineage API as an alternative to audit log processing.
+
+**Configuration**:
+
+```yaml
+source:
+  type: bigquery
+  config:
+    extract_lineage_from_catalog: true
+```
+
+**Requirements**:
+
+1. Enable the **Data Catalog API** in your GCP project:
+
+   - Navigate to [APIs & Services](https://console.cloud.google.com/apis/library)
+   - Search for "Data Catalog API"
+   - Click "Enable"
+
+2. Grant the following permission to your service account:
+
+| Permission                | Description                                | Required For                       |
+| ------------------------- | ------------------------------------------ | ---------------------------------- |
+| `datacatalog.lineage.get` | Read lineage information from Data Catalog | Lineage extraction via Catalog API |
+
+**How It Works**:
+
+- DataHub automatically discovers all regions where your datasets are located
+- Lineage is extracted from each region independently
+- Works with all BigQuery regions including:
+  - Multi-regions: `US`, `EU`
+  - Single regions: `us-central1`, `europe-west1`, `asia-southeast1`, etc.
+  - Custom regions configured in your GCP setup
+
+**Benefits**:
+
+- ✅ Works across all BigQuery regions automatically
+- ✅ No need to configure region-specific settings
+- ✅ Automatically adapts to new regions as you add datasets
+- ✅ No audit log retention dependencies
+
+**Limitations**:
+
+- ❌ Cannot build lineage for views (use `lineage_parse_view_ddl: true` for view lineage)
+- ❌ Requires Data Catalog API to be enabled (may incur additional GCP costs)
+- ❌ Requires additional permissions beyond basic metadata extraction
+- ❌ May not capture all lineage types that audit logs provide
+
+**Cost Considerations**:
+
+The Data Catalog API has its own pricing. See [Google Cloud Data Catalog Pricing](https://cloud.google.com/data-catalog/pricing) for details.
+
+**Learn More**:
+
+- [Google Data Catalog Lineage Documentation](https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage)
+- [BigQuery Locations and Regions](https://cloud.google.com/bigquery/docs/locations)
 
 ### Profiling Details
 
