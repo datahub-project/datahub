@@ -3025,6 +3025,8 @@ public class GmsGraphQLEngine {
             this.documentService,
             entityTypes,
             documentType,
+            dataPlatformType,
+            dataPlatformInstanceType,
             entityClient,
             this.entityService,
             this.graphClient,

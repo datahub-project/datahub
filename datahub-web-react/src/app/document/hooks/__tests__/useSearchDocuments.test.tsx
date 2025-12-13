@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { SearchDocumentsInput, useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
-import { DocumentState } from '@types';
+import { DocumentSourceType, DocumentState } from '@types';
 
 describe('useSearchDocuments', () => {
     const mockDocuments = [
@@ -27,9 +27,10 @@ describe('useSearchDocuments', () => {
         },
     ];
 
-    it('should search documents with default parameters', async () => {
+    it('should search documents with Native source type', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -83,6 +84,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             query: 'test query',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -133,6 +135,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             parentDocument: 'urn:li:document:parent',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -182,6 +185,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             rootOnly: true,
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -231,6 +235,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             types: ['guide', 'tutorial'],
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -280,6 +285,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             states: [DocumentState.Published],
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -325,9 +331,10 @@ describe('useSearchDocuments', () => {
         expect(result.current.documents).toEqual([mockDocuments[0]]);
     });
 
-    it('should include drafts when specified', async () => {
+    it('should search all documents when both source types specified', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native, DocumentSourceType.External],
         };
 
         const mocks = [
@@ -342,7 +349,7 @@ describe('useSearchDocuments', () => {
                             parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            sourceType: 'NATIVE',
+                            sourceType: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -378,6 +385,7 @@ describe('useSearchDocuments', () => {
             fetchPolicy: 'network-only',
             start: 10,
             count: 50,
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -428,6 +436,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             includeParentDocuments: true,
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -476,6 +485,7 @@ describe('useSearchDocuments', () => {
     it('should use specified fetch policy', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -525,6 +535,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             query: 'nonexistent',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -574,6 +585,7 @@ describe('useSearchDocuments', () => {
     it('should handle GraphQL errors', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -616,6 +628,7 @@ describe('useSearchDocuments', () => {
     it('should expose refetch function', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -660,5 +673,55 @@ describe('useSearchDocuments', () => {
 
         expect(result.current.refetch).toBeDefined();
         expect(typeof result.current.refetch).toBe('function');
+    });
+
+    it('should search External documents only', async () => {
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.External],
+        };
+
+        const mocks = [
+            {
+                request: {
+                    query: SearchDocumentsDocument,
+                    variables: {
+                        input: {
+                            start: 0,
+                            count: 100,
+                            query: '*',
+                            parentDocuments: undefined,
+                            rootOnly: undefined,
+                            types: undefined,
+                            sourceType: 'EXTERNAL',
+                        },
+                        includeParentDocuments: false,
+                    },
+                },
+                result: {
+                    data: {
+                        searchDocuments: {
+                            documents: mockDocuments,
+                            total: 2,
+                        },
+                    },
+                },
+            },
+        ];
+
+        const { result } = renderHook(() => useSearchDocuments(input), {
+            wrapper: ({ children }) => (
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    {children}
+                </MockedProvider>
+            ),
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.documents).toEqual(mockDocuments);
+        expect(result.current.total).toBe(2);
     });
 });

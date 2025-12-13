@@ -90,7 +90,7 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : 'color: #8088a3;'}
+                : `color: ${colors.gray[1800]};`}
     }
 `;
 
@@ -204,17 +204,17 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                         aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     >
                         {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                        {!isLoading && isExpanded && <CaretDown size={16} weight="bold" />}
-                        {!isLoading && !isExpanded && <CaretRight size={16} weight="bold" />}
+                        {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
+                        {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
                     </ExpandButton>
                 )}
 
                 {showIcon && (
                     <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
                         {hasChildren ? (
-                            <Folder size={16} weight={isSelected ? 'fill' : 'regular'} />
+                            <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
                         ) : (
-                            <FileText size={16} weight={isSelected ? 'fill' : 'regular'} />
+                            <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
                         )}
                     </IconWrapper>
                 )}

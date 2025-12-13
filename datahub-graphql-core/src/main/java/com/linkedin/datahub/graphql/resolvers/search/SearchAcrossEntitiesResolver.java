@@ -93,6 +93,18 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
               return SearchUtils.createEmptySearchResults(start, count);
             }
 
+            // Build the final filter, combining view filter and entity-specific defaults
+            Filter combinedFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
+
+            // Add default entity filters that should be applied to all queries
+            combinedFilter =
+                DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                    combinedFilter, finalEntities, true);
+
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
                         && input.getSearchFlags().getIncludeStructuredPropertyFacets() != null
@@ -101,20 +113,23 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             List<String> structuredPropertyFacets =
                 shouldIncludeStructuredPropertyFacets ? getStructuredPropertyFacets(context) : null;
 
-            return UrnSearchResultsMapper.map(
-                context,
+            // Execute search and remove default filter fields from aggregations
+            SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                    combinedFilter,
                     start,
                     count,
                     sortCriteria,
-                    structuredPropertyFacets));
+                    structuredPropertyFacets);
+
+            // Cleanse aggregations to remove hidden/default filter fields
+            searchResult =
+                DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+            return UrnSearchResultsMapper.map(context, searchResult);
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
