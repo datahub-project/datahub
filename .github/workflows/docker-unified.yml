@@ -495,79 +495,6 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: gradle/actions/setup-gradle@v4
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' }}
-        with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-
-      - name: build images
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-        run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
-          docker images
-        env:
-          DOCKER_CACHE: GITHUB
-
-      - name: pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        run: |
-          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
-          docker images
-
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-      - name: run quickstart
-        env:
-          DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
-          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-        run: |
-          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
-          ./smoke-test/run-quickstart.sh
-
-      - name: Disk Check
-        run: df -h . && docker images
-
-      - name: Disable ES Disk Threshold
-        run: |
-          curl -XPUT "http://localhost:9200/_cluster/settings" \
-          -H 'Content-Type: application/json' -d'{
-            "persistent": {
-              "cluster": {
-                "routing": {
-                  "allocation.disk.threshold_enabled": false
-                }
-              }
-            }
-          }'
-
-      - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh
-
-      - name: Build datahub cli
-        run: |
-          ./gradlew :metadata-ingestion:install
-
       - name: Detect workflow retry
         id: retry-detection
         run: |
@@ -666,8 +593,81 @@ jobs:
         if: steps.parse-failures.outputs.parse_result == 'all_passed'
         run: |
           echo "✓ All tests passed in previous attempt for batch ${{ matrix.batch }}"
-          echo "Skipping this batch to optimize CI time"
+          echo "Skipping this batch to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
+
+      - name: build images
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        run: |
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          docker images
+        env:
+          DOCKER_CACHE: GITHUB
+
+      - name: pull images from depot
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        run: |
+          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
+          docker images
+
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
+      - name: run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+        run: |
+          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
+          ./smoke-test/run-quickstart.sh
+
+      - name: Disk Check
+        run: df -h . && docker images
+
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+          -H 'Content-Type: application/json' -d'{
+            "persistent": {
+              "cluster": {
+                "routing": {
+                  "allocation.disk.threshold_enabled": false
+                }
+              }
+            }
+          }'
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - name: Build datahub cli
+        run: |
+          ./gradlew :metadata-ingestion:install
 
       - name: Smoke test
         if: steps.parse-failures.outputs.parse_result != 'all_passed'
