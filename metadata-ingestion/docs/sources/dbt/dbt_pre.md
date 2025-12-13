@@ -39,3 +39,105 @@ Most other dbt commands generate a partial catalog file, which may impact the co
 Following the above workflow should ensure that the catalog file is generated correctly.
 
 :::
+
+### Query Entities from dbt Meta
+
+DataHub can ingest Query entities from the `meta.queries` field in your dbt models. This allows you to document "blessed" or commonly-used query patterns directly in dbt and surface them in DataHub's Queries tab for easy discovery and reuse by your team.
+
+#### How to Configure
+
+The `meta.queries` field is defined in your dbt model's properties file (e.g., `schema.yml`, `models.yml`, or any `.yml` file in your dbt project). When you run `dbt docs generate` or `dbt compile`, this metadata is included in the `manifest.json` file, which DataHub then ingests.
+
+**Add queries to your model's `meta` field in your dbt properties file:**
+
+```yaml
+# models/schema.yml or models/customers.yml
+version: 2
+
+models:
+  - name: customers
+    description: "Customer dimension table"
+    meta:
+      queries:
+        - name: "Active customers (30d)"
+          description: "Customers active in the last 30 days"
+          sql: |
+            SELECT *
+            FROM {{ ref('customers') }}
+            WHERE active = true
+              AND last_seen > CURRENT_DATE - INTERVAL '30 days'
+          tags: ["production", "analytics"]
+          terms: ["CustomerData", "Engagement"]
+
+        - name: "Revenue by customer"
+          description: "Total revenue aggregated by customer"
+          sql: |
+            SELECT
+              customer_id,
+              SUM(amount) as total_revenue
+            FROM {{ ref('customers') }}
+            GROUP BY customer_id
+          tags: ["finance", "reporting"]
+```
+
+**Then generate your dbt artifacts:**
+
+```sh
+dbt docs generate
+# This creates/updates target/manifest.json with the meta.queries data
+```
+
+**Finally, run DataHub ingestion:**
+
+```sh
+datahub ingest -c your_dbt_recipe.yml
+# DataHub reads manifest.json and creates Query entities
+```
+
+#### Field Reference
+
+Each query in the `queries` list supports the following fields:
+
+| Field         | Required | Type            | Description                                                    |
+| ------------- | -------- | --------------- | -------------------------------------------------------------- |
+| `name`        | ✅ Yes   | string          | Unique name for the query                                      |
+| `sql`         | ✅ Yes   | string          | SQL statement for the query                                    |
+| `description` | ❌ No    | string          | Human-readable description                                     |
+| `tags`        | ❌ No    | list of strings | Tags for categorization (stored in customProperties)           |
+| `terms`       | ❌ No    | list of strings | Glossary terms for classification (stored in customProperties) |
+
+#### How It Works
+
+1. **dbt Configuration**: You define `queries` in the `meta` field of your dbt model properties
+2. **Manifest Generation**: When you run `dbt docs generate`, the `meta.queries` data is included in `manifest.json`
+3. **DataHub Ingestion**: DataHub reads the manifest.json and extracts the `meta.queries` field
+4. **Query Entity Creation**: Each query in `meta.queries` becomes a Query entity in DataHub
+5. **URN Generation**: Query URN is generated as `urn:li:query:{model_name}_{query_name}`
+6. **Dataset Linking**: Queries are linked to the dataset via QuerySubjects aspect
+7. **UI Visibility**: Queries appear in the "Queries" tab of the dataset in DataHub UI
+
+#### Technical Details
+
+- **Actor**: All queries are attributed to the `dbt_executor` actor (consistent with other dbt-generated metadata)
+- **Timestamps**: Uses the manifest `generated_at` timestamp for consistency across ingestion runs
+- **Custom Properties**: Query entities don't currently support `globalTags` or `glossaryTerms` aspects, so tags and terms are stored in `customProperties` instead
+- **Validation**: Invalid queries (missing required fields, wrong types) are skipped with warnings logged
+- **URN Sanitization**: Query IDs are sanitized to ensure valid URN components (non-alphanumeric characters replaced with underscores)
+- **Backward Compatibility**: This feature is fully backward compatible - models without `meta.queries` are unaffected
+
+#### Example Output in DataHub
+
+After ingestion, you'll see:
+
+- Query entities in DataHub with name, description, and SQL statement
+- Queries linked to the source dataset (visible in the dataset's "Queries" tab)
+- Tags and terms visible in custom properties
+- Creation/modification timestamps from dbt manifest
+- Queries attributed to `dbt_executor` actor
+
+#### Use Cases
+
+- **Blessed Query Patterns**: Document approved query patterns for common analytics use cases
+- **Query Templates**: Provide reusable query templates for team members
+- **Best Practices**: Share optimized queries that follow your organization's standards
+- **Self-Service Analytics**: Enable analysts to discover and reuse proven queries

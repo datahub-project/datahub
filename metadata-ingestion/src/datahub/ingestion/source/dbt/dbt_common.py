@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import auto
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import dateutil.parser
 import more_itertools
 import pydantic
 from pydantic import field_validator, model_validator
@@ -84,6 +85,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -92,6 +94,12 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    QuerySubjectClass,
+    QuerySubjectsClass,
     SiblingsClass,
     StatusClass,
     SubTypesClass,
@@ -99,7 +107,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -157,6 +165,11 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
+
+    # Query entity emission statistics
+    num_queries_emitted: int = 0
+    num_queries_failed: int = 0
+    queries_failed_list: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -1649,6 +1662,182 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 result_type=model_performance.status,
             )
 
+    def _create_query_entity_mcps(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """
+        Create Query entities from meta.queries field in dbt models.
+
+        This allows teams to document "blessed" query patterns directly in dbt
+        and surface them in DataHub's Queries tab for the dataset.
+        """
+        if not node.meta:
+            return
+
+        queries = node.meta.get("queries")
+        if not queries:
+            return
+
+        if not isinstance(queries, list):
+            logger.debug(
+                f"Skipping meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
+            )
+            return
+
+        # Use manifest generated_at timestamp if available (stable and reproducible),
+        # otherwise fall back to current time (for sources that don't provide manifest_info)
+        manifest_info = getattr(self.report, "manifest_info", None)
+        if manifest_info and manifest_info.get("generated_at") != "unknown":
+            try:
+                manifest_generated_at = dateutil.parser.parse(
+                    manifest_info["generated_at"]
+                )
+                query_timestamp = datetime_to_ts_millis(manifest_generated_at)
+            except Exception:
+                # Fall back to current time if parsing fails
+                query_timestamp = datetime_to_ts_millis(datetime.now())
+        else:
+            query_timestamp = datetime_to_ts_millis(datetime.now())
+
+        # Use dbt_executor as the actor for dbt-generated queries (consistent with schema metadata pattern)
+        actor_urn = mce_builder.make_user_urn("dbt_executor")
+
+        for idx, query_def in enumerate(queries):
+            try:
+                if not isinstance(query_def, dict):
+                    logger.debug(
+                        f"Skipping invalid query definition at index {idx} in {node.dbt_name}: expected dict, got {type(query_def).__name__}"
+                    )
+                    self.report.num_queries_failed += 1
+                    continue
+
+                query_name = query_def.get("name")
+                query_sql = query_def.get("sql")
+
+                # Validate required fields - check for both None and empty strings
+                if (
+                    not query_name
+                    or not isinstance(query_name, str)
+                    or not query_name.strip()
+                ):
+                    logger.debug(
+                        f"Skipping query at index {idx} in {node.dbt_name}: missing or invalid 'name' field"
+                    )
+                    self.report.num_queries_failed += 1
+                    self.report.queries_failed_list.append(
+                        f"{node.dbt_name}[{idx}]: missing name"
+                    )
+                    continue
+
+                if (
+                    not query_sql
+                    or not isinstance(query_sql, str)
+                    or not query_sql.strip()
+                ):
+                    logger.debug(
+                        f"Skipping query '{query_name}' in {node.dbt_name}: missing or invalid 'sql' field"
+                    )
+                    self.report.num_queries_failed += 1
+                    self.report.queries_failed_list.append(
+                        f"{node.dbt_name}.{query_name}: missing sql"
+                    )
+                    continue
+
+                # Generate a unique query ID based on the node and query name
+                # Sanitize the ID to ensure it's a valid URN component
+                query_id = f"{node.dbt_name}_{query_name}"
+                # Replace characters that could cause issues in URNs
+                query_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", query_id)
+                query_urn = QueryUrn(query_id)
+
+                # Validate and get description (optional)
+                description = query_def.get("description")
+                if description is not None and not isinstance(description, str):
+                    logger.debug(
+                        f"Invalid description type for query '{query_name}' in {node.dbt_name}: expected str, got {type(description).__name__}. Ignoring description."
+                    )
+                    description = None
+
+                # Build custom properties to include tags and terms
+                custom_properties = {}
+
+                # Add tags to custom properties if present
+                query_tags = query_def.get("tags")
+                if query_tags:
+                    if isinstance(query_tags, list):
+                        custom_properties["tags"] = ", ".join(
+                            str(tag) for tag in query_tags
+                        )
+                    else:
+                        logger.debug(
+                            f"Invalid tags type for query '{query_name}' in {node.dbt_name}: expected list, got {type(query_tags).__name__}. Ignoring tags."
+                        )
+
+                # Add terms to custom properties if present
+                query_terms = query_def.get("terms")
+                if query_terms:
+                    if isinstance(query_terms, list):
+                        custom_properties["terms"] = ", ".join(
+                            str(term) for term in query_terms
+                        )
+                    else:
+                        logger.debug(
+                            f"Invalid terms type for query '{query_name}' in {node.dbt_name}: expected list, got {type(query_terms).__name__}. Ignoring terms."
+                        )
+
+                # Create QueryProperties aspect
+                query_properties = QueryPropertiesClass(
+                    statement=QueryStatementClass(
+                        value=query_sql.strip(),
+                        language=QueryLanguageClass.SQL,
+                    ),
+                    source=QuerySourceClass.MANUAL,  # Manual/curated queries from dbt meta
+                    name=query_name.strip(),
+                    description=description.strip() if description else None,
+                    created=AuditStampClass(time=query_timestamp, actor=actor_urn),
+                    lastModified=AuditStampClass(time=query_timestamp, actor=actor_urn),
+                    origin=node_datahub_urn,  # Link back to the dbt model
+                    customProperties=custom_properties if custom_properties else None,
+                )
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=query_urn.urn(),
+                    aspect=query_properties,
+                )
+
+                # Create QuerySubjects aspect to link query to the dataset
+                query_subjects = QuerySubjectsClass(
+                    subjects=[
+                        QuerySubjectClass(entity=node_datahub_urn),
+                    ]
+                )
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=query_urn.urn(),
+                    aspect=query_subjects,
+                )
+
+                # Successfully emitted query
+                self.report.num_queries_emitted += 1
+
+            except Exception as e:
+                # Catch any unexpected errors to prevent failing the entire ingestion
+                query_identifier = (
+                    query_def.get("name", f"index_{idx}")
+                    if isinstance(query_def, dict)
+                    else f"index_{idx}"
+                )
+                logger.error(
+                    f"Failed to emit query '{query_identifier}' for {node.dbt_name}: {e}",
+                    exc_info=True,
+                )
+                self.report.num_queries_failed += 1
+                self.report.queries_failed_list.append(
+                    f"{node.dbt_name}.{query_identifier}: {str(e)}"
+                )
+
     def create_target_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
@@ -1729,6 +1918,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
                     ).as_workunit(is_primary_source=False)
+
+            # Emit Query entities from meta.queries (https://github.com/datahub-project/datahub/issues/15150)
+            # These are linked to the target platform dataset
+            yield from auto_workunit(
+                self._create_query_entity_mcps(node, node_datahub_urn)
+            )
 
     def extract_query_tag_aspects(
         self,
