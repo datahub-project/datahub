@@ -3,6 +3,7 @@ from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 import dataclasses
 import functools
 import logging
+import re
 import traceback
 from collections import defaultdict
 from typing import (
@@ -50,6 +51,7 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
+from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -73,6 +75,76 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 
+# TSQL control flow keywords that sqlglot doesn't support
+# TSQL control flow keywords for LINEAGE FILTERING.
+# This determines which statements produce lineage (data flow between tables).
+#
+# NOTE: This is distinct from split_statements.py's CONTROL_FLOW_KEYWORDS which is
+# used for STATEMENT BOUNDARY DETECTION (where to split SQL into statements).
+#
+# Comparison:
+#   - split_statements.py: 8 keywords (regex patterns) for boundary detection
+#   - This set: 28+ keywords for lineage relevance filtering
+#
+# Example flow:
+#   1. split_statements.py splits "BEGIN TRY INSERT INTO t1 SELECT * FROM t2 END TRY"
+#   2. This set filters out BEGIN TRY/END TRY (no lineage), keeps INSERT (has lineage)
+TSQL_CONTROL_FLOW_KEYWORDS = {
+    "BEGIN",
+    "END",
+    "BEGIN TRY",
+    "END TRY",
+    "BEGIN CATCH",
+    "END CATCH",
+    "BEGIN TRANSACTION",
+    "BEGIN TRAN",
+    "COMMIT",
+    "ROLLBACK",
+    "SAVE TRANSACTION",
+    "SAVE TRAN",
+    "DECLARE",
+    "SET",
+    "IF",
+    "ELSE",
+    "WHILE",
+    "BREAK",
+    "CONTINUE",
+    "RETURN",
+    "GOTO",
+    "THROW",
+    "EXECUTE",
+    "EXEC",
+    "GO",
+    "PRINT",
+    "RAISERROR",
+    "WAITFOR",
+}
+
+
+def _is_tsql_control_flow_statement(stmt_upper: str) -> bool:
+    """Check if statement starts with a TSQL control flow keyword with word boundary."""
+    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+        if stmt_upper.startswith(kw):
+            if len(stmt_upper) == len(kw):
+                return True
+            next_char = stmt_upper[len(kw)]
+            if not next_char.isalnum() and next_char != "_":
+                return True
+    return False
+
+
+def _contains_control_flow_keyword(sql_upper: str) -> bool:
+    """Check if SQL contains any TSQL control flow keyword as a whole word."""
+    import re
+
+    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+        # Use word boundary regex to avoid matching substrings like TREND, SETTINGS
+        pattern = r"\b" + re.escape(kw) + r"\b"
+        if re.search(pattern, sql_upper):
+            return True
+    return False
+
+
 Urn = str
 
 SQL_PARSE_RESULT_CACHE_SIZE = 1000
@@ -81,7 +153,6 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
 )
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
-
 
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
 # If there's a change in their rules, we probably need to re-evaluate our list as well.
@@ -221,6 +292,10 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
     table_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
     column_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
+
+    # Fallback parser statistics (for stored procedures)
+    num_statements_parsed: Optional[int] = pydantic.Field(default=None, exclude=True)
+    num_statements_failed: Optional[int] = pydantic.Field(default=None, exclude=True)
 
     @property
     def error(self) -> Optional[Exception]:
@@ -669,7 +744,7 @@ def _column_level_lineage(
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement = _try_extract_select(statement)
+        select_statement = _try_extract_select(statement, dialect=dialect)
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -1182,6 +1257,7 @@ def _extract_select_from_update(
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
+    dialect: Optional[sqlglot.Dialect] = None,
 ) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
@@ -1194,10 +1270,52 @@ def _try_extract_select(
             # If we're querying a table directly, wrap it in a SELECT.
             statement = sqlglot.exp.Select().select("*").from_(statement)
     elif isinstance(statement, sqlglot.exp.Insert):
-        # TODO Need to map column renames in the expressions part of the statement.
         # Preserve CTEs when extracting the SELECT expression from INSERT
         original_ctes = statement.ctes
-        statement = statement.expression  # Get the SELECT expression from the INSERT
+        select_statement = (
+            statement.expression
+        )  # Get the SELECT expression from the INSERT
+
+        # MSSQL-specific: Map INSERT column names to SELECT column names
+        # This fixes column lineage when INSERT columns != SELECT columns
+        # Example: INSERT INTO t (col_a) SELECT col_b FROM src
+        #   Should create: downstream=col_a, upstream=col_b
+        #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
+        if (
+            dialect
+            and is_dialect_instance(dialect, "tsql")
+            and statement.this
+            and hasattr(statement.this, "expressions")
+            and statement.this.expressions
+            and isinstance(select_statement, sqlglot.exp.Select)
+        ):
+            insert_columns = statement.this.expressions
+            select_expressions = select_statement.expressions
+
+            # Only apply mapping if column counts match
+            if len(insert_columns) == len(select_expressions):
+                # Create new SELECT with INSERT column names as explicit Alias nodes
+                # This ensures the alias survives sqlglot's optimizer
+                new_selects = []
+                for insert_col, select_expr in zip(insert_columns, select_expressions):
+                    insert_col_name = (
+                        insert_col.alias_or_name
+                        if hasattr(insert_col, "alias_or_name")
+                        else str(insert_col)
+                    )
+                    # Create an explicit Alias node: expr AS insert_col_name
+                    # The Alias node should survive optimization better than just setting alias property
+                    aliased_expr = sqlglot.exp.Alias(
+                        this=select_expr.copy(),
+                        alias=sqlglot.exp.to_identifier(insert_col_name),
+                    )
+                    new_selects.append(aliased_expr)
+
+                # Replace SELECT expressions with aliased versions
+                select_statement = select_statement.copy()
+                select_statement.set("expressions", new_selects)
+
+        statement = select_statement
         if isinstance(statement, sqlglot.exp.Query) and original_ctes:
             for cte in original_ctes:
                 statement = statement.with_(alias=cte.alias, as_=cte.this)
@@ -1368,6 +1486,188 @@ def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expr
     return create
 
 
+def _is_stored_procedure_with_unsupported_syntax(
+    sql: str, dialect: sqlglot.Dialect
+) -> bool:
+    """
+    Check if the SQL is a stored procedure with control flow syntax that sqlglot doesn't support.
+    This specifically targets MSSQL/TSQL stored procedures with control flow statements.
+    """
+    # Only apply TSQL control flow detection for MSSQL/TSQL dialects
+    if not is_dialect_instance(dialect, "tsql"):
+        return False
+
+    # Normalize whitespace to handle multiple spaces, tabs, newlines
+    sql_normalized = re.sub(r"\s+", " ", sql.strip()).upper()
+
+    # Check if it's a CREATE PROCEDURE statement
+    if not (
+        sql_normalized.startswith("CREATE PROCEDURE")
+        or sql_normalized.startswith("CREATE OR REPLACE PROCEDURE")
+    ):
+        return False
+
+    # Check for TSQL control flow that causes parsing failures
+    # Use word boundary matching to avoid false positives like TREND (contains END)
+    return _contains_control_flow_keyword(sql_normalized)
+
+
+def _parse_stored_procedure_fallback(
+    sql: str,
+    schema_resolver: SchemaResolverInterface,
+    default_db: Optional[str],
+    default_schema: Optional[str],
+    dialect: sqlglot.Dialect,
+) -> SqlParsingResult:
+    """
+    Fallback parser for stored procedures with unsupported control flow syntax.
+
+    This function:
+    1. Splits the procedure body into individual statements
+    2. Filters out control flow keywords (BEGIN, END, TRY, CATCH, etc.)
+    3. Parses each DML statement separately
+    4. Aggregates the lineage results
+
+    This is necessary because sqlglot doesn't support TSQL control flow syntax like
+    TRY/CATCH blocks, which causes the entire procedure to be unparseable.
+    """
+    logger.debug(
+        "Attempting fallback parsing for stored procedure with unsupported syntax"
+    )
+
+    # split_statements() already handles CREATE PROCEDURE correctly:
+    # - It splits the CREATE PROCEDURE header (ending with AS) into one statement
+    # - Body statements (BEGIN, TRY/CATCH, DML) are split into separate statements
+    # - The filtering logic below will skip the CREATE PROCEDURE statement
+    # No need to manually strip the wrapper - let split_statements do its job
+    statements = list(split_statements(sql))
+
+    # Collect results from all parseable statements
+    all_in_tables: Set[Urn] = set()
+    all_out_tables: Set[Urn] = set()
+    all_column_lineage: List[ColumnLineageInfo] = []
+    parsed_count = 0
+    failed_count = 0
+
+    for stmt in statements:
+        stmt_stripped = stmt.strip()
+        if not stmt_stripped:
+            continue
+
+        # Normalize whitespace to handle multiple spaces, tabs, newlines
+        stmt_normalized = re.sub(r"\s+", " ", stmt_stripped).upper()
+
+        # Skip CREATE PROCEDURE statements to prevent infinite recursion
+        # (split_statements might return the CREATE PROCEDURE header itself)
+        if stmt_normalized.startswith("CREATE PROCEDURE") or stmt_normalized.startswith(
+            "CREATE OR REPLACE PROCEDURE"
+        ):
+            logger.debug(
+                f"Skipping CREATE PROCEDURE statement to prevent recursion: {stmt_stripped[:50]}..."
+            )
+            continue
+
+        # Skip control flow statements that don't produce lineage
+        # Use word boundary checking to avoid false positives like SETVAR, BEGINX
+        if _is_tsql_control_flow_statement(stmt_normalized):
+            logger.debug(f"Skipping control flow statement: {stmt_stripped[:50]}...")
+            continue
+
+        # Skip DROP TABLE statements - they don't contribute to lineage and often
+        # get split incorrectly (e.g., "DROP TABLE IF EXISTS" becomes "DROP TABLE")
+        if stmt_normalized.startswith("DROP TABLE") or stmt_normalized.startswith(
+            "DROP "
+        ):
+            logger.debug(f"Skipping DROP statement: {stmt_stripped[:50]}...")
+            continue
+
+        # Try to parse everything else that's not control flow
+
+        # Try to parse this individual statement
+        try:
+            logger.debug(f"Parsing statement: {stmt_stripped[:100]}...")
+
+            # Recursively call the parser for this statement
+            result = _sqlglot_lineage_nocache(
+                sql=stmt_stripped,
+                schema_resolver=schema_resolver,
+                default_db=default_db,
+                default_schema=default_schema,
+                override_dialect=dialect,
+            )
+
+            if result.debug_info.table_error:
+                logger.debug(
+                    f"Failed to parse statement (table error): {result.debug_info.table_error}"
+                )
+                failed_count += 1
+                continue
+
+            # Aggregate results
+            all_in_tables.update(result.in_tables)
+            all_out_tables.update(result.out_tables)
+
+            if result.column_lineage:
+                all_column_lineage.extend(result.column_lineage)
+
+            parsed_count += 1
+            logger.debug(
+                f"Successfully parsed statement: {len(result.in_tables)} inputs, "
+                f"{len(result.out_tables)} outputs, "
+                f"{len(result.column_lineage) if result.column_lineage else 0} column lineage entries"
+            )
+
+        except Exception as e:
+            # Log at debug level to avoid noise - failures are expected for some TSQL constructs
+            # The summary INFO log at the end shows the overall success/failure rate
+            logger.debug(
+                f"Failed to parse statement in fallback parser: {stmt_stripped[:100]}... "
+                f"Error: {e}"
+            )
+            failed_count += 1
+            continue
+
+    if failed_count > 0:
+        logger.info(
+            f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully, "
+            f"{failed_count} failed. Enable DEBUG logging for details on failed statements."
+        )
+    else:
+        logger.debug(
+            f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully"
+        )
+
+    # If we couldn't parse anything, return an error
+    if parsed_count == 0:
+        return SqlParsingResult.make_from_error(
+            Exception(
+                f"Failed to parse stored procedure: could not extract any lineage from {len(statements)} statements. "
+                "The procedure may contain only control flow or unsupported syntax."
+            )
+        )
+
+    # Build aggregated result
+    # Use UNKNOWN instead of CREATE_OTHER so the aggregator treats it as a mutation query
+    # and generates lineage MCPs. CREATE_OTHER is treated as DDL and doesn't generate lineage.
+    result = SqlParsingResult(
+        query_type=QueryType.UNKNOWN,
+        query_type_props={"kind": "PROCEDURE"},
+        in_tables=sorted(all_in_tables),
+        out_tables=sorted(all_out_tables),
+        column_lineage=all_column_lineage if all_column_lineage else None,
+        debug_info=SqlParsingDebugInfo(
+            confidence=0.5,  # Lower confidence since we're using fallback parsing
+            generalized_statement=f"CREATE PROCEDURE (parsed {parsed_count} statements via fallback)",
+            tables_discovered=len(all_in_tables | all_out_tables),
+            table_schemas_resolved=0,  # We don't have schema resolution in fallback mode
+            num_statements_parsed=parsed_count,
+            num_statements_failed=failed_count,
+        ),
+    )
+
+    return result
+
+
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
@@ -1391,6 +1691,22 @@ def _sqlglot_lineage_inner(
         # default_schema = "public"
         # TODO: Re-enable this.
         pass
+
+    # Special handling for stored procedures with TRY/CATCH blocks (MSSQL/TSQL)
+    # These parse as CREATE PROCEDURE but don't extract lineage from inside TRY/CATCH
+    # Check this BEFORE parsing to avoid wasted effort
+    sql_string = sql if isinstance(sql, str) else str(sql)
+    if _is_stored_procedure_with_unsupported_syntax(sql_string, dialect):
+        logger.debug(
+            "Detected stored procedure with unsupported control flow syntax (TRY/CATCH), using fallback parser to extract DML statements"
+        )
+        return _parse_stored_procedure_fallback(
+            sql=sql_string,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+            dialect=dialect,
+        )
 
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
