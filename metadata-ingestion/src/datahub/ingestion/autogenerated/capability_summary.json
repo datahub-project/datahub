@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-12-13T00:16:24.693534+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2665,6 +2665,62 @@
       "platform_name": "Qlik Sense",
       "support_status": "INCUBATING"
     },
+    "rdf": {
+      "capabilities": [
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Not applicable",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default (from skos:definition or rdfs:comment)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful_ingestion.enabled: true",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Not applicable (domains used internally for hierarchy)",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TAGS",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Supported via platform_instance config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Not in MVP",
+          "subtype_modifier": null,
+          "supported": false
+        }
+      ],
+      "classname": "datahub.ingestion.source.rdf.ingestion.rdf_source.RDFSource",
+      "platform_id": "rdf",
+      "platform_name": "RDF",
+      "support_status": "INCUBATING"
+    },
     "redash": {
       "capabilities": [
         {
@@ -3679,62 +3735,6 @@
       "platform_id": "vertica",
       "platform_name": "Vertica",
       "support_status": "CERTIFIED"
-    },
-    "rdf": {
-      "platform_id": "rdf",
-      "platform_name": "RDF",
-      "classname": "datahub.ingestion.source.rdf.ingestion.rdf_source.RDFSource",
-      "support_status": "INCUBATING",
-      "capabilities": [
-        {
-          "capability": "DELETION_DETECTION",
-          "description": "Enabled via stateful_ingestion.enabled: true",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "TAGS",
-          "description": "Not supported",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "OWNERSHIP",
-          "description": "Not supported",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "LINEAGE_COARSE",
-          "description": "Not in MVP",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "DATA_PROFILING",
-          "description": "Not applicable",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "DOMAINS",
-          "description": "Not applicable (domains used internally for hierarchy)",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "DESCRIPTIONS",
-          "description": "Enabled by default (from skos:definition or rdfs:comment)",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "Supported via platform_instance config",
-          "subtype_modifier": null,
-          "supported": true
-        }
-      ]
     }
   }
 }
