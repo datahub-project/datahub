@@ -7,9 +7,10 @@ from dataclasses import dataclass, field
 from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, RequestsHttpConnection
 from pydantic import field_validator
 from pydantic.fields import Field
+from requests_aws4auth import AWS4Auth
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -34,6 +35,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -325,6 +327,11 @@ class ElasticsearchSourceConfig(
         e.g. ending with -YYYY-MM-DD as well as ending -epochtime would require you to have 2 regex patterns to remove the suffixes across all URNs.""",
     )
 
+    aws_config: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="AWS configuration for IAM authentication with OpenSearch/Elasticsearch Service. When provided, requests are signed using AWS Signature Version 4.",
+    )
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -342,7 +349,26 @@ class ElasticsearchSourceConfig(
         return host_val
 
     @property
-    def http_auth(self) -> Optional[Tuple[str, str]]:
+    def http_auth(self) -> Optional[Union[Tuple[str, str], AWS4Auth]]:
+        if self.aws_config:
+            if not self.aws_config.aws_region:
+                raise ValueError("aws_region is required in aws_config for IAM authentication")
+            credentials = self.aws_config.get_credentials()
+            access_key = credentials.get("aws_access_key_id")
+            secret_key = credentials.get("aws_secret_access_key")
+            if not access_key or not secret_key:
+                raise ValueError(
+                    "AWS credentials not found. Please configure AWS credentials using "
+                    "aws_access_key_id/aws_secret_access_key, aws_profile, aws_role, "
+                    "or environment variables. See AWS boto3 documentation for details."
+                )
+            return AWS4Auth(
+                access_key,
+                secret_key,
+                self.aws_config.aws_region,
+                "es",
+                session_token=credentials.get("aws_session_token"),
+            )
         return None if self.username is None else (self.username, self.password or "")
 
 
@@ -361,10 +387,25 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
+
+        connection_class = None
+        api_key = self.source_config.api_key
+
+        if self.source_config.aws_config:
+            if api_key:
+                raise ValueError(
+                    "Cannot use both api_key and aws_config. Please use only one authentication method."
+                )
+            if self.source_config.username or self.source_config.password:
+                raise ValueError(
+                    "Cannot use both username/password and aws_config. Please use only one authentication method."
+                )
+            connection_class = RequestsHttpConnection
+
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=self.source_config.http_auth,
-            api_key=self.source_config.api_key,
+            api_key=api_key,
             use_ssl=self.source_config.use_ssl,
             verify_certs=self.source_config.verify_certs,
             ca_certs=self.source_config.ca_certs,
@@ -373,6 +414,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             ssl_assert_hostname=self.source_config.ssl_assert_hostname,
             ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
             url_prefix=self.source_config.url_prefix,
+            connection_class=connection_class,
         )
         self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)

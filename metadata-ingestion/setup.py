@@ -477,7 +477,7 @@ plugins: Dict[str, Set[str]] = {
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
-    "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    "elasticsearch": {"elasticsearch==7.13.4", "requests-aws4auth", *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5",
         "pandas",
