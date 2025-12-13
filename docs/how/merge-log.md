@@ -2355,3 +2355,72 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **3eff4e47e3** - chore(deps): bump actions/checkout from 5 to 6 (#15385)
   *by dependabot[bot] on 2025-12-11*
 
+
+## Upstream Merge Session - 2025-12-13 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-13-000006`
+- **Merge Base**: `3eff4e47e3ee7a1983747d9c706169df68f9534c`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: Sat Dec 13 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **1d57e367b1** - docs: improve docs for cdc mode configuration (#15496)
+  *by Shirshanka Das on 2025-12-10*
+
+- **4b02142ff2** - docs(search): datahub cloud search access controls (#15513)
+  *by david-leifker on 2025-12-11*
+
+- **94fb9bb39f** - fix(java-sdk): Ensure full aspect writes complete before patches (#15522)
+  *by Shirshanka Das on 2025-12-11*
+
+- **a8dd7ea0e8** - feat(ingestion): add filters section (#15516)
+  *by v-tarasevich-blitz-brain on 2025-12-11*
+
+- **4e308da542** - fix(ingestion): fix updated secret field (#15528)
+  *by v-tarasevich-blitz-brain on 2025-12-11*
+
+- **b887751016** - feat(ingestion): update test connection button (#15527)
+  *by v-tarasevich-blitz-brain on 2025-12-11*
+
+- **9b7b67c669** - chore(): bump lz4 & jdbc wrapper (#15531)
+  *by david-leifker on 2025-12-11*
+
+- **990f130519** - docs(v0.3.15.5): update docs (#15510)
+  *by david-leifker on 2025-12-12*
+
+- **dd61af8be0** - ci(pr tracking): pr to linear automation (#15503)
+  *by Gabe Lyons on 2025-12-12*
+
+- **1904e40406** - feat(ingest/kafka-connect): Kafka connect infer lineage from DataHub (#15234)
+  *by Tamas Nemeth on 2025-12-12*
+
+- **aeb2172ea5** - chore(ci): use cache mount for apt install to speed up docker build (#15441)
+  *by Santosh Kewat on 2025-12-12*
+
+- **993b2a28bc** - feat(ingestion/hive-metastore): add upstream lineage to hive-metastore (#15435)
+  *by Jonny Dixon on 2025-12-12*
+
+- **b4dd19224b** - fix(ui) Fix two spots that need resolveRuntimePath (#15535)
+  *by Chris Collins on 2025-12-12*
+
+- **cf02c2262b** - fix(ui) Fix unsafe destructuring of assertion in UI (#15519)
+  *by Chris Collins on 2025-12-12*
+
+- **06092327a3** - feat(ingestion): add analytics events (#15547)
+  *by v-tarasevich-blitz-brain on 2025-12-12*
+
+- **5ea900ca71** - feat(ui/ingestion): update breadcrumb in create/edit source to have option to go to Manage Data Sources (#15540)
+  *by Purnima Garg on 2025-12-12*
+
+- **ede5096dec** - feat(ui/ingestion): bring ingestion page redirection changes back to OSS (#15544)
+  *by Purnima Garg on 2025-12-12*
+
+- **fb00472da5** - feat(files) Add basic file cleanup after related entity is deleted (#15271)
+  *by Chris Collins on 2025-12-12*
+
