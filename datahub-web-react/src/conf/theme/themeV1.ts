@@ -7,7 +7,9 @@ const themeV1: Theme = {
     styles: {
         'primary-color': '#1890ff',
         'primary-color-light': '#F0F5FF',
+        'primary-color-lighter': '#F0F5FF',
         'primary-color-dark': '#002766',
+        'primary-color-darker': '#002766',
         'layout-header-background': 'white',
         'layout-header-color': '#434343',
         'layout-body-background': 'white',

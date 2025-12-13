@@ -7,7 +7,10 @@ const themeV2: Theme = {
     styles: {
         'primary-color': '#533FD1',
         'primary-color-dark': '#5C3FD1',
+        'primary-color-darker': '#5C3FD1',
         'primary-color-light': '#ece9f8',
+        'primary-color-lighter': '#ece9f8',
+        'layout-header-background': 'white',
         'layout-header-color': '#434343',
         'body-background': 'white',
         'border-color-base': '#ececec',

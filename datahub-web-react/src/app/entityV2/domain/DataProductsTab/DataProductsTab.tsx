@@ -10,6 +10,7 @@ import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContex
 import CreateDataProductModal from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
 import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductResult';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import StyledButton from '@app/entityV2/shared/components/styled/StyledButton';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
@@ -107,13 +108,13 @@ export default function DataProductsTab() {
     return (
         <>
             <TabToolbar>
-                <Button
+                <StyledButton
                     type="text"
                     onClick={() => setIsCreateModalVisible(true)}
                     data-testid="create-data-product-button"
                 >
                     <PlusOutlined /> New Data Product
-                </Button>
+                </StyledButton>
                 <SearchBar
                     initialQuery={query || ''}
                     placeholderText="Search data products..."

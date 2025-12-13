@@ -89,11 +89,11 @@ export const EditorContainer = styled.div<{
         line-height: 1.5;
         white-space: pre-wrap;
         margin: 0;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.styles['text-color']};
 
         a {
             font-weight: 500;
-            color: ${colors.primary[500]};
+            color: ${(props) => props.theme.styles['primary-color']};
         }
 
         li {

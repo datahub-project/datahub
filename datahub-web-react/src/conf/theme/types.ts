@@ -9,7 +9,9 @@ export type Theme = {
     styles: {
         'primary-color': string;
         'primary-color-light': string;
+        'primary-color-lighter': string;
         'primary-color-dark': string;
+        'primary-color-darker': string;
         'layout-header-color': string;
         'body-background': string;
         'border-color-base': string;
