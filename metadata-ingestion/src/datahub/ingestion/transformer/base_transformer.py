@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.aspect import ASPECT_MAP
@@ -60,10 +60,59 @@ class SingleAspectTransformer(HandleEndOfStreamTransformer, metaclass=ABCMeta):
         pass
 
 
+class MultipleAspectTransformer(HandleEndOfStreamTransformer, metaclass=ABCMeta):
+    """
+    Transformer that transforms one input aspect into multiple output aspects.
+
+    Unlike SingleAspectTransformer where input and output aspect types must match,
+    this allows emitting additional aspects of different types.
+
+    Example: Transform globalTags into both globalTags and structuredProperties.
+    """
+
+    @abstractmethod
+    def aspect_name(self) -> str:
+        """
+        Specify the INPUT aspect this transformer subscribes to.
+        Example: "globalTags"
+        """
+        pass
+
+    @abstractmethod
+    def transform_aspects(
+        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+    ) -> Iterable[Tuple[str, Optional[Aspect]]]:
+        """
+        Transform one input aspect into multiple output aspects.
+
+        Args:
+            entity_urn: The entity being processed
+            aspect_name: The input aspect name (from aspect_name() method)
+            aspect: The input aspect value (None if not present)
+
+        Returns:
+            Iterable of (output_aspect_name, output_aspect) tuples.
+            - First tuple conventionally contains the transformed input aspect
+            - Additional tuples contain new aspects to emit
+            - Use None as aspect value to remove that aspect
+
+        Example:
+            return [
+                ("globalTags", modified_tags),      # Same type as input
+                ("structuredProperties", props),    # Different type
+            ]
+        """
+        pass
+
+
 class BaseTransformer(Transformer, metaclass=ABCMeta):
     """Transformer that offers common functionality that most transformers need"""
 
-    allowed_mixins = [LegacyMCETransformer, SingleAspectTransformer]
+    allowed_mixins = [
+        LegacyMCETransformer,
+        SingleAspectTransformer,
+        MultipleAspectTransformer,
+    ]
 
     @abstractmethod
     def entity_types(self) -> List[str]:
@@ -73,7 +122,11 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def __init__(self):
         self.entity_map: Dict[str, Dict[str, Any]] = {}
         mixedin = False
-        for mixin in [LegacyMCETransformer, SingleAspectTransformer]:
+        for mixin in [
+            LegacyMCETransformer,
+            SingleAspectTransformer,
+            MultipleAspectTransformer,
+        ]:
             mixedin = mixedin or isinstance(self, mixin)
         if not mixedin:
             assert (
@@ -166,6 +219,27 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
 
                     envelope.record = mce
                     self._mark_processed(mce.proposedSnapshot.urn)
+        elif isinstance(self, MultipleAspectTransformer):
+            input_aspect_type = ASPECT_MAP.get(self.aspect_name())
+            if input_aspect_type and builder.can_add_aspect(mce, input_aspect_type):
+                old_aspect = builder.get_aspect_if_available(mce, input_aspect_type)
+                if old_aspect is not None:
+                    for output_aspect_name, output_aspect in self.transform_aspects(
+                        entity_urn=mce.proposedSnapshot.urn,
+                        aspect_name=self.aspect_name(),
+                        aspect=old_aspect,
+                    ):
+                        output_aspect_type = ASPECT_MAP.get(output_aspect_name)
+                        if output_aspect_type and builder.can_add_aspect(
+                            mce, output_aspect_type
+                        ):
+                            builder.set_aspect(
+                                mce,
+                                aspect_type=output_aspect_type,
+                                aspect=output_aspect,
+                            )
+                    envelope.record = mce
+                    self._mark_processed(mce.proposedSnapshot.urn)
         elif isinstance(self, LegacyMCETransformer):
             # we pass down the full MCE
             envelope.record = self.transform_one(mce)
@@ -198,11 +272,165 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             self._record_mcp(envelope.record)
         return envelope if envelope.record.aspect is not None else None
 
+    def _transform_multiple_aspect_mcpw(
+        self, envelope: RecordEnvelope[MetadataChangeProposalWrapper]
+    ) -> Iterable[RecordEnvelope[MetadataChangeProposalWrapper]]:
+        """Handle MultipleAspectTransformer processing for MCPW."""
+        assert envelope.record.entityUrn
+        if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:  # type: ignore[attr-defined]
+            # Collect all output aspects
+            output_aspects = list(
+                self.transform_aspects(  # type: ignore
+                    entity_urn=envelope.record.entityUrn,
+                    aspect_name=envelope.record.aspectName,
+                    aspect=envelope.record.aspect,
+                )
+            )
+
+            # First aspect replaces current envelope
+            if output_aspects:
+                first_aspect_name, first_aspect = output_aspects[0]
+                if first_aspect is not None:
+                    envelope.record.aspectName = first_aspect_name
+                    envelope.record.aspect = first_aspect
+                    # Update work unit ID for first aspect too
+                    envelope.metadata = _update_work_unit_id(
+                        envelope=envelope,
+                        urn=envelope.record.entityUrn,
+                        aspect_name=first_aspect_name,
+                    )
+                    yield envelope
+
+                # Additional aspects yielded as new envelopes
+                for aspect_name, aspect in output_aspects[1:]:
+                    if aspect is not None:
+                        record_metadata = _update_work_unit_id(
+                            envelope=envelope,
+                            urn=envelope.record.entityUrn,
+                            aspect_name=aspect_name,
+                        )
+                        yield RecordEnvelope(
+                            record=MetadataChangeProposalWrapper(
+                                entityUrn=envelope.record.entityUrn,
+                                aspectName=aspect_name,
+                                aspect=aspect,
+                            ),
+                            metadata=record_metadata,
+                        )
+            self._mark_processed(envelope.record.entityUrn)
+        else:
+            self._record_mcp(envelope.record)
+
+    def _handle_single_aspect_end_of_stream(
+        self, envelope: RecordEnvelope
+    ) -> Iterable[RecordEnvelope]:
+        """Handle SingleAspectTransformer end of stream processing."""
+        for urn, state in self.entity_map.items():
+            if "seen" in state:
+                last_seen_mcp = state["seen"].get("mcp")
+                last_seen_mce_system_metadata = state["seen"].get("mce")
+
+                transformed_aspect = self.transform_aspect(  # type: ignore
+                    entity_urn=urn,
+                    aspect_name=self.aspect_name(),  # type: ignore
+                    aspect=(
+                        last_seen_mcp.aspect
+                        if last_seen_mcp
+                        and last_seen_mcp.aspectName == self.aspect_name()  # type: ignore
+                        else None
+                    ),
+                )
+                if transformed_aspect:
+                    structured_urn = Urn.from_string(urn)
+
+                    mcp: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                        entityUrn=urn,
+                        entityType=structured_urn.get_type(),
+                        systemMetadata=(
+                            last_seen_mcp.systemMetadata
+                            if last_seen_mcp
+                            else last_seen_mce_system_metadata
+                        ),
+                        aspectName=self.aspect_name(),  # type: ignore
+                        aspect=transformed_aspect,
+                    )
+
+                    if mcp.entityUrn:
+                        record_metadata = _update_work_unit_id(
+                            envelope=envelope,
+                            aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
+                            urn=mcp.entityUrn,
+                        )
+                    else:
+                        record_metadata = envelope.metadata.copy()
+
+                    yield RecordEnvelope(
+                        record=mcp,
+                        metadata=record_metadata,
+                    )
+
+            self._mark_processed(urn)
+
+    def _handle_multiple_aspect_end_of_stream(
+        self, envelope: RecordEnvelope
+    ) -> Iterable[RecordEnvelope]:
+        """Handle MultipleAspectTransformer end of stream processing."""
+        for urn, state in self.entity_map.items():
+            if "seen" in state:
+                last_seen_mcp = state["seen"].get("mcp")
+                last_seen_mce_system_metadata = state["seen"].get("mce")
+
+                output_aspects = self.transform_aspects(  # type: ignore
+                    entity_urn=urn,
+                    aspect_name=self.aspect_name(),  # type: ignore
+                    aspect=(
+                        last_seen_mcp.aspect
+                        if last_seen_mcp
+                        and last_seen_mcp.aspectName == self.aspect_name()  # type: ignore
+                        else None
+                    ),
+                )
+
+                for output_aspect_name, output_aspect in output_aspects:
+                    if output_aspect:
+                        structured_urn = Urn.from_string(urn)
+
+                        mcp: MetadataChangeProposalWrapper = (
+                            MetadataChangeProposalWrapper(
+                                entityUrn=urn,
+                                entityType=structured_urn.get_type(),
+                                systemMetadata=(
+                                    last_seen_mcp.systemMetadata
+                                    if last_seen_mcp
+                                    else last_seen_mce_system_metadata
+                                ),
+                                aspectName=output_aspect_name,
+                                aspect=output_aspect,
+                            )
+                        )
+
+                        if mcp.entityUrn:
+                            record_metadata = _update_work_unit_id(
+                                envelope=envelope,
+                                aspect_name=output_aspect_name,
+                                urn=mcp.entityUrn,
+                            )
+                        else:
+                            record_metadata = envelope.metadata.copy()
+
+                        yield RecordEnvelope(
+                            record=mcp,
+                            metadata=record_metadata,
+                        )
+
+            self._mark_processed(urn)
+
     def _handle_end_of_stream(
         self, envelope: RecordEnvelope
     ) -> Iterable[RecordEnvelope]:
-        if not isinstance(self, SingleAspectTransformer) and not isinstance(
-            self, LegacyMCETransformer
+        if not isinstance(
+            self,
+            (SingleAspectTransformer, MultipleAspectTransformer, LegacyMCETransformer),
         ):
             return
 
@@ -234,7 +462,14 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             if not self._should_process(envelope.record):
                 # early exit
                 pass
-            elif isinstance(envelope.record, MetadataChangeEventClass):
+            elif isinstance(envelope.record, MetadataChangeEventClass) and isinstance(
+                self,
+                (
+                    SingleAspectTransformer,
+                    MultipleAspectTransformer,
+                    LegacyMCETransformer,
+                ),
+            ):
                 envelope = self._transform_or_record_mce(envelope)
             elif isinstance(
                 envelope.record, MetadataChangeProposalWrapper
@@ -244,58 +479,23 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                     continue
                 else:
                     envelope = return_envelope
+            elif isinstance(
+                envelope.record, MetadataChangeProposalWrapper
+            ) and isinstance(self, MultipleAspectTransformer):
+                # Use helper method for MultipleAspectTransformer MCPW processing
+                yield from self._transform_multiple_aspect_mcpw(envelope)
+                continue
             elif isinstance(envelope.record, EndOfStream) and isinstance(
                 self, SingleAspectTransformer
             ):
-                # walk through state and call transform for any unprocessed entities
-                for urn, state in self.entity_map.items():
-                    if "seen" in state:
-                        # call transform on this entity_urn
-                        last_seen_mcp = state["seen"].get("mcp")
-                        last_seen_mce_system_metadata = state["seen"].get("mce")
-
-                        transformed_aspect = self.transform_aspect(
-                            entity_urn=urn,
-                            aspect_name=self.aspect_name(),
-                            aspect=(
-                                last_seen_mcp.aspect
-                                if last_seen_mcp
-                                and last_seen_mcp.aspectName == self.aspect_name()
-                                else None
-                            ),
-                        )
-                        if transformed_aspect:
-                            structured_urn = Urn.from_string(urn)
-
-                            mcp: MetadataChangeProposalWrapper = (
-                                MetadataChangeProposalWrapper(
-                                    entityUrn=urn,
-                                    entityType=structured_urn.get_type(),
-                                    systemMetadata=(
-                                        last_seen_mcp.systemMetadata
-                                        if last_seen_mcp
-                                        else last_seen_mce_system_metadata
-                                    ),
-                                    aspectName=self.aspect_name(),
-                                    aspect=transformed_aspect,
-                                )
-                            )
-
-                            if mcp.entityUrn:
-                                record_metadata = _update_work_unit_id(
-                                    envelope=envelope,
-                                    aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
-                                    urn=mcp.entityUrn,
-                                )
-                            else:
-                                record_metadata = envelope.metadata.copy()
-
-                            yield RecordEnvelope(
-                                record=mcp,
-                                metadata=record_metadata,
-                            )
-
-                    self._mark_processed(urn)
+                # Use helper method for SingleAspectTransformer end of stream
+                yield from self._handle_single_aspect_end_of_stream(envelope)
+                yield from self._handle_end_of_stream(envelope=envelope)
+            elif isinstance(envelope.record, EndOfStream) and isinstance(
+                self, MultipleAspectTransformer
+            ):
+                # Use helper method for MultipleAspectTransformer end of stream
+                yield from self._handle_multiple_aspect_end_of_stream(envelope)
                 yield from self._handle_end_of_stream(envelope=envelope)
 
             yield envelope
