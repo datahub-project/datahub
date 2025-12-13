@@ -34,6 +34,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_view_fields_to_columns,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -290,9 +291,31 @@ _DBT_FIELDS_BY_TYPE = {
     compiledSql
     compiledCode
 """,
+    "semanticModels": f"""
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    model
+    dependsOn
+    entities {{
+      name
+      type
+      description
+      expr
+    }}
+    dimensions {{
+      name
+      type
+      description
+      expr
+    }}
+    measures {{
+      name
+      aggr
+      description
+      expr
+    }}
+""",
     # Currently unsupported dbt node types:
     # - metrics
-    # - snapshots
     # - exposures
 }
 
@@ -662,7 +685,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         return nodes, additional_metadata
 
-    def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
+    def _parse_into_dbt_node(self, node: Dict) -> DBTNode:  # noqa: C901
         key = node["uniqueId"]
 
         name = node["name"]
@@ -681,6 +704,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
+            logger.debug(f"Model {key}: materialization={materialization}, name={name}")
         elif node["resourceType"] == "snapshot":
             materialization = "snapshot"
         else:
@@ -721,6 +745,22 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             # The code fields are new in dbt 1.3, and replace the sql ones.
             raw_code = node["rawCode"] or node["rawSql"]
             compiled_code = node["compiledCode"] or node["compiledSql"]
+
+            if compiled_code:
+                logger.debug(
+                    f"Model {key}: compiled_code present (length={len(compiled_code)})"
+                )
+            else:
+                logger.warning(
+                    f"Model {key}: compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model."
+                )
+        elif node["resourceType"] == "semantic_model":
+            raw_code = None
+            compiled_code = None
+            logger.debug(
+                f"Semantic model {key}: compiled_code not expected (YAML-based)"
+            )
         else:
             raw_code = None
             compiled_code = None
@@ -735,8 +775,28 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
+        # Handle columns differently for semantic models
         columns = []
-        if "columns" in node and node["columns"] is not None:
+        entities = []
+        dimensions = []
+        measures = []
+
+        if node["resourceType"] == "semantic_model":
+            # For semantic models, extract entities, dimensions, and measures
+            entities = node.get("entities", [])
+            dimensions = node.get("dimensions", [])
+            measures = node.get("measures", [])
+
+            logger.debug(
+                f"Parsing semantic model {node.get('name')}: "
+                f"{len(entities)} entity/entities, {len(dimensions)} dimension(s), {len(measures)} measure(s)"
+            )
+
+            # Convert semantic model fields to columns
+            columns = convert_semantic_view_fields_to_columns(
+                entities, dimensions, measures, self.config.tag_prefix
+            )
+        elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
                 sorted(
@@ -792,6 +852,29 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     },
                 )
 
+        # Use "semantic_view" node_type for semantic models to match dbt_core.py convention
+        node_type = (
+            "semantic_view"
+            if node["resourceType"] == "semantic_model"
+            else node["resourceType"]
+        )
+
+        # Also override node_type for models with semantic_view materialization
+        # (e.g., Snowflake semantic views using dbt_semantic_view package)
+        if materialization == "semantic_view":
+            node_type = "semantic_view"
+            logger.debug(
+                f"Detected Snowflake semantic view: {key} (node_type overridden to 'semantic_view')"
+            )
+            if compiled_code:
+                logger.debug(
+                    f"Semantic view {key}: compiled_code present (length={len(compiled_code)}). Will attempt CLL extraction from compiled DDL"
+                )
+            else:
+                logger.warning(
+                    f"Semantic view {key}: Missing compiled_code - CLL extraction will be skipped!"
+                )
+
         return DBTNode(
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
@@ -802,7 +885,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
-            node_type=node["resourceType"],
+            node_type=node_type,
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=description,
@@ -821,6 +904,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_info=test_info,
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
         )
 
     def _parse_into_dbt_column(

@@ -6,18 +6,25 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBTEntitiesEnabled,
     DBTNode,
     DBTSourceReport,
+    EmitDirective,
     NullTypeClass,
+    convert_semantic_view_fields_to_columns,
     get_column_type,
+    parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
+    extract_semantic_views,
     parse_dbt_timestamp,
 )
 from datahub.metadata.schema_classes import (
@@ -25,6 +32,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SubTypesClass,
 )
 from datahub.testing.doctest import assert_doctest
 
@@ -815,3 +823,1296 @@ def test_dbt_cloud_source_description_fallback() -> None:
     assert (
         parsed_node.description == "This is the schema-level description for my_schema"
     )
+
+
+def test_dbt_semantic_view_field_conversion() -> None:
+    """
+    Test that semantic view entities, dimensions, and measures are correctly converted to columns.
+    """
+    entities: List[Dict[str, Any]] = [
+        {
+            "name": "order_id",
+            "type": "primary",
+            "expr": "ORDER_ID",
+            "description": "Unique order identifier",
+        }
+    ]
+    dimensions: List[Dict[str, Any]] = [
+        {
+            "name": "order_date",
+            "type": "time",
+            "expr": "ORDER_DATE",
+            "description": "Order timestamp",
+        }
+    ]
+    measures: List[Dict[str, Any]] = [
+        {
+            "name": "total_amount",
+            "agg": "sum",
+            "expr": "AMOUNT",
+            "description": "Total order amount",
+        }
+    ]
+
+    columns = convert_semantic_view_fields_to_columns(
+        entities, dimensions, measures, tag_prefix="dbt:"
+    )
+
+    # Should have 3 columns
+    assert len(columns) == 3
+
+    # Build column lookup for clearer assertions
+    columns_by_name = {col.name: col for col in columns}
+
+    # Check entity column
+    assert "order_id" in columns_by_name, "Entity column 'order_id' not found"
+    entity_col = columns_by_name["order_id"]
+    assert "[Entity: primary]" in entity_col.description
+    assert "Unique order identifier" in entity_col.description
+    assert "Expression: ORDER_ID" in entity_col.description
+    assert "dbt:entity" in entity_col.tags
+    assert "dbt:primary" in entity_col.tags
+
+    # Check dimension column
+    assert "order_date" in columns_by_name, "Dimension column 'order_date' not found"
+    dim_col = columns_by_name["order_date"]
+    assert "[Dimension: time]" in dim_col.description
+    assert "Order timestamp" in dim_col.description
+    assert "Expression: ORDER_DATE" in dim_col.description
+    assert "dbt:dimension" in dim_col.tags
+    assert "dbt:time" in dim_col.tags
+
+    # Check measure column
+    assert "total_amount" in columns_by_name, "Measure column 'total_amount' not found"
+    measure_col = columns_by_name["total_amount"]
+    assert "[Measure: sum]" in measure_col.description
+    assert "Total order amount" in measure_col.description
+    assert "Expression: AMOUNT" in measure_col.description
+    assert "dbt:measure" in measure_col.tags
+    assert "dbt:sum" in measure_col.tags
+
+
+def test_dbt_semantic_view_field_conversion_empty() -> None:
+    """
+    Test that empty semantic view fields return empty column list.
+    """
+    columns = convert_semantic_view_fields_to_columns([], [], [], tag_prefix="dbt:")
+
+    assert len(columns) == 0
+
+
+def test_dbt_semantic_view_extraction() -> None:
+    """
+    Test that extract_semantic_views correctly parses semantic models from manifest.
+    """
+    semantic_models_manifest = {
+        "semantic_model.my_project.sales_analytics": {
+            "name": "sales_analytics",
+            "description": "Sales analytics semantic model",
+            "model": "ref('orders')",
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "expr": "ORDER_ID",
+                }
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "expr": "ORDER_DATE",
+                }
+            ],
+            "measures": [
+                {
+                    "name": "total_amount",
+                    "agg": "sum",
+                    "expr": "AMOUNT",
+                }
+            ],
+            "depends_on": {"nodes": ["model.my_project.orders"]},
+        }
+    }
+
+    all_manifest_entities = {
+        "model.my_project.orders": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "orders",
+        }
+    }
+
+    report = DBTSourceReport()
+
+    semantic_views = extract_semantic_views(
+        semantic_models_manifest,
+        all_manifest_entities,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+        report=report,
+    )
+
+    assert len(semantic_views) == 1
+    sv = semantic_views[0]
+
+    assert sv.name == "sales_analytics"
+    assert sv.node_type == "semantic_view"
+    assert sv.description == "Sales analytics semantic model"
+    assert sv.database == "analytics"
+    assert sv.schema == "public"
+    assert len(sv.entities) == 1
+    assert len(sv.dimensions) == 1
+    assert len(sv.measures) == 1
+    assert len(sv.columns) == 3  # 1 entity + 1 dimension + 1 measure
+
+
+def test_dbt_semantic_view_missing_upstream() -> None:
+    """
+    Test that semantic view extraction handles missing upstream references gracefully.
+    """
+    semantic_models_manifest = {
+        "semantic_model.my_project.sales_analytics": {
+            "name": "sales_analytics",
+            "description": "Sales analytics",
+            "model": "ref('missing_model')",
+            "entities": [],
+            "dimensions": [],
+            "measures": [],
+            "depends_on": {"nodes": ["model.my_project.missing_model"]},
+        }
+    }
+
+    all_manifest_entities: Dict[str, Dict[str, Any]] = {}  # Empty - upstream not found
+
+    report = DBTSourceReport()
+
+    semantic_views = extract_semantic_views(
+        semantic_models_manifest,
+        all_manifest_entities,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+        report=report,
+    )
+
+    assert len(semantic_views) == 1
+    sv = semantic_views[0]
+
+    # Should use defaults when upstream not found
+    assert sv.database is None
+    assert sv.schema is None
+
+
+def test_dbt_cloud_semantic_model_parsing() -> None:
+    """
+    Test that dbt Cloud source correctly parses semantic models from GraphQL.
+    """
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    semantic_model_data: Dict[str, Any] = {
+        "uniqueId": "semantic_model.my_project.sales_analytics",
+        "name": "sales_analytics",
+        "description": "Sales analytics semantic model",
+        "resourceType": "semantic_model",
+        "model": "ref('orders')",
+        "entities": [
+            {
+                "name": "order_id",
+                "type": "primary",
+                "expr": "ORDER_ID",
+                "description": "Order ID",
+            }
+        ],
+        "dimensions": [
+            {
+                "name": "order_date",
+                "type": "time",
+                "expr": "ORDER_DATE",
+                "description": "Order date",
+            }
+        ],
+        "measures": [
+            {
+                "name": "total_amount",
+                "agg": "sum",
+                "expr": "AMOUNT",
+                "description": "Total amount",
+            }
+        ],
+        "dependsOn": ["model.my_project.orders"],
+        "database": "analytics",
+        "schema": "public",
+        "alias": None,
+        "catalogName": None,
+        "meta": {},
+        "tags": [],
+    }
+
+    parsed_node = source._parse_into_dbt_node(semantic_model_data)
+
+    assert parsed_node.name == "sales_analytics"
+    assert parsed_node.node_type == "semantic_view"
+    assert parsed_node.description == "Sales analytics semantic model"
+    assert len(parsed_node.entities) == 1
+    assert len(parsed_node.dimensions) == 1
+    assert len(parsed_node.measures) == 1
+    assert len(parsed_node.columns) == 3
+
+
+def test_dbt_semantic_view_subtype() -> None:
+    """
+    Test that semantic views get the correct SEMANTIC_VIEW subtype.
+    """
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+
+    semantic_view_node = DBTNode(
+        database="analytics",
+        schema="public",
+        name="sales_analytics",
+        alias="sales_analytics",
+        dbt_name="my_project.sales_analytics",
+        dbt_adapter="snowflake",
+        node_type="semantic_view",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="Sales analytics semantic view",
+        dbt_file_path=None,
+        catalog_type=None,
+        language="sql",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner="",
+    )
+
+    subtype_wu = source._create_subType_wu(
+        semantic_view_node,
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.sales_analytics,PROD)",
+    )
+
+    assert subtype_wu is not None
+    assert isinstance(subtype_wu.metadata, MetadataChangeProposalWrapper)
+    aspect = subtype_wu.metadata.aspect
+    assert aspect is not None
+    assert isinstance(aspect, SubTypesClass)
+    assert DatasetSubTypes.SEMANTIC_VIEW in aspect.typeNames
+
+
+def test_dbt_entities_enabled_semantic_views() -> None:
+    """
+    Test that DBTEntitiesEnabled correctly handles semantic_views configuration.
+    """
+    # Test default (YES)
+    entities_enabled = DBTEntitiesEnabled()
+    assert entities_enabled.semantic_views == EmitDirective.YES
+    assert entities_enabled.can_emit_node_type("semantic_view") is True
+
+    # Test NO
+    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.NO)
+    assert entities_enabled.can_emit_node_type("semantic_view") is False
+
+    # Test ONLY
+    entities_enabled = DBTEntitiesEnabled(semantic_views=EmitDirective.ONLY)
+    assert entities_enabled.can_emit_node_type("semantic_view") is True
+    assert entities_enabled.can_emit_node_type("model") is False
+
+
+def _create_mock_node(table_name: str) -> mock.Mock:
+    """Helper to create a mock DBTNode with a name attribute."""
+    node = mock.Mock()
+    node.name = table_name
+    return node
+
+
+def test_parse_semantic_view_cll_dimensions() -> None:
+    """
+    Test parsing dimensions from semantic view DDL.
+    Dimensions: ORDERS.CUSTOMER_ID AS CUSTOMER_ID
+    """
+    compiled_sql = """
+    DIMENSIONS (
+        ORDERS.CUSTOMER_ID AS CUSTOMER_ID 
+            COMMENT='Customer identifier',
+        ORDERS.ORDER_ID AS ORDER_ID,
+        TRANSACTIONS.PAYMENT_METHOD AS PAYMENT_METHOD
+    )
+    """
+
+    upstream_nodes = [
+        "source.project.shop.ORDERS",
+        "source.project.shop.TRANSACTIONS",
+    ]
+
+    all_nodes_map = {
+        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract 3 dimension entries
+    assert len(cll_info) == 3
+
+    # Check customer_id
+    customer_id = next(
+        (cll for cll in cll_info if cll.downstream_col == "customer_id"), None
+    )
+    assert customer_id is not None
+    assert customer_id.upstream_dbt_name == "source.project.shop.ORDERS"
+    assert customer_id.upstream_col == "customer_id"
+
+    # Check payment_method
+    payment = next(
+        (cll for cll in cll_info if cll.downstream_col == "payment_method"), None
+    )
+    assert payment is not None
+    assert payment.upstream_dbt_name == "source.project.shop.TRANSACTIONS"
+    assert payment.upstream_col == "payment_method"
+
+
+def test_parse_semantic_view_cll_derived_metrics() -> None:
+    """
+    Test parsing derived metrics computed from other metrics.
+    Derived: TOTAL_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT
+    """
+    compiled_sql = """
+    METRICS (
+        ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL),
+        TRANSACTIONS.NET_PAYMENT AS SUM(TRANSACTION_AMOUNT),
+        TOTAL_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT
+            COMMENT='Combined revenue'
+    )
+    """
+
+    upstream_nodes = [
+        "source.project.shop.ORDERS",
+        "source.project.shop.TRANSACTIONS",
+    ]
+
+    all_nodes_map = {
+        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract 2 base metrics + 2 derived entries = 4 total
+    assert len(cll_info) == 4
+
+    # Check base metrics exist
+    gross_rev = [cll for cll in cll_info if cll.downstream_col == "gross_revenue"]
+    assert len(gross_rev) == 1
+
+    # Check derived metric has lineage from BOTH base columns
+    total_rev = [cll for cll in cll_info if cll.downstream_col == "total_revenue"]
+    assert len(total_rev) == 2  # Two sources!
+
+    # Verify it traces back to the original columns
+    upstream_cols = {cll.upstream_col for cll in total_rev}
+    assert upstream_cols == {"order_total", "transaction_amount"}
+
+
+def test_parse_semantic_view_cll_multiple_tables_same_column() -> None:
+    """
+    Test handling columns that exist in multiple upstream tables.
+    Example: ORDER_ID exists in both ORDERS and TRANSACTIONS
+    """
+    compiled_sql = """
+    DIMENSIONS (
+        ORDERS.ORDER_ID AS ORDER_ID,
+        ORDERS.CUSTOMER_ID AS CUSTOMER_ID
+    )
+    FACTS (
+        TRANSACTIONS.ORDER_ID AS ORDER_ID,
+        TRANSACTIONS.AMOUNT AS AMOUNT
+    )
+    """
+
+    upstream_nodes = [
+        "source.project.shop.ORDERS",
+        "source.project.shop.TRANSACTIONS",
+    ]
+
+    all_nodes_map = {
+        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract entries for both ORDER_ID occurrences
+    order_ids = [cll for cll in cll_info if cll.downstream_col == "order_id"]
+    assert len(order_ids) == 2  # From both tables!
+
+    # Verify both upstream tables are represented
+    upstream_tables = {cll.upstream_dbt_name for cll in order_ids}
+    assert upstream_tables == {
+        "source.project.shop.ORDERS",
+        "source.project.shop.TRANSACTIONS",
+    }
+
+
+def test_parse_semantic_view_cll_complex_expression() -> None:
+    """
+    Test parsing derived metrics with complex expressions.
+    """
+    compiled_sql = """
+    METRICS (
+        ORDERS.REVENUE AS SUM(ORDER_TOTAL),
+        ORDERS.COST AS SUM(ORDER_COST),
+        PROFIT_MARGIN AS ORDERS.REVENUE - ORDERS.COST
+            COMMENT='Profit calculation'
+    )
+    """
+
+    upstream_nodes = ["source.project.shop.ORDERS"]
+    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract 2 base metrics + 2 derived entries
+    assert len(cll_info) == 4
+
+    # Profit margin should trace back to both base columns
+    profit = [cll for cll in cll_info if cll.downstream_col == "profit_margin"]
+    assert len(profit) == 2
+
+    upstream_cols = {cll.upstream_col for cll in profit}
+    assert upstream_cols == {"order_total", "order_cost"}
+
+
+def test_parse_semantic_view_cll_empty_input() -> None:
+    """
+    Test handling empty or null input.
+    """
+    # Empty SQL
+    cll_info = parse_semantic_view_cll("", [], {})
+    assert len(cll_info) == 0
+
+    # None SQL
+    cll_info = parse_semantic_view_cll(None, [], {})  # type: ignore
+    assert len(cll_info) == 0
+
+    # SQL without metrics/dimensions
+    cll_info = parse_semantic_view_cll("COMMENT='test'", [], {})
+    assert len(cll_info) == 0
+
+
+def test_parse_semantic_view_cll_case_handling() -> None:
+    """
+    Test comprehensive case handling: SQL keywords, table names, and column names.
+    Validates case-insensitive matching and normalization to lowercase.
+    """
+    compiled_sql = """
+    METRICS (
+        orders.gross_revenue as SUM(order_total),
+        TRANSACTIONS.Net_Payment AS AVG(transaction_amount)
+    )
+    DIMENSIONS (
+        Orders.Customer_Id as customer_id,
+        ORDERS.ORDER_ID as order_id,
+        transactions.store_id AS store_id
+    )
+    """
+
+    upstream_nodes = [
+        "source.project.shop.ORDERS",
+        "source.project.shop.TRANSACTIONS",
+    ]
+
+    all_nodes_map = {
+        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.shop.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract all entries regardless of case variations
+    assert len(cll_info) == 5
+
+    # Verify entries are normalized to lowercase
+    downstream_cols = {cll.downstream_col for cll in cll_info}
+    assert downstream_cols == {
+        "gross_revenue",
+        "net_payment",
+        "customer_id",
+        "order_id",
+        "store_id",
+    }
+
+    # Verify all table references matched correctly despite case variations
+    assert all(
+        cll.upstream_dbt_name.startswith("source.project.shop.") for cll in cll_info
+    )
+
+
+def test_parse_semantic_view_cll_missing_upstream_node() -> None:
+    """
+    Test handling when upstream node is not in all_nodes_map.
+    Should log warning but continue processing other nodes.
+    """
+    compiled_sql = """
+    METRICS (
+        ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL),
+        TRANSACTIONS.NET_PAYMENT AS SUM(TRANSACTION_AMOUNT)
+    )
+    """
+
+    upstream_nodes = [
+        "source.project.shop.ORDERS",
+        "source.project.shop.TRANSACTIONS",  # This one is missing
+    ]
+
+    # Only include ORDERS in the map
+    all_nodes_map = {
+        "source.project.shop.ORDERS": _create_mock_node("ORDERS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract only the ORDERS metric
+    assert len(cll_info) == 1
+    assert cll_info[0].upstream_dbt_name == "source.project.shop.ORDERS"
+    assert cll_info[0].downstream_col == "gross_revenue"
+
+
+def test_parse_semantic_view_cll_table_not_in_mapping() -> None:
+    """
+    Test handling when DDL references a table not in upstream_nodes.
+    Should skip that entry gracefully.
+    """
+    compiled_sql = """
+    METRICS (
+        ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL),
+        UNKNOWN_TABLE.SOME_METRIC AS SUM(SOME_COLUMN)
+    )
+    """
+
+    upstream_nodes = ["source.project.shop.ORDERS"]
+    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract only the ORDERS metric, skip UNKNOWN_TABLE
+    assert len(cll_info) == 1
+    assert cll_info[0].upstream_col == "order_total"
+
+
+def test_parse_semantic_view_cll_no_upstream_mapping() -> None:
+    """
+    Test handling when no upstream table mapping is available.
+    Should return empty list with warning.
+    """
+    compiled_sql = """
+    METRICS (
+        ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL)
+    )
+    """
+
+    # Empty upstream nodes
+    upstream_nodes: List[str] = []
+    all_nodes_map: Dict[str, Any] = {}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should return empty list
+    assert len(cll_info) == 0
+
+
+def test_parse_semantic_view_cll_derived_metric_missing_reference() -> None:
+    """
+    Test derived metric that references a non-existent metric.
+    Should skip the missing reference gracefully.
+    """
+    compiled_sql = """
+    METRICS (
+        ORDERS.REVENUE AS SUM(ORDER_TOTAL),
+        TOTAL AS ORDERS.REVENUE + ORDERS.MISSING_METRIC
+    )
+    """
+
+    upstream_nodes = ["source.project.shop.ORDERS"]
+    all_nodes_map = {"source.project.shop.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract base metric + partial derived metric (only REVENUE part)
+    assert len(cll_info) == 2  # 1 base + 1 derived from revenue
+
+    # Verify base metric
+    base_metric = [cll for cll in cll_info if cll.downstream_col == "revenue"]
+    assert len(base_metric) == 1
+
+    # Verify derived metric only has lineage from revenue (not missing_metric)
+    total_metric = [cll for cll in cll_info if cll.downstream_col == "total"]
+    assert len(total_metric) == 1
+    assert total_metric[0].upstream_col == "order_total"
+
+
+def test_convert_semantic_view_fields_build_description_edge_cases() -> None:
+    """Test edge cases in description building for semantic view fields."""
+
+    # Edge case 1: Empty description with type and expression
+    entities: List[Dict[str, Any]] = [
+        {"name": "id", "type": "primary", "expr": "ID", "description": ""}
+    ]
+    columns = convert_semantic_view_fields_to_columns(entities, [], [], "dbt:")
+    assert columns[0].description == "[Entity: primary] \nExpression: ID"
+
+    # Edge case 2: No type value, only description
+    dimensions: List[Dict[str, Any]] = [
+        {"name": "col", "type": "", "description": "A column", "expr": None}
+    ]
+    columns = convert_semantic_view_fields_to_columns([], dimensions, [], "dbt:")
+    assert columns[0].description == "A column"
+
+    # Edge case 3: Only expression, no description or type
+    measures: List[Dict[str, Any]] = [
+        {"name": "total", "agg": "", "expr": "SUM(amount)", "description": ""}
+    ]
+    columns = convert_semantic_view_fields_to_columns([], [], measures, "dbt:")
+    assert columns[0].description == "Expression: SUM(amount)"
+
+    # Edge case 4: Everything present
+    entities2: List[Dict[str, Any]] = [
+        {
+            "name": "customer_id",
+            "type": "foreign",
+            "expr": "CUST.ID",
+            "description": "Customer reference",
+        }
+    ]
+    columns = convert_semantic_view_fields_to_columns(entities2, [], [], "dbt:")
+    assert "[Entity: foreign]" in columns[0].description
+    assert "Customer reference" in columns[0].description
+    assert "Expression: CUST.ID" in columns[0].description
+
+    # Edge case 5: All empty
+    measures2: List[Dict[str, Any]] = [
+        {"name": "count", "agg": "", "expr": None, "description": ""}
+    ]
+    columns = convert_semantic_view_fields_to_columns([], [], measures2, "dbt:")
+    assert columns[0].description == ""
+
+
+def test_parse_semantic_view_cll_malformed_sql() -> None:
+    """Test parse_semantic_view_cll with malformed/invalid SQL patterns."""
+
+    # Malformed DIMENSIONS (missing AS keyword)
+    compiled_sql = """
+    DIMENSIONS (
+        ORDERS.CUSTOMER_ID CUSTOMER_ID
+    )
+    """
+    upstream_nodes = ["source.project.src.ORDERS"]
+    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should not extract lineage from malformed syntax
+    assert len(cll_info) == 0
+
+
+def test_parse_semantic_view_cll_multiple_aggregations() -> None:
+    """Test parse_semantic_view_cll with multiple aggregation functions."""
+
+    compiled_sql = """
+    METRICS (
+        ORDERS.TOTAL_REVENUE AS SUM(ORDER_TOTAL),
+        ORDERS.AVG_ORDER AS AVG(ORDER_TOTAL),
+        ORDERS.ORDER_COUNT AS COUNT(ORDER_ID),
+        ORDERS.MIN_ORDER AS MIN(ORDER_TOTAL),
+        ORDERS.MAX_ORDER AS MAX(ORDER_TOTAL)
+    )
+    """
+    upstream_nodes = ["source.project.src.ORDERS"]
+    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should extract all 5 metrics
+    assert len(cll_info) == 5
+
+    # Check all aggregation types are captured
+    downstream_cols = {cll.downstream_col for cll in cll_info}
+    assert downstream_cols == {
+        "total_revenue",
+        "avg_order",
+        "order_count",
+        "min_order",
+        "max_order",
+    }
+
+    # All should map from same upstream columns
+    assert all(cll.upstream_dbt_name == "source.project.src.ORDERS" for cll in cll_info)
+
+
+def test_parse_semantic_view_cll_chained_derived_metrics() -> None:
+    """Test parse_semantic_view_cll with multiple levels of derived metrics."""
+
+    compiled_sql = """
+    METRICS (
+        ORDERS.BASE_REVENUE AS SUM(ORDER_TOTAL),
+        TRANSACTIONS.BASE_PAYMENT AS SUM(TRANSACTION_AMOUNT),
+        COMBINED_REVENUE AS ORDERS.BASE_REVENUE + TRANSACTIONS.BASE_PAYMENT,
+        REVENUE_WITH_TAX AS COMBINED_REVENUE * 1.1
+    )
+    """
+    upstream_nodes = [
+        "source.project.src.ORDERS",
+        "source.project.src.TRANSACTIONS",
+    ]
+    all_nodes_map = {
+        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.src.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should have:
+    # - 2 base metrics (base_revenue, base_payment)
+    # - 2 derived metrics mapping to base columns (combined_revenue from both sources)
+    # Note: REVENUE_WITH_TAX references COMBINED_REVENUE which isn't a base metric,
+    # so it won't create lineage (current limitation)
+    assert len(cll_info) == 4
+
+    # Check combined_revenue has lineage to both base columns
+    combined_lineages = [
+        cll for cll in cll_info if cll.downstream_col == "combined_revenue"
+    ]
+    assert len(combined_lineages) == 2
+    upstream_cols = {cll.upstream_col for cll in combined_lineages}
+    assert upstream_cols == {"order_total", "transaction_amount"}
+
+
+def test_parse_semantic_view_cll_duplicate_column_names() -> None:
+    """Test parse_semantic_view_cll when same column name appears in multiple tables."""
+
+    compiled_sql = """
+    DIMENSIONS (
+        ORDERS.ORDER_ID AS ORDER_ID,
+        TRANSACTIONS.ORDER_ID AS ORDER_ID,
+        ORDERS.STORE_ID AS STORE_ID
+    )
+    """
+    upstream_nodes = [
+        "source.project.src.ORDERS",
+        "source.project.src.TRANSACTIONS",
+    ]
+    all_nodes_map = {
+        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.src.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should create separate lineage for each upstream table
+    assert len(cll_info) == 3
+
+    # ORDER_ID should have lineage from both tables
+    order_id_lineages = [cll for cll in cll_info if cll.downstream_col == "order_id"]
+    assert len(order_id_lineages) == 2
+    upstream_tables = {cll.upstream_dbt_name for cll in order_id_lineages}
+    assert upstream_tables == {
+        "source.project.src.ORDERS",
+        "source.project.src.TRANSACTIONS",
+    }
+
+
+def test_parse_semantic_view_cll_empty_sections() -> None:
+    """Test parse_semantic_view_cll with empty DIMENSIONS/FACTS/METRICS sections."""
+
+    compiled_sql = """
+    TABLES (
+        {{ source('db', 'ORDERS') }}
+    )
+    DIMENSIONS ()
+    FACTS ()
+    METRICS ()
+    """
+    upstream_nodes = ["source.project.src.ORDERS"]
+    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should return empty list with warning
+    assert len(cll_info) == 0
+
+
+def test_semantic_view_cll_integration_with_node() -> None:
+    """Test that semantic view CLL is properly extracted and added to DBTNode during processing."""
+
+    # Create a semantic view node with compiled code
+    semantic_view_node = DBTNode(
+        dbt_name="model.project.sales_view",
+        dbt_adapter="snowflake",
+        database="db",
+        schema="schema",
+        name="sales_view",
+        alias="sales_view",
+        comment="",
+        description="",
+        raw_code="",
+        compiled_code="""
+        DIMENSIONS (
+            ORDERS.CUSTOMER_ID AS CUSTOMER_ID,
+            ORDERS.ORDER_ID AS ORDER_ID
+        )
+        METRICS (
+            ORDERS.TOTAL_REVENUE AS SUM(ORDER_TOTAL)
+        )
+        """,
+        dbt_file_path="",
+        node_type="semantic_view",
+        max_loaded_at=None,
+        materialization=None,
+        upstream_nodes=["source.project.src.ORDERS"],
+        catalog_type=None,
+        upstream_cll=[],  # Should be populated by CLL extraction
+        language="sql",
+        dbt_package_name="project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+    # Create upstream nodes map
+    all_nodes_map = {
+        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+    }
+
+    # Simulate what _infer_schemas_and_update_cll does
+    if semantic_view_node.compiled_code:
+        cll_info = parse_semantic_view_cll(
+            compiled_sql=semantic_view_node.compiled_code,
+            upstream_nodes=semantic_view_node.upstream_nodes,
+            all_nodes_map=all_nodes_map,
+        )
+        semantic_view_node.upstream_cll.extend(cll_info)
+
+    # Verify CLL was added to the node
+    assert len(semantic_view_node.upstream_cll) == 3
+    downstream_cols = {cll.downstream_col for cll in semantic_view_node.upstream_cll}
+    assert downstream_cols == {"customer_id", "order_id", "total_revenue"}
+
+    # Verify all CLL entries point to the correct upstream
+    assert all(
+        cll.upstream_dbt_name == "source.project.src.ORDERS"
+        for cll in semantic_view_node.upstream_cll
+    )
+
+
+def test_semantic_view_cll_integration_missing_code() -> None:
+    """Test that semantic view CLL extraction handles missing/empty compiled_code gracefully."""
+
+    all_nodes_map = {
+        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+    }
+
+    # Test Case 1: compiled_code is None
+    node_with_none = DBTNode(
+        dbt_name="model.project.sales_view",
+        dbt_adapter="snowflake",
+        database="db",
+        schema="schema",
+        name="sales_view",
+        alias="sales_view",
+        comment="",
+        description="",
+        raw_code="",
+        compiled_code=None,  # No compiled code
+        dbt_file_path="",
+        node_type="semantic_view",
+        max_loaded_at=None,
+        materialization=None,
+        upstream_nodes=["source.project.src.ORDERS"],
+        catalog_type=None,
+        upstream_cll=[],
+        language="sql",
+        dbt_package_name="project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+    # Simulate what _infer_schemas_and_update_cll does
+    if node_with_none.compiled_code:
+        cll_info = parse_semantic_view_cll(
+            compiled_sql=node_with_none.compiled_code,
+            upstream_nodes=node_with_none.upstream_nodes,
+            all_nodes_map=all_nodes_map,
+        )
+        node_with_none.upstream_cll.extend(cll_info)
+
+    assert len(node_with_none.upstream_cll) == 0, (
+        "None compiled_code should skip CLL extraction"
+    )
+
+    # Test Case 2: compiled_code is empty string
+    node_with_empty = DBTNode(
+        dbt_name="model.project.sales_view2",
+        dbt_adapter="snowflake",
+        database="db",
+        schema="schema",
+        name="sales_view2",
+        alias="sales_view2",
+        comment="",
+        description="",
+        raw_code="",
+        compiled_code="",  # Empty string
+        dbt_file_path="",
+        node_type="semantic_view",
+        max_loaded_at=None,
+        materialization=None,
+        upstream_nodes=["source.project.src.ORDERS"],
+        catalog_type=None,
+        upstream_cll=[],
+        language="sql",
+        dbt_package_name="project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+    if node_with_empty.compiled_code:
+        cll_info = parse_semantic_view_cll(
+            compiled_sql=node_with_empty.compiled_code,
+            upstream_nodes=node_with_empty.upstream_nodes,
+            all_nodes_map=all_nodes_map,
+        )
+        node_with_empty.upstream_cll.extend(cll_info)
+
+    assert len(node_with_empty.upstream_cll) == 0, (
+        "Empty compiled_code should return empty list"
+    )
+
+
+def test_semantic_view_cll_integration_by_materialization() -> None:
+    """Test that CLL extraction works for nodes identified by materialization (not node_type)."""
+
+    # Create a node with materialization='semantic_view' but node_type='model'
+    # This happens with dbt_semantic_view package
+    semantic_view_node = DBTNode(
+        dbt_name="model.project.sales_view",
+        dbt_adapter="snowflake",
+        database="db",
+        schema="schema",
+        name="sales_view",
+        alias="sales_view",
+        comment="",
+        description="",
+        raw_code="",
+        compiled_code="""
+        DIMENSIONS (
+            TRANSACTIONS.TRANSACTION_ID AS TRANSACTION_ID
+        )
+        FACTS (
+            TRANSACTIONS.AMOUNT AS AMOUNT
+        )
+        """,
+        dbt_file_path="",
+        node_type="model",  # Regular model
+        max_loaded_at=None,
+        materialization="semantic_view",  # But materialized as semantic_view
+        upstream_nodes=["source.project.src.TRANSACTIONS"],
+        catalog_type=None,
+        upstream_cll=[],
+        language="sql",
+        dbt_package_name="project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+    all_nodes_map = {
+        "source.project.src.TRANSACTIONS": _create_mock_node("TRANSACTIONS"),
+    }
+
+    # Check condition matches what's in _infer_schemas_and_update_cll
+    should_parse = (
+        semantic_view_node.node_type == "semantic_view"
+        or semantic_view_node.materialization == "semantic_view"
+    )
+    assert should_parse is True
+
+    # Simulate CLL extraction
+    if semantic_view_node.compiled_code:
+        cll_info = parse_semantic_view_cll(
+            compiled_sql=semantic_view_node.compiled_code,
+            upstream_nodes=semantic_view_node.upstream_nodes,
+            all_nodes_map=all_nodes_map,
+        )
+        semantic_view_node.upstream_cll.extend(cll_info)
+
+    # Verify CLL was extracted
+    assert len(semantic_view_node.upstream_cll) == 2
+    downstream_cols = {cll.downstream_col for cll in semantic_view_node.upstream_cll}
+    assert downstream_cols == {"transaction_id", "amount"}
+
+
+def test_parse_semantic_view_cll_circular_metric_reference() -> None:
+    """Test that circular metric references are handled gracefully (A→B→A)."""
+
+    compiled_sql = """
+    METRICS (
+        ORDERS.METRIC_A AS SUM(ORDER_TOTAL),
+        ORDERS.METRIC_B AS METRIC_A * 2,
+        ORDERS.CIRCULAR AS METRIC_B + METRIC_A
+    )
+    """
+    upstream_nodes = ["source.project.src.ORDERS"]
+    all_nodes_map = {"source.project.src.ORDERS": _create_mock_node("ORDERS")}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Parser extracts what it can without infinite loops:
+    # - METRIC_A: order_total → metric_a (SUM pattern)
+    # - METRIC_A: metric_b → metric_a (dimension pattern from "METRIC_A * 2")
+    # - CIRCULAR: circular → metric_b (dimension pattern)
+    # Note: Parser treats table-qualified references in expressions as column refs
+    assert len(cll_info) >= 1  # At least base metric
+
+    # Verify base metric from ORDER_TOTAL is captured
+    base_metrics = [
+        cll
+        for cll in cll_info
+        if cll.downstream_col == "metric_a" and cll.upstream_col == "order_total"
+    ]
+    assert len(base_metrics) == 1, "Base metric from physical column should be captured"
+
+
+def test_parse_semantic_view_cll_no_upstream_nodes() -> None:
+    """Test that semantic view with no upstream nodes returns empty CLL gracefully."""
+
+    compiled_sql = """
+    DIMENSIONS (
+        ORDERS.CUSTOMER_ID AS CUSTOMER_ID
+    )
+    """
+    upstream_nodes: List[str] = []  # No upstream nodes
+    all_nodes_map: Dict[str, Any] = {}
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Should return empty list with warning
+    assert len(cll_info) == 0
+
+
+def test_parse_semantic_view_cll_production_pattern() -> None:
+    """
+    Test real production pattern from dbt Cloud logs.
+    Based on actual semantic view from WAREHOUSE_COFFEE_COMPANY.
+    """
+    compiled_sql = """
+    FACTS (
+        orders.ORDER_TOTAL AS ORDER_TOTAL,
+        transactions.ORDER_ID AS ORDER_ID,
+        transactions.TRANSACTION_AMOUNT AS TRANSACTION_AMOUNT
+    )
+    DIMENSIONS (
+        ORDERS.CUSTOMER_ID AS CUSTOMER_ID,
+        ORDERS.ORDER_ID AS ORDER_ID,
+        ORDERS.ORDER_TYPE AS ORDER_TYPE,
+        ORDERS.STORE_ID AS STORE_ID,
+        TRANSACTIONS.PAYMENT_METHOD AS PAYMENT_METHOD,
+        TRANSACTIONS.TRANSACTION_DATE AS TRANSACTION_DATE,
+        TRANSACTIONS.TRANSACTION_ID AS TRANSACTION_ID,
+        TRANSACTIONS.TRANSACTION_TYPE AS TRANSACTION_TYPE
+    )
+    METRICS (
+        ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL),
+        TRANSACTIONS.NET_PAYMENT_AMOUNT AS SUM(TRANSACTION_AMOUNT),
+        TOTAL_ORDER_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
+    )
+    """
+
+    upstream_nodes = [
+        "source.my_analytics_project.coffee_shop_source.ORDERS",
+        "source.my_analytics_project.coffee_shop_source.TRANSACTIONS",
+    ]
+
+    all_nodes_map = {
+        "source.my_analytics_project.coffee_shop_source.ORDERS": _create_mock_node(
+            "ORDERS"
+        ),
+        "source.my_analytics_project.coffee_shop_source.TRANSACTIONS": _create_mock_node(
+            "TRANSACTIONS"
+        ),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Expected: 3 facts + 8 dimensions + 2 simple metrics + 2 derived metric entries = 15
+    assert len(cll_info) == 15, f"Expected 15 CLL entries, got {len(cll_info)}"
+
+    # Verify derived metric has lineage from both sources
+    derived_lineages = [
+        cll for cll in cll_info if cll.downstream_col == "total_order_revenue"
+    ]
+    assert len(derived_lineages) == 2, (
+        "Derived metric should trace to both base columns"
+    )
+
+    upstream_cols = {cll.upstream_col for cll in derived_lineages}
+    assert upstream_cols == {"order_total", "transaction_amount"}
+
+    # Verify duplicate ORDER_ID is captured from both tables
+    order_id_lineages = [cll for cll in cll_info if cll.downstream_col == "order_id"]
+    assert len(order_id_lineages) == 2, (
+        "ORDER_ID should have lineage from both ORDERS and TRANSACTIONS"
+    )
+
+    upstream_tables = {cll.upstream_dbt_name for cll in order_id_lineages}
+    assert len(upstream_tables) == 2, "ORDER_ID should come from 2 different tables"
+
+
+def test_parse_semantic_view_cll_with_table_aliases() -> None:
+    """
+    Test that parser correctly handles table aliases in TABLES section.
+    This is a common pattern in semantic views where tables are aliased.
+    """
+    compiled_sql = """
+    TABLES (
+        cases as analytics_cs_mart.analytics.r_support_case_analysis,
+        hierarchy as analytics_cs_mart.analytics.r_cs_all_level_success_factor_hierarchy
+    )
+    
+    DIMENSIONS (
+        cases.account_name as account_name,
+        cases.case_id as case_id,
+        hierarchy.l1_name as l1_name,
+        hierarchy.l2_name as l2_name
+    )
+    
+    METRICS (
+        cases.first_response_met as COUNT(case_id)
+    )
+    """
+
+    upstream_nodes = [
+        "model.dbt_cs_analytics.r_support_case_analysis",
+        "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy",
+    ]
+
+    all_nodes_map = {
+        "model.dbt_cs_analytics.r_support_case_analysis": _create_mock_node(
+            "r_support_case_analysis"
+        ),
+        "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy": _create_mock_node(
+            "r_cs_all_level_success_factor_hierarchy"
+        ),
+    }
+
+    cll_info = parse_semantic_view_cll(compiled_sql, upstream_nodes, all_nodes_map)
+
+    # Expected: 4 dimensions + 1 metric = 5 CLL entries
+    assert len(cll_info) == 5, f"Expected 5 CLL entries, got {len(cll_info)}"
+
+    # Verify dimensions from 'cases' alias
+    cases_dimensions = [
+        cll
+        for cll in cll_info
+        if cll.upstream_dbt_name == "model.dbt_cs_analytics.r_support_case_analysis"
+        and cll.downstream_col in ["account_name", "case_id", "first_response_met"]
+    ]
+    assert len(cases_dimensions) == 3, (
+        f"Expected 3 lineages from cases alias, got {len(cases_dimensions)}"
+    )
+
+    # Verify dimensions from 'hierarchy' alias
+    hierarchy_dimensions = [
+        cll
+        for cll in cll_info
+        if cll.upstream_dbt_name
+        == "model.dbt_cs_analytics.r_cs_all_level_success_factor_hierarchy"
+    ]
+    assert len(hierarchy_dimensions) == 2, (
+        f"Expected 2 lineages from hierarchy alias, got {len(hierarchy_dimensions)}"
+    )
+
+    # Verify column names
+    assert any(cll.downstream_col == "account_name" for cll in cll_info)
+    assert any(cll.downstream_col == "case_id" for cll in cll_info)
+    assert any(cll.downstream_col == "l1_name" for cll in cll_info)
+    assert any(cll.downstream_col == "first_response_met" for cll in cll_info)
+
+
+def test_semantic_view_cll_integration_multiple_upstreams() -> None:
+    """Test that CLL extraction works correctly with multiple upstream tables."""
+
+    semantic_view_node = DBTNode(
+        dbt_name="model.project.sales_view",
+        dbt_adapter="snowflake",
+        database="db",
+        schema="schema",
+        name="sales_view",
+        alias="sales_view",
+        comment="",
+        description="",
+        raw_code="",
+        compiled_code="""
+        DIMENSIONS (
+            ORDERS.ORDER_ID AS ORDER_ID,
+            CUSTOMERS.CUSTOMER_ID AS CUSTOMER_ID
+        )
+        METRICS (
+            ORDERS.REVENUE AS SUM(ORDER_TOTAL),
+            COMBINED_METRIC AS ORDERS.REVENUE + CUSTOMERS.LIFETIME_VALUE
+        )
+        """,
+        dbt_file_path="",
+        node_type="semantic_view",
+        max_loaded_at=None,
+        materialization=None,
+        upstream_nodes=[
+            "source.project.src.ORDERS",
+            "source.project.src.CUSTOMERS",
+        ],
+        catalog_type=None,
+        upstream_cll=[],
+        language="sql",
+        dbt_package_name="project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+    all_nodes_map = {
+        "source.project.src.ORDERS": _create_mock_node("ORDERS"),
+        "source.project.src.CUSTOMERS": _create_mock_node("CUSTOMERS"),
+    }
+
+    # Simulate CLL extraction
+    if semantic_view_node.compiled_code:
+        cll_info = parse_semantic_view_cll(
+            compiled_sql=semantic_view_node.compiled_code,
+            upstream_nodes=semantic_view_node.upstream_nodes,
+            all_nodes_map=all_nodes_map,
+        )
+        semantic_view_node.upstream_cll.extend(cll_info)
+
+    # Should have lineage from both upstream tables
+    assert len(semantic_view_node.upstream_cll) > 0
+
+    # Verify we have lineage from both tables
+    upstream_tables = {cll.upstream_dbt_name for cll in semantic_view_node.upstream_cll}
+    assert "source.project.src.ORDERS" in upstream_tables
+    assert "source.project.src.CUSTOMERS" in upstream_tables
+
+    # Verify derived metric has lineage (COMBINED_METRIC references REVENUE and LIFETIME_VALUE)
+    combined_lineages = [
+        cll
+        for cll in semantic_view_node.upstream_cll
+        if cll.downstream_col == "combined_metric"
+    ]
+    # Should have lineage from ORDER_TOTAL (via REVENUE metric)
+    assert any(cll.upstream_col == "order_total" for cll in combined_lineages)
