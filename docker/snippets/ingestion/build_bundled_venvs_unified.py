@@ -68,7 +68,7 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
             constraints_path = os.path.join(venv_base_path, "constraints.txt")
             install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraints {constraints_path}'
         else:
-            datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
+            datahub_package = f'acryl-datahub[acryl-datahub-cloud,datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
             constraints_path = os.path.join(venv_base_path, "constraints.txt")
             install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
         subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
