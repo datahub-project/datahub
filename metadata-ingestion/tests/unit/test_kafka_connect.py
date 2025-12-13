@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 from unittest.mock import Mock, patch
 
 import jpype
@@ -8,6 +8,8 @@ import pytest
 
 # Import the classes we're testing
 from datahub.ingestion.source.kafka_connect.common import (
+    CLOUD_JDBC_SOURCE_CLASSES,
+    POSTGRES_CDC_SOURCE_CLOUD,
     ConnectorManifest,
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
@@ -21,14 +23,27 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
     SnowflakeSinkConnector,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
+    JDBC_SOURCE_CONNECTOR_CLASS,
     ConfluentJDBCSourceConnector,
+    DebeziumSourceConnector,
     MongoSourceConnector,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 
 logger = logging.getLogger(__name__)
+
+
+def create_mock_kafka_connect_config() -> Mock:
+    """Helper to create a properly configured KafkaConnectSourceConfig mock."""
+    config = Mock(spec=KafkaConnectSourceConfig)
+    config.use_schema_resolver = False
+    config.schema_resolver_expand_patterns = True
+    config.schema_resolver_finegrained_lineage = True
+    config.env = "PROD"
+    return config
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -188,7 +203,10 @@ class TestBigQuerySinkConnector:
 
     def create_mock_dependencies(self) -> Tuple[Mock, Mock]:
         """Helper to create mock dependencies."""
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
+        config.use_schema_resolver = False
+        config.schema_resolver_expand_patterns = True
+        config.schema_resolver_finegrained_lineage = True
         report: Mock = Mock(spec=KafkaConnectSourceReport)
         return config, report
 
@@ -301,7 +319,7 @@ class TestS3SinkConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentS3SinkConnector = ConfluentS3SinkConnector(
@@ -349,7 +367,7 @@ class TestBigquerySinkConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: BigQuerySinkConnector = BigQuerySinkConnector(
@@ -394,7 +412,7 @@ class TestSnowflakeSinkConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: SnowflakeSinkConnector = SnowflakeSinkConnector(
@@ -444,7 +462,7 @@ class TestJDBCSourceConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -488,7 +506,7 @@ class TestIntegration:
             topic_names=["raw_users_data", "raw_orders_data", "other_topic"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: BigQuerySinkConnector = BigQuerySinkConnector(
@@ -536,7 +554,7 @@ class TestIntegration:
             topic_names=["test-topic"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         # Should not raise an exception
@@ -576,7 +594,7 @@ class TestMongoSourceConnector:
         }
 
         manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: MongoSourceConnector = MongoSourceConnector(manifest, config, report)
@@ -627,7 +645,7 @@ class TestConfluentCloudConnectors:
         }
 
         manifest: ConnectorManifest = self.create_platform_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -657,7 +675,7 @@ class TestConfluentCloudConnectors:
             "database.port": "5432",
             "database.user": "user_name",
             "database.password": "password",
-            "database.dbname": "aledade",
+            "database.dbname": "test_db",
             "database.server.name": "server_name",
             "table.include.list": "public.users,public.orders",
             "transforms": "Transform",
@@ -667,7 +685,7 @@ class TestConfluentCloudConnectors:
         }
 
         manifest: ConnectorManifest = self.create_cloud_manifest(connector_config)
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -677,11 +695,11 @@ class TestConfluentCloudConnectors:
         # Test the parser correctly handles Cloud config
         parser = connector.get_parser(manifest)
         assert parser.source_platform == "postgres"
-        assert parser.database_name == "aledade"
+        assert parser.database_name == "test_db"
         assert parser.topic_prefix == "server_name"  # Uses database.server.name
         assert (
             parser.db_connection_url
-            == "postgresql://server_name.us-east-1.rds.amazonaws.com:5432/aledade"
+            == "postgresql://server_name.us-east-1.rds.amazonaws.com:5432/test_db"
         )
 
         # Test table names parsing with Cloud field names
@@ -716,7 +734,7 @@ class TestConfluentCloudConnectors:
             ],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -755,7 +773,7 @@ class TestConfluentCloudConnectors:
             topic_names=["cloud_server.public.cloud_table"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -791,7 +809,7 @@ class TestConfluentCloudConnectors:
             topic_names=[],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -847,7 +865,7 @@ class TestConfluentCloudConnectors:
             topic_names=["db-server.public.users"],
         )
 
-        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        config: Mock = create_mock_kafka_connect_config()
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         # Test Platform connector
@@ -918,7 +936,7 @@ class TestFullConnectorConfigValidation:
             topic_names=topic_names,
         )
 
-        mock_config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        mock_config: Mock = create_mock_kafka_connect_config()
         mock_report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: ConfluentJDBCSourceConnector = ConfluentJDBCSourceConnector(
@@ -1650,7 +1668,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Should derive topics using CDC naming strategy: server.schema.table
         expected_topics = ["myserver.public.users", "myserver.public.orders"]
-        assert result == expected_topics
+        assert sorted(result) == sorted(expected_topics)
 
     @patch("requests.Session.get")
     def test_derive_source_topics_with_transforms(self, mock_get: Mock) -> None:
@@ -2682,17 +2700,22 @@ class TestJdbcSinkConnector:
 
         assert len(lineages) == 2
 
-        # Check first lineage
-        assert lineages[0].source_dataset == "users"
-        assert lineages[0].source_platform == "kafka"
-        assert lineages[0].target_dataset == "analytics.public.users"
-        assert lineages[0].target_platform == "postgres"
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
 
-        # Check second lineage
-        assert lineages[1].source_dataset == "orders"
-        assert lineages[1].source_platform == "kafka"
-        assert lineages[1].target_dataset == "analytics.public.orders"
-        assert lineages[1].target_platform == "postgres"
+        # Check first lineage (orders)
+        assert sorted_lineages[0].source_dataset == "orders"
+        assert sorted_lineages[0].source_platform == "kafka"
+        assert sorted_lineages[0].target_dataset == "analytics.public.orders"
+        assert sorted_lineages[0].target_platform == "postgres"
+
+        # Check second lineage (users)
+        assert sorted_lineages[1].source_dataset == "users"
+        assert sorted_lineages[1].source_platform == "kafka"
+        assert sorted_lineages[1].target_dataset == "analytics.public.users"
+        assert sorted_lineages[1].target_platform == "postgres"
 
     def test_jdbc_sink_lineage_with_transforms(self) -> None:
         """Test lineage extraction with topic transforms."""
@@ -2730,13 +2753,18 @@ class TestJdbcSinkConnector:
 
         assert len(lineages) == 2
 
+        # Sort lineages by source dataset for consistent comparison
+        for lineage in lineages:
+            assert lineage.source_dataset is not None
+        sorted_lineages = sorted(lineages, key=lambda x: cast(str, x.source_dataset))
+
         # Original topics should be preserved in source
-        assert lineages[0].source_dataset == "prod.users"
-        assert lineages[1].source_dataset == "prod.orders"
+        assert sorted_lineages[0].source_dataset == "prod.orders"
+        assert sorted_lineages[1].source_dataset == "prod.users"
 
         # Transformed topics should be used for table names
-        assert lineages[0].target_dataset == "analytics.public.users"
-        assert lineages[1].target_dataset == "analytics.public.orders"
+        assert sorted_lineages[0].target_dataset == "analytics.public.orders"
+        assert sorted_lineages[1].target_dataset == "analytics.public.users"
 
     def test_jdbc_sink_mysql_without_schema(self) -> None:
         """Test MySQL sink which doesn't use schema hierarchy."""
@@ -2984,7 +3012,7 @@ class TestFlowPropertyBag:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3098,7 +3126,7 @@ class TestDebeziumConnectors:
             topic_names=["myserver.public.users", "myserver.public.orders"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3139,7 +3167,7 @@ class TestDebeziumConnectors:
             ],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3172,7 +3200,7 @@ class TestDebeziumConnectors:
             topic_names=["sqlserver.mydb.dbo.customers"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3205,7 +3233,7 @@ class TestDebeziumConnectors:
             topic_names=["my-prefix.public.events"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = DebeziumSourceConnector(manifest, config, report)
 
@@ -3214,6 +3242,293 @@ class TestDebeziumConnectors:
         assert len(lineages) == 1
         assert lineages[0].source_dataset == "testdb.public.events"
         assert lineages[0].target_dataset == "my-prefix.public.events"
+
+
+class TestDebeziumDatabaseDiscovery:
+    """Test Debezium database discovery via SchemaResolver and filtering."""
+
+    def test_database_discovery_without_table_include_list(self) -> None:
+        """Test discovering tables from database.dbname when table.include.list is not configured."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-discovery",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.products,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,other_db.table1,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 3
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+        assert "myserver.public.products" in topics
+
+    def test_database_discovery_with_include_filter(self) -> None:
+        """Test discovering tables from database then filtering with table.include.list."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+            "table.include.list": "public.users,public.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-filtered",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.products,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+        assert "myserver.public.products" not in topics
+
+    def test_database_discovery_with_exclude_filter(self) -> None:
+        """Test discovering tables from database then filtering with table.exclude.list."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+            "table.exclude.list": "public.products",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-excluded",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.products,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+        assert "myserver.public.products" not in topics
+
+    def test_database_discovery_with_include_and_exclude_filters(self) -> None:
+        """Test include filter followed by exclude filter."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "testdb",
+            "table.include.list": "public.test_.*",
+            "table.exclude.list": "public.test_temp_.*",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-both-filters",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.test_users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.test_orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.test_temp_data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.production_users,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.test_users" in topics
+        assert "myserver.public.test_orders" in topics
+        assert "myserver.public.test_temp_data" not in topics
+        assert "myserver.public.production_users" not in topics
+
+    def test_pattern_matching_with_java_regex(self) -> None:
+        """Test pattern matching uses Java regex for compatibility with Debezium."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "testdb",
+            "table.include.list": "public\\.users,schema_.*\\.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-regex",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = True
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.get_urns.return_value = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.users,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.schema_v1.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.schema_v2.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.products,PROD)",
+        ]
+
+        connector = DebeziumSourceConnector(
+            manifest, config, report, schema_resolver=mock_schema_resolver
+        )
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 3
+        assert "myserver.public.users" in topics
+        assert "myserver.schema_v1.orders" in topics
+        assert "myserver.schema_v2.orders" in topics
+        assert "myserver.public.products" not in topics
+
+    def test_fallback_when_schema_resolver_unavailable(self) -> None:
+        """Test fallback to table.include.list only when SchemaResolver is not available."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+            "table.include.list": "public.users,public.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-no-resolver",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = False
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 2
+        assert "myserver.public.users" in topics
+        assert "myserver.public.orders" in topics
+
+    def test_no_topics_when_no_config_and_no_resolver(self) -> None:
+        """Test returns empty list when no table.include.list and no SchemaResolver."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "appdb",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-no-config",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = create_mock_kafka_connect_config()
+        config.use_schema_resolver = False
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        topics = connector.get_topics_from_config()
+
+        assert len(topics) == 0
 
 
 class TestErrorHandling:
@@ -3235,7 +3550,7 @@ class TestErrorHandling:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3258,7 +3573,7 @@ class TestErrorHandling:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3282,7 +3597,7 @@ class TestErrorHandling:
             topic_names=["custom_topic"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3309,7 +3624,7 @@ class TestErrorHandling:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3343,7 +3658,7 @@ class TestInferMappings:
             topic_names=["users_topic"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3373,7 +3688,7 @@ class TestInferMappings:
             topic_names=["db_products", "db_customers", "db_orders"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3408,7 +3723,7 @@ class TestInferMappings:
             topic_names=["staging_events", "staging_logs"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3440,7 +3755,7 @@ class TestInferMappings:
             topic_names=["public.users", "analytics.events"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3469,7 +3784,7 @@ class TestInferMappings:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3495,7 +3810,7 @@ class TestInferMappings:
             topic_names=["test_topic"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3527,7 +3842,7 @@ class TestCloudEnvironmentEdgeCases:
             topic_names=[],  # No topics available
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3559,7 +3874,7 @@ class TestCloudEnvironmentEdgeCases:
             topic_names=["transformed"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3603,7 +3918,7 @@ class TestCloudEnvironmentEdgeCases:
             topic_names=["topic1"],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
 
         # Both should work but use different extraction logic
@@ -3637,7 +3952,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3661,7 +3976,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3685,7 +4000,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3709,7 +4024,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3731,7 +4046,7 @@ class TestPlatformDetection:
             topic_names=[],
         )
 
-        config = Mock(spec=KafkaConnectSourceConfig)
+        config = create_mock_kafka_connect_config()
         report = Mock(spec=KafkaConnectSourceReport)
         connector = ConfluentJDBCSourceConnector(manifest, config, report)
 
@@ -3797,3 +4112,734 @@ class TestTransformPluginAdditionalCoverage:
         # Reverse is not fully supported, should return topics unchanged
         result = plugin.apply_reverse(["transformed_topic"], config)
         assert result == ["transformed_topic"]
+
+
+# ============================================================================
+# Integration Tests for Schema Resolver, Fine-Grained Lineage, and Environment Detection
+# ============================================================================
+
+
+class MockSchemaResolver(SchemaResolverInterface):
+    """Mock SchemaResolver for integration testing."""
+
+    def __init__(
+        self,
+        platform: str,
+        mock_urns: Optional[List[str]] = None,
+        raise_on_resolve: bool = False,
+    ):
+        self._platform = platform
+        self._mock_urns = set(mock_urns or [])
+        self._schemas: Dict[str, Dict[str, str]] = {}
+        self._raise_on_resolve = raise_on_resolve
+        self.graph = None
+        self.env = "PROD"
+        self.platform_instance = None
+
+    @property
+    def platform(self) -> str:
+        """Return the platform."""
+        return self._platform
+
+    def includes_temp_tables(self) -> bool:
+        """Return whether temp tables are included."""
+        return False
+
+    def get_urns(self):
+        """Return mock URNs."""
+        return self._mock_urns
+
+    def resolve_table(self, table: Any) -> Tuple[str, Optional[Dict[str, str]]]:
+        """Mock table resolution."""
+        if self._raise_on_resolve:
+            raise Exception("Schema resolver error")
+
+        table_name = table.table
+        urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{table_name},PROD)"
+        schema = self._schemas.get(table_name)
+        return urn, schema
+
+    def get_urn_for_table(self, table: Any) -> str:
+        """Mock URN generation for table."""
+        table_name = table.table
+        return f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{table_name},PROD)"
+
+    def add_schema(self, table_name: str, schema: Dict[str, str]) -> None:
+        """Add a schema for testing."""
+        self._schemas[table_name] = schema
+
+
+class TestSchemaResolverFallback:
+    """Test schema resolver fallback behavior when DataHub is unavailable or errors occur."""
+
+    def test_fallback_when_schema_resolver_not_configured(self):
+        """Test fallback to config-based approach when schema resolver is not configured."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users,public.orders",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users", "testserver.public.orders"],
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=None,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert all(lin.fine_grained_lineages is None for lin in lineages)
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "testdb.public.users" in source_datasets
+        assert "testdb.public.orders" in source_datasets
+
+    def test_fallback_when_schema_resolver_throws_error(self):
+        """Test graceful fallback when schema resolver throws an error during resolution."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres", raise_on_resolve=True)
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].fine_grained_lineages is None
+        assert lineages[0].source_dataset == "testdb.public.users"
+        assert lineages[0].target_dataset == "testserver.public.users"
+
+    def test_fallback_when_no_schema_metadata_found(self):
+        """Test fallback when schema resolver returns empty schema metadata."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres")
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "testdb.public.users"
+        assert lineages[0].fine_grained_lineages is None
+
+    def test_fallback_pattern_expansion_no_matches(self):
+        """Test fallback when pattern expansion finds no matching tables in DataHub."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_expand_patterns=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "nonexistent.*",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        mock_resolver = MockSchemaResolver(
+            platform="postgres",
+            mock_urns=[
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.users,PROD)",
+            ],
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        result = connector._expand_table_patterns("nonexistent.*", "postgres", "testdb")
+        assert result == ["nonexistent.*"]
+
+        lineages = connector.extract_lineages()
+        assert len(lineages) == 1
+        assert lineages[0].fine_grained_lineages is None
+
+    def test_fallback_with_partial_schema_availability(self):
+        """Test behavior when schemas are available for some tables but not others."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users,public.orders",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users", "testserver.public.orders"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres")
+        mock_resolver.add_schema(
+            "testdb.public.users",
+            {"id": "INT", "name": "VARCHAR"},
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        users_lineage = next(
+            (lin for lin in lineages if "users" in lin.target_dataset), None
+        )
+        orders_lineage = next(
+            (lin for lin in lineages if "orders" in lin.target_dataset), None
+        )
+
+        assert users_lineage is not None
+        assert users_lineage.fine_grained_lineages is not None
+        assert len(users_lineage.fine_grained_lineages) == 2
+
+        assert orders_lineage is not None
+        assert orders_lineage.fine_grained_lineages is None
+
+
+class TestFineGrainedLineageWithReplaceField:
+    """Integration tests for fine-grained lineage with ReplaceField transforms."""
+
+    def test_fine_grained_lineage_with_field_exclusion(self):
+        """Test that excluded fields are dropped from fine-grained lineage."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users",
+                "database.server.name": "testserver",
+                "transforms": "dropPassword",
+                "transforms.dropPassword.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+                "transforms.dropPassword.exclude": "password",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres")
+        mock_resolver.add_schema(
+            "testdb.public.users",
+            {
+                "id": "INT",
+                "username": "VARCHAR",
+                "password": "VARCHAR",
+                "email": "VARCHAR",
+            },
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+
+        assert lineage.fine_grained_lineages is not None
+        assert len(lineage.fine_grained_lineages) == 3
+
+        downstream_fields = []
+        for fg_lineage in lineage.fine_grained_lineages:
+            for downstream_urn in fg_lineage["downstreams"]:
+                field_name = downstream_urn.split(",")[-1].rstrip(")")
+                downstream_fields.append(field_name)
+
+        assert "password" not in downstream_fields
+        assert "id" in downstream_fields
+        assert "username" in downstream_fields
+        assert "email" in downstream_fields
+
+    def test_fine_grained_lineage_with_field_inclusion(self):
+        """Test that only included fields appear in fine-grained lineage."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users",
+                "database.server.name": "testserver",
+                "transforms": "keepOnly",
+                "transforms.keepOnly.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+                "transforms.keepOnly.include": "id,username,email",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres")
+        mock_resolver.add_schema(
+            "testdb.public.users",
+            {
+                "id": "INT",
+                "username": "VARCHAR",
+                "password": "VARCHAR",
+                "email": "VARCHAR",
+                "internal_notes": "TEXT",
+            },
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+
+        assert lineage.fine_grained_lineages is not None
+        assert len(lineage.fine_grained_lineages) == 3
+
+        downstream_fields = []
+        for fg_lineage in lineage.fine_grained_lineages:
+            for downstream_urn in fg_lineage["downstreams"]:
+                field_name = downstream_urn.split(",")[-1].rstrip(")")
+                downstream_fields.append(field_name)
+
+        assert set(downstream_fields) == {"id", "username", "email"}
+        assert "password" not in downstream_fields
+        assert "internal_notes" not in downstream_fields
+
+    def test_fine_grained_lineage_with_field_renaming(self):
+        """Test that renamed fields appear with correct names in fine-grained lineage."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users",
+                "database.server.name": "testserver",
+                "transforms": "renameFields",
+                "transforms.renameFields.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+                "transforms.renameFields.renames": "user_id:id,user_name:name",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres")
+        mock_resolver.add_schema(
+            "testdb.public.users",
+            {
+                "user_id": "INT",
+                "user_name": "VARCHAR",
+                "email": "VARCHAR",
+            },
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+
+        assert lineage.fine_grained_lineages is not None
+        assert len(lineage.fine_grained_lineages) == 3
+
+        downstream_fields = []
+        for fg_lineage in lineage.fine_grained_lineages:
+            for downstream_urn in fg_lineage["downstreams"]:
+                field_name = downstream_urn.split(",")[-1].rstrip(")")
+                downstream_fields.append(field_name)
+
+        assert "id" in downstream_fields
+        assert "name" in downstream_fields
+        assert "email" in downstream_fields
+        assert "user_id" not in downstream_fields
+        assert "user_name" not in downstream_fields
+
+    def test_fine_grained_lineage_with_chained_transforms(self):
+        """Test fine-grained lineage with multiple chained ReplaceField transforms."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users",
+                "database.server.name": "testserver",
+                "transforms": "dropSensitive,renameFields",
+                "transforms.dropSensitive.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+                "transforms.dropSensitive.exclude": "password,ssn",
+                "transforms.renameFields.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+                "transforms.renameFields.renames": "user_id:id,user_name:name",
+            },
+            tasks=[],
+            topic_names=["testserver.public.users"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="postgres")
+        mock_resolver.add_schema(
+            "testdb.public.users",
+            {
+                "user_id": "INT",
+                "user_name": "VARCHAR",
+                "email": "VARCHAR",
+                "password": "VARCHAR",
+                "ssn": "VARCHAR",
+            },
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+
+        assert lineage.fine_grained_lineages is not None
+        assert len(lineage.fine_grained_lineages) == 3
+
+        downstream_fields = []
+        for fg_lineage in lineage.fine_grained_lineages:
+            for downstream_urn in fg_lineage["downstreams"]:
+                field_name = downstream_urn.split(",")[-1].rstrip(")")
+                downstream_fields.append(field_name)
+
+        assert set(downstream_fields) == {"id", "name", "email"}
+        assert "password" not in downstream_fields
+        assert "ssn" not in downstream_fields
+        assert "user_id" not in downstream_fields
+        assert "user_name" not in downstream_fields
+
+
+class TestPlatformCloudEnvironmentDetection:
+    """Integration tests for Platform vs Cloud environment detection."""
+
+    def test_platform_environment_detection_jdbc(self):
+        """Test that self-hosted JDBC connector is detected as Platform environment."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="jdbc-source",
+            type="source",
+            config={
+                "connector.class": JDBC_SOURCE_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "table.include.list": "public.users,public.orders",
+                "topic.prefix": "db_",
+            },
+            tasks=[],
+            topic_names=["db_users", "db_orders"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert all(lin.target_platform == "kafka" for lin in lineages)
+
+        target_datasets = {lin.target_dataset for lin in lineages}
+        assert "db_users" in target_datasets
+        assert "db_orders" in target_datasets
+
+    def test_cloud_environment_detection_postgres_cdc(self):
+        """Test that Confluent Cloud CDC connector is detected as Cloud environment."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456",
+            cluster_name="test",
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="postgres-cloud-source",
+            type="source",
+            config={
+                "connector.class": POSTGRES_CDC_SOURCE_CLOUD,
+                "database.hostname": "postgres.example.com",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users,public.orders",
+                "database.server.name": "cloudserver",
+            },
+            tasks=[],
+            topic_names=["cloudserver.public.users", "cloudserver.public.orders"],
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+        )
+
+        assert connector_manifest.config["connector.class"] in CLOUD_JDBC_SOURCE_CLASSES
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        target_datasets = {lin.target_dataset for lin in lineages}
+        assert "cloudserver.public.users" in target_datasets
+        assert "cloudserver.public.orders" in target_datasets
+
+    def test_platform_with_transforms_uses_actual_topics(self):
+        """Test that Platform environment uses actual runtime topics from API when transforms are present."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="jdbc-with-transforms",
+            type="source",
+            config={
+                "connector.class": JDBC_SOURCE_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "table.include.list": "public.users",
+                "topic.prefix": "db_",
+                "transforms": "route",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": "db_(.*)",
+                "transforms.route.replacement": "prod_$1",
+            },
+            tasks=[],
+            topic_names=["prod_users"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_dataset == "prod_users"
+        source_dataset = lineages[0].source_dataset
+        assert source_dataset is not None
+        assert "users" in source_dataset
+
+    def test_cloud_with_transforms_without_jpype(self):
+        """Test that Cloud environment handles gracefully when JPype is not available."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456",
+            cluster_name="test",
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="cloud-with-transforms",
+            type="source",
+            config={
+                "connector.class": POSTGRES_CDC_SOURCE_CLOUD,
+                "database.hostname": "postgres.example.com",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "table.include.list": "public.users,public.orders",
+                "database.server.name": "cloudserver",
+            },
+            tasks=[],
+            topic_names=[
+                "cloudserver.public.users",
+                "cloudserver.public.orders",
+                "other_connector_topic",
+            ],
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        target_datasets = {lin.target_dataset for lin in lineages}
+        assert "cloudserver.public.users" in target_datasets
+        assert "cloudserver.public.orders" in target_datasets
+
+    def test_platform_single_table_multi_topic_transform(self):
+        """Test Platform environment with single source table producing multiple topics."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+        )
+        report = KafkaConnectSourceReport()
+
+        connector_manifest = ConnectorManifest(
+            name="jdbc-multi-topic",
+            type="source",
+            config={
+                "connector.class": JDBC_SOURCE_CONNECTOR_CLASS,
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "table.include.list": "public.events",
+                "topic.prefix": "db_",
+                "transforms": "extractTopic",
+                "transforms.extractTopic.type": "io.confluent.connect.transforms.ExtractTopic$Value",
+                "transforms.extractTopic.field": "event_type",
+            },
+            tasks=[],
+            topic_names=["user_events", "order_events", "system_events"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 3
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert len(source_datasets) == 1
+        source_dataset = list(source_datasets)[0]
+        assert source_dataset is not None
+        assert "events" in source_dataset
+
+        target_datasets = {lin.target_dataset for lin in lineages}
+        assert "user_events" in target_datasets
+        assert "order_events" in target_datasets
+        assert "system_events" in target_datasets

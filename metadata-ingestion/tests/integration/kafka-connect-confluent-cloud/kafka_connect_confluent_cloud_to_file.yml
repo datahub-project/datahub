@@ -1,6 +1,10 @@
 ---
 run_id: kafka-connect-confluent-cloud-test
 
+# DataHub Graph API configuration (required for Confluent Cloud)
+datahub_api:
+  server: "http://localhost:8080"
+
 source:
   type: "kafka-connect"
   config:
