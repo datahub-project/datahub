@@ -230,6 +230,39 @@ def pytest_collection_modifyitems(
     if env_vars.get_test_strategy() == "cypress":
         return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
 
+    # Check if FILTERED_TESTS is set (for retry logic)
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered test modules from {filtered_tests_file}")
+        try:
+            with open(filtered_tests_file) as f:
+                # Read non-empty lines, strip whitespace, ignore comments
+                filtered_modules = set(
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.strip().startswith("#")
+                )
+
+            logger.info(f"Found {len(filtered_modules)} filtered module(s) to run")
+
+            # Filter items to only those from the specified modules
+            filtered_items = []
+            for item in items:
+                # Get the module path from the item's fspath
+                module_path = str(item.fspath)
+
+                # Check if this item's module is in the filtered list
+                # Need to handle both absolute and relative paths
+                if any(module_path.endswith(filtered_mod) for filtered_mod in filtered_modules):
+                    filtered_items.append(item)
+
+            logger.info(f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)")
+            items[:] = filtered_items
+            return
+        except Exception as e:
+            logger.warning(f"Failed to read filtered tests file: {e}. Running all tests.")
+            # Fall through to normal batching logic
+
     # Get batch configuration
     batch_count_env = env_vars.get_batch_count()
     batch_count = int(batch_count_env)

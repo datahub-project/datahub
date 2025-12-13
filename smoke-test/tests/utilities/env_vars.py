@@ -184,6 +184,11 @@ def get_cypress_record_key() -> Optional[str]:
     return os.getenv("CYPRESS_RECORD_KEY")
 
 
+def get_filtered_tests_file() -> Optional[str]:
+    """Path to file containing filtered test paths (one per line)."""
+    return os.getenv("FILTERED_TESTS")
+
+
 # ============================================================================
 # Cleanup Configuration
 # ============================================================================
