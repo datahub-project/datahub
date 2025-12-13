@@ -349,12 +349,13 @@ public class OperationContext implements AuthorizationSession {
   }
 
   /**
-   * Provides a cached authorizer interface in the context of the session user
+   * Provides a cached authorizer interface in the context of the {@link #getSessionActorContext()
+   * session user}
    *
-   * @param privileges the requested privilege
+   * @param privileges the requested privileges
    * @param resourceSpec the optional resource that is the target of the privilege
    * @param subResources additional resources in the context of authorization
-   * @return authorization result
+   * @return batch authorization result
    */
   @Override
   public BatchAuthorizationResult authorize(

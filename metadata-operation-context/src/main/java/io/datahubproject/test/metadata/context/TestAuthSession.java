@@ -31,7 +31,8 @@ public class TestAuthSession implements AuthorizationSession {
     return from(
         (privilege, resourceSpec) -> {
           AuthorizationRequest request =
-              new AuthorizationRequest(null, privilege, Optional.ofNullable(entitySpec), List.of());
+              new AuthorizationRequest(
+                  null, privilege, Optional.ofNullable(resourceSpec), List.of());
           if (Objects.equals(entitySpec, resourceSpec) && privileges.contains(privilege)) {
             return new AuthorizationResult(
                 request, AuthorizationResult.Type.ALLOW, "Allowed via TestAuthSession");
@@ -47,7 +48,8 @@ public class TestAuthSession implements AuthorizationSession {
     return from(
         (privilege, resourceSpec) -> {
           AuthorizationRequest request =
-              new AuthorizationRequest(null, privilege, Optional.ofNullable(entitySpec), List.of());
+              new AuthorizationRequest(
+                  null, privilege, Optional.ofNullable(resourceSpec), List.of());
           if (Objects.equals(entitySpec, resourceSpec)) {
             return new AuthorizationResult(
                 request, AuthorizationResult.Type.ALLOW, "Allowed via TestAuthSession");

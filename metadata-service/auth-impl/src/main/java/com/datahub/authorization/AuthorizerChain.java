@@ -3,6 +3,7 @@ package com.datahub.authorization;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -51,13 +52,18 @@ public class AuthorizerChain implements Authorizer {
    */
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
-    throw new UnsupportedOperationException(
-        "This method should never be invoked with DataHub itself. Use authorizeBatch method");
+    return authorizeBatch(
+            new BatchAuthorizationRequest(
+                request.getActorUrn(),
+                Set.of(request.getPrivilege()),
+                request.getResourceSpec(),
+                request.getSubResources()))
+        .getResults()
+        .get(request.getPrivilege());
   }
 
   /**
-   * Executes a set of {@link Authorizer}s and returns the composition of the authentication
-   * results.
+   * Executes a set of {@link Authorizer}s and returns the composition of the authorization results.
    *
    * <p>Each {@link Authorizer}'s result per specific privilege is accessed:
    *
@@ -66,13 +72,13 @@ public class AuthorizerChain implements Authorizer {
    *   <li>only if all previous {@link Authorizer}s denied that privilege
    * </ol>
    */
-  @Nullable
+  @Nonnull
   public BatchAuthorizationResult authorizeBatch(@Nonnull final BatchAuthorizationRequest request) {
     Objects.requireNonNull(request);
     // Save contextClassLoader
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
 
-    var authorizersResults = new ArrayList<BatchAuthorizationResult>();
+    var authorizersResults = new ArrayList<Pair<Authorizer, BatchAuthorizationResult>>();
 
     for (final Authorizer authorizer : this.authorizers) {
       try {
@@ -92,7 +98,7 @@ public class AuthorizerChain implements Authorizer {
 
         log.debug(
             "Batch authorization is successful for {}", authorizer.getClass().getCanonicalName());
-        authorizersResults.add(result);
+        authorizersResults.add(Pair.of(authorizer, result));
       } catch (Exception e) {
         log.error(
             "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
@@ -108,12 +114,22 @@ public class AuthorizerChain implements Authorizer {
   }
 
   private static LazyAuthorizationResultMap composeAuthorizersResults(
-      BatchAuthorizationRequest request, ArrayList<BatchAuthorizationResult> authorizersResults) {
+      BatchAuthorizationRequest request,
+      ArrayList<Pair<Authorizer, BatchAuthorizationResult>> authorizersResults) {
     return new LazyAuthorizationResultMap(
         request.getPrivileges(),
         privilege -> {
-          for (BatchAuthorizationResult authorizerResult : authorizersResults) {
-            var authorizationResult = authorizerResult.getResults().get(privilege);
+          for (var authorizerResult : authorizersResults) {
+            Authorizer authorizer = authorizerResult.getFirst();
+            Map<String, AuthorizationResult> results = authorizerResult.getSecond().getResults();
+            if (!results.containsKey(privilege)) {
+              log.warn(
+                  "Authorizer of type {} misbehaved: it's results does not contains value for privilege '{}'",
+                  authorizer.getClass().getCanonicalName(),
+                  privilege);
+              continue;
+            }
+            var authorizationResult = results.get(privilege);
             if (AuthorizationResult.Type.ALLOW == authorizationResult.getType()) {
               log.debug(
                   "Received ALLOW from Authorizer. message: {}", authorizationResult.getMessage());

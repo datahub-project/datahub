@@ -7,13 +7,16 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.testng.annotations.Test;
 
 public class ConstantAuthorizationResultMapTest {
+
+  private final Random _random = new Random();
+
   @Test
   public void testContainsAlwaysReturnsTrue() {
     ConstantAuthorizationResultMap results =
         new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY);
 
     for (int i = 0; i < 20; i++) {
-      String randomPrivilege = RandomStringUtils.random(10, 0, 0, true, true, null, new Random());
+      String randomPrivilege = RandomStringUtils.random(10, 0, 0, true, true, null, _random);
       assertTrue(results.containsKey(randomPrivilege));
     }
   }

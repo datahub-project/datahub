@@ -136,7 +136,7 @@ public class AuthorizerChainFactory {
             customAuthorizers.add(authorizer);
             log.info("Plugin {} is initialized", pluginConfig.getName());
           } catch (ClassNotFoundException e) {
-            log.debug("Failed to init the plugin: {}", pluginConfig.getName());
+            log.debug("Failed to init the plugin: {}", pluginConfig.getName(), e);
             throw new RuntimeException(e);
           } finally {
             Thread.currentThread().setContextClassLoader(contextClassLoader);

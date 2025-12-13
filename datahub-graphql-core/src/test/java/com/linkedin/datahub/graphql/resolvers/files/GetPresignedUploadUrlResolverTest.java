@@ -8,8 +8,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -66,10 +68,11 @@ public class GetPresignedUploadUrlResolverTest {
     // Mock QueryContext to return a mocked Authorizer
     when(mockQueryContext.getAuthorizer()).thenReturn(mockAuthorizer);
     // Mock Authorizer to always return an ALLOWED result for any authorization request
-    when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+    when(mockAuthorizer.authorizeBatch(any(BatchAuthorizationRequest.class)))
         .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, ""));
+            new BatchAuthorizationResult(
+                mock(BatchAuthorizationRequest.class),
+                new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
 
     descriptionUtilsMockedStatic = mockStatic(DescriptionUtils.class);
     descriptionUtilsMockedStatic

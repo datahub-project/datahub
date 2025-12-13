@@ -581,7 +581,6 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   @TestConfiguration
   public static class ExternalEventsControllerTestConfig {
     @MockBean public ExternalEventsService eventsService;
-    @MockBean public Authorizer authorizer;
     @MockBean public SystemTelemetryContext systemTelemetryContext;
     @MockBean public DataHubUsageService dataHubUsageService;
 

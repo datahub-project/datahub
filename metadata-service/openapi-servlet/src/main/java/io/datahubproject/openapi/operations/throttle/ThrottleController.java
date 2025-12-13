@@ -96,7 +96,7 @@ public class ThrottleController {
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(),
                     httpServletRequest,
-                    "getManualAPIRequestsThrottle",
+                    "setAPIRequestManualThrottle",
                     List.of()),
             authorizer,
             authentication,

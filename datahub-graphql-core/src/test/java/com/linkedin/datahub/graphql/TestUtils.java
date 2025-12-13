@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -9,6 +9,9 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
+import com.datahub.authorization.PredefinedAuthorizationResultMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
@@ -21,6 +24,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -45,26 +50,28 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
-    when(mockAuthorizer.authorizeBatch(any())).thenCallRealMethod();
 
     if (request == null) {
       // Simple case: always allow
-      AuthorizationResult result =
-          new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
-      when(mockAuthorizer.authorize(any())).thenReturn(result);
+      when(mockAuthorizer.authorizeBatch(any()))
+          .then(
+              inv ->
+                  new BatchAuthorizationResult(
+                      inv.getArgument(0),
+                      new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
     } else {
       // Complex case: allow only for specific request
-      when(mockAuthorizer.authorize(Mockito.any(AuthorizationRequest.class)))
-          .thenAnswer(
-              args -> {
-                AuthorizationRequest req = args.getArgument(0);
-
-                if (request.equals(req)) {
-                  return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "");
-                } else {
-                  return new AuthorizationResult(req, AuthorizationResult.Type.DENY, "");
-                }
-              });
+      when(mockAuthorizer.authorizeBatch(
+              argThat(
+                  req ->
+                      Objects.equals(req.getResourceSpec(), request.getResourceSpec())
+                          && Objects.equals(req.getSubResources(), request.getSubResources())
+                          && Objects.equals(req.getActorUrn(), request.getActorUrn()))))
+          .then(
+              inv ->
+                  new BatchAuthorizationResult(
+                      inv.getArgument(0),
+                      new PredefinedAuthorizationResultMap(Set.of(request.getPrivilege()))));
     }
 
     Authentication authentication =

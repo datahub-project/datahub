@@ -1,6 +1,7 @@
 package com.datahub.authorization;
 
 import java.util.Map;
+import javax.annotation.Nonnull;
 import lombok.Value;
 
 @Value
@@ -12,5 +13,5 @@ public class BatchAuthorizationResult {
    * Results per individual privilege. The {@link Map} MUST support only {@link Map#get} and {@link
    * Map#containsKey} methods. Other methods may or may not behave correctly
    */
-  Map<String, AuthorizationResult> results;
+  @Nonnull Map<String, AuthorizationResult> results;
 }

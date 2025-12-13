@@ -42,7 +42,7 @@ public class AuthorizationContext implements ContextInterface {
       @Nonnull ActorContext actorContext,
       @Nonnull Set<String> privileges,
       @Nullable EntitySpec resourceSpec,
-      Collection<EntitySpec> subResources) {
+      @Nonnull Collection<EntitySpec> subResources) {
     BatchAuthorizationRequest request =
         new BatchAuthorizationRequest(
             actorContext.getActorUrn().toString(),
@@ -75,6 +75,13 @@ public class AuthorizationContext implements ContextInterface {
             return authorizationResult;
           }
           AuthorizationResult nonCachedResult = result.getResults().get(privilege);
+          if (nonCachedResult == null) {
+            nonCachedResult =
+                new AuthorizationResult(
+                    authorizationRequest,
+                    AuthorizationResult.Type.DENY,
+                    "Missing batch authorization result for privilege: " + privilege);
+          }
           sessionAuthorizationCache.putIfAbsent(authorizationRequest, nonCachedResult);
           return nonCachedResult;
         });

@@ -72,6 +72,7 @@ public interface Authorizer extends Plugin {
    * standard {@link Map} implementation, e.g. {@link java.util.HashMap}) or should consider thread
    * safety
    */
+  @Nonnull
   default BatchAuthorizationResult authorizeBatch(
       @Nonnull final BatchAuthorizationRequest batchRequest) {
     var results =

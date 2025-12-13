@@ -273,13 +273,11 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
     @Bean
     @Primary
     public Authorizer authorizer() {
-      Authorizer authorizer = mock(Authorizer.class);
-
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizer;
+      return Authorizer.EMPTY;
     }
   }
 }

@@ -1,11 +1,9 @@
 package com.datahub.authorization;
 
-import lombok.AllArgsConstructor;
 import lombok.Value;
 
 /** A result returned after requesting authorization for a particular privilege. */
 @Value
-@AllArgsConstructor
 public class AuthorizationResult {
   /** The original authorization request */
   AuthorizationRequest request;

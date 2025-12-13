@@ -253,7 +253,8 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
+                .buildOpenapi(
+                    actorUrnStr, httpServletRequest, "getMCLTimeseriesOffsets", List.of()),
             authorizer,
             authentication,
             true);

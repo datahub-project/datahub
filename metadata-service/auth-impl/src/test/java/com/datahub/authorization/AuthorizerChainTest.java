@@ -26,13 +26,13 @@ public class AuthorizerChainTest {
             new AuthorizationResult(request1, AuthorizationResult.Type.ALLOW, "from authorizer1"));
     Mockito.when(authorizer1.authorize(request2))
         .thenReturn(
-            new AuthorizationResult(request1, AuthorizationResult.Type.DENY, "from authorizer1"));
+            new AuthorizationResult(request2, AuthorizationResult.Type.DENY, "from authorizer1"));
     Mockito.when(authorizer2.authorize(request1))
         .thenReturn(
             new AuthorizationResult(request1, AuthorizationResult.Type.DENY, "from authorizer2"));
     Mockito.when(authorizer2.authorize(request2))
         .thenReturn(
-            new AuthorizationResult(request1, AuthorizationResult.Type.ALLOW, "from authorizer2"));
+            new AuthorizationResult(request2, AuthorizationResult.Type.ALLOW, "from authorizer2"));
     AuthorizerChain authorizerChain = new AuthorizerChain(List.of(authorizer1, authorizer2), null);
     BatchAuthorizationResult result =
         authorizerChain.authorizeBatch(
@@ -65,7 +65,7 @@ public class AuthorizerChainTest {
             new AuthorizationResult(request1, AuthorizationResult.Type.ALLOW, "from authorizer1"));
     Mockito.when(authorizer1.authorize(request2))
         .thenReturn(
-            new AuthorizationResult(request1, AuthorizationResult.Type.DENY, "from authorizer1"));
+            new AuthorizationResult(request2, AuthorizationResult.Type.DENY, "from authorizer1"));
     Mockito.when(authorizer2.authorizeBatch(ArgumentMatchers.any()))
         .thenThrow(new IllegalArgumentException("failed to execute authorization logic"));
     AuthorizerChain authorizerChain = new AuthorizerChain(List.of(authorizer1, authorizer2), null);
