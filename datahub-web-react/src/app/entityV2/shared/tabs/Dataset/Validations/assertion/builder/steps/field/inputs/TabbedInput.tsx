@@ -337,7 +337,7 @@ export const TabbedInput = ({
                             $active={activeTab === 'values'}
                             onClick={() => handleTabChange('values')}
                             variant="text"
-                            isDisabled={isReadOnly}
+                            disabled={isReadOnly}
                         >
                             Values
                         </StyledButton>
@@ -345,7 +345,7 @@ export const TabbedInput = ({
                             $active={activeTab === 'sql'}
                             onClick={() => handleTabChange('sql')}
                             variant="text"
-                            isDisabled={isReadOnly}
+                            disabled={isReadOnly}
                         >
                             SQL
                         </StyledButton>

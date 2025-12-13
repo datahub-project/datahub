@@ -212,7 +212,7 @@ export const SlackNotificationSettings: React.FC<Props> = ({
                                             variant="filled"
                                             size="sm"
                                             onClick={handleSlackSave}
-                                            isDisabled={!slackValue.trim()}
+                                            disabled={!slackValue.trim()}
                                         >
                                             Save
                                         </SaveButton>

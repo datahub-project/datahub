@@ -12,7 +12,6 @@ export const buttonDefaults: ButtonPropsDefaults = {
     iconPosition: 'left',
     isCircle: false,
     isLoading: false,
-    isDisabled: false,
     isActive: false,
 };
 
@@ -24,7 +23,6 @@ export const Button = ({
     iconPosition = buttonDefaults.iconPosition,
     isCircle = buttonDefaults.isCircle,
     isLoading = buttonDefaults.isLoading,
-    isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
     ...props
@@ -36,13 +34,12 @@ export const Button = ({
         isCircle,
         isLoading,
         isActive,
-        isDisabled,
         hasChildren: !!children,
     };
 
     if (isLoading) {
         return (
-            <ButtonBase {...styleProps} {...props} disabled={isDisabled || props.disabled}>
+            <ButtonBase {...styleProps} {...props}>
                 <LoadingOutlined rotate={10} /> {!isCircle && children}
             </ButtonBase>
         );
@@ -50,7 +47,7 @@ export const Button = ({
 
     // Prefer `icon.size` over `size` for icon size
     return (
-        <ButtonBase {...styleProps} {...props} disabled={isDisabled || props.disabled}>
+        <ButtonBase {...styleProps} {...props}>
             {icon && iconPosition === 'left' && <Icon size={size} {...icon} />}
             {!isCircle && children}
             {icon && iconPosition === 'right' && <Icon size={size} {...icon} />}

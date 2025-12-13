@@ -162,7 +162,7 @@ export const EmailNotificationSettings: React.FC<Props> = ({
                                         variant="filled"
                                         size="sm"
                                         onClick={handleEmailSave}
-                                        isDisabled={!emailValue.trim()}
+                                        disabled={!emailValue.trim()}
                                     >
                                         Save
                                     </SaveButton>

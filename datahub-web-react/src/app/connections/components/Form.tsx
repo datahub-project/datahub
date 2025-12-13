@@ -237,7 +237,7 @@ export const ConnectionForm = ({
                             </Button>
                         )}
                         {!isInlineForm && (
-                            <Button type="submit" onClick={handleSave} isDisabled={!canSubmit} isLoading={isSubmitting}>
+                            <Button type="submit" onClick={handleSave} disabled={!canSubmit} isLoading={isSubmitting}>
                                 {isUpdate ? 'Update Connection' : 'Create Connection'}
                             </Button>
                         )}

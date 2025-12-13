@@ -219,7 +219,7 @@ export const MonitorInferenceSettingsControlPanel = ({
                                         size="sm"
                                         icon={{ icon: 'Trash', source: 'phosphor', color: 'red' }}
                                         onClick={() => handleRemoveExclusionWindow(index)}
-                                        isDisabled={isUpdating}
+                                        disabled={isUpdating}
                                     />
                                 </ExclusionWindowItem>
                             ))}
@@ -249,7 +249,7 @@ export const MonitorInferenceSettingsControlPanel = ({
                                 variant="text"
                                 icon={{ icon: 'Plus', source: 'phosphor' }}
                                 onClick={() => setShowDatePicker(true)}
-                                isDisabled={isUpdating}
+                                disabled={isUpdating}
                                 style={{ width: '100%' }}
                             >
                                 Exclusion Window

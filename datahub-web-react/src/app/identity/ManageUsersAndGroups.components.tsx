@@ -77,7 +77,7 @@ export const ManageUsersAndGroupsHeader = ({ version, canManageUsers, onInviteUs
         <HeaderRight>
             <Button
                 variant="filled"
-                isDisabled={!canManageUsers}
+                disabled={!canManageUsers}
                 onClick={() => {
                     // Track invite users CTA click
                     analytics.event({
