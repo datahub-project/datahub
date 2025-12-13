@@ -990,8 +990,12 @@ class TestCustomOpenAIProxyLLMWrapper:
     @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
     @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
     @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
     def test_initialization_with_cert_files(
-        self, mock_httpx_client: Mock, mock_chat_openai: Mock
+        self,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
     ) -> None:
         """Test that cert_file and key_file create custom httpx client."""
         from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
@@ -1003,6 +1007,8 @@ class TestCustomOpenAIProxyLLMWrapper:
         mock_chat_openai.return_value = mock_client
         mock_http_client = MagicMock()
         mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
 
         custom_provider = CustomModelProvider(
             base_url="https://custom.api.com/v1",

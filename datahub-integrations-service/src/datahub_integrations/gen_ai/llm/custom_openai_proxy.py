@@ -34,6 +34,7 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
 
         openai_api_key = None
         custom_client = None
+        custom_async_client = None
         custom_base_url = None
         if not self.custom_model_provider:
             raise ValueError(
@@ -43,6 +44,12 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
         # create a custom http client if cert file and key file exist
         if self.custom_model_provider.cert_file and self.custom_model_provider.key_file:
             custom_client = httpx.Client(
+                cert=(
+                    self.custom_model_provider.cert_file,
+                    self.custom_model_provider.key_file,
+                )
+            )
+            custom_async_client = httpx.AsyncClient(
                 cert=(
                     self.custom_model_provider.cert_file,
                     self.custom_model_provider.key_file,
@@ -80,7 +87,7 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             model=self.model_name,
             api_key=SecretStr(openai_api_key),  # Wrap in SecretStr for type safety
             http_client=custom_client,
-            http_async_client=custom_client,  # Langchain requires a separate custom http client for async calls
+            http_async_client=custom_async_client,  # Langchain requires a separate custom http client for async calls
             base_url=custom_base_url,
             temperature=0.5,  # Default, can be overridden per-request via invoke kwargs
             timeout=self.read_timeout,
