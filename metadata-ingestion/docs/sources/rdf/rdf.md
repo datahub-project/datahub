@@ -57,7 +57,7 @@ pip install 'acryl-datahub[rdf]'
 
 Use the following recipe to get started with RDF ingestion.
 
-_For general pointers on writing and running a recipe, see our [main recipe guide](../../README.md#recipes)._
+_For general pointers on writing and running a recipe, see our [main recipe guide](https://docs.datahub.com/docs/metadata-ingestion#recipes)._
 
 #### Basic Recipe
 
