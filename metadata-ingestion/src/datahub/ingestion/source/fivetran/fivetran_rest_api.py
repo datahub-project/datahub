@@ -7,7 +7,7 @@ from urllib3.util import Retry
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
 )
-from datahub.ingestion.source.fivetran.response_models import FivetranConnectionDetails
+from datahub.ingestion.source.fivetran.models import FivetranConnectionDetails
 
 logger = logging.getLogger(__name__)
 

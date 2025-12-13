@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import sqlglot
 from sqlalchemy import create_engine
@@ -14,20 +14,27 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranLogConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
+from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
     Job,
     TableLineage,
 )
-from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 class FivetranLogAPI:
-    def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
+    def __init__(
+        self,
+        fivetran_log_config: FivetranLogConfig,
+        max_column_lineage_per_connector: Optional[int] = None,
+        max_table_lineage_per_connector: Optional[int] = None,
+    ) -> None:
         self.fivetran_log_config = fivetran_log_config
+        self.max_column_lineage_per_connector = max_column_lineage_per_connector
+        self.max_table_lineage_per_connector = max_table_lineage_per_connector
         (
             self.engine,
             self.fivetran_log_query,
@@ -91,6 +98,10 @@ class FivetranLogAPI:
             raise ConfigurationError(
                 f"Destination platform '{destination_platform}' is not yet supported."
             )
+
+        # Initialize table name mappings for backward compatibility
+        fivetran_log_query.initialize_table_names(engine)
+
         return (
             engine,
             fivetran_log_query,
@@ -108,51 +119,85 @@ class FivetranLogAPI:
         return [row for row in resp]
 
     def _get_column_lineage_metadata(
-        self, connector_ids: List[str]
-    ) -> Dict[Tuple[str, str], List]:
+        self, connector_ids: List[str], max_column_lineage: Optional[int] = None
+    ) -> Tuple[Dict[Tuple[str, str], List[Dict]], Dict[str, int]]:
         """
         Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
+        and a dict of row counts per connector.
+
+        Args:
+            connector_ids: List of connector IDs to fetch column lineage for
+            max_column_lineage: Maximum number of column lineage entries per connector. None means unlimited.
+
+        Returns:
+            Tuple of:
+            - Dict mapping (source_table_id, dest_table_id) to list of column lineage rows
+            - Dict mapping connector_id to count of column lineage rows returned
         """
-        all_column_lineage: Dict[Tuple[str, str], List] = defaultdict(list)
+        all_column_lineage: Dict[Tuple[str, str], List[Dict]] = defaultdict(list)
+        connector_row_counts: Dict[str, int] = defaultdict(int)
 
         if not connector_ids:
-            return dict(all_column_lineage)
+            return dict(all_column_lineage), dict(connector_row_counts)
 
         column_lineage_result = self._query(
             self.fivetran_log_query.get_column_lineage_query(
-                connector_ids=connector_ids
+                connector_ids=connector_ids, max_column_lineage=max_column_lineage
             )
         )
+
+        # Process results and track counts per connector
         for column_lineage in column_lineage_result:
             key = (
                 column_lineage[Constant.SOURCE_TABLE_ID],
                 column_lineage[Constant.DESTINATION_TABLE_ID],
             )
             all_column_lineage[key].append(column_lineage)
-        return dict(all_column_lineage)
 
-    def _get_table_lineage_metadata(self, connector_ids: List[str]) -> Dict[str, List]:
+            # Track row counts per connector for truncation detection
+            connector_id = column_lineage[Constant.CONNECTOR_ID]
+            connector_row_counts[connector_id] += 1
+
+        return dict(all_column_lineage), dict(connector_row_counts)
+
+    def _get_table_lineage_metadata(
+        self, connector_ids: List[str], max_table_lineage: Optional[int] = None
+    ) -> Tuple[Dict[str, List[Dict]], Dict[str, int]]:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
+        and a dict of row counts per connector.
+
+        Args:
+            connector_ids: List of connector IDs to fetch table lineage for
+            max_table_lineage: Maximum number of table lineage entries per connector. None means unlimited.
+
+        Returns:
+            Tuple of:
+            - Dict mapping connector_id to list of table lineage rows
+            - Dict mapping connector_id to count of table lineage rows returned
         """
-        connectors_table_lineage_metadata: Dict[str, List] = defaultdict(list)
+        connectors_table_lineage_metadata: Dict[str, List[Dict]] = defaultdict(list)
+        connector_row_counts: Dict[str, int] = defaultdict(int)
 
         if not connector_ids:
-            return dict(connectors_table_lineage_metadata)
+            return dict(connectors_table_lineage_metadata), dict(connector_row_counts)
 
         table_lineage_result = self._query(
-            self.fivetran_log_query.get_table_lineage_query(connector_ids=connector_ids)
+            self.fivetran_log_query.get_table_lineage_query(
+                connector_ids=connector_ids, max_lineage=max_table_lineage
+            )
         )
         for table_lineage in table_lineage_result:
-            connectors_table_lineage_metadata[
-                table_lineage[Constant.CONNECTOR_ID]
-            ].append(table_lineage)
-        return dict(connectors_table_lineage_metadata)
+            connector_id = table_lineage[Constant.CONNECTOR_ID]
+            connectors_table_lineage_metadata[connector_id].append(table_lineage)
+            connector_row_counts[connector_id] += 1
+
+        return dict(connectors_table_lineage_metadata), dict(connector_row_counts)
 
     def _extract_connector_lineage(
         self,
-        table_lineage_result: Optional[List],
-        column_lineage_metadata: Dict[Tuple[str, str], List],
+        table_lineage_result: Optional[List[Dict]],
+        column_lineage_metadata: Dict[Tuple[str, str], List[Dict]],
     ) -> List[TableLineage]:
         table_lineage_list: List[TableLineage] = []
         if table_lineage_result is None:
@@ -254,7 +299,13 @@ class FivetranLogAPI:
             return None
         return self._get_users().get(user_id)
 
-    def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
+    def _fill_connectors_lineage(
+        self,
+        connectors: List[Connector],
+        max_column_lineage: Optional[int] = None,
+        max_table_lineage: Optional[int] = None,
+        report: Optional[FivetranSourceReport] = None,
+    ) -> None:
         # Create 2 filtered connector_ids lists - one for table lineage and one for column lineage
         tll_connector_ids: List[str] = []
         cll_connector_ids: List[str] = []
@@ -262,13 +313,53 @@ class FivetranLogAPI:
             tll_connector_ids.append(connector.connector_id)
             if connector.connector_type not in DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES:
                 cll_connector_ids.append(connector.connector_id)
-        table_lineage_metadata = self._get_table_lineage_metadata(tll_connector_ids)
-        column_lineage_metadata = self._get_column_lineage_metadata(cll_connector_ids)
+        table_lineage_metadata, table_row_counts = self._get_table_lineage_metadata(
+            tll_connector_ids, max_table_lineage=max_table_lineage
+        )
+        column_lineage_metadata, column_row_counts = self._get_column_lineage_metadata(
+            cll_connector_ids, max_column_lineage=max_column_lineage
+        )
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(
                 table_lineage_result=table_lineage_metadata.get(connector.connector_id),
                 column_lineage_metadata=column_lineage_metadata,
             )
+
+            # Warn if table lineage was truncated
+            if (
+                max_table_lineage is not None
+                and report is not None
+                and connector.connector_id in table_row_counts
+            ):
+                row_count = table_row_counts[connector.connector_id]
+                # If we got back exactly the limit (or very close), we likely hit the truncation
+                if row_count >= max_table_lineage * 0.95:  # Within 95% of limit
+                    report.warning(
+                        title="Table lineage may be truncated",
+                        message=f"The connector returned {row_count} table lineage entries, "
+                        f"which is at or near the configured limit of {max_table_lineage}. "
+                        f"Some table lineage may have been omitted. "
+                        f"Consider increasing 'max_table_lineage_per_connector' in your config or setting it to null for unlimited.",
+                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                    )
+
+            # Warn if column lineage was truncated
+            if (
+                max_column_lineage is not None
+                and report is not None
+                and connector.connector_id in column_row_counts
+            ):
+                row_count = column_row_counts[connector.connector_id]
+                # If we got back exactly the limit (or very close), we likely hit the truncation
+                if row_count >= max_column_lineage * 0.95:  # Within 95% of limit
+                    report.warning(
+                        title="Column lineage may be truncated",
+                        message=f"The connector returned {row_count} column lineage entries, "
+                        f"which is at or near the configured limit of {max_column_lineage}. "
+                        f"Some column lineage may have been omitted. "
+                        f"Consider increasing 'max_column_lineage_per_connector' in your config or setting it to null for unlimited.",
+                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                    )
 
     def _fill_connectors_jobs(
         self, connectors: List[Connector], syncs_interval: int
@@ -299,9 +390,10 @@ class FivetranLogAPI:
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
-                if not destination_patterns.allowed(
-                    destination_id := connector[Constant.DESTINATION_ID]
-                ):
+                destination_id = connector[Constant.DESTINATION_ID]
+                destination_allowed = destination_patterns.allowed(destination_id)
+
+                if not destination_allowed:
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )
@@ -329,8 +421,44 @@ class FivetranLogAPI:
 
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
             logger.info("Fetching connector lineage")
-            self._fill_connectors_lineage(connectors)
+            self._fill_connectors_lineage(
+                connectors,
+                max_column_lineage=self.max_column_lineage_per_connector,
+                max_table_lineage=self.max_table_lineage_per_connector,
+                report=report,
+            )
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
             logger.info("Fetching connector job run history")
             self._fill_connectors_jobs(connectors, syncs_interval)
         return connectors
+
+    def get_allowed_connectors_stream(
+        self,
+        connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
+        report: FivetranSourceReport,
+        syncs_interval: int,
+    ) -> Iterator[Connector]:
+        """Get a stream of connectors filtered by the provided patterns, yielding one at a time."""
+        # For now, just call get_allowed_connectors_list and yield each item
+        # This can be optimized later to stream directly from the database
+        connectors = self.get_allowed_connectors_list(
+            connector_patterns, destination_patterns, report, syncs_interval
+        )
+        for connector in connectors:
+            yield connector
+
+    def test_connection(self) -> None:
+        """Test the connection to the log database for backward compatibility with factory fallback."""
+        try:
+            # Try to execute a simple query to test the connection
+            query = self.fivetran_log_query.get_connectors_query()
+            # Limit to 1 row to minimize impact
+            limited_query = f"SELECT * FROM ({query}) LIMIT 1"
+            self._query(limited_query)
+        except Exception as e:
+            from datahub.configuration.common import ConfigurationError
+
+            raise ConfigurationError(
+                f"Failed to connect to Fivetran log database: {e}"
+            ) from e

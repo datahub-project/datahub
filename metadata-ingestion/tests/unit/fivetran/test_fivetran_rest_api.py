@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 from datahub.ingestion.source.fivetran.config import FivetranAPIConfig
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
-from datahub.ingestion.source.fivetran.response_models import (
+from datahub.ingestion.source.fivetran.models import (
     FivetranConnectionDetails,
 )
 
