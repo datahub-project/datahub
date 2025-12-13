@@ -154,7 +154,6 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
-
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
 # If there's a change in their rules, we probably need to re-evaluate our list as well.
 assert len(sqlglot.optimizer.optimizer.RULES) == 14
@@ -1293,26 +1292,8 @@ def _try_extract_select(
             insert_columns = statement.this.expressions
             select_expressions = select_statement.expressions
 
-            logger.info(
-                f"[INSERT-MAPPING] Processing MSSQL INSERT statement: "
-                f"INSERT cols={len(insert_columns)}, SELECT exprs={len(select_expressions)}"
-            )
-
-            # Log the actual column names
-            insert_col_names = [
-                col.alias_or_name if hasattr(col, "alias_or_name") else str(col)
-                for col in insert_columns
-            ]
-            select_col_names = [
-                expr.alias_or_name if hasattr(expr, "alias_or_name") else str(expr)
-                for expr in select_expressions
-            ]
-            logger.info(f"[INSERT-MAPPING] INSERT columns: {insert_col_names}")
-            logger.info(f"[INSERT-MAPPING] SELECT columns: {select_col_names}")
-
             # Only apply mapping if column counts match
             if len(insert_columns) == len(select_expressions):
-                logger.info("[INSERT-MAPPING] Column counts match, applying mapping")
                 # Create new SELECT with INSERT column names as explicit Alias nodes
                 # This ensures the alias survives sqlglot's optimizer
                 new_selects = []
@@ -1329,40 +1310,10 @@ def _try_extract_select(
                         alias=sqlglot.exp.to_identifier(insert_col_name),
                     )
                     new_selects.append(aliased_expr)
-                    logger.debug(
-                        f"[INSERT-MAPPING] Mapped: {select_expr} AS {insert_col_name}"
-                    )
 
                 # Replace SELECT expressions with aliased versions
                 select_statement = select_statement.copy()
                 select_statement.set("expressions", new_selects)
-
-                logger.info(
-                    f"[INSERT-MAPPING] Successfully mapped {len(insert_columns)} INSERT columns to SELECT expressions"
-                )
-
-                # Track specific columns for debugging
-                for insert_col, select_expr in zip(insert_columns, select_expressions):
-                    insert_col_name = (
-                        insert_col.alias_or_name
-                        if hasattr(insert_col, "alias_or_name")
-                        else str(insert_col)
-                    )
-                    select_expr_str = str(select_expr)
-                    if "kid_synthetic_risk_indicator" in insert_col_name:
-                        logger.info(
-                            f"[COLUMN-MAP] kid_synthetic_risk_indicator (INSERT) <- {select_expr_str} (SELECT)"
-                        )
-                    if "kid_summary_risk_indicator" in select_expr_str:
-                        logger.info(
-                            f"[COLUMN-MAP] {insert_col_name} (INSERT) <- kid_summary_risk_indicator (SELECT)"
-                        )
-            else:
-                logger.warning(
-                    f"[INSERT-MAPPING] Column count mismatch! "
-                    f"INSERT={len(insert_columns)}, SELECT={len(select_expressions)}. "
-                    f"Skipping mapping."
-                )
 
         statement = select_statement
         if isinstance(statement, sqlglot.exp.Query) and original_ctes:
@@ -1713,25 +1664,6 @@ def _parse_stored_procedure_fallback(
             num_statements_failed=failed_count,
         ),
     )
-
-    logger.info(
-        f"[FALLBACK-RESULT] Returning SqlParsingResult: "
-        f"query_type={result.query_type}, "
-        f"{len(result.in_tables)} in_tables, "
-        f"{len(result.out_tables)} out_tables, "
-        f"{len(result.column_lineage) if result.column_lineage else 0} column_lineage entries"
-    )
-    if result.in_tables:
-        logger.info(f"[FALLBACK-RESULT] Input tables: {result.in_tables}")
-    if result.out_tables:
-        logger.info(f"[FALLBACK-RESULT] Output tables: {result.out_tables}")
-    if result.column_lineage:
-        for i, cll in enumerate(result.column_lineage[:5], 1):  # Log first 5
-            logger.info(
-                f"[FALLBACK-RESULT] Column lineage {i}: "
-                f"downstream={cll.downstream.column}@{cll.downstream.table}, "
-                f"upstreams={[f'{u.column}@{u.table}' for u in cll.upstreams]}"
-            )
 
     return result
 

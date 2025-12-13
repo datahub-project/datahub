@@ -209,22 +209,7 @@ def generate_procedure_lineage(
     raise_: bool = False,
     report_failure: Optional[Callable[[str], None]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    # Track target procedure for debugging
-    if "european_priips_kid_information" in procedure.name:
-        has_definition = procedure.procedure_definition is not None
-        definition_length = (
-            len(procedure.procedure_definition) if procedure.procedure_definition else 0
-        )
-        logger.info(
-            f"[LINEAGE-GEN] Processing {procedure.name}: "
-            f"has_definition={has_definition}, length={definition_length}, "
-            f"language={procedure.language}"
-        )
-
     if procedure.procedure_definition and procedure.language == "SQL":
-        if "european_priips_kid_information" in procedure.name:
-            logger.info(f"[LINEAGE-GEN] {procedure.name}: Calling parse_procedure_code")
-
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
             default_db=default_db,
@@ -236,35 +221,17 @@ def generate_procedure_lineage(
         )
 
         if datajob_input_output:
-            if "european_priips_kid_information" in procedure.name:
-                logger.info(
-                    f"[LINEAGE-GEN] {procedure.name}: Successfully generated lineage, "
-                    f"inputs={len(datajob_input_output.inputDatasets or [])}, "
-                    f"outputs={len(datajob_input_output.outputDatasets or [])}, "
-                    f"columns={len(datajob_input_output.fineGrainedLineages or [])}"
-                )
             yield MetadataChangeProposalWrapper(
                 entityUrn=procedure_job_urn,
                 aspect=datajob_input_output,
             )
         else:
-            if "european_priips_kid_information" in procedure.name:
-                logger.warning(
-                    f"[LINEAGE-GEN] {procedure.name}: parse_procedure_code returned None"
-                )
             logger.warning(
                 f"Failed to extract lineage for stored procedure: {procedure.name}. "
                 f"URN: {procedure_job_urn}."
             )
             if report_failure:
                 report_failure(procedure.name)
-    else:
-        if "european_priips_kid_information" in procedure.name:
-            logger.warning(
-                f"[LINEAGE-GEN] {procedure.name}: SKIPPED - "
-                f"definition={'empty/None' if not procedure.procedure_definition else 'exists'}, "
-                f"language={procedure.language}"
-            )
 
 
 def generate_procedure_container_workunits(

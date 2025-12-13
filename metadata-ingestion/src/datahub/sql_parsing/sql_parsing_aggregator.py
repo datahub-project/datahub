@@ -884,21 +884,6 @@ class SqlParsingAggregator(Closeable):
         # is added separately via add_observed_query, so each has one output.
         downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
 
-        # Log for target procedure queries
-        if observed.query and "european_priips_kid_information" in observed.query:
-            logger.info(
-                f"[OBSERVED-TO-PREPARSED] Creating PreparsedQuery: "
-                f"downstream={downstream_urn}, "
-                f"{len(parsed.in_tables)} upstreams, "
-                f"{len(parsed.column_lineage) if parsed.column_lineage else 0} column lineage entries"
-            )
-            if parsed.column_lineage:
-                for i, cll in enumerate(parsed.column_lineage[:3], 1):
-                    logger.info(
-                        f"[OBSERVED-TO-PREPARSED]   Column lineage {i}: "
-                        f"{cll.downstream.column} <- {[u.column for u in cll.upstreams]}"
-                    )
-
         self.add_preparsed_query(
             PreparsedQuery(
                 query_id=query_fingerprint,
@@ -1345,23 +1330,6 @@ class SqlParsingAggregator(Closeable):
             return len(query_precedence)
         return idx
 
-    def _log_gen_lineage_start(
-        self, downstream_urn: str, query_ids: Set[QueryId]
-    ) -> None:
-        """Log when starting to generate lineage for a downstream table."""
-        if "european_priips_kid_information" in downstream_urn:
-            logger.info(
-                f"[GEN-LINEAGE] Generating lineage for downstream: {downstream_urn}"
-            )
-            logger.info(f"[GEN-LINEAGE]   Query IDs in lineage map: {query_ids}")
-
-    def _log_gen_lineage_queries(self, downstream_urn: str, queries: List) -> None:
-        """Log the resolved queries for a downstream table."""
-        if "european_priips_kid_information" in downstream_urn:
-            logger.info(
-                f"[GEN-LINEAGE]   Resolved {len(queries)} queries for this downstream"
-            )
-
     def _process_column_lineage_for_query(
         self,
         query: QueryMetadata,
@@ -1429,21 +1397,15 @@ class SqlParsingAggregator(Closeable):
         self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_ids = self._lineage_map.get(downstream_urn, set())
-        self._log_gen_lineage_start(downstream_urn, query_ids)
 
         if not self.is_allowed_table(downstream_urn):
             self.report.num_lineage_skipped_due_to_filters += 1
-            if "european_priips_kid_information" in downstream_urn:
-                logger.warning(
-                    f"[GEN-LINEAGE] Skipping {downstream_urn}: filtered by is_allowed_table"
-                )
             return
 
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
             for query_id in query_ids
         ]
-        self._log_gen_lineage_queries(downstream_urn, queries)
 
         # Sort the queries by highest precedence first, then by latest timestamp.
         # In case of ties, prefer queries with a known query type.

@@ -35,25 +35,17 @@ def _filter_dml_statements(
     """Filter out non-DML statements that don't produce lineage."""
     dml_statements = []
 
-    for i, stmt in enumerate(statements, 1):
+    for stmt in statements:
         stmt_stripped = stmt.strip()
         if not stmt_stripped:
-            logger.debug(
-                f"[STMT-FILTER] {procedure_name or 'unknown'}: Statement #{i} empty, skipping"
-            )
             continue
 
         stmt_upper = stmt_stripped.upper()
-        stmt_preview = stmt_stripped[:80].replace("\n", " ")
 
         # Skip CREATE PROCEDURE wrapper (prevent recursion)
         if stmt_upper.startswith("CREATE PROCEDURE") or stmt_upper.startswith(
             "CREATE OR REPLACE PROCEDURE"
         ):
-            logger.info(
-                f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-                f"Statement #{i} SKIPPED (CREATE PROCEDURE): {stmt_preview}"
-            )
             continue
 
         # Skip TSQL control flow keywords that don't produce lineage
@@ -61,10 +53,6 @@ def _filter_dml_statements(
         if is_dialect_instance(dialect, "tsql") and _is_tsql_control_flow_statement(
             stmt_upper
         ):
-            logger.info(
-                f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-                f"Statement #{i} SKIPPED (control flow): {stmt_preview}"
-            )
             continue
 
         # Parse statement to determine its type using sqlglot
@@ -76,10 +64,6 @@ def _filter_dml_statements(
             # UNKNOWN: RAISERROR, unsupported SQL, etc.
             # CREATE_DDL: table definitions without data operations
             if query_type in (QueryType.UNKNOWN, QueryType.CREATE_DDL):
-                logger.info(
-                    f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-                    f"Statement #{i} SKIPPED (query_type={query_type}): {stmt_preview}"
-                )
                 continue
 
             # Skip SELECT without FROM clause (variable assignments)
@@ -88,25 +72,14 @@ def _filter_dml_statements(
                     isinstance(node, sqlglot.exp.From) for node in parsed.walk()
                 )
                 if not has_from:
-                    logger.info(
-                        f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-                        f"Statement #{i} SKIPPED (SELECT without FROM): {stmt_preview}"
-                    )
                     continue
 
             # This is a DML statement that produces lineage
             dml_statements.append(stmt_stripped)
-            logger.info(
-                f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-                f"Statement #{i} KEPT (query_type={query_type}): {stmt_preview}"
-            )
 
         except Exception as e:
             # Parse errors: comments, malformed SQL, etc.
-            logger.warning(
-                f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-                f"Statement #{i} SKIPPED (parse exception: {type(e).__name__}): {stmt_preview}"
-            )
+            logger.debug(f"Skipping statement in {procedure_name}: {type(e).__name__}")
             continue
 
     return dml_statements
@@ -147,11 +120,6 @@ def parse_procedure_code(
     # Split statements using split_statements()
     statements = list(split_statements(code))
 
-    logger.info(
-        f"[PARSE-START] {procedure_name or 'unknown'}: "
-        f"Starting parse, code_length={len(code)}, split into {len(statements)} statements"
-    )
-
     # Filter out non-DML statements
     dml_statements = _filter_dml_statements(
         statements=statements,
@@ -160,15 +128,9 @@ def parse_procedure_code(
         procedure_name=procedure_name,
     )
 
-    logger.info(
-        f"[STMT-FILTER] {procedure_name or 'unknown'}: "
-        f"{len(dml_statements)} DML statements from {len(statements)} total statements"
-    )
-
     if not dml_statements:
-        logger.warning(
-            f"[PARSE-RESULT] {procedure_name or 'unknown'}: "
-            f"Returning None - all {len(statements)} statements were filtered, no DML found"
+        logger.debug(
+            f"No DML statements found in procedure {procedure_name}, skipping lineage extraction"
         )
         return None
 
@@ -193,18 +155,7 @@ def parse_procedure_code(
 
     # Add each DML statement as a separate ObservedQuery
     # All share the same session_id to enable temp table resolution
-    logger.info(
-        f"[AGGREGATOR-START] {procedure_name or 'unknown'}: "
-        f"Adding {len(dml_statements)} DML statements to aggregator"
-    )
-
-    for i, query in enumerate(dml_statements, 1):
-        query_preview = query[:100].replace("\n", " ")
-        logger.info(
-            f"[AGGREGATOR-ADD] {procedure_name or 'unknown'}: "
-            f"Query #{i}: {query_preview}..."
-        )
-
+    for query in dml_statements:
         aggregator.add_observed_query(
             observed=ObservedQuery(
                 default_db=default_db,
@@ -214,12 +165,6 @@ def parse_procedure_code(
             )
         )
 
-    logger.info(
-        f"[AGGREGATOR-STATS] {procedure_name or 'unknown'}: "
-        f"observed_queries={aggregator.report.num_observed_queries}, "
-        f"failed={aggregator.report.num_observed_queries_failed}"
-    )
-
     if aggregator.report.num_observed_queries_failed and raise_:
         logger.info(aggregator.report.as_string())
         raise ValueError(
@@ -227,27 +172,10 @@ def parse_procedure_code(
         )
 
     mcps = list(aggregator.gen_metadata())
-    logger.info(
-        f"[AGGREGATOR-RESULT] {procedure_name or 'unknown'}: Generated {len(mcps)} MCPs"
-    )
 
     result = to_datajob_input_output(
         mcps=mcps,
         ignore_extra_mcps=True,
     )
-
-    if result:
-        logger.info(
-            f"[PARSE-RESULT] {procedure_name or 'unknown'}: "
-            f"Returning DataJobInputOutput - "
-            f"inputs={len(result.inputDatasets or [])}, "
-            f"outputs={len(result.outputDatasets or [])}, "
-            f"column_lineages={len(result.fineGrainedLineages or [])}"
-        )
-    else:
-        logger.warning(
-            f"[PARSE-RESULT] {procedure_name or 'unknown'}: "
-            f"Returning None from to_datajob_input_output"
-        )
 
     return result

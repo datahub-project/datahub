@@ -702,10 +702,6 @@ class SQLServerSource(SQLAlchemySource):
                 procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
                 if not self.config.procedure_pattern.allowed(procedure_full_name):
                     self.report.report_dropped(procedure_full_name)
-                    # Log for ALL filtered procedures
-                    logger.warning(
-                        f"[PROCEDURE-FILTERED] Procedure filtered out by procedure_pattern: {procedure_full_name}"
-                    )
                     continue
                 procedures.append(
                     StoredProcedure(flow=mssql_default_job, **procedure_data)
@@ -719,27 +715,24 @@ class SQLServerSource(SQLAlchemySource):
     def _process_stored_procedure(
         self, conn: Connection, procedure: StoredProcedure
     ) -> Iterable[MetadataWorkUnit]:
-        upstream = self._get_procedure_upstream(conn, procedure)
-        downstream = self._get_procedure_downstream(conn, procedure)
+        # NOTE: upstream/downstream dependencies are now captured in lineage (DataJobInputOutput)
+        # via _get_stored_procedure_lineage(), so we don't need to query them here.
+        # The old properties "procedure_depends_on" and "depending_on_procedure" have been removed
+        # to avoid duplication.
         data_job = MSSQLDataJob(
             entity=procedure,
         )
-        # TODO: because of this upstream and downstream are more dependencies,
-        #  can't be used as DataJobInputOutput.
-        #  Should be reorganized into lineage.
-        data_job.add_property("procedure_depends_on", str(upstream.as_property))
-        data_job.add_property("depending_on_procedure", str(downstream.as_property))
+
         procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
         procedure.code = procedure_code
         if procedure_definition:
             data_job.add_property("definition", procedure_definition)
-        if procedure_code and self.config.include_stored_procedures_code:
-            data_job.add_property("code", procedure_code)
+        # NOTE: Procedure code is captured in the DataJob's sourceCode aspect,
+        # so we don't duplicate it as a property.
         procedure_inputs = self._get_procedure_inputs(conn, procedure)
         properties = self._get_procedure_properties(conn, procedure)
-        data_job.add_property(
-            "input parameters", str([param.name for param in procedure_inputs])
-        )
+        # NOTE: Input parameters are captured as individual properties below,
+        # so we don't need a redundant "input parameters" list property.
         for param in procedure_inputs:
             data_job.add_property(f"parameter {param.name}", str(param.properties))
         for property_name, property_value in properties.items():
@@ -747,13 +740,6 @@ class SQLServerSource(SQLAlchemySource):
         if self.config.include_lineage:
             # These will be used to construct lineage
             self.stored_procedures.append(procedure)
-            # Log for ALL added procedures
-            logger.debug(
-                f"[PROCEDURE-ADDED] Added procedure to stored_procedures list: {procedure.full_name}"
-            )
-            logger.debug(
-                f"[PROCEDURE-ADDED] Total procedures in list: {len(self.stored_procedures)}"
-            )
         yield from self.construct_job_workunits(
             data_job,
             # For stored procedure lineage is ingested later
@@ -853,10 +839,6 @@ class SQLServerSource(SQLAlchemySource):
                 "Denied permission for read text from procedure '%s'",
                 procedure.full_name,
             )
-            # Log for ALL procedures
-            logger.warning(
-                f"[CODE-EXTRACT] Permission denied for procedure: {procedure.full_name}"
-            )
             return None, None
         code_list = []
         code_slice_index = 0
@@ -869,24 +851,10 @@ class SQLServerSource(SQLAlchemySource):
             definition = "".join(code_list[:code_slice_index])
             code = "".join(code_list[code_slice_index:])
 
-            # Log for ALL procedures
-            logger.debug(
-                f"[CODE-EXTRACT] Extracted code for {procedure.full_name}: "
-                f"definition_length={len(definition)}, code_length={len(code)}"
-            )
-            if not code:
-                logger.warning(
-                    f"[CODE-EXTRACT] Code is empty for {procedure.full_name}!"
-                )
-
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",
                 procedure.full_name,
-            )
-            # Log for ALL procedures
-            logger.warning(
-                f"[CODE-EXTRACT] Connection closed for procedure: {procedure.full_name}"
             )
             return None, None
         return definition, code
@@ -1430,51 +1398,6 @@ class SQLServerSource(SQLAlchemySource):
             filtered_column_lineage if filtered_column_lineage else None
         )
 
-    def _log_lineage_details(
-        self,
-        procedure_name: str,
-        aspect: DataJobInputOutputClass,
-        stage: str,
-    ) -> None:
-        """Log detailed lineage information for debugging."""
-        logger.info(
-            f"[LINEAGE-{stage}] Procedure {procedure_name}: "
-            f"{len(aspect.inputDatasets or [])} inputs, "
-            f"{len(aspect.outputDatasets or [])} outputs, "
-            f"{len(aspect.fineGrainedLineages or [])} column lineage entries"
-        )
-        if aspect.inputDatasets:
-            for urn in aspect.inputDatasets:
-                logger.info(f"[LINEAGE-{stage}]   Input: {urn}")
-        if aspect.outputDatasets:
-            for urn in aspect.outputDatasets:
-                logger.info(f"[LINEAGE-{stage}]   Output: {urn}")
-        if aspect.fineGrainedLineages:
-            for i, cll in enumerate(aspect.fineGrainedLineages[:5], 1):
-                logger.info(
-                    f"[LINEAGE-{stage}]   Column lineage {i}: "
-                    f"downstream={cll.downstreams}, upstreams={cll.upstreams}"
-                )
-
-            # Track specific columns for debugging
-            for cll in aspect.fineGrainedLineages:
-                for downstream_urn in cll.downstreams or []:
-                    if "kid_synthetic_risk_indicator" in downstream_urn:
-                        logger.info(
-                            f"[COLUMN-TRACK-{stage}] Found kid_synthetic_risk_indicator downstream: {downstream_urn}"
-                        )
-                        logger.info(
-                            f"[COLUMN-TRACK-{stage}]   Upstreams: {cll.upstreams}"
-                        )
-                for upstream_urn in cll.upstreams or []:
-                    if "kid_summary_risk_indicator" in upstream_urn:
-                        logger.info(
-                            f"[COLUMN-TRACK-{stage}] Found kid_summary_risk_indicator upstream: {upstream_urn}"
-                        )
-                        logger.info(
-                            f"[COLUMN-TRACK-{stage}]   Downstreams: {cll.downstreams}"
-                        )
-
     def _filter_procedure_lineage(
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
@@ -1497,29 +1420,12 @@ class SQLServerSource(SQLAlchemySource):
         """
         platform_instance = self.get_schema_resolver().platform_instance
 
-        # Enable detailed logging for the target procedure
-        enable_detailed_logging = (
-            procedure_name and "european_priips_kid_information" in procedure_name
-        )
-
-        if enable_detailed_logging:
-            logger.info(
-                f"[LINEAGE-FILTER] Starting filtering for procedure: {procedure_name}"
-            )
-            logger.info(
-                f"[LINEAGE-FILTER] Platform instance: {platform_instance}, "
-                f"Discovered datasets: {len(self.discovered_datasets)}"
-            )
-
         for mcp in mcps:
             # Only filter dataJobInputOutput aspects
             if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
                 aspect: DataJobInputOutputClass = mcp.aspect
                 original_input_count = len(aspect.inputDatasets or [])
                 original_output_count = len(aspect.outputDatasets or [])
-
-                if enable_detailed_logging:
-                    self._log_lineage_details(procedure_name, aspect, "BEFORE")
 
                 # Filter inputs: first unqualified tables, then aliases
                 if aspect.inputDatasets:
@@ -1547,45 +1453,22 @@ class SQLServerSource(SQLAlchemySource):
                         aspect.outputDatasets
                     )
 
-                    if filtered_downstream_aliases:
-                        logger.info(
-                            f"[DOWNSTREAM-FILTER] {procedure_name}: Filtered {len(filtered_downstream_aliases)} downstream alias(es)"
-                        )
-                        for alias_urn in filtered_downstream_aliases:
-                            logger.info(
-                                f"[DOWNSTREAM-FILTER]   Filtered alias: {alias_urn}"
-                            )
-
                 # Filter column lineage (with remapping for filtered downstream aliases)
-                logger.info(
-                    f"[COLUMN-FILTER-START] {procedure_name}: Starting column lineage filtering, "
-                    f"filtered_downstream_aliases={len(filtered_downstream_aliases)}"
-                )
                 self._filter_column_lineage(
                     aspect,
                     platform_instance,
                     procedure_name,
                     filtered_downstream_aliases,
                 )
-                logger.info(
-                    f"[COLUMN-FILTER-END] {procedure_name}: Column lineage filtering complete"
-                )
 
                 filtered_input_count = len(aspect.inputDatasets or [])
                 filtered_output_count = len(aspect.outputDatasets or [])
 
-                if enable_detailed_logging:
-                    self._log_lineage_details(procedure_name, aspect, "AFTER")
-
                 # Skip aspect only if BOTH inputs and outputs are empty
                 if not aspect.inputDatasets and not aspect.outputDatasets:
                     logger.warning(
-                        f"[LINEAGE-SKIP] Skipping lineage for {procedure_name}: all tables were filtered"
+                        f"Skipping lineage for {procedure_name}: all tables were filtered"
                     )
-                    if enable_detailed_logging:
-                        logger.info(
-                            f"[LINEAGE-SKIP] Original inputs={original_input_count}, outputs={original_output_count}"
-                        )
                     continue
 
                 # Log summary if filtering occurred
@@ -1594,7 +1477,7 @@ class SQLServerSource(SQLAlchemySource):
                     or filtered_output_count < original_output_count
                 ):
                     logger.info(
-                        f"[LINEAGE-FILTERED] {procedure_name}: "
+                        f"Filtered lineage for {procedure_name}: "
                         f"inputs {original_input_count}->{filtered_input_count}, "
                         f"outputs {original_output_count}->{filtered_output_count}"
                     )
@@ -1611,56 +1494,12 @@ class SQLServerSource(SQLAlchemySource):
                 f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
             )
 
-            # Check if target procedure is in the list
-            target_procedures = [
-                p
-                for p in self.stored_procedures
-                if "european_priips_kid_information" in p.name
-            ]
-            if target_procedures:
-                logger.info(
-                    f"[PROCEDURE-CHECK] Found {len(target_procedures)} target procedure(s) in list:"
-                )
-                for p in target_procedures:
-                    logger.info(f"[PROCEDURE-CHECK]   - {p.full_name}")
-            else:
-                logger.warning(
-                    "[PROCEDURE-CHECK] Target procedure 'european_priips_kid_information' NOT found in stored_procedures list!"
-                )
-
-            for procedure_count, procedure in enumerate(
-                self.stored_procedures, start=1
-            ):
-                logger.debug(
-                    f"[PROCEDURE-LOOP] #{procedure_count}: name='{procedure.name}', full_name='{procedure.full_name}'"
-                )
-
-                # Log procedure start info for ALL procedures
-                logger.info(
-                    f"[PROCEDURE-START] Processing procedure: {procedure.full_name} (name={procedure.name})"
-                )
-                logger.info(
-                    f"[PROCEDURE-START] Database: {procedure.db}, Schema: {procedure.schema}"
-                )
-                # Log procedure code status
-                base_proc = procedure.to_base_procedure()
-                has_code = base_proc.procedure_definition is not None
-                code_length = (
-                    len(base_proc.procedure_definition)
-                    if base_proc.procedure_definition
-                    else 0
-                )
-                logger.info(
-                    f"[PROCEDURE-START] Code status: has_code={has_code}, "
-                    f"length={code_length}, language={base_proc.language}"
-                )
-
+            for procedure in self.stored_procedures:
                 with self.report.report_exc(
                     message="Failed to parse stored procedure lineage",
                     context=procedure.full_name,
                     level=StructuredLogLevel.WARN,
                 ):
-                    workunit_count = 0
                     for workunit in auto_workunit(
                         self._filter_procedure_lineage(
                             generate_procedure_lineage(
@@ -1677,18 +1516,7 @@ class SQLServerSource(SQLAlchemySource):
                             procedure_name=procedure.name,
                         )
                     ):
-                        workunit_count += 1
                         yield workunit
-
-                    # Log for ALL procedures
-                    logger.info(
-                        f"[PROCEDURE-END] Generated {workunit_count} workunits for {procedure.name}"
-                    )
-
-                    if workunit_count == 0:
-                        logger.warning(
-                            f"[PROCEDURE-NOWU] No lineage workunits for procedure: {procedure.name}"
-                        )
 
     def _report_procedure_failure(self, procedure_name: str) -> None:
         """Report a stored procedure lineage extraction failure to the aggregator."""
