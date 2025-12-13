@@ -616,8 +616,8 @@ jobs:
           gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
           unzip -q artifact.zip
 
-          # Verify we got XML files
-          if ls smoke-test-results/cypress-test-*.xml 1> /dev/null 2>&1; then
+          # Verify we got XML files (they're in smoke-test/tests/cypress/build/smoke-test-results/)
+          if find . -path "*/smoke-test-results/cypress-test-*.xml" -print -quit | grep -q .; then
             echo "Successfully downloaded test results"
             echo "download_success=true" >> "$GITHUB_OUTPUT"
           else

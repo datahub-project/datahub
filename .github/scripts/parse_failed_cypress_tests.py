@@ -42,24 +42,30 @@ def parse_failed_tests(input_dir: Path) -> Optional[Set[str]]:
             tree = ET.parse(xml_file)
             root = tree.getroot()
 
-            # Find testsuite with file attribute
-            for testsuite in root.findall('.//testsuite[@file]'):
-                file_path = testsuite.get('file')
+            # Find testsuite with file attribute to get the test file path
+            file_testsuite = root.find('.//testsuite[@file]')
+            if file_testsuite is None:
+                continue
 
-                # Check if this testsuite has any failures
-                has_failures = False
-                for testcase in testsuite.findall('.//testcase'):
-                    if testcase.find('failure') is not None or testcase.find('error') is not None:
-                        has_failures = True
-                        break
+            file_path = file_testsuite.get('file')
+            if not file_path:
+                continue
 
-                if has_failures and file_path:
-                    # Strip 'cypress/e2e/' prefix to match expected format
-                    if file_path.startswith('cypress/e2e/'):
-                        relative_path = file_path.replace('cypress/e2e/', '')
-                    else:
-                        relative_path = file_path
-                    failed_tests.add(relative_path)
+            # Check if ANY testcase in the entire XML has failures or errors
+            # (testcases are in sibling testsuites, not children of the file testsuite)
+            has_failures = False
+            for testcase in root.findall('.//testcase'):
+                if testcase.find('failure') is not None or testcase.find('error') is not None:
+                    has_failures = True
+                    break
+
+            if has_failures:
+                # Strip 'cypress/e2e/' prefix to match expected format
+                if file_path.startswith('cypress/e2e/'):
+                    relative_path = file_path.replace('cypress/e2e/', '')
+                else:
+                    relative_path = file_path
+                failed_tests.add(relative_path)
 
         except ET.ParseError as e:
             print(f"Warning: Failed to parse {xml_file}: {e}", file=sys.stderr)
