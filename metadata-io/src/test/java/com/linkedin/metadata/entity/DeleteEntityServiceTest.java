@@ -106,6 +106,8 @@ public class DeleteEntityServiceTest {
   @BeforeTest
   public void setUp() {
     Mockito.reset(_mockSearchService, _graphService, _mockUpdateIndicesService);
+    // Re-apply default file scroll mock after reset
+    setupDefaultFileScrollMock(_mockSearchService);
   }
 
   /**
@@ -302,20 +304,21 @@ public class DeleteEntityServiceTest {
                 nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
+    // Mock subscription searches to return empty (no subscriptions to delete)
+    ScrollResult emptySubscriptionScrollResult = new ScrollResult();
+    emptySubscriptionScrollResult.setEntities(new SearchEntityArray());
+    emptySubscriptionScrollResult.setNumEntities(0);
     Mockito.when(
-            _mockSearchService.structuredScroll(
+            mockSearchService.structuredScroll(
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(
-                    newFilter(
-                        CriterionUtils.buildCriterion(
-                            "entityUrn", Condition.EQUAL, form.toString()))),
-                Mockito.eq(null),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
                 Mockito.nullable(Integer.class)))
-        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
+        .thenReturn(emptySubscriptionScrollResult);
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
@@ -500,20 +503,21 @@ public class DeleteEntityServiceTest {
                 nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
+    // Mock subscription searches to return empty (no subscriptions to delete)
+    ScrollResult emptySubscriptionScrollResult = new ScrollResult();
+    emptySubscriptionScrollResult.setEntities(new SearchEntityArray());
+    emptySubscriptionScrollResult.setNumEntities(0);
     Mockito.when(
-            _mockSearchService.structuredScroll(
+            mockSearchService.structuredScroll(
                 Mockito.any(OperationContext.class),
                 Mockito.eq(ImmutableList.of("subscription")),
                 Mockito.eq("*"),
-                Mockito.eq(
-                    newFilter(
-                        CriterionUtils.buildCriterion(
-                            "entityUrn", Condition.EQUAL, form.toString()))),
-                Mockito.eq(null),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
                 Mockito.nullable(Integer.class)))
-        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
+        .thenReturn(emptySubscriptionScrollResult);
 
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, form, false);
@@ -546,6 +550,23 @@ public class DeleteEntityServiceTest {
     ScrollResult scrollResult = new ScrollResult();
     scrollResult.setEntities(searchEntities);
     scrollResult.setNumEntities(searchEntities.size());
+
+    // Mock file searches to return empty (no files to delete)
+    ScrollResult emptyFileScrollResult = new ScrollResult();
+    emptyFileScrollResult.setEntities(new SearchEntityArray());
+    emptyFileScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set != null && set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq("5m"),
+                Mockito.anyInt()))
+        .thenReturn(emptyFileScrollResult);
 
     Mockito.when(
             _mockSearchService.structuredScroll(
@@ -675,6 +696,22 @@ public class DeleteEntityServiceTest {
                 nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
+    // Mock subscription searches to return empty (no subscriptions to delete)
+    ScrollResult emptySubscriptionScrollResult = new ScrollResult();
+    emptySubscriptionScrollResult.setEntities(new SearchEntityArray());
+    emptySubscriptionScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.nullable(Integer.class)))
+        .thenReturn(emptySubscriptionScrollResult);
+
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
@@ -719,6 +756,23 @@ public class DeleteEntityServiceTest {
     ScrollResult scrollResult2 = new ScrollResult();
     scrollResult2.setEntities(searchEntities2);
     scrollResult2.setNumEntities(searchEntities2.size());
+
+    // Mock file searches to return empty (no files to delete)
+    ScrollResult emptyFileScrollResult = new ScrollResult();
+    emptyFileScrollResult.setEntities(new SearchEntityArray());
+    emptyFileScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set != null && set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq("5m"),
+                Mockito.anyInt()))
+        .thenReturn(emptyFileScrollResult);
 
     Mockito.when(
             _mockSearchService.structuredScroll(
@@ -862,6 +916,22 @@ public class DeleteEntityServiceTest {
                 nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
+    // Mock subscription searches to return empty (no subscriptions to delete)
+    ScrollResult emptySubscriptionScrollResult = new ScrollResult();
+    emptySubscriptionScrollResult.setEntities(new SearchEntityArray());
+    emptySubscriptionScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.nullable(Integer.class)))
+        .thenReturn(emptySubscriptionScrollResult);
+
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
@@ -887,6 +957,23 @@ public class DeleteEntityServiceTest {
     ScrollResult scrollResult = new ScrollResult();
     scrollResult.setEntities(searchEntities);
     scrollResult.setNumEntities(searchEntities.size());
+
+    // Mock file searches to return empty (no files to delete)
+    ScrollResult emptyFileScrollResult = new ScrollResult();
+    emptyFileScrollResult.setEntities(new SearchEntityArray());
+    emptyFileScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set != null && set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq("5m"),
+                Mockito.anyInt()))
+        .thenReturn(emptyFileScrollResult);
 
     Mockito.when(
             _mockSearchService.structuredScroll(
@@ -945,6 +1032,23 @@ public class DeleteEntityServiceTest {
     ScrollResult scrollResult = new ScrollResult();
     scrollResult.setEntities(searchEntities);
     scrollResult.setNumEntities(1100);
+
+    // Mock file searches to return empty (no files to delete) for dry run
+    ScrollResult emptyFileScrollResult = new ScrollResult();
+    emptyFileScrollResult.setEntities(new SearchEntityArray());
+    emptyFileScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.argThat(
+                    set -> set != null && set.contains(Constants.DATAHUB_FILE_ENTITY_NAME)),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.eq("5m"),
+                Mockito.anyInt()))
+        .thenReturn(emptyFileScrollResult);
 
     Mockito.when(
             _mockSearchService.structuredScroll(
@@ -1077,6 +1181,22 @@ public class DeleteEntityServiceTest {
                 eq(0),
                 nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
+
+    // Mock subscription searches to return empty (no subscriptions to delete)
+    ScrollResult emptySubscriptionScrollResult = new ScrollResult();
+    emptySubscriptionScrollResult.setEntities(new SearchEntityArray());
+    emptySubscriptionScrollResult.setNumEntities(0);
+    Mockito.when(
+            _mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(ImmutableList.of("subscription")),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.any(),
+                Mockito.nullable(Integer.class)))
+        .thenReturn(emptySubscriptionScrollResult);
 
     // Operation should succeed despite S3 failure
     final DeleteReferencesResponse response =
