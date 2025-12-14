@@ -1,4 +1,10 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 
 // TODO: Currently platform_instance is required to be present for stateful ingestion to work
 // We need to solve this prior to enabling by default here.
@@ -111,12 +117,13 @@ export const KAFKA_SASL_MECHANISM: RecipeField = {
 };
 
 const topicAllowFieldPath = 'source.config.topic_patterns.allow';
-export const TOPIC_ALLOW: RecipeField = {
+export const TOPIC_ALLOW: FilterRecipeField = {
     name: 'topic_patterns.allow',
     label: 'Allow Patterns',
     helper: 'Include specific Kafka topics',
     tooltip: 'Provide an optional Regular Expression (REGEX) to include specific Kafka Topic names in ingestion.',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: topicAllowFieldPath,
     rules: null,
@@ -126,12 +133,13 @@ export const TOPIC_ALLOW: RecipeField = {
 };
 
 const topicDenyFieldPath = 'source.config.topic_patterns.deny';
-export const TOPIC_DENY: RecipeField = {
+export const TOPIC_DENY: FilterRecipeField = {
     name: 'topic_patterns.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific Kafka topics',
     tooltip: 'Provide an optional Regular Expression (REGEX) to exclude specific Kafka Topic names from ingestion.',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: topicDenyFieldPath,
     rules: null,

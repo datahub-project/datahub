@@ -1941,6 +1941,24 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
@@ -1949,6 +1967,24 @@
             "materialized": false,
             "viewLogic": "CREATE VIEW `db1.array_struct_test_view_multiline` AS SELECT\n'constant1' AS `constant1`,\n2 AS `constant2`,\n`array_struct_test_view`.`property_id`,\n`array_struct_test_view`.`service`\nFROM `db1`.`array_struct_test_view`",
             "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
         }
     },
     "systemMetadata": {

@@ -3,6 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 const StyledIcon = styled(Icon)`
+    flex-shrink: 0;
+
     &:hover {
         cursor: pointer;
     }

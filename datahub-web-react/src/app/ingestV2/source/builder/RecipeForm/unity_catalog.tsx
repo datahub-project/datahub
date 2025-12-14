@@ -1,6 +1,12 @@
 import React from 'react';
 
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const UNITY_CATALOG = 'unity-catalog';
 
@@ -74,7 +80,7 @@ export const INCLUDE_COLUMN_LINEAGE: RecipeField = {
 };
 
 const metastoreIdAllowFieldPath = 'source.config.metastore_id_pattern.allow';
-export const UNITY_METASTORE_ID_ALLOW: RecipeField = {
+export const UNITY_METASTORE_ID_ALLOW: FilterRecipeField = {
     name: 'metastore_id_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Include specific Metastores',
@@ -82,6 +88,7 @@ export const UNITY_METASTORE_ID_ALLOW: RecipeField = {
         'Only include specific Metastores by providing the id of a Metastore, or a Regular Expression (REGEX) to include specific Metastores. If not provided, all Metastores will be included.',
     placeholder: '11111-2222-33333-44-555555',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: metastoreIdAllowFieldPath,
     rules: null,
@@ -91,7 +98,7 @@ export const UNITY_METASTORE_ID_ALLOW: RecipeField = {
 };
 
 const metastoreIdDenyFieldPath = 'source.config.metastore_id_pattern.deny';
-export const UNITY_METASTORE_ID_DENY: RecipeField = {
+export const UNITY_METASTORE_ID_DENY: FilterRecipeField = {
     name: 'metastore_id_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific Metastores',
@@ -99,6 +106,7 @@ export const UNITY_METASTORE_ID_DENY: RecipeField = {
         'Exclude specific Metastores by providing the id of a Metastores, or a Regular Expression (REGEX). If not provided, all Metastores will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: '11111-2222-33333-44-555555',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: metastoreIdDenyFieldPath,
     rules: null,
@@ -108,7 +116,7 @@ export const UNITY_METASTORE_ID_DENY: RecipeField = {
 };
 
 const catalogAllowFieldPath = 'source.config.catalog_pattern.allow';
-export const UNITY_CATALOG_ALLOW: RecipeField = {
+export const UNITY_CATALOG_ALLOW: FilterRecipeField = {
     name: 'catalog_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Include specific Catalogs',
@@ -116,6 +124,7 @@ export const UNITY_CATALOG_ALLOW: RecipeField = {
         'Only include specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to include specific Catalogs. If not provided, all Catalogs will be included.',
     placeholder: 'metastore.my_catalog',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: catalogAllowFieldPath,
     rules: null,
@@ -125,7 +134,7 @@ export const UNITY_CATALOG_ALLOW: RecipeField = {
 };
 
 const catalogDenyFieldPath = 'source.config.catalog_pattern.deny';
-export const UNITY_CATALOG_DENY: RecipeField = {
+export const UNITY_CATALOG_DENY: FilterRecipeField = {
     name: 'catalog_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific Catalogs',
@@ -133,6 +142,7 @@ export const UNITY_CATALOG_DENY: RecipeField = {
         'Exclude specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to exclude specific Catalogs. If not provided, all Catalogs will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'metastore.my_catalog',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: catalogDenyFieldPath,
     rules: null,
@@ -142,7 +152,7 @@ export const UNITY_CATALOG_DENY: RecipeField = {
 };
 
 const tableAllowFieldPath = 'source.config.table_pattern.allow';
-export const UNITY_TABLE_ALLOW: RecipeField = {
+export const UNITY_TABLE_ALLOW: FilterRecipeField = {
     name: 'table_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Include specific Tables',
@@ -150,6 +160,7 @@ export const UNITY_TABLE_ALLOW: RecipeField = {
         'Only include specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to include specific Tables. If not provided, all Tables will be included.',
     placeholder: 'catalog.schema.table',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: tableAllowFieldPath,
     rules: null,
@@ -159,7 +170,7 @@ export const UNITY_TABLE_ALLOW: RecipeField = {
 };
 
 const tableDenyFieldPath = 'source.config.table_pattern.deny';
-export const UNITY_TABLE_DENY: RecipeField = {
+export const UNITY_TABLE_DENY: FilterRecipeField = {
     name: 'table_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific Tables',
@@ -167,6 +178,7 @@ export const UNITY_TABLE_DENY: RecipeField = {
         'Exclude specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to exclude specific Tables. If not provided, all Tables will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'catalog.schema.table',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: tableDenyFieldPath,
     rules: null,

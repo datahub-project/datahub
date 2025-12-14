@@ -23,7 +23,6 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
     const isEditing = !!state.isEditing;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
-
     // FYI: We don't have form validation for sources without a form
     useEffect(() => {
         setIsRecipeValid?.(!hasForm || isEditing || !!state.isConnectionDetailsValid);

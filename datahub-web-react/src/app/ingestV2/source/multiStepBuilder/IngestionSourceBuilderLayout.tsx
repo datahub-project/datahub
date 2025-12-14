@@ -10,6 +10,7 @@ import { MessageContext } from '@app/chat/hooks/useChatStream';
 import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { buildIngestionSourceChatContext } from '@app/ingestV2/source/multiStepBuilder/utils';
+import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
@@ -54,6 +55,11 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
     const breadCrumb = (
         <Breadcrumb
             items={[
+                {
+                    label: 'Manage Data Sources',
+                    href: tabUrlMap[TabType.Sources],
+                    separator: <VerticalDivider type="vertical" />,
+                },
                 {
                     label: isEditing ? 'Update Source' : 'Create Source',
                     separator: <VerticalDivider type="vertical" />,

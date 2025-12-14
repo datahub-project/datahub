@@ -40,14 +40,15 @@ import {
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useContextMenuItems';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
-import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
-import { useHasIngestionSources } from '@app/homeV3/freeTrial/useHasIngestionSources';
 import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
 import { SidebarWidthProvider } from '@app/shared/hooks/useSidebarWidth';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
+import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag, useIsAiChatEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -57,7 +58,6 @@ import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboa
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
 import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@src/app/shared/constants';
-import { useIsHomePage } from '@src/app/shared/useIsHomePage';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { generateReleaseNotesLink } from '@src/conf/utils';

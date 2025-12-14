@@ -1,4 +1,10 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const BIGQUERY_BETA_PROJECT_ID: RecipeField = {
     name: 'credential.project_id',
@@ -13,13 +19,14 @@ export const BIGQUERY_BETA_PROJECT_ID: RecipeField = {
 };
 
 const projectIdAllowFieldPath = 'source.config.project_id_pattern.allow';
-export const PROJECT_ALLOW: RecipeField = {
+export const PROJECT_ALLOW: FilterRecipeField = {
     name: 'project_id_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Filter for project IDs',
     tooltip: 'Use regex here to filter for project IDs.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: projectIdAllowFieldPath,
     rules: null,
@@ -29,13 +36,14 @@ export const PROJECT_ALLOW: RecipeField = {
 };
 
 const projectIdDenyFieldPath = 'source.config.project_id_pattern.deny';
-export const PROJECT_DENY: RecipeField = {
+export const PROJECT_DENY: FilterRecipeField = {
     name: 'project_id_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Filter out project IDs',
     tooltip: 'Use regex here to filter for project IDs.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: projectIdDenyFieldPath,
     rules: null,
@@ -45,13 +53,14 @@ export const PROJECT_DENY: RecipeField = {
 };
 
 const datasetAllowFieldPath = 'source.config.dataset_pattern.allow';
-export const DATASET_ALLOW: RecipeField = {
+export const DATASET_ALLOW: FilterRecipeField = {
     name: 'dataset_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Allow specific datasets',
     tooltip: 'Use regex here.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: datasetAllowFieldPath,
     rules: null,
@@ -61,13 +70,14 @@ export const DATASET_ALLOW: RecipeField = {
 };
 
 const datasetDenyFieldPath = 'source.config.dataset_pattern.deny';
-export const DATASET_DENY: RecipeField = {
+export const DATASET_DENY: FilterRecipeField = {
     name: 'dataset_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Deny specific datasets',
     tooltip: 'Use regex here.',
     placeholder: '^my_db$',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: datasetDenyFieldPath,
     rules: null,
