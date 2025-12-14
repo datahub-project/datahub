@@ -1100,10 +1100,11 @@ class SQLServerSource(SQLAlchemySource):
                 if not self.is_temp_table(table_name):
                     filtered.append(urn)
             except (InvalidUrnError, ValueError) as e:
-                # InvalidUrnError: malformed URN string (e.g., doesn't start with urn:li:)
-                # ValueError: other URN parsing errors
+                # Keep URNs we can't parse to preserve data integrity.
+                # If truly malformed, downstream systems will reject with clear errors.
+                # If our parser has a bug, we don't silently lose valid data.
                 logger.warning(f"Error parsing URN {urn}: {e}")
-                filtered.append(urn)  # Conservative: keep it
+                filtered.append(urn)
 
         return filtered
 
@@ -1116,15 +1117,23 @@ class SQLServerSource(SQLAlchemySource):
     ) -> List[str]:
         """Remap a column lineage entry from a filtered alias to real table(s).
 
-        For MSSQL UPDATE statements, sqlglot often parses aliases with incorrect
-        database/schema (e.g., "staging.dbo.dst" when dst is actually
-        "timeseries.dbo.european_priips_kid_information").
+        Root Cause: TSQL allows table aliases in UPDATE/DELETE statements:
+            UPDATE dst SET col=val FROM real_table dst
+        sqlglot extracts both 'dst' (alias) and 'real_table' as separate tables.
+        When we filter 'dst' from outputDatasets (it's not a real table), column
+        lineages still reference it. We must remap those references to real tables.
 
-        Strategy:
-        1. Try to match by table name (last component of URN)
-        2. If exactly one match, remap to it
-        3. If multiple matches, remap to all (warn user)
-        4. If no match, remap to all real downstreams (warn user)
+        Why matching by name: sqlglot often parses aliases with incorrect
+        database/schema qualifiers (e.g., "staging.dbo.dst" when dst actually
+        refers to "timeseries.dbo.european_priips_kid_information").
+
+        Remapping Strategy:
+        1. Try to match by table name only (last component: "dst" matches "xxx.dst")
+        2. Exactly one match → remap to that table (common case)
+        3. Multiple matches → remap to all, log warning (ambiguous)
+        4. No name match → remap to all real downstreams, log warning (fallback)
+
+        This preserves column lineage after alias filtering.
 
         Args:
             table_urn: The filtered alias table URN
@@ -1133,7 +1142,7 @@ class SQLServerSource(SQLAlchemySource):
             procedure_name: Procedure name for logging
 
         Returns:
-            List of remapped field URNs
+            List of remapped field URNs pointing to real tables
         """
         remapped_urns: List[str] = []
 
@@ -1235,18 +1244,11 @@ class SQLServerSource(SQLAlchemySource):
                     filtered_downstream_aliases
                     and table_urn in filtered_downstream_aliases
                 ):
-                    logger.info(
-                        f"[COLUMN-FILTER] {procedure_name}: Entry #{cll_index} downstream {column_name} "
-                        f"points to filtered alias {table_urn}, remapping..."
-                    )
                     # Remap to real table(s)
                     remapped_urns = self._remap_column_lineage_for_alias(
                         table_urn, column_name, aspect, procedure_name
                     )
                     filtered_downstreams.extend(remapped_urns)
-                    logger.info(
-                        f"[COLUMN-FILTER] {procedure_name}: Remapped to {len(remapped_urns)} real table(s)"
-                    )
                 elif self._is_qualified_table_urn(table_urn, platform_instance):
                     filtered_downstreams.append(field_urn)
                 else:
@@ -1284,14 +1286,8 @@ class SQLServerSource(SQLAlchemySource):
         if not aspect.fineGrainedLineages:
             return
 
-        original_cll_count = len(aspect.fineGrainedLineages)
         filtered_column_lineage = []
         field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
-
-        logger.info(
-            f"[COLUMN-FILTER] {procedure_name}: Processing {original_cll_count} column lineage entries, "
-            f"filtered_downstream_aliases={len(filtered_downstream_aliases) if filtered_downstream_aliases else 0}"
-        )
 
         for cll_index, cll in enumerate(aspect.fineGrainedLineages, 1):
             # Filter upstreams: same logic as inputDatasets
@@ -1375,13 +1371,6 @@ class SQLServerSource(SQLAlchemySource):
                     for us in cll.upstreams[:MAX_UPSTREAMS_TO_LOG]:
                         logger.warning(f"[COLUMN-DROPPED]   Had upstream: {us}")
 
-        filtered_cll_count = len(filtered_column_lineage)
-        if filtered_cll_count < original_cll_count:
-            logger.info(
-                f"Column lineage filtering for {procedure_name}: "
-                f"{original_cll_count} → {filtered_cll_count} entries"
-            )
-
         aspect.fineGrainedLineages = (
             filtered_column_lineage if filtered_column_lineage else None
         )
@@ -1412,8 +1401,6 @@ class SQLServerSource(SQLAlchemySource):
             # Only filter dataJobInputOutput aspects
             if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
                 aspect: DataJobInputOutputClass = mcp.aspect
-                original_input_count = len(aspect.inputDatasets or [])
-                original_output_count = len(aspect.outputDatasets or [])
 
                 # Filter inputs: first unqualified tables, then aliases
                 if aspect.inputDatasets:
@@ -1449,26 +1436,12 @@ class SQLServerSource(SQLAlchemySource):
                     filtered_downstream_aliases,
                 )
 
-                filtered_input_count = len(aspect.inputDatasets or [])
-                filtered_output_count = len(aspect.outputDatasets or [])
-
                 # Skip aspect only if BOTH inputs and outputs are empty
                 if not aspect.inputDatasets and not aspect.outputDatasets:
                     logger.warning(
                         f"Skipping lineage for {procedure_name}: all tables were filtered"
                     )
                     continue
-
-                # Log summary if filtering occurred
-                if (
-                    filtered_input_count < original_input_count
-                    or filtered_output_count < original_output_count
-                ):
-                    logger.info(
-                        f"Filtered lineage for {procedure_name}: "
-                        f"inputs {original_input_count}->{filtered_input_count}, "
-                        f"outputs {original_output_count}->{filtered_output_count}"
-                    )
 
             yield mcp
 
