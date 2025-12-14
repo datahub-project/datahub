@@ -577,16 +577,17 @@ class TestColumnLineageFiltering:
         assert len(aspect.outputDatasets) == 1
         assert "test_instance.db1.dbo.another_real_table" in aspect.outputDatasets[0]
 
-        # Check that column lineage with aliases is filtered
+        # Check that column lineage with aliases is filtered and remapped
         assert aspect.fineGrainedLineages is not None
-        assert len(aspect.fineGrainedLineages) == 1
+        # Expecting 2 entries: original valid one + remapped one (dst → another_real_table)
+        assert len(aspect.fineGrainedLineages) == 2
 
-        # Only the valid column lineage should remain (real table in schema_resolver)
-        cll = aspect.fineGrainedLineages[0]
-        assert cll.upstreams is not None and len(cll.upstreams) > 0
-        assert cll.downstreams is not None and len(cll.downstreams) > 0
-        assert "test_instance.db1.dbo.real_table" in cll.upstreams[0]
-        assert "test_instance.db1.dbo.another_real_table" in cll.downstreams[0]
+        # Both entries should have real_table as upstream and another_real_table as downstream
+        for cll in aspect.fineGrainedLineages:
+            assert cll.upstreams is not None and len(cll.upstreams) > 0
+            assert cll.downstreams is not None and len(cll.downstreams) > 0
+            assert "test_instance.db1.dbo.real_table" in cll.upstreams[0]
+            assert "test_instance.db1.dbo.another_real_table" in cll.downstreams[0]
 
     def test_filter_column_lineage_all_filtered(self, mssql_source):
         """Test that when all column lineage is filtered, fineGrainedLineages is None."""
