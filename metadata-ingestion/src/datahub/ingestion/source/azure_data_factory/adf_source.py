@@ -265,6 +265,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Generate workunits for all Azure Data Factory resources."""
+        logger.info(
+            f"Starting Azure Data Factory ingestion for subscription: {self.config.subscription_id}"
+        )
+        if self.config.resource_group:
+            logger.info(f"Filtering to resource group: {self.config.resource_group}")
 
         # Iterate over all factories
         for factory in self.client.get_factories(
@@ -285,6 +290,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             resource_group = self._extract_resource_group(factory.id)
 
             # Cache datasets and linked services for this factory
+            if self.config.include_lineage:
+                logger.info(f"Fetching lineage resources for factory: {factory.name}")
             self._cache_factory_resources(resource_group, factory.name)
 
             # Emit factory as container and get the Container object for browse paths
@@ -292,6 +299,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             yield from container_workunits
 
             # Process pipelines, passing the Container for proper browse path hierarchy
+            logger.info(
+                f"Extracting pipelines and activities for factory: {factory.name}"
+            )
             yield from self._process_pipelines(factory, resource_group, container)
 
             # Process execution history if enabled
@@ -1029,7 +1039,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Process pipeline execution history for a factory."""
         logger.info(
-            f"Processing execution history for factory: {factory.name} "
+            f"Fetching execution history for factory: {factory.name} "
             f"(last {self.config.execution_history_days} days)"
         )
 
