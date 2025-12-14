@@ -120,10 +120,16 @@ TSQL_CONTROL_FLOW_KEYWORDS = {
     "WAITFOR",
 }
 
+# Sort keywords by length descending to ensure longest match wins
+# This prevents shorter keywords from matching first (e.g., "BEGIN" before "BEGIN TRANSACTION")
+_TSQL_CONTROL_FLOW_KEYWORDS_SORTED = sorted(
+    TSQL_CONTROL_FLOW_KEYWORDS, key=len, reverse=True
+)
+
 
 def _is_tsql_control_flow_statement(stmt_upper: str) -> bool:
     """Check if statement starts with a TSQL control flow keyword with word boundary."""
-    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+    for kw in _TSQL_CONTROL_FLOW_KEYWORDS_SORTED:
         if stmt_upper.startswith(kw):
             if len(stmt_upper) == len(kw):
                 return True
@@ -135,9 +141,7 @@ def _is_tsql_control_flow_statement(stmt_upper: str) -> bool:
 
 def _contains_control_flow_keyword(sql_upper: str) -> bool:
     """Check if SQL contains any TSQL control flow keyword as a whole word."""
-    import re
-
-    for kw in TSQL_CONTROL_FLOW_KEYWORDS:
+    for kw in _TSQL_CONTROL_FLOW_KEYWORDS_SORTED:
         # Use word boundary regex to avoid matching substrings like TREND, SETTINGS
         pattern = r"\b" + re.escape(kw) + r"\b"
         if re.search(pattern, sql_upper):

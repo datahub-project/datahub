@@ -47,7 +47,12 @@ END
 
 
 def test_mssql_procedure_with_try_catch_multiple_dml() -> None:
-    """Test stored procedure with TRY/CATCH containing multiple DML statements."""
+    """Test stored procedure with TRY/CATCH containing multiple DML statements.
+
+    Note: This tests the raw parser output before alias filtering. The golden file
+    contains 'dst' aliases in the lineage, which is expected. These aliases are
+    filtered out later by the MSSQL source's _filter_procedure_lineage() method.
+    """
     assert_sql_result(
         """
 CREATE PROCEDURE dbo.ProcessMetrics

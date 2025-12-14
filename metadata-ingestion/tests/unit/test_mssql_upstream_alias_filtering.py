@@ -583,6 +583,8 @@ class TestColumnLineageFiltering:
 
         # Only the valid column lineage should remain (real table in schema_resolver)
         cll = aspect.fineGrainedLineages[0]
+        assert cll.upstreams is not None and len(cll.upstreams) > 0
+        assert cll.downstreams is not None and len(cll.downstreams) > 0
         assert "test_instance.db1.dbo.real_table" in cll.upstreams[0]
         assert "test_instance.db1.dbo.another_real_table" in cll.downstreams[0]
 

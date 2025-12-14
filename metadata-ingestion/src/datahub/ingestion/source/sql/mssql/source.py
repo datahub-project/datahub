@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator
@@ -65,6 +65,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # MSSQL uses 3-part naming: database.schema.table
 MSSQL_QUALIFIED_NAME_PARTS = 3
+# Limit upstreams logged for dropped column lineage entries to avoid log spam
+MAX_UPSTREAMS_TO_LOG = 3
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
@@ -715,24 +717,27 @@ class SQLServerSource(SQLAlchemySource):
     def _process_stored_procedure(
         self, conn: Connection, procedure: StoredProcedure
     ) -> Iterable[MetadataWorkUnit]:
-        # NOTE: upstream/downstream dependencies are now captured in lineage (DataJobInputOutput)
-        # via _get_stored_procedure_lineage(), so we don't need to query them here.
-        # The old properties "procedure_depends_on" and "depending_on_procedure" have been removed
-        # to avoid duplication.
+        upstream = self._get_procedure_upstream(conn, procedure)
+        downstream = self._get_procedure_downstream(conn, procedure)
         data_job = MSSQLDataJob(
             entity=procedure,
         )
-
+        # TODO: because of this upstream and downstream are more dependencies,
+        #  can't be used as DataJobInputOutput.
+        #  Should be reorganized into lineage.
+        data_job.add_property("procedure_depends_on", str(upstream.as_property))
+        data_job.add_property("depending_on_procedure", str(downstream.as_property))
         procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
         procedure.code = procedure_code
         if procedure_definition:
             data_job.add_property("definition", procedure_definition)
-        # NOTE: Procedure code is captured in the DataJob's sourceCode aspect,
-        # so we don't duplicate it as a property.
+        if procedure_code and self.config.include_stored_procedures_code:
+            data_job.add_property("code", procedure_code)
         procedure_inputs = self._get_procedure_inputs(conn, procedure)
         properties = self._get_procedure_properties(conn, procedure)
-        # NOTE: Input parameters are captured as individual properties below,
-        # so we don't need a redundant "input parameters" list property.
+        data_job.add_property(
+            "input parameters", str([param.name for param in procedure_inputs])
+        )
         for param in procedure_inputs:
             data_job.add_property(f"parameter {param.name}", str(param.properties))
         for property_name, property_value in properties.items():
@@ -1107,7 +1112,7 @@ class SQLServerSource(SQLAlchemySource):
         table_urn: str,
         column_name: str,
         aspect: DataJobInputOutputClass,
-        procedure_name: str,
+        procedure_name: Optional[str],
     ) -> List[str]:
         """Remap a column lineage entry from a filtered alias to real table(s).
 
@@ -1130,30 +1135,17 @@ class SQLServerSource(SQLAlchemySource):
         Returns:
             List of remapped field URNs
         """
-        remapped_urns = []
-
-        logger.info(
-            f"[COLUMN-REMAP-START] {procedure_name}: Remapping {table_urn}.{column_name}"
-        )
-        logger.info(
-            f"[COLUMN-REMAP-START]   Real downstream tables: {len(aspect.outputDatasets) if aspect.outputDatasets else 0}"
-        )
-        if aspect.outputDatasets:
-            for real_urn in aspect.outputDatasets:
-                logger.info(f"[COLUMN-REMAP-START]     {real_urn}")
+        remapped_urns: List[str] = []
 
         try:
             alias_key = dataset_urn_to_key(table_urn)
             if not alias_key:
                 logger.warning(
-                    f"[COLUMN-REMAP] {procedure_name}: Could not parse alias URN {table_urn}"
+                    f"Could not parse alias URN {table_urn} for column remapping in {procedure_name}"
                 )
                 return remapped_urns
 
             alias_table_name = alias_key.name.split(".")[-1]
-            logger.info(
-                f"[COLUMN-REMAP] {procedure_name}: Extracted alias table name: {alias_table_name}"
-            )
 
             # Find real tables with matching table name
             matching_tables = []
@@ -1171,10 +1163,6 @@ class SQLServerSource(SQLAlchemySource):
                     f"urn:li:schemaField:({matching_tables[0]},{column_name})"
                 )
                 remapped_urns.append(remapped_urn)
-                logger.info(
-                    f"[COLUMN-REMAP] {procedure_name}: Remapped column lineage from "
-                    f"alias {table_urn}.{column_name} → real table {matching_tables[0]}.{column_name}"
-                )
             elif len(matching_tables) > 1:
                 # Multiple matches - remap to all
                 for real_table_urn in matching_tables:
@@ -1183,8 +1171,8 @@ class SQLServerSource(SQLAlchemySource):
                     )
                     remapped_urns.append(remapped_urn)
                 logger.warning(
-                    f"[COLUMN-REMAP] {procedure_name}: Multiple tables match alias {alias_table_name}, "
-                    f"remapped to all {len(matching_tables)} matches for column {column_name}"
+                    f"Multiple tables match alias {alias_table_name} in {procedure_name}, "
+                    f"remapped column {column_name} to all {len(matching_tables)} matches"
                 )
             else:
                 # No table name match - fallback to all real tables
@@ -1195,18 +1183,18 @@ class SQLServerSource(SQLAlchemySource):
                         )
                         remapped_urns.append(remapped_urn)
                     logger.warning(
-                        f"[COLUMN-REMAP] {procedure_name}: No table name match for alias {alias_table_name}, "
-                        f"remapped to all {len(aspect.outputDatasets)} real tables for column {column_name}"
+                        f"No table name match for alias {alias_table_name} in {procedure_name}, "
+                        f"remapped column {column_name} to all {len(aspect.outputDatasets)} real tables"
                     )
         except Exception as e:
             logger.warning(
-                f"[COLUMN-REMAP] {procedure_name}: Error parsing alias URN {table_urn}: {e}"
+                f"Error parsing alias URN {table_urn} for column remapping in {procedure_name}: {e}"
             )
 
         if not remapped_urns:
             logger.warning(
-                f"[COLUMN-REMAP] {procedure_name}: Could not remap column lineage for "
-                f"filtered alias {table_urn}.{column_name} - no real downstream tables available"
+                f"Could not remap column lineage for filtered alias {table_urn}.{column_name} in {procedure_name} - "
+                f"no real downstream tables available"
             )
 
         return remapped_urns
@@ -1219,7 +1207,7 @@ class SQLServerSource(SQLAlchemySource):
         field_urn_pattern: re.Pattern,
         platform_instance: Optional[str],
         aspect: DataJobInputOutputClass,
-        procedure_name: str,
+        procedure_name: Optional[str],
     ) -> List[str]:
         """Filter and remap downstream fields in a column lineage entry.
 
@@ -1273,7 +1261,7 @@ class SQLServerSource(SQLAlchemySource):
         self,
         aspect: DataJobInputOutputClass,
         platform_instance: Optional[str],
-        procedure_name: str,
+        procedure_name: Optional[str],
         filtered_downstream_aliases: Optional[set] = None,
     ) -> None:
         """Filter column lineage (fineGrainedLineages) to remove aliases.
@@ -1384,7 +1372,7 @@ class SQLServerSource(SQLAlchemySource):
                     for ds in cll.downstreams:
                         logger.warning(f"[COLUMN-DROPPED]   Had downstream: {ds}")
                 if cll.upstreams:
-                    for us in cll.upstreams[:3]:  # Only first 3 to avoid log spam
+                    for us in cll.upstreams[:MAX_UPSTREAMS_TO_LOG]:
                         logger.warning(f"[COLUMN-DROPPED]   Had upstream: {us}")
 
         filtered_cll_count = len(filtered_column_lineage)
@@ -1402,7 +1390,7 @@ class SQLServerSource(SQLAlchemySource):
         self,
         mcps: Iterable[MetadataChangeProposalWrapper],
         procedure_name: Optional[str] = None,
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    ) -> Iterator[MetadataChangeProposalWrapper]:
         """Filter out unqualified table URNs from stored procedure lineage.
 
         TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
@@ -1525,7 +1513,12 @@ class SQLServerSource(SQLAlchemySource):
             self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
     def is_temp_table(self, name: str) -> bool:
-        """Check if a table name refers to a temp table or unresolved alias."""
+        """Check if a table name refers to a temp table or unresolved alias.
+
+        Note: This method is called for each upstream table during lineage filtering.
+        If profiling shows this as a bottleneck, consider caching parsed URNs or
+        standardized names to reduce redundant processing.
+        """
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern

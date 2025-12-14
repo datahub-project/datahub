@@ -1396,7 +1396,9 @@ class SqlParsingAggregator(Closeable):
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        query_ids = self._lineage_map.get(downstream_urn, set())
+        query_ids: OrderedSet[QueryId] = self._lineage_map.get(
+            downstream_urn, OrderedSet()
+        )
 
         if not self.is_allowed_table(downstream_urn):
             self.report.num_lineage_skipped_due_to_filters += 1
