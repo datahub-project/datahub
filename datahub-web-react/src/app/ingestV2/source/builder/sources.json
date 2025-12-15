@@ -453,6 +453,7 @@
         "urn": "urn:li:dataPlatform:grafana",
         "name": "grafana",
         "displayName": "Grafana",
+        "description": "Import Dashboards, Charts, and Data sources from Grafana",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/grafana/",
         "recipe": "source:\n    type: \"grafana\"\n    config:\n        url: \"https://grafana.company.com:443\"\n        service_account_token: token\n        verify_ssl: true",
         "category": "Miscellaneous",
@@ -500,5 +501,35 @@
         "category": "Orchestration",
         "isPopular": false,
         "isExternal": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:s3",
+        "name": "s3",
+        "displayName": "S3",
+        "description": "Import Datasets, Folders, S3 Buckets, and inferred schemas from S3.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/s3",
+        "recipe": "source:\n  type: s3\n  config:\n    path_specs:\n      - include: \"s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*\"\n\n    aws_config:\n      aws_access_key_id: key_id\n      aws_secret_access_key: access_key\n      aws_region: us-east-2\n    env: \"PROD\"\n    profiling:\n      enabled: false",
+        "category": "Data Lake",
+        "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:sagemaker",
+        "name": "sagemaker",
+        "displayName": "SageMaker",
+        "description": "Import Feature Groups, Models, Jobs, and lineage from SageMaker.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sagemaker",
+        "recipe": "source:\n  type: sagemaker\n  config:\n    # Coordinates\n    aws_region: \"my-aws-region\"",
+        "category": "ML Platforms",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:feast",
+        "name": "feast",
+        "displayName": "Feast",
+        "description": "Import Feature Tables, Features, Entities, and Data Sources from Feast.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/feast",
+        "recipe": "source:\n  type: feast\n  config:\n    # Coordinates\n    path: \"/path/to/repository/\"\n    # Options\n    environment: \"PROD\"",
+        "category": "ML Platforms",
+        "isPopular": false
     }
 ]

@@ -19,6 +19,7 @@ import {
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { SourceConfig } from '@app/ingestV2/source/builder/types';
 
 const StepContainer = styled.div`
     display: flex;
