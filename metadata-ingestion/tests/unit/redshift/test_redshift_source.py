@@ -1,11 +1,15 @@
 from typing import Iterable
 
+from datahub._version import __version__
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
-from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
+from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftTable,
+    _add_redshift_query_tag,
+)
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
@@ -61,3 +65,10 @@ def test_gen_dataset_workunits_patch_custom_properties_upsert():
             custom_props_exist = True
 
     assert custom_props_exist
+
+
+def test_add_redshift_query_tag() -> None:
+    query = "SELECT * FROM test_table"
+    tagged_query = _add_redshift_query_tag(query)
+    expected_tag = f"-- partner: DataHub -v {__version__}\n"
+    assert tagged_query == expected_tag + query

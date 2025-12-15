@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -93,4 +94,19 @@ query_vs_cursor_mocker = {
 
 
 def mock_cursor(cursor: MagicMock, query: str) -> None:
-    query_vs_cursor_mocker[query](cursor=cursor)
+    # Strip query tag if present (format: "-- partner: DataHub -v <version>\n")
+    # This allows the mock to work with both tagged and untagged queries.
+    query_without_tag = re.sub(r"^-- partner: DataHub -v [^\n]+\n", "", query, count=1)
+
+    # Prefer matching the untagged query (our fixtures are stored untagged),
+    # but fall back to the original string for compatibility.
+    query_key = (
+        query_without_tag if query_without_tag in query_vs_cursor_mocker else query
+    )
+    if query_key not in query_vs_cursor_mocker:
+        raise KeyError(
+            "Query not found in mock dictionary. "
+            f"Query (first 200 chars): {query[:200]}..."
+        )
+
+    query_vs_cursor_mocker[query_key](cursor=cursor)
