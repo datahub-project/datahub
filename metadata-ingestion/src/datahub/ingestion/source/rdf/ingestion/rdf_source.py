@@ -39,6 +39,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -160,7 +161,9 @@ class RDFSourceConfig(
             except ValueError as e:
                 valid_dialects = [d.value for d in RDFDialect]
                 raise ValueError(
-                    f"Invalid dialect '{v}'. Must be one of: {valid_dialects}"
+                    f"Invalid dialect '{v}'. Must be one of: {', '.join(valid_dialects)}. "
+                    f"Please check the dialect value and ensure it matches one of the supported RDF dialects. "
+                    f"If unsure, omit this field to use the default dialect detection."
                 ) from e
         return v
 
@@ -179,8 +182,11 @@ class RDFSourceConfig(
 
             for entity_type in v:
                 if entity_type not in valid_types:
+                    valid_types_str = ", ".join(sorted(valid_types))
                     raise ValueError(
-                        f"Invalid entity type '{entity_type}'. Must be one of: {sorted(valid_types)}"
+                        f"Invalid entity type '{entity_type}'. Must be one of: {valid_types_str}. "
+                        f"Please check the entity type name and ensure it matches one of the supported types. "
+                        f"Supported entity types are: {valid_types_str}."
                     )
         return v
 
@@ -279,7 +285,7 @@ class RDFSourceReport(StaleEntityRemovalSourceReport):
     "Not supported",
     supported=False,
 )
-class RDFSource(StatefulIngestionSourceBase):
+class RDFSource(StatefulIngestionSourceBase, TestableSource):
     """
     DataHub ingestion source for RDF ontologies.
 
