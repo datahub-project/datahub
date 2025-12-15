@@ -370,6 +370,22 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       DEBEZIUM_CONFIG_OVERRIDE: mclProcessing.cdcSource.debeziumConfig.mysqlConfig
+  system-update-quickstart-elasticsearch:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-elasticsearch
+    environment:
+      <<: *datahub-system-update-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
+    depends_on:
+      mysql-setup:
+        condition: service_completed_successfully
+      elasticsearch-setup:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -585,6 +601,18 @@ services:
     depends_on:
       system-update-debug-neo4j:
         condition: service_completed_successfully
+  datahub-gms-quickstart-elasticsearch:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-elasticsearch
+    environment: &datahub-gms-quickstart-elasticsearch-env
+      <<: *datahub-gms-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+    depends_on:
+      system-update-quickstart-elasticsearch:
+        condition: service_completed_successfully
   datahub-gms-debug-elasticsearch:
     <<: *datahub-gms-service-dev
     profiles:
@@ -646,6 +674,16 @@ services:
     depends_on:
       datahub-gms-debug-consumers-cdc:
         condition: service_healthy
+  datahub-mae-consumer-quickstart-elasticsearch:
+    <<: *datahub-mae-consumer-service
+    environment:
+      <<: *datahub-mae-consumer-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
+    profiles:
+      - quickstart-elasticsearch
+    depends_on:
+      datahub-gms-quickstart-elasticsearch:
+        condition: service_healthy
 
   #################################
   # MCE Consumer
@@ -697,4 +735,14 @@ services:
       CDC_CONFIGURE_SOURCE: true
     depends_on:
       datahub-gms-debug-consumers-cdc:
+        condition: service_healthy
+  datahub-mce-consumer-quickstart-elasticsearch:
+    <<: *datahub-mce-consumer-service
+    environment:
+      <<: *datahub-mce-consumer-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
+    profiles:
+      - quickstart-elasticsearch
+    depends_on:
+      datahub-gms-quickstart-elasticsearch:
         condition: service_healthy
