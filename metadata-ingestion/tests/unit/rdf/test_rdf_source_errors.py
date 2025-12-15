@@ -42,7 +42,8 @@ class TestRDFSourceErrors:
         assert source.report.failures
         failure = source.report.failures[0]
         assert (
-            "not found" in failure.error.lower() or "not found" in str(failure).lower()
+            "not found" in failure.message.lower()
+            or "not found" in str(failure).lower()
         )
         # Error should be actionable
         assert failure.context is not None
