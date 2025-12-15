@@ -3835,9 +3835,9 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),tempid)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),ID)"
             ],
-            "transformOperation": "COPY: [salesreason].[tempid] AS [tempid]",
+            "transformOperation": "COPY: [salesreason].[tempid] AS [id]",
             "confidenceScore": 0.9
           },
           {
@@ -3847,21 +3847,10 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),name)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),ItemName)"
             ],
-            "transformOperation": "COPY: [salesreason].[name] AS [name]",
+            "transformOperation": "COPY: [salesreason].[name] AS [itemname]",
             "confidenceScore": 0.9
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.newdata.foonew.personsnew,PROD),age)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),Age)"
-            ],
-            "confidenceScore": 0.2
           }
         ]
       }
