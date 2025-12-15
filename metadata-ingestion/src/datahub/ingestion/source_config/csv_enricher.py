@@ -1,12 +1,19 @@
+from typing import Optional
+
 import pydantic
 from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 
 
 class CSVEnricherConfig(ConfigModel):
     filename: str = pydantic.Field(
-        description="File path or URL of CSV file to ingest."
+        description="File path, URL, or S3 URI (s3://bucket/path) of CSV file to ingest."
+    )
+    aws_config: Optional[AwsConnectionConfig] = pydantic.Field(
+        default=None,
+        description="AWS configuration for S3 access. Required when filename is an S3 URI (s3://).",
     )
     write_semantics: str = pydantic.Field(
         default="PATCH",
