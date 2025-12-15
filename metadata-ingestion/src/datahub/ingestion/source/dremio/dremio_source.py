@@ -76,12 +76,12 @@ logger = logging.getLogger(__name__)
 
 
 class DremioSchemaResolver(SchemaResolver):
-    """Custom schema resolver for Dremio that handles the 'dremio.' prefix correctly.
+    """Custom schema resolver for Dremio that handles the 'dremio.' prefix/infix correctly.
 
     Dremio always uses 'dremio' as the database, but SQL queries may reference tables
     without this prefix (e.g., MySource.sales.orders). This resolver ensures that
-    URNs are constructed with the 'dremio.' prefix regardless of how tables are
-    referenced in SQL.
+    URNs are constructed with 'dremio.' as a prefix (when no platform_instance) or
+    as an infix (when platform_instance is set, e.g., test-platform.dremio.space.table).
     """
 
     def get_urn_for_table(
