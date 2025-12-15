@@ -6,9 +6,9 @@ import styled from 'styled-components';
 
 import { CustomAvatar } from '@app/shared/avatar';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
 import { ActorFilter, CorpGroup, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
 
@@ -69,11 +69,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Search for actors while building policy.
     const [userSearch, { data: userSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsForMultipleLazyQuery();
-    const { data: ownershipData } = useListOwnershipTypesQuery({
-        variables: {
-            input: {},
-        },
-    });
+    const { data: ownershipData } = useOwnershipTypes();
     const ownershipTypes =
         ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
