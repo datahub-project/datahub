@@ -6,6 +6,12 @@ query getDocument($urn: String!, $includeParentDocuments: Boolean = false) {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         settings {
             showInGlobalContext
         }
