@@ -1591,6 +1591,7 @@ describe('getNewIngestionSourcePlaceholder', () => {
             platform: null,
             executions: null,
             source: null,
+            privileges: null,
             config: {
                 executorId: '',
                 recipe: '',

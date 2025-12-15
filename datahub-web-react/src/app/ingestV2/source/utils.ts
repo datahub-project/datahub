@@ -671,6 +671,7 @@ export const getNewIngestionSourcePlaceholder = (
         platform: null,
         executions: null,
         source: null,
+        privileges: null,
         ownership: {
             owners: buildOwnerEntities(urn, data.owners, defaultOwnershipType),
             lastModified: {
