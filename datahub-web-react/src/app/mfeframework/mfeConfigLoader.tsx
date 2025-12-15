@@ -1,8 +1,9 @@
 import yaml from 'js-yaml';
 import React, { useEffect, useState } from 'react';
-import { Route } from 'react-router';
+import { Route, Switch } from 'react-router';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
+import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export interface MFEFlags {
@@ -127,12 +128,20 @@ export function useDynamicRoutes(): JSX.Element[] {
     if (!mfeConfig) return [];
     // TODO- Reintroduce useMemo() hook here. Make it work with getting yaml from api as a react hook.
     return mfeConfig.microFrontends.map((mfe) => (
-        <Route key={mfe.path} path={`/mfe${mfe.path}`} render={() => <MFEBaseConfigurablePage config={mfe} />} />
+        <Route key={mfe.path} path={`/mfe${mfe.path}`} exact render={() => <MFEBaseConfigurablePage config={mfe} />} />
     ));
 }
 
 export const MFERoutes = () => {
     const routes = useDynamicRoutes();
     console.log('[DynamicRoute] Generated Routes:', routes);
-    return <>{routes}</>;
+    if (routes.length === 0) {
+        return null;
+    }
+    return (
+        <Switch>
+            {routes}
+            <Route path="/*" component={NoPageFound} />
+        </Switch>
+    );
 };
