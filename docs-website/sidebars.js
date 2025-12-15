@@ -958,11 +958,7 @@ module.exports = {
       link: { type: "doc", id: "docs/cli" },
       items: [
         "docs/cli-commands/dataset",
-<<<<<<< HEAD
         "docs/cli-commands/graphql",
-=======
-        "docs/cli-commands/document",
->>>>>>> 10ce33316a (Adding Python SDKs, CLI, and docs for documents)
         "docs/datahub_lite",
       ],
     },
