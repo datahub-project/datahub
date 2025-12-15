@@ -1,33 +1,65 @@
 # Inlined from metadata-ingestion/examples/library/search_documents.py
-from datahub.api.entities.document import Document
-from datahub.ingestion.graph.client import get_default_graph
+"""Example: Searching documents using the DataHub SDK.
 
-# Initialize the graph client
-graph = get_default_graph()
+This example demonstrates how to search for documents using the DataHub SDK.
+"""
 
-# Create a Document API instance
-doc_api = Document(graph=graph)
+from datahub.sdk import DataHubClient, FilterDsl
 
-# Search for documents with a text query
-results = doc_api.search(query="data quality", start=0, count=10)
+# Initialize the client
+client = DataHubClient.from_env()
 
-print(f"Found {results['total']} documents")
-for doc in results["documents"]:
-    print(f"  - {doc['info']['title']} ({doc['urn']})")
-
-# Search with filters
-results = doc_api.search(
-    query="tutorial", types=["Tutorial"], states=["PUBLISHED"], count=20
+# ============================================================================
+# Example 1: Search for all documents
+# ============================================================================
+# Use get_urns with entity type filter to find documents
+document_urns = client.search.get_urns(
+    filter=FilterDsl.entity_type("document"),
 )
 
-print(f"\nPublished tutorials: {results['total']}")
+print("All documents:")
+for urn in document_urns:
+    print(f"  - {urn}")
 
-# Search by domain
-results = doc_api.search(domains=["urn:li:domain:engineering"], states=["PUBLISHED"])
+# ============================================================================
+# Example 2: Search with a text query
+# ============================================================================
+# Search for documents matching "data quality"
+document_urns = client.search.get_urns(
+    query="data quality",
+    filter=FilterDsl.entity_type("document"),
+)
 
-print(f"\nEngineering domain documents: {results['total']}")
+print("\nDocuments matching 'data quality':")
+for urn in document_urns:
+    # Get the full document to see title (urn is already a DocumentUrn)
+    doc = client.entities.get(urn)
+    print(f"  - {doc.title} ({urn})")
 
-# Search by owner
-results = doc_api.search()
+# ============================================================================
+# Example 3: Search within a specific domain
+# ============================================================================
+document_urns = client.search.get_urns(
+    filter=FilterDsl.and_(
+        FilterDsl.entity_type("document"),
+        FilterDsl.domain("urn:li:domain:engineering"),
+    ),
+)
 
-print(f"\nDocuments owned by John: {results['total']}")
+print("\nDocuments in engineering domain:")
+for urn in document_urns:
+    print(f"  - {urn}")
+
+# ============================================================================
+# Example 4: Search with tags
+# ============================================================================
+document_urns = client.search.get_urns(
+    filter=FilterDsl.and_(
+        FilterDsl.entity_type("document"),
+        FilterDsl.tag("urn:li:tag:important"),
+    ),
+)
+
+print("\nDocuments with 'important' tag:")
+for urn in document_urns:
+    print(f"  - {urn}")

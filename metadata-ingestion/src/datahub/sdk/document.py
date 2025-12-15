@@ -1,15 +1,66 @@
-"""Document entity SDK for DataHub."""
+"""Document entity SDK for DataHub.
+
+This module provides a high-level API for creating and managing Document entities
+in DataHub. Documents can be either native (created in DataHub) or external
+(references to documents stored in external systems like Notion, Confluence, etc.).
+
+Key Features:
+- Create native documents with full text content stored in DataHub
+- Create external document references that link to content in other platforms
+- Control document visibility in global context (search, sidebar navigation)
+- Organize documents hierarchically with parent-child relationships
+- Link documents to related assets and other documents
+- Manage document lifecycle (published/unpublished status)
+
+Example - Native document::
+
+    from datahub.sdk import Document
+
+    doc = Document.create_document(
+        id="getting-started-guide",
+        title="Getting Started with DataHub",
+        text="# Welcome\\n\\nThis guide will help you get started...",
+    )
+
+Example - External document (from Notion, Confluence, etc.)::
+
+    from datahub.sdk import Document
+
+    doc = Document.create_external_document(
+        id="notion-team-handbook",
+        title="Team Handbook",
+        platform="urn:li:dataPlatform:notion",
+        external_url="https://notion.so/team-handbook",
+        external_id="abc123",
+        text="Summary of the handbook content...",  # Optional
+    )
+
+Example - Document hidden from global context (AI-only access)::
+
+    from datahub.sdk import Document
+
+    # This document won't appear in search or sidebar navigation.
+    # It's only accessible via related assets - useful for AI agent context.
+    doc = Document.create_document(
+        id="dataset-context-doc",
+        title="Dataset Context for AI",
+        text="This dataset contains customer orders...",
+        show_in_global_context=False,
+        related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"],
+    )
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Optional, Type
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Type, Union
 
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
-from datahub.metadata.urns import DocumentUrn
+from datahub.metadata.urns import DataPlatformUrn, DocumentUrn, Urn
 from datahub.sdk._shared import (
+    ActorUrnOrStr,
     DomainInputType,
     HasDomain,
     HasOwnership,
@@ -26,7 +77,15 @@ from datahub.sdk._shared import (
     TermsInputType,
     make_time_stamp,
 )
+from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.entity import Entity, ExtraAspectsType
+
+# Type aliases for document-specific inputs
+RelatedAssetInputType = Union[str, Urn]
+RelatedAssetsInputType = Sequence[RelatedAssetInputType]
+RelatedDocumentInputType = Union[str, DocumentUrn]
+RelatedDocumentsInputType = Sequence[RelatedDocumentInputType]
+PlatformInputType = Union[str, DataPlatformUrn]
 
 
 class Document(
@@ -40,31 +99,43 @@ class Document(
 ):
     """Represents a Document entity in DataHub.
 
-    Documents are used to represent unstructured content such as PDFs, Word documents,
-    text files, and other document types. They can store full text content, metadata,
-    and can be organized hierarchically.
+    Documents are used to store knowledge content such as tutorials, FAQs,
+    runbooks, and other documentation. They support full-text search and can be
+    organized hierarchically.
 
-    Example:
-        Create a new document::
+    There are two types of documents:
 
-            doc = Document.create(
-                id="my-document-123",
-                title="Q4 Financial Report",
-                text="Full document text content...",
-                source_url="s3://my-bucket/reports/q4.pdf",
-                custom_properties={"file_type": "pdf", "page_count": "45"}
-            )
+    **Native Documents** (created with :meth:`create_document`):
+        Created and stored directly in DataHub. Full content is indexed and searchable.
+        Use these for documentation authored in DataHub.
 
-        Add tags and ownership::
+    **External Documents** (created with :meth:`create_external_document`):
+        References to documents stored in external systems like Notion, Confluence,
+        or Google Docs. The external URL links to the original content.
 
-            doc.add_tag("Financial").add_tag("Quarterly")
-            doc.add_owner("urn:li:corpuser:jdoe")
+    Both types support:
+        - Visibility control (show/hide in global search and sidebar)
+        - Related assets (link to datasets, dashboards, etc.)
+        - Related documents (link to other documents)
+        - Tags, owners, domains, and glossary terms
 
-        Convert to work units for ingestion::
+    Example::
 
-            for wu in doc.to_work_units():
-                emitter.emit(wu)
+        from datahub.sdk import DataHubClient, Document
+
+        # Create a native document
+        doc = Document.create_document(
+            id="my-doc",
+            title="My Document",
+            text="Document content...",
+        )
+
+        # Emit to DataHub
+        client = DataHubClient.from_env()
+        client.entities.upsert(doc)
     """
+
+    __slots__ = ()
 
     def __init__(self, urn: DocumentUrn):
         """Initialize a Document entity.
@@ -89,23 +160,25 @@ class Document(
 
     @classmethod
     def get_urn_type(cls) -> Type[DocumentUrn]:
+        """Get the URN type for Document entities."""
         return DocumentUrn
 
     @classmethod
-    def create(
+    def _create_base(
         cls,
         *,
         id: str,
         title: str,
         text: str,
-        source_url: Optional[str] = None,
-        source_id: Optional[str] = None,
-        status: str = models.DocumentStateClass.PUBLISHED,
+        source: Optional[models.DocumentSourceClass],
+        status: str = models.DocumentStateClass.UNPUBLISHED,
         custom_properties: Optional[Dict[str, str]] = None,
         parent_document: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-        modified_at: Optional[datetime] = None,
-        actor: str = "urn:li:corpuser:datahub",
+        related_assets: Optional[RelatedAssetsInputType] = None,
+        related_documents: Optional[RelatedDocumentsInputType] = None,
+        show_in_global_context: bool = True,
+        actor: ActorUrnOrStr = DEFAULT_ACTOR_URN,
+        subtype: Optional[str] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         owners: Optional[OwnersInputType] = None,
@@ -113,50 +186,25 @@ class Document(
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: Optional[ExtraAspectsType] = None,
     ) -> Self:
-        """Create a new Document entity.
-
-        Args:
-            id: Unique identifier for the document
-            title: Document title
-            text: Full text content of the document
-            source_url: External URL where the document is stored
-            source_id: External identifier for the document
-            status: Publication status (PUBLISHED or UNPUBLISHED)
-            custom_properties: Custom key-value properties
-            parent_document: URN of parent document (for hierarchies)
-            created_at: Creation timestamp
-            modified_at: Last modification timestamp
-            actor: Actor URN for audit stamps
-            tags: Tags to add
-            terms: Glossary terms to add
-            owners: Owners to add
-            domain: Domain to assign
-            structured_properties: Structured properties to add
-            extra_aspects: Additional aspects to include
-
-        Returns:
-            A new Document entity instance
-        """
+        """Internal method to create a Document with all options."""
         urn = DocumentUrn(id)
         doc = cls(urn=urn)
 
-        # Create DocumentInfo aspect
+        # Create timestamps - auto-generated, not user-configurable
         now = datetime.now()
-        created_stamp = (
-            make_time_stamp(created_at) if created_at else make_time_stamp(now)
-        )
-        modified_stamp = (
-            make_time_stamp(modified_at) if modified_at else make_time_stamp(now)
-        )
+        created_stamp = make_time_stamp(now)
+        modified_stamp = make_time_stamp(now)
 
-        # Build DocumentSource if URL or ID provided
-        document_source = None
-        if source_url or source_id:
-            document_source = models.DocumentSourceClass(
-                sourceType=models.DocumentSourceTypeClass.EXTERNAL,
-                externalUrl=source_url,
-                externalId=source_id,
-            )
+        if not created_stamp or not modified_stamp:
+            raise ValueError("Failed to create timestamp")
+
+        # Build audit stamps
+        created_audit = models.AuditStampClass(
+            time=created_stamp.time, actor=str(actor)
+        )
+        modified_audit = models.AuditStampClass(
+            time=modified_stamp.time, actor=str(actor)
+        )
 
         # Build DocumentStatus
         document_status = models.DocumentStatusClass(state=status)
@@ -169,24 +217,52 @@ class Document(
         if parent_document:
             parent_doc = models.ParentDocumentClass(document=parent_document)
 
-        # Build audit stamps
-        if not created_stamp or not modified_stamp:
-            raise ValueError("Failed to create timestamp")
-        audit_stamp = models.AuditStampClass(time=created_stamp.time, actor=actor)
+        # Build RelatedAssets if specified
+        related_assets_list = None
+        if related_assets:
+            related_assets_list = [
+                models.RelatedAssetClass(asset=str(asset)) for asset in related_assets
+            ]
+
+        # Build RelatedDocuments if specified
+        related_documents_list = None
+        if related_documents:
+            related_documents_list = [
+                models.RelatedDocumentClass(document=str(doc_urn))
+                for doc_urn in related_documents
+            ]
 
         # Create DocumentInfo
         document_info = models.DocumentInfoClass(
             title=title,
-            source=document_source,
+            source=source,
             status=document_status,
             contents=document_contents,
             customProperties=custom_properties or {},
-            created=audit_stamp,
-            lastModified=models.AuditStampClass(time=modified_stamp.time, actor=actor),
+            created=created_audit,
+            lastModified=modified_audit,
             parentDocument=parent_doc,
+            relatedAssets=related_assets_list,
+            relatedDocuments=related_documents_list,
         )
 
         doc._set_aspect(document_info)
+
+        # Create DocumentSettings - always set if show_in_global_context is False
+        # This controls whether the document appears in global search and sidebar
+        if not show_in_global_context:
+            settings_audit = models.AuditStampClass(
+                time=modified_stamp.time, actor=str(actor)
+            )
+            document_settings = models.DocumentSettingsClass(
+                showInGlobalContext=show_in_global_context,
+                lastModified=settings_audit,
+            )
+            doc._set_aspect(document_settings)
+
+        # Set subtype if specified
+        if subtype:
+            doc.set_subtype(subtype)
 
         # Add tags, terms, owners, domain, structured properties
         if tags:
@@ -198,7 +274,8 @@ class Document(
         if domain:
             doc.set_domain(domain)
         if structured_properties:
-            doc.set_structured_properties(structured_properties)
+            for prop_urn, values in structured_properties.items():
+                doc.set_structured_property(prop_urn, values)
 
         # Add extra aspects
         if extra_aspects:
@@ -207,31 +284,269 @@ class Document(
 
         return doc
 
+    @classmethod
+    def create_document(
+        cls,
+        *,
+        id: str,
+        title: str,
+        text: str,
+        status: str = models.DocumentStateClass.PUBLISHED,
+        show_in_global_context: bool = True,
+        subtype: Optional[str] = None,
+        parent_document: Optional[str] = None,
+        related_assets: Optional[RelatedAssetsInputType] = None,
+        related_documents: Optional[RelatedDocumentsInputType] = None,
+        owners: Optional[OwnersInputType] = None,
+        tags: Optional[TagsInputType] = None,
+        terms: Optional[TermsInputType] = None,
+        domain: Optional[DomainInputType] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: Optional[ExtraAspectsType] = None,
+    ) -> Self:
+        """Create a native document stored in DataHub.
+
+        Native documents are created and managed directly in DataHub. The full text
+        content is stored and indexed for search. These are ideal for documentation
+        authored directly in DataHub's knowledge base.
+
+        Args:
+            id: Unique identifier for the document (used in URN)
+            title: Document title (displayed in search results and navigation)
+            text: Full text content of the document (supports markdown)
+            status: Publication status - "PUBLISHED" or "UNPUBLISHED" (default: PUBLISHED)
+            show_in_global_context: If True, document appears in global search and
+                sidebar navigation. If False, document is only accessible via related
+                assets - useful for AI-only context documents. (default: True)
+            subtype: Document sub-type (e.g., "FAQ", "Tutorial", "Runbook")
+            parent_document: URN of parent document (for hierarchical organization)
+            related_assets: URNs of related data assets (datasets, dashboards, etc.)
+            related_documents: URNs of related documents
+            owners: Owners of the document
+            tags: Tags to add to the document
+            terms: Glossary terms to associate
+            domain: Domain to assign
+            custom_properties: Custom key-value metadata
+            structured_properties: Structured properties to add
+            extra_aspects: Additional aspects to include
+
+        Returns:
+            A new Document entity instance
+
+        Example - Basic document::
+
+            doc = Document.create_document(
+                id="getting-started",
+                title="Getting Started Guide",
+                text="# Getting Started\\n\\nWelcome to DataHub!",
+            )
+
+        Example - Document with metadata::
+
+            doc = Document.create_document(
+                id="data-quality-faq",
+                title="Data Quality FAQ",
+                text="# FAQ\\n\\n## How do we measure quality?\\n...",
+                subtype="FAQ",
+                owners=["urn:li:corpuser:datateam"],
+                tags=["urn:li:tag:DataQuality"],
+                domain="urn:li:domain:data-governance",
+            )
+
+        Example - AI-only context document (hidden from global search)::
+
+            doc = Document.create_document(
+                id="orders-dataset-context",
+                title="Orders Dataset Context",
+                text="This dataset contains daily order summaries...",
+                show_in_global_context=False,
+                related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"],
+            )
+        """
+        # Native documents have NATIVE source type
+        source = models.DocumentSourceClass(
+            sourceType=models.DocumentSourceTypeClass.NATIVE,
+        )
+
+        return cls._create_base(
+            id=id,
+            title=title,
+            text=text,
+            source=source,
+            status=status,
+            custom_properties=custom_properties,
+            parent_document=parent_document,
+            related_assets=related_assets,
+            related_documents=related_documents,
+            show_in_global_context=show_in_global_context,
+            subtype=subtype,
+            tags=tags,
+            terms=terms,
+            owners=owners,
+            domain=domain,
+            structured_properties=structured_properties,
+            extra_aspects=extra_aspects,
+        )
+
+    @classmethod
+    def create_external_document(
+        cls,
+        *,
+        id: str,
+        title: str,
+        platform: PlatformInputType,
+        external_url: str,
+        external_id: Optional[str] = None,
+        text: Optional[str] = None,
+        status: str = models.DocumentStateClass.PUBLISHED,
+        show_in_global_context: bool = True,
+        subtype: Optional[str] = None,
+        parent_document: Optional[str] = None,
+        related_assets: Optional[RelatedAssetsInputType] = None,
+        related_documents: Optional[RelatedDocumentsInputType] = None,
+        owners: Optional[OwnersInputType] = None,
+        tags: Optional[TagsInputType] = None,
+        terms: Optional[TermsInputType] = None,
+        domain: Optional[DomainInputType] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: Optional[ExtraAspectsType] = None,
+    ) -> Self:
+        """Create an external document reference.
+
+        External documents are references to content stored in external systems like
+        Notion, Confluence, Google Docs, or SharePoint. The external URL links to the
+        original content. You can optionally include the text content for indexing
+        and search.
+
+        Args:
+            id: Unique identifier for the document (used in URN)
+            title: Document title
+            platform: The data platform URN or name (e.g., "notion" or "urn:li:dataPlatform:notion")
+            external_url: URL to the document in the external system
+            external_id: Unique identifier in the external system (optional)
+            text: Text content for indexing (optional - can be synced from source)
+            status: Publication status (default: PUBLISHED)
+            show_in_global_context: If True, document appears in global search and
+                sidebar navigation. (default: True)
+            subtype: Document sub-type (e.g., "Runbook", "Reference")
+            parent_document: URN of parent document
+            related_assets: URNs of related data assets
+            related_documents: URNs of related documents
+            owners: Owners of the document
+            tags: Tags to add
+            terms: Glossary terms to associate
+            domain: Domain to assign
+            custom_properties: Custom key-value metadata
+            structured_properties: Structured properties to add
+            extra_aspects: Additional aspects to include
+
+        Returns:
+            A new Document entity instance
+
+        Example - Notion document::
+
+            doc = Document.create_external_document(
+                id="notion-team-handbook",
+                title="Engineering Handbook",
+                platform="notion",  # or "urn:li:dataPlatform:notion"
+                external_url="https://notion.so/team/engineering-handbook",
+                external_id="notion-page-abc123",
+                text="Summary of the handbook for search...",
+            )
+
+        Example - Confluence document::
+
+            doc = Document.create_external_document(
+                id="confluence-runbook",
+                title="Incident Runbook",
+                platform="confluence",
+                external_url="https://company.atlassian.net/wiki/spaces/ENG/pages/123",
+                owners=["urn:li:corpuser:oncall-team"],
+            )
+        """
+        # Validate/parse platform - allow shorthand like "notion"
+        if isinstance(platform, str):
+            if not platform.startswith("urn:li:dataPlatform:"):
+                platform = f"urn:li:dataPlatform:{platform}"
+            # Validate the URN format
+            DataPlatformUrn.from_string(platform)
+
+        # External documents have EXTERNAL source type
+        source = models.DocumentSourceClass(
+            sourceType=models.DocumentSourceTypeClass.EXTERNAL,
+            externalUrl=external_url,
+            externalId=external_id,
+        )
+
+        # Text is optional for external documents - use empty string if not provided
+        doc_text = text if text is not None else ""
+
+        return cls._create_base(
+            id=id,
+            title=title,
+            text=doc_text,
+            source=source,
+            status=status,
+            custom_properties=custom_properties,
+            parent_document=parent_document,
+            related_assets=related_assets,
+            related_documents=related_documents,
+            show_in_global_context=show_in_global_context,
+            subtype=subtype,
+            tags=tags,
+            terms=terms,
+            owners=owners,
+            domain=domain,
+            structured_properties=structured_properties,
+            extra_aspects=extra_aspects,
+        )
+
     @property
     def id(self) -> str:
         """Get the document ID."""
         assert isinstance(self.urn, DocumentUrn)
         return self.urn.id
 
-    def document_info(self) -> models.DocumentInfoClass:
-        """Get the DocumentInfo aspect.
+    def _get_document_info(self) -> Optional[models.DocumentInfoClass]:
+        """Get the DocumentInfo aspect if it exists."""
+        return self._get_aspect(models.DocumentInfoClass)
+
+    def _ensure_document_info(self) -> models.DocumentInfoClass:
+        """Get or create the DocumentInfo aspect.
 
         Returns:
             The DocumentInfo aspect
 
         Raises:
-            ValueError: If DocumentInfo aspect is not set
+            ValueError: If DocumentInfo aspect doesn't exist and can't be created
         """
-        doc_info = self._get_aspect(models.DocumentInfoClass)
+        doc_info = self._get_document_info()
         if doc_info is None:
-            raise ValueError("DocumentInfo aspect must be set")
+            raise ValueError(
+                "DocumentInfo aspect must be set. "
+                "Use Document.create_document() or Document.create_external_document() to create a document."
+            )
         return doc_info
 
-    def title(self) -> str:
+    def _get_document_settings(self) -> Optional[models.DocumentSettingsClass]:
+        """Get the DocumentSettings aspect if it exists."""
+        return self._get_aspect(models.DocumentSettingsClass)
+
+    def _ensure_document_settings(self) -> models.DocumentSettingsClass:
+        """Get or create the DocumentSettings aspect."""
+        settings = self._get_document_settings()
+        if settings is None:
+            settings = models.DocumentSettingsClass(showInGlobalContext=True)
+            self._set_aspect(settings)
+        return settings
+
+    @property
+    def title(self) -> Optional[str]:
         """Get the document title."""
-        title = self.document_info().title
-        assert title is not None, "Document title must be set"
-        return title
+        doc_info = self._get_document_info()
+        return doc_info.title if doc_info else None
 
     def set_title(self, title: str) -> Self:
         """Set the document title.
@@ -242,16 +557,17 @@ class Document(
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
+        doc_info = self._ensure_document_info()
         doc_info.title = title
         return self
 
-    def text(self) -> str:
+    @property
+    def text(self) -> Optional[str]:
         """Get the document text content."""
-        doc_info = self.document_info()
-        if doc_info.contents:
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.contents:
             return doc_info.contents.text
-        return ""
+        return None
 
     def set_text(self, text: str) -> Self:
         """Set the document text content.
@@ -262,17 +578,20 @@ class Document(
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
+        doc_info = self._ensure_document_info()
         if doc_info.contents:
             doc_info.contents.text = text
         else:
             doc_info.contents = models.DocumentContentsClass(text=text)
         return self
 
+    @property
     def custom_properties(self) -> Dict[str, str]:
         """Get the document's custom properties."""
-        doc_info = self.document_info()
-        return doc_info.customProperties or {}
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.customProperties:
+            return doc_info.customProperties
+        return {}
 
     def set_custom_property(self, key: str, value: str) -> Self:
         """Set a custom property.
@@ -284,7 +603,7 @@ class Document(
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
+        doc_info = self._ensure_document_info()
         if doc_info.customProperties is None:
             doc_info.customProperties = {}
         doc_info.customProperties[key] = value
@@ -299,71 +618,93 @@ class Document(
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
+        doc_info = self._ensure_document_info()
         if doc_info.customProperties is None:
             doc_info.customProperties = {}
         doc_info.customProperties.update(properties)
         return self
 
+    @property
     def parent_document(self) -> Optional[str]:
         """Get the parent document URN if set."""
-        doc_info = self.document_info()
-        if doc_info.parentDocument:
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.parentDocument:
             return doc_info.parentDocument.document
         return None
 
-    def set_parent_document(self, parent_urn: str) -> Self:
+    def set_parent_document(self, parent_urn: Optional[str]) -> Self:
         """Set the parent document for hierarchy.
 
         Args:
-            parent_urn: URN of the parent document
+            parent_urn: URN of the parent document, or None to remove parent
 
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
-        doc_info.parentDocument = models.ParentDocumentClass(document=parent_urn)
+        doc_info = self._ensure_document_info()
+        if parent_urn:
+            doc_info.parentDocument = models.ParentDocumentClass(document=parent_urn)
+        else:
+            doc_info.parentDocument = None
         return self
 
-    def source_url(self) -> Optional[str]:
-        """Get the external source URL."""
-        doc_info = self.document_info()
-        if doc_info.source:
+    @property
+    def source_type(self) -> Optional[str]:
+        """Get the document source type (NATIVE or EXTERNAL)."""
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.source:
+            return doc_info.source.sourceType
+        return None
+
+    @property
+    def external_url(self) -> Optional[str]:
+        """Get the external source URL (for external documents)."""
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.source:
             return doc_info.source.externalUrl
         return None
 
+    @property
+    def external_id(self) -> Optional[str]:
+        """Get the external ID (for external documents)."""
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.source:
+            return doc_info.source.externalId
+        return None
+
     def set_source(
-        self, url: Optional[str] = None, external_id: Optional[str] = None
+        self,
+        source_type: str,
+        external_url: Optional[str] = None,
+        external_id: Optional[str] = None,
     ) -> Self:
-        """Set the external source information.
+        """Set the document source information.
 
         Args:
-            url: External URL for the document
-            external_id: External identifier for the document
+            source_type: Source type - NATIVE or EXTERNAL
+            external_url: External URL (for EXTERNAL source type)
+            external_id: External ID (for EXTERNAL source type)
 
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
-        if url or external_id:
-            doc_info.source = models.DocumentSourceClass(
-                sourceType=models.DocumentSourceTypeClass.EXTERNAL,
-                externalUrl=url,
-                externalId=external_id,
-            )
+        doc_info = self._ensure_document_info()
+        doc_info.source = models.DocumentSourceClass(
+            sourceType=source_type,
+            externalUrl=external_url,
+            externalId=external_id,
+        )
         return self
 
-    def status(self) -> str:
-        """Get the document status."""
-        doc_info = self.document_info()
-        if doc_info.status:
+    @property
+    def status(self) -> Optional[str]:
+        """Get the document status (PUBLISHED or UNPUBLISHED)."""
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.status:
             state = doc_info.status.state
-            # state is typed as Union[str, DocumentStateClass] but DocumentStateClass
-            # is just a container for string constants, so state is always a str
             assert isinstance(state, str)
             return state
-        # DocumentStateClass.PUBLISHED is a string constant
-        return models.DocumentStateClass.PUBLISHED
+        return None
 
     def set_status(self, status: str) -> Self:
         """Set the document status.
@@ -374,9 +715,197 @@ class Document(
         Returns:
             Self for method chaining
         """
-        doc_info = self.document_info()
+        doc_info = self._ensure_document_info()
         if doc_info.status:
             doc_info.status.state = status
         else:
             doc_info.status = models.DocumentStatusClass(state=status)
         return self
+
+    def publish(self) -> Self:
+        """Publish the document (make it visible).
+
+        Returns:
+            Self for method chaining
+        """
+        return self.set_status(models.DocumentStateClass.PUBLISHED)
+
+    def unpublish(self) -> Self:
+        """Unpublish the document (make it not visible).
+
+        Returns:
+            Self for method chaining
+        """
+        return self.set_status(models.DocumentStateClass.UNPUBLISHED)
+
+    @property
+    def show_in_global_context(self) -> bool:
+        """Check if document appears in global context (search/sidebar)."""
+        settings = self._get_document_settings()
+        if settings:
+            return settings.showInGlobalContext
+        return True  # Default is to show in global context
+
+    def set_show_in_global_context(self, show: bool) -> Self:
+        """Set whether document appears in global context.
+
+        When False, the document won't appear in search results or the
+        sidebar navigation. It will only be accessible through related assets.
+        This is useful for documents intended only for AI agent context.
+
+        Args:
+            show: True to show in global context, False to hide
+
+        Returns:
+            Self for method chaining
+        """
+        settings = self._ensure_document_settings()
+        settings.showInGlobalContext = show
+        return self
+
+    def hide_from_global_context(self) -> Self:
+        """Hide document from global search and sidebar.
+
+        The document will only be accessible through related assets.
+        Useful for AI-only context documents.
+
+        Returns:
+            Self for method chaining
+        """
+        return self.set_show_in_global_context(False)
+
+    def show_in_global_search(self) -> Self:
+        """Show document in global search and sidebar.
+
+        Returns:
+            Self for method chaining
+        """
+        return self.set_show_in_global_context(True)
+
+    @property
+    def related_assets(self) -> Optional[List[str]]:
+        """Get the list of related asset URNs."""
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.relatedAssets:
+            return [ra.asset for ra in doc_info.relatedAssets]
+        return None
+
+    def set_related_assets(self, asset_urns: RelatedAssetsInputType) -> Self:
+        """Set the related assets (replaces existing).
+
+        Args:
+            asset_urns: List of asset URNs to relate to this document
+
+        Returns:
+            Self for method chaining
+        """
+        doc_info = self._ensure_document_info()
+        doc_info.relatedAssets = [
+            models.RelatedAssetClass(asset=str(urn)) for urn in asset_urns
+        ]
+        return self
+
+    def add_related_asset(self, asset_urn: RelatedAssetInputType) -> Self:
+        """Add a related asset.
+
+        Args:
+            asset_urn: URN of the asset to relate
+
+        Returns:
+            Self for method chaining
+        """
+        doc_info = self._ensure_document_info()
+        if doc_info.relatedAssets is None:
+            doc_info.relatedAssets = []
+        # Check if already exists
+        urn_str = str(asset_urn)
+        if not any(ra.asset == urn_str for ra in doc_info.relatedAssets):
+            doc_info.relatedAssets.append(models.RelatedAssetClass(asset=urn_str))
+        return self
+
+    def remove_related_asset(self, asset_urn: RelatedAssetInputType) -> Self:
+        """Remove a related asset.
+
+        Args:
+            asset_urn: URN of the asset to remove
+
+        Returns:
+            Self for method chaining
+        """
+        doc_info = self._ensure_document_info()
+        if doc_info.relatedAssets:
+            urn_str = str(asset_urn)
+            doc_info.relatedAssets = [
+                ra for ra in doc_info.relatedAssets if ra.asset != urn_str
+            ]
+        return self
+
+    @property
+    def related_documents(self) -> Optional[List[str]]:
+        """Get the list of related document URNs."""
+        doc_info = self._get_document_info()
+        if doc_info and doc_info.relatedDocuments:
+            return [rd.document for rd in doc_info.relatedDocuments]
+        return None
+
+    def set_related_documents(self, document_urns: RelatedDocumentsInputType) -> Self:
+        """Set the related documents (replaces existing).
+
+        Args:
+            document_urns: List of document URNs to relate
+
+        Returns:
+            Self for method chaining
+        """
+        doc_info = self._ensure_document_info()
+        doc_info.relatedDocuments = [
+            models.RelatedDocumentClass(document=str(urn)) for urn in document_urns
+        ]
+        return self
+
+    def add_related_document(self, document_urn: RelatedDocumentInputType) -> Self:
+        """Add a related document.
+
+        Args:
+            document_urn: URN of the document to relate
+
+        Returns:
+            Self for method chaining
+        """
+        doc_info = self._ensure_document_info()
+        if doc_info.relatedDocuments is None:
+            doc_info.relatedDocuments = []
+        # Check if already exists
+        urn_str = str(document_urn)
+        if not any(rd.document == urn_str for rd in doc_info.relatedDocuments):
+            doc_info.relatedDocuments.append(
+                models.RelatedDocumentClass(document=urn_str)
+            )
+        return self
+
+    def remove_related_document(self, document_urn: RelatedDocumentInputType) -> Self:
+        """Remove a related document.
+
+        Args:
+            document_urn: URN of the document to remove
+
+        Returns:
+            Self for method chaining
+        """
+        doc_info = self._ensure_document_info()
+        if doc_info.relatedDocuments:
+            urn_str = str(document_urn)
+            doc_info.relatedDocuments = [
+                rd for rd in doc_info.relatedDocuments if rd.document != urn_str
+            ]
+        return self
+
+    @property
+    def is_native(self) -> bool:
+        """Check if this is a native document (created in DataHub)."""
+        return self.source_type == models.DocumentSourceTypeClass.NATIVE
+
+    @property
+    def is_external(self) -> bool:
+        """Check if this is an external document reference."""
+        return self.source_type == models.DocumentSourceTypeClass.EXTERNAL

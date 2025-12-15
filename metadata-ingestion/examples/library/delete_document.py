@@ -1,21 +1,46 @@
 # Inlined from metadata-ingestion/examples/library/delete_document.py
-from datahub.api.entities.document import Document
-from datahub.ingestion.graph.client import get_default_graph
+"""Example: Deleting documents using the DataHub SDK.
 
-# Initialize the graph client
-graph = get_default_graph()
+This example demonstrates how to delete documents from DataHub.
+"""
 
-# Create a Document API instance
-doc_api = Document(graph=graph)
+from datahub.metadata.urns import DocumentUrn
+from datahub.sdk import DataHubClient
 
-# Delete a document
-result = doc_api.delete(urn="urn:li:document:my-tutorial-doc")
+# Initialize the client
+client = DataHubClient.from_env()
 
-print(f"Document deleted: {result}")
+# ============================================================================
+# Example 1: Delete a document by URN
+# ============================================================================
+doc_urn = DocumentUrn("my-tutorial-doc")
 
-# You can also check if a document exists before deleting
-if doc_api.exists(urn="urn:li:document:another-doc"):
-    result = doc_api.delete(urn="urn:li:document:another-doc")
-    print(f"Document deleted: {result}")
+# First check if it exists
+doc = client.entities.get(doc_urn)
+
+if doc:
+    # Delete the document
+    client.entities.delete(str(doc_urn))
+    print(f"Document deleted: {doc_urn}")
 else:
-    print("Document does not exist")
+    print(f"Document not found: {doc_urn}")
+
+# ============================================================================
+# Example 2: Delete multiple documents
+# ============================================================================
+doc_ids_to_delete = [
+    "doc-1",
+    "doc-2",
+    "doc-3",
+]
+
+for doc_id in doc_ids_to_delete:
+    doc_urn = DocumentUrn(doc_id)
+    doc = client.entities.get(doc_urn)
+    if doc:
+        client.entities.delete(str(doc_urn))
+        print(f"Deleted: {doc_urn}")
+    else:
+        print(f"Not found (skipping): {doc_urn}")
+
+print("Cleanup complete!")
