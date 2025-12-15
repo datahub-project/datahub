@@ -86,12 +86,6 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           }
           List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
 
-          Filter finalFilter =
-              maybeResolvedView != null
-                  ? FilterUtils.combineFilters(
-                      baseFilter, maybeResolvedView.getDefinition().getFilter())
-                  : baseFilter;
-
           try {
             log.debug(
                 "Executing search for multiple entities: entity types {}, query {}, filters: {}, scrollId: {}, count: {}",
@@ -102,33 +96,57 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 count);
             String keepAlive = input.getKeepAlive() != null ? input.getKeepAlive() : "5m";
 
+            // Determine final entity types after applying view constraints
+            List<String> finalEntities =
+                maybeResolvedView != null
+                    ? SearchUtils.intersectEntityTypes(
+                        entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                    : entityNames;
+
+            // Build the final filter, combining view filter and entity-specific defaults
+            Filter combinedFilter =
+                maybeResolvedView != null
+                    ? FilterUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
+
+            // Add default entity filters that should be applied to all queries
+            combinedFilter =
+                DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                    combinedFilter, finalEntities, true);
+
+            /* SAAS ONLY - Predicate filter support */
             String predicateJson = null;
             if (input.getConvertToPredicate() != null
                 && input.getConvertToPredicate()
-                && finalFilter != null) {
-              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(finalFilter);
+                && combinedFilter != null) {
+              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(combinedFilter);
               predicateJson =
                   context.getOperationContext().getObjectMapper().writeValueAsString(predicate);
             }
+            /* END SAAS ONLY */
 
-            return UrnScrollResultsMapper.map(
-                context,
+            // Execute scroll and remove default filter fields from aggregations
+            com.linkedin.metadata.search.ScrollResult scrollResult =
                 _entityClient.scrollAcrossEntities(
                     context
                         .getOperationContext()
                         .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
-                    finalFilter,
+                    combinedFilter,
                     scrollId,
                     keepAlive,
                     sortCriteria,
                     count,
                     null,
-                    predicateJson));
+                    predicateJson);
+
+            // Cleanse aggregations to remove hidden/default filter fields
+            scrollResult =
+                DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(scrollResult);
+
+            return UrnScrollResultsMapper.map(context, scrollResult);
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",

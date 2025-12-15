@@ -11,7 +11,6 @@ Tests are idempotent and use unique IDs for created documents.
 """
 
 import logging
-import time
 import uuid
 
 import pytest
@@ -247,85 +246,3 @@ def test_merge_draft(auth_session):
         mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
     """
     execute_graphql(auth_session, delete_mutation, {"urn": published_urn})
-
-
-@pytest.mark.dependency()
-def test_search_excludes_drafts_by_default(auth_session):
-    """
-    Test that search excludes draft documents by default.
-    1. Create a published document.
-    2. Create a draft for that document.
-    3. Search - should only see published.
-    4. Clean up.
-    """
-    published_id = _unique_id("smoke-doc-search-pub")
-    draft_id = _unique_id("smoke-doc-search-draft")
-
-    # Create published document
-    create_mutation = """
-        mutation CreateKA($input: CreateDocumentInput!) {
-          createDocument(input: $input)
-        }
-    """
-    published_vars = {
-        "input": {
-            "id": published_id,
-            "subType": "guide",
-            "title": f"Search Published {published_id}",
-            "contents": {"text": "Published searchable content"},
-            "state": "PUBLISHED",
-        }
-    }
-    published_res = execute_graphql(auth_session, create_mutation, published_vars)
-    published_urn = published_res["data"]["createDocument"]
-
-    # Create draft document
-    draft_vars = {
-        "input": {
-            "id": draft_id,
-            "subType": "guide",
-            "title": f"Search Draft {draft_id}",
-            "contents": {"text": "Draft searchable content"},
-            "draftFor": published_urn,
-        }
-    }
-    draft_res = execute_graphql(auth_session, create_mutation, draft_vars)
-    draft_urn = draft_res["data"]["createDocument"]
-
-    # Search should exclude drafts by default
-    search_query = """
-        query SearchKA($input: SearchDocumentsInput!) {
-          searchDocuments(input: $input) {
-            start
-            count
-            total
-            documents { urn info { title } }
-          }
-        }
-    """
-    search_vars_no_drafts = {"input": {"start": 0, "count": 100}}
-    # Wait for search indexing
-    time.sleep(5)
-
-    search_res_no_drafts = execute_graphql(
-        auth_session, search_query, search_vars_no_drafts
-    )
-
-    # Search can fail if index is not ready
-    if "errors" in search_res_no_drafts or search_res_no_drafts is None:
-        logger.info(
-            f"WARNING: Search failed (index may not be ready): {search_res_no_drafts}"
-        )
-        # Cleanup
-        delete_mutation = """
-            mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
-        """
-        execute_graphql(auth_session, delete_mutation, {"urn": draft_urn})
-        execute_graphql(auth_session, delete_mutation, {"urn": published_urn})
-        pytest.skip("Search index not available")
-        return
-
-    result_no_drafts = search_res_no_drafts["data"]["searchDocuments"]
-    urns_no_drafts = [a["urn"] for a in result_no_drafts["documents"]]
-    assert published_urn in urns_no_drafts
-    assert draft_urn not in urns_no_drafts

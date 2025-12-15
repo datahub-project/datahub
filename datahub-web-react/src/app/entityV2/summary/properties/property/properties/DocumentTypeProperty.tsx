@@ -69,13 +69,19 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
             return <span>{displayValue}</span>;
         }
 
+        // If the actual type is not in the options, add it to the options
+        const isCustomType = optimisticType !== NONE_VALUE && !typeOptions.some((opt) => opt.value === optimisticType);
+        const finalTypeOptions = isCustomType
+            ? [...typeOptions, { label: optimisticType, value: optimisticType }]
+            : typeOptions;
+
         return (
             <TypeSelectWrapper data-testid="document-type-select">
                 <SimpleSelect
                     values={[optimisticType]}
                     onUpdate={handleTypeChange}
                     isDisabled={!canEditType}
-                    options={typeOptions}
+                    options={finalTypeOptions}
                     size="sm"
                     width="fit-content"
                     showClear={false}

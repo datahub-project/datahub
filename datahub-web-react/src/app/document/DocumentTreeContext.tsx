@@ -38,6 +38,13 @@ interface DocumentTreeContextType {
 
     // Batch initialization (for loading root documents or initial data)
     initializeTree: (rootNodes: DocumentTreeNode[]) => void;
+
+    // Expansion state (persists across component remounts)
+    expandedUrns: Set<string>;
+    setExpandedUrns: React.Dispatch<React.SetStateAction<Set<string>>>;
+    toggleExpanded: (urn: string) => void;
+    expandNode: (urn: string) => void;
+    collapseNode: (urn: string) => void;
 }
 
 export const DocumentTreeContext = React.createContext<DocumentTreeContextType | undefined>(undefined);
@@ -53,6 +60,7 @@ export const useDocumentTree = () => {
 export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [nodes, setNodes] = useState<Map<string, DocumentTreeNode>>(new Map());
     const [rootUrns, setRootUrns] = useState<string[]>([]);
+    const [expandedUrns, setExpandedUrns] = useState<Set<string>>(new Set());
 
     // Query: Get a single node
     const getNode = useCallback(
@@ -304,6 +312,31 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setNodes(new Map(rootNodes.map((n) => [n.urn, n])));
     }, []);
 
+    // Expansion state helpers
+    const toggleExpanded = useCallback((urn: string) => {
+        setExpandedUrns((prev) => {
+            const next = new Set(prev);
+            if (next.has(urn)) {
+                next.delete(urn);
+            } else {
+                next.add(urn);
+            }
+            return next;
+        });
+    }, []);
+
+    const expandNode = useCallback((urn: string) => {
+        setExpandedUrns((prev) => new Set(prev).add(urn));
+    }, []);
+
+    const collapseNode = useCallback((urn: string) => {
+        setExpandedUrns((prev) => {
+            const next = new Set(prev);
+            next.delete(urn);
+            return next;
+        });
+    }, []);
+
     const value = useMemo(
         () => ({
             nodes,
@@ -317,6 +350,11 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             addNode,
             setNodeChildren,
             initializeTree,
+            expandedUrns,
+            setExpandedUrns,
+            toggleExpanded,
+            expandNode,
+            collapseNode,
         }),
         [
             nodes,
@@ -330,6 +368,10 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             addNode,
             setNodeChildren,
             initializeTree,
+            expandedUrns,
+            toggleExpanded,
+            expandNode,
+            collapseNode,
         ],
     );
 

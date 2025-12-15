@@ -105,19 +105,26 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
               return SearchUtils.createEmptySearchResults(start, count);
             }
 
-            Filter finalFilter =
+            // Build the final filter, combining view filter and entity-specific defaults
+            Filter combinedFilter =
                 maybeResolvedView != null
                     ? FilterUtils.combineFilters(
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
-            /* SAAS ONLY */
+
+            // Add default entity filters that should be applied to all queries
+            combinedFilter =
+                DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                    combinedFilter, finalEntities, true);
+
+            /* SAAS ONLY - Predicate filter support */
             String predicateJson = null;
             if (input.getPredicateFilter() != null) {
               predicateJson = input.getPredicateFilter();
             } else if (input.getConvertToPredicate() != null
                 && input.getConvertToPredicate()
-                && finalFilter != null) {
-              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(finalFilter);
+                && combinedFilter != null) {
+              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(combinedFilter);
               predicateJson =
                   context.getOperationContext().getObjectMapper().writeValueAsString(predicate);
             }
@@ -133,18 +140,24 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     ? getStructuredPropertyFacets(context)
                     : Collections.emptyList();
 
-            return UrnSearchResultsMapper.map(
-                context,
+            // Execute search and remove default filter fields from aggregations
+            SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
                     sanitizedQuery,
-                    finalFilter,
+                    combinedFilter,
                     start,
                     count,
                     sortCriteria,
                     structuredPropertyFacets,
-                    predicateJson));
+                    predicateJson);
+
+            // Cleanse aggregations to remove hidden/default filter fields
+            searchResult =
+                DefaultEntityFiltersUtil.removeDefaultFilterFieldsFromAggregations(searchResult);
+
+            return UrnSearchResultsMapper.map(context, searchResult);
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

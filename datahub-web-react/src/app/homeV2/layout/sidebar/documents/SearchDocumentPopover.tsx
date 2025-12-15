@@ -9,7 +9,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Input } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
-import { DocumentState, EntityType } from '@types';
+import { DocumentSourceType, DocumentState, EntityType } from '@types';
 
 const PopoverContainer = styled.div`
     width: 400px;
@@ -86,6 +86,7 @@ export const SearchDocumentPopover: React.FC<SearchDocumentPopoverProps> = ({ on
         count: 50,
         fetchPolicy: 'network-only', // Always fetch fresh for search
         includeParentDocuments: true, // Fetch parent documents for breadcrumb display
+        sourceTypes: [DocumentSourceType.Native],
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
