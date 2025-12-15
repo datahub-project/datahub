@@ -101,6 +101,21 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         description="regex patterns for user emails to filter in usage.",
     )
 
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of BigQuery user emails (SQL LIKE patterns, e.g., 'service_%@%.iam.gserviceaccount.com', '%_test@example.com') "
+        "which will NOT be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of BigQuery user emails (SQL LIKE patterns, e.g., 'analyst_%@example.com', '%@mycompany.com') "
+        "which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "If not specified, all users not in deny list are included.",
+    )
+
     top_n_queries: PositiveInt = Field(
         default=10, description="Number of top queries to save to each table."
     )
@@ -403,6 +418,8 @@ class BigQueryQueriesExtractor(Closeable):
             region=region,
             start_time=self.start_time,
             end_time=self.end_time,
+            deny_usernames=self.config.pushdown_deny_usernames or None,
+            allow_usernames=self.config.pushdown_allow_usernames or None,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")
@@ -487,11 +504,55 @@ def _extract_query_text(row: BigQueryJob) -> str:
     return query
 
 
+def _build_user_filter(
+    deny_usernames: Optional[List[str]] = None,
+    allow_usernames: Optional[List[str]] = None,
+) -> str:
+    """
+    Build user filter SQL condition for BigQuery.
+    Uses LOWER() for case-insensitive pattern matching (BigQuery doesn't have ILIKE).
+
+    Args:
+        deny_usernames: List of user email patterns to exclude (SQL LIKE patterns)
+        allow_usernames: List of user email patterns to include (SQL LIKE patterns)
+
+    Returns:
+        SQL WHERE condition string for filtering users, or "TRUE" if no filters (no-op)
+    """
+    user_filters = []
+
+    if deny_usernames:
+        deny_conditions = []
+        for pattern in deny_usernames:
+            # Escape single quotes for SQL injection protection
+            escaped_pattern = pattern.replace("'", "''")
+            deny_conditions.append(
+                f"LOWER(user_email) NOT LIKE LOWER('{escaped_pattern}')"
+            )
+        if deny_conditions:
+            user_filters.append(f"({' AND '.join(deny_conditions)})")
+
+    if allow_usernames:
+        allow_conditions = []
+        for pattern in allow_usernames:
+            # Escape single quotes for SQL injection protection
+            escaped_pattern = pattern.replace("'", "''")
+            allow_conditions.append(
+                f"LOWER(user_email) LIKE LOWER('{escaped_pattern}')"
+            )
+        if allow_conditions:
+            user_filters.append(f"({' OR '.join(allow_conditions)})")
+
+    return " AND ".join(user_filters) if user_filters else "TRUE"
+
+
 def _build_enriched_query_log_query(
     project_id: str,
     region: str,
     start_time: datetime,
     end_time: datetime,
+    deny_usernames: Optional[List[str]] = None,
+    allow_usernames: Optional[List[str]] = None,
 ) -> str:
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
@@ -520,6 +581,9 @@ def _build_enriched_query_log_query(
         [f"'{statement_type}'" for statement_type in UNSUPPORTED_STATEMENT_TYPES]
     )
 
+    # Build user filter condition (returns "TRUE" for no-op)
+    user_filter = _build_user_filter(deny_usernames, allow_usernames)
+
     # NOTE the use of partition column creation_time as timestamp here.
     # Currently, only required columns are fetched. There are more columns such as
     # total_slot_ms, job_type, total_bytes_billed, dml_statistics(inserted_row_count, etc)
@@ -544,6 +608,7 @@ def _build_enriched_query_log_query(
             creation_time <= '{audit_end_time}' AND
             error_result is null AND
             not CONTAINS_SUBSTR(query, '.INFORMATION_SCHEMA.') AND
-            statement_type not in ({unsupported_statement_types})
+            statement_type not in ({unsupported_statement_types}) AND
+            {user_filter}
         ORDER BY creation_time
     """

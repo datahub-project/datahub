@@ -365,6 +365,22 @@ class BigQueryV2Config(
         description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
     )
 
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of BigQuery user emails (SQL LIKE patterns, e.g., 'service_%@%.iam.gserviceaccount.com', '%_test@example.com') "
+        "which will NOT be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of BigQuery user emails (SQL LIKE patterns, e.g., 'analyst_%@example.com', '%@mycompany.com') "
+        "which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
+    )
+
     @property
     def have_table_data_read_permission(self) -> bool:
         return self.use_tables_list_query_v2 or self.is_profiling_enabled()
