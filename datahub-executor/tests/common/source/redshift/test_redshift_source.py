@@ -2,6 +2,7 @@ import datetime
 from unittest.mock import Mock, call, patch
 
 import pytest
+from datahub._version import __version__
 
 from datahub_executor.common.connection.redshift.redshift_connection import (
     RedshiftConnection,
@@ -11,7 +12,10 @@ from datahub_executor.common.exceptions import (
     InvalidParametersException,
     InvalidSourceTypeException,
 )
-from datahub_executor.common.source.redshift.redshift import RedshiftSource
+from datahub_executor.common.source.redshift.redshift import (
+    RedshiftSource,
+    _add_redshift_query_tag,
+)
 from datahub_executor.common.source.types import DatabaseParams
 from datahub_executor.common.types import (
     AssertionStdOperator,
@@ -365,7 +369,9 @@ class TestRedshiftSource:
 
         # Verify cursor context manager was used
         self.mock_client.cursor.assert_called()
-        self.mock_cursor.execute.assert_called_with(query)
+        # Verify the query was tagged before execution
+        expected_tagged_query = f"-- partner: DataHub -v {__version__}\n{query}"
+        self.mock_cursor.execute.assert_called_with(expected_tagged_query)
         self.mock_cursor.fetchall.assert_called_once()
         assert result == [("test",)]
 
@@ -380,7 +386,9 @@ class TestRedshiftSource:
 
         # Verify cursor context manager was used
         self.mock_client.cursor.assert_called()
-        self.mock_cursor.execute.assert_called_with(query)
+        # Verify the query was tagged before execution
+        expected_tagged_query = f"-- partner: DataHub -v {__version__}\n{query}"
+        self.mock_cursor.execute.assert_called_with(expected_tagged_query)
         self.mock_cursor.fetchone.assert_called_once()
         assert result == ("test",)
 
@@ -575,3 +583,47 @@ class TestRedshiftSource:
             changed_rows_field,
         )
         convert_value_mock.assert_not_called()
+
+
+def test_add_redshift_query_tag():
+    """Test that query tagging adds the correct comment format for AWS Redshift Ready program."""
+    query = "SELECT * FROM test_table"
+    tagged_query = _add_redshift_query_tag(query)
+
+    # Verify the tag comment is prepended
+    expected_tag = f"-- partner: DataHub -v {__version__}\n"
+    assert tagged_query.startswith(expected_tag), "Query should start with tag comment"
+
+    # Verify the original query is preserved after the tag
+    assert "SELECT * FROM test_table" in tagged_query, (
+        "Original query should be present"
+    )
+
+    # Verify format matches AWS requirements
+    assert tagged_query == expected_tag + query, "Tagged query format is correct"
+
+
+def test_query_tagging_in_execution():
+    """Verify that query tagging is applied in actual query execution methods."""
+    mock_connection = Mock(spec=RedshiftConnection)
+    mock_cursor = Mock()
+    cursor_context_manager = Mock()
+    cursor_context_manager.__enter__ = Mock(return_value=mock_cursor)
+    cursor_context_manager.__exit__ = Mock(return_value=None)
+    mock_connection.get_client.return_value.cursor.return_value = cursor_context_manager
+    mock_cursor.fetchall.return_value = []
+
+    source = RedshiftSource(mock_connection)
+
+    # Execute a simple query
+    test_query = "SELECT 1"
+    source._execute_fetchall_query_internal(test_query)
+
+    # Verify the executed query was tagged
+    mock_cursor.execute.assert_called_once()
+    executed_query = mock_cursor.execute.call_args[0][0]
+
+    assert executed_query.startswith(f"-- partner: DataHub -v {__version__}\n"), (
+        "Query should be tagged"
+    )
+    assert "SELECT 1" in executed_query, "Original query should be present"

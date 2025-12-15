@@ -2,6 +2,8 @@ import logging
 from datetime import timezone
 from typing import Any, List, Optional, Union
 
+from datahub._version import __version__
+
 from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
     FilterBuilder,
 )
@@ -40,6 +42,18 @@ from .types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _add_redshift_query_tag(query: str) -> str:
+    """
+    Adds AWS Redshift query tagging comment to identify DataHub queries.
+    Format: -- partner: DataHub -v <version>
+
+    This is required for AWS Redshift Ready program compliance and helps
+    identify DataHub traffic in Redshift query logs.
+    """
+    tag_comment = f"-- partner: DataHub -v {__version__}\n"
+    return tag_comment + query
 
 
 """
@@ -95,9 +109,12 @@ class RedshiftSource(Source):
         return convert_value_for_comparison(column_value, column_type)
 
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
+        # Add query tagging for AWS Redshift Ready program
+        tagged_query = _add_redshift_query_tag(query)
+
         with self.connection.get_client().cursor() as cur:
             try:
-                cur.execute(query)
+                cur.execute(tagged_query)
                 return cur.fetchall()
             except Exception as e:
                 try:
@@ -107,13 +124,16 @@ class RedshiftSource(Source):
                     pass
                 raise SourceQueryFailedException(
                     message=f"Source query (Redshift) failed with error: {e}",
-                    query=query,
+                    query=tagged_query,
                 )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
+        # Add query tagging for AWS Redshift Ready program
+        tagged_query = _add_redshift_query_tag(query)
+
         with self.connection.get_client().cursor() as cur:
             try:
-                cur.execute(query)
+                cur.execute(tagged_query)
                 return cur.fetchone()
             except Exception as e:
                 try:
@@ -123,7 +143,7 @@ class RedshiftSource(Source):
                     pass
                 raise SourceQueryFailedException(
                     message=f"Source query (Redshift) failed with error: {e}",
-                    query=query,
+                    query=tagged_query,
                 )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:
