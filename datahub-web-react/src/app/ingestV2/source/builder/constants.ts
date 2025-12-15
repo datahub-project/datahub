@@ -45,8 +45,8 @@ import sageMakerLogo from '@images/sagemakerlogo.png';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
-import streamlitLogo from '@images/streamlitlogo.png';
 import sparkLogo from '@images/sparklogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -54,7 +54,7 @@ import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
 
 export const AIRFLOW = 'airflow';
-export const AIRFLOW_URN = `urn:li:dataPlatform:${AIRFLOW}`; 
+export const AIRFLOW_URN = `urn:li:dataPlatform:${AIRFLOW}`;
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
