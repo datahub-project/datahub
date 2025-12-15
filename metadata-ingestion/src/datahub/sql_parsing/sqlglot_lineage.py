@@ -1309,9 +1309,10 @@ def _try_extract_select(
                     )
                     # Create an explicit Alias node: expr AS insert_col_name
                     # The Alias node should survive optimization better than just setting alias property
+                    # Use quoted=True to preserve the original case from the INSERT statement
                     aliased_expr = sqlglot.exp.Alias(
                         this=select_expr.copy(),
-                        alias=sqlglot.exp.to_identifier(insert_col_name),
+                        alias=sqlglot.exp.to_identifier(insert_col_name, quoted=True),
                     )
                     new_selects.append(aliased_expr)
 
