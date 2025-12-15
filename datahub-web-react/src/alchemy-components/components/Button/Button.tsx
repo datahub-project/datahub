@@ -8,6 +8,7 @@ import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
     color: 'primary',
+    colorLevel: 500,
     size: 'md',
     iconPosition: 'left',
     isCircle: false,
@@ -18,6 +19,7 @@ export const buttonDefaults: ButtonPropsDefaults = {
 export const Button = ({
     variant = buttonDefaults.variant,
     color = buttonDefaults.color,
+    colorLevel = buttonDefaults.colorLevel,
     size = buttonDefaults.size,
     icon, // default undefined
     iconPosition = buttonDefaults.iconPosition,
@@ -30,6 +32,7 @@ export const Button = ({
     const styleProps = {
         variant,
         color,
+        colorLevel,
         size,
         isCircle,
         isLoading,

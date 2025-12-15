@@ -360,6 +360,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setFreshnessAssertionTuningEnabled(_featureFlags.isFreshnessAssertionTuningEnabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
+            .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

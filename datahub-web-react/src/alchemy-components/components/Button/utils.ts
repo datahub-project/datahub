@@ -6,7 +6,7 @@ import { CSSObject } from 'styled-components';
 
 import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
 import { colors, radius, shadows, spacing, typography } from '@components/theme';
-import { ColorOptions, SizeOptions } from '@components/theme/config';
+import { ColorOptions, FontColorLevelOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
 import { Theme } from '@conf/theme/types';
@@ -24,19 +24,24 @@ interface ColorStyles {
 }
 
 // Utility function to get color styles for button - does not generate CSS
-const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme?: Theme): ColorStyles => {
-    const color500 = getColor(color, 500, theme); // value of 500 shade
+const getButtonColorStyles = (
+    variant: ButtonVariant,
+    color: ColorOptions,
+    colorLevel?: FontColorLevelOptions,
+    theme?: Theme,
+): ColorStyles => {
+    const colorByLevel = getColor(color, colorLevel ?? 500, theme); // value of 500 shade
     const isViolet = color === 'violet';
 
     const base = {
         // Backgrounds
-        bgColor: color500,
-        hoverBgColor: color500,
+        bgColor: colorByLevel,
+        hoverBgColor: colorByLevel,
         activeBgColor: getColor(color, 700, theme),
         disabledBgColor: getColor('gray', 100, theme),
 
         // Borders
-        borderColor: color500,
+        borderColor: colorByLevel,
         activeBorderColor: getColor(color, 300, theme),
         disabledBorderColor: getColor('gray', 200, theme),
 
@@ -66,8 +71,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         return {
             ...base,
             bgColor: colors.transparent,
-            borderColor: color500,
-            textColor: color500,
+            borderColor: colorByLevel,
+            textColor: colorByLevel,
 
             hoverBgColor: getColor(color, 100, theme),
             activeBgColor: isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme),
@@ -80,7 +85,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'text') {
         return {
             ...base,
-            textColor: color500,
+            textColor: colorByLevel,
 
             bgColor: colors.transparent,
             borderColor: colors.transparent,
@@ -98,7 +103,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
             bgColor: getColor('violet', 0),
             hoverBgColor: getColor('violet', 100),
             activeBgColor: getColor('violet', 200),
-            textColor: color500,
+            textColor: colorByLevel,
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
             disabledBorderColor: 'transparent',
@@ -109,7 +114,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'link') {
         return {
             ...base,
-            textColor: color500,
+            textColor: colorByLevel,
             bgColor: colors.transparent,
             borderColor: colors.transparent,
             activeBgColor: colors.transparent,
@@ -276,10 +281,10 @@ const getButtonLoadingStyles = (): CSSObject => ({
  * Main function to generate styles for button
  */
 export const getButtonStyle = (props: ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement>): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
+    const { variant, color, colorLevel, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
 
     // Get map of colors
-    const colorStyles = getButtonColorStyles(variant, color, theme);
+    const colorStyles = getButtonColorStyles(variant, color, colorLevel, theme);
 
     // Define styles for button
     const variantStyles = getButtonVariantStyles(variant, colorStyles, color, theme);

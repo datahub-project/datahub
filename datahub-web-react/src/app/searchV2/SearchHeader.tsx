@@ -8,13 +8,14 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import FreeTrialDaysLeft from '@app/homeV3/freeTrial/FreeTrialDaysLeft';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsFreeTrialInstance } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 import { EntityRegistry } from '@src/entityRegistryContext';
@@ -51,7 +52,11 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     `}
 `;
 
-const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedesign?: boolean }>`
+const Header = styled(Layout)<{
+    $isNavBarCollapsed?: boolean;
+    $isShowNavBarRedesign?: boolean;
+    $showFreeTrialMessage?: boolean;
+}>`
     background-color: transparent;
     height: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
     display: flex;
@@ -66,10 +71,23 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
         position: relative;
         padding-left: ${props.$isNavBarCollapsed ? '224px' : '540px'};
         left: ${props.$isNavBarCollapsed ? '-112px' : '-270px'};
+        ${
+            props.$showFreeTrialMessage &&
+            `
+                width: calc(100% + ${props.$isNavBarCollapsed ? '112px' : '270px'});
+            `
+        };
         transition: none;
         @media only screen and (min-width: 1280px) {
             padding-left: 540px;
             left: -270px;
+            ${
+                props.$showFreeTrialMessage &&
+                `
+                    width: calc(100% + 270px);
+                `
+            }
+
         }
         @media only screen and (max-width: 1200px) {
             transition: padding 250ms ease-in-out;
@@ -126,6 +144,28 @@ const NavBarTogglerWrapper = styled.div`
     left: 68px;
 `;
 
+const TopContainer = styled.div<{ $showFreeTrialMessage?: boolean }>`
+    ${(props) =>
+        props.$showFreeTrialMessage &&
+        `
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-right: 16px;
+            justify-content: space-between;
+    `}
+`;
+
+const LeftSection = styled.div<{ $showFreeTrialMessage?: boolean }>`
+    display: flex;
+    align-items: center;
+
+    ${(props) =>
+        props.$showFreeTrialMessage &&
+        `
+            margin: 0 auto;
+    `}
+`;
 type Props = {
     initialQuery: string;
     placeholderText: string;
@@ -166,12 +206,18 @@ export const SearchHeader = ({
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
+    const isFreeTrialInstance = useIsFreeTrialInstance();
+    const showFreeTrialMessage = isFreeTrialInstance;
 
     return (
         <>
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
+                <Header
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                    $isNavBarCollapsed={isCollapsed}
+                    $showFreeTrialMessage={showFreeTrialMessage}
+                >
                     {isShowNavBarRedesign && isCollapsed && !hideNavToggler && (
                         <NavBarTogglerWrapper>
                             <NavBarToggler />
@@ -179,33 +225,38 @@ export const SearchHeader = ({
                     )}
                     {!hideSearchBar && (
                         <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <FinalSearchBar
-                                isLoading={isUserInitializing || !appConfig.loaded}
-                                id={V2_SEARCH_BAR_ID}
-                                style={styles.searchBoxContainer}
-                                autoCompleteStyle={styles.searchBox}
-                                inputStyle={styles.input}
-                                initialQuery={initialQuery}
-                                placeholderText={placeholderText}
-                                suggestions={suggestions}
-                                onSearch={onSearch}
-                                onQueryChange={onQueryChange}
-                                entityRegistry={entityRegistry}
-                                setIsSearchBarFocused={setIsSearchBarFocused}
-                                viewsEnabled={viewsEnabled}
-                                isShowNavBarRedesign={isShowNavBarRedesign}
-                                hideRecommendations={isAnalyticsPage}
-                                combineSiblings
-                                fixAutoComplete
-                                showQuickFilters
-                                showViewAllResults
-                                showCommandK
-                            />
-                            {isShowNavBarRedesign && (
-                                <StyledButton type="link" onClick={searchViewAll}>
-                                    Discover <ArrowRight />
-                                </StyledButton>
-                            )}
+                            <TopContainer $showFreeTrialMessage={showFreeTrialMessage}>
+                                <LeftSection $showFreeTrialMessage={showFreeTrialMessage}>
+                                    <FinalSearchBar
+                                        isLoading={isUserInitializing || !appConfig.loaded}
+                                        id={V2_SEARCH_BAR_ID}
+                                        style={styles.searchBoxContainer}
+                                        autoCompleteStyle={styles.searchBox}
+                                        inputStyle={styles.input}
+                                        initialQuery={initialQuery}
+                                        placeholderText={placeholderText}
+                                        suggestions={suggestions}
+                                        onSearch={onSearch}
+                                        onQueryChange={onQueryChange}
+                                        entityRegistry={entityRegistry}
+                                        setIsSearchBarFocused={setIsSearchBarFocused}
+                                        viewsEnabled={viewsEnabled}
+                                        isShowNavBarRedesign={isShowNavBarRedesign}
+                                        hideRecommendations={isAnalyticsPage}
+                                        combineSiblings
+                                        fixAutoComplete
+                                        showQuickFilters
+                                        showViewAllResults
+                                        showCommandK
+                                    />
+                                    {isShowNavBarRedesign && (
+                                        <StyledButton type="link" onClick={searchViewAll}>
+                                            Discover <ArrowRight />
+                                        </StyledButton>
+                                    )}
+                                </LeftSection>
+                                {showFreeTrialMessage && <FreeTrialDaysLeft />}
+                            </TopContainer>
                         </SearchBarContainer>
                     )}
                 </Header>
