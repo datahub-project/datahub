@@ -92,26 +92,18 @@ public class TestUtils {
   }
 
   public static QueryContext getMockDenyContext(String actorUrn) {
-    return getMockDenyContext(actorUrn, null);
-  }
-
-  public static QueryContext getMockDenyContext(String actorUrn, AuthorizationRequest request) {
     QueryContext mockContext = mock(QueryContext.class);
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
-    when(mockAuthorizer.authorizeBatch(any())).thenCallRealMethod();
 
     AuthorizationResult result = mock(AuthorizationResult.class);
     when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
 
-    if (request == null) {
-      // Simple case: always deny
-      when(mockAuthorizer.authorize(any())).thenReturn(result);
-    } else {
-      // Specific case: deny only for this specific request
-      when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
-    }
+    when(mockAuthorizer.authorizeBatch(any()))
+        .thenReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));
 
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");

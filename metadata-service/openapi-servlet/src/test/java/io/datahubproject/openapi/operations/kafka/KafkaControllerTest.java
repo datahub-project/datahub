@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.operations.kafka;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
@@ -12,7 +11,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -74,8 +72,6 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
   @Qualifier("mclTimeseriesTraceReader")
   private MCLTraceReader mockMclTimeseriesTraceReader;
 
-  @Autowired private Authorizer authorizer;
-
   private Map<TopicPartition, OffsetAndMetadata> createOffsetMap(String topic) {
     Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
     // Create 3 partitions for the topic
@@ -134,10 +130,6 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
     Authentication authentication = mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
-
-    // Setup AuthorizerChain to allow access
-    when(authorizer.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
   }
 
   @Test

@@ -7,8 +7,10 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -63,10 +65,11 @@ public class AspectResourceTest {
     entityService = new EntityServiceImpl(aspectDao, producer, false,
             preProcessHooks, true);
     entityService.setUpdateIndicesService(updateIndicesService);
-    authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
-    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
-      AuthorizationRequest request = invocation.getArgument(0);
-      return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+    authorizer = mock(Authorizer.class);
+    when(authorizer.authorizeBatch(any(BatchAuthorizationRequest.class))).thenAnswer(invocation -> {
+      BatchAuthorizationRequest request = invocation.getArgument(0);
+      return new BatchAuthorizationResult(request,
+          new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW));
     });
     aspectResource.setAuthorizer(authorizer);
     aspectResource.setEntityService(entityService);

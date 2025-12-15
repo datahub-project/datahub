@@ -26,8 +26,9 @@ import lombok.extern.slf4j.Slf4j;
  * executed by invoking {@link #authorizeBatch(BatchAuthorizationRequest)}
  *
  * <p><b>Warning:</b> never use {@link Authorizer#authorize(AuthorizationRequest)}. This method is
- * solely designed for implementing by {@link Authorizer} subclasses when they do not support batch
- * authorization
+ * solely designed for implementing by {@link Authorizer Authorizer's} subclasses when they do not
+ * support batch authorization. It will not lead to any error in runtime, though will affect the
+ * performance for setups with batch {@link Authorizer} implementations
  */
 @Slf4j
 public class AuthorizerChain implements Authorizer {

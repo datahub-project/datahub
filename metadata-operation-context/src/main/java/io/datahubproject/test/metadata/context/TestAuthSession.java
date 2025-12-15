@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.BatchAuthorizationRequest;
 import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.LazyAuthorizationResultMap;
@@ -62,13 +63,13 @@ public class TestAuthSession implements AuthorizationSession {
   public static AuthorizationSession from(Authentication auth, Authorizer authorizer) {
     return from(
         (privilege, resourceSpec) -> {
-          final AuthorizationRequest request =
-              new AuthorizationRequest(
+          final BatchAuthorizationRequest request =
+              new BatchAuthorizationRequest(
                   auth.getActor().toUrnStr(),
-                  privilege,
+                  Set.of(privilege),
                   Optional.ofNullable(resourceSpec),
                   Collections.emptyList());
-          return authorizer.authorize(request);
+          return authorizer.authorizeBatch(request).getResults().get(privilege);
         });
   }
 

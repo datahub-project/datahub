@@ -1,13 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationRequest;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +20,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -43,17 +45,17 @@ public class DataContractUtilsTest {
 
               @Override
               public Authorizer getAuthorizer() {
-                Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
-                Mockito.when(authorizer.authorize(Mockito.any(AuthorizationRequest.class)))
+                Authorizer authorizer = mock(Authorizer.class);
+                Mockito.when(
+                        authorizer.authorizeBatch(Mockito.any(BatchAuthorizationRequest.class)))
                     .thenReturn(
-                        new AuthorizationResult(
-                            new AuthorizationRequest(
+                        new BatchAuthorizationResult(
+                            new BatchAuthorizationRequest(
                                 "TEST",
-                                "test",
+                                Set.of("test"),
                                 Optional.of(new EntitySpec("dataset", "test")),
                                 Collections.emptyList()),
-                            AuthorizationResult.Type.ALLOW,
-                            "TEST"));
+                            new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)));
                 return authorizer;
               }
 

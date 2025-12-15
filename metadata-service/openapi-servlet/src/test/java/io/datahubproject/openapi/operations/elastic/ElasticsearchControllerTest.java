@@ -7,9 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
 
@@ -18,6 +16,8 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.BatchAuthorizationResult;
+import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -120,8 +120,11 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     AuthenticationContext.setAuthentication(authentication);
 
     // Setup AuthorizerChain to allow access
-    when(authorizer.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    doReturn(
+            new BatchAuthorizationResult(
+                null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
+        .when(authorizer)
+        .authorizeBatch(any());
   }
 
   @Test
