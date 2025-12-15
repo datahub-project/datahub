@@ -2424,3 +2424,42 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **fb00472da5** - feat(files) Add basic file cleanup after related entity is deleted (#15271)
   *by Chris Collins on 2025-12-12*
 
+
+## Upstream Merge Session - 2025-12-15 22:26:29
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Merge Base**: `fb00472da5a0daf22dc6ef3a827a02c1ce410a0b`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 8
+- **Strategy**: stacked
+- **Started**: Mon Dec 15 22:26:29 UTC 2025
+
+### Commits Included in This Merge
+- **92de222f8f** - feat(dataplex): New connector for Google Dataplex (#15379)
+  *by Patrick Druley on 2025-12-13*
+
+- **f2d17c83a9** - docs(logical): Add note on separate logical platform (#15551)
+  *by Andrew Sikowitz on 2025-12-13*
+
+- **595cd7a340** - fix(system-update): fix system-update entity-client (#15555)
+  *by david-leifker on 2025-12-13*
+
+- **0fd9b54192** - fix(ingestion/dremio): fix schema_resolver for non-standard uri length for dremio by implementing custom schema resolver (#15514)
+  *by Jonny Dixon on 2025-12-15*
+
+- **d6db04d2ea** - fix(actions): Prepare doc propagation action for prefixed pipeline names (#15672)
+  *by skrydal on 2025-12-15*
+
+- **4e6825134e** - fix(ingestion): fix ingestion onboarding redesign feature flag not being set (#15608)
+  *by Purnima Garg on 2025-12-15*
+
+- **8a4fc36a54** - feat(ui): show 404 if user manually navigates browser url to non-existent mfe (#15548)
+  *by philip-nikolov-jpmc on 2025-12-15*
+
+- **f8818da881** - feat(context): Context Base V1 Fix Ups (#15532)
+  *by John Joyce on 2025-12-15*
+
