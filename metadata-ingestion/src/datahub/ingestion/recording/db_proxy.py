@@ -573,9 +573,35 @@ class CursorProxy:
         def wrapper(
             query: str, parameters: Any = None, *args: Any, **kwargs: Any
         ) -> Any:
+            query_preview = query[:100] + "..." if len(str(query)) > 100 else str(query)
+            logger.info(
+                f"📊 CursorProxy.{method_name}() called (replay={self._is_replay}): "
+                f"{query_preview}"
+            )
+
             if self._is_replay:
                 return self._replay_execute(query, parameters)
-            return self._record_execute(method_name, query, parameters, *args, **kwargs)
+
+            # Recording mode
+            if self._cursor is None:
+                logger.error(
+                    f"❌ CursorProxy.{method_name}() called but _cursor is None!"
+                )
+                raise RuntimeError("Cannot execute query: cursor is None")
+
+            try:
+                logger.debug("▶️ Executing query on real cursor...")
+                result = self._record_execute(
+                    method_name, query, parameters, *args, **kwargs
+                )
+                logger.debug("✅ Query executed and recorded successfully")
+                return result
+            except Exception as e:
+                logger.error(
+                    f"❌ Query execution failed: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
+                raise
 
         return wrapper
 
@@ -642,6 +668,11 @@ class CursorProxy:
             )
             self._recorder.record(recording)
             self._current_recording = recording
+            logger.info(
+                f"💾 Query recorded: {len(results)} rows, "
+                f"description={'present' if description else 'none'}, "
+                f"row_count={row_count}"
+            )
 
             # Reset the result iterator so the caller can iterate over results
             # Since we consumed the cursor with fetchall(), we need to provide
@@ -760,6 +791,11 @@ class ConnectionProxy:
         object.__setattr__(self, "_recorder", recorder)
         object.__setattr__(self, "_is_replay", is_replay)
 
+        logger.info(
+            f"🔗 ConnectionProxy created (replay={is_replay}, "
+            f"connection_type={type(connection).__name__ if connection else 'None'})"
+        )
+
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the real connection."""
         if name == "cursor":
@@ -797,8 +833,13 @@ class ConnectionProxy:
 
     def _wrapped_cursor(self, *args: Any, **kwargs: Any) -> CursorProxy:
         """Return a CursorProxy wrapping the real cursor."""
+        logger.debug(
+            f"📝 ConnectionProxy.cursor() called (replay={self._is_replay}, "
+            f"args={len(args)}, kwargs={list(kwargs.keys())})"
+        )
         if self._is_replay:
             # In replay mode, return cursor proxy without real cursor
+            logger.debug("🔄 Returning CursorProxy for replay mode")
             return CursorProxy(
                 cursor=None,
                 recorder=self._recorder,
@@ -806,12 +847,29 @@ class ConnectionProxy:
             )
 
         # In recording mode, wrap the real cursor
-        real_cursor = self._connection.cursor(*args, **kwargs)
-        return CursorProxy(
-            cursor=real_cursor,
-            recorder=self._recorder,
-            is_replay=False,
-        )
+        if self._connection is None:
+            logger.error("❌ ConnectionProxy.cursor() called but _connection is None!")
+            raise RuntimeError("Cannot create cursor: connection is None")
+
+        try:
+            real_cursor = self._connection.cursor(*args, **kwargs)
+            logger.debug(
+                f"✅ Got real cursor: {type(real_cursor).__name__}, "
+                f"wrapping with CursorProxy"
+            )
+            wrapped = CursorProxy(
+                cursor=real_cursor,
+                recorder=self._recorder,
+                is_replay=False,
+            )
+            logger.debug("✅ CursorProxy created and ready for query recording")
+            return wrapped
+        except Exception as e:
+            logger.error(
+                f"❌ Failed to create cursor: {type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
 
     def close(self) -> None:
         """Close the connection."""

@@ -10,11 +10,18 @@ Tests database recording with a real PostgreSQL instance.
 
 **What it validates:**
 
-- SQL query recording via DB-API cursor proxy
+- SQL query recording via SQLAlchemy engine wrapper (raw_connection interception)
+- DB-API cursor proxy for query interception
 - Cursor iteration and result handling
 - Datetime serialization/deserialization
 - Air-gapped replay without network
 - MCP semantic equivalence
+
+**Recording Strategy:**
+
+- Uses engine wrapper approach: wraps `engine.raw_connection()` to intercept connections
+- ConnectionProxy wraps DB-API connections, CursorProxy intercepts queries
+- Works with SQLAlchemy's connection pooling and Inspector API
 
 **Run:**
 

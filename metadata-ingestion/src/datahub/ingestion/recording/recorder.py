@@ -335,14 +335,18 @@ class IngestionRecorder:
         )
         http_count = self._http_recorder.request_count if self._http_recorder else 0
 
+        logger.info(
+            f"📊 Recording summary: {query_count} database queries, {http_count} HTTP requests"
+        )
+
         if query_count == 0 and http_count == 0:
             logger.error(
-                "Recording validation failed: No queries or HTTP requests recorded. "
+                "❌ Recording validation failed: No queries or HTTP requests recorded. "
                 "The recording may be incomplete or the connection may have failed."
             )
         elif query_count == 0:
             logger.warning(
-                f"No database queries recorded (HTTP requests: {http_count}). "
+                f"⚠️ No database queries recorded (HTTP requests: {http_count}). "
                 "This is expected for HTTP-only sources (Looker, PowerBI, etc.), "
                 "but unusual for database sources (Snowflake, Databricks, etc.)."
             )

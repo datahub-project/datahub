@@ -153,9 +153,16 @@ class ModulePatcher:
         self.is_replay = is_replay
         self._originals: Dict[Tuple[str, str], Any] = {}
         self._patched_modules: List[str] = []
+        logger.debug(
+            f"ModulePatcher.__init__() called with is_replay={is_replay}, "
+            f"self.is_replay={self.is_replay}"
+        )
 
     def __enter__(self) -> "ModulePatcher":
         """Apply patches to available modules."""
+        logger.info(
+            f"🔧 ModulePatcher.__enter__() called with is_replay={self.is_replay}"
+        )
         self._patch_connectors()
         self._patch_clients()
 
@@ -172,6 +179,10 @@ class ModulePatcher:
 
     def __exit__(self, *args: Any) -> None:
         """Restore all original functions."""
+        logger.debug(
+            f"ModulePatcher.__exit__() called (is_replay={self.is_replay}), "
+            f"restoring {len(self._originals)} patched functions"
+        )
         for (module_path, func_name), original in self._originals.items():
             try:
                 module = importlib.import_module(module_path)
@@ -193,8 +204,29 @@ class ModulePatcher:
                     if not hasattr(module, func_name):
                         continue
 
-                    original = getattr(module, func_name)
-                    self._originals[(module_path, func_name)] = original
+                    current_func = getattr(module, func_name)
+                    logger.debug(
+                        f"Current function at {module_path}.{func_name}: "
+                        f"{type(current_func).__name__}, "
+                        f"id={id(current_func)}"
+                    )
+
+                    # Get the true original - check if we already stored it, otherwise use current
+                    if (module_path, func_name) in self._originals:
+                        # We've patched this before in this session, use stored original
+                        original = self._originals[(module_path, func_name)]
+                        logger.debug(
+                            f"Module {module_path}.{func_name} already in _originals, "
+                            f"using stored original (type={type(original).__name__}, id={id(original)})"
+                        )
+                    else:
+                        # First time patching - store the current function as original
+                        original = current_func
+                        self._originals[(module_path, func_name)] = original
+                        logger.debug(
+                            f"Storing original for {module_path}.{func_name}: "
+                            f"{type(original).__name__}, id={id(original)}"
+                        )
 
                     if wrapper_type == "connection":
                         wrapped = self._create_connection_wrapper(original)
@@ -325,7 +357,6 @@ class ModulePatcher:
                 def wrapped_raw_connection() -> Any:
                     """Wrap raw DBAPI connection with our recording proxy."""
                     real_connection = original_raw_connection()
-                    # Wrap with our ConnectionProxy
                     return ConnectionProxy(
                         connection=real_connection,
                         recorder=recorder,

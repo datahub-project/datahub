@@ -410,16 +410,45 @@ datahub recording extract recording.zip --password mysecret --output-dir ./extra
 
 ### Database Sources
 
-| Source     | HTTP Recording | DB Recording | Notes                                        |
-| ---------- | -------------- | ------------ | -------------------------------------------- |
-| Snowflake  | ❌ Not needed  | ✅ Full      | SQL queries fully recorded via DB-API cursor |
-| Redshift   | N/A            | ✅ Full      | Native connector wrapped                     |
-| BigQuery   | ✅ (REST API)  | ✅ Full      | Client API wrapped                           |
-| Databricks | ❌ Not needed  | ✅ Full      | SQL queries fully recorded via DB-API cursor |
-| PostgreSQL | N/A            | ✅ Full      | SQLAlchemy event capture                     |
-| MySQL      | N/A            | ✅ Full      | SQLAlchemy event capture                     |
+| Source     | HTTP Recording | DB Recording | Strategy                        | Notes                                   |
+| ---------- | -------------- | ------------ | ------------------------------- | --------------------------------------- |
+| Snowflake  | ❌ Not needed  | ✅ Full      | Connection wrapper              | Native connector wrapped at `connect()` |
+| Redshift   | N/A            | ✅ Full      | Connection wrapper              | Native connector wrapped at `connect()` |
+| Databricks | ❌ Not needed  | ✅ Full      | Connection wrapper              | Native connector wrapped at `connect()` |
+| BigQuery   | ✅ (REST API)  | ✅ Full      | Client wrapper                  | Client class wrapped                    |
+| PostgreSQL | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
+| MySQL      | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
+| SQLite     | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
+| MSSQL      | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
 
 **Note:** File staging operations (PUT/GET) are not used in metadata extraction and are therefore not a concern for recording/replay.
+
+#### Hybrid Recording Strategy
+
+The recording system uses a **hybrid approach** that selects the best interception method for each database connector type:
+
+**1. Wrapper Strategy (Native Connectors)**
+
+- **Used for:** Snowflake, Redshift, Databricks, BigQuery
+- **How it works:** Wraps the connector's `connect()` function or Client class
+- **Why:** These connectors have direct `connect()` functions that return connections we can wrap
+- **Implementation:** `ConnectionProxy` wraps the real connection, `CursorProxy` intercepts queries
+
+**2. Engine Wrapper Strategy (SQLAlchemy-based)**
+
+- **Used for:** PostgreSQL, MySQL, SQLite, MSSQL, and other SQLAlchemy-based sources
+- **How it works:** Wraps SQLAlchemy's `engine.raw_connection()` method
+- **Why:** SQLAlchemy uses connection pooling and the DB-API interface is accessed via `raw_connection()`
+- **Implementation:** Wraps `raw_connection()` to return `ConnectionProxy`, which then wraps cursors
+- **Note:** This is the current implementation. A future enhancement may use SQLAlchemy event listeners for better compatibility.
+
+**Why Different Strategies?**
+
+- **Native connectors** (Snowflake, Redshift) expose direct `connect()` functions that are easy to wrap
+- **SQLAlchemy-based sources** use connection pooling and engines, requiring interception at the `raw_connection()` level
+- **BigQuery** uses a Client class pattern, requiring class-level wrapping
+
+Both strategies achieve the same goal: intercepting SQL queries and results for recording/replay, but use the most appropriate method for each connector's architecture.
 
 #### Database Connection Architecture
 
@@ -435,7 +464,7 @@ Database sources have a two-phase execution model:
 **Phase 2: SQL Execution (After `connect()`)**
 
 - Uses standard Python DB-API 2.0 cursor interface
-- Fully recorded via `CursorProxy`
+- Fully recorded via `CursorProxy` (works for both wrapper strategies)
 - Protocol-agnostic (works for any DB-API connector)
 - During replay: Served from recorded `queries.jsonl`
 
