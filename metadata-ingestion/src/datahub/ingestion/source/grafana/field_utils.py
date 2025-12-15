@@ -64,7 +64,13 @@ def extract_raw_sql_fields(
     report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from raw SQL queries using DataHub's SQL parsing."""
-    raw_sql = target.get("rawSql", "")
+    # Handle case variations: rawSql, rawSQL, etc.
+    raw_sql = ""
+    for key, value in target.items():
+        if key.lower() == "rawsql" and value:
+            raw_sql = value
+            break
+
     if not raw_sql:
         return []
 
@@ -77,13 +83,15 @@ def extract_raw_sql_fields(
     schema_aware = False
 
     if panel and panel.datasource_ref and connection_to_platform_map:
-        ds_type = panel.datasource_ref.type or "unknown"
-        ds_uid = panel.datasource_ref.uid or "unknown"
+        ds_type = panel.datasource_ref.type
+        ds_uid = panel.datasource_ref.uid
 
-        # Try to find mapping by datasource UID first, then by type
-        platform_config = connection_to_platform_map.get(
-            ds_uid
-        ) or connection_to_platform_map.get(ds_type)
+        # Try to find mapping by datasource UID first (if it exists), then by type
+        platform_config = None
+        if ds_uid:
+            platform_config = connection_to_platform_map.get(ds_uid)
+        if not platform_config and ds_type:
+            platform_config = connection_to_platform_map.get(ds_type)
 
         if platform_config:
             platform = platform_config.platform
@@ -141,7 +149,13 @@ def extract_raw_sql_fields(
 
 def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaFieldClass]:
     """Fallback basic SQL parsing for when sqlglot fails."""
-    raw_sql = target.get("rawSql", "").lower()
+    # Handle case variations: rawSql, rawSQL, etc.
+    raw_sql = ""
+    for key, value in target.items():
+        if key.lower() == "rawsql" and value:
+            raw_sql = value
+            break
+
     if not raw_sql:
         return []
 
@@ -185,18 +199,20 @@ def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaField
             # Clean up any remaining quotes or parentheses
             field_name = field_name.strip("\"'()")
 
-            fields.append(
-                SchemaFieldClass(
-                    fieldPath=field_name,
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                    nativeDataType="sql_column",
+            # Only create field if field_name is not empty
+            if field_name:
+                fields.append(
+                    SchemaFieldClass(
+                        fieldPath=field_name,
+                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        nativeDataType="sql_column",
+                    )
                 )
-            )
 
         return fields
 
     except (IndexError, ValueError, StopIteration) as e:
-        logger.warning(f"Failed to parse SQL: {target.get('rawSql')}", e)
+        logger.warning(f"Failed to parse SQL: {raw_sql}", e)
         return []
 
 
@@ -208,13 +224,27 @@ def extract_fields_from_panel(
 ) -> List[SchemaFieldClass]:
     """Extract all fields from a panel."""
     fields = []
-    fields.extend(
-        extract_fields_from_targets(
-            panel.query_targets, panel, connection_to_platform_map, graph, report
+
+    # Extract fields from targets (only if there are targets)
+    if panel.safe_query_targets:
+        target_fields = extract_fields_from_targets(
+            panel.safe_query_targets, panel, connection_to_platform_map, graph, report
         )
-    )
-    fields.extend(get_fields_from_field_config(panel.field_config))
-    fields.extend(get_fields_from_transformations(panel.transformations))
+        if target_fields:
+            fields.extend(target_fields)
+
+    # Extract fields from field config - use safe property to ensure non-None
+    field_config_fields = get_fields_from_field_config(panel.safe_field_config)
+    if field_config_fields:
+        fields.extend(field_config_fields)
+
+    # Extract fields from transformations (only if there are transformations)
+    if panel.safe_transformations:
+        transformation_fields = get_fields_from_transformations(
+            panel.safe_transformations
+        )
+        if transformation_fields:
+            fields.extend(transformation_fields)
 
     # Track schema field extraction
     if report:
@@ -234,6 +264,7 @@ def extract_fields_from_targets(
     report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from panel targets."""
+
     fields = []
     for target in targets:
         fields.extend(extract_sql_column_fields(target))
@@ -275,7 +306,9 @@ def get_fields_from_field_config(
                 nativeDataType="value",
             )
         )
-    for override in field_config.get("overrides", []):
+
+    overrides = field_config.get("overrides") or []
+    for override in overrides:
         if override.get("matcher", {}).get("id") == "byName":
             field_name = override.get("matcher", {}).get("options")
             if field_name:
@@ -293,15 +326,18 @@ def get_fields_from_transformations(
     transformations: List[Dict[str, Any]],
 ) -> List[SchemaFieldClass]:
     """Extract fields from transformations."""
+
     fields = []
     for transform in transformations:
         if transform.get("type") == "organize":
             for field_name in transform.get("options", {}).get("indexByName", {}):
-                fields.append(
-                    SchemaFieldClass(
-                        fieldPath=field_name,
-                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                        nativeDataType="transformed",
+                # Only create field if field_name is not empty
+                if field_name and field_name.strip():
+                    fields.append(
+                        SchemaFieldClass(
+                            fieldPath=field_name.strip(),
+                            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                            nativeDataType="transformed",
+                        )
                     )
-                )
     return fields

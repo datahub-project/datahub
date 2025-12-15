@@ -13,7 +13,7 @@ describe("summary tab - data product", () => {
     utils.goToSummaryTab();
   });
 
-  it("data product - header section", () => {
+  it("summary tab", () => {
     utils.testPropertiesSection([
       { name: "Created", type: "CREATED" },
       { name: "Owners", type: "OWNERS" },
@@ -21,21 +21,15 @@ describe("summary tab - data product", () => {
       { name: "Tags", type: "TAGS", value: TEST_TAG_NAME },
       { name: "Glossary Terms", type: "GLOSSARY_TERMS", value: TEST_TERM_NAME },
     ]);
-  });
 
-  it("data product - description section", () => {
-    utils.testAboutSection();
-  });
+    utils.ensureAboutSectionIsVisible();
 
-  it("data product - modules section", () => {
-    const defaultModules = [
+    utils.testTemplateSection([
       {
         type: "assets",
         name: "Assets",
         value: TEST_ASSET_NAME,
       },
-    ];
-
-    utils.testTemplateSection(defaultModules);
+    ]);
   });
 });

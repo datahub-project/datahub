@@ -9,18 +9,30 @@ import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
+import com.linkedin.entity.client.EntityClientConfig;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import com.linkedin.metadata.client.SystemJavaEntityClient;
+import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageSearchService;
+import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.service.RollbackService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
@@ -39,6 +51,7 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 
 @Slf4j
@@ -191,5 +204,45 @@ public class SystemUpdateConfig {
     }
 
     return entityService;
+  }
+
+  /**
+   * Override SystemEntityClient bean in the datahub-upgrade context to use the Java implementation.
+   * Only active when system update is running blocking mode operations.
+   */
+  @Primary
+  @Bean(name = "systemEntityClient")
+  @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
+  @Nonnull
+  protected SystemEntityClient systemEntityClient(
+      @Lazy final @Qualifier("entityService") EntityService<?> entityService,
+      @Lazy final @Qualifier("deleteEntityService") DeleteEntityService deleteEntityService,
+      final @Qualifier("searchService") SearchService searchService,
+      final @Qualifier("entitySearchService") EntitySearchService entitySearchService,
+      final @Qualifier("cachingEntitySearchService") CachingEntitySearchService
+              cachingEntitySearchService,
+      final @Qualifier("timeseriesAspectService") TimeseriesAspectService timeseriesAspectService,
+      final @Qualifier("relationshipSearchService") LineageSearchService lineageSearchService,
+      @Lazy final @Qualifier("kafkaEventProducer") EventProducer eventProducer,
+      @Lazy final RollbackService rollbackService,
+      final EntityClientCacheConfig entityClientCacheConfig,
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
+
+    log.info("Creating SystemEntityClient with Java implementation for blocking system update");
+
+    return new SystemJavaEntityClient(
+        entityService,
+        deleteEntityService,
+        entitySearchService,
+        cachingEntitySearchService,
+        searchService,
+        lineageSearchService,
+        timeseriesAspectService,
+        rollbackService,
+        eventProducer,
+        entityClientCacheConfig,
+        entityClientConfig,
+        metricUtils);
   }
 }

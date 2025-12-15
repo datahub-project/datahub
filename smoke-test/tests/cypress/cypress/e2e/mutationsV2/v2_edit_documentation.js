@@ -11,34 +11,35 @@ const getSampleUrl = (path) => {
   return `${url}/${path}`;
 };
 
-const removeLinksByUrl = (url) => {
-  cy.getWithTestId("link-list").within(() => {
-    cy.get(`[href='${url}']`).each(($el) => {
-      cy.wrap($el)
-        .closest(".ant-list-item")
-        .scrollIntoView()
-        .within(() => cy.clickOptionWithTestId("remove-link-button"));
-    });
+const removeLinkByUrl = (url) => {
+  cy.getWithTestId("related-list").within(() => {
+    cy.get(`a[href="${url}"]`)
+      .first()
+      .closest(".ant-list-item")
+      .within(() => {
+        cy.clickOptionWithTestId("remove-link-button");
+      });
   });
   cy.waitTextVisible("Link Removed");
+  cy.ensureTextNotPresent("Link Removed");
 };
 
 const fillLinksForm = (url, label, shouldShowInPreview) => {
-  cy.clearTextInTestId("link-form-modal-url");
-  cy.enterTextInTestId("link-form-modal-url", url);
-  cy.clearTextInTestId("link-form-modal-label");
-  cy.enterTextInTestId("link-form-modal-label", label);
+  cy.clearTextInTestId("url-input");
+  cy.enterTextInTestId("url-input", url);
+  cy.clearTextInTestId("label-input");
+  cy.enterTextInTestId("label-input", label);
 
-  cy.getWithTestId("link-form-modal-show-in-asset-preview")
+  cy.getWithTestId("show-in-asset-preview-checkbox")
     .children("input")
     .invoke("attr", "aria-checked")
     .then((value) => {
       const isChecked = value === "true";
       // Toggle checkbox if needed
       if (isChecked && !shouldShowInPreview) {
-        cy.clickOptionWithTestId("link-form-modal-show-in-asset-preview");
+        cy.clickOptionWithTestId("show-in-asset-preview-checkbox");
       } else if (!isChecked && shouldShowInPreview) {
-        cy.clickOptionWithTestId("link-form-modal-show-in-asset-preview");
+        cy.clickOptionWithTestId("show-in-asset-preview-checkbox");
       }
     });
 };
@@ -47,7 +48,9 @@ const submitForm = () =>
   cy.clickOptionWithTestId("link-form-modal-submit-button");
 
 const openAddLinkForm = () => {
-  cy.clickOptionWithTestId("add-link-button").wait(1000);
+  // Click the "+" button to open the menu, then click "Add link" menu item
+  cy.clickOptionWithTestId("add-related-button").wait(500);
+  cy.contains("Add link").click().wait(500);
 };
 
 const addLink = (url, label, shouldShowInPreview) => {
@@ -58,7 +61,7 @@ const addLink = (url, label, shouldShowInPreview) => {
 };
 
 const opendUpdateLinkForm = (url, label) => {
-  cy.getWithTestId("link-list").within(() => {
+  cy.getWithTestId("related-list").within(() => {
     cy.get(`[href='${url}']`).each(($el) => {
       cy.wrap($el)
         .closest(".ant-list-item")
@@ -95,14 +98,18 @@ const updateLink = (
 };
 
 const ensureThatUrlIsAvaliableOnDocumentationTab = (url) => {
-  cy.getWithTestId("link-list").within(() => {
+  cy.getWithTestId("related-list").within(() => {
     cy.get(`[href='${url}']`).should("have.length", 1);
   });
 };
 
 const ensureThatUrlIsNotAvaliableOnDocumentationTab = (url) => {
-  cy.getWithTestId("link-list").within(() => {
-    cy.get(`[href='${url}']`).should("not.exist");
+  cy.getWithTestId("related-list").then(($list) => {
+    if ($list && $list.length) {
+      cy.wrap($list).within(() => {
+        cy.get(`[href='${url}']`).should("not.exist");
+      });
+    }
   });
 };
 
@@ -178,7 +185,7 @@ describe("edit documentation and link to dataset", () => {
     openAddLinkForm();
 
     // Should validate url
-    cy.enterTextInTestId("link-form-modal-url", "incorrect_url");
+    cy.enterTextInTestId("url-input", "incorrect_url");
     cy.waitTextVisible("This field must be a valid url.");
 
     // Url should be required
@@ -186,7 +193,7 @@ describe("edit documentation and link to dataset", () => {
     cy.waitTextVisible("A URL is required.");
 
     // The label should be required
-    cy.enterTextInTestId("link-form-modal-label", "label");
+    cy.enterTextInTestId("label-input", "label");
     cy.focused().clear();
     cy.waitTextVisible("A label is required.");
   });
@@ -200,7 +207,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnSidebar(sample);
     ensureThatUrlIsNotAvaliableOnEntityHeader(sample);
 
-    removeLinksByUrl(sample);
+    removeLinkByUrl(sample);
   });
 
   it("should successflully add new link with showing in asset preview", () => {
@@ -216,7 +223,8 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnEntityHeader(sample);
 
     goToEntityDocumentationTab();
-    removeLinksByUrl(sample);
+
+    removeLinkByUrl(sample);
   });
 
   it("should collapse links in the entity header", () => {
@@ -238,9 +246,9 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnEntityHeaderInViewMore(sample2);
     ensureThatUrlIsAvaliableOnEntityHeaderInViewMore(sample3);
 
-    removeLinksByUrl(sample1);
-    removeLinksByUrl(sample2);
-    removeLinksByUrl(sample3);
+    removeLinkByUrl(sample1);
+    removeLinkByUrl(sample2);
+    removeLinkByUrl(sample3);
   });
 
   it("should successfully update the link", () => {
@@ -277,7 +285,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnDocumentationTab(sample_edited_url);
     ensureThatUrlIsAvaliableOnSidebar(sample_edited_url);
 
-    removeLinksByUrl(sample_edited_url);
+    removeLinkByUrl(sample_edited_url);
   });
 
   it("should successfully remove the link", () => {
@@ -288,7 +296,7 @@ describe("edit documentation and link to dataset", () => {
     ensureThatUrlIsAvaliableOnDocumentationTab(sample_url);
     ensureThatUrlIsAvaliableOnEntityHeader(sample_url);
 
-    removeLinksByUrl(sample_url);
+    removeLinkByUrl(sample_url);
 
     ensureThatUrlIsNotAvaliableOnDocumentationTab(sample_url, sample_url);
     ensureThatUrlIsNotAvaliableOnEntityHeader(sample_url);

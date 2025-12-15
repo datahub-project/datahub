@@ -61,12 +61,13 @@ const resources = [
 
 export const ErrorSection = (): JSX.Element => {
     const themeConfig = useTheme();
+    const themeLogo = themeConfig.assets.logoUrl || dataHubLogo;
 
     return (
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={dataHubLogo} preview={false} style={{ width: 40 }} />
+                    <Image src={themeLogo} preview={false} style={{ width: 40 }} />
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>

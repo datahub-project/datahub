@@ -1,0 +1,99 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+
+/**
+ * Information about a document
+ */
+@Aspect = {
+  "name": "documentInfo"
+}
+record DocumentInfo includes CustomProperties {
+
+    /**
+     * Optional title for the document. 
+     */
+    @Searchable = {
+      "fieldType": "WORD_GRAM",
+      "enableAutocomplete": true,
+      "boostScore": 10.0,
+      "fieldNameAliases": [ "_entityName" ],
+      "searchLabel": "entityName",
+      "searchTier": 1
+    }
+    title: optional string
+
+    /**
+     * Information about the external source of this document. 
+     * Only populated for third-party documents ingested from external systems.
+     */
+    source: optional DocumentSource
+
+    /**
+     * Status of the document (published, unpublished.)
+     */
+    status: DocumentStatus
+
+    /**
+     * Content of the document
+     */
+     contents: DocumentContents
+
+     /**
+      * The time and actor who created the document
+      */
+    @Searchable = {
+      "/actor": {
+        "fieldName": "creator",
+        "fieldType": "URN",
+        "queryByDefault": false
+      },
+      "/time": {
+        "fieldName": "createdAt",
+        "fieldType": "DATETIME",
+        "queryByDefault": false
+      }
+    }
+    created: AuditStamp
+
+    /**
+     * The time and actor who last modified the document (any field)
+     */
+    @Searchable = {
+      "/actor": {
+        "fieldName": "lastModifiedBy",
+        "fieldType": "URN",
+        "queryByDefault": false
+      },
+      "/time": {
+        "fieldName": "lastModifiedAt",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+        "addToFilters": false
+      }
+    }
+    lastModified: AuditStamp
+    
+    /**
+     * Assets referenced by or related to this document. 
+     */
+    relatedAssets: optional array[RelatedAsset]
+
+    /**
+     * Documents referenced by or related to this document. 
+     */
+    relatedDocuments: optional array[RelatedDocument]
+
+    /**
+     * Parent article for this asset. 
+     */
+    parentDocument: optional ParentDocument
+
+    /**
+     * If this document is a draft, the document it is a draft of.
+     * When set, this document should be hidden from normal knowledge base browsing and search.
+     * Only the published document (draftOf target) should be visible to end users.
+     */
+    draftOf: optional DraftOf
+}
