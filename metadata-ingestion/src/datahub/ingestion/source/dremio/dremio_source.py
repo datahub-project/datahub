@@ -64,6 +64,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -71,6 +73,57 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class DremioSchemaResolver(SchemaResolver):
+    """Custom schema resolver for Dremio that handles the 'dremio.' prefix/infix correctly.
+
+    Dremio always uses 'dremio' as the database, but SQL queries may reference tables
+    without this prefix (e.g., MySource.sales.orders). This resolver ensures that
+    URNs are constructed with 'dremio.' as a prefix (when no platform_instance) or
+    as an infix (when platform_instance is set, e.g., test-platform.dremio.space.table).
+    """
+
+    def get_urn_for_table(
+        self, table: _TableName, lower: bool = False, mixed: bool = False
+    ) -> str:
+        # For Dremio, we need to ensure the database is always "dremio"
+        # If the table reference doesn't include it, we add it
+        if table.database and table.database.lower() != "dremio":
+            # SQL referenced as MySource.sales.orders
+            # Prepend "dremio." to get dremio.mysource.sales.orders
+            table_name_parts = [
+                "dremio",
+                table.database,
+                table.db_schema,
+                table.table,
+            ]
+        else:
+            # SQL referenced with dremio already, or 2-part name
+            table_name_parts = [
+                table.database or "dremio",
+                table.db_schema,
+                table.table,
+            ]
+
+        table_name = ".".join(filter(None, table_name_parts))
+
+        platform_instance = self.platform_instance
+
+        if lower:
+            table_name = table_name.lower()
+            if not mixed:
+                platform_instance = (
+                    platform_instance.lower() if platform_instance else None
+                )
+
+        urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=platform_instance,
+            env=self.env,
+            name=table_name,
+        )
+        return urn
 
 
 @dataclass
@@ -178,10 +231,19 @@ class DremioSource(StatefulIngestionSourceBase):
         )
         self.max_workers = config.max_workers
 
+        # Create a custom schema resolver for Dremio that handles the "dremio." infix (post platform_instance)
+        self.dremio_schema_resolver = DremioSchemaResolver(
+            platform=self.get_platform(),
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            schema_resolver=self.dremio_schema_resolver,
             graph=self.ctx.graph,
             generate_usage_statistics=True,
             generate_operations=True,
@@ -350,6 +412,8 @@ class DremioSource(StatefulIngestionSourceBase):
             if isinstance(
                 dremio_mcp.metadata, MetadataChangeProposalWrapper
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
+                # Register the schema with the custom Dremio schema resolver
+                # The resolver will ensure all URNs are constructed with the "dremio." infix
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
                     schema=dremio_mcp.metadata.aspect,
