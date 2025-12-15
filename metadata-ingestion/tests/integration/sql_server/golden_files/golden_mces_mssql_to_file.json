@@ -3876,7 +3876,7 @@
             "downstreams": [
               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),ItemName)"
             ],
-            "transformOperation": "COPY: [salesreason].[name] AS [ItemName]",
+            "transformOperation": "COPY: [salesreason].[name] AS [itemname]",
             "confidenceScore": 0.9
           }
         ]

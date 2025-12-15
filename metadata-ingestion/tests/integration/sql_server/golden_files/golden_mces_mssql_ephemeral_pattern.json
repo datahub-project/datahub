@@ -3824,7 +3824,7 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD),ItemName)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD),itemname)"
             ],
             "confidenceScore": 0.9
           },
@@ -3835,9 +3835,9 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),tempid)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),id)"
             ],
-            "transformOperation": "COPY: [salesreason].[tempid] AS [tempid]",
+            "transformOperation": "COPY: [salesreason].[tempid] AS [id]",
             "confidenceScore": 0.9
           },
           {
@@ -3847,9 +3847,9 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),name)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),itemname)"
             ],
-            "transformOperation": "COPY: [salesreason].[name] AS [name]",
+            "transformOperation": "COPY: [salesreason].[name] AS [itemname]",
             "confidenceScore": 0.9
           },
           {
