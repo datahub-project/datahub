@@ -14,7 +14,7 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)",
-                "column": "metricid",
+                "column": "MetricId",
                 "column_type": null,
                 "native_column_type": null
             },
@@ -32,7 +32,7 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)",
-                "column": "value",
+                "column": "Value",
                 "column_type": null,
                 "native_column_type": null
             },
@@ -50,7 +50,7 @@
         {
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.fact_table,PROD)",
-                "column": "processeddate",
+                "column": "ProcessedDate",
                 "column_type": {
                     "type": {
                         "com.linkedin.pegasus2avro.schema.TimeType": {}

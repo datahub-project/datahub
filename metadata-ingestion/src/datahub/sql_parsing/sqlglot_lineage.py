@@ -645,16 +645,14 @@ def _select_statement_cll(
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
 
-        # For MSSQL INSERT statements, restore original column case from metadata
-        # The optimizer lowercases column names, but we want to preserve the original case
+        # For MSSQL INSERT statements, save original column case mapping for later use
+        # We need to use lowercase names for sqlglot lineage extraction, then restore
+        # the original case in the final output
         original_insert_columns = statement.meta.get("_original_insert_columns", [])
+        case_mapping = {}
         if original_insert_columns:
             # Create case-insensitive mapping from lowercased to original case
             case_mapping = {col.lower(): col for col in original_insert_columns}
-            output_columns = [
-                (case_mapping.get(col_name.lower(), col_name), col_expr)
-                for col_name, col_expr in output_columns
-            ]
 
         logger.debug("output columns: %s", [col[0] for col in output_columns])
 
@@ -721,11 +719,18 @@ def _select_statement_cll(
 
             if not direct_resolved_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
+
+            # Restore original column case from INSERT statement if available
+            # This must be done AFTER lineage extraction to avoid sqlglot lookup failures
+            downstream_col = output_col
+            if case_mapping:
+                downstream_col = case_mapping.get(output_col.lower(), output_col)
+
             column_lineage.append(
                 _ColumnLineageInfo(
                     downstream=_DownstreamColumnRef(
                         table=output_table,
-                        column=output_col,
+                        column=downstream_col,
                         column_type=output_col_type,
                     ),
                     upstreams=sorted(direct_resolved_col_upstreams),
