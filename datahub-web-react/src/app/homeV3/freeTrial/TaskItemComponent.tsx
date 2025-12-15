@@ -14,7 +14,6 @@ import { OnboardingStep } from '@app/onboarding/types';
 
 interface TaskItemComponentProps {
     step: OnboardingStep;
-    isCompleted: boolean;
     onDismiss: (id: string) => void;
     onStart: (id: string) => void;
 }
@@ -22,9 +21,9 @@ interface TaskItemComponentProps {
 /**
  * Component to render a task item in the free trial content
  */
-export const TaskItemComponent = ({ step, isCompleted, onDismiss, onStart }: TaskItemComponentProps) => {
+export const TaskItemComponent = ({ step, onDismiss, onStart }: TaskItemComponentProps) => {
     return (
-        <TaskItem $isCompleted={isCompleted}>
+        <TaskItem>
             <TaskIconWrapper>
                 <Icon icon={step.icon || 'Star'} color="violet" size="xl" source="phosphor" />
             </TaskIconWrapper>
@@ -34,11 +33,9 @@ export const TaskItemComponent = ({ step, isCompleted, onDismiss, onStart }: Tas
             </TaskContent>
             <TaskActions>
                 <DismissButton onClick={() => onDismiss(step.id || '')}>Dismiss</DismissButton>
-                {!isCompleted && (
-                    <Button size="sm" variant="secondary" onClick={() => onStart(step.id || '')}>
-                        Start
-                    </Button>
-                )}
+                <Button size="sm" variant="secondary" onClick={() => onStart(step.id || '')}>
+                    Start
+                </Button>
             </TaskActions>
         </TaskItem>
     );

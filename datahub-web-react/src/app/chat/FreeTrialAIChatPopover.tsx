@@ -1,11 +1,15 @@
 import { CalloutCard, CalloutPosition, Icon, Text } from '@components';
-import React, { useMemo } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { FREE_TRIAL } from '@app/onboarding/configV2/FreeTrialConfig';
+import { FREE_TRIAL, STEP_STATE_COMPLETE, STEP_STATE_KEY } from '@app/onboarding/configV2/FreeTrialConfig';
 import { useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
 import { PageRoutes } from '@conf/Global';
+import { EducationStepsContext } from '@providers/EducationStepsContext';
+
+import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
+import { StepStateInput, StepStateResult } from '@types';
 
 const ContentText = styled(Text)`
     color: inherit;
@@ -15,7 +19,7 @@ const ContentText = styled(Text)`
 export type AIChatPopoverVariant = 'welcome' | 'completion';
 
 interface PopoverConfig {
-    stepIds: string[];
+    stepId: string;
     icon: React.ReactNode;
     title: string;
     content: string;
@@ -26,7 +30,7 @@ interface PopoverConfig {
 
 const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
     welcome: {
-        stepIds: [FREE_TRIAL.AI_CHAT_POPOVER_ID],
+        stepId: FREE_TRIAL.AI_CHAT_POPOVER_ID,
         icon: <Icon icon="Sparkle" source="phosphor" color="violet" size="xl" weight="fill" />,
         title: 'Ask DataHub',
         content: 'Chat interface for asking questions about your data and metadata.',
@@ -35,7 +39,7 @@ const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
         navigateToHome: false,
     },
     completion: {
-        stepIds: [FREE_TRIAL.AI_CHAT_COMPLETION_POPOVER_ID],
+        stepId: FREE_TRIAL.AI_CHAT_COMPLETION_POPOVER_ID,
         icon: <Icon icon="Sparkle" source="phosphor" color="violet" size="xl" weight="fill" />,
         title: "You've Seen Ask DataHub",
         content: 'Continue learning about the platform and our connections to your Sources.',
@@ -58,14 +62,49 @@ interface Props {
 export default function FreeTrialAIChatPopover({ variant }: Props) {
     const history = useHistory();
     const config = POPOVER_CONFIGS[variant];
+    const { setEducationSteps } = useContext(EducationStepsContext);
+    const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 
-    // Memoize stepIds array to prevent infinite loop in useEffect
-    const stepIds = useMemo(() => config.stepIds, [config.stepIds]);
+    // Memoize stepIds array for the hook
+    const stepIds = useMemo(() => [config.stepId], [config.stepId]);
 
     const { isVisible, setIsVisible } = useFreeTrialPopoverVisibility({ stepIds });
 
     const handlePrimaryClick = () => {
-        // TODO: Call API to mark step as dismissed/complete
+        const states: StepStateInput[] = [
+            {
+                id: config.stepId,
+                properties: [],
+            },
+        ];
+
+        // When completion popover is dismissed, also mark the Ask DataHub onboarding step as complete
+        if (variant === 'completion') {
+            states.push({
+                id: FREE_TRIAL.ASK_DATAHUB_ID,
+                properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_COMPLETE }],
+            });
+        }
+
+        batchUpdateStepStates({ variables: { input: { states } } }).then(() => {
+            // Update local state to reflect the changes
+            const results: StepStateResult[] = [
+                {
+                    id: config.stepId,
+                    properties: [],
+                },
+            ];
+
+            if (variant === 'completion') {
+                results.push({
+                    id: FREE_TRIAL.ASK_DATAHUB_ID,
+                    properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_COMPLETE }],
+                });
+            }
+
+            setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, ...results] : results));
+        });
+
         setIsVisible(false);
         if (config.navigateToHome) {
             history.push(PageRoutes.ROOT);

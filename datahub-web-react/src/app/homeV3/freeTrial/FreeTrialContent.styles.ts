@@ -4,7 +4,7 @@ import styled from 'styled-components';
 export const Container = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 16px;
     padding: 0 42px;
 `;
 
@@ -17,7 +17,7 @@ export const CardTitle = styled(Text)`
 export const CardDescription = styled(Text)`
     color: ${colors.gray[1700]};
     line-height: 1.5;
-    margin-top: 4px;
+    margin-top: 16px;
 `;
 
 // Get Started Card Styles
@@ -54,7 +54,7 @@ export const GetStartedSubtitle = styled(Text)`
 export const ProgressSection = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
     margin-bottom: 20px;
 `;
 
@@ -98,14 +98,10 @@ export const TaskList = styled.div`
     gap: 8px;
 `;
 
-export const TaskItem = styled.div<{ $isCompleted?: boolean }>`
+export const TaskItem = styled.div`
     display: flex;
     align-items: center;
-    padding: ${({ $isCompleted }) => ($isCompleted ? '12px 16px' : '12px 0')};
-    margin: ${({ $isCompleted }) => ($isCompleted ? '0 -16px' : '0')};
-    border-radius: 8px;
-    background: ${({ $isCompleted }) => ($isCompleted ? colors.gray[1500] : 'transparent')};
-    opacity: ${({ $isCompleted }) => ($isCompleted ? 0.7 : 1)};
+    padding: 12px 0;
 `;
 
 export const TaskIconWrapper = styled.div`
@@ -128,7 +124,7 @@ export const TaskContent = styled.div`
 export const TaskTitle = styled(Text)`
     font-weight: ${typography.fontWeights.semiBold};
     color: ${colors.gray[600]};
-    margin-bottom: 0;
+    margin-bottom: 2px;
 `;
 
 export const TaskDescription = styled(Text)`
@@ -170,5 +166,48 @@ export const MenuItem = styled.div`
 
     &:hover {
         background: ${colors.gray[100]};
+    }
+`;
+
+// Completion State Styles
+export const CompletionContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+`;
+
+export const CompletionIconWrapper = styled.div`
+    margin-bottom: 16px;
+`;
+
+export const CompletionTitle = styled(Text)`
+    font-size: ${typography.fontSizes.lg};
+    font-weight: ${typography.fontWeights.bold};
+    color: ${colors.gray[600]};
+    margin-bottom: 8px;
+`;
+
+export const CompletionSubtitle = styled(Text)`
+    color: ${colors.gray[1700]};
+    margin-bottom: 24px;
+`;
+
+export const CompletionActions = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+`;
+
+export const CompletionLink = styled(Text)`
+    color: ${colors.violet[500]};
+    cursor: pointer;
+    font-size: ${typography.fontSizes.sm};
+
+    &:hover {
+        text-decoration: underline;
     }
 `;

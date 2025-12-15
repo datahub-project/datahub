@@ -1,11 +1,16 @@
-import { Card, Icon, Text, colors } from '@components';
-import { Dropdown } from 'antd';
+import { Button, Card, Icon, Text, colors } from '@components';
+import { Dropdown, Skeleton } from 'antd';
 import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import {
     CardDescription,
     CardTitle,
+    CompletionActions,
+    CompletionContainer,
+    CompletionIconWrapper,
+    CompletionSubtitle,
+    CompletionTitle,
     Container,
     GetStartedCard,
     GetStartedHeader,
@@ -25,17 +30,20 @@ import {
 import { TaskItemComponent } from '@app/homeV3/freeTrial/TaskItemComponent';
 import { useGetIngestionLink } from '@app/homeV3/freeTrial/useGetIngestionLink';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
-import { FREE_TRIAL, FreeTrialOnboardingConfig } from '@app/onboarding/configV2/FreeTrialConfig';
+import {
+    FREE_TRIAL,
+    FreeTrialOnboardingConfig,
+    STEP_STATE_COMPLETE,
+    STEP_STATE_DISMISSED,
+    STEP_STATE_KEY,
+} from '@app/onboarding/configV2/FreeTrialConfig';
 import { getStepPropertyByKey } from '@app/onboarding/utils';
 import PageBanner from '@app/sharedV2/PageBanner';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
-
-// Step state constants
-const STEP_STATE_DISMISSED = 'DISMISSED';
-const STEP_STATE_COMPLETE = 'COMPLETE';
-const STEP_STATE_KEY = 'state';
+import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
+import { StepStateResult } from '@types';
 
 /**
  * Component to render the Self serve free trial content
@@ -43,11 +51,12 @@ const STEP_STATE_KEY = 'state';
 const FreeTrialContent = () => {
     const history = useHistory();
 
-    const { educationSteps } = useContext(EducationStepsContext);
+    const { educationSteps, setEducationSteps } = useContext(EducationStepsContext);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 
     // Query ingestion sources to check if user has connected any data sources
-    const { data: ingestionSourcesData } = useListIngestionSourcesQuery({
+    const { data: ingestionSourcesData, loading: ingestionLoading } = useListIngestionSourcesQuery({
         variables: {
             input: {
                 start: 0,
@@ -63,6 +72,9 @@ const FreeTrialContent = () => {
         },
         fetchPolicy: 'cache-and-network',
     });
+
+    // Check if we're still loading the initial data
+    const isLoading = educationSteps === null || ingestionLoading;
 
     // Check if any ingestion source has a successful execution
     // TODO: We will need to update this to get other statuses later
@@ -102,10 +114,25 @@ const FreeTrialContent = () => {
         return false;
     };
 
+    // Helper to check if a step is done (completed or dismissed)
+    const isStepDone = (stepId: string): boolean => {
+        return isStepCompleted(stepId) || isStepDismissed(stepId);
+    };
+
     const handleDismissCard = () => {
-        // TODO: Call API to update FREE_TRIAL.ONBOARDING_ID state to DISMISSED
         setMenuOpen(false);
-        console.log('Dismiss card clicked for:', FREE_TRIAL.ONBOARDING_ID);
+        const stepState = {
+            id: FREE_TRIAL.ONBOARDING_ID,
+            properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
+        };
+        batchUpdateStepStates({ variables: { input: { states: [stepState] } } }).then(() => {
+            // Update local state to reflect the change
+            const result: StepStateResult = {
+                id: FREE_TRIAL.ONBOARDING_ID,
+                properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
+            };
+            setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, result] : [result]));
+        });
     };
 
     const cardMenuItems = [
@@ -116,19 +143,30 @@ const FreeTrialContent = () => {
     ];
 
     const config = FreeTrialOnboardingConfig;
-    // Filter out dismissed steps
-    const visibleSteps = config.steps.filter((step) => !isStepDismissed(step.id || ''));
-    const completedCount = visibleSteps.filter((step) => isStepCompleted(step.id || '')).length;
-    const totalCount = visibleSteps.length;
-    const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+    // Filter out done (completed or dismissed) steps for display, but keep total count based on all steps
+    const visibleSteps = config.steps.filter((step) => !isStepDone(step.id || ''));
+    const totalCount = config.steps.length;
+    const doneCount = config.steps.filter((step) => isStepDone(step.id || '')).length;
+    const progressPercent = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
+    const allTasksComplete = doneCount === totalCount && totalCount > 0;
 
     const handleConnectData = () => {
         history.push(ingestionLink);
     };
 
     const handleDismiss = (stepId: string) => {
-        // TODO: Call API to update step state to DISMISSED
-        console.log('Dismiss clicked for:', stepId);
+        const stepState = {
+            id: stepId,
+            properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
+        };
+        batchUpdateStepStates({ variables: { input: { states: [stepState] } } }).then(() => {
+            // Update local state to reflect the change
+            const result: StepStateResult = {
+                id: stepId,
+                properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
+            };
+            setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, result] : [result]));
+        });
     };
 
     const handleStart = (stepId: string) => {
@@ -137,6 +175,20 @@ const FreeTrialContent = () => {
                 history.push('/ai-chat');
                 break;
             case FREE_TRIAL.DATA_LINEAGE_ID:
+                // Mark the step as complete when starting lineage exploration
+                {
+                    const stepState = {
+                        id: FREE_TRIAL.DATA_LINEAGE_ID,
+                        properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_COMPLETE }],
+                    };
+                    batchUpdateStepStates({ variables: { input: { states: [stepState] } } }).then(() => {
+                        const result: StepStateResult = {
+                            id: FREE_TRIAL.DATA_LINEAGE_ID,
+                            properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_COMPLETE }],
+                        };
+                        setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, result] : [result]));
+                    });
+                }
                 history.push(
                     '/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,order_entry_db.analytics.order_details,PROD)/Lineage?highlightedPath=&is_lineage_mode=false&schemaFilter=',
                 );
@@ -148,6 +200,28 @@ const FreeTrialContent = () => {
                 break;
         }
     };
+
+    // Show loading skeleton while data is being fetched
+    if (isLoading) {
+        return (
+            <Container>
+                <Card
+                    title={<CardTitle>Your organization&apos;s data catalog</CardTitle>}
+                    subTitle={
+                        <CardDescription>
+                            DataHub is like a search engine for all your data assets. Find any dataset, understand where
+                            it comes from, see who uses it, and discover insights, all in one place.
+                        </CardDescription>
+                    }
+                    width="100%"
+                    isCardClickable={false}
+                />
+                <GetStartedCard>
+                    <Skeleton active paragraph={{ rows: 4 }} />
+                </GetStartedCard>
+            </Container>
+        );
+    }
 
     return (
         <Container>
@@ -166,60 +240,84 @@ const FreeTrialContent = () => {
                     actionColor={colors.blue[1000]}
                 />
             )}
-            <Card
-                title={<CardTitle>Your organization&apos;s data catalog</CardTitle>}
-                subTitle={
-                    <CardDescription>
-                        DataHub is like a search engine for all your data assets. Find any dataset, understand where it
-                        comes from, see who uses it, and discover insights, all in one place.
-                    </CardDescription>
-                }
-                width="100%"
-                isCardClickable={false}
-            />
-            {!isParentDismissed && visibleSteps.length > 0 && (
-                <GetStartedCard>
-                    <GetStartedHeader>
-                        <HeaderContent>
-                            <GetStartedTitle>{config.title}</GetStartedTitle>
-                            <GetStartedSubtitle>{config.content}</GetStartedSubtitle>
-                        </HeaderContent>
-                        <Dropdown
-                            menu={{ items: cardMenuItems }}
-                            trigger={['click']}
-                            open={menuOpen}
-                            onOpenChange={setMenuOpen}
-                        >
-                            <MenuButton variant="text">
-                                <Icon icon="DotsThreeVertical" source="phosphor" color="gray" size="lg" />
-                            </MenuButton>
-                        </Dropdown>
-                    </GetStartedHeader>
-                    {config.showProgress && (
-                        <ProgressSection>
-                            <ProgressHeader>
-                                <ProgressLabel>Progress</ProgressLabel>
-                                <ProgressCount>
-                                    {completedCount} of {totalCount} tasks complete
-                                </ProgressCount>
-                            </ProgressHeader>
-                            <ProgressBarContainer>
-                                <ProgressBarFill $percent={progressPercent} />
-                            </ProgressBarContainer>
-                        </ProgressSection>
-                    )}
-                    <TaskList>
-                        {visibleSteps.map((step) => (
-                            <TaskItemComponent
-                                key={step.id}
-                                step={step}
-                                isCompleted={isStepCompleted(step.id || '')}
-                                onDismiss={handleDismiss}
-                                onStart={handleStart}
-                            />
-                        ))}
-                    </TaskList>
-                </GetStartedCard>
+            {!isParentDismissed && (
+                <>
+                    <Card
+                        title={<CardTitle>Your organization&apos;s data catalog</CardTitle>}
+                        subTitle={
+                            <CardDescription>
+                                DataHub is like a search engine for all your data assets. Find any dataset, understand
+                                where it comes from, see who uses it, and discover insights, all in one place.
+                            </CardDescription>
+                        }
+                        width="100%"
+                        isCardClickable={false}
+                    />
+                    <GetStartedCard>
+                        <GetStartedHeader>
+                            <HeaderContent>
+                                <GetStartedTitle>{config.title}</GetStartedTitle>
+                                {!allTasksComplete && <GetStartedSubtitle>{config.content}</GetStartedSubtitle>}
+                            </HeaderContent>
+                            <Dropdown
+                                menu={{ items: cardMenuItems }}
+                                trigger={['click']}
+                                open={menuOpen}
+                                onOpenChange={setMenuOpen}
+                            >
+                                <MenuButton variant="text">
+                                    <Icon icon="DotsThreeVertical" source="phosphor" color="gray" size="lg" />
+                                </MenuButton>
+                            </Dropdown>
+                        </GetStartedHeader>
+                        {config.showProgress && (
+                            <ProgressSection>
+                                <ProgressHeader>
+                                    <ProgressLabel>Progress</ProgressLabel>
+                                    <ProgressCount>
+                                        {doneCount} of {totalCount} tasks complete
+                                    </ProgressCount>
+                                </ProgressHeader>
+                                <ProgressBarContainer>
+                                    <ProgressBarFill $percent={progressPercent} />
+                                </ProgressBarContainer>
+                            </ProgressSection>
+                        )}
+                        {allTasksComplete ? (
+                            <CompletionContainer>
+                                <CompletionIconWrapper>
+                                    <Icon
+                                        icon="Confetti"
+                                        source="phosphor"
+                                        color="violet"
+                                        size="4xl"
+                                        weight="duotone"
+                                    />
+                                </CompletionIconWrapper>
+                                <CompletionTitle>All tasks complete!</CompletionTitle>
+                                <CompletionSubtitle>
+                                    Congratulations! Your platform is now fully set up and ready to use.
+                                </CompletionSubtitle>
+                                <CompletionActions>
+                                    <Button variant="filled" onClick={handleDismissCard}>
+                                        Start Customizing Home
+                                    </Button>
+                                </CompletionActions>
+                            </CompletionContainer>
+                        ) : (
+                            <TaskList>
+                                {visibleSteps.map((step) => (
+                                    <TaskItemComponent
+                                        key={step.id}
+                                        step={step}
+                                        onDismiss={handleDismiss}
+                                        onStart={handleStart}
+                                    />
+                                ))}
+                            </TaskList>
+                        )}
+                    </GetStartedCard>
+                </>
             )}
         </Container>
     );

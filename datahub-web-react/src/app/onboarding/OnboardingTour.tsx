@@ -8,6 +8,7 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
+import { useIsFreeTrialInstance } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
@@ -22,9 +23,20 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
     const isThemeV2 = useIsThemeV2();
+    const isFreeTrialInstance = useIsFreeTrialInstance();
     const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen } = useContext(OnboardingContext);
     const location = useLocation();
+    const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
+    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
+
     const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
+
+    // Don't show OnboardingTour on homepage - WelcomeToDataHubModal is used there instead
+    const isHomepage = location.pathname === '/';
+
+    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', tourReshow);
+    const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
+    const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
 
     useEffect(() => {
         function handleKeyDown(e) {
@@ -41,19 +53,10 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         document.addEventListener('keydown', handleKeyDown);
     }, [setTourReshow, setIsTourOpen]);
 
-    // Don't show OnboardingTour on homepage - WelcomeToDataHubModal is used there instead
-    const isHomepage = location.pathname === '/';
-
-    const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', tourReshow);
-    const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
-    const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
-
-    const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
-    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
-
     // Automatically open tour for first-time visits when there are unseen steps
     useEffect(() => {
         if (
+            !isFreeTrialInstance && // Skip for free trial instances
             !tourReshow && // Only for automatic tours, not manual reshows
             !shouldSkipOnboardingTour && // Don't show if globally disabled
             !isHomepage && // Don't show on homepage - WelcomeToDataHubModal is used there
@@ -62,7 +65,15 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         ) {
             setIsTourOpen(true);
         }
-    }, [filteredSteps.length, tourReshow, shouldSkipOnboardingTour, isHomepage, isTourOpen, setIsTourOpen]);
+    }, [
+        filteredSteps.length,
+        tourReshow,
+        shouldSkipOnboardingTour,
+        isHomepage,
+        isTourOpen,
+        setIsTourOpen,
+        isFreeTrialInstance,
+    ]);
 
     function closeTour() {
         setIsTourOpen(false);
@@ -80,7 +91,9 @@ export const OnboardingTour = ({ stepIds }: Props) => {
 
     // For automatic tours (tourReshow=false), only check if we have steps to show and not on homepage
     // For manual tours (tourReshow=true), also check the global skip flag
-    if (!filteredSteps.length || isHomepage || (tourReshow && shouldSkipOnboardingTour)) return null;
+    if (isFreeTrialInstance || !filteredSteps.length || isHomepage || (tourReshow && shouldSkipOnboardingTour)) {
+        return null;
+    }
 
     return (
         <Tour

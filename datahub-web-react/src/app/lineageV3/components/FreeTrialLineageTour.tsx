@@ -1,4 +1,4 @@
-import { CalloutCard, Icon, Text, colors } from '@components';
+import { CalloutCard, Icon, Text, colors, typography } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,11 +7,16 @@ import { LineageDisplayContext } from '@app/lineageV3/common';
 import { FREE_TRIAL } from '@app/onboarding/configV2/FreeTrialConfig';
 import { useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
 import { PageRoutes } from '@conf/Global';
+import { EducationStepsContext } from '@providers/EducationStepsContext';
+
+import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
+import { StepStateResult } from '@types';
 
 const BulletList = styled.ul`
     margin: 0;
     padding-left: 20px;
     color: ${colors.gray[1700]};
+    font-size: ${typography.fontSizes.md};
     line-height: 1.6;
 
     li {
@@ -35,7 +40,7 @@ interface TourStep {
 const TOUR_STEPS: TourStep[] = [
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_1_ID,
-        icon: <Icon icon="Graph" source="phosphor" color="violet" size="2xl" weight="duotone" />,
+        icon: <Icon icon="TreeStructure" source="phosphor" color="violet" size="2xl" weight="fill" />,
         title: 'DataHub Lineage Features',
         content: (
             <ParagraphContent>
@@ -46,7 +51,7 @@ const TOUR_STEPS: TourStep[] = [
     },
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_2_ID,
-        icon: <Icon icon="Graph" source="phosphor" color="violet" size="2xl" weight="duotone" />,
+        icon: <Icon icon="TreeStructure" source="phosphor" color="violet" size="2xl" weight="fill" />,
         title: 'DataHub Lineage Features',
         content: (
             <BulletList>
@@ -58,7 +63,7 @@ const TOUR_STEPS: TourStep[] = [
     },
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_3_ID,
-        icon: <Icon icon="Graph" source="phosphor" color="violet" size="2xl" weight="duotone" />,
+        icon: <Icon icon="TreeStructure" source="phosphor" color="violet" size="2xl" weight="fill" />,
         title: 'Column-Level Lineage',
         expandColumns: true,
         content: (
@@ -71,7 +76,7 @@ const TOUR_STEPS: TourStep[] = [
     },
     {
         id: FREE_TRIAL.LINEAGE_TOUR_STEP_4_ID,
-        icon: <Icon icon="Confetti" source="phosphor" color="violet" size="2xl" weight="duotone" />,
+        icon: <Icon icon="Confetti" source="phosphor" color="violet" size="2xl" weight="fill" />,
         title: "You've Seen Lineage!",
         content: (
             <ParagraphContent>Continue learning about DataHub next with Ask Datahub and our Sources.</ParagraphContent>
@@ -97,14 +102,27 @@ interface Props {
 export default function FreeTrialLineageTour({ rootUrn }: Props) {
     const history = useHistory();
     const { setTourExpandColumnsUrn } = useContext(LineageDisplayContext);
+    const { setEducationSteps } = useContext(EducationStepsContext);
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 
     // Memoize to prevent infinite loop in useEffect
     const stepIds = useMemo(() => TOUR_STEP_IDS, []);
     const { isVisible, setIsVisible } = useFreeTrialPopoverVisibility({ stepIds });
 
+    // Helper to mark all tour steps as seen
+    const markAllStepsAsSeen = () => {
+        const states = TOUR_STEP_IDS.map((id) => ({ id, properties: [] }));
+
+        batchUpdateStepStates({ variables: { input: { states } } }).then(() => {
+            const results: StepStateResult[] = TOUR_STEP_IDS.map((id) => ({ id, properties: [] }));
+            setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, ...results] : results));
+        });
+    };
+
     const handleClose = () => {
-        // TODO: Call API to mark steps as dismissed
+        // Mark all steps as seen when closing the tour
+        markAllStepsAsSeen();
         setTourExpandColumnsUrn(null);
         setIsVisible(false);
     };
@@ -122,13 +140,13 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
             setCurrentStepIndex(nextStepIndex);
         } else {
             // Last step - close the tour
-            // TODO: Call API to mark steps as complete
             setIsVisible(false);
         }
     };
 
     const handleGoToHome = () => {
-        // TODO: Call API to mark steps as complete
+        // Mark all steps as seen when completing the tour
+        markAllStepsAsSeen();
         setTourExpandColumnsUrn(null);
         setIsVisible(false);
         history.push(PageRoutes.ROOT);

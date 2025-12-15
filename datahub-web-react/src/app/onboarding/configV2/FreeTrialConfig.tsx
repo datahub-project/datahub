@@ -1,5 +1,10 @@
 import { OnboardingTasks } from '@app/onboarding/types';
 
+// Step state constants used for tracking onboarding progress
+export const STEP_STATE_KEY = 'state';
+export const STEP_STATE_COMPLETE = 'COMPLETE';
+export const STEP_STATE_DISMISSED = 'DISMISSED';
+
 export const FREE_TRIAL = {
     ONBOARDING_ID: 'free-trial-onboarding',
     DATA_LINEAGE_ID: 'free-trial-onboarding-data-lineage',
