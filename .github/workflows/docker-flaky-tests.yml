@@ -178,7 +178,7 @@ jobs:
 
   run_flaky_tests:
     name: Run Flaky Tests (Run ${{ matrix.run_number }})
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    runs-on: ubuntu-latest
     needs: [setup]
     #if: needs.check_changes.outputs.should_run == 'true'
     strategy:
