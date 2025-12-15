@@ -644,6 +644,18 @@ def _select_statement_cll(
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
+
+        # For MSSQL INSERT statements, restore original column case from metadata
+        # The optimizer lowercases column names, but we want to preserve the original case
+        original_insert_columns = statement.meta.get("_original_insert_columns", [])
+        if original_insert_columns:
+            # Create case-insensitive mapping from lowercased to original case
+            case_mapping = {col.lower(): col for col in original_insert_columns}
+            output_columns = [
+                (case_mapping.get(col_name.lower(), col_name), col_expr)
+                for col_name, col_expr in output_columns
+            ]
+
         logger.debug("output columns: %s", [col[0] for col in output_columns])
 
         for output_col, _original_col_expression in output_columns:
@@ -1293,6 +1305,9 @@ def _try_extract_select(
             and statement.this.expressions
             and isinstance(select_statement, sqlglot.exp.Select)
         ):
+            # Use original column names if available (preserved before qualify() lowercased them)
+            # Otherwise fall back to current (lowercased) names
+            original_columns = statement.meta.get("_original_insert_columns", [])
             insert_columns = statement.this.expressions
             select_expressions = select_statement.expressions
 
@@ -1301,12 +1316,18 @@ def _try_extract_select(
                 # Create new SELECT with INSERT column names as explicit Alias nodes
                 # This ensures the alias survives sqlglot's optimizer
                 new_selects = []
-                for insert_col, select_expr in zip(insert_columns, select_expressions):
-                    insert_col_name = (
-                        insert_col.alias_or_name
-                        if hasattr(insert_col, "alias_or_name")
-                        else str(insert_col)
-                    )
+                for i, (insert_col, select_expr) in enumerate(
+                    zip(insert_columns, select_expressions)
+                ):
+                    # Prefer original column name (with preserved case) over current name (lowercased)
+                    if i < len(original_columns) and original_columns[i]:
+                        insert_col_name = original_columns[i]
+                    else:
+                        insert_col_name = (
+                            insert_col.alias_or_name
+                            if hasattr(insert_col, "alias_or_name")
+                            else str(insert_col)
+                        )
                     # Create an explicit Alias node: expr AS insert_col_name
                     # The Alias node should survive optimization better than just setting alias property
                     # Use quoted=True to preserve the original case from the INSERT statement
@@ -1320,7 +1341,15 @@ def _try_extract_select(
                 select_statement = select_statement.copy()
                 select_statement.set("expressions", new_selects)
 
+        # Copy metadata from INSERT to SELECT so case mapping is preserved
+        # The INSERT statement parameter has the metadata, copy it to the SELECT we're returning
+        if "_original_insert_columns" in statement.meta:
+            select_statement.meta["_original_insert_columns"] = statement.meta[
+                "_original_insert_columns"
+            ]
+
         statement = select_statement
+
         if isinstance(statement, sqlglot.exp.Query) and original_ctes:
             for cte in original_ctes:
                 statement = statement.with_(alias=cte.alias, as_=cte.this)
@@ -1730,6 +1759,20 @@ def _sqlglot_lineage_inner(
     #     "Formatted sql statement: %s",
     #     original_statement.sql(pretty=True, dialect=dialect),
     # )
+
+    # For INSERT statements, save original column names before qualify() lowercases them
+    # This preserves case for column lineage (e.g., "ItemName" not "itemname")
+    if (
+        isinstance(statement, sqlglot.exp.Insert)
+        and statement.this
+        and hasattr(statement.this, "expressions")
+    ):
+        original_insert_columns = [
+            col.alias_or_name if hasattr(col, "alias_or_name") else str(col)
+            for col in statement.this.expressions
+        ]
+        # Store as custom metadata on the statement
+        statement.meta["_original_insert_columns"] = original_insert_columns
 
     statement = _simplify_select_into(statement)
 
