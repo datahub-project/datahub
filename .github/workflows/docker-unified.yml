@@ -547,6 +547,7 @@ jobs:
           DATAHUB_SEARCH_IMAGE: elasticsearch
           DATAHUB_SEARCH_TAG: 8.17.10
           DATAHUB_ANALYTICS_ENABLED: false
+          XPACK_SECURITY_ENABLED: "xpack.security.enabled: false"
           PROFILE_NAME: quickstart-elasticsearch
         run: |
           # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
