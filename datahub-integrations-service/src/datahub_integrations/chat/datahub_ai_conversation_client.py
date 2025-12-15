@@ -371,8 +371,8 @@ class DataHubAiConversationClient:
                 and message_type == DataHubAiConversationMessageTypeClass.TEXT
                 and not title
             ):
-                # Truncate title to first 100 characters for readability
-                title = text[:100]
+                # Truncate title to first 500 characters for readability
+                title = text[:500]
                 logger.info(
                     f"Setting conversation title to first user message: {title}"
                 )

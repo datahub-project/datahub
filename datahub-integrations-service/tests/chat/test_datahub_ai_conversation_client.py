@@ -504,7 +504,7 @@ def test_save_message_does_not_overwrite_existing_title() -> None:
 
 
 def test_save_message_truncates_long_title() -> None:
-    """Test that long titles are truncated to 100 characters."""
+    """Test that long titles are truncated to 500 characters."""
     from datahub.metadata.schema_classes import (
         DataHubAiConversationActorTypeClass,
         DataHubAiConversationInfoClass,
@@ -538,8 +538,8 @@ def test_save_message_truncates_long_title() -> None:
 
     client = DataHubAiConversationClient(client=mock_client)
 
-    # Very long message
-    long_text = "a" * 200
+    # Very long message (longer than 500 to test truncation)
+    long_text = "a" * 600
 
     client.save_message_to_conversation(
         conversation_urn="urn:li:dataHubAiConversation:123",
@@ -550,13 +550,13 @@ def test_save_message_truncates_long_title() -> None:
         timestamp=1234567890,
     )
 
-    # Verify title was truncated to 100 chars in emitted aspect
+    # Verify title was truncated to 500 chars in emitted aspect
     call_args = mock_graph.emit.call_args
     emitted_mcp = call_args[0][0]
     emitted_aspect = emitted_mcp.aspect
     assert emitted_aspect.title is not None
-    assert len(emitted_aspect.title) == 100
-    assert emitted_aspect.title == "a" * 100
+    assert len(emitted_aspect.title) == 500
+    assert emitted_aspect.title == "a" * 500
 
 
 def test_conversation_message_limit_applied():

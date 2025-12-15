@@ -8,6 +8,7 @@ import { getColor } from '@components/theme/utils';
 
 import analytics, { EventType } from '@app/analytics';
 import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
+import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import {
     NAV_ITEM_HOVER_BOX_SHADOW,
     NAV_ITEM_HOVER_GRADIENT,
@@ -317,7 +318,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             >
                                 <ConversationContent>
                                     <ConversationTitle $isSelected={isSelected}>
-                                        {conversation.title || 'New Chat'}
+                                        {removeMarkdown(conversation.title || 'New Chat')}
                                     </ConversationTitle>
                                 </ConversationContent>
                                 <ActionsContainer>
