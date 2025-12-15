@@ -4,6 +4,7 @@ import { Route, Switch } from 'react-router';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 import { NoPageFound } from '@app/shared/NoPageFound';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export interface MFEFlags {
     enabled: boolean;
@@ -102,7 +103,7 @@ export function useMFEConfigFromBackend(): MFESchema | null {
     useEffect(() => {
         async function fetchConfig() {
             try {
-                const response = await fetch('/mfe/config');
+                const response = await fetch(resolveRuntimePath('/mfe/config'));
                 if (!response.ok) throw new Error(`Failed to fetch YAML: ${response.statusText}`);
                 const yamlText = await response.text();
 
