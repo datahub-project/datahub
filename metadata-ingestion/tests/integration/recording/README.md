@@ -19,9 +19,10 @@ Tests database recording with a real PostgreSQL instance.
 
 **Recording Strategy:**
 
-- Uses engine wrapper approach: wraps `engine.raw_connection()` to intercept connections
-- ConnectionProxy wraps DB-API connections, CursorProxy intercepts queries
+- Uses connection.execute() wrapper approach: wraps `engine.connect()` to intercept connections
+- Wraps `connection.execute()` to capture SQLAlchemy Result objects and materialize results
 - Works with SQLAlchemy's connection pooling and Inspector API
+- Avoids import reference issues by wrapping at the connection level rather than patching `create_engine`
 
 **Run:**
 

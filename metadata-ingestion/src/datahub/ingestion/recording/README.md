@@ -410,16 +410,16 @@ datahub recording extract recording.zip --password mysecret --output-dir ./extra
 
 ### Database Sources
 
-| Source     | HTTP Recording | DB Recording | Strategy                        | Notes                                   |
-| ---------- | -------------- | ------------ | ------------------------------- | --------------------------------------- |
-| Snowflake  | ❌ Not needed  | ✅ Full      | Connection wrapper              | Native connector wrapped at `connect()` |
-| Redshift   | N/A            | ✅ Full      | Connection wrapper              | Native connector wrapped at `connect()` |
-| Databricks | ❌ Not needed  | ✅ Full      | Connection wrapper              | Native connector wrapped at `connect()` |
-| BigQuery   | ✅ (REST API)  | ✅ Full      | Client wrapper                  | Client class wrapped                    |
-| PostgreSQL | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
-| MySQL      | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
-| SQLite     | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
-| MSSQL      | N/A            | ✅ Full      | Engine wrapper (raw_connection) | SQLAlchemy `raw_connection()` wrapped   |
+| Source     | HTTP Recording | DB Recording | Strategy                     | Notes                                     |
+| ---------- | -------------- | ------------ | ---------------------------- | ----------------------------------------- |
+| Snowflake  | ❌ Not needed  | ✅ Full      | Connection wrapper           | Native connector wrapped at `connect()`   |
+| Redshift   | N/A            | ✅ Full      | Connection wrapper           | Native connector wrapped at `connect()`   |
+| Databricks | ❌ Not needed  | ✅ Full      | Connection wrapper           | Native connector wrapped at `connect()`   |
+| BigQuery   | ✅ (REST API)  | ✅ Full      | Client wrapper               | Client class wrapped                      |
+| PostgreSQL | N/A            | ✅ Full      | Connection.execute() wrapper | SQLAlchemy `connection.execute()` wrapped |
+| MySQL      | N/A            | ✅ Full      | Connection.execute() wrapper | SQLAlchemy `connection.execute()` wrapped |
+| SQLite     | N/A            | ✅ Full      | Connection.execute() wrapper | SQLAlchemy `connection.execute()` wrapped |
+| MSSQL      | N/A            | ✅ Full      | Connection.execute() wrapper | SQLAlchemy `connection.execute()` wrapped |
 
 **Note:** File staging operations (PUT/GET) are not used in metadata extraction and are therefore not a concern for recording/replay.
 
@@ -434,18 +434,18 @@ The recording system uses a **hybrid approach** that selects the best intercepti
 - **Why:** These connectors have direct `connect()` functions that return connections we can wrap
 - **Implementation:** `ConnectionProxy` wraps the real connection, `CursorProxy` intercepts queries
 
-**2. Engine Wrapper Strategy (SQLAlchemy-based)**
+**2. Connection.execute() Wrapper Strategy (SQLAlchemy-based)**
 
 - **Used for:** PostgreSQL, MySQL, SQLite, MSSQL, and other SQLAlchemy-based sources
-- **How it works:** Wraps SQLAlchemy's `engine.raw_connection()` method
-- **Why:** SQLAlchemy uses connection pooling and the DB-API interface is accessed via `raw_connection()`
-- **Implementation:** Wraps `raw_connection()` to return `ConnectionProxy`, which then wraps cursors
-- **Note:** This is the current implementation. A future enhancement may use SQLAlchemy event listeners for better compatibility.
+- **How it works:** Wraps `engine.connect()` to intercept connections, then wraps `connection.execute()` to capture queries and results
+- **Why:** SQLAlchemy 2.x uses Result objects that are best captured at the `execute()` level, avoiding import reference issues with modules that import `create_engine` directly
+- **Implementation:** Wraps `engine.connect()` to return connections with wrapped `execute()` methods that materialize and record results
+- **Benefits:** Works even when modules import `create_engine` directly (e.g., `from sqlalchemy import create_engine`), avoiding stale reference issues
 
 **Why Different Strategies?**
 
 - **Native connectors** (Snowflake, Redshift) expose direct `connect()` functions that are easy to wrap
-- **SQLAlchemy-based sources** use connection pooling and engines, requiring interception at the `raw_connection()` level
+- **SQLAlchemy-based sources** use connection pooling and engines. Wrapping `connection.execute()` captures Result objects directly, avoiding issues with modules that import `create_engine` directly
 - **BigQuery** uses a Client class pattern, requiring class-level wrapping
 
 Both strategies achieve the same goal: intercepting SQL queries and results for recording/replay, but use the most appropriate method for each connector's architecture.

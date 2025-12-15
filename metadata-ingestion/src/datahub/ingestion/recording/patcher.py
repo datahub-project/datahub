@@ -19,6 +19,9 @@ from datahub.ingestion.recording.db_proxy import (
     QueryRecorder,
     ReplayConnection,
 )
+from datahub.ingestion.recording.sqlalchemy_events import (
+    attach_sqlalchemy_recorder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +181,7 @@ class ModulePatcher:
         return self
 
     def __exit__(self, *args: Any) -> None:
-        """Restore all original functions."""
+        """Restore all original functions and detach event listeners."""
         logger.debug(
             f"ModulePatcher.__exit__() called (is_replay={self.is_replay}), "
             f"restoring {len(self._originals)} patched functions"
@@ -190,6 +193,9 @@ class ModulePatcher:
                 logger.debug(f"Restored {module_path}.{func_name}")
             except Exception as e:
                 logger.warning(f"Failed to restore {module_path}.{func_name}: {e}")
+
+        # Note: SQLAlchemy event listeners are automatically cleaned up when engines are garbage collected
+        # We don't need to explicitly detach them here, but we could if needed for specific engines
 
         self._originals.clear()
         self._patched_modules.clear()
@@ -332,47 +338,30 @@ class ModulePatcher:
     ) -> Callable[..., Any]:
         """Create a wrapper for SQLAlchemy create_engine.
 
-        This is more complex because SQLAlchemy engines have their own
-        connection pooling and cursor management.
+        Uses event listeners for recording mode (avoids import reference issues).
+        Uses raw_connection wrapper for replay mode (prevents actual DB connections).
         """
         recorder = self.recorder
         is_replay = self.is_replay
 
         def wrapped_create_engine(*args: Any, **kwargs: Any) -> Any:
-            if is_replay:
-                # For SQLAlchemy replay, we still create an engine but
-                # intercept at the connection level using events
-                logger.debug("Creating SQLAlchemy engine for replay mode")
-                # Fall through to create real engine but we'll intercept connections
-
             # Create the real engine
             engine = original_create_engine(*args, **kwargs)
 
-            # Wrap raw_connection() which is used by SQLAlchemy's Inspector
-            # for metadata queries
-            if not is_replay:
-                # Recording mode: wrap connections to record queries
-                original_raw_connection = engine.raw_connection
-
-                def wrapped_raw_connection() -> Any:
-                    """Wrap raw DBAPI connection with our recording proxy."""
-                    real_connection = original_raw_connection()
-                    return ConnectionProxy(
-                        connection=real_connection,
-                        recorder=recorder,
-                        is_replay=False,
-                    )
-
-                engine.raw_connection = wrapped_raw_connection
-                logger.debug("Wrapped SQLAlchemy engine for recording mode")
-            else:
-                # Replay mode: replace raw_connection entirely
+            if is_replay:
+                # Replay mode: replace raw_connection to prevent actual DB connections
                 def replay_raw_connection() -> Any:
                     """Return replay connection for air-gapped mode."""
                     return ReplayConnection(recorder)
 
                 engine.raw_connection = replay_raw_connection
-                logger.debug("Wrapped SQLAlchemy engine for replay mode")
+                logger.debug(
+                    "Wrapped SQLAlchemy engine.raw_connection() for replay mode"
+                )
+            else:
+                # Recording mode: use event listeners (works even if create_engine was imported directly)
+                attach_sqlalchemy_recorder(engine, recorder, is_replay=False)
+                logger.debug("Attached SQLAlchemy recording event listeners to engine")
 
             return engine
 
