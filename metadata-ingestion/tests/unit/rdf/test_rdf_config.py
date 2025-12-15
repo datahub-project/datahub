@@ -20,7 +20,7 @@ class TestRDFConfig:
 
     def test_required_source_field(self):
         """Test that source field is required."""
-        config_dict = {}
+        config_dict: dict = {}
 
         with pytest.raises(Exception) as exc_info:
             RDFSourceConfig.model_validate(config_dict)
