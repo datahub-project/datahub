@@ -3,6 +3,7 @@ package auth;
 import static auth.AuthUtils.*;
 import static utils.ConfigUtil.*;
 
+import auth.ldap.LdapProvisioningService;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
@@ -282,16 +283,29 @@ public class AuthModule extends AbstractModule {
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
 
-    return new SystemRestliEntityClient(
-        buildRestliClient(),
-        EntityClientConfig.builder()
-            .backoffPolicy(new ExponentialBackoff(configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)))
-            .retryCount(configs.getInt(ENTITY_CLIENT_NUM_RETRIES))
-            .batchGetV2Size(configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE))
-            .batchGetV2Concurrency(2)
-            .build(),
-        configurationProvider.getCache().getClient().getEntityClient(),
-        metricUtils);
+    SystemEntityClient entityClient =
+        new SystemRestliEntityClient(
+            buildRestliClient(),
+            EntityClientConfig.builder()
+                .backoffPolicy(new ExponentialBackoff(configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)))
+                .retryCount(configs.getInt(ENTITY_CLIENT_NUM_RETRIES))
+                .batchGetV2Size(configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE))
+                .batchGetV2Concurrency(2)
+                .build(),
+            configurationProvider.getCache().getClient().getEntityClient(),
+            metricUtils);
+
+    // Initialize LDAP Provisioning Service for JAAS LDAP authentication
+    try {
+      LdapProvisioningService.initialize(entityClient, systemOperationContext);
+      log.info("LDAP Provisioning Service initialized successfully");
+    } catch (Exception e) {
+      log.warn(
+          "Failed to initialize LDAP Provisioning Service. LDAP authentication may not work properly.",
+          e);
+    }
+
+    return entityClient;
   }
 
   @Provides
