@@ -5645,7 +5645,7 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),itemname)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD),ItemName)"
             ],
             "transformOperation": "COPY: [items].[itemname] AS [itemname]",
             "confidenceScore": 0.9
@@ -5657,7 +5657,7 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.finalitems,PROD),itemname)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.finalitems,PROD),ItemName)"
             ],
             "transformOperation": "COPY: [e].[itemname] AS [itemname]",
             "confidenceScore": 0.9
@@ -5669,9 +5669,9 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),id)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),tempid)"
             ],
-            "transformOperation": "COPY: [salesreason].[tempid] AS [id]",
+            "transformOperation": "COPY: [salesreason].[tempid] AS [tempid]",
             "confidenceScore": 0.9
           },
           {
@@ -5681,9 +5681,9 @@
             ],
             "downstreamType": "FIELD",
             "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),itemname)"
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),name)"
             ],
-            "transformOperation": "COPY: [salesreason].[name] AS [itemname]",
+            "transformOperation": "COPY: [salesreason].[name] AS [name]",
             "confidenceScore": 0.9
           },
           {
