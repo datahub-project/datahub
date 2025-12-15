@@ -231,7 +231,7 @@ class DremioSource(StatefulIngestionSourceBase):
         )
         self.max_workers = config.max_workers
 
-        # Create a custom schema resolver for Dremio that handles the "dremio." prefix
+        # Create a custom schema resolver for Dremio that handles the "dremio." infix (post platform_instance)
         self.dremio_schema_resolver = DremioSchemaResolver(
             platform=self.get_platform(),
             platform_instance=self.config.platform_instance,
@@ -413,7 +413,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 dremio_mcp.metadata, MetadataChangeProposalWrapper
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
                 # Register the schema with the custom Dremio schema resolver
-                # The resolver will ensure all URNs are constructed with the "dremio." prefix
+                # The resolver will ensure all URNs are constructed with the "dremio." infix
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
                     schema=dremio_mcp.metadata.aspect,
