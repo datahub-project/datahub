@@ -1,6 +1,8 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Optional, Union
+
+from confluent_kafka import KafkaError, Message
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -27,7 +29,6 @@ def _enhance_schema_registry_error(error_str: str) -> str:
     When the schema registry returns 404, it usually means the topic name
     doesn't match what's registered in the schema registry.
     """
-    # Pattern: Schema Registry 404 error
     if "Schema Registry" in error_str and "404" in error_str:
         return (
             f"{error_str}\n\n"
@@ -48,30 +49,32 @@ def _enhance_schema_registry_error(error_str: str) -> str:
     return error_str
 
 
+def _log_enhanced_error(error_str: str) -> None:
+    """Log enhanced error message if applicable."""
+    enhanced_error = _enhance_schema_registry_error(error_str)
+    if enhanced_error != error_str:
+        logger.error(enhanced_error)
+
+
 @dataclass
 class _KafkaCallback:
     reporter: SinkReport
     record_envelope: RecordEnvelope
     write_callback: WriteCallback
 
-    def kafka_callback(self, err: Any, msg: Any) -> None:
+    def kafka_callback(self, err: Optional[KafkaError], msg: Optional[Message]) -> None:
         """
-        Kafka delivery callback.
+        Kafka delivery callback invoked by confluent-kafka producer.
+
         Args:
-            err: KafkaError object or None
-            msg: Message object or None
+            err: KafkaError object if delivery failed, None on success
+            msg: Message object with delivery details
         """
         if err is not None:
-            # Convert KafkaError to Exception for consistent error handling
-            error_str = str(err) if err else "Unknown Kafka error"
-
-            # Enhance error message for schema registry issues
-            enhanced_error = _enhance_schema_registry_error(error_str)
-            if enhanced_error != error_str:
-                logger.error(enhanced_error)
+            error_str = str(err)
+            _log_enhanced_error(error_str)
 
             error_exception = Exception(error_str)
-
             self.reporter.report_failure(error_exception)
             self.write_callback.on_failure(
                 self.record_envelope,
@@ -83,6 +86,22 @@ class _KafkaCallback:
             self.write_callback.on_success(
                 self.record_envelope, {"msg": str(msg) if msg else "Success"}
             )
+
+    def report_emit_failure(self, err: Exception) -> None:
+        """
+        Report a failure that occurred during emit (before Kafka delivery).
+
+        This is separate from kafka_callback which handles delivery failures.
+        """
+        error_str = str(err)
+        _log_enhanced_error(error_str)
+
+        self.reporter.report_failure(err)
+        self.write_callback.on_failure(
+            self.record_envelope,
+            err,
+            {"error": error_str, "msg": f"Failed to write record: {err}"},
+        )
 
 
 class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
@@ -108,28 +127,19 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         ],
         write_callback: WriteCallback,
     ) -> None:
-        callback = _KafkaCallback(
-            self.report, record_envelope, write_callback
-        ).kafka_callback
+        kafka_callback = _KafkaCallback(self.report, record_envelope, write_callback)
         try:
             record = record_envelope.record
             self.emitter.emit(
                 record,
-                callback=callback,
+                callback=kafka_callback.kafka_callback,
             )
         except Exception as err:
             # In case we throw an exception while trying to emit the record,
             # catch it and report the failure. This might happen if the schema
             # registry is down or otherwise misconfigured, in which case we'd
             # fail when serializing the record.
-            error_str = str(err)
-
-            # Enhance error message for schema registry issues
-            enhanced_error = _enhance_schema_registry_error(error_str)
-            if enhanced_error != error_str:
-                logger.error(enhanced_error)
-
-            callback(err, f"Failed to write record: {err}")
+            kafka_callback.report_emit_failure(err)
 
     def close(self) -> None:
         super().close()
