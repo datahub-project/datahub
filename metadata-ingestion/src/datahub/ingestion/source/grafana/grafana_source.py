@@ -7,11 +7,7 @@ from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_container_urn,
     make_dashboard_urn,
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-    make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
-    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_dataset_to_container, gen_containers
@@ -30,6 +26,7 @@ from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
     build_chart_mcps,
     build_dashboard_mcps,
+    build_datasource_mcps,
 )
 from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel
 from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
@@ -42,7 +39,6 @@ from datahub.ingestion.source.grafana.models import (
     DashboardContainerKey,
     Folder,
     FolderKey,
-    Panel,
 )
 from datahub.ingestion.source.grafana.report import (
     GrafanaSourceReport,
@@ -53,24 +49,13 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_report.ingestion_stage import (
-    LINEAGE_EXTRACTION,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     DashboardInfoClass,
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
-    DatasetSnapshotClass,
-    GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
-    MetadataChangeEventClass,
-    OtherSchemaClass,
     SchemaFieldClass,
-    SchemaMetadataClass,
     StatusClass,
-    TagAssociationClass,
 )
 
 # Grafana-specific ingestion stages
@@ -124,9 +109,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
     - Tags and Ownership:
         - Dashboard and chart tags
         - Ownership information derived from:
-            - Dashboard creators
-            - Technical owners based on dashboard UIDs
-            - Custom ownership assignments
+            - Dashboard creators (Technical owner)
 
     The source supports the following capabilities:
     - Platform instance support for multi-Grafana deployments
@@ -154,6 +137,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             verify_ssl=self.config.verify_ssl,
             page_size=self.config.page_size,
             report=self.report,
+            skip_text_panels=self.config.skip_text_panels,
         )
 
         # Initialize lineage extractor with graph
@@ -337,15 +321,26 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 dataset_urn=make_container_urn(dashboard_container_key),
             )
 
-        # Process all panels first
+        # Process panels and create per-panel datasets
+        yield from build_datasource_mcps(
+            dashboard=dashboard,
+            dashboard_container_key=dashboard_container_key,
+            platform=self.config.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            connection_to_platform_map=self.config.connection_to_platform_map,
+            graph=self.ctx.graph,
+            report=self.report,
+            config=self.config,
+            lineage_extractor=self.lineage_extractor,
+            logger=logger,
+            add_dataset_to_container_fn=add_dataset_to_container,
+        )
+
+        # Process panels and create charts
         with self.report.new_stage(GRAFANA_PANEL_EXTRACTION):
             for panel in dashboard.panels:
                 self.report.report_chart_scanned()
-
-                # First emit the dataset for each panel's datasource
-                yield from self._process_panel_dataset(
-                    panel, dashboard.uid, self.config.ingest_tags
-                )
 
                 # Create chart MCE
                 dataset_urn, chart_urn, chart_mcps = build_chart_mcps(
@@ -387,24 +382,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
                     dataset_urn=chart_urn,
                 )
 
-        # Process lineage extraction
-        if self.config.include_lineage and self.lineage_extractor:
-            with self.report.new_stage(LINEAGE_EXTRACTION):
-                for panel in dashboard.panels:
-                    # Process lineage
-                    try:
-                        lineage = self.lineage_extractor.extract_panel_lineage(panel)
-                        if lineage:
-                            yield lineage.as_workunit()
-                            self.report.report_lineage_extracted()
-                        else:
-                            self.report.report_no_lineage()
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to extract lineage for panel {panel.id}: {e}"
-                        )
-                        self.report.report_lineage_extraction_failure()
-
         # Create dashboard MCPs
         dashboard_urn, dashboard_mcps = build_dashboard_mcps(
             dashboard=dashboard,
@@ -413,6 +390,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             chart_urns=chart_urns,
             base_url=self.config.url,
             ingest_owners=self.config.ingest_owners,
+            remove_email_suffix=self.config.remove_email_suffix,
             ingest_tags=self.config.ingest_tags,
         )
 
@@ -469,101 +447,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 ]
             ),
         ).as_workunit()
-
-    def _process_panel_dataset(
-        self, panel: Panel, dashboard_uid: str, ingest_tags: bool
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process dataset metadata for a panel"""
-        if not panel.datasource_ref:
-            self.report.report_datasource_warning()
-            return
-
-        ds_type = panel.datasource_ref.type or "unknown"
-        ds_uid = panel.datasource_ref.uid or "unknown"
-
-        # Track datasource warnings for unknown types
-        if ds_type == "unknown" or ds_uid == "unknown":
-            self.report.report_datasource_warning()
-
-        # Build dataset name
-        dataset_name = f"{ds_type}.{ds_uid}.{panel.id}"
-
-        # Create dataset URN
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            platform_instance=self.platform_instance,
-            env=self.env,
-        )
-
-        # Create dataset snapshot
-        dataset_snapshot = DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[
-                DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        platform=self.platform,
-                        instance=self.platform_instance,
-                    )
-                    if self.platform_instance
-                    else None,
-                ),
-                DatasetPropertiesClass(
-                    name=f"{ds_uid} ({panel.title or panel.id})",
-                    description="",
-                    customProperties={
-                        "type": ds_type,
-                        "uid": ds_uid,
-                        "full_path": dataset_name,
-                    },
-                ),
-                StatusClass(removed=False),
-            ],
-        )
-
-        # Add schema metadata if available
-        schema_fields = extract_fields_from_panel(
-            panel, self.config.connection_to_platform_map, self.ctx.graph, self.report
-        )
-        if schema_fields:
-            schema_metadata = SchemaMetadataClass(
-                schemaName=f"{ds_type}.{ds_uid}.{panel.id}",
-                platform=make_data_platform_urn(self.platform),
-                version=0,
-                fields=schema_fields,
-                hash="",
-                platformSchema=OtherSchemaClass(rawSchema=""),
-            )
-            dataset_snapshot.aspects.append(schema_metadata)
-
-        if dashboard_uid and self.config.ingest_tags:
-            dashboard = self.api_client.get_dashboard(dashboard_uid)
-            if dashboard and dashboard.tags:
-                tags = []
-                for tag in dashboard.tags:
-                    tags.append(TagAssociationClass(tag=make_tag_urn(tag)))
-
-                if tags:
-                    dataset_snapshot.aspects.append(GlobalTagsClass(tags=tags))
-
-        self.report.report_dataset_scanned()
-        yield MetadataWorkUnit(
-            id=f"grafana-dataset-{ds_uid}-{panel.id}",
-            mce=MetadataChangeEventClass(proposedSnapshot=dataset_snapshot),
-        )
-
-        # Add dataset to dashboard container
-        if dashboard_uid:
-            dashboard_key = DashboardContainerKey(
-                platform=self.platform,
-                instance=self.platform_instance,
-                dashboard_id=dashboard_uid,
-            )
-            yield from add_dataset_to_container(
-                container_key=dashboard_key,
-                dataset_urn=dataset_urn,
-            )
 
     def get_report(self) -> GrafanaSourceReport:
         return self.report

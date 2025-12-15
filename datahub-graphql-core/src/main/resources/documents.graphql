@@ -49,6 +49,12 @@ extend type Mutation {
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for both documents, or MANAGE_DOCUMENTS platform privilege.
   """
   mergeDraft(input: MergeDraftInput!): Boolean!
+
+  """
+  Update the settings of a Document (e.g., visibility in sidebar).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentSettings(input: UpdateDocumentSettingsInput!): Boolean!
 }
 
 extend type Query {
@@ -60,7 +66,14 @@ extend type Query {
 
   """
   Search Documents with hybrid semantic search and filtering support.
-  Supports filtering by parent document, types, domains, and semantic query.
+  Supports filtering by parent document, types, domains, and query.
+
+  Results are automatically filtered based on document status:
+  - PUBLISHED documents are shown to all users
+  - UNPUBLISHED documents are only shown if owned by the current calling user or a group they belong to
+
+  This ensures that unpublished documents remain private to their owners while published
+  documents are discoverable by everyone.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
 }
@@ -83,6 +96,11 @@ type Document implements Entity {
   Information about the Document
   """
   info: DocumentInfo
+
+  """
+  Settings specific to the Document
+  """
+  settings: DocumentSettings
 
   """
   The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
@@ -212,12 +230,12 @@ type DocumentInfo {
   """
   The audit stamp for when the document was created
   """
-  created: AuditStamp!
+  created: ResolvedAuditStamp!
 
   """
   The audit stamp for when the document was last modified (any field)
   """
-  lastModified: AuditStamp!
+  lastModified: ResolvedAuditStamp!
 
   """
   Assets referenced by or related to this Document
@@ -357,6 +375,18 @@ enum DocumentState {
 }
 
 """
+Settings specific to a Document
+"""
+type DocumentSettings {
+  """
+  Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+  When false, the document is accessible primarily through the assets it is related to.
+  When true, the document appears in the global documents space accessible to all users.
+  """
+  showInGlobalContext: Boolean!
+}
+
+"""
 Input required to create a new Document
 """
 input CreateDocumentInput {
@@ -412,6 +442,39 @@ input CreateDocumentInput {
   Draft documents should have UNPUBLISHED state and will be hidden from normal knowledge base browsing.
   """
   draftFor: String
+
+  """
+  Optional settings for the document. If not provided, defaults will be used.
+  Documents created from the UI sidebar will always have showInGlobalContext=true.
+  API/programmatic clients can set showInGlobalContext=false to create private context documents.
+  """
+  settings: DocumentSettingsInput
+}
+
+"""
+Input for Document settings
+"""
+input DocumentSettingsInput {
+  """
+  Whether or not this document should be visible in the global context (e.g., global navigation, knowledge base search).
+  Defaults to true if not specified.
+  """
+  showInGlobalContext: Boolean
+}
+
+"""
+Input required to update the settings of a Document
+"""
+input UpdateDocumentSettingsInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  Whether or not this document should be visible in the global context
+  """
+  showInGlobalContext: Boolean!
 }
 
 """
@@ -515,7 +578,13 @@ input UpdateDocumentSubTypeInput {
 }
 
 """
-Input required when searching Documents
+Input required when searching Documents.
+
+Search results are automatically filtered based on document visibility and ownership:
+- PUBLISHED documents are returned for all users
+- UNPUBLISHED documents are only returned if owned by the current user or a group they belong to
+
+This ensures private/unpublished documents remain visible only to their owners.
 """
 input SearchDocumentsInput {
   """
@@ -534,13 +603,7 @@ input SearchDocumentsInput {
   query: String
 
   """
-  Optional parent document URN to filter by (for hierarchical browsing)
-  """
-  parentDocument: String
-
-  """
-  Optional list of parent document URNs to filter by (for batch child lookups).
-  If both parentDocument and parentDocuments are provided, parentDocuments takes precedence.
+  Optional list of parent document URNs to filter by (for batch child lookups)
   """
   parentDocuments: [String!]
 
@@ -561,33 +624,95 @@ input SearchDocumentsInput {
   domains: [String!]
 
   """
-  Optional list of document states to filter by (ANDed with other filters).
-  If not provided, defaults to PUBLISHED only.
+  Optional list of related asset URNs to filter by (ANDed with other filters).
+  Returns documents that are related to ANY of the provided asset URNs.
   """
-  states: [DocumentState!]
+  relatedAssets: [String!]
 
   """
-  Whether to include draft documents in the search results.
-  Draft documents have draftOf set and are hidden from normal browsing by default.
-  Defaults to false (excludes drafts).
+  Optional document source type to filter by.
+  If not provided, searches all documents regardless of source.
   """
-  includeDrafts: Boolean
-
-  """
-  Optional facet filters to apply
-  """
-  filters: [FacetFilterInput!]
-
-  """
-  Optional flags controlling search options
-  """
-  searchFlags: SearchFlags
+  sourceType: DocumentSourceType
 }
 
 """
 The result obtained when searching Documents
 """
 type SearchDocumentsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Documents in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Documents in the result set
+  """
+  total: Int!
+
+  """
+  The Documents themselves
+  """
+  documents: [Document!]!
+
+  """
+  Facets for filtering search results
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Input for querying context documents related to an entity.
+The relatedAssets filter is automatically set to the parent entity's URN.
+"""
+input RelatedDocumentsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The maximum number of Documents to return
+  """
+  count: Int
+
+  """
+  Optional list of parent document URNs to filter by (for batch child lookups)
+  """
+  parentDocuments: [String!]
+
+  """
+  If true, only returns documents with no parent (root-level documents).
+  If false or not provided, returns all documents regardless of parent.
+  """
+  rootOnly: Boolean
+
+  """
+  Optional list of document types to filter by (ANDed with other filters)
+  """
+  types: [String!]
+
+  """
+  Optional list of domain URNs to filter by (ANDed with other filters)
+  """
+  domains: [String!]
+
+  """
+  Optional document source type to filter by.
+  """
+  sourceType: DocumentSourceType
+}
+
+"""
+Result containing context documents related to an entity.
+Same structure as SearchDocumentsResult.
+"""
+type RelatedDocumentsResult {
   """
   The starting offset of the result set returned
   """

@@ -73,6 +73,8 @@ public class DocumentService {
    * @param relatedAssetUrns optional list of related asset URNs
    * @param relatedDocumentUrns optional list of related document URNs
    * @param draftOfUrn optional URN of the published document this is a draft of
+   * @param settings optional document settings (defaults to showInGlobalContext=true if not
+   *     provided)
    * @param actorUrn the URN of the user creating the document
    * @return the URN of the created document
    * @throws Exception if creation fails
@@ -90,6 +92,7 @@ public class DocumentService {
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
       @Nullable Urn draftOfUrn,
+      @Nullable com.linkedin.knowledge.DocumentSettings settings,
       @Nonnull Urn actorUrn)
       throws Exception {
 
@@ -210,6 +213,23 @@ public class DocumentService {
               documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect);
       mcps.add(subTypesMcp);
     }
+
+    // Create synchronous MCP for document settings (defaults to showInGlobalContext=true)
+    final com.linkedin.knowledge.DocumentSettings finalSettings =
+        settings != null ? settings : new com.linkedin.knowledge.DocumentSettings();
+    if (settings == null) {
+      finalSettings.setShowInGlobalContext(true);
+    }
+
+    final AuditStamp settingsAuditStamp = new AuditStamp();
+    settingsAuditStamp.setTime(System.currentTimeMillis());
+    settingsAuditStamp.setActor(actorUrn);
+    finalSettings.setLastModified(settingsAuditStamp, SetMode.IGNORE_NULL);
+
+    final MetadataChangeProposal settingsMcp =
+        AspectUtils.buildSynchronousMetadataChangeProposal(
+            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings);
+    mcps.add(settingsMcp);
 
     // Ingest the document with all aspects
     entityClient.batchIngestProposals(opContext, mcps, false);
@@ -526,7 +546,69 @@ public class DocumentService {
   }
 
   /**
-   * Updates the sub-type of a document.
+   * Update the settings of a document.
+   *
+   * @param opContext the operation context
+   * @param documentUrn the URN of the document to update
+   * @param settings the new settings
+   * @param actorUrn the URN of the user updating the settings
+   * @throws Exception if update fails
+   */
+  public void updateDocumentSettings(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
+      @Nonnull com.linkedin.knowledge.DocumentSettings settings,
+      @Nonnull Urn actorUrn)
+      throws Exception {
+
+    // Verify document exists
+    if (!entityClient.exists(opContext, documentUrn)) {
+      throw new IllegalArgumentException(
+          String.format("Document with URN %s does not exist", documentUrn));
+    }
+
+    // Set last modified
+    final AuditStamp lastModified = new AuditStamp();
+    lastModified.setTime(System.currentTimeMillis());
+    lastModified.setActor(actorUrn);
+    settings.setLastModified(lastModified, SetMode.IGNORE_NULL);
+
+    // Create metadata change proposal for DocumentSettings
+    final MetadataChangeProposal settingsMcp = new MetadataChangeProposal();
+    settingsMcp.setEntityUrn(documentUrn);
+    settingsMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+    settingsMcp.setAspectName(Constants.DOCUMENT_SETTINGS_ASPECT_NAME);
+    settingsMcp.setChangeType(ChangeType.UPSERT);
+    settingsMcp.setAspect(GenericRecordUtils.serializeAspect(settings));
+
+    // Also update lastModified timestamp in DocumentInfo
+    final DocumentInfo info = getDocumentInfo(opContext, documentUrn);
+    if (info != null) {
+      final AuditStamp infoLastModified = new AuditStamp();
+      infoLastModified.setTime(System.currentTimeMillis());
+      infoLastModified.setActor(actorUrn);
+      info.setLastModified(infoLastModified);
+
+      final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
+      infoMcp.setEntityUrn(documentUrn);
+      infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
+      infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
+      infoMcp.setChangeType(ChangeType.UPSERT);
+      infoMcp.setAspect(GenericRecordUtils.serializeAspect(info));
+
+      // Batch ingest both proposals
+      entityClient.batchIngestProposals(
+          opContext, java.util.Arrays.asList(settingsMcp, infoMcp), false);
+    } else {
+      // Just ingest settings if info doesn't exist (shouldn't happen)
+      entityClient.ingestProposal(opContext, settingsMcp, false);
+    }
+
+    log.debug("Updated settings for document {}", documentUrn);
+  }
+
+  /**
+   * Update the sub type for a document
    *
    * @param opContext the operation context
    * @param documentUrn the document URN
