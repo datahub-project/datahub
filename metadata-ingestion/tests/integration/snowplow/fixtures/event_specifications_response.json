@@ -1,0 +1,49 @@
+{
+  "data": [
+    {
+      "id": "evt-spec-checkout",
+      "version": 1,
+      "name": "Checkout Flow Events",
+      "description": "Events for tracking user checkout process",
+      "status": "published",
+      "createdAt": "2024-01-10T09:00:00Z",
+      "updatedAt": "2024-02-15T11:00:00Z",
+      "event": {
+        "source": "iglu:com.acme/checkout_started/jsonschema/1-1-0"
+      },
+      "eventSchemas": [
+        {
+          "vendor": "com.acme",
+          "name": "checkout_started",
+          "version": "1-1-0"
+        },
+        {
+          "vendor": "com.acme",
+          "name": "checkout_completed",
+          "version": "1-0-0"
+        }
+      ]
+    },
+    {
+      "id": "evt-spec-product-interaction",
+      "version": 1,
+      "name": "Product Interaction Events",
+      "description": "Events for tracking product views and interactions",
+      "status": "published",
+      "createdAt": "2024-01-20T10:00:00Z",
+      "updatedAt": "2024-01-25T14:00:00Z",
+      "event": {
+        "source": "iglu:com.acme/product_viewed/jsonschema/1-0-0"
+      },
+      "eventSchemas": [
+        {
+          "vendor": "com.acme",
+          "name": "product_viewed",
+          "version": "1-0-0"
+        }
+      ]
+    }
+  ],
+  "includes": [],
+  "errors": []
+}

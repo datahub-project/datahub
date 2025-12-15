@@ -1,0 +1,20 @@
+source:
+  type: snowplow
+  config:
+    bdp_connection:
+      organization_id: "test-org-uuid"
+      api_key_id: "test-key-id"
+      api_key: "test-secret"
+      console_api_url: "http://localhost:8081/api/msc/v1"  # Mock server
+
+    # Enable event specifications and tracking scenarios
+    extract_event_specifications: true
+    extract_tracking_scenarios: true
+
+    platform_instance: "test-instance"
+    env: "TEST"
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/snowplow_event_specs_test.json"

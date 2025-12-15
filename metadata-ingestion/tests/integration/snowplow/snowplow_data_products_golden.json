@@ -1,0 +1,1877 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "env": "PROD",
+                "organization_id": "test-org-uuid",
+                "connection_mode": "bdp"
+            },
+            "name": "Snowplow Organization (test-org-uuid)",
+            "description": "Snowplow BDP organization containing event and entity schemas",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "com.acme/checkout_started",
+            "platform": "urn:li:dataPlatform:snowplow",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "amount",
+                    "nullable": false,
+                    "description": "Total checkout amount in cents",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_checkout"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "currency",
+                    "nullable": false,
+                    "description": "Currency code (ISO 4217)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_checkout"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "discount_code",
+                    "nullable": true,
+                    "description": "Discount code applied (added in v1-1-0)",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_checkout"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "items",
+                    "nullable": true,
+                    "description": "Items in checkout",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "object"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_checkout"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vendor": "com.acme",
+                "schemaVersion": "1-1-0",
+                "schema_type": "event",
+                "hidden": "False",
+                "team": "checkout",
+                "format": "jsonschema"
+            },
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/com.acme/checkout_started/1-1-0",
+            "name": "checkout_started",
+            "description": "Event fired when user starts checkout process",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "snowplow_event_schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:ryan@company.com",
+                    "type": "DATAOWNER",
+                    "source": {
+                        "type": "SOURCE_CONTROL",
+                        "url": "https://console.snowplowanalytics.com/organizations/test-org-uuid/data-structures"
+                    }
+                },
+                {
+                    "owner": "urn:li:corpuser:jane@company.com",
+                    "type": "PRODUCER",
+                    "source": {
+                        "type": "SOURCE_CONTROL",
+                        "url": "https://console.snowplowanalytics.com/organizations/test-org-uuid/data-structures"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "com.acme/product_viewed",
+            "platform": "urn:li:dataPlatform:snowplow",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "product_id",
+                    "nullable": false,
+                    "description": "Product identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_alice"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_product"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "category",
+                    "nullable": false,
+                    "description": "Product category",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_alice"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_product"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "price",
+                    "nullable": false,
+                    "description": "Product price in cents",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_alice"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_product"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_id",
+                    "nullable": true,
+                    "description": "User identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:PII"
+                            },
+                            {
+                                "tag": "urn:li:tag:added_by_alice"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_product"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vendor": "com.acme",
+                "schemaVersion": "1-0-0",
+                "schema_type": "event",
+                "hidden": "False",
+                "team": "product",
+                "format": "jsonschema"
+            },
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/com.acme/product_viewed/1-0-0",
+            "name": "product_viewed",
+            "description": "Event fired when user views a product",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "snowplow_event_schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:alice@company.com",
+                    "type": "DATAOWNER",
+                    "source": {
+                        "type": "SOURCE_CONTROL",
+                        "url": "https://console.snowplowanalytics.com/organizations/test-org-uuid/data-structures"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "com.acme/user_context",
+            "platform": "urn:li:dataPlatform:snowplow",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "user_id",
+                    "nullable": false,
+                    "description": "User identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:PII"
+                            },
+                            {
+                                "tag": "urn:li:tag:added_by_bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_user"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_type",
+                    "nullable": true,
+                    "description": "User subscription type",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_user"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "registration_date",
+                    "nullable": true,
+                    "description": "User registration date",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_event_user"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-0-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vendor": "com.acme",
+                "schemaVersion": "1-0-0",
+                "schema_type": "entity",
+                "hidden": "False",
+                "format": "jsonschema"
+            },
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/com.acme/user_context/1-0-0",
+            "name": "user_context",
+            "description": "User context entity",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "snowplow_entity_schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:bob@company.com",
+                    "type": "DATAOWNER",
+                    "source": {
+                        "type": "SOURCE_CONTROL",
+                        "url": "https://console.snowplowanalytics.com/organizations/test-org-uuid/data-structures"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "event_spec_id": "evt-spec-checkout",
+                "status": "published",
+                "created_at": "2024-01-10T09:00:00Z",
+                "updated_at": "2024-02-15T11:00:00Z"
+            },
+            "name": "Checkout Flow Events",
+            "description": "Events for tracking user checkout process",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "snowplow_event_spec"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_completed,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "event_spec_id": "evt-spec-product-interaction",
+                "status": "published",
+                "created_at": "2024-01-20T10:00:00Z",
+                "updated_at": "2024-01-25T14:00:00Z"
+            },
+            "name": "Product Interaction Events",
+            "description": "Events for tracking product views and interactions",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "snowplow_event_spec"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "env": "PROD",
+                "organization_id": "test-org-uuid",
+                "scenario_id": "scenario-ecommerce",
+                "status": "active",
+                "created_at": "2024-01-15T10:00:00Z",
+                "updated_at": "2024-02-20T15:00:00Z",
+                "num_event_specs": "2"
+            },
+            "name": "E-commerce Purchase Flow",
+            "description": "Complete e-commerce purchase tracking scenario",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "tracking_scenario"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b6951eb0c968a7f41c8ee6a113d95172"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab55be14055be022c490809055279547",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab55be14055be022c490809055279547",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "env": "PROD",
+                "organization_id": "test-org-uuid",
+                "scenario_id": "scenario-analytics",
+                "status": "active",
+                "created_at": "2024-01-25T11:00:00Z",
+                "updated_at": "2024-01-30T16:00:00Z",
+                "num_event_specs": "1"
+            },
+            "name": "Product Analytics",
+            "description": "Product usage and interaction analytics",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab55be14055be022c490809055279547",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab55be14055be022c490809055279547",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab55be14055be022c490809055279547",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "tracking_scenario"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab55be14055be022c490809055279547",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ab55be14055be022c490809055279547"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "organization_id": "test-org-uuid",
+                "product_id": "dp-ecommerce-analytics",
+                "sourceApplications": "app-test-ecommerce",
+                "type": "custom",
+                "lockStatus": "unlocked",
+                "status": "published",
+                "createdAt": "2024-01-15T10:00:00Z",
+                "updatedAt": "2024-02-20T14:30:00Z"
+            },
+            "name": "E-commerce Analytics",
+            "description": "Product analytics for e-commerce events including checkout flow and product interactions"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Product"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:analytics-team@company.com",
+                    "type": "DATAOWNER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-checkout,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_spec.evt-spec-product-interaction,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f1c2974fcdb9ded4a2e2b8c8d1315f26"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce4edc37518c5f16b9e1b846ec1ecbe7",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "organization_id": "test-org-uuid",
+                "product_id": "dp-mobile-engagement",
+                "sourceApplications": "app-test-mobile",
+                "type": "custom",
+                "lockStatus": "unlocked",
+                "status": "draft",
+                "createdAt": "2024-02-01T12:00:00Z",
+                "updatedAt": "2024-02-25T16:00:00Z"
+            },
+            "name": "Mobile App Engagement",
+            "description": "Mobile app user engagement and retention metrics"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce4edc37518c5f16b9e1b846ec1ecbe7",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce4edc37518c5f16b9e1b846ec1ecbe7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowplow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce4edc37518c5f16b9e1b846ec1ecbe7",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Data Product"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce4edc37518c5f16b9e1b846ec1ecbe7",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:mobile-team@company.com",
+                    "type": "DATAOWNER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ce4edc37518c5f16b9e1b846ec1ecbe7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:PII",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "PII"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:added_by_alice",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "added_by_alice"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:added_by_bob",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "added_by_bob"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:added_by_jane",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "added_by_jane"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:snowplow_event_checkout",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "snowplow_event_checkout"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:snowplow_event_product",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "snowplow_event_product"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:snowplow_event_user",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "snowplow_event_user"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:snowplow_schema_v1-0-0",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "snowplow_schema_v1-0-0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:snowplow_schema_v1-1-0",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "snowplow_schema_v1-1-0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-3inijc",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

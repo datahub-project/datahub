@@ -1,0 +1,16 @@
+source:
+  type: snowplow
+  config:
+    bdp_connection:
+      organization_id: "test-org-uuid"
+      api_key_id: "test-key-id"
+      api_key: "test-secret"
+      console_api_url: "http://localhost:8081"  # Mock BDP server
+
+    extract_event_specifications: false
+    extract_tracking_scenarios: false
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/snowplow_ownership_mock_test.json"

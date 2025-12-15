@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for Iglu Server
+  postgres:
+    image: postgres:14
+    container_name: snowplow_iglu_postgres
+    environment:
+      POSTGRES_DB: iglu
+      POSTGRES_USER: iglu
+      POSTGRES_PASSWORD: iglu_password
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflicts with default postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iglu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - iglu_network
+
+  # Iglu Server Database Setup (run once to initialize tables)
+  iglu-setup:
+    image: snowplow/iglu-server:0.12.0
+    container_name: snowplow_iglu_setup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      IGLU_DB_HOST: postgres
+      IGLU_DB_PORT: 5432
+      IGLU_DB_DBNAME: iglu
+      IGLU_DB_USERNAME: iglu
+      IGLU_DB_PASSWORD: iglu_password
+      IGLU_SUPER_API_KEY: 12345678-1234-1234-1234-123456789012
+      ACCEPT_LIMITED_USE_LICENSE: "yes"
+    volumes:
+      - ./iglu_config.hocon:/iglu/config.hocon:ro
+    command: ["setup", "--config", "/iglu/config.hocon"]
+    networks:
+      - iglu_network
+
+  # Iglu Server (main application)
+  iglu-server:
+    image: snowplow/iglu-server:0.12.0
+    container_name: snowplow_iglu_server
+    depends_on:
+      iglu-setup:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8080"  # Use 8081 to avoid conflicts
+    environment:
+      # Database connection
+      IGLU_DB_HOST: postgres
+      IGLU_DB_PORT: 5432
+      IGLU_DB_DBNAME: iglu
+      IGLU_DB_USERNAME: iglu
+      IGLU_DB_PASSWORD: iglu_password
+      # Server config
+      IGLU_SERVER_PORT: 8080
+      # Enable public repo (no auth required for testing)
+      IGLU_SUPER_API_KEY: 12345678-1234-1234-1234-123456789012
+      # Accept license for testing
+      ACCEPT_LIMITED_USE_LICENSE: "yes"
+    volumes:
+      - ./iglu_config.hocon:/iglu/config.hocon:ro
+    command: ["--config", "/iglu/config.hocon"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/meta/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iglu_network
+
+networks:
+  iglu_network:
+    driver: bridge

@@ -1,0 +1,85 @@
+[
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "event",
+      "customData": {
+        "owner": "data-team",
+        "category": "user-events"
+      }
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.example",
+        "name": "page_view",
+        "format": "jsonschema",
+        "version": "1-0-0"
+      },
+      "type": "object",
+      "description": "Page view event with user context",
+      "properties": {
+        "page_url": {
+          "type": "string",
+          "description": "URL of the page viewed",
+          "maxLength": 2048
+        },
+        "page_title": {
+          "type": "string",
+          "description": "Title of the page"
+        },
+        "referrer": {
+          "type": ["string", "null"],
+          "description": "Referrer URL"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "User identifier"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Event timestamp"
+        }
+      },
+      "required": ["page_url", "user_id", "timestamp"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "entity",
+      "customData": {}
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.example",
+        "name": "user_context",
+        "format": "jsonschema",
+        "version": "1-0-2"
+      },
+      "type": "object",
+      "description": "User context entity",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "description": "User identifier"
+        },
+        "user_type": {
+          "type": "string",
+          "enum": ["free", "premium", "enterprise"],
+          "description": "User subscription type"
+        },
+        "registration_date": {
+          "type": "string",
+          "format": "date",
+          "description": "User registration date"
+        }
+      },
+      "required": ["user_id"],
+      "additionalProperties": false
+    }
+  }
+]

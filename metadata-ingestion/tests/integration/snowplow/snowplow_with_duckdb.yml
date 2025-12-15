@@ -1,0 +1,45 @@
+# Test recipe for Snowplow with DuckDB warehouse
+# This tests warehouse lineage extraction from DuckDB
+
+source:
+  type: snowplow
+  config:
+    # BDP Connection (mocked - requires mock server running)
+    bdp_connection:
+      organization_id: "test-org-uuid"
+      api_key_id: "test-key-id"
+      api_key: "test-secret"
+      console_api_url: "http://localhost:8081/api/msc/v1"  # Mock server
+
+    # Schema filtering
+    schema_pattern:
+      allow:
+        - "com.acme.*"
+
+    # Extract only event schemas for testing
+    schema_types_to_extract:
+      - "event"
+      - "entity"
+
+    # Optional features - disabled for simpler test
+    extract_event_specifications: false
+    extract_tracking_scenarios: false
+    extract_data_products: false
+
+    # Warehouse lineage - enabled with DuckDB
+    extract_warehouse_lineage: true
+
+    # DuckDB warehouse connection
+    warehouse_connection:
+      warehouse_type: "duckdb"
+      database: "snowplow_test.duckdb"
+      schema_name: "snowplow"
+
+    # Platform identification
+    platform_instance: "snowplow-test"
+    env: "TEST"
+
+sink:
+  type: file
+  config:
+    filename: "./snowplow_duckdb_output.json"

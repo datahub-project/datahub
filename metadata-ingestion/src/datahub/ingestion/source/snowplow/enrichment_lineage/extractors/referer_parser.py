@@ -1,0 +1,107 @@
+"""
+Referer Parser enrichment lineage extractor.
+
+Extracts field-level lineage for the Referer Parser enrichment, which extracts marketing
+attribution data from referrer URLs (search engines, social media, etc.).
+
+Enrichment Documentation:
+https://docs.snowplow.io/docs/pipeline/enrichments/available-enrichments/referrer-parser-enrichment/
+
+Schema:
+iglu:com.snowplowanalytics.snowplow/referer_parser/jsonschema/2-0-0
+
+Field Mapping Reference:
+/connectors-accelerator/SNOWPLOW_ENRICHMENT_FIELD_MAPPING.md#4-referer-parser-enrichment
+"""
+
+import logging
+from typing import List, Optional
+
+from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
+    EnrichmentLineageExtractor,
+    FieldLineage,
+)
+from datahub.ingestion.source.snowplow.enrichment_lineage.utils import make_field_urn
+from datahub.ingestion.source.snowplow.snowplow_models import Enrichment
+
+logger = logging.getLogger(__name__)
+
+
+class RefererParserLineageExtractor(EnrichmentLineageExtractor):
+    """
+    Extractor for Referer Parser enrichment lineage.
+
+    Input Fields:
+    - page_referrer (atomic field, HTTP Referer header)
+
+    Output Fields:
+    - refr_medium (search, social, internal, unknown, email)
+    - refr_source (Google, Facebook, Twitter, etc.)
+    - refr_term (search keywords if source is search engine)
+
+    Configuration Impact:
+    None - uses built-in referer database, no configuration affects field mappings.
+    """
+
+    # Output fields (all atomic, always present)
+    OUTPUT_FIELDS = [
+        "refr_medium",  # Type of referer
+        "refr_source",  # Name of referer if recognized
+        "refr_term",  # Keywords if source is search engine
+    ]
+
+    def supports_enrichment(self, enrichment_schema: str) -> bool:
+        """
+        Check if this extractor handles Referer Parser enrichments.
+
+        Args:
+            enrichment_schema: Iglu schema URI
+
+        Returns:
+            True if schema is for Referer Parser enrichment
+        """
+        return "referer_parser" in enrichment_schema
+
+    def extract_lineage(
+        self,
+        enrichment: Enrichment,
+        event_schema_urn: str,
+        warehouse_table_urn: Optional[str],
+    ) -> List[FieldLineage]:
+        """
+        Extract field-level lineage for Referer Parser enrichment.
+
+        Args:
+            enrichment: Referer Parser enrichment configuration
+            event_schema_urn: URN of input event schema
+            warehouse_table_urn: URN of output warehouse table
+
+        Returns:
+            List of field lineages (page_referrer → refr_* fields)
+        """
+        if not warehouse_table_urn:
+            return []
+
+        lineages = []
+
+        # Input field
+        input_field = "page_referrer"
+        upstream_field_urn = make_field_urn(event_schema_urn, input_field)
+
+        # Create lineage for each output field
+        for output_field in self.OUTPUT_FIELDS:
+            lineages.append(
+                FieldLineage(
+                    upstream_fields=[upstream_field_urn],
+                    downstream_fields=[
+                        make_field_urn(warehouse_table_urn, output_field)
+                    ],
+                    transformation_type="DERIVED",
+                )
+            )
+
+        logger.debug(
+            f"Referer Parser: Extracted {len(lineages)} field lineages (page_referrer → refr_*)"
+        )
+
+        return lineages

@@ -1,0 +1,45 @@
+# Recipe for testing Snowplow ownership with REAL BDP credentials
+# This connects to actual Snowplow BDP Console API
+
+source:
+  type: snowplow
+  config:
+    bdp_connection:
+      # BDP credentials - use environment variables for security
+      organization_id: "${SNOWPLOW_ORG_ID}"
+      api_key_id: "${SNOWPLOW_API_KEY_ID}"
+      api_key: "${SNOWPLOW_API_KEY}"
+
+      # Optional: Override default API URL if needed
+      # console_api_url: "https://console.snowplowanalytics.com/api/msc/v1"
+
+    # Extract schemas with ownership
+    extract_tracking_scenarios: true
+    extract_data_products: true
+    extract_event_specifications: true  # Required for relationships
+
+    # Extract pipelines and enrichments (for lineage)
+    extract_pipelines: true
+    extract_enrichments: true
+
+    # Optional: Filter specific schemas if you want to test with a subset
+    # schema_pattern:
+    #   allow:
+    #     - "com.yourcompany.*"
+
+    # Test with new features enabled
+    include_version_in_urn: false  # New URN format
+
+    field_tagging:
+      enabled: true
+      tag_schema_version: true
+      tag_event_type: true
+      tag_data_class: true
+      tag_authorship: true
+      use_pii_enrichment: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_TOKEN}"

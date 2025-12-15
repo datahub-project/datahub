@@ -371,6 +371,10 @@ slack = {
     "tenacity>=8.0.1",
 }
 
+# Snowplow uses base requirements only (requests, pydantic)
+# No additional dependencies needed
+snowplow = set()
+
 databricks_common = {
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
@@ -577,6 +581,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowplow": snowplow,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib | aws_common | {"smart-open[s3]>=5.2.1"},
     "slack": slack,
@@ -743,6 +748,7 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "snowplow",
             "snaplogic",
             "slack",
             "tableau",
@@ -865,6 +871,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
+        "snowplow = datahub.ingestion.source.snowplow.snowplow:SnowplowSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
