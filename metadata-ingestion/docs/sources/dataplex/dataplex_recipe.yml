@@ -1,0 +1,72 @@
+source:
+  type: dataplex
+  config:
+    # Required: GCP project ID(s) where Dataplex resources are located
+    project_ids:
+      - "my-gcp-project"
+
+    # Optional: GCP location for lakes/zones/entities (default: us-central1)
+    # Use regional locations like us-central1, europe-west1, etc.
+    location: "us-central1"
+
+    # Optional: GCP location for entries (Universal Catalog)
+    # Use multi-region locations (us, eu, asia) to access system entry groups like @bigquery
+    # If not specified, uses the same value as 'location'
+    entries_location: "us"
+
+    # Optional: Environment (default: PROD)
+    env: "PROD"
+
+    # Optional: GCP credentials (if not using Application Default Credentials)
+    # credential:
+    #   project_id: "my-gcp-project"
+    #   private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
+    #   private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
+    #   client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
+    #   client_id: "123456678890"
+
+    # Optional: API Selection
+    # include_entries: true   # Extract from Universal Catalog (default: true, recommended)
+    # include_entities: false # Extract from Lakes/Zones (default: false)
+    # include_lineage: true   # Extract lineage (default: true)
+    # include_schema: true    # Extract schema metadata (default: true)
+
+    # Optional: Filtering patterns
+    # filter_config:
+    #   # Entries API filters (only applies when include_entries=true)
+    #   entries:
+    #     dataset_pattern:
+    #       allow:
+    #         - "bq_.*"      # Allow BigQuery entries
+    #         - "pubsub_.*"  # Allow Pub/Sub entries
+    #       deny:
+    #         - ".*_test"    # Deny test entries
+    #         - ".*_temp"    # Deny temporary entries
+    #
+    #   # Entities API filters (only applies when include_entities=true)
+    #   entities:
+    #     lake_pattern:
+    #       allow:
+    #         - "retail-.*"
+    #         - "finance-.*"
+    #       deny:
+    #         - ".*-test"
+    #     zone_pattern:
+    #       allow:
+    #         - ".*"
+    #       deny:
+    #         - "deprecated-.*"
+    #     dataset_pattern:
+    #       allow:
+    #         - "table_.*"   # Allow tables
+    #         - "fileset_.*" # Allow filesets
+    #       deny:
+    #         - ".*_backup"  # Exclude backups
+
+    # Optional: Performance tuning
+    # max_workers: 10
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
