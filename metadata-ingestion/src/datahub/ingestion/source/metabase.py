@@ -99,8 +99,6 @@ class MetabaseConfig(
         default=None,
         description="Metabase API key. If provided, the username and password will be ignored. Recommended method.",
     )
-    # TODO: Check and remove this if no longer needed.
-    # Config database_alias is removed from sql sources.
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",
@@ -159,153 +157,11 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 )
 class MetabaseSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts Charts, Dashboards, Models, and their associated metadata from Metabase.
-    It supports comprehensive lineage extraction, including table-to-chart, table-to-dashboard, and nested query lineage.
-
-    ### Entities Extracted
-
-    The connector extracts the following Metabase entities into DataHub:
-    - **Dashboards** → DataHub Dashboards
-    - **Charts (Cards/Questions)** → DataHub Charts
-    - **Models** → DataHub Datasets (with "Model" and "View" subtypes)
-    - **Collections** → DataHub Tags
-
-    ### Dashboard Extraction
-
-    Dashboards are extracted using the [/api/dashboard](https://www.metabase.com/docs/latest/api/dashboard) endpoint.
-
-    **Extracted Information:**
-    - Title and description
-    - Owner and last modified user
-    - Link to the dashboard in Metabase
-    - Associated charts (via chartEdges)
-    - **Lineage to upstream database tables** (via datasetEdges)
-    - Collection tags for organization
-
-    **Dashboard Lineage:** The connector automatically aggregates table dependencies from all charts within a dashboard,
-    creating direct table-to-dashboard lineage. This enables:
-    - Impact analysis: See which dashboards are affected when a table changes
-    - Data discovery: Find dashboards consuming specific datasets
-    - Dependency tracking: Understand the complete data flow
-
-    ### Chart Extraction
-
-    Charts (Metabase Cards/Questions) are extracted using the [/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint.
-
-    **Extracted Information:**
-    - Title and description
-    - Owner and last modified user
-    - Link to the chart in Metabase
-    - Chart type (bar, line, table, pie, etc.)
-    - Source dataset lineage
-    - SQL query (for native queries)
-    - Collection tags
-
-    **Custom Properties:**
-
-    | Property      | Description                                     |
-    | ------------- | ----------------------------------------------- |
-    | `Dimensions`  | Column names used in the visualization          |
-    | `Filters`     | Any filters applied to the chart                |
-    | `Metrics`     | Columns used for aggregation (COUNT, SUM, etc.) |
-
-    ### Lineage Extraction
-
-    The connector provides comprehensive lineage extraction with support for multiple query types:
-
-    #### 1. Native SQL Query Lineage
-    - Parses SQL queries using DataHub's SQL parser
-    - Extracts table references from SELECT, JOIN, and subqueries
-    - Handles Metabase template variables (`{{variable}}`) and optional clauses (`[[WHERE ...]]`)
-    - Creates lineage from source tables to charts
-
-    #### 2. Query Builder Lineage
-    - Extracts source tables from Metabase's visual query builder
-    - Maps `source-table` IDs to actual database tables
-    - Creates lineage from tables to charts
-
-    #### 3. Nested Query Lineage
-    - Handles charts built on top of other charts (using `card__` references)
-    - Recursively resolves the chain to find ultimate source tables
-    - Useful for multi-layered analysis workflows
-
-    #### 4. Dashboard-Level Lineage
-    - Aggregates lineage from all charts in a dashboard
-    - Creates direct table-to-dashboard edges (via `datasetEdges`)
-    - Automatically deduplicates tables referenced by multiple charts
-    - Enables dashboard-level impact analysis
-
-    #### 5. Model Lineage
-    - Extracts upstream table dependencies for Metabase Models
-    - Models appear as Dataset entities with lineage to their source tables
-    - Supports both SQL-based and query builder-based models
-
-    ### Collection Tags
-
-    Metabase Collections are mapped to DataHub tags for better organization and discoverability:
-    - Collection names are automatically converted to tags (e.g., "Sales Dashboard" → `metabase_collection_sales_dashboard`)
-    - Tags are applied to dashboards, charts, and models within that collection
-    - Enables filtering by collection in DataHub
-    - Helps organize assets by team, department, or project
-
-    **Configuration:** Set `extract_collections_as_tags: false` to disable this feature.
-
-    ### Metabase Models
-
-    Metabase Models (introduced in v0.41) are saved questions that can be used as data sources for other questions.
-    The connector extracts Models as DataHub Dataset entities:
-
-    **Model as Datasets:**
-    - URN format: `urn:li:dataset:(urn:li:dataPlatform:metabase,model.{model_id},PROD)`
-    - SubTypes: `["Model", "View"]` to indicate virtual dataset nature
-    - ViewProperties: Preserves the underlying SQL query
-    - Upstream lineage: Connects models to their source tables
-    - Collection tags: Applied based on model's collection membership
-
-    **Why Extract Models:**
-    - **Lineage tracking**: See dependencies between models and source tables
-    - **Impact analysis**: Understand which models are affected by table changes
-    - **Documentation**: Model queries and descriptions are preserved
-    - **Discovery**: Find reusable data models in your organization
-
-    **Configuration:** Set `extract_models: false` to disable model extraction.
-
-    ### Collections
-
-    The [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to:
-    - Retrieve available collections
-    - List dashboards within each collection via [/api/collection/{id}/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems)
-    - Map collections to tags on assets
-
-    ### Configuration Examples
-
-    ```yaml
-    # Enable all features (default)
-    source:
-      type: metabase
-      config:
-        connect_uri: https://metabase.company.com
-        username: datahub_user
-        password: secure_password
-        extract_collections_as_tags: true  # Map collections to tags
-        extract_models: true                # Extract Metabase Models as datasets
-
-    # Disable optional features
-    source:
-      type: metabase
-      config:
-        connect_uri: https://metabase.company.com
-        api_key: your-api-key              # Recommended over username/password
-        extract_collections_as_tags: false  # Don't create tags
-        extract_models: false               # Don't extract models
-    ```
-
-    ### Compatibility
-
-    - Tested with Metabase v0.41+ (Models require v0.41+)
-    - Works with various database backends: PostgreSQL, MySQL, BigQuery, Snowflake, Redshift, and more
-    - Supports both username/password and API key authentication (API key recommended)
-
+    This plugin extracts the following:
+    - Dashboards, charts (questions/cards), and models
+    - Metadata including names, descriptions, and URLs
+    - Ownership information
+    - Table and column lineage
     """
 
     config: MetabaseConfig
@@ -358,7 +214,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 }
             )
 
-        # Test the connection
         try:
             test_response = self.session.get(
                 f"{self.config.connect_uri}/api/user/current"
@@ -427,7 +282,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         try:
             return int(dp.parse(ts_str).timestamp() * 1000)
-        except (dp.ParserError, OverflowError):
+        except (dp.ParserError, OverflowError) as e:
+            logger.warning(
+                f"Failed to parse timestamp '{ts_str}': {e}. Using current time instead."
+            )
             return int(datetime.now(timezone.utc).timestamp() * 1000)
 
     def construct_dashboard_from_api_data(
@@ -466,7 +324,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        # Convert chart URNs to chart edges (instead of deprecated charts field)
         chart_edges = []
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
@@ -481,7 +338,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
             )
 
-        # Lineage - extract table dependencies from dashboard charts
         dataset_edges = self.construct_dashboard_lineage(
             dashboard_details, last_modified.lastModified
         )
@@ -497,12 +353,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        # Ownership
         ownership = self._get_ownership(dashboard_details.get("creator_id", ""))
         if ownership is not None:
             dashboard_snapshot.aspects.append(ownership)
 
-        # Tags - extract from collection
         tags = self._get_tags_from_collection(dashboard_details.get("collection_id"))
         if tags is not None:
             dashboard_snapshot.aspects.append(tags)
@@ -524,23 +378,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if not card_id:
                 continue
 
-            # Get detailed card information
             card_details = self.get_card_details_by_id(card_id)
             if not card_details:
                 continue
 
-            # Extract table URNs from the card
             table_urns = self._get_table_urns_from_card(card_details)
             if table_urns:
                 upstream_tables.extend(table_urns)
 
-        # Remove duplicates
         unique_table_urns = list(set(upstream_tables))
 
         if not unique_table_urns:
             return None
 
-        # Create dataset edges for dashboard lineage
         dataset_edges = [
             EdgeClass(
                 destinationUrn=table_urn,
@@ -551,21 +401,33 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return dataset_edges
 
-    def _get_table_urns_from_card(self, card_details: dict) -> List[str]:
+    def _get_table_urns_from_card(
+        self, card_details: dict, recursion_depth: int = 0
+    ) -> List[str]:
         """
         Extract table URNs from a card (question/chart) by analyzing its query.
         Supports both native SQL queries and query builder queries.
+        Includes recursion depth protection to prevent stack overflow from circular references.
         """
+        if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
+            card_id = card_details.get("id", "unknown")
+            self.report.report_warning(
+                title="Card Recursion Limit Exceeded",
+                message="Unable to extract lineage. Nested card reference depth exceeded limit.",
+                context=f"Card ID: {card_id}, Recursion Depth: {recursion_depth}, Limit: {DATASOURCE_URN_RECURSION_LIMIT}",
+            )
+            return []
+
         table_urns = []
 
         query_type = card_details.get("dataset_query", {}).get("type")
 
         if query_type == "native":
-            # Handle native SQL queries
             table_urns = self._get_table_urns_from_native_query(card_details)
         elif query_type == "query":
-            # Handle query builder queries
-            table_urns = self._get_table_urns_from_query_builder(card_details)
+            table_urns = self._get_table_urns_from_query_builder(
+                card_details, recursion_depth
+            )
 
         return table_urns
 
@@ -594,10 +456,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not raw_query:
             return []
 
-        # Strip template expressions before parsing
         raw_query_stripped = self.strip_template_expressions(raw_query)
 
-        # Parse SQL to extract table references
         result = create_lineage_sql_parsed_result(
             query=raw_query_stripped,
             default_db=database_name,
@@ -615,9 +475,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return result.in_tables if result.in_tables else []
 
-    def _get_table_urns_from_query_builder(self, card_details: dict) -> List[str]:
+    def _get_table_urns_from_query_builder(
+        self, card_details: dict, recursion_depth: int = 0
+    ) -> List[str]:
         """
         Extract table URNs from a query builder query by getting the source table ID.
+        Handles nested card references with recursion depth tracking.
         """
         source_table_id = (
             card_details.get("dataset_query", {}).get("query", {}).get("source-table")
@@ -626,16 +489,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not source_table_id:
             return []
 
-        # Check if this is a nested query (references another card)
         if str(source_table_id).startswith("card__"):
-            # Recursively get the source table from the referenced card
             referenced_card_id = source_table_id.replace("card__", "")
             referenced_card = self.get_card_details_by_id(referenced_card_id)
             if referenced_card:
-                return self._get_table_urns_from_card(referenced_card)
+                return self._get_table_urns_from_card(
+                    referenced_card, recursion_depth + 1
+                )
             return []
 
-        # Get table details
         datasource_id = card_details.get("database_id")
         if not datasource_id:
             return []
@@ -655,7 +517,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not table_name:
             return []
 
-        # Build the dataset URN
         name_components = [database_name, schema_name, table_name]
         table_urn = builder.make_dataset_urn_with_platform_instance(
             platform=platform,
@@ -684,7 +545,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     context=f"Creator ID: {creator_id}",
                 )
                 return None
-            # For cases when the error is not 404 but something else
             self.report.report_warning(
                 title="Failed to retrieve user",
                 message="Request to Metabase Failed",
@@ -706,6 +566,44 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return None
 
+    @lru_cache(maxsize=None)
+    def _get_all_collections(self) -> List[dict]:
+        """
+        Fetch all collections from Metabase API. Cached to avoid N+1 API calls.
+        """
+        try:
+            collections_response = self.session.get(
+                f"{self.config.connect_uri}/api/collection/"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
+            )
+            collections_response.raise_for_status()
+            return collections_response.json()
+        except HTTPError as http_error:
+            if (
+                http_error.response is not None
+                and http_error.response.status_code == 404
+            ):
+                logger.debug(f"Collections endpoint not found: {str(http_error)}")
+                return []
+            self.report.report_warning(
+                title="Failed to retrieve collections",
+                message="Unable to fetch collections from Metabase API",
+                context=f"Error: {str(http_error)} - Check API credentials and permissions",
+            )
+            return []
+
+    def _sanitize_collection_name(self, collection_name: str) -> str:
+        """
+        Sanitize collection name for use in tag URNs.
+        Removes special characters that are invalid in tag URNs.
+        """
+        sanitized = collection_name.replace(" ", "_")
+        sanitized = re.sub(r"[^a-zA-Z0-9_]", "", sanitized)
+        sanitized = sanitized.lower()
+        sanitized = re.sub(r"_+", "_", sanitized)
+        sanitized = sanitized.strip("_")
+        return sanitized
+
     def _get_tags_from_collection(
         self, collection_id: Optional[Union[int, str]]
     ) -> Optional[GlobalTagsClass]:
@@ -716,45 +614,45 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not self.config.extract_collections_as_tags or not collection_id:
             return None
 
-        # Find the collection by ID
+        collections = self._get_all_collections()
+
         collection = None
-        try:
-            collections_response = self.session.get(
-                f"{self.config.connect_uri}/api/collection/"
-                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
-            )
-            collections_response.raise_for_status()
-            collections = collections_response.json()
-
-            # Find matching collection
-            for coll in collections:
-                if str(coll.get("id")) == str(collection_id):
-                    collection = coll
-                    break
-
-        except HTTPError as http_error:
-            logger.debug(
-                f"Failed to retrieve collection {collection_id}: {str(http_error)}"
-            )
-            return None
+        for coll in collections:
+            if str(coll.get("id")) == str(collection_id):
+                collection = coll
+                break
 
         if not collection:
+            logger.debug(
+                f"Collection {collection_id} not found in available collections"
+            )
             return None
 
-        # Create tag URN from collection name
-        # Sanitize collection name for use in tag
-        collection_name = collection.get("name", "").replace(" ", "_").lower()
+        collection_name = self._sanitize_collection_name(collection.get("name", ""))
+        if not collection_name:
+            logger.debug(
+                f"Collection {collection_id} has empty name after sanitization"
+            )
+            return None
+
         tag_urn = builder.make_tag_urn(f"metabase_collection_{collection_name}")
 
         return GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
     def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit chart entities for non-model cards.
+        Models are handled separately by emit_model_mces().
+        """
         try:
             card_response = self.session.get(f"{self.config.connect_uri}/api/card")
             card_response.raise_for_status()
             cards = card_response.json()
 
             for card_info in cards:
+                if self.config.extract_models and card_info.get("type") == "model":
+                    continue
+
                 chart_snapshot = self.construct_card_from_api_data(card_info)
                 if chart_snapshot is not None:
                     mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
@@ -865,12 +763,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             chart_snapshot.aspects.append(chart_query_native)
 
-        # Ownership
         ownership = self._get_ownership(card_details.get("creator_id", ""))
         if ownership is not None:
             chart_snapshot.aspects.append(ownership)
 
-        # Tags - extract from collection
         tags = self._get_tags_from_collection(card_details.get("collection_id"))
         if tags is not None:
             chart_snapshot.aspects.append(tags)
@@ -941,6 +837,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def get_datasource_urn(
         self, card_details: dict, recursion_depth: int = 0
     ) -> Optional[List]:
+        """
+        Extract datasource URNs from a card.
+        This method now delegates to _get_table_urns_from_card() to avoid code duplication.
+        Maintains backward compatibility with existing recursion_depth parameter.
+        """
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
             self.report.report_warning(
                 title="Unable to Retrieve Card Info",
@@ -949,79 +850,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             return None
 
-        datasource_id = card_details.get("database_id") or ""
-        (
-            platform,
-            database_name,
-            database_schema,
-            platform_instance,
-        ) = self.get_datasource_from_id(datasource_id)
-        if not platform:
-            self.report.report_warning(
-                title="Unable to find Data Platform",
-                message="Unable to detect Data Platform for database id",
-                context=f"Data Source ID: {datasource_id}",
-            )
-            return None
-
-        query_type = card_details.get("dataset_query", {}).get("type", {})
-
-        if query_type == "query":
-            source_table_id = (
-                card_details.get("dataset_query", {})
-                .get("query", {})
-                .get("source-table")
-                or ""
-            )
-            if str(source_table_id).startswith("card__"):
-                # question is built not directly from table in DB but from results of other question in Metabase
-                # trying to get source table from source question. Recursion depth is limited
-                return self.get_datasource_urn(
-                    card_details=self.get_card_details_by_id(
-                        source_table_id.replace("card__", "")
-                    ),
-                    recursion_depth=recursion_depth + 1,
-                )
-            elif source_table_id != "":
-                # the question is built directly from table in DB
-                schema_name, table_name = self.get_source_table_from_id(source_table_id)
-                if table_name:
-                    name_components = [database_name, schema_name, table_name]
-                    return [
-                        builder.make_dataset_urn_with_platform_instance(
-                            platform=platform,
-                            name=".".join([v for v in name_components if v]),
-                            platform_instance=platform_instance,
-                            env=self.config.env,
-                        )
-                    ]
-        else:
-            raw_query_stripped = self.strip_template_expressions(
-                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
-            )
-
-            result = create_lineage_sql_parsed_result(
-                query=raw_query_stripped,
-                default_db=database_name,
-                default_schema=database_schema or self.config.default_schema,
-                platform=platform,
-                platform_instance=platform_instance,
-                env=self.config.env,
-                graph=self.ctx.graph,
-            )
-            if result.debug_info.table_error:
-                logger.info(
-                    f"Failed to parse lineage from query {raw_query_stripped}: "
-                    f"{result.debug_info.table_error}"
-                )
-                self.report.report_warning(
-                    title="Failed to Extract Lineage",
-                    message="Unable to retrieve lineage from query",
-                    context=f"Query: {raw_query_stripped}",
-                )
-            return result.in_tables
-
-        return None
+        table_urns = self._get_table_urns_from_card(card_details, recursion_depth)
+        return table_urns if table_urns else None
 
     @staticmethod
     def strip_template_expressions(raw_query: str) -> str:
@@ -1199,6 +1029,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         Emit Metabase Models as Dataset entities.
         Models are saved questions that can be used as data sources for other questions.
+        This method reuses the card list from the API to avoid duplicate API calls.
         """
         if not self.config.extract_models:
             return
@@ -1209,17 +1040,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
             cards = card_response.json()
 
             for card_info in cards:
+                if card_info.get("type") != "model":
+                    continue
+
                 card_id = card_info.get("id")
                 if card_id is None:
                     continue
 
-                # Get full card details
                 card_details = self.get_card_details_by_id(card_id)
                 if not card_details:
-                    continue
-
-                # Only process if it's a model
-                if not self._is_metabase_model(card_details):
                     continue
 
                 dataset_snapshot = self.construct_model_from_api_data(card_details)
@@ -1245,8 +1074,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if card_id is None:
             return None
 
-        # Create dataset URN for the model
-        # Use a special platform name to distinguish models from real tables
         model_urn = builder.make_dataset_urn(
             platform="metabase",
             name=f"model.{card_id}",
@@ -1258,7 +1085,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
             aspects=[],
         )
 
-        # Dataset properties
         dataset_properties = DatasetPropertiesClass(
             name=card_details.get("name", ""),
             description=card_details.get("description", ""),
@@ -1270,11 +1096,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        # Subtype to indicate this is a model/view
         subtypes = SubTypesClass(typeNames=["Model", "View"])
         dataset_snapshot.aspects.append(subtypes)  # type: ignore
 
-        # View properties with the underlying query
         if card_details.get("dataset_query"):
             raw_query = None
             if card_details.get("query_type") == "native":
@@ -1292,7 +1116,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
                 dataset_snapshot.aspects.append(view_properties)
 
-        # Upstream lineage - tables this model depends on
         table_urns = self._get_table_urns_from_card(card_details)
         if table_urns:
             upstream_lineage = UpstreamLineageClass(
@@ -1306,12 +1129,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             dataset_snapshot.aspects.append(upstream_lineage)
 
-        # Ownership
         ownership = self._get_ownership(card_details.get("creator_id", ""))
         if ownership is not None:
             dataset_snapshot.aspects.append(ownership)
 
-        # Tags from collection
         tags = self._get_tags_from_collection(card_details.get("collection_id"))
         if tags is not None:
             dataset_snapshot.aspects.append(tags)
