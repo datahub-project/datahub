@@ -473,6 +473,8 @@
         "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
         "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary"
+    },
+    {
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",
