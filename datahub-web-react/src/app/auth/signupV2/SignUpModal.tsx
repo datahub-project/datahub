@@ -119,7 +119,12 @@ export default function SignUpModal() {
             closable={false}
             width="533px"
         >
-            <SignupForm form={form} handleSubmit={handleSignUp} onFormChange={onFormChange} />
+            <SignupForm
+                form={form}
+                handleSubmit={handleSignUp}
+                onFormChange={onFormChange}
+                isSubmitDisabled={isSubmitDisabled}
+            />
         </Modal>
     );
 }

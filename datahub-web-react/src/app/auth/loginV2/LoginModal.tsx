@@ -99,7 +99,12 @@ export default function LoginModal() {
                 <Message type="error" content={maybeRedirectError} />
             )}
             {loading && <Message type="loading" content="Logging in..." />}
-            <LoginForm form={form} handleSubmit={handleLogin} onFormChange={onFormChange} />
+            <LoginForm
+                form={form}
+                handleSubmit={handleLogin}
+                onFormChange={onFormChange}
+                isSubmitDisabled={isSubmitDisabled}
+            />
         </Modal>
     );
 }

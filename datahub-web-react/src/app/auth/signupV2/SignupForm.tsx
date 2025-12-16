@@ -30,9 +30,10 @@ interface Props {
     form: FormInstance;
     handleSubmit: (values: SignupFormValues) => void;
     onFormChange: () => void;
+    isSubmitDisabled: boolean;
 }
 
-export default function SignupForm({ form, handleSubmit, onFormChange }: Props) {
+export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
     const location = useLocation();
 
     const searchParams = new URLSearchParams(location.search);
@@ -53,9 +54,15 @@ export default function SignupForm({ form, handleSubmit, onFormChange }: Props) 
         });
     }, [emailFromQuery, firstNameFromQuery, lastNameFromQuery, form]);
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !isSubmitDisabled) {
+            form.submit();
+        }
+    };
+
     return (
         <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange}>
+            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
                     <FieldLabel label="Email" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
