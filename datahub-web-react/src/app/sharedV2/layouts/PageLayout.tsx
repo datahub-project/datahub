@@ -19,13 +19,12 @@ const PageWrapper = styled(Card)<{ $hasBottomPanel?: boolean }>`
 `;
 
 const PageTitleWrapper = styled.div`
-    padding: 16px 20px 0 20px;
+    padding: 16px 20px;
 `;
 
 const ContentWrapper = styled.div`
     height: 100%;
     overflow-y: auto;
-    padding: 0 20px 20px 20px;
 `;
 
 const Panel = styled(Card)`
@@ -54,31 +53,40 @@ const HorizontalContainer = styled.div`
     gap: 16px;
 `;
 
+const BreadcrumbContainer = styled.div`
+    padding: 16px 20px 0 20px;
+`;
+
 interface Props {
     title?: string;
-    subTitle?: string;
+    titlePill?: React.ReactNode;
+    subTitle?: string | React.ReactNode;
     leftPanelContent?: React.ReactNode;
     rightPanelContent?: React.ReactNode;
-    buttomPanelContent?: React.ReactNode;
+    bottomPanelContent?: React.ReactNode;
+    topBreadcrumb?: React.ReactNode;
 }
 
 export function PageLayout({
     children,
     title,
+    titlePill,
     subTitle,
     leftPanelContent,
     rightPanelContent,
-    buttomPanelContent,
+    bottomPanelContent,
+    topBreadcrumb,
 }: React.PropsWithChildren<Props>) {
     return (
         <VerticalContainer>
             <HorizontalContainer>
                 {leftPanelContent && <SidePannel>{leftPanelContent}</SidePannel>}
 
-                <PageWrapper $hasBottomPanel={!!buttomPanelContent}>
+                <PageWrapper $hasBottomPanel={!!bottomPanelContent}>
+                    {topBreadcrumb && <BreadcrumbContainer>{topBreadcrumb}</BreadcrumbContainer>}
                     {title && (
                         <PageTitleWrapper>
-                            <PageTitle title={title} subTitle={subTitle} />
+                            <PageTitle title={title} subTitle={subTitle} titlePill={titlePill} />
                         </PageTitleWrapper>
                     )}
                     <ContentWrapper>{children}</ContentWrapper>
@@ -86,7 +94,7 @@ export function PageLayout({
 
                 {rightPanelContent && <SidePannel>{rightPanelContent}</SidePannel>}
             </HorizontalContainer>
-            {buttomPanelContent && <BottomPanel>{buttomPanelContent}</BottomPanel>}
+            {bottomPanelContent && <BottomPanel>{bottomPanelContent}</BottomPanel>}
         </VerticalContainer>
     );
 }

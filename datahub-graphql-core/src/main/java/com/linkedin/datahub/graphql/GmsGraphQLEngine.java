@@ -947,6 +947,10 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService))
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
@@ -1302,11 +1306,9 @@ public class GmsGraphQLEngine {
                   "revokeAccessToken",
                   new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
               .dataFetcher(
-                  "createIngestionSource",
-                  new UpsertIngestionSourceResolver(this.entityClient, this.entityService))
+                  "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
-                  "updateIngestionSource",
-                  new UpsertIngestionSourceResolver(this.entityClient, this.entityService))
+                  "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
                   "deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
               .dataFetcher(
@@ -1749,6 +1751,10 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
                     .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.datasetType))
                     .dataFetcher(
                         "lineage",
@@ -1975,7 +1981,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("exists", new EntityExistsResolver(entityService)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService)));
   }
 
   private void configureGlossaryNodeResolvers(final RuntimeWiring.Builder builder) {
@@ -1991,7 +2001,11 @@ public class GmsGraphQLEngine {
                     "glossaryChildrenSearch",
                     new GlossaryChildrenSearchResolver(this.entityClient, this.viewService))
                 .dataFetcher(
-                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService)));
   }
 
   private void configureSchemaFieldResolvers(final RuntimeWiring.Builder builder) {
@@ -2216,6 +2230,10 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dashboardType))
                 .dataFetcher(
                     "lineage",
@@ -2347,6 +2365,10 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.chartType))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
@@ -2547,6 +2569,10 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
                     .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dataJobType))
                     .dataFetcher(
                         "lineage",
@@ -2650,6 +2676,10 @@ public class GmsGraphQLEngine {
         typeWiring ->
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dataFlowType))
                 .dataFetcher(
                     "lineage",
@@ -2706,6 +2736,10 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
                     .dataFetcher(
                         "browsePaths", new EntityBrowsePathsResolver(this.mlFeatureTableType))
                     .dataFetcher(
@@ -2798,6 +2832,10 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
                     .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.mlModelType))
                     .dataFetcher(
                         "lineage",
@@ -2847,6 +2885,10 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
                     .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
+                    .dataFetcher(
                         "browsePaths", new EntityBrowsePathsResolver(this.mlModelGroupType))
                     .dataFetcher(
                         "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
@@ -2880,6 +2922,10 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
                     .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
+                    .dataFetcher(
                         "lineage",
                         new EntityLineageResultResolver(
                             siblingGraphService,
@@ -2905,6 +2951,10 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "relatedDocuments",
+                        new com.linkedin.datahub.graphql.resolvers.knowledge
+                            .RelatedDocumentsResolver(documentService, entityClient, groupService))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher(
                         "lineage",
@@ -2951,7 +3001,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService)));
     builder.type(
         "DomainAssociation",
         typeWiring ->
@@ -2971,6 +3025,8 @@ public class GmsGraphQLEngine {
             this.documentService,
             entityTypes,
             documentType,
+            dataPlatformType,
+            dataPlatformInstanceType,
             entityClient,
             this.entityService,
             this.graphClient,
@@ -3043,7 +3099,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService)));
   }
 
   private void configureApplicationResolvers(final RuntimeWiring.Builder builder) {
@@ -3054,7 +3114,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "relatedDocuments",
+                    new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
+                        documentService, entityClient, groupService)));
     builder.type(
         "ApplicationAssociation",
         typeWiring ->
