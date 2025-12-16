@@ -517,8 +517,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
         super().close()
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        """Emit dashboard entities using MCPs."""
+    def emit_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit dashboard entities as work units."""
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
@@ -969,8 +969,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
-    def emit_card_mces(self) -> Iterable[MetadataWorkUnit]:
-        """Emit chart entities for non-model cards using MCPs."""
+    def emit_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit chart entities for non-model cards as work units."""
         try:
             card_response = self.session.get(f"{self.config.connect_uri}/api/card")
             card_response.raise_for_status()
@@ -979,7 +979,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             for card_data in cards:
                 try:
                     card_info = MetabaseCardListItem.model_validate(card_data)
-                    # Models are emitted as datasets by emit_model_mces()
+                    # Models are emitted as datasets by emit_model_workunits()
                     if self.config.extract_models and card_info.type == "model":
                         continue
 
@@ -1354,8 +1354,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         return card_info.type == "model"
 
-    def emit_model_mces(self) -> Iterable[MetadataWorkUnit]:
-        """Emit Metabase Models as Dataset entities using MCPs."""
+    def emit_model_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit Metabase Models as Dataset entities as work units."""
         if not self.config.extract_models:
             return
 
@@ -1531,9 +1531,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
             ).as_workunit()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_card_mces()
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_model_mces()
+        yield from self.emit_chart_workunits()
+        yield from self.emit_dashboard_workunits()
+        yield from self.emit_model_workunits()
 
     def get_report(self) -> SourceReport:
         return self.report

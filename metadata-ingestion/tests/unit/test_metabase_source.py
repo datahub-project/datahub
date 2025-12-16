@@ -875,7 +875,7 @@ def test_extract_models_config_disabled(mock_post, mock_get, mock_delete):
     card_response.json.return_value = [{"id": 1, "name": "Test Model", "type": "model"}]
     metabase_source.session.get = MagicMock(return_value=card_response)  # type: ignore[method-assign]
 
-    workunits = list(metabase_source.emit_model_mces())
+    workunits = list(metabase_source.emit_model_workunits())
     assert len(workunits) == 0
 
     metabase_source.close()
@@ -1481,10 +1481,10 @@ def test_get_datasource_urn_respects_recursion_limit(mock_post, mock_get, mock_d
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
-def test_emit_card_mces_skips_models_when_extraction_enabled(
+def test_emit_chart_workunits_skips_models_when_extraction_enabled(
     mock_post, mock_get, mock_delete
 ):
-    """Test that emit_card_mces() skips model cards when extract_models is True"""
+    """Test that emit_chart_workunits() skips model cards when extract_models is True"""
     metabase_config = MetabaseConfig(
         connect_uri="http://localhost:3000",
         username="test",
@@ -1526,7 +1526,7 @@ def test_emit_card_mces_skips_models_when_extraction_enabled(
         side_effect=mock_emit_chart
     )
 
-    list(metabase_source.emit_card_mces())
+    list(metabase_source.emit_chart_workunits())
     assert 1 in called_card_ids
     assert 3 in called_card_ids
     assert 2 not in called_card_ids  # Model should be skipped
@@ -1677,7 +1677,7 @@ def test_api_500_error_handling(mock_post, mock_get, mock_delete):
         return mock_response
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_cards)  # type: ignore[method-assign]
-    workunits = list(metabase_source.emit_card_mces())
+    workunits = list(metabase_source.emit_chart_workunits())
     assert len(workunits) == 0
     assert len(metabase_source.report.failures) > 0
 
