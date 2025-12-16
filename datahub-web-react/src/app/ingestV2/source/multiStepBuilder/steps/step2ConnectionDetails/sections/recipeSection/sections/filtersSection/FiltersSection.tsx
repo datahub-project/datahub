@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { FilterRecipeField, FilterRule } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
-import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
 import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
 import { Filter } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/types';
 import {
@@ -15,6 +14,7 @@ import {
     getOptionsForTypeSelect,
     getSubtypeOptions,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/utils';
+import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FilterRow = styled.div`
     display: flex;
