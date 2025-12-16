@@ -113,7 +113,9 @@ def _quote_identifier(value: str) -> str:
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         super().__init__(config, ctx, "db2")
-        # register custom SQLGlot dialect
+        # register custom SQLGlot dialect if one doesn't exist. at the time of writing,
+        # SQLGlot doesn't have a built-in Db2 dialect, but this is forward-compatible
+        # in case it ever is added.
         if not sqlglot.Dialect.get("db2"):
             sqlglot.Dialect.classes["db2"] = CustomDb2SqlGlotDialect
 
