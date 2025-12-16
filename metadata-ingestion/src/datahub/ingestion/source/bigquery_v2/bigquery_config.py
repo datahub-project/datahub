@@ -482,6 +482,15 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
+    pushdown_user_filter: bool = Field(
+        default=False,
+        description="If enabled, pushes down `usage.user_email_pattern` filtering to BigQuery's "
+        "INFORMATION_SCHEMA.JOBS query using REGEXP_CONTAINS for improved performance. "
+        "When disabled (default), filtering is done client-side using Python regex. "
+        "Enable this for large query volumes to reduce data transfer from BigQuery. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
     _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
     _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")

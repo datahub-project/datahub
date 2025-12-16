@@ -101,6 +101,14 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         description="regex patterns for user emails to filter in usage.",
     )
 
+    pushdown_user_filter: bool = Field(
+        default=False,
+        description="If enabled, pushes down user_email_pattern filtering to BigQuery's "
+        "INFORMATION_SCHEMA.JOBS query using REGEXP_CONTAINS for improved performance. "
+        "When disabled (default), filtering is done client-side using Python regex. "
+        "Enable this for large query volumes to reduce data transfer from BigQuery.",
+    )
+
     top_n_queries: PositiveInt = Field(
         default=10, description="Number of top queries to save to each table."
     )
@@ -397,12 +405,23 @@ class BigQueryQueriesExtractor(Closeable):
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
     ) -> Iterable[ObservedQuery]:
+        # Build user filter for pushdown if enabled
+        if self.config.pushdown_user_filter:
+            user_filter = _build_user_filter_from_pattern(
+                self.config.user_email_pattern
+            )
+            logger.debug(f"Using pushdown user filter: {user_filter}")
+        else:
+            # No pushdown - filter client-side (existing behavior via SqlParsingAggregator)
+            user_filter = "TRUE"
+
         # Each region needs to be a different query
         query_log_query = _build_enriched_query_log_query(
             project_id=project.id,
             region=region,
             start_time=self.start_time,
             end_time=self.end_time,
+            user_filter=user_filter,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")
@@ -463,6 +482,60 @@ class BigQueryQueriesExtractor(Closeable):
         self.aggregator.close()
 
 
+def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
+    """
+    Convert AllowDenyPattern (Python regex) to BigQuery SQL WHERE clause.
+
+    Uses REGEXP_CONTAINS for full regex support. This allows pushing down
+    user filtering to BigQuery for improved performance.
+
+    Args:
+        pattern: AllowDenyPattern with allow/deny regex patterns
+
+    Returns:
+        A SQL WHERE condition string, or "TRUE" if no filtering should be applied
+
+    Example:
+        pattern = AllowDenyPattern(allow=["analyst_.*@example\\.com"], deny=["bot_.*"])
+        result = _build_user_filter_from_pattern(pattern)
+        # Returns: "(REGEXP_CONTAINS(user_email, r'analyst_.*@example\\.com')) AND NOT REGEXP_CONTAINS(user_email, r'bot_.*')"
+    """
+    conditions = []
+
+    # Handle ALLOW patterns (inclusions)
+    # Skip if it's the default "allow all" pattern
+    if pattern.allow and pattern.allow != [".*"]:
+        allow_conditions = []
+        for regex_pattern in pattern.allow:
+            # Escape single quotes for SQL safety
+            escaped = regex_pattern.replace("'", "\\'")
+            # Use case-insensitive matching if configured
+            # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
+            # e.g., [A-Z] and [[:upper:]] should work correctly
+            if pattern.ignoreCase:
+                allow_conditions.append(
+                    f"REGEXP_CONTAINS(user_email, r'(?i){escaped}')"
+                )
+            else:
+                allow_conditions.append(f"REGEXP_CONTAINS(user_email, r'{escaped}')")
+        if allow_conditions:
+            conditions.append(f"({' OR '.join(allow_conditions)})")
+
+    # Handle DENY patterns (exclusions)
+    if pattern.deny:
+        for regex_pattern in pattern.deny:
+            # Escape single quotes for SQL safety
+            escaped = regex_pattern.replace("'", "\\'")
+            # Use case-insensitive matching if configured
+            # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
+            if pattern.ignoreCase:
+                conditions.append(f"NOT REGEXP_CONTAINS(user_email, r'(?i){escaped}')")
+            else:
+                conditions.append(f"NOT REGEXP_CONTAINS(user_email, r'{escaped}')")
+
+    return " AND ".join(conditions) if conditions else "TRUE"
+
+
 def _extract_query_text(row: BigQueryJob) -> str:
     # We wrap select statements in a CTE to make them parseable as DML statement.
     # This is a workaround to support the case where the user runs a query and inserts the result into a table.
@@ -492,7 +565,23 @@ def _build_enriched_query_log_query(
     region: str,
     start_time: datetime,
     end_time: datetime,
+    user_filter: str = "TRUE",
 ) -> str:
+    """
+    Build the SQL query to fetch enriched query log from BigQuery INFORMATION_SCHEMA.JOBS.
+
+    Args:
+        project_id: The GCP project ID
+        region: The BigQuery region qualifier (e.g., "region-us", "region-eu")
+        start_time: Start of the time window for query log
+        end_time: End of the time window for query log
+        user_filter: SQL WHERE clause condition for filtering by user_email.
+                     Defaults to "TRUE" (no filtering). Use _build_user_filter_from_pattern()
+                     to generate this from an AllowDenyPattern.
+
+    Returns:
+        SQL query string to fetch query log
+    """
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
 
@@ -544,6 +633,7 @@ def _build_enriched_query_log_query(
             creation_time <= '{audit_end_time}' AND
             error_result is null AND
             not CONTAINS_SUBSTR(query, '.INFORMATION_SCHEMA.') AND
-            statement_type not in ({unsupported_statement_types})
+            statement_type not in ({unsupported_statement_types}) AND
+            {user_filter}
         ORDER BY creation_time
     """

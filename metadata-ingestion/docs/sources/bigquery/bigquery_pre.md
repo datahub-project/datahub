@@ -123,6 +123,7 @@ DataHub's BigQuery connector supports two approaches for extracting lineage and 
   - Query popularity statistics and rankings
   - Multi-region support via `region_qualifiers`
   - Table and column-level usage statistics
+  - User filtering pushdown for performance (`pushdown_user_filter` with `user_email_pattern`)
 - **Requirements**:
   - `bigquery.jobs.listAll` permission on target projects
   - No additional Cloud Logging permissions needed
