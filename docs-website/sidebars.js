@@ -361,6 +361,12 @@ module.exports = {
           id: "docs/how/search",
         },
         {
+          label: "Search Access Controls",
+          type: "doc",
+          id: "docs/features/feature-guides/search-access-controls",
+          className: "saasOnly",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
