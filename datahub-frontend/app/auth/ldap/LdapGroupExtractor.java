@@ -303,7 +303,7 @@ public class LdapGroupExtractor {
    * @return The username extracted from the CN attribute with escape sequences processed, or empty
    *     string if DN is null/empty, or the original DN if it doesn't start with "CN="
    */
-  private String extractUsernameFromDn(String dn) {
+  String extractUsernameFromDn(String dn) {
     if (dn == null || dn.isEmpty()) {
       return "";
     }
@@ -347,7 +347,7 @@ public class LdapGroupExtractor {
    * @param username The simple username
    * @return The authentication identity (e.g., "jdoe@example.com")
    */
-  private String buildAuthIdentity(String username) {
+  String buildAuthIdentity(String username) {
     String userFilter = configs.getUserFilter();
 
     // If filter contains @, extract the domain and build UPN
@@ -393,7 +393,7 @@ public class LdapGroupExtractor {
    * @param userDn The user's Distinguished Name to search for in group memberships
    * @return List of CorpGroupSnapshot objects
    */
-  private List<CorpGroupSnapshot> extractGroupsWithContext(DirContext ctx, String userDn) {
+  List<CorpGroupSnapshot> extractGroupsWithContext(DirContext ctx, String userDn) {
     List<CorpGroupSnapshot> groups = new ArrayList<>();
 
     try {
@@ -461,7 +461,7 @@ public class LdapGroupExtractor {
    * @return CorpGroupSnapshot
    * @throws UnsupportedEncodingException if URL encoding fails
    */
-  private CorpGroupSnapshot buildCorpGroupSnapshot(String groupName, Attributes attributes)
+  CorpGroupSnapshot buildCorpGroupSnapshot(String groupName, Attributes attributes)
       throws UnsupportedEncodingException {
 
     // URL encode the group name to handle spaces and special characters
@@ -531,7 +531,7 @@ public class LdapGroupExtractor {
    * @param dn The Distinguished Name to escape
    * @return The escaped DN safe for use in LDAP search filters
    */
-  private String escapeDnForFilter(String dn) {
+  String escapeDnForFilter(String dn) {
     if (dn == null || dn.isEmpty()) {
       return dn;
     }

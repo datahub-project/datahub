@@ -179,7 +179,7 @@ public class LdapUserExtractor {
    * @param username The simple username (e.g., "jdoe")
    * @return The authentication identity to use for LDAP bind (e.g., "jdoe@example.com")
    */
-  private String buildUserDnForAuth(String username) {
+  String buildUserDnForAuth(String username) {
     // Check if userFilter contains UPN pattern (e.g., {0}@domain.com or
     // userPrincipalName={0}@domain.com)
     String userFilter = configs.getUserFilter();
@@ -248,8 +248,7 @@ public class LdapUserExtractor {
    * @return CorpUserSnapshot containing user information
    * @throws Exception if user cannot be found or if LDAP search fails
    */
-  private CorpUserSnapshot extractUserWithContext(DirContext ctx, String username)
-      throws Exception {
+  CorpUserSnapshot extractUserWithContext(DirContext ctx, String username) throws Exception {
     try {
 
       // Search for the user
@@ -313,7 +312,7 @@ public class LdapUserExtractor {
    * @param attributes The LDAP attributes
    * @return Map of attribute names to values
    */
-  private Map<String, String> extractAttributesToMap(Attributes attributes) {
+  Map<String, String> extractAttributesToMap(Attributes attributes) {
     Map<String, String> attributeMap = new HashMap<>();
 
     try {
@@ -341,7 +340,7 @@ public class LdapUserExtractor {
    * @param attributes Map of LDAP attributes
    * @return CorpUserSnapshot
    */
-  private CorpUserSnapshot buildCorpUserSnapshot(String username, Map<String, String> attributes) {
+  CorpUserSnapshot buildCorpUserSnapshot(String username, Map<String, String> attributes) {
     final CorpUserSnapshot userSnapshot = new CorpUserSnapshot();
     userSnapshot.setUrn(new CorpuserUrn(username));
 
@@ -443,7 +442,7 @@ public class LdapUserExtractor {
    * @return The user's full Distinguished Name
    * @throws Exception if user cannot be found or if LDAP search fails
    */
-  private String getUserDnWithContext(DirContext ctx, String username) throws Exception {
+  String getUserDnWithContext(DirContext ctx, String username) throws Exception {
     try {
       SearchControls searchControls = new SearchControls();
       searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
