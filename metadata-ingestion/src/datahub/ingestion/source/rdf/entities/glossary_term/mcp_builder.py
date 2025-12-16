@@ -123,14 +123,35 @@ class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
     def _create_term_info_mcp(
         self, term: DataHubGlossaryTerm, parent_node_urn: Optional[str] = None
     ) -> MetadataChangeProposalWrapper:
-        """Create the GlossaryTermInfo MCP."""
+        """Create the GlossaryTermInfo MCP.
+
+        According to DataHub documentation:
+        - termSource defaults to "INTERNAL" for terms defined within the organization
+        - termSource should be "EXTERNAL" when the term comes from an external standard
+          or glossary (e.g., FIBO, ISO standards, industry glossaries)
+
+        For RDF ingestion:
+        - term.source is set to the RDF IRI/URI (always present for RDF terms)
+        - If source is present, we mark as "EXTERNAL" since RDF terms come from external ontologies
+        - If source is None (shouldn't happen for RDF, but handle gracefully), termSource defaults to None
+          which will use the schema default of "INTERNAL"
+        """
+        # Determine term_source based on presence of source
+        # term.source is set in extractor.py (line 104: source_uri = str(uri), line 142: source=source_uri)
+        # It's always set to the RDF IRI/URI for RDF terms, so it should always be present.
+        # RDF terms come from external sources (ontologies, vocabularies), so if source is present,
+        # mark as EXTERNAL. If None (shouldn't happen for RDF, but handle gracefully), leave as None.
+        term_source: Optional[str] = "EXTERNAL" if term.source else None
+
+        # termSource is a required string field in the schema, so we must provide a value
+        # Use "INTERNAL" as fallback if term_source is None (per schema default)
         term_info = GlossaryTermInfoClass(
             name=term.name,
             definition=term.definition or f"Glossary term: {term.name}",
-            termSource="EXTERNAL",
+            termSource=term_source if term_source is not None else "INTERNAL",
             parentNode=parent_node_urn,
-            sourceRef=term.source,
-            sourceUrl=term.source,
+            sourceRef=term.source,  # External source identifier/name (RDF IRI)
+            sourceUrl=term.source,  # URL to external definition (RDF IRI)
             customProperties=term.custom_properties or {},
         )
 
