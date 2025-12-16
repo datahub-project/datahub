@@ -88,7 +88,7 @@ export function SelectSourceStep() {
 
     const onSelectCard = (platformSource: SourceConfig) => {
         if (platformSource.isExternal) {
-            window.open(EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
+            window.open(platformSource.docsUrl ?? EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
             return;
         }
 
