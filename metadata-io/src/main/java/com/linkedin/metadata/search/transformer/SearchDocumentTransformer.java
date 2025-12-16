@@ -32,6 +32,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchDocumentSanitizer;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
@@ -446,6 +447,11 @@ public class SearchDocumentTransformer {
         // By default run toString
       default:
         String value = fieldValue.toString();
+        // Sanitize text fields to remove base64 images before indexing
+        // This prevents OpenSearch indexing failures due to the 32KB term limit
+        if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
+          value = SearchDocumentSanitizer.sanitizeForIndexing(value);
+        }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())
             : Optional.of(JsonNodeFactory.instance.textNode(value));
