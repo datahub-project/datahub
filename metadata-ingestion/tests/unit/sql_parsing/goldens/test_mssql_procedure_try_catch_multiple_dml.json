@@ -1,8 +1,6 @@
 {
     "query_type": "UNKNOWN",
-    "query_type_props": {
-        "kind": "PROCEDURE"
-    },
+    "query_type_props": {},
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
@@ -29,7 +27,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[metric_date] AS [metric_date]"
+                "column_logic": "COPY: [src].[metric_date] AS [metric_date]"
             }
         },
         {
@@ -47,7 +45,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[metric_value] AS [metric_value]"
+                "column_logic": "COPY: [src].[metric_value] AS [metric_value]"
             }
         },
         {
@@ -65,7 +63,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[metric_id] AS [metric_id]"
+                "column_logic": "COPY: [src].[metric_id] AS [metric_id]"
             }
         },
         {
@@ -83,7 +81,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[metric_date] AS [metric_date]"
+                "column_logic": "COPY: [src].[metric_date] AS [metric_date]"
             }
         },
         {
@@ -101,30 +99,13 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[metric_value] AS [metric_value]"
-            }
-        },
-        {
-            "downstream": {
-                "table": null,
-                "column": "@errormessage = error_message()",
-                "column_type": {
-                    "type": {
-                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                    }
-                },
-                "native_column_type": "BIT"
-            },
-            "upstreams": [],
-            "logic": {
-                "is_direct_copy": true,
-                "column_logic": "@ErrorMessage = ERROR_MESSAGE() AS [_col_0]"
+                "column_logic": "COPY: [src].[metric_value] AS [metric_value]"
             }
         }
     ],
     "joins": null,
     "debug_info": {
-        "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 4 statements via fallback)"
+        "confidence": 0.0,
+        "generalized_statement": null
     }
 }

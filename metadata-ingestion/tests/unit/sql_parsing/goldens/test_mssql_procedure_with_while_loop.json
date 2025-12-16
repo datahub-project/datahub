@@ -1,8 +1,6 @@
 {
     "query_type": "UNKNOWN",
-    "query_type_props": {
-        "kind": "PROCEDURE"
-    },
+    "query_type_props": {},
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,staging_data,PROD)"
@@ -26,7 +24,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[staging_data].[id] AS [id]"
+                "column_logic": "COPY: [staging_data].[id] AS [id]"
             }
         },
         {
@@ -44,13 +42,13 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[staging_data].[value] AS [value]"
+                "column_logic": "COPY: [staging_data].[value] AS [value]"
             }
         }
     ],
     "joins": null,
     "debug_info": {
-        "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 1 statements via fallback)"
+        "confidence": 0.0,
+        "generalized_statement": null
     }
 }

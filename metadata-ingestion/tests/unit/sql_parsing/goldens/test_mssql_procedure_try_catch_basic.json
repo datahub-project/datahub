@@ -1,8 +1,6 @@
 {
     "query_type": "UNKNOWN",
-    "query_type_props": {
-        "kind": "PROCEDURE"
-    },
+    "query_type_props": {},
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
@@ -10,24 +8,10 @@
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
     ],
-    "column_lineage": [
-        {
-            "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)",
-                "column": "name",
-                "column_type": null,
-                "native_column_type": null
-            },
-            "upstreams": [],
-            "logic": {
-                "is_direct_copy": true,
-                "column_logic": "@CustomerName AS [name]"
-            }
-        }
-    ],
+    "column_lineage": null,
     "joins": null,
     "debug_info": {
-        "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 1 statements via fallback)"
+        "confidence": 0.0,
+        "generalized_statement": null
     }
 }

@@ -1,8 +1,6 @@
 {
     "query_type": "UNKNOWN",
-    "query_type_props": {
-        "kind": "PROCEDURE"
-    },
+    "query_type_props": {},
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
@@ -29,7 +27,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[product_name] AS [product_name]"
+                "column_logic": "COPY: [src].[product_name] AS [product_name]"
             }
         },
         {
@@ -47,24 +45,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[category] AS [category]"
-            }
-        },
-        {
-            "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
-                "column": "last_modified",
-                "column_type": {
-                    "type": {
-                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                    }
-                },
-                "native_column_type": "DATETIME2"
-            },
-            "upstreams": [],
-            "logic": {
-                "is_direct_copy": true,
-                "column_logic": "GETDATE() AS [last_modified]"
+                "column_logic": "COPY: [src].[category] AS [category]"
             }
         },
         {
@@ -82,7 +63,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[product_key] AS [product_key]"
+                "column_logic": "COPY: [src].[product_key] AS [product_key]"
             }
         },
         {
@@ -100,7 +81,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[product_name] AS [product_name]"
+                "column_logic": "COPY: [src].[product_name] AS [product_name]"
             }
         },
         {
@@ -118,30 +99,13 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "[src].[category] AS [category]"
-            }
-        },
-        {
-            "downstream": {
-                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,targetdb.dbo.dim_product,PROD)",
-                "column": "last_modified",
-                "column_type": {
-                    "type": {
-                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                    }
-                },
-                "native_column_type": "DATETIME2"
-            },
-            "upstreams": [],
-            "logic": {
-                "is_direct_copy": true,
-                "column_logic": "GETDATE() AS [last_modified]"
+                "column_logic": "COPY: [src].[category] AS [category]"
             }
         }
     ],
     "joins": null,
     "debug_info": {
-        "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 3 statements via fallback)"
+        "confidence": 0.0,
+        "generalized_statement": null
     }
 }

@@ -1,8 +1,6 @@
 {
     "query_type": "UNKNOWN",
-    "query_type_props": {
-        "kind": "PROCEDURE"
-    },
+    "query_type_props": {},
     "query_fingerprint": null,
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dst,PROD)",
@@ -32,7 +30,7 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "CASE WHEN [src].[update_map] & 1 = 1 THEN NULL ELSE [dst].[return_month_1] END AS [return_month_1]"
+                "column_logic": "SQL: CASE WHEN [src].[update_map] & 1 = 1 THEN NULL ELSE [dst].[return_month_1] END AS [return_month_1]"
             }
         },
         {
@@ -54,7 +52,7 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "CASE WHEN [src].[update_map] & 2 = 2 THEN NULL ELSE [dst].[return_month_2] END AS [return_month_2]"
+                "column_logic": "SQL: CASE WHEN [src].[update_map] & 2 = 2 THEN NULL ELSE [dst].[return_month_2] END AS [return_month_2]"
             }
         },
         {
@@ -76,7 +74,7 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "CASE WHEN [src].[update_map] & 4 = 4 THEN NULL ELSE [dst].[return_month_3] END AS [return_month_3]"
+                "column_logic": "SQL: CASE WHEN [src].[update_map] & 4 = 4 THEN NULL ELSE [dst].[return_month_3] END AS [return_month_3]"
             }
         },
         {
@@ -98,7 +96,7 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "CASE WHEN [src].[update_map] & 8 = 8 THEN NULL ELSE [dst].[return_month_4] END AS [return_month_4]"
+                "column_logic": "SQL: CASE WHEN [src].[update_map] & 8 = 8 THEN NULL ELSE [dst].[return_month_4] END AS [return_month_4]"
             }
         },
         {
@@ -120,7 +118,7 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "CASE WHEN [src].[update_map] & 16 = 16 THEN NULL ELSE [dst].[return_month_5] END AS [return_month_5]"
+                "column_logic": "SQL: CASE WHEN [src].[update_map] & 16 = 16 THEN NULL ELSE [dst].[return_month_5] END AS [return_month_5]"
             }
         },
         {
@@ -142,13 +140,13 @@
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "CASE WHEN [src].[update_map] & 32 = 32 THEN NULL ELSE [dst].[return_month_6] END AS [return_month_6]"
+                "column_logic": "SQL: CASE WHEN [src].[update_map] & 32 = 32 THEN NULL ELSE [dst].[return_month_6] END AS [return_month_6]"
             }
         }
     ],
     "joins": null,
     "debug_info": {
-        "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 1 statements via fallback)"
+        "confidence": 0.0,
+        "generalized_statement": null
     }
 }

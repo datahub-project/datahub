@@ -99,8 +99,9 @@ def parse_procedure_code(
     """
     Parse stored procedure code and extract lineage.
 
-    Splits statements BEFORE aggregation to ensure each downstream table gets
-    only its relevant upstreams (prevents lineage pollution from statement aggregation).
+    Splits procedure into individual DML statements and adds each to the aggregator
+    separately. This ensures each statement is tracked with its own inputs/outputs
+    and temp tables are resolved correctly within the procedure's session.
 
     Args:
         schema_resolver: Schema resolver for table lookups

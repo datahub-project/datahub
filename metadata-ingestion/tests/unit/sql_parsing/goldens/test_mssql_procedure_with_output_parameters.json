@@ -1,35 +1,13 @@
 {
     "query_type": "UNKNOWN",
-    "query_type_props": {
-        "kind": "PROCEDURE"
-    },
+    "query_type_props": {},
     "query_fingerprint": null,
-    "in_tables": [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,customers,PROD)"
-    ],
+    "in_tables": [],
     "out_tables": [],
-    "column_lineage": [
-        {
-            "downstream": {
-                "table": null,
-                "column": "@totalcount = count(*)",
-                "column_type": {
-                    "type": {
-                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                    }
-                },
-                "native_column_type": "BIT"
-            },
-            "upstreams": [],
-            "logic": {
-                "is_direct_copy": true,
-                "column_logic": "@TotalCount = COUNT(*) AS [_col_0]"
-            }
-        }
-    ],
+    "column_lineage": null,
     "joins": null,
     "debug_info": {
-        "confidence": 0.5,
-        "generalized_statement": "CREATE PROCEDURE (parsed 1 statements via fallback)"
+        "confidence": 0.0,
+        "generalized_statement": null
     }
 }

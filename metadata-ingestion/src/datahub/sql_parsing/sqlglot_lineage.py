@@ -36,6 +36,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
+    DataJobInputOutputClass,
     DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
@@ -51,7 +52,6 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
 )
-from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
@@ -1516,6 +1516,103 @@ def _is_stored_procedure_with_unsupported_syntax(
     return _contains_control_flow_keyword(sql_normalized)
 
 
+def _parse_column_urn(column_urn: str) -> Tuple[str, str]:
+    """
+    Parse column URN into table URN and column name.
+
+    Format: urn:li:schemaField:(TABLE_URN,COLUMN_NAME)
+    Example: urn:li:schemaField:(urn:li:dataset:(...),column_name)
+
+    Returns: (table_urn, column_name)
+    """
+    # Remove schemaField wrapper
+    if not column_urn.startswith("urn:li:schemaField:("):
+        raise ValueError(f"Invalid schemaField URN: {column_urn}")
+
+    # Extract content between outer parentheses
+    if not column_urn.endswith(")"):
+        raise ValueError(f"Invalid schemaField URN: {column_urn}")
+
+    content = column_urn[len("urn:li:schemaField:(") : -1]
+
+    # Split on last comma (table URN may contain commas)
+    last_comma = content.rfind(",")
+    if last_comma == -1:
+        raise ValueError(f"Could not find column name in URN: {column_urn}")
+
+    table_urn = content[:last_comma]
+    column_name = content[last_comma + 1 :]
+
+    return table_urn, column_name
+
+
+def _datajob_to_sql_parsing_result(
+    datajob: Optional[DataJobInputOutputClass],
+) -> SqlParsingResult:
+    """
+    Convert DataJobInputOutput (production format) to SqlParsingResult (CLI format).
+
+    This adapter enables reusing parse_procedure_code() for CLI lineage checks.
+    """
+
+    if datajob is None:
+        return SqlParsingResult(
+            query_type=QueryType.UNKNOWN,
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+        )
+
+    # Extract table lineage
+    in_tables = [str(urn) for urn in datajob.inputDatasets]
+    out_tables = [str(urn) for urn in datajob.outputDatasets]
+
+    # Extract column lineage
+    column_lineage: List[ColumnLineageInfo] = []
+    if datajob.fineGrainedLineages:
+        for fgl in datajob.fineGrainedLineages:
+            # Parse downstream URN
+            downstream_urn = fgl.downstreams[0] if fgl.downstreams else None
+            if not downstream_urn:
+                continue
+
+            downstream_table, downstream_col = _parse_column_urn(downstream_urn)
+
+            # Parse upstream URNs
+            upstreams = []
+            for upstream_urn in fgl.upstreams or []:
+                upstream_table, upstream_col = _parse_column_urn(upstream_urn)
+                upstreams.append(ColumnRef(table=upstream_table, column=upstream_col))
+
+            # Convert transformOperation to ColumnTransformation if present
+            logic = None
+            if fgl.transformOperation:
+                # Guess is_direct_copy based on "COPY" in operation string
+                is_direct_copy = "COPY" in fgl.transformOperation.upper()
+                logic = ColumnTransformation(
+                    is_direct_copy=is_direct_copy,
+                    column_logic=fgl.transformOperation,
+                )
+
+            column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=downstream_table,
+                        column=downstream_col,
+                    ),
+                    upstreams=upstreams,
+                    logic=logic,
+                )
+            )
+
+    return SqlParsingResult(
+        query_type=QueryType.UNKNOWN,
+        in_tables=in_tables,
+        out_tables=out_tables,
+        column_lineage=column_lineage if column_lineage else None,
+    )
+
+
 def _parse_stored_procedure_fallback(
     sql: str,
     schema_resolver: SchemaResolverInterface,
@@ -1524,152 +1621,58 @@ def _parse_stored_procedure_fallback(
     dialect: sqlglot.Dialect,
 ) -> SqlParsingResult:
     """
-    Fallback parser for stored procedures with unsupported control flow syntax.
+    Parse stored procedure using production parse_procedure_code().
 
-    This function:
-    1. Splits the procedure body into individual statements
-    2. Filters out control flow keywords (BEGIN, END, TRY, CATCH, etc.)
-    3. Parses each DML statement separately
-    4. Aggregates the lineage results
+    Delegates to production implementation to ensure CLI and production
+    behave identically. This eliminates code duplication and ensures all
+    fixes (control flow filtering, CTE bracket bug, INSERT column mapping)
+    are automatically applied to both paths.
 
-    This is necessary because sqlglot doesn't support TSQL control flow syntax like
-    TRY/CATCH blocks, which causes the entire procedure to be unparseable.
+    Note: Upstream alias filtering (production-only feature) is not available
+    in CLI because it requires discovered_datasets from full table scan.
     """
+    from datahub.ingestion.source.sql.stored_procedures.lineage import (
+        parse_procedure_code,
+    )
+
     logger.debug(
-        "Attempting fallback parsing for stored procedure with unsupported syntax"
+        "Using production parse_procedure_code() for stored procedure lineage extraction"
     )
 
-    # split_statements() already handles CREATE PROCEDURE correctly:
-    # - It splits the CREATE PROCEDURE header (ending with AS) into one statement
-    # - Body statements (BEGIN, TRY/CATCH, DML) are split into separate statements
-    # - The filtering logic below will skip the CREATE PROCEDURE statement
-    # No need to manually strip the wrapper - let split_statements do its job
-    statements = list(split_statements(sql))
-
-    # Collect results from all parseable statements
-    all_in_tables: Set[Urn] = set()
-    all_out_tables: Set[Urn] = set()
-    all_column_lineage: List[ColumnLineageInfo] = []
-    parsed_count = 0
-    failed_count = 0
-
-    for stmt in statements:
-        stmt_stripped = stmt.strip()
-        if not stmt_stripped:
-            continue
-
-        # Normalize whitespace to handle multiple spaces, tabs, newlines
-        stmt_normalized = re.sub(r"\s+", " ", stmt_stripped).upper()
-
-        # Skip CREATE PROCEDURE statements to prevent infinite recursion
-        # (split_statements might return the CREATE PROCEDURE header itself)
-        if stmt_normalized.startswith("CREATE PROCEDURE") or stmt_normalized.startswith(
-            "CREATE OR REPLACE PROCEDURE"
-        ):
-            logger.debug(
-                f"Skipping CREATE PROCEDURE statement to prevent recursion: {stmt_stripped[:50]}..."
-            )
-            continue
-
-        # Skip control flow statements that don't produce lineage
-        # Use word boundary checking to avoid false positives like SETVAR, BEGINX
-        if _is_tsql_control_flow_statement(stmt_normalized):
-            logger.debug(f"Skipping control flow statement: {stmt_stripped[:50]}...")
-            continue
-
-        # Skip DROP TABLE statements - they don't contribute to lineage and often
-        # get split incorrectly (e.g., "DROP TABLE IF EXISTS" becomes "DROP TABLE")
-        if stmt_normalized.startswith("DROP TABLE") or stmt_normalized.startswith(
-            "DROP "
-        ):
-            logger.debug(f"Skipping DROP statement: {stmt_stripped[:50]}...")
-            continue
-
-        # Try to parse everything else that's not control flow
-
-        # Try to parse this individual statement
-        try:
-            logger.debug(f"Parsing statement: {stmt_stripped[:100]}...")
-
-            # Recursively call the parser for this statement
-            result = _sqlglot_lineage_nocache(
-                sql=stmt_stripped,
-                schema_resolver=schema_resolver,
-                default_db=default_db,
-                default_schema=default_schema,
-                override_dialect=dialect,
-            )
-
-            if result.debug_info.table_error:
-                logger.debug(
-                    f"Failed to parse statement (table error): {result.debug_info.table_error}"
-                )
-                failed_count += 1
-                continue
-
-            # Aggregate results
-            all_in_tables.update(result.in_tables)
-            all_out_tables.update(result.out_tables)
-
-            if result.column_lineage:
-                all_column_lineage.extend(result.column_lineage)
-
-            parsed_count += 1
-            logger.debug(
-                f"Successfully parsed statement: {len(result.in_tables)} inputs, "
-                f"{len(result.out_tables)} outputs, "
-                f"{len(result.column_lineage) if result.column_lineage else 0} column lineage entries"
-            )
-
-        except Exception as e:
-            # Log at debug level to avoid noise - failures are expected for some TSQL constructs
-            # The summary INFO log at the end shows the overall success/failure rate
-            logger.debug(
-                f"Failed to parse statement in fallback parser: {stmt_stripped[:100]}... "
-                f"Error: {e}"
-            )
-            failed_count += 1
-            continue
-
-    if failed_count > 0:
-        logger.info(
-            f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully, "
-            f"{failed_count} failed. Enable DEBUG logging for details on failed statements."
-        )
-    else:
-        logger.debug(
-            f"Stored procedure fallback parsing complete: {parsed_count} statements parsed successfully"
+    # Convert schema_resolver to SchemaResolver type for parse_procedure_code
+    # SchemaResolverInterface is a Protocol, parse_procedure_code expects SchemaResolver
+    if not isinstance(schema_resolver, SchemaResolver):
+        logger.warning(
+            f"Schema resolver is not SchemaResolver type ({type(schema_resolver)}), "
+            "parse_procedure_code may not work correctly"
         )
 
-    # If we couldn't parse anything, return an error
-    if parsed_count == 0:
-        return SqlParsingResult.make_from_error(
-            Exception(
-                f"Failed to parse stored procedure: could not extract any lineage from {len(statements)} statements. "
-                "The procedure may contain only control flow or unsupported syntax."
-            )
-        )
+    # Simple temp table detection for CLI (no access to discovered_datasets)
+    # MSSQL: tables starting with # are temp tables
+    # PostgreSQL: tables in pg_temp schema are temp tables
+    # Snowflake: tables in TEMP schema are temp tables
+    def is_temp_table_simple(table: str) -> bool:
+        platform = schema_resolver.platform
+        if platform in ("mssql", "tsql"):
+            return table.startswith("#")
+        elif platform in ("postgres", "postgresql"):
+            return "pg_temp" in table.lower()
+        elif platform == "snowflake":
+            return ".temp." in table.lower() or table.lower().startswith("temp.")
+        return False
 
-    # Build aggregated result
-    # Use UNKNOWN instead of CREATE_OTHER so the aggregator treats it as a mutation query
-    # and generates lineage MCPs. CREATE_OTHER is treated as DDL and doesn't generate lineage.
-    result = SqlParsingResult(
-        query_type=QueryType.UNKNOWN,
-        query_type_props={"kind": "PROCEDURE"},
-        in_tables=sorted(all_in_tables),
-        out_tables=sorted(all_out_tables),
-        column_lineage=all_column_lineage if all_column_lineage else None,
-        debug_info=SqlParsingDebugInfo(
-            confidence=0.5,  # Lower confidence since we're using fallback parsing
-            generalized_statement=f"CREATE PROCEDURE (parsed {parsed_count} statements via fallback)",
-            tables_discovered=len(all_in_tables | all_out_tables),
-            table_schemas_resolved=0,  # We don't have schema resolution in fallback mode
-            num_statements_parsed=parsed_count,
-            num_statements_failed=failed_count,
-        ),
+    # Use production parser
+    datajob = parse_procedure_code(
+        schema_resolver=schema_resolver,  # type: ignore[arg-type]
+        default_db=default_db,
+        default_schema=default_schema,
+        code=sql,
+        is_temp_table=is_temp_table_simple,
+        raise_=False,
     )
 
-    return result
+    # Convert production format to CLI format
+    return _datajob_to_sql_parsing_result(datajob)
 
 
 def _sqlglot_lineage_inner(
