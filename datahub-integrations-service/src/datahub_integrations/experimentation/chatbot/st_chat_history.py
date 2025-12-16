@@ -32,6 +32,27 @@ def _token_count(text: str) -> str:
     return f"{abbreviate_number(count)} tokens"
 
 
+def _display_tool_result(result) -> None:
+    """Display tool result, handling both JSON and plain text."""
+    # If it's already a dict/list, display as JSON
+    if isinstance(result, (dict, list)):
+        st.json(result, expanded=1)
+        return
+
+    # If it's a string, try to parse as JSON first
+    if isinstance(result, str):
+        try:
+            parsed = json.loads(result)
+            st.json(parsed, expanded=1)
+        except (json.JSONDecodeError, TypeError):
+            # Not valid JSON, display as code block
+            st.code(result, language=None)
+        return
+
+    # Fallback: convert to string and display
+    st.code(str(result), language=None)
+
+
 def st_chat_history(
     history: ChatHistory,
     *,
@@ -87,7 +108,7 @@ def st_chat_history(
                     st.caption(
                         f"Tool `{message.tool_request.tool_name}` returned · {_token_count(str(message.result))}"
                     )
-                    st.json(message.result, expanded=1)
+                    _display_tool_result(message.result)
         elif isinstance(message, ToolCallRequest):
             if show_thinking:
                 with st.chat_message("tool", avatar="📞"):

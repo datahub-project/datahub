@@ -29,6 +29,7 @@ from typing import (
     Literal,
     NamedTuple,
     Optional,
+    Sequence,
 )
 
 from json_repair import repair_json
@@ -51,6 +52,9 @@ from datahub_integrations.mcp_integration.tool import ToolWrapper, async_backgro
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.agent.agent_runner import AgentRunner
+    from datahub_integrations.mcp_integration.external_mcp_manager import (
+        ExternalToolWrapper,
+    )
 
 
 # =============================================================================
@@ -315,6 +319,32 @@ def get_plan_by_id(plan_id: str, agent: "AgentRunner") -> Optional[Plan]:
     return None
 
 
+def _get_available_tools(agent: "AgentRunner") -> List[str]:
+    """
+    Get the names of all plannable tools available to the agent.
+
+    Args:
+        agent: The AgentRunner instance
+
+    Returns:
+        List of tool names
+    """
+    return [tool.name for tool in agent.get_plannable_tools()]
+
+
+def _get_tool_descriptions(agent: "AgentRunner") -> Dict[str, str]:
+    """
+    Get descriptions for all plannable tools available to the agent.
+
+    Args:
+        agent: The AgentRunner instance
+
+    Returns:
+        Dictionary mapping tool names to their descriptions
+    """
+    return {tool.name: tool.description for tool in agent.get_plannable_tools()}
+
+
 _PLANNER_SYSTEM_PROMPT = """\
 You are a planning assistant for DataHub AI. Your job is to choose the right planning tool for each task.
 
@@ -349,16 +379,31 @@ important for search-based tasks - use them in param_hints to ensure thorough co
 Return ONLY valid JSON matching this structure - no additional text or explanation."""
 
 
-def _get_available_tools(agent: "AgentRunner") -> List[str]:
-    """Get list of available tool names with proper datahub__ prefixes."""
-    return [tool.name for tool in agent.get_plannable_tools()]
+def get_tool_instructions(
+    tools: Sequence["ToolWrapper | ExternalToolWrapper"],
+) -> List[str]:
+    """Get unique instructions from a list of tools.
 
+    External MCP tools (like GitHub) can provide server-specific instructions
+    that guide the LLM on how to use them correctly (e.g., "always include
+    repo:owner/repo in search queries").
 
-def _get_tool_descriptions(agent: "AgentRunner") -> Dict[str, str]:
-    """Get tool names and their descriptions with proper datahub__ prefixes."""
-    return {
-        tool.name: tool._tool.description or "" for tool in agent.get_plannable_tools()
-    }
+    Args:
+        tools: List of ToolWrapper (internal MCP) or ExternalToolWrapper (external MCP)
+
+    Returns:
+        List of unique instruction strings from tools that have them.
+        Only ExternalToolWrapper has instructions; ToolWrapper does not.
+    """
+    seen: set[str] = set()
+    instructions: List[str] = []
+    for tool in tools:
+        # ExternalToolWrapper has instructions attribute
+        tool_instructions = getattr(tool, "instructions", None)
+        if tool_instructions and tool_instructions not in seen:
+            seen.add(tool_instructions)
+            instructions.append(tool_instructions)
+    return instructions
 
 
 def _get_planner_tool_wrappers() -> List[ToolWrapper]:
@@ -433,7 +478,9 @@ def _dispatch_planner_tool(
         raise ValueError(f"Unknown planner tool: {tool_name}")
 
 
-def _call_planner_llm(prompt: str, tools_summary: str) -> PlannerLLMResponse:
+def _call_planner_llm(
+    prompt: str, tools_summary: str, tool_instructions: Optional[List[str]] = None
+) -> PlannerLLMResponse:
     """
     Call the planner LLM to generate a plan using structured output.
 
@@ -448,6 +495,8 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> PlannerLLMResponse:
     Args:
         prompt: The user task/prompt
         tools_summary: Formatted string of available tools and descriptions
+        tool_instructions: Optional list of instructions from external tools (e.g., GitHub MCP)
+                          that guide how to use those tools correctly
 
     Returns:
         PlannerLLMResponse with:
@@ -468,6 +517,14 @@ def _call_planner_llm(prompt: str, tools_summary: str) -> PlannerLLMResponse:
 
     # Add available tools (stable within a session, good for prompt caching)
     system_messages.append({"text": f"AVAILABLE TOOLS:\n\n{tools_summary}"})
+
+    # Add tool-specific instructions from external MCP servers (e.g., GitHub)
+    # These guide the planner on how to use external tools correctly
+    if tool_instructions:
+        formatted_tool_instructions = "\n\n".join(tool_instructions)
+        system_messages.append(
+            {"text": f"TOOL-SPECIFIC INSTRUCTIONS:\n\n{formatted_tool_instructions}"}
+        )
 
     # Add recipe guidance (static, excellent for caching)
     system_messages.append({"text": get_recipe_guidance()})
@@ -664,8 +721,10 @@ def create_plan(
     plan_id = f"plan_{uuid.uuid4().hex[:8]}"
 
     # Get available tools from agent (correct prefixed names)
-    tool_allowlist = _get_available_tools(agent)
-    tool_descriptions = _get_tool_descriptions(agent)
+    plannable_tools = agent.get_plannable_tools()
+    tool_allowlist = [tool.name for tool in plannable_tools]
+    tool_descriptions = {tool.name: tool.description for tool in plannable_tools}
+    tool_instructions = get_tool_instructions(plannable_tools)
 
     logger.info(
         f"Creating plan for task: {task[:100]}... with {len(tool_allowlist)} available tools"
@@ -704,10 +763,10 @@ Requirements:
 
 Use the create_execution_plan tool to return the structured plan."""
 
-    # Call planner LLM (tools_summary goes to system message)
+    # Call planner LLM (tools_summary and tool_instructions go to system message)
     # Returns PlannerLLMResponse with plan_data and internal_data
     try:
-        response = _call_planner_llm(prompt, tools_summary)
+        response = _call_planner_llm(prompt, tools_summary, tool_instructions)
         plan_data = response.plan_data
         internal_data = response.internal_data
 
@@ -866,9 +925,11 @@ def revise_plan(
         f"completed={completed_steps}, current={current_step}, issue={issue[:100]}"
     )
 
-    # Get tool descriptions for replanning (correct prefixed names)
+    # Get tool descriptions and instructions for replanning (correct prefixed names)
     # Include FULL descriptions (same as create_plan)
-    tool_descriptions = _get_tool_descriptions(agent)
+    plannable_tools = agent.get_plannable_tools()
+    tool_descriptions = {tool.name: tool.description for tool in plannable_tools}
+    tool_instructions = get_tool_instructions(plannable_tools)
     tools_summary = "\n\n".join(
         [
             f"Tool: {name}\n{desc}"
@@ -911,10 +972,10 @@ Use the create_execution_plan tool to return the revised plan structure with:
 - Revised steps from {current_step} onward
 - Expected deliverable"""
 
-    # Call planner LLM (tools_summary goes to system message)
+    # Call planner LLM (tools_summary and tool_instructions go to system message)
     # Returns PlannerLLMResponse with plan_data and internal_data
     try:
-        response = _call_planner_llm(prompt, tools_summary)
+        response = _call_planner_llm(prompt, tools_summary, tool_instructions)
         revision_data = response.plan_data
         internal_data = response.internal_data
 
@@ -1183,18 +1244,18 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
 
     def _create_plan_wrapper(
         task: str,
-        context: Optional[str] = None,
-        evidence: Optional[Dict[str, Any]] = None,
+        context: str | None = None,
+        evidence: dict[str, Any] | None = None,
         max_steps: int = 10,
     ) -> Plan:
         return create_plan(agent, task, context, evidence, max_steps)
 
     def _revise_plan_wrapper(
         plan_id: str,
-        completed_steps: List[str],
+        completed_steps: list[str],
         current_step: str,
         issue: str,
-        evidence: Optional[Dict] = None,
+        evidence: dict | None = None,
     ) -> Plan:
         return revise_plan(
             agent, plan_id, completed_steps, current_step, issue, evidence
@@ -1206,11 +1267,11 @@ def get_planning_tool_wrappers(agent: "AgentRunner") -> list[ToolWrapper]:
         status: Literal[
             "started", "in_progress", "completed", "failed", "returned_to_user"
         ],
-        done_criteria_met: Optional[bool] = None,
-        failed_criteria_met: Optional[bool] = None,
-        return_to_user_criteria_met: Optional[bool] = None,
-        evidence: Optional[Dict] = None,
-        confidence: Optional[float] = None,
+        done_criteria_met: bool | None = None,
+        failed_criteria_met: bool | None = None,
+        return_to_user_criteria_met: bool | None = None,
+        evidence: dict | None = None,
+        confidence: float | None = None,
     ) -> str:
         return report_step_progress(
             agent,

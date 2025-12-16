@@ -729,8 +729,7 @@ class TestPlanToolHelpers:
 
         mock_tool = Mock(spec=ToolWrapper)
         mock_tool.name = "test_tool"
-        mock_tool._tool = Mock()
-        mock_tool._tool.description = "Test description"
+        mock_tool.description = "Test description"
 
         mock_agent = Mock(spec=AgentRunner)
         mock_agent.get_plannable_tools.return_value = [mock_tool]

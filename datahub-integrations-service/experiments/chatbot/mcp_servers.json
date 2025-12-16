@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "transport": "http",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_MCP_TOKEN}",
+        "X-MCP-Toolsets": "repos",
+        "X-GitHub-Repository": "acryldata/datahub-fork"
+      },
+      "enabled": true,
+      "instructions": "When using GitHub search tools (search_code, search_issues), always include `repo:acryldata/datahub-fork` in your queries to scope results to this repository."
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp",
+      "transport": "http",
+      "headers": {
+        "Authorization": "Bearer ${NOTION_MCP_TOKEN}"
+      },
+      "enabled": false
+    }
+  }
+}
