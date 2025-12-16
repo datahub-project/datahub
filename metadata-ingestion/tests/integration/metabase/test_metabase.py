@@ -446,11 +446,22 @@ def test_metabase_ingest_with_models_and_collections(
             f"Unexpected failures (excluding known schema validation issue): {non_schema_failures}"
         )
 
+        # Read output file and check for key entities
         with open(f"{tmp_path}/metabase_new_features_mces.json", "r") as f:
             content = f.read()
 
-        assert "model.4" in content, "Model 4 should be extracted"
-        assert "model.6" in content, "Model 6 should be extracted"
+        # Verify models are extracted as datasets
+        assert "model.4" in content, "Model 4 should be extracted as dataset"
+        assert "model.6" in content, "Model 6 should be extracted as dataset"
+
+        # Verify collection tags are applied
         assert "metabase_collection_john_doe" in content, (
-            "Collection tag should be created"
+            "Collection tag should be present"
         )
+
+        # Verify schema metadata is present (models have schema)
+        assert (
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata" in content
+            or "SchemaMetadataClass" in content
+            or "schemaMetadata" in content
+        ), "Models should have schema metadata"

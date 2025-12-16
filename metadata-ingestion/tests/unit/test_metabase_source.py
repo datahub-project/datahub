@@ -7,13 +7,21 @@ from requests.exceptions import HTTPError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.metabase import (
     DATASOURCE_URN_RECURSION_LIMIT,
+    DatasourceInfo,
+    MetabaseCard,
+    MetabaseCardInfo,
+    MetabaseCardListItem,
     MetabaseConfig,
+    MetabaseDashboard,
+    MetabaseDashCard,
+    MetabaseDatasetQuery,
     MetabaseReport,
     MetabaseSource,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     GlobalTagsClass,
+    SchemaMetadataClass,
     UpstreamLineageClass,
 )
 
@@ -100,6 +108,7 @@ def test_create_session_from_config_username_password(mock_post, mock_get, mock_
 
     mock_response = MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "test-session-token"}
     mock_get.return_value = mock_response
     mock_post.return_value = mock_response
     mock_delete.return_value = mock_response
@@ -129,6 +138,7 @@ def test_fail_session_delete(mock_post, mock_get, mock_delete):
 
     mock_response = MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "test-session-token"}
     mock_get.return_value = mock_response
     mock_post.return_value = mock_response
 
@@ -166,18 +176,27 @@ def test_get_table_urns_from_native_query(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {
-            "native": {
-                "query": "SELECT * FROM users JOIN orders ON users.id = orders.user_id"
-            }
-        },
-    }
 
-    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native",
+            native={
+                "query": "SELECT * FROM users JOIN orders ON users.id = orders.user_id"
+            },
+        ),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card)
     expected_urns = {
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
@@ -207,17 +226,25 @@ def test_get_table_urns_from_query_builder(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "products")
     )
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {"query": {"source-table": "42"}},
-    }
 
-    table_urns = metabase_source._get_table_urns_from_query_builder(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_query_builder(card)
     expected_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.products,PROD)"
     )
@@ -246,23 +273,36 @@ def test_get_table_urns_from_nested_query(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "products")
     )
-    referenced_card = {
-        "database_id": "1",
-        "dataset_query": {"type": "query", "query": {"source-table": "42"}},
-    }
+
+    referenced_card = MetabaseCard(
+        id=123,
+        name="Referenced Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
 
     metabase_source.get_card_details_by_id = MagicMock(return_value=referenced_card)  # type: ignore[method-assign]
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {"query": {"source-table": "card__123"}},
-    }
 
-    table_urns = metabase_source._get_table_urns_from_query_builder(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__123"}
+        ),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_query_builder(card)
     expected_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.products,PROD)"
     )
@@ -293,28 +333,36 @@ def test_construct_dashboard_lineage(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "products")
     )
-    card1 = {
-        "database_id": "1",
-        "dataset_query": {
-            "type": "native",
-            "native": {"query": "SELECT * FROM users"},
-        },
-    }
+    card1 = MetabaseCard(
+        id=1,
+        name="Card 1",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT * FROM users"}
+        ),
+    )
 
-    card2 = {
-        "database_id": "1",
-        "dataset_query": {"type": "query", "query": {"source-table": "42"}},
-    }
+    card2 = MetabaseCard(
+        id=2,
+        name="Card 2",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
 
     def mock_get_card_details(card_id):
-        if card_id == "1":
+        if card_id == 1 or card_id == "1":
             return card1
-        elif card_id == "2":
+        elif card_id == 2 or card_id == "2":
             return card2
         return None
 
@@ -322,15 +370,18 @@ def test_construct_dashboard_lineage(mock_post, mock_get, mock_delete):
         side_effect=mock_get_card_details
     )
 
-    dashboard_details = {
-        "id": "100",
-        "name": "Test Dashboard",
-        "dashcards": [{"card": {"id": "1"}}, {"card": {"id": "2"}}],
-    }
-    last_modified = AuditStamp(time=0, actor="urn:li:corpuser:test")
+    dashboard = MetabaseDashboard(
+        id=100,
+        name="Test Dashboard",
+        dashcards=[
+            MetabaseDashCard(id=1, card=MetabaseCardInfo(id=1), dashboard_id=100),
+            MetabaseDashCard(id=2, card=MetabaseCardInfo(id=2), dashboard_id=100),
+        ],
+    )
+    last_modified = AuditStampClass(time=0, actor="urn:li:corpuser:test")
 
     dataset_edges = metabase_source.construct_dashboard_lineage(
-        dashboard_details, last_modified
+        dashboard, last_modified
     )
     assert dataset_edges is not None
     assert isinstance(dataset_edges, list)
@@ -368,15 +419,15 @@ def test_construct_dashboard_lineage_empty_dashcards(mock_post, mock_get, mock_d
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    dashboard_details = {
-        "id": "100",
-        "name": "Empty Dashboard",
-        "dashcards": [],
-    }
-    last_modified = AuditStamp(time=0, actor="urn:li:corpuser:test")
+    dashboard = MetabaseDashboard(
+        id=100,
+        name="Empty Dashboard",
+        dashcards=[],
+    )
+    last_modified = AuditStampClass(time=0, actor="urn:li:corpuser:test")
 
     dataset_edges = metabase_source.construct_dashboard_lineage(
-        dashboard_details, last_modified
+        dashboard, last_modified
     )
     assert dataset_edges is None
 
@@ -404,46 +455,56 @@ def test_construct_dashboard_lineage_deduplication(mock_post, mock_get, mock_del
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "users")
     )
-    card1 = {
-        "database_id": "1",
-        "dataset_query": {
-            "type": "native",
-            "native": {"query": "SELECT count(*) FROM users"},
-        },
-    }
+    card1 = MetabaseCard(
+        id=1,
+        name="Card 1",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT count(*) FROM users"}
+        ),
+    )
 
-    card2 = {
-        "database_id": "1",
-        "dataset_query": {
-            "type": "native",
-            "native": {"query": "SELECT * FROM users WHERE active = true"},
-        },
-    }
+    card2 = MetabaseCard(
+        id=2,
+        name="Card 2",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT * FROM users WHERE active = true"}
+        ),
+    )
 
     def mock_get_card_details(card_id):
-        if card_id == "1":
+        if card_id == 1 or card_id == "1":
             return card1
-        elif card_id == "2":
+        elif card_id == 2 or card_id == "2":
             return card2
         return None
 
     metabase_source.get_card_details_by_id = MagicMock(  # type: ignore[method-assign]
         side_effect=mock_get_card_details
     )
-    dashboard_details = {
-        "id": "100",
-        "name": "Test Dashboard",
-        "dashcards": [{"card": {"id": "1"}}, {"card": {"id": "2"}}],
-    }
-    last_modified = AuditStamp(time=0, actor="urn:li:corpuser:test")
+    dashboard = MetabaseDashboard(
+        id=100,
+        name="Test Dashboard",
+        dashcards=[
+            MetabaseDashCard(id=1, card=MetabaseCardInfo(id=1), dashboard_id=100),
+            MetabaseDashCard(id=2, card=MetabaseCardInfo(id=2), dashboard_id=100),
+        ],
+    )
+    last_modified = AuditStampClass(time=0, actor="urn:li:corpuser:test")
 
     dataset_edges = metabase_source.construct_dashboard_lineage(
-        dashboard_details, last_modified
+        dashboard, last_modified
     )
     assert dataset_edges is not None
     assert len(dataset_edges) == 1
@@ -474,14 +535,16 @@ def test_get_table_urns_handles_missing_database_id(mock_post, mock_get, mock_de
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    card_details = {
-        "dataset_query": {
-            "type": "native",
-            "native": {"query": "SELECT * FROM users"},
-        }
-    }
 
-    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT * FROM users"}
+        ),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card)
     assert table_urns == []
 
     metabase_source.close()
@@ -508,14 +571,22 @@ def test_get_table_urns_handles_missing_query(mock_post, mock_get, mock_delete):
     metabase_source = MetabaseSource(ctx, metabase_config)
 
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {"native": {}},
-    }
 
-    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="native", native={}),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card)
     assert table_urns == []
 
     metabase_source.close()
@@ -584,10 +655,10 @@ def test_is_metabase_model(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    model_card = {"id": "123", "type": "model", "name": "Sales Model"}
+    model_card = MetabaseCardListItem(id=123, type="model", name="Sales Model")
     assert metabase_source._is_metabase_model(model_card) is True
 
-    question_card = {"id": "456", "type": "question", "name": "Sales Query"}
+    question_card = MetabaseCardListItem(id=456, type="question", name="Sales Query")
     assert metabase_source._is_metabase_model(question_card) is False
 
     metabase_source.close()
@@ -616,7 +687,12 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     collections_response = MagicMock()
     collections_response.status_code = 200
@@ -663,7 +739,16 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
         "created_at": "2024-01-15T10:00:00Z",
     }
 
-    workunits = list(metabase_source._emit_model_workunits(model_card))
+    # Set up mock to return full card details
+    metabase_source.get_card_details_by_id = MagicMock(  # type: ignore[method-assign]
+        return_value=MetabaseCard.model_validate(model_card)
+    )
+
+    # Call _emit_model_workunits() with MetabaseCardListItem
+    model_card_list_item = MetabaseCardListItem(
+        id=model_card["id"], type="model", name=model_card.get("name")
+    )
+    workunits = list(metabase_source._emit_model_workunits(model_card_list_item))
 
     assert len(workunits) > 0
 
@@ -675,10 +760,9 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
         assert mcp.entityUrn == expected_urn  # type: ignore[union-attr]
 
     # Check for SchemaMetadata aspect
-    from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 
     schema_wu = next(
-        (wu for wu in workunits if isinstance(wu.metadata.aspect, SchemaMetadata)),  # type: ignore[union-attr]
+        (wu for wu in workunits if isinstance(wu.metadata.aspect, SchemaMetadataClass)),  # type: ignore[union-attr]
         None,
     )
     assert schema_wu is not None, "Models must have schema metadata"
@@ -712,7 +796,12 @@ def test_construct_model_with_lineage(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
 
     model_card = {
@@ -728,7 +817,16 @@ def test_construct_model_with_lineage(mock_post, mock_get, mock_delete):
         "creator_id": 1,
     }
 
-    workunits = list(metabase_source._emit_model_workunits(model_card))
+    # Set up mock to return full card details
+    metabase_source.get_card_details_by_id = MagicMock(  # type: ignore[method-assign]
+        return_value=MetabaseCard.model_validate(model_card)
+    )
+
+    # Call _emit_model_workunits() with MetabaseCardListItem
+    model_card_list_item = MetabaseCardListItem(
+        id=model_card["id"], type="model", name=model_card.get("name")
+    )
+    workunits = list(metabase_source._emit_model_workunits(model_card_list_item))
     assert len(workunits) > 0
 
     lineage_wu = next(
@@ -832,22 +930,29 @@ def test_recursion_depth_limit_prevents_stack_overflow(
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    card_a = {
-        "id": "A",
-        "database_id": "1",
-        "dataset_query": {"type": "query", "query": {"source-table": "card__B"}},
-    }
 
-    card_b = {
-        "id": "B",
-        "database_id": "1",
-        "dataset_query": {"type": "query", "query": {"source-table": "card__A"}},
-    }
+    card_a = MetabaseCard(
+        id=100,
+        name="Card A",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__200"}
+        ),
+    )
+
+    card_b = MetabaseCard(
+        id=200,
+        name="Card B",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__100"}
+        ),
+    )
 
     def mock_get_card_details(card_id):
-        if card_id == "A":
+        if card_id == "100" or card_id == 100:
             return card_a
-        elif card_id == "B":
+        elif card_id == "200" or card_id == 200:
             return card_b
         return None
 
@@ -885,7 +990,12 @@ def test_recursion_depth_tracking_through_nested_cards(
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "base_table")
@@ -893,60 +1003,66 @@ def test_recursion_depth_tracking_through_nested_cards(
 
     def mock_get_card_details(card_id):
         nested_cards = {
-            "A": {
-                "id": "A",
-                "database_id": "1",
-                "dataset_query": {
-                    "type": "query",
-                    "query": {"source-table": "card__B"},
-                },
-            },
-            "B": {
-                "id": "B",
-                "database_id": "1",
-                "dataset_query": {
-                    "type": "query",
-                    "query": {"source-table": "card__C"},
-                },
-            },
-            "C": {
-                "id": "C",
-                "database_id": "1",
-                "dataset_query": {
-                    "type": "query",
-                    "query": {"source-table": "card__D"},
-                },
-            },
-            "D": {
-                "id": "D",
-                "database_id": "1",
-                "dataset_query": {
-                    "type": "query",
-                    "query": {"source-table": "card__E"},
-                },
-            },
-            "E": {
-                "id": "E",
-                "database_id": "1",
-                "dataset_query": {
-                    "type": "query",
-                    "query": {"source-table": "card__F"},
-                },
-            },
-            "F": {
-                "id": "F",
-                "database_id": "1",
-                "dataset_query": {
-                    "type": "query",
-                    "query": {"source-table": "card__G"},
-                },
-            },
-            "G": {
-                "id": "G",
-                "database_id": "1",
-                "dataset_query": {"type": "query", "query": {"source-table": "42"}},
-            },
+            100: MetabaseCard(
+                id=100,
+                name="Card A",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": "card__200"}
+                ),
+            ),
+            200: MetabaseCard(
+                id=200,
+                name="Card B",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": "card__300"}
+                ),
+            ),
+            300: MetabaseCard(
+                id=300,
+                name="Card C",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": "card__400"}
+                ),
+            ),
+            400: MetabaseCard(
+                id=400,
+                name="Card D",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": "card__500"}
+                ),
+            ),
+            500: MetabaseCard(
+                id=500,
+                name="Card E",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": "card__600"}
+                ),
+            ),
+            600: MetabaseCard(
+                id=600,
+                name="Card F",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": "card__700"}
+                ),
+            ),
+            700: MetabaseCard(
+                id=700,
+                name="Card G",
+                database_id=1,
+                dataset_query=MetabaseDatasetQuery(
+                    type="query", query={"source-table": 42}
+                ),
+            ),
         }
+        # Convert string to int if needed
+        if isinstance(card_id, str):
+            card_id = int(card_id)
         return nested_cards.get(card_id)
 
     metabase_source.get_card_details_by_id = MagicMock(  # type: ignore[method-assign]
@@ -955,7 +1071,7 @@ def test_recursion_depth_tracking_through_nested_cards(
 
     # 7 levels of nesting (A→B→C→D→E→F→G) should exceed the recursion limit
     table_urns = metabase_source._get_table_urns_from_card(
-        mock_get_card_details("A"), recursion_depth=0
+        mock_get_card_details(100), recursion_depth=0
     )
     assert table_urns == []
     assert len(metabase_source.report.warnings) > 0
@@ -1094,7 +1210,7 @@ def test_collection_api_caching(mock_post, mock_get, mock_delete):
     api_calls_after_first = api_call_count
     assert api_calls_after_first >= 1  # At least one API call
     assert "1" in result1
-    assert result1["1"]["name"] == "Collection A"
+    assert result1["1"].name == "Collection A"
     result2 = metabase_source._get_collections_map()
     assert api_call_count == api_calls_after_first  # No new API calls
     assert result2 is result1  # Same object reference proves cache hit
@@ -1150,9 +1266,9 @@ def test_collection_map_returns_dict_keyed_by_id(mock_post, mock_get, mock_delet
     assert "1" in collections_map
     assert "2" in collections_map
     assert "3" in collections_map
-    assert collections_map["1"]["name"] == "Collection A"
-    assert collections_map["2"]["name"] == "Collection B"
-    assert collections_map["3"]["name"] == "Collection C"
+    assert collections_map["1"].name == "Collection A"
+    assert collections_map["2"].name == "Collection B"
+    assert collections_map["3"].name == "Collection C"
 
     metabase_source.close()
 
@@ -1274,14 +1390,15 @@ def test_get_datasource_urn_delegates_to_get_table_urns(
         return_value=expected_urns
     )
 
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {
-            "type": "native",
-            "native": {"query": "SELECT * FROM users"},
-        },
-    }
-    result = metabase_source.get_datasource_urn(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT * FROM users"}
+        ),
+    )
+    result = metabase_source.get_datasource_urn(card)
     metabase_source._get_table_urns_from_card.assert_called_once()
     assert result == expected_urns
 
@@ -1313,8 +1430,13 @@ def test_get_datasource_urn_returns_none_for_empty_list(
 
     metabase_source._get_table_urns_from_card = MagicMock(return_value=[])  # type: ignore[method-assign]
 
-    card_details = {"database_id": "1", "dataset_query": {}}
-    result = metabase_source.get_datasource_urn(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="native"),
+    )
+    result = metabase_source.get_datasource_urn(card)
     assert result is None
 
     metabase_source.close()
@@ -1341,11 +1463,16 @@ def test_get_datasource_urn_respects_recursion_limit(mock_post, mock_get, mock_d
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    card_details = {"database_id": "1", "dataset_query": {}}
-    result = metabase_source.get_datasource_urn(
-        card_details, recursion_depth=DATASOURCE_URN_RECURSION_LIMIT + 1
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="native"),
     )
-    assert result is None
+    result = metabase_source.get_datasource_urn(
+        card, recursion_depth=DATASOURCE_URN_RECURSION_LIMIT + 1
+    )
+    assert result == []
     assert len(metabase_source.report.warnings) > 0
 
     metabase_source.close()
@@ -1392,7 +1519,7 @@ def test_emit_card_mces_skips_models_when_extraction_enabled(
     called_card_ids = []
 
     def mock_emit_chart(card_info):
-        called_card_ids.append(card_info["id"])
+        called_card_ids.append(card_info.id)
         return []  # Return empty list of workunits
 
     metabase_source._emit_chart_workunits = MagicMock(  # type: ignore[method-assign,attr-defined]
@@ -1430,18 +1557,25 @@ def test_malformed_sql_parsing_failure(mock_post, mock_get, mock_delete):
     metabase_source = MetabaseSource(ctx, metabase_config)
 
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {
-            "native": {
-                "query": "SELECT * FROM {{invalid syntax}} WHERE [[broken clause"
-            }
-        },
-    }
 
-    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native",
+            native={"query": "SELECT * FROM {{invalid syntax}} WHERE [[broken clause"},
+        ),
+    )
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card)
     assert table_urns == []
 
     metabase_source.close()
@@ -1470,12 +1604,21 @@ def test_sql_with_cte_and_subqueries(mock_post, mock_get, mock_delete):
     metabase_source = MetabaseSource(ctx, metabase_config)
 
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
-    card_details = {
-        "database_id": "1",
-        "dataset_query": {
-            "native": {
+
+    card = MetabaseCard(
+        id=1,
+        name="Test Card",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="native",
+            native={
                 "query": """
                     WITH active_users AS (
                         SELECT id, name FROM users WHERE active = true
@@ -1489,11 +1632,11 @@ def test_sql_with_cte_and_subqueries(mock_post, mock_get, mock_delete):
                     UNION
                     SELECT name, 0 as total FROM customers
                 """
-            }
-        },
-    }
+            },
+        ),
+    )
 
-    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    table_urns = metabase_source._get_table_urns_from_native_query(card)
     expected_urns = {
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
@@ -1563,19 +1706,44 @@ def test_empty_query_returns_empty_list(mock_post, mock_get, mock_delete):
     metabase_source = MetabaseSource(ctx, metabase_config)
 
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
 
     test_cases = [
-        {"database_id": "1", "dataset_query": {"native": {"query": ""}}},
-        {"database_id": "1", "dataset_query": {"native": {"query": None}}},
-        {"database_id": "1", "dataset_query": {"native": {}}},
-        {"database_id": "1", "dataset_query": {}},
+        MetabaseCard(
+            id=1,
+            name="Test1",
+            database_id=1,
+            dataset_query=MetabaseDatasetQuery(type="native", native={"query": ""}),
+        ),
+        MetabaseCard(
+            id=2,
+            name="Test2",
+            database_id=1,
+            dataset_query=MetabaseDatasetQuery(type="native", native={"query": None}),
+        ),
+        MetabaseCard(
+            id=3,
+            name="Test3",
+            database_id=1,
+            dataset_query=MetabaseDatasetQuery(type="native", native={}),
+        ),
+        MetabaseCard(
+            id=4,
+            name="Test4",
+            database_id=1,
+            dataset_query=MetabaseDatasetQuery(type="native"),
+        ),
     ]
 
-    for card_details in test_cases:
-        table_urns = metabase_source._get_table_urns_from_native_query(card_details)
-        assert table_urns == [], f"Failed for: {card_details}"
+    for card in test_cases:
+        table_urns = metabase_source._get_table_urns_from_native_query(card)
+        assert table_urns == [], f"Failed for: {card}"
 
     metabase_source.close()
 
@@ -1602,27 +1770,35 @@ def test_model_referencing_another_model(mock_post, mock_get, mock_delete):
     metabase_source = MetabaseSource(ctx, metabase_config)
 
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "base_table")
     )
-    model_b = {
-        "id": "model_b",
-        "type": "model",
-        "database_id": "1",
-        "dataset_query": {"type": "query", "query": {"source-table": "42"}},
-    }
-    model_a_details = {
-        "id": "model_a",
-        "type": "model",
-        "database_id": "1",
-        "dataset_query": {"type": "query", "query": {"source-table": "card__model_b"}},
-    }
+
+    model_b = MetabaseCard(
+        id=200,
+        name="Model B",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
+    model_a = MetabaseCard(
+        id=100,
+        name="Model A",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__200"}
+        ),
+    )
 
     metabase_source.get_card_details_by_id = MagicMock(return_value=model_b)  # type: ignore[method-assign]
     table_urns = metabase_source._get_table_urns_from_query_builder(
-        model_a_details, recursion_depth=0
+        model_a, recursion_depth=0
     )
 
     expected_urn = (
@@ -1701,46 +1877,30 @@ def test_realistic_card_data_with_all_fields(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.get_datasource_from_id = MagicMock(
-        return_value=("postgres", "mydb", "public", None)
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
     )
-    realistic_card = {
-        "id": 456,
-        "name": "Revenue Analysis",
-        "description": "Quarterly revenue breakdown by region",
-        "display": "table",
-        "visualization_settings": {"table.columns": []},
-        "dataset_query": {
-            "type": "native",
-            "native": {
+
+    realistic_card = MetabaseCard(
+        id=456,
+        name="Revenue Analysis",
+        description="Quarterly revenue breakdown by region",
+        display="table",
+        database_id=1,
+        query_type="native",
+        dataset_query=MetabaseDatasetQuery(
+            type="native",
+            native={
                 "query": "SELECT region, SUM(revenue) FROM sales GROUP BY region",
                 "template-tags": {},
             },
-            "database": 1,
-        },
-        "database_id": 1,
-        "table_id": None,
-        "query_type": "native",
-        "creator_id": 5,
-        "created_at": "2024-01-15T10:30:00.000Z",
-        "updated_at": "2024-01-20T14:45:00.000Z",
-        "made_public_by_id": None,
-        "public_uuid": None,
-        "cache_ttl": None,
-        "enable_embedding": False,
-        "embedding_params": None,
-        "collection_id": 12,
-        "collection_position": 1,
-        "result_metadata": [],
-        "last-edit-info": {
-            "id": 5,
-            "email": "analyst@company.com",
-            "first_name": "Data",
-            "last_name": "Analyst",
-            "timestamp": "2024-01-20T14:45:00.000Z",
-        },
-        "type": "question",
-        "archived": False,
-    }
+            database=1,
+        ),
+    )
 
     table_urns = metabase_source._get_table_urns_from_native_query(realistic_card)
 
