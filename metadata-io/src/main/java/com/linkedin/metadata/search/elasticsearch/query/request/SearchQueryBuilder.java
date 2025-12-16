@@ -163,10 +163,6 @@ public class SearchQueryBuilder {
    */
   @Nonnull
   public void validateSearchQuery(@Nonnull String input) throws ValidationException {
-    if (validationRegex.matcher(input).matches()) {
-      log.warn("Blocked potentially malicious search query.");
-      throw new ValidationException("Query rejected due to potentially malicious structure.");
-    }
     // Limit query length
     if (searchValidationConfiguration.isMaxLengthEnabled()
         && input.length() > searchValidationConfiguration.getMaxQueryLength()) {
@@ -175,6 +171,10 @@ public class SearchQueryBuilder {
           "Search query exceeds maximum length of "
               + searchValidationConfiguration.getMaxQueryLength()
               + " characters");
+    }
+    if (validationRegex.matcher(input).matches()) {
+      log.warn("Blocked potentially malicious search query.");
+      throw new ValidationException("Query rejected due to potentially malicious structure.");
     }
   }
 
