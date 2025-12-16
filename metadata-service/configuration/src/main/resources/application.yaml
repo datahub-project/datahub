@@ -1037,6 +1037,8 @@ systemUpdate:
   ingestFreeTrialData:
     enabled: ${IS_FREE_TRIAL_INSTANCE:false}
     batchSize: ${SYSTEM_UPDATE_INGEST_FREE_TRIAL_DATA_BATCH_SIZE:500}
+    historicalDays: ${SYSTEM_UPDATE_INGEST_FREE_TRIAL_DATA_HISTORICAL_DAYS:30}
+    futureDays: ${SYSTEM_UPDATE_INGEST_FREE_TRIAL_DATA_FUTURE_DAYS:30}
     reprocess:
       enabled: ${SYSTEM_UPDATE_INGEST_FREE_TRIAL_DATA_REPROCESS:false}
   copyDocumentsToSemanticIndex:

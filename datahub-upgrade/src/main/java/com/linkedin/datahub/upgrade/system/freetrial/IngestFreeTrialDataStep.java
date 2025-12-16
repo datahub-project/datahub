@@ -180,7 +180,8 @@ public class IngestFreeTrialDataStep implements UpgradeStep {
 
   @Override
   public boolean isOptional() {
-    return false;
+    // Free trial sample data is optional - failures shouldn't block system startup
+    return true;
   }
 
   @Override

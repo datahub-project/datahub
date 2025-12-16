@@ -45,10 +45,11 @@ public class IngestFreeTrialDataStepTest {
   }
 
   @Test
-  public void testIsNotOptional() {
+  public void testIsOptional() {
     IngestFreeTrialDataStep step =
         new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
-    assertFalse(step.isOptional());
+    // Free trial data ingestion is optional and should not block system startup
+    assertTrue(step.isOptional());
   }
 
   @Test
@@ -109,7 +110,7 @@ public class IngestFreeTrialDataStepTest {
   @Test
   public void testUpgradeWrapperWithDisabled() {
     IngestFreeTrialData upgrade =
-        new IngestFreeTrialData(OP_CONTEXT, mockEntityService, false, false, 500);
+        new IngestFreeTrialData(OP_CONTEXT, mockEntityService, null, false, false, 500, 30, 30);
 
     assertEquals(upgrade.id(), "IngestFreeTrialData");
     assertTrue(upgrade.steps().isEmpty());
@@ -117,8 +118,9 @@ public class IngestFreeTrialDataStepTest {
 
   @Test
   public void testUpgradeWrapperWithEnabled() {
+    // When enabled but statisticsGenerator is null, should only have 1 step (data ingestion)
     IngestFreeTrialData upgrade =
-        new IngestFreeTrialData(OP_CONTEXT, mockEntityService, true, false, 500);
+        new IngestFreeTrialData(OP_CONTEXT, mockEntityService, null, true, false, 500, 30, 30);
 
     assertEquals(upgrade.id(), "IngestFreeTrialData");
     assertEquals(upgrade.steps().size(), 1);

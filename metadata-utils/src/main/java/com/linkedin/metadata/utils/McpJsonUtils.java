@@ -96,7 +96,15 @@ public class McpJsonUtils {
     }
 
     if (errorCount > 0) {
-      log.info("Parsed {} MCPs with {} errors", proposals.size(), errorCount);
+      if (maxErrorsToLog >= 0 && errorCount > maxErrorsToLog) {
+        log.warn(
+            "Parsed {} MCPs with {} errors ({} errors not logged due to limit)",
+            proposals.size(),
+            errorCount,
+            errorCount - maxErrorsToLog);
+      } else {
+        log.warn("Parsed {} MCPs with {} errors", proposals.size(), errorCount);
+      }
     }
 
     return proposals;
