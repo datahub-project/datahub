@@ -52,7 +52,7 @@ def get(urn: str, to_file: str) -> None:
                 StructuredProperties.from_datahub(graph=graph, urn=urn)
             )
             click.secho(
-                f"{json.dumps(structuredproperties.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                f"{json.dumps(structuredproperties.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
             )
             if to_file:
                 structuredproperties.to_yaml(Path(to_file))
@@ -97,19 +97,19 @@ def list(details: bool, to_file: str) -> None:
                     # breakpoint()
                     if existing_urn in {obj.urn for obj in objects}:
                         existing_objects[i] = next(
-                            obj.dict(exclude_unset=True, exclude_none=True)
+                            obj.model_dump(exclude_unset=True, exclude_none=True)
                             for obj in objects
                             if obj.urn == existing_urn
                         )
                 new_objects = [
-                    obj.dict(exclude_unset=True, exclude_none=True)
+                    obj.model_dump(exclude_unset=True, exclude_none=True)
                     for obj in objects
                     if obj.urn not in existing_urns
                 ]
                 serialized_objects = existing_objects + new_objects
         else:
             serialized_objects = [
-                obj.dict(exclude_unset=True, exclude_none=True) for obj in objects
+                obj.model_dump(exclude_unset=True, exclude_none=True) for obj in objects
             ]
 
         with open(file, "w") as fp:
@@ -126,7 +126,7 @@ def list(details: bool, to_file: str) -> None:
             else:
                 for structuredproperty in structuredproperties:
                     click.secho(
-                        f"{json.dumps(structuredproperty.dict(exclude_unset=True, exclude_none=True), indent=2)}"
+                        f"{json.dumps(structuredproperty.model_dump(exclude_unset=True, exclude_none=True), indent=2)}"
                     )
         else:
             logger.info(

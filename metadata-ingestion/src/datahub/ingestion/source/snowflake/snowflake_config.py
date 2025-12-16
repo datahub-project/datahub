@@ -1,7 +1,9 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -115,6 +117,14 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         "Specify regex to match the entire procedure name in database.schema.procedure format. "
         "e.g. to match all procedures starting with customer in Customer database and public schema,"
         " use the regex 'Customer.public.customer.*'",
+    )
+
+    streamlit_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Streamlit app to filter in ingestion. "
+        "Specify regex to match the entire Streamlit app name in database.schema.streamlit format. "
+        "e.g. to match all Streamlit apps starting with dashboard in Analytics database and public schema,"
+        " use the regex 'Analytics.public.dashboard.*'",
     )
 
     match_fully_qualified_names: bool = Field(
@@ -317,6 +327,11 @@ class SnowflakeV2Config(
         description="If enabled, procedures will be ingested as pipelines/tasks.",
     )
 
+    include_streamlits: bool = Field(
+        default=False,
+        description="If enabled, Streamlit apps will be ingested as dashboards.",
+    )
+
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -390,6 +405,13 @@ class SnowflakeV2Config(
         "These databases will be included in the filter being pushed down regardless of database_pattern settings."
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
+
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
 
     @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod

@@ -41,6 +41,7 @@ public class FeatureFlags {
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
   private boolean showIngestionPageRedesign = false;
+  private boolean ingestionOnboardingRedesignV1 = false;
   private boolean showLineageExpandMore = true;
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
@@ -54,4 +55,5 @@ public class FeatureFlags {
   private boolean datasetSummaryPageV1 = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
+  private boolean contextDocumentsEnabled = false;
 }

@@ -52,6 +52,7 @@ entities:
       - versionProperties
       - icebergCatalogInfo
       - logicalParent
+      - assetSettings
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -330,6 +331,21 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+  - name: document
+    category: core
+    keyAspect: documentKey
+    aspects:
+      - documentInfo
+      - documentSettings
+      - status
+      - ownership
+      - domains
+      - structuredProperties
+      - subTypes
+      - dataPlatformInstance
+      - browsePathsV2
+      - globalTags
+      - glossaryTerms
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -731,6 +747,7 @@ entities:
     keyAspect: dataHubFileKey
     aspects:
       - dataHubFileInfo
+      - status
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey
