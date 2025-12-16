@@ -65,8 +65,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # MSSQL uses 3-part naming: database.schema.table
 MSSQL_QUALIFIED_NAME_PARTS = 3
-# Limit upstreams logged for dropped column lineage entries to avoid log spam
-MAX_UPSTREAMS_TO_LOG = 3
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
@@ -1357,19 +1355,6 @@ class SQLServerSource(SQLAlchemySource):
             # Only keep column lineage if it has both upstreams and downstreams
             if cll.upstreams and cll.downstreams:
                 filtered_column_lineage.append(cll)
-            else:
-                logger.warning(
-                    f"[COLUMN-DROPPED] {procedure_name}: Entry #{cll_index} dropped - "
-                    f"upstreams={len(cll.upstreams) if cll.upstreams else 0}, "
-                    f"downstreams={len(cll.downstreams) if cll.downstreams else 0}"
-                )
-                # Log details about what was dropped
-                if cll.downstreams:
-                    for ds in cll.downstreams:
-                        logger.warning(f"[COLUMN-DROPPED]   Had downstream: {ds}")
-                if cll.upstreams:
-                    for us in cll.upstreams[:MAX_UPSTREAMS_TO_LOG]:
-                        logger.warning(f"[COLUMN-DROPPED]   Had upstream: {us}")
 
         aspect.fineGrainedLineages = (
             filtered_column_lineage if filtered_column_lineage else None
