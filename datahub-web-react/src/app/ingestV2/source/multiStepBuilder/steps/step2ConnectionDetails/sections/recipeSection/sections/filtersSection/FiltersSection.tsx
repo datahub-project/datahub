@@ -3,8 +3,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { FilterRecipeField, FilterRule } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { FieldWrapper } from '@app/ingestV2/source/multiStepBuilder/components/FieldWrapper';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
+import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
 import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
 import { Filter } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/types';
 import {
@@ -32,6 +32,14 @@ const FilterFieldsWrapper = styled.div`
     gap: ${spacing.md};
     width: 100%;
     align-items: start;
+`;
+
+const SelectLabelWrapper = styled.div`
+    min-width: 175px;
+`;
+
+const Spacer = styled.div`
+    width: 16px;
 `;
 
 const SelectWrapper = styled.div`
@@ -155,45 +163,48 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                     </Button>
                 }
             />
+            <FilterRow>
+                <FilterFieldsWrapper>
+                    <SelectLabelWrapper>
+                        <FieldLabel label="Rule" />
+                    </SelectLabelWrapper>
+                    <SelectLabelWrapper>
+                        <FieldLabel label="Subtype" />
+                    </SelectLabelWrapper>
+                    <FieldLabel label="Regex Entry" />
+                </FilterFieldsWrapper>
+                <Spacer />
+            </FilterRow>
             {filters.map((filter) => (
                 <FilterRow>
                     <FilterFieldsWrapper>
                         <SelectWrapper>
-                            <FieldWrapper label="Rule" help="Include or exclude matching entities">
-                                <SimpleSelect
-                                    options={ruleSelectOptions}
-                                    values={filter.rule ? [filter.rule] : [FilterRule.INCLUDE]}
-                                    onUpdate={(values) => updateFilterRule(filter.key, values?.[0])}
-                                    showClear={false}
-                                    width="full"
-                                    placeholder="Rule"
-                                    size="lg"
-                                />
-                            </FieldWrapper>
+                            <SimpleSelect
+                                options={ruleSelectOptions}
+                                values={filter.rule ? [filter.rule] : [FilterRule.INCLUDE]}
+                                onUpdate={(values) => updateFilterRule(filter.key, values?.[0])}
+                                showClear={false}
+                                width="full"
+                                placeholder="Rule"
+                                size="lg"
+                            />
                         </SelectWrapper>
                         <SelectWrapper>
-                            <FieldWrapper label="Subtype" required help="Type of entity to filter">
-                                <SimpleSelect
-                                    options={subtypeSelectOptions}
-                                    values={filter.subtype ? [filter.subtype] : [subtypeSelectOptions?.[0].value]}
-                                    onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
-                                    showClear={false}
-                                    width="full"
-                                    placeholder="[Table]"
-                                    size="lg"
-                                />
-                            </FieldWrapper>
-                        </SelectWrapper>
-                        <FieldWrapper
-                            label="Regex Entry"
-                            help="Regular expressions (regex) for pattern matching within strings"
-                        >
-                            <Input
-                                value={filter.value}
-                                setValue={(value) => updateFilterValue(filter.key, value)}
-                                placeholder='apple: Matches the literal string "apple"'
+                            <SimpleSelect
+                                options={subtypeSelectOptions}
+                                values={filter.subtype ? [filter.subtype] : [subtypeSelectOptions?.[0].value]}
+                                onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
+                                showClear={false}
+                                width="full"
+                                placeholder={filter.subtype ? `[${filter.subtype}]` : '[Table]'}
+                                size="lg"
                             />
-                        </FieldWrapper>
+                        </SelectWrapper>
+                        <Input
+                            value={filter.value}
+                            setValue={(value) => updateFilterValue(filter.key, value)}
+                            placeholder="^my_db$"
+                        />
                     </FilterFieldsWrapper>
                     <RemoveIcon onClick={() => removeFilter(filter.key)} />
                 </FilterRow>
