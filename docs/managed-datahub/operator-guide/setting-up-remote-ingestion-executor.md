@@ -115,18 +115,28 @@ Configuring Secrets enables you to manage ingestion sources from the DataHub UI 
 3. **Deploy Stack**
 
    ```bash
+
    # Using AWS CLI
-   aws cloudformation create-stack \
-     --stack-name datahub-remote-executor \
-     --template-body file://datahub-executor.ecs.template.yaml \
-     --parameters ParameterKey=... ParameterValue=...
+
+    aws --region us-east-1 cloudformation create-stack \
+      --stack-name datahub-remote-executor \
+      --template-body file://datahub-executor.ecs.template.yaml \
+      --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+      --parameters ParameterKey=ExecutorPoolId,ParameterValue="remote" \
+      ParameterKey=VPCID,ParameterValue="<your-vpc>" \
+      ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
+      ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
+      ParameterKey=DataHubAccessToken,ParameterValue="<your-remote-executor-access-token>"
    ```
 
    Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation)
 
 4. **Configure Secrets (Optional)**
+
    ```bash
+
    # Create a secret in AWS Secrets Manager
+
    aws secretsmanager create-secret \
      --name my-source-secret \
      --secret-string '{"username":"user","password":"pass"}'
