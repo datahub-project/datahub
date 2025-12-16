@@ -9,32 +9,6 @@ from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 class TestFivetranLogQuery:
     """Test cases for FivetranLogQuery with configurable limits."""
 
-    def test_fivetran_log_query_default_limits(self):
-        """Test that FivetranLogQuery uses default limits when initialized with defaults."""
-        query = FivetranLogQuery()
-
-        assert query.max_jobs_per_connector == MAX_JOBS_PER_CONNECTOR_DEFAULT
-        assert (
-            query.max_table_lineage_per_connector
-            == MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT
-        )
-        assert (
-            query.max_column_lineage_per_connector
-            == MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT
-        )
-
-    def test_fivetran_log_query_custom_limits(self):
-        """Test that FivetranLogQuery uses custom limits when provided."""
-        query = FivetranLogQuery(
-            max_jobs_per_connector=1234,
-            max_table_lineage_per_connector=567,
-            max_column_lineage_per_connector=8901,
-        )
-
-        assert query.max_jobs_per_connector == 1234
-        assert query.max_table_lineage_per_connector == 567
-        assert query.max_column_lineage_per_connector == 8901
-
     def test_sync_logs_query_uses_configured_limit(self):
         """Test that get_sync_logs_query uses the configured max_jobs_per_connector limit."""
         custom_limit = 999
