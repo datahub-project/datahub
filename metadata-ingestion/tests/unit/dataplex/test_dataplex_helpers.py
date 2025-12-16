@@ -614,3 +614,22 @@ class TestParseEntryFqn:
 
         assert platform == "custom"
         assert dataset_id == "resource/path"
+
+    def test_parse_bigquery_fqn_single_part(self):
+        """Test parsing BigQuery FQN with only one part (unexpected format)."""
+        platform, dataset_id = parse_entry_fqn("bigquery:project")
+
+        assert platform == "bigquery"
+        assert dataset_id == "project"
+
+
+class TestParseEntryFqnEdgeCases:
+    """Test parse_entry_fqn edge cases for coverage."""
+
+    def test_parse_bigquery_fqn_one_part_warning(self):
+        """Test parsing BigQuery FQN with unexpected single part format."""
+        platform, dataset_id = parse_entry_fqn("bigquery:justonepart")
+
+        # Should still return platform and resource_path
+        assert platform == "bigquery"
+        assert dataset_id == "justonepart"

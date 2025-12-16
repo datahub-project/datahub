@@ -21,7 +21,7 @@ class TestTrackBigQueryContainer:
 
     def test_track_new_project(self, config):
         """Test tracking dataset for a new project."""
-        bq_containers = {}
+        bq_containers: dict[str, set[str]] = {}
 
         container_urn = track_bigquery_container(
             project_id="test-project",
@@ -118,7 +118,7 @@ class TestGenBigQueryContainers:
 
     def test_generate_containers_no_datasets(self, config):
         """Test generation when no datasets are present."""
-        bq_containers = {}
+        bq_containers: dict[str, set[str]] = {}
 
         work_units = list(
             gen_bigquery_containers(
@@ -155,7 +155,7 @@ class TestGenBigQueryContainers:
 
     def test_generate_containers_wrong_project(self, config):
         """Test generation for project not in containers dict."""
-        bq_containers = {"other-project": {"dataset1"}}
+        bq_containers: dict[str, set[str]] = {"other-project": {"dataset1"}}
 
         work_units = list(
             gen_bigquery_containers(

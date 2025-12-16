@@ -52,16 +52,16 @@ class TestExtractSchemaMetadata:
         # Mock field with STRING type
         field1 = Mock()
         field1.name = "column1"
-        field1.type_ = dataplex_v1.types.Schema.Type.STRING.value
-        field1.mode = dataplex_v1.types.Schema.Mode.NULLABLE.value
+        field1.type_ = int(dataplex_v1.types.Schema.Type.STRING)
+        field1.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
         field1.description = "First column"
         field1.fields = []
 
         # Mock field with INT64 type
         field2 = Mock()
         field2.name = "column2"
-        field2.type_ = dataplex_v1.types.Schema.Type.INT64.value
-        field2.mode = dataplex_v1.types.Schema.Mode.NULLABLE.value
+        field2.type_ = int(dataplex_v1.types.Schema.Type.INT64)
+        field2.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
         field2.description = ""
         field2.fields = []
 
@@ -85,15 +85,15 @@ class TestExtractSchemaMetadata:
         # Nested field
         nested_field = Mock()
         nested_field.name = "nested_col"
-        nested_field.type_ = dataplex_v1.types.Schema.Type.STRING.value
-        nested_field.mode = dataplex_v1.types.Schema.Mode.NULLABLE.value
+        nested_field.type_ = int(dataplex_v1.types.Schema.Type.STRING)
+        nested_field.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
         nested_field.description = "Nested column"
 
         # Parent field with nested fields
         parent_field = Mock()
         parent_field.name = "parent"
-        parent_field.type_ = dataplex_v1.types.Schema.Type.RECORD.value
-        parent_field.mode = dataplex_v1.types.Schema.Mode.NULLABLE.value
+        parent_field.type_ = int(dataplex_v1.types.Schema.Type.RECORD)
+        parent_field.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
         parent_field.description = "Parent column"
         parent_field.fields = [nested_field]
 
