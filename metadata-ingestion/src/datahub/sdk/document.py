@@ -58,6 +58,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Type, Union
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
+from datahub.errors import SdkUsageError
 from datahub.metadata.urns import DataPlatformUrn, DocumentUrn, Urn
 from datahub.sdk._shared import (
     ActorUrnOrStr,
@@ -79,6 +80,7 @@ from datahub.sdk._shared import (
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.utilities.urns.error import InvalidUrnError
 
 # Type aliases for document-specific inputs
 RelatedAssetInputType = Union[str, Urn]
@@ -86,6 +88,180 @@ RelatedAssetsInputType = Sequence[RelatedAssetInputType]
 RelatedDocumentInputType = Union[str, DocumentUrn]
 RelatedDocumentsInputType = Sequence[RelatedDocumentInputType]
 PlatformInputType = Union[str, DataPlatformUrn]
+
+
+def _validate_document_urn(urn: RelatedDocumentInputType) -> str:
+    """Validate that a URN is a valid document URN.
+
+    Args:
+        urn: URN string or DocumentUrn to validate
+
+    Returns:
+        The validated URN as a string
+
+    Raises:
+        SdkUsageError: If the URN is not a valid document URN
+    """
+    if isinstance(urn, DocumentUrn):
+        return str(urn)
+
+    urn_str = str(urn)
+    try:
+        parsed = Urn.from_string(urn_str)
+        if parsed.entity_type != DocumentUrn.ENTITY_TYPE:
+            raise SdkUsageError(
+                f"Expected a document URN but got '{parsed.entity_type}' URN: {urn_str}. "
+                f"Document URNs should be in the format 'urn:li:document:<id>'."
+            )
+        return urn_str
+    except InvalidUrnError as e:
+        raise SdkUsageError(
+            f"Invalid URN format: {urn_str}. "
+            f"Document URNs should be in the format 'urn:li:document:<id>'. "
+            f"Error: {e}"
+        ) from e
+
+
+def _validate_asset_urn(urn: RelatedAssetInputType) -> str:
+    """Validate that a URN is a valid entity URN.
+
+    Args:
+        urn: URN string or Urn to validate
+
+    Returns:
+        The validated URN as a string
+
+    Raises:
+        SdkUsageError: If the URN is not valid
+    """
+    if isinstance(urn, Urn):
+        return str(urn)
+
+    urn_str = str(urn)
+    try:
+        Urn.from_string(urn_str)
+        return urn_str
+    except InvalidUrnError as e:
+        raise SdkUsageError(f"Invalid URN format: {urn_str}. Error: {e}") from e
+
+
+# Valid document states
+_VALID_DOCUMENT_STATES = {
+    models.DocumentStateClass.PUBLISHED,
+    models.DocumentStateClass.UNPUBLISHED,
+}
+
+
+def _validate_status(status: str) -> str:
+    """Validate that a status is a valid document state.
+
+    Args:
+        status: The status string to validate
+
+    Returns:
+        The validated status string
+
+    Raises:
+        SdkUsageError: If the status is not valid
+    """
+    if status not in _VALID_DOCUMENT_STATES:
+        raise SdkUsageError(
+            f"Invalid document status: '{status}'. "
+            f"Must be one of: {', '.join(sorted(_VALID_DOCUMENT_STATES))}"
+        )
+    return status
+
+
+def _validate_external_url(url: str) -> str:
+    """Validate that a URL is well-formed.
+
+    Args:
+        url: The URL to validate
+
+    Returns:
+        The validated URL string
+
+    Raises:
+        SdkUsageError: If the URL is not valid
+    """
+    # Basic URL validation - must have scheme and netloc
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            raise SdkUsageError(
+                f"Invalid URL format: '{url}'. "
+                f"URL must include scheme (e.g., 'https://') and domain."
+            )
+    except Exception as e:
+        if isinstance(e, SdkUsageError):
+            raise
+        raise SdkUsageError(f"Invalid URL format: '{url}'. Error: {e}") from e
+    return url
+
+
+def _validate_related_documents_for_create(
+    document_urns: Optional[RelatedDocumentsInputType],
+    self_urn: DocumentUrn,
+    doc_id: str,
+) -> Optional[List[str]]:
+    """Validate related documents for document creation.
+
+    Args:
+        document_urns: List of document URNs to validate
+        self_urn: The URN of the document being created
+        doc_id: The ID of the document being created (for error messages)
+
+    Returns:
+        List of validated URN strings, or None if no documents provided
+
+    Raises:
+        SdkUsageError: If any URN is invalid or self-referential
+    """
+    if not document_urns:
+        return None
+
+    validated = []
+    for doc_urn in document_urns:
+        validated_urn = _validate_document_urn(doc_urn)
+        if validated_urn == str(self_urn):
+            raise SdkUsageError(
+                f"A document cannot be related to itself. "
+                f"Document '{doc_id}' cannot reference itself in related_documents."
+            )
+        validated.append(validated_urn)
+    return validated
+
+
+def _validate_parent_document_for_create(
+    parent_document: Optional[str],
+    self_urn: DocumentUrn,
+    doc_id: str,
+) -> Optional[str]:
+    """Validate parent document for document creation.
+
+    Args:
+        parent_document: Parent document URN to validate
+        self_urn: The URN of the document being created
+        doc_id: The ID of the document being created (for error messages)
+
+    Returns:
+        Validated parent URN string, or None if no parent provided
+
+    Raises:
+        SdkUsageError: If the URN is invalid or self-referential
+    """
+    if not parent_document:
+        return None
+
+    validated = _validate_document_urn(parent_document)
+    if validated == str(self_urn):
+        raise SdkUsageError(
+            f"A document cannot be its own parent. "
+            f"Document '{doc_id}' cannot have itself as parent."
+        )
+    return validated
 
 
 class Document(
@@ -190,6 +366,18 @@ class Document(
         urn = DocumentUrn(id)
         doc = cls(urn=urn)
 
+        # Validate inputs
+        _validate_status(status)
+        validated_parent = _validate_parent_document_for_create(
+            parent_document, urn, id
+        )
+        validated_assets = (
+            [_validate_asset_urn(a) for a in related_assets] if related_assets else None
+        )
+        validated_related_docs = _validate_related_documents_for_create(
+            related_documents, urn, id
+        )
+
         # Create timestamps - auto-generated, not user-configurable
         now = datetime.now()
         created_stamp = make_time_stamp(now)
@@ -214,22 +402,22 @@ class Document(
 
         # Build ParentDocument if specified
         parent_doc = None
-        if parent_document:
-            parent_doc = models.ParentDocumentClass(document=parent_document)
+        if validated_parent:
+            parent_doc = models.ParentDocumentClass(document=validated_parent)
 
         # Build RelatedAssets if specified
         related_assets_list = None
-        if related_assets:
+        if validated_assets:
             related_assets_list = [
-                models.RelatedAssetClass(asset=str(asset)) for asset in related_assets
+                models.RelatedAssetClass(asset=asset) for asset in validated_assets
             ]
 
         # Build RelatedDocuments if specified
         related_documents_list = None
-        if related_documents:
+        if validated_related_docs:
             related_documents_list = [
-                models.RelatedDocumentClass(document=str(doc_urn))
-                for doc_urn in related_documents
+                models.RelatedDocumentClass(document=doc_urn)
+                for doc_urn in validated_related_docs
             ]
 
         # Create DocumentInfo
@@ -466,6 +654,9 @@ class Document(
                 owners=["urn:li:corpuser:oncall-team"],
             )
         """
+        # Validate external URL
+        _validate_external_url(external_url)
+
         # Validate/parse platform - allow shorthand like "notion"
         if isinstance(platform, str):
             if not platform.startswith("urn:li:dataPlatform:"):
@@ -632,7 +823,9 @@ class Document(
             return doc_info.parentDocument.document
         return None
 
-    def set_parent_document(self, parent_urn: Optional[str]) -> Self:
+    def set_parent_document(
+        self, parent_urn: Optional[RelatedDocumentInputType]
+    ) -> Self:
         """Set the parent document for hierarchy.
 
         Args:
@@ -640,10 +833,20 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If the URN is not a valid document URN or is self-referential
         """
         doc_info = self._ensure_document_info()
         if parent_urn:
-            doc_info.parentDocument = models.ParentDocumentClass(document=parent_urn)
+            validated_urn = _validate_document_urn(parent_urn)
+            # Check for self-referential parent
+            if validated_urn == str(self.urn):
+                raise SdkUsageError(
+                    f"A document cannot be its own parent. "
+                    f"Document '{self.id}' cannot have itself as parent."
+                )
+            doc_info.parentDocument = models.ParentDocumentClass(document=validated_urn)
         else:
             doc_info.parentDocument = None
         return self
@@ -652,8 +855,8 @@ class Document(
     def source_type(self) -> Optional[str]:
         """Get the document source type (NATIVE or EXTERNAL)."""
         doc_info = self._get_document_info()
-        if doc_info and doc_info.source:
-            return doc_info.source.sourceType
+        if doc_info and doc_info.source and doc_info.source.sourceType:
+            return str(doc_info.source.sourceType)
         return None
 
     @property
@@ -714,7 +917,11 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If the status is not valid
         """
+        _validate_status(status)
         doc_info = self._ensure_document_info()
         if doc_info.status:
             doc_info.status.state = status
@@ -798,10 +1005,14 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If any URN is not valid
         """
         doc_info = self._ensure_document_info()
+        validated_urns = [_validate_asset_urn(urn) for urn in asset_urns]
         doc_info.relatedAssets = [
-            models.RelatedAssetClass(asset=str(urn)) for urn in asset_urns
+            models.RelatedAssetClass(asset=urn) for urn in validated_urns
         ]
         return self
 
@@ -813,14 +1024,17 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If the URN is not valid
         """
+        validated_urn = _validate_asset_urn(asset_urn)
         doc_info = self._ensure_document_info()
         if doc_info.relatedAssets is None:
             doc_info.relatedAssets = []
         # Check if already exists
-        urn_str = str(asset_urn)
-        if not any(ra.asset == urn_str for ra in doc_info.relatedAssets):
-            doc_info.relatedAssets.append(models.RelatedAssetClass(asset=urn_str))
+        if not any(ra.asset == validated_urn for ra in doc_info.relatedAssets):
+            doc_info.relatedAssets.append(models.RelatedAssetClass(asset=validated_urn))
         return self
 
     def remove_related_asset(self, asset_urn: RelatedAssetInputType) -> Self:
@@ -831,12 +1045,15 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If the URN is not valid
         """
+        validated_urn = _validate_asset_urn(asset_urn)
         doc_info = self._ensure_document_info()
         if doc_info.relatedAssets:
-            urn_str = str(asset_urn)
             doc_info.relatedAssets = [
-                ra for ra in doc_info.relatedAssets if ra.asset != urn_str
+                ra for ra in doc_info.relatedAssets if ra.asset != validated_urn
             ]
         return self
 
@@ -856,10 +1073,22 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If any URN is not a valid document URN or is self-referential
         """
         doc_info = self._ensure_document_info()
+        validated_urns = []
+        for urn in document_urns:
+            validated_urn = _validate_document_urn(urn)
+            if validated_urn == str(self.urn):
+                raise SdkUsageError(
+                    f"A document cannot be related to itself. "
+                    f"Document '{self.id}' cannot reference itself in related_documents."
+                )
+            validated_urns.append(validated_urn)
         doc_info.relatedDocuments = [
-            models.RelatedDocumentClass(document=str(urn)) for urn in document_urns
+            models.RelatedDocumentClass(document=urn) for urn in validated_urns
         ]
         return self
 
@@ -871,15 +1100,24 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If the URN is not a valid document URN or is self-referential
         """
+        validated_urn = _validate_document_urn(document_urn)
+        # Check for self-referential related document
+        if validated_urn == str(self.urn):
+            raise SdkUsageError(
+                f"A document cannot be related to itself. "
+                f"Document '{self.id}' cannot reference itself in related_documents."
+            )
         doc_info = self._ensure_document_info()
         if doc_info.relatedDocuments is None:
             doc_info.relatedDocuments = []
         # Check if already exists
-        urn_str = str(document_urn)
-        if not any(rd.document == urn_str for rd in doc_info.relatedDocuments):
+        if not any(rd.document == validated_urn for rd in doc_info.relatedDocuments):
             doc_info.relatedDocuments.append(
-                models.RelatedDocumentClass(document=urn_str)
+                models.RelatedDocumentClass(document=validated_urn)
             )
         return self
 
@@ -891,12 +1129,15 @@ class Document(
 
         Returns:
             Self for method chaining
+
+        Raises:
+            SdkUsageError: If the URN is not a valid document URN
         """
+        validated_urn = _validate_document_urn(document_urn)
         doc_info = self._ensure_document_info()
         if doc_info.relatedDocuments:
-            urn_str = str(document_urn)
             doc_info.relatedDocuments = [
-                rd for rd in doc_info.relatedDocuments if rd.document != urn_str
+                rd for rd in doc_info.relatedDocuments if rd.document != validated_urn
             ]
         return self
 

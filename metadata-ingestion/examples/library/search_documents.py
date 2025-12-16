@@ -32,9 +32,7 @@ document_urns = client.search.get_urns(
 
 print("\nDocuments matching 'data quality':")
 for urn in document_urns:
-    # Get the full document to see title (urn is already a DocumentUrn)
-    doc = client.entities.get(urn)
-    print(f"  - {doc.title} ({urn})")
+    print(f"  - {urn}")
 
 # ============================================================================
 # Example 3: Search within a specific domain

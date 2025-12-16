@@ -12,7 +12,8 @@ and example scripts. They cover:
 import pytest
 
 import datahub.metadata.schema_classes as models
-from datahub.metadata.urns import DocumentUrn
+from datahub.errors import SdkUsageError
+from datahub.metadata.urns import CorpUserUrn, DocumentUrn
 from datahub.sdk.document import Document
 
 
@@ -64,7 +65,7 @@ class TestDocumentCreation:
             show_in_global_context=True,
             subtype="Tutorial",
             tags=["urn:li:tag:Finance"],
-            owners=["urn:li:corpuser:jdoe"],
+            owners=[CorpUserUrn("jdoe")],
             domain="urn:li:domain:engineering",
         )
 
@@ -258,17 +259,23 @@ class TestDocumentRelationships:
 
         # Add another asset
         doc.add_related_asset("urn:li:dashboard:(looker,dashboard1)")
-        assert len(doc.related_assets) == 2
+        assets = doc.related_assets
+        assert assets is not None
+        assert len(assets) == 2
 
         # Adding duplicate should not duplicate
         doc.add_related_asset(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)"
         )
-        assert len(doc.related_assets) == 2
+        assets = doc.related_assets
+        assert assets is not None
+        assert len(assets) == 2
 
         # Remove asset
         doc.remove_related_asset("urn:li:dashboard:(looker,dashboard1)")
-        assert len(doc.related_assets) == 1
+        assets = doc.related_assets
+        assert assets is not None
+        assert len(assets) == 1
 
     def test_set_related_assets(self):
         """Test setting related assets (replaces existing)."""
@@ -285,10 +292,12 @@ class TestDocumentRelationships:
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,new2,PROD)",
             ]
         )
-        assert len(doc.related_assets) == 2
+        related_assets = doc.related_assets
+        assert related_assets is not None
+        assert len(related_assets) == 2
         assert (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,old,PROD)"
-            not in doc.related_assets
+            not in related_assets
         )
 
     def test_related_documents(self):
@@ -444,7 +453,9 @@ class TestDocumentMethodChaining:
         assert doc.text == "Updated content"
         assert doc.custom_properties == {"key": "value"}
         assert doc.status == models.DocumentStateClass.PUBLISHED
-        assert len(doc.related_assets) == 1
+        assets = doc.related_assets
+        assert assets is not None
+        assert len(assets) == 1
 
 
 class TestDocumentAspects:
@@ -503,7 +514,7 @@ class TestDocumentAspects:
             title="MCP Test",
             text="Content",
             tags=["urn:li:tag:TestTag"],
-            owners=["urn:li:corpuser:testuser"],
+            owners=[CorpUserUrn("testuser")],
         )
 
         mcps = doc.as_mcps()
@@ -690,7 +701,7 @@ class TestDocumentTutorialExamples:
             related_assets=[
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)"
             ],
-            owners=["urn:li:corpuser:john"],
+            owners=[CorpUserUrn("john")],
             domain="urn:li:domain:engineering",
             tags=["urn:li:tag:important"],
             custom_properties={"team": "data-platform", "version": "1.0"},
@@ -717,7 +728,9 @@ class TestDocumentTutorialExamples:
         doc.set_title("Updated Tutorial Title")
 
         assert doc.title == "Updated Tutorial Title"
-        assert "Updated Getting Started Guide" in doc.text
+        text = doc.text
+        assert text is not None
+        assert "Updated Getting Started Guide" in text
 
     def test_tutorial_publish_unpublish(self):
         """Test publish/unpublish as shown in the tutorial."""
@@ -771,5 +784,284 @@ class TestDocumentTutorialExamples:
         # Add a related document
         doc.add_related_document("urn:li:document:related-guide")
 
-        assert len(doc.related_assets) == 2
-        assert len(doc.related_documents) == 1
+        related_assets = doc.related_assets
+        related_docs = doc.related_documents
+        assert related_assets is not None
+        assert related_docs is not None
+        assert len(related_assets) == 2
+        assert len(related_docs) == 1
+
+
+class TestDocumentUrnValidation:
+    """Tests for URN validation in document methods."""
+
+    def test_add_related_document_validates_urn_type(self):
+        """Test that add_related_document rejects non-document URNs."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        # Should reject dataset URN
+        with pytest.raises(SdkUsageError, match="Expected a document URN"):
+            doc.add_related_document(
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table,PROD)"
+            )
+
+    def test_add_related_document_rejects_invalid_urn(self):
+        """Test that add_related_document rejects malformed URNs."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="Invalid URN format"):
+            doc.add_related_document("not-a-valid-urn")
+
+    def test_add_related_document_accepts_valid_document_urn(self):
+        """Test that add_related_document accepts valid document URNs."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        # Should accept document URN string
+        doc.add_related_document("urn:li:document:other-doc")
+        assert doc.related_documents == ["urn:li:document:other-doc"]
+
+    def test_add_related_document_accepts_document_urn_object(self):
+        """Test that add_related_document accepts DocumentUrn objects."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        # Should accept DocumentUrn object
+        doc.add_related_document(DocumentUrn("typed-doc"))
+        assert doc.related_documents == ["urn:li:document:typed-doc"]
+
+    def test_set_parent_document_validates_urn_type(self):
+        """Test that set_parent_document rejects non-document URNs."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="Expected a document URN"):
+            doc.set_parent_document(
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table,PROD)"
+            )
+
+    def test_set_parent_document_accepts_valid_urn(self):
+        """Test that set_parent_document accepts valid document URNs."""
+        doc = Document.create_document(
+            id="child-doc",
+            title="Child",
+            text="Content",
+        )
+
+        doc.set_parent_document("urn:li:document:parent-doc")
+        assert doc.parent_document == "urn:li:document:parent-doc"
+
+    def test_set_parent_document_accepts_none(self):
+        """Test that set_parent_document accepts None to clear parent."""
+        doc = Document.create_document(
+            id="child-doc",
+            title="Child",
+            text="Content",
+            parent_document="urn:li:document:parent",
+        )
+
+        doc.set_parent_document(None)
+        assert doc.parent_document is None
+
+    def test_add_related_asset_validates_urn_format(self):
+        """Test that add_related_asset rejects malformed URNs."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="Invalid URN format"):
+            doc.add_related_asset("not-a-valid-urn")
+
+    def test_add_related_asset_accepts_valid_urn(self):
+        """Test that add_related_asset accepts valid URNs."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        doc.add_related_asset(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table,PROD)"
+        )
+        assert doc.related_assets == [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table,PROD)"
+        ]
+
+    def test_set_related_documents_validates_all_urns(self):
+        """Test that set_related_documents validates all URNs in the list."""
+        doc = Document.create_document(
+            id="validation-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="Expected a document URN"):
+            doc.set_related_documents(
+                [
+                    "urn:li:document:valid-doc",
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,table,PROD)",  # Invalid
+                ]
+            )
+
+
+class TestDocumentStatusValidation:
+    """Tests for document status validation."""
+
+    def test_set_status_validates_value(self):
+        """Test that set_status rejects invalid status values."""
+        doc = Document.create_document(
+            id="status-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="Invalid document status"):
+            doc.set_status("INVALID_STATUS")
+
+    def test_set_status_accepts_published(self):
+        """Test that set_status accepts PUBLISHED."""
+        doc = Document.create_document(
+            id="status-test",
+            title="Test",
+            text="Content",
+            status="UNPUBLISHED",
+        )
+
+        doc.set_status("PUBLISHED")
+        assert doc.status == "PUBLISHED"
+
+    def test_set_status_accepts_unpublished(self):
+        """Test that set_status accepts UNPUBLISHED."""
+        doc = Document.create_document(
+            id="status-test",
+            title="Test",
+            text="Content",
+        )
+
+        doc.set_status("UNPUBLISHED")
+        assert doc.status == "UNPUBLISHED"
+
+    def test_create_document_validates_status(self):
+        """Test that create_document validates status parameter."""
+        with pytest.raises(SdkUsageError, match="Invalid document status"):
+            Document.create_document(
+                id="status-test",
+                title="Test",
+                text="Content",
+                status="DRAFT",  # Invalid
+            )
+
+
+class TestDocumentSelfReferenceValidation:
+    """Tests for self-referential document validation."""
+
+    def test_set_parent_document_rejects_self_reference(self):
+        """Test that a document cannot be its own parent."""
+        doc = Document.create_document(
+            id="self-ref-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="cannot be its own parent"):
+            doc.set_parent_document("urn:li:document:self-ref-test")
+
+    def test_add_related_document_rejects_self_reference(self):
+        """Test that a document cannot be related to itself."""
+        doc = Document.create_document(
+            id="self-ref-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="cannot be related to itself"):
+            doc.add_related_document("urn:li:document:self-ref-test")
+
+    def test_set_related_documents_rejects_self_reference(self):
+        """Test that set_related_documents rejects self-reference."""
+        doc = Document.create_document(
+            id="self-ref-test",
+            title="Test",
+            text="Content",
+        )
+
+        with pytest.raises(SdkUsageError, match="cannot be related to itself"):
+            doc.set_related_documents(
+                [
+                    "urn:li:document:other-doc",
+                    "urn:li:document:self-ref-test",  # Self-reference
+                ]
+            )
+
+    def test_create_document_rejects_self_parent(self):
+        """Test that create_document rejects self as parent."""
+        with pytest.raises(SdkUsageError, match="cannot be its own parent"):
+            Document.create_document(
+                id="self-parent-test",
+                title="Test",
+                text="Content",
+                parent_document="urn:li:document:self-parent-test",
+            )
+
+    def test_create_document_rejects_self_related(self):
+        """Test that create_document rejects self in related_documents."""
+        with pytest.raises(SdkUsageError, match="cannot be related to itself"):
+            Document.create_document(
+                id="self-related-test",
+                title="Test",
+                text="Content",
+                related_documents=["urn:li:document:self-related-test"],
+            )
+
+
+class TestDocumentExternalUrlValidation:
+    """Tests for external URL validation."""
+
+    def test_create_external_document_validates_url(self):
+        """Test that external documents require valid URLs."""
+        with pytest.raises(SdkUsageError, match="Invalid URL format"):
+            Document.create_external_document(
+                id="bad-url-test",
+                title="Test",
+                platform="notion",
+                external_url="not-a-valid-url",
+            )
+
+    def test_create_external_document_accepts_valid_url(self):
+        """Test that external documents accept valid URLs."""
+        doc = Document.create_external_document(
+            id="good-url-test",
+            title="Test",
+            platform="notion",
+            external_url="https://notion.so/page/123",
+        )
+        assert doc.external_url == "https://notion.so/page/123"
+
+    def test_create_external_document_rejects_missing_scheme(self):
+        """Test that URLs without scheme are rejected."""
+        with pytest.raises(SdkUsageError, match="Invalid URL format"):
+            Document.create_external_document(
+                id="no-scheme-test",
+                title="Test",
+                platform="notion",
+                external_url="notion.so/page/123",  # Missing https://
+            )

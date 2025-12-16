@@ -5,6 +5,7 @@ This example demonstrates how to create both native documents (stored in DataHub
 and external documents (references to content in other platforms).
 """
 
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import DataHubClient, Document
 
 # Initialize the client
@@ -34,7 +35,7 @@ doc = Document.create_document(
     text="# Data Quality FAQ\n\n## Q: How do we measure data quality?\n\nA: We use...",
     subtype="FAQ",
     related_assets=["urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)"],
-    owners=["urn:li:corpuser:john"],
+    owners=[CorpUserUrn("john")],
     domain="urn:li:domain:engineering",
     tags=["urn:li:tag:important"],
     custom_properties={"team": "data-platform", "version": "1.0"},
@@ -55,7 +56,7 @@ doc = Document.create_external_document(
     external_url="https://notion.so/team/engineering-handbook",
     external_id="notion-page-abc123",
     text="Summary of the handbook for search indexing...",  # Optional
-    owners=["urn:li:corpuser:engineering-lead"],
+    owners=[CorpUserUrn("engineering-lead")],
 )
 
 client.entities.upsert(doc)
