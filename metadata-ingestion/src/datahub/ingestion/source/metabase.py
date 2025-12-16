@@ -70,6 +70,8 @@ from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
 
+# Metabase cards can reference other cards as data sources, creating chains or circular references
+# Without a depth limit, Card A → Card B → Card A would cause stack overflow
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
@@ -226,6 +228,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
+        # Only username/password auth creates sessions that need cleanup
         if not self.config.api_key:
             response = requests.delete(
                 f"{self.config.connect_uri}/api/session",
@@ -407,6 +410,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         Supports both native SQL queries and query builder queries.
         Includes recursion depth protection to prevent stack overflow from circular references.
         """
+        # Circular references (Card A → Card B → Card A) will recurse infinitely without this check
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
             card_id = card_details.get("id", "unknown")
             self.report.report_warning(
@@ -485,6 +489,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         Extract table URNs from a query builder query by getting the source table ID.
         Handles nested card references with recursion depth tracking.
+
+        Metabase's query builder allows cards to use other cards as data sources:
+        - Direct table reference: source-table: 123 (table ID)
+        - Card reference: source-table: "card__456" (references another card by ID)
         """
         source_table_id = (
             card_details.get("dataset_query", {}).get("query", {}).get("source-table")
@@ -571,7 +579,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return None
 
     @lru_cache(maxsize=None)
-    @lru_cache(maxsize=None)
     def _get_collections_map(self) -> Dict[str, dict]:
         """
         Fetch all collections once and return as a dict keyed by collection ID.
@@ -590,6 +597,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 http_error.response is not None
                 and http_error.response.status_code == 404
             ):
+                # 404 is expected when collection features are disabled or unavailable
                 logger.debug(f"Collections endpoint not found: {str(http_error)}")
                 return {}
             self.report.report_warning(
@@ -653,6 +661,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             cards = card_response.json()
 
             for card_info in cards:
+                # Models are emitted as datasets by emit_model_mces() to avoid duplication
                 if self.config.extract_models and card_info.get("type") == "model":
                     continue
 
@@ -667,7 +676,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 message="Request to retrieve cards from Metabase failed.",
                 context=f"Error: {str(http_error)}",
             )
-            return None
+            return
 
     def get_card_details_by_id(self, card_id: Union[int, str]) -> dict:
         """
@@ -866,10 +875,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         reference: https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
         """
 
-        # drop [[ WHERE {{FILTER}} ]]
+        # Metabase SQL templates use {{variable}} and [[optional clauses]] syntax
+        # SQL parsers don't understand these, so we strip them to extract table lineage
         query_patched = re.sub(r"\[\[.+?\]\]", r" ", raw_query)
-
-        # replace {{FILTER}} with 1
         query_patched = re.sub(r"\{\{.+?\}\}", r"1", query_patched)
         return query_patched
 
@@ -913,7 +921,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         :return: platform instance name or None
         """
         platform_instance = None
-        # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
+        # Allows users to distinguish prod-clickhouse vs dev-clickhouse, or us-east-postgres vs eu-west-postgres
         if datasource_id is not None and self.config.database_id_to_instance_map:
             platform_instance = self.config.database_id_to_instance_map.get(
                 str(datasource_id)
@@ -940,8 +948,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 message="Request to retrieve data source from Metabase failed.",
                 context=f"Data Source ID: {datasource_id}, Error: {str(http_error)}",
             )
-            # returning empty string as `platform` because
-            # `make_dataset_urn_with_platform_instance()` only accepts `str`
+            # Return empty platform string because make_dataset_urn_with_platform_instance() requires str type
             return "", None, None, None
 
         # Map engine names to what datahub expects in
@@ -1020,7 +1027,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _is_metabase_model(self, card_details: dict) -> bool:
         """
         Check if a card is a Metabase Model.
-        Models are special saved questions that can be used as data sources.
+        Models are special saved questions that can be used as data sources for other questions.
+        They act like views - you can query a model instead of the underlying tables.
         Introduced in Metabase v0.41+
         """
         return card_details.get("type") == "model"
