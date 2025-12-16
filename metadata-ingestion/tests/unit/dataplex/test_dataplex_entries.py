@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from threading import Lock
+from typing import Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -63,12 +64,12 @@ class TestProcessEntry:
     def create_mock_entry(
         self,
         name: str,
-        fully_qualified_name: str | None,
+        fully_qualified_name: Optional[str],
         entry_type: str = "TABLE",
-        description: str | None = None,
-        create_time: datetime | None = None,
-        update_time: datetime | None = None,
-        aspects: dict | None = None,
+        description: Optional[str] = None,
+        create_time: Optional[datetime] = None,
+        update_time: Optional[datetime] = None,
+        aspects: Optional[dict] = None,
     ) -> dataplex_v1.Entry:
         """Create a mock Dataplex entry."""
         entry = Mock(spec=dataplex_v1.Entry)

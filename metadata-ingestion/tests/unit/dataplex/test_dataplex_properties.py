@@ -1,5 +1,6 @@
 """Unit tests for Dataplex custom properties extraction."""
 
+from typing import Optional
 from unittest.mock import Mock
 
 from google.cloud import dataplex_v1
@@ -156,10 +157,10 @@ class TestExtractEntryCustomProperties:
         entry_id: str = "test_entry",
         entry_group_id: str = "@bigquery",
         fully_qualified_name: str = "bigquery:project.dataset.table",
-        entry_type: str | None = "TABLE",
-        parent_entry: str | None = None,
-        entry_source: Mock | None = None,
-        aspects: dict | None = None,
+        entry_type: Optional[str] = "TABLE",
+        parent_entry: Optional[str] = None,
+        entry_source: Optional[Mock] = None,
+        aspects: Optional[dict] = None,
     ) -> dataplex_v1.Entry:
         """Create a mock Dataplex entry."""
         entry = Mock(spec=dataplex_v1.Entry)
@@ -341,13 +342,13 @@ class TestExtractEntityCustomProperties:
     def create_mock_entity(
         self,
         entity_id: str = "test_entity",
-        data_path: str | None = None,
-        system: Mock | None = None,
-        format: Mock | None = None,
-        asset: str | None = None,
-        catalog_entry: str | None = None,
-        compatibility: str | None = None,
-        aspects: dict | None = None,
+        data_path: Optional[str] = None,
+        system: Optional[Mock] = None,
+        format: Optional[Mock] = None,
+        asset: Optional[str] = None,
+        catalog_entry: Optional[str] = None,
+        compatibility: Optional[str] = None,
+        aspects: Optional[dict] = None,
     ) -> dataplex_v1.Entity:
         """Create a mock Dataplex entity."""
         entity = Mock(spec=dataplex_v1.Entity)
