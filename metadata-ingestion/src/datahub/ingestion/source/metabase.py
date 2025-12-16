@@ -189,7 +189,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 }
             )
         else:
-            # If no API key is provided, generate a session token using username and password.
             login_response = requests.post(
                 f"{self.config.connect_uri}/api/session",
                 None,
@@ -227,7 +226,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
-        # API key authentication does not require session closure.
         if not self.config.api_key:
             response = requests.delete(
                 f"{self.config.connect_uri}/api/session",
@@ -431,6 +429,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return table_urns
 
+    def _extract_native_query(self, card_details: dict) -> Optional[str]:
+        """
+        Extract native SQL query from card details.
+        Returns None if not a native query or query is empty.
+        """
+        return (
+            card_details.get("dataset_query", {}).get("native", {}).get("query") or None
+        )
+
     def _get_table_urns_from_native_query(self, card_details: dict) -> List[str]:
         """
         Extract table URNs from a native SQL query by parsing the SQL.
@@ -449,10 +456,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not platform:
             return []
 
-        raw_query = (
-            card_details.get("dataset_query", {}).get("native", {}).get("query", "")
-        )
-
+        raw_query = self._extract_native_query(card_details)
         if not raw_query:
             return []
 
@@ -567,9 +571,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return None
 
     @lru_cache(maxsize=None)
-    def _get_all_collections(self) -> List[dict]:
+    @lru_cache(maxsize=None)
+    def _get_collections_map(self) -> Dict[str, dict]:
         """
-        Fetch all collections from Metabase API. Cached to avoid N+1 API calls.
+        Fetch all collections once and return as a dict keyed by collection ID.
+        Cached to avoid N+1 API calls when extracting tags for multiple entities.
         """
         try:
             collections_response = self.session.get(
@@ -577,20 +583,21 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
             )
             collections_response.raise_for_status()
-            return collections_response.json()
+            collections = collections_response.json()
+            return {str(coll.get("id")): coll for coll in collections}
         except HTTPError as http_error:
             if (
                 http_error.response is not None
                 and http_error.response.status_code == 404
             ):
                 logger.debug(f"Collections endpoint not found: {str(http_error)}")
-                return []
+                return {}
             self.report.report_warning(
                 title="Failed to retrieve collections",
                 message="Unable to fetch collections from Metabase API",
                 context=f"Error: {str(http_error)} - Check API credentials and permissions",
             )
-            return []
+            return {}
 
     def _sanitize_collection_name(self, collection_name: str) -> str:
         """
@@ -610,17 +617,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         Extract tags from a Metabase collection.
         Maps collection names to DataHub tags for better organization and searchability.
+        Uses cached collection map for O(1) lookup instead of O(n) linear search.
         """
         if not self.config.extract_collections_as_tags or not collection_id:
             return None
 
-        collections = self._get_all_collections()
-
-        collection = None
-        for coll in collections:
-            if str(coll.get("id")) == str(collection_id):
-                collection = coll
-                break
+        collections_map = self._get_collections_map()
+        collection = collections_map.get(str(collection_id))
 
         if not collection:
             logger.debug(
@@ -754,14 +757,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
         chart_snapshot.aspects.append(chart_info)
 
         if card_details.get("query_type", "") == "native":
-            raw_query = (
-                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
-            )
-            chart_query_native = ChartQueryClass(
-                rawQuery=raw_query,
-                type=ChartQueryTypeClass.SQL,
-            )
-            chart_snapshot.aspects.append(chart_query_native)
+            raw_query = self._extract_native_query(card_details)
+            if raw_query:
+                chart_query_native = ChartQueryClass(
+                    rawQuery=raw_query,
+                    type=ChartQueryTypeClass.SQL,
+                )
+                chart_snapshot.aspects.append(chart_query_native)
 
         ownership = self._get_ownership(card_details.get("creator_id", ""))
         if ownership is not None:
@@ -917,8 +919,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 str(datasource_id)
             )
 
-        # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
-        # Set platform_instance if configuration provides a mapping from platform name to instance
         if platform and self.config.platform_instance_map and platform_instance is None:
             platform_instance = self.config.platform_instance_map.get(platform)
 

@@ -1102,7 +1102,7 @@ def test_collection_name_empty_after_sanitization(mock_post, mock_get, mock_dele
 @patch("requests.Session.get")
 @patch("requests.post")
 def test_collection_api_caching(mock_post, mock_get, mock_delete):
-    """Test that _get_all_collections() uses caching to avoid N+1 API calls"""
+    """Test that _get_collections_map() uses caching to avoid N+1 API calls"""
     metabase_config = MetabaseConfig(
         connect_uri="http://localhost:3000",
         username="test",
@@ -1139,12 +1139,65 @@ def test_collection_api_caching(mock_post, mock_get, mock_delete):
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
 
     # Call multiple times - should only make one API call due to caching
-    metabase_source._get_all_collections()
-    metabase_source._get_all_collections()
-    metabase_source._get_all_collections()
+    metabase_source._get_collections_map()
+    metabase_source._get_collections_map()
+    metabase_source._get_collections_map()
 
     # Should only call API once due to @lru_cache
     assert call_count == 1
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_collection_map_returns_dict_keyed_by_id(mock_post, mock_get, mock_delete):
+    """Test that _get_collections_map() returns a dict for O(1) lookup instead of list"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+        extract_collections_as_tags=True,
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+
+    collections_response = MagicMock()
+    collections_response.status_code = 200
+    collections_response.json.return_value = [
+        {"id": "1", "name": "Collection A"},
+        {"id": "2", "name": "Collection B"},
+        {"id": "3", "name": "Collection C"},
+    ]
+
+    def mock_get_collections(url):
+        if "/api/collection/" in url:
+            return collections_response
+        return mock_response
+
+    metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
+
+    collections_map = metabase_source._get_collections_map()
+
+    # Should return dict, not list
+    assert isinstance(collections_map, dict)
+    # Should be keyed by collection ID as string
+    assert "1" in collections_map
+    assert "2" in collections_map
+    assert "3" in collections_map
+    # Should support O(1) lookup
+    assert collections_map["1"]["name"] == "Collection A"
+    assert collections_map["2"]["name"] == "Collection B"
+    assert collections_map["3"]["name"] == "Collection C"
 
     metabase_source.close()
 
@@ -1184,9 +1237,9 @@ def test_collection_404_error_handling(mock_post, mock_get, mock_delete):
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
 
-    # Should return empty list without raising exception
-    collections = metabase_source._get_all_collections()
-    assert collections == []
+    # Should return empty dict without raising exception
+    collections = metabase_source._get_collections_map()
+    assert collections == {}
 
     # Should not report warning for 404
     assert len(metabase_source.report.warnings) == 0
@@ -1231,8 +1284,8 @@ def test_collection_non_404_error_handling(
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
 
-    collections = metabase_source._get_all_collections()
-    assert collections == []
+    collections = metabase_source._get_collections_map()
+    assert collections == {}
 
     assert len(metabase_source.report.warnings) == 1
     warning_message = str(metabase_source.report.warnings[0])
