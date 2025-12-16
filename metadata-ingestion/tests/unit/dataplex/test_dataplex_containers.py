@@ -167,7 +167,7 @@ class TestGenBigQueryContainers:
 
     def test_generate_containers_empty_dataset_set(self, config):
         """Test generation with empty dataset set."""
-        bq_containers = {"test-project": set()}
+        bq_containers: dict[str, set[str]] = {"test-project": set()}
 
         work_units = list(
             gen_bigquery_containers(

@@ -16,7 +16,7 @@ class TestExtractAspectsToCustomProperties:
 
     def test_extract_aspects_with_data(self):
         """Test extracting aspects with data fields."""
-        custom_properties = {}
+        custom_properties: dict[str, str] = {}
 
         # Mock aspect with data
         aspect_value = Mock()
@@ -46,7 +46,7 @@ class TestExtractAspectsToCustomProperties:
 
     def test_extract_aspects_without_data(self):
         """Test extracting aspects without data attribute."""
-        custom_properties = {}
+        custom_properties: dict[str, str] = {}
 
         # Mock aspect without data
         aspect_value = Mock()
@@ -67,7 +67,7 @@ class TestExtractAspectsToCustomProperties:
 
     def test_extract_aspects_with_empty_data(self):
         """Test extracting aspects with empty data."""
-        custom_properties = {}
+        custom_properties: dict[str, str] = {}
 
         # Mock aspect with empty data
         aspect_value = Mock()
@@ -88,7 +88,7 @@ class TestExtractAspectsToCustomProperties:
 
     def test_extract_aspects_with_none_data(self):
         """Test extracting aspects with None data."""
-        custom_properties = {}
+        custom_properties: dict[str, str] = {}
 
         # Mock aspect with None data
         aspect_value = Mock()
@@ -109,7 +109,7 @@ class TestExtractAspectsToCustomProperties:
 
     def test_extract_aspects_with_complex_path(self):
         """Test extracting aspects with complex path in aspect key."""
-        custom_properties = {}
+        custom_properties: dict[str, str] = {}
 
         aspect_value = Mock()
         aspect_value.data = {"field1": "value1"}
@@ -156,10 +156,10 @@ class TestExtractEntryCustomProperties:
         entry_id: str = "test_entry",
         entry_group_id: str = "@bigquery",
         fully_qualified_name: str = "bigquery:project.dataset.table",
-        entry_type: str = "TABLE",
-        parent_entry: str = None,
-        entry_source: Mock = None,
-        aspects: dict = None,
+        entry_type: str | None = "TABLE",
+        parent_entry: str | None = None,
+        entry_source: Mock | None = None,
+        aspects: dict | None = None,
     ) -> dataplex_v1.Entry:
         """Create a mock Dataplex entry."""
         entry = Mock(spec=dataplex_v1.Entry)
@@ -278,7 +278,7 @@ class TestExtractEntryCustomProperties:
         """Test extracting entry without entry_source."""
         entry = self.create_mock_entry()
         # Explicitly set entry_source to None to test the None case
-        entry.entry_source = None
+        entry.entry_source = None  # type: ignore[assignment]
 
         result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
 
@@ -341,13 +341,13 @@ class TestExtractEntityCustomProperties:
     def create_mock_entity(
         self,
         entity_id: str = "test_entity",
-        data_path: str = None,
-        system: Mock = None,
-        format: Mock = None,
-        asset: str = None,
-        catalog_entry: str = None,
-        compatibility: str = None,
-        aspects: dict = None,
+        data_path: str | None = None,
+        system: Mock | None = None,
+        format: Mock | None = None,
+        asset: str | None = None,
+        catalog_entry: str | None = None,
+        compatibility: str | None = None,
+        aspects: dict | None = None,
     ) -> dataplex_v1.Entity:
         """Create a mock Dataplex entity."""
         entity = Mock(spec=dataplex_v1.Entity)

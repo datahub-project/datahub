@@ -63,12 +63,12 @@ class TestProcessEntry:
     def create_mock_entry(
         self,
         name: str,
-        fully_qualified_name: str,
+        fully_qualified_name: str | None,
         entry_type: str = "TABLE",
-        description: str = None,
-        create_time: datetime = None,
-        update_time: datetime = None,
-        aspects: dict = None,
+        description: str | None = None,
+        create_time: datetime | None = None,
+        update_time: datetime | None = None,
+        aspects: dict | None = None,
     ) -> dataplex_v1.Entry:
         """Create a mock Dataplex entry."""
         entry = Mock(spec=dataplex_v1.Entry)
@@ -712,7 +712,7 @@ class TestProcessEntry:
             name="projects/test-project/locations/us/entryGroups/@bigquery/entries/my_table",
             fully_qualified_name="bigquery:test-project.my_dataset.my_table",
         )
-        entry.entry_source = None
+        entry.entry_source = None  # type: ignore[assignment]
 
         results = list(
             process_entry(
