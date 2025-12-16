@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
@@ -192,6 +193,7 @@ export function SelectSourceStep() {
                         })}
                 </CardsContainer>
             )}
+            <CreateSourceEducationModal />
         </StepContainer>
     );
 }
