@@ -83,6 +83,7 @@ export default function LoginModal() {
                     onClick: handleSSOLogin,
                     variant: 'text',
                     color: 'gray',
+                    buttonDataTestId: 'sign-in',
                 },
                 {
                     text: 'Login',

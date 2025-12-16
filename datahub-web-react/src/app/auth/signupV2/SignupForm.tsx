@@ -66,14 +66,14 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
                 <ItemContainer>
                     <FieldLabel label="Email" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
-                        <Input placeholder="name@company.com" isDisabled={isEmailFromQuery} />
+                        <Input placeholder="name@company.com" isDisabled={isEmailFromQuery} data-testid="email" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
                     <FieldLabel label="Full Name" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your name' }]} name="fullName">
-                        <Input placeholder="First name Last name" />
+                        <Input placeholder="First name Last name" data-testid="name" />
                     </Form.Item>
                 </ItemContainer>
 
@@ -93,7 +93,7 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
                         ]}
                         name="password"
                     >
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" data-testid="password" />
                     </Form.Item>
                 </ItemContainer>
 
@@ -113,7 +113,7 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
                         ]}
                         name="confirmPassword"
                     >
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" data-testid="confirmPassword" />
                     </Form.Item>
                 </ItemContainer>
                 <CheckboxContainer>

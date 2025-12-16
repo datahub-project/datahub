@@ -112,6 +112,7 @@ export default function SignUpModal() {
                     text: 'Get Started',
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
+                    buttonDataTestId: 'sign-up',
                 },
             ]}
             onCancel={() => {}}
