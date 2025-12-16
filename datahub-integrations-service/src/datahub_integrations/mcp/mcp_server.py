@@ -50,6 +50,7 @@ from pydantic import BaseModel
 
 # IMPORTANT: Use relative import to maintain compatibility across repositories
 from ._token_estimator import TokenCountEstimator
+from .tools.tags import add_tags, remove_tags
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -2493,6 +2494,35 @@ _tools_registered = False
 _tools_registration_lock = threading.Lock()
 
 
+def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
+    """Register mutation tools on an MCP instance.
+
+    This is the core registration logic that can be used by both production code
+    (via register_all_tools) and tests (with isolated MCP instances).
+
+    Args:
+        mcp_instance: The FastMCP instance to register tools on
+        is_oss: If True, use OSS-compatible tool descriptions (limited sorting fields).
+                If False, use Cloud descriptions (full sorting features).
+    """
+
+    enabled = get_boolean_env_variable("TOOLS_MUTATION_ENABLED")
+    logger.info(f"Mutation Tools {'ENABLED' if enabled else 'DISABLED'} MCP Server.")
+
+    if not enabled:
+        return
+
+    # Register add_tags tool
+    mcp_instance.tool(name="add_tags", description=add_tags.__doc__)(
+        async_background(add_tags)
+    )
+
+    # Register remove_tags tool
+    mcp_instance.tool(name="remove_tags", description=remove_tags.__doc__)(
+        async_background(remove_tags)
+    )
+
+
 def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
     """Register search and entity tools on an MCP instance.
 
@@ -2599,3 +2629,5 @@ def register_all_tools(is_oss: bool = False) -> None:
 
     # Call the core registration logic on the global mcp instance
     register_search_tools(mcp, is_oss)
+
+    register_mutation_tools(mcp, is_oss)
