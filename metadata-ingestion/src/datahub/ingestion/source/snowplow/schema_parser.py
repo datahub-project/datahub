@@ -2,6 +2,10 @@
 Utility for parsing Snowplow JSON Schemas to DataHub schema format.
 
 Converts JSON Schema definitions (used by Snowplow/Iglu) to DataHub's SchemaMetadata.
+
+Schema V1/V2 Support:
+- Simple scalar fields use V1 format: user_id, timestamp
+- Complex types use V2 format: [version=2.0].items[type=array].price
 """
 
 import logging
@@ -12,7 +16,6 @@ from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DateTypeClass,
     EnumTypeClass,
-    MapTypeClass,
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
@@ -24,6 +27,11 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Schema V2 tokens
+VERSION_PREFIX = "[version=2.0]"
+ARRAY_TYPE_TOKEN = "[type=array]"
+RECORD_TYPE_TOKEN = "[type=record]"
 
 
 class SnowplowSchemaParser:
@@ -72,6 +80,10 @@ class SnowplowSchemaParser:
         """
         Parse JSON Schema to DataHub SchemaMetadata.
 
+        Generates mixed V1/V2 schema:
+        - Simple fields: V1 format (e.g., user_id)
+        - Complex fields: V2 format (e.g., [version=2.0].items[type=array].price)
+
         Args:
             schema_data: JSON Schema definition (with 'properties' field)
             vendor: Schema vendor (for field path prefixes)
@@ -86,16 +98,15 @@ class SnowplowSchemaParser:
 
         fields: List[SchemaFieldClass] = []
 
-        # Parse top-level properties
+        # Parse top-level properties (recursively for nested structures)
         for field_name, field_def in properties.items():
-            field = SnowplowSchemaParser._parse_field(
+            parsed_fields = SnowplowSchemaParser._parse_field(
                 field_name=field_name,
                 field_def=field_def,
                 parent_path="",
                 required_fields=required_fields,
             )
-            if field:
-                fields.append(field)
+            fields.extend(parsed_fields)
 
         return SchemaMetadataClass(
             schemaName=f"{vendor}/{name}",
@@ -112,9 +123,15 @@ class SnowplowSchemaParser:
         field_def: Dict[str, Any],
         parent_path: str,
         required_fields: set,
-    ) -> Optional[SchemaFieldClass]:
+    ) -> List[SchemaFieldClass]:
         """
-        Parse a single field from JSON Schema.
+        Parse a field from JSON Schema, recursively handling nested structures.
+
+        Returns a list of fields (1 for simple types, multiple for complex types with nested fields).
+
+        Uses mixed V1/V2 format:
+        - Simple scalar types: V1 paths (e.g., "user_id")
+        - Complex types: V2 paths (e.g., "[version=2.0].items[type=array].price")
 
         Args:
             field_name: Field name
@@ -123,11 +140,8 @@ class SnowplowSchemaParser:
             required_fields: Set of required field names
 
         Returns:
-            DataHub SchemaField or None if parsing fails
+            List of DataHub SchemaFields (single field for scalars, multiple for nested structures)
         """
-        # Build full field path
-        field_path = f"{parent_path}.{field_name}" if parent_path else field_name
-
         # Extract field metadata
         description = field_def.get("description", "")
         json_type = field_def.get("type")
@@ -145,32 +159,189 @@ class SnowplowSchemaParser:
         # Ensure json_type is a string for type checking
         json_type_str = str(json_type) if json_type is not None else None
 
-        # Determine DataHub type
-        try:
-            datahub_type = SnowplowSchemaParser._get_datahub_type(
-                json_type=json_type_str,
-                json_format=json_format,
-                enum_values=enum_values,
-                field_def=field_def,
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to determine type for field '{field_path}': {e}. "
-                f"Using StringType as fallback."
-            )
-            datahub_type = SchemaFieldDataTypeClass(type=StringTypeClass())
-
         # Check if required
         is_required = field_name in required_fields
+        is_nullable_final = is_nullable or not is_required
 
-        return SchemaFieldClass(
+        # Build field path based on whether this is a complex type
+        is_complex = json_type_str in ("array", "object")
+
+        if is_complex and not parent_path:
+            # Top-level complex field: use V2 format
+            field_path = f"{VERSION_PREFIX}.{field_name}"
+        elif parent_path:
+            # Nested field: append to parent path
+            field_path = f"{parent_path}.{field_name}"
+        else:
+            # Top-level simple field: use V1 format
+            field_path = field_name
+
+        # Handle different types
+        if json_type_str == "array":
+            return SnowplowSchemaParser._parse_array_field(
+                field_path=field_path,
+                field_def=field_def,
+                description=description,
+                is_nullable=is_nullable_final,
+                required_fields=required_fields,
+            )
+
+        elif json_type_str == "object":
+            return SnowplowSchemaParser._parse_object_field(
+                field_path=field_path,
+                field_def=field_def,
+                description=description,
+                is_nullable=is_nullable_final,
+                required_fields=required_fields,
+            )
+
+        else:
+            # Simple scalar field
+            try:
+                datahub_type = SnowplowSchemaParser._get_datahub_type(
+                    json_type=json_type_str,
+                    json_format=json_format,
+                    enum_values=enum_values,
+                    field_def=field_def,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to determine type for field '{field_path}': {e}. "
+                    f"Using StringType as fallback."
+                )
+                datahub_type = SchemaFieldDataTypeClass(type=StringTypeClass())
+
+            return [
+                SchemaFieldClass(
+                    fieldPath=field_path,
+                    type=datahub_type,
+                    nativeDataType=json_type_str or "string",
+                    description=description or None,
+                    nullable=is_nullable_final,
+                    isPartOfKey=False,
+                )
+            ]
+
+    @staticmethod
+    def _parse_array_field(
+        field_path: str,
+        field_def: Dict[str, Any],
+        description: str,
+        is_nullable: bool,
+        required_fields: set,
+    ) -> List[SchemaFieldClass]:
+        """
+        Parse an array field, creating the array field + nested fields for array items.
+
+        For array of objects: Creates multiple fields with V2 paths like:
+        - [version=2.0].items (array type)
+        - [version=2.0].items[type=array].price (nested field in array items)
+
+        Args:
+            field_path: Field path for the array field
+            field_def: Array field definition
+            description: Field description
+            is_nullable: Whether field is nullable
+            required_fields: Set of required field names
+
+        Returns:
+            List of schema fields (array field + nested fields if items are objects)
+        """
+        items_def = field_def.get("items", {})
+        item_type = items_def.get("type", "string")
+
+        fields: List[SchemaFieldClass] = []
+
+        # Create the array field itself
+        array_field = SchemaFieldClass(
             fieldPath=field_path,
-            type=datahub_type,
-            nativeDataType=json_type if isinstance(json_type, str) else str(json_type),
+            type=SchemaFieldDataTypeClass(
+                type=ArrayTypeClass(
+                    nestedType=[item_type if isinstance(item_type, str) else "string"]
+                )
+            ),
+            nativeDataType="array",
             description=description or None,
-            nullable=is_nullable or not is_required,
-            isPartOfKey=False,  # Snowplow events don't have explicit keys
+            nullable=is_nullable,
+            isPartOfKey=False,
         )
+        fields.append(array_field)
+
+        # If array items are objects, recursively parse their properties
+        if item_type == "object":
+            items_properties = items_def.get("properties", {})
+            items_required = set(items_def.get("required", []))
+
+            # Parse each property of the array items
+            for prop_name, prop_def in items_properties.items():
+                # Build V2 path: parent_path.[type=array].property_name
+                # Note: Dot before type annotation is required per DataHub V2 format
+                nested_path = f"{field_path}.{ARRAY_TYPE_TOKEN}"
+                nested_fields = SnowplowSchemaParser._parse_field(
+                    field_name=prop_name,
+                    field_def=prop_def,
+                    parent_path=nested_path,
+                    required_fields=items_required,
+                )
+                fields.extend(nested_fields)
+
+        return fields
+
+    @staticmethod
+    def _parse_object_field(
+        field_path: str,
+        field_def: Dict[str, Any],
+        description: str,
+        is_nullable: bool,
+        required_fields: set,
+    ) -> List[SchemaFieldClass]:
+        """
+        Parse an object field, creating the record field + nested fields for object properties.
+
+        For nested objects: Creates multiple fields with V2 paths like:
+        - [version=2.0].address (record type)
+        - [version=2.0].address[type=record].street (nested field in record)
+
+        Args:
+            field_path: Field path for the object field
+            field_def: Object field definition
+            description: Field description
+            is_nullable: Whether field is nullable
+            required_fields: Set of required field names
+
+        Returns:
+            List of schema fields (record field + nested property fields)
+        """
+        properties = field_def.get("properties", {})
+        nested_required = set(field_def.get("required", []))
+
+        fields: List[SchemaFieldClass] = []
+
+        # Create the record field itself
+        record_field = SchemaFieldClass(
+            fieldPath=field_path,
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+            nativeDataType="object",
+            description=description or None,
+            nullable=is_nullable,
+            isPartOfKey=False,
+        )
+        fields.append(record_field)
+
+        # Recursively parse nested properties
+        for prop_name, prop_def in properties.items():
+            # Build V2 path: parent_path.[type=record].property_name
+            # Note: Dot before type annotation is required per DataHub V2 format
+            nested_path = f"{field_path}.{RECORD_TYPE_TOKEN}"
+            nested_fields = SnowplowSchemaParser._parse_field(
+                field_name=prop_name,
+                field_def=prop_def,
+                parent_path=nested_path,
+                required_fields=nested_required,
+            )
+            fields.extend(nested_fields)
+
+        return fields
 
     @staticmethod
     def _get_datahub_type(
@@ -182,11 +353,14 @@ class SnowplowSchemaParser:
         """
         Get DataHub field type from JSON Schema type.
 
+        Note: This is for simple scalar types only. Complex types (array, object)
+        are handled by _parse_array_field and _parse_object_field.
+
         Args:
             json_type: JSON Schema type (string, number, etc.)
             json_format: JSON Schema format (date-time, email, etc.)
             enum_values: Enum values if type is enum
-            field_def: Full field definition (for nested types)
+            field_def: Full field definition
 
         Returns:
             DataHub SchemaFieldDataType
@@ -200,7 +374,7 @@ class SnowplowSchemaParser:
             type_class = SnowplowSchemaParser.JSON_SCHEMA_FORMAT_MAP[json_format]
             return SchemaFieldDataTypeClass(type=type_class())  # type: ignore[arg-type]
 
-        # Handle basic types
+        # Handle basic scalar types
         if json_type == "string":
             return SchemaFieldDataTypeClass(type=StringTypeClass())
 
@@ -209,27 +383,6 @@ class SnowplowSchemaParser:
 
         elif json_type == "boolean":
             return SchemaFieldDataTypeClass(type=BooleanTypeClass())
-
-        elif json_type == "array":
-            # Get array item type
-            items_def = field_def.get("items", {})
-            item_type = items_def.get("type", "string")
-
-            # Determine the nested type string
-            # nestedType should be a list of strings, not type class instances
-            nested_type_str = item_type if isinstance(item_type, str) else "string"
-
-            return SchemaFieldDataTypeClass(
-                type=ArrayTypeClass(nestedType=[nested_type_str])
-            )
-
-        elif json_type == "object":
-            # Nested object - would need recursive field parsing
-            # For now, represent as Map type
-            # keyType and valueType should be strings
-            return SchemaFieldDataTypeClass(
-                type=MapTypeClass(keyType="string", valueType="string")
-            )
 
         elif json_type == "null":
             return SchemaFieldDataTypeClass(type=NullTypeClass())

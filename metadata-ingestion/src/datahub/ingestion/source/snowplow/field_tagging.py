@@ -27,6 +27,7 @@ class FieldTagContext:
     field_description: Optional[str]
     deployment_initiator: Optional[str]  # Who deployed this version
     pii_fields: Set[str]  # PII fields from PII enrichment config
+    skip_version_tag: bool = False  # Skip version tag for initial version fields
 
 
 class FieldTagger:
@@ -47,23 +48,25 @@ class FieldTagger:
 
         tags: Set[str] = set()
 
-        # Schema version tag
-        if self.config.tag_schema_version:
+        # Schema version tag (skip for initial version fields)
+        if self.config.tag_schema_version and not context.skip_version_tag:
             version_tag = self._make_version_tag(context.schema_version)
             tags.add(version_tag)
 
-        # Event type tag
-        if self.config.tag_event_type:
-            event_tag = self._make_event_type_tag(context.name)
-            tags.add(event_tag)
+        # Note: Event type tag is applied at dataset level, not field level
+        # See _process_schema() where dataset-level tags are added
 
         # Data classification tags
         if self.config.tag_data_class:
             class_tags = self._classify_field(context.field_name, context.pii_fields)
             tags.update(class_tags)
 
-        # Authorship tag
-        if self.config.tag_authorship and context.deployment_initiator:
+        # Authorship tag (skip for initial version fields, same as version tag)
+        if (
+            self.config.tag_authorship
+            and context.deployment_initiator
+            and not context.skip_version_tag
+        ):
             author_tag = self._make_authorship_tag(context.deployment_initiator)
             tags.add(author_tag)
 
@@ -91,14 +94,13 @@ class FieldTagger:
 
     def _make_authorship_tag(self, author: str) -> str:
         """Create authorship tag."""
-        # Convert "Jane Doe" to "jane" or extract email username
-        # Handle email addresses (jane@company.com -> jane)
+        # Convert "Jane Doe" to "jane_doe" or extract email username
+        # Handle email addresses (jane.doe@company.com -> jane_doe)
         if "@" in author:
             author = author.split("@")[0]
 
         # Convert to lowercase and replace spaces/dots with underscores
-        author_slug = author.lower().split()[0] if " " in author else author.lower()
-        author_slug = author_slug.replace(" ", "_").replace(".", "_")
+        author_slug = author.lower().replace(" ", "_").replace(".", "_")
         return self.config.authorship_pattern.format(author=author_slug)
 
     def _classify_field(self, field_name: str, pii_fields: Set[str]) -> Set[str]:

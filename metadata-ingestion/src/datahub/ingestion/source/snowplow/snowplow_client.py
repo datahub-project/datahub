@@ -7,8 +7,9 @@ Snowplow BDP (Behavioral Data Platform) Console API.
 API Documentation: https://console.snowplowanalytics.com/api/msc/v1/docs/
 """
 
+import json
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -114,13 +115,25 @@ class SnowplowBDPClient:
             response.raise_for_status()
 
             # Parse response using Pydantic model
-            token_response = TokenResponse.model_validate(response.json())
-            self._jwt_token = token_response.access_token
+            response_data = response.json()
+            try:
+                token_response = TokenResponse.model_validate(response_data)
+                self._jwt_token = token_response.access_token
 
-            # Set JWT in session headers for future requests
-            self.session.headers.update({"Authorization": f"Bearer {self._jwt_token}"})
+                # Set JWT in session headers for future requests
+                self.session.headers.update(
+                    {"Authorization": f"Bearer {self._jwt_token}"}
+                )
 
-            logger.info("Successfully authenticated with Snowplow BDP Console API")
+                logger.info("Successfully authenticated with Snowplow BDP Console API")
+            except Exception as parse_error:
+                logger.error(f"Failed to parse authentication response: {parse_error}")
+                logger.error(
+                    f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+                )
+                raise ValueError(
+                    f"Invalid authentication response format: {parse_error}"
+                ) from parse_error
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 401:
@@ -226,15 +239,22 @@ class SnowplowBDPClient:
                 logger.warning("Empty response from organization endpoint")
                 return None
 
-            organization = Organization.model_validate(response_data)
-            logger.info(f"Found organization: {organization.name}")
+            try:
+                organization = Organization.model_validate(response_data)
+                logger.info(f"Found organization: {organization.name}")
 
-            if organization.source:
-                logger.info(
-                    f"Organization has warehouse destination: {organization.source.name}"
+                if organization.source:
+                    logger.info(
+                        f"Organization has warehouse destination: {organization.source.name}"
+                    )
+
+                return organization
+            except Exception as parse_error:
+                logger.error(f"Failed to parse organization response: {parse_error}")
+                logger.error(
+                    f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
-
-            return organization
+                return None
 
         except Exception as e:
             logger.warning(f"Failed to fetch organization details: {e}")
@@ -267,7 +287,7 @@ class SnowplowBDPClient:
         # Supports pagination via 'from' and 'size' parameters
         endpoint = f"organizations/{self.organization_id}/data-structures/v1"
 
-        params = {}
+        params: Dict[str, str] = {}
         if vendor:
             params["vendor"] = vendor
         if name:
@@ -277,13 +297,13 @@ class SnowplowBDPClient:
             f"Fetching data structures from Snowplow (vendor={vendor}, name={name})"
         )
 
-        all_structures = []
+        all_structures: List[DataStructure] = []
         offset = 0
 
         while True:
             # Add pagination parameters
-            params["from"] = offset
-            params["size"] = page_size
+            params["from"] = str(offset)
+            params["size"] = str(page_size)
 
             logger.debug(f"Fetching page: offset={offset}, size={page_size}")
 
@@ -311,8 +331,6 @@ class SnowplowBDPClient:
                 offset += len(page_structures)
 
             except Exception as e:
-                import json
-
                 logger.error(f"Failed to parse data structures page: {e}")
                 logger.error(
                     f"Raw response data (first item): {json.dumps(response_data[0] if response_data else 'empty', indent=2, default=str)}"
@@ -347,8 +365,6 @@ class SnowplowBDPClient:
             # Real BDP API returns data structure directly, not wrapped
             return DataStructure.model_validate(response_data)
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse data structure {data_structure_hash}: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -427,8 +443,6 @@ class SnowplowBDPClient:
 
             return DataStructure.model_validate(data_structure_dict)
         except Exception as e:
-            import json
-
             logger.error(
                 f"Failed to parse schema version {data_structure_hash}/{version}: {e}"
             )
@@ -443,28 +457,45 @@ class SnowplowBDPClient:
         """
         Get deployment information for data structure.
 
+        Returns ALL historical deployments, not just current deployments per environment.
+        Uses pagination to retrieve complete deployment history.
+
         API Reference: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/
 
         Args:
             data_structure_hash: Data structure hash identifier
 
         Returns:
-            List of deployments
+            List of all deployments (historical and current)
         """
         # GET /organizations/{organizationId}/data-structures/v1/{dataStructureHash}/deployments
-        # Docs: https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/
+        # IMPORTANT: Must use pagination params (from, size) to get full deployment history
+        # Without pagination, only returns CURRENT deployment per environment
         endpoint = f"organizations/{self.organization_id}/data-structures/v1/{data_structure_hash}/deployments"
 
-        response_data = self._request("GET", endpoint)
+        # Use large page size to get all deployments in one call
+        # Typical schemas have <100 deployments, 1000 is more than sufficient
+        params = {"from": 0, "size": 1000}
+
+        response_data = self._request("GET", endpoint, params=params)
 
         if not response_data:
             return []
 
         try:
-            deployments_list = response_data.get("data", [])
+            # With pagination params, response is a direct array
+            # Without pagination, response is {"data": [...]}
+            if isinstance(response_data, list):
+                deployments_list = response_data
+            else:
+                deployments_list = response_data.get("data", [])
+
             return [DataStructureDeployment.model_validate(d) for d in deployments_list]
         except Exception as e:
             logger.error(f"Failed to parse deployments for {data_structure_hash}: {e}")
+            logger.error(
+                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+            )
             return []
 
     # ============================================
@@ -515,8 +546,6 @@ class SnowplowBDPClient:
 
             return response.data
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse event specifications: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -552,6 +581,9 @@ class SnowplowBDPClient:
             return EventSpecification.model_validate(response_data.get("data", {}))
         except Exception as e:
             logger.error(f"Failed to parse event specification {event_spec_id}: {e}")
+            logger.error(
+                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+            )
             return None
 
     # ============================================
@@ -602,8 +634,6 @@ class SnowplowBDPClient:
 
             return response.data
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse tracking scenarios: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -637,6 +667,9 @@ class SnowplowBDPClient:
             return TrackingScenario.model_validate(response_data.get("data", {}))
         except Exception as e:
             logger.error(f"Failed to parse tracking scenario {scenario_id}: {e}")
+            logger.error(
+                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+            )
             return None
 
     # ============================================
@@ -689,8 +722,6 @@ class SnowplowBDPClient:
 
             return response.data
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse data products: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -721,6 +752,9 @@ class SnowplowBDPClient:
             return DataProduct.model_validate(response_data.get("data", {}))
         except Exception as e:
             logger.error(f"Failed to parse data product {product_id}: {e}")
+            logger.error(
+                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+            )
             return None
 
     def get_data_models(self, data_product_id: str) -> List[DataModel]:
@@ -767,6 +801,9 @@ class SnowplowBDPClient:
                 data_models.append(data_model)
             except Exception as e:
                 logger.warning(f"Failed to parse data model: {e}")
+                logger.warning(
+                    f"Raw model data: {json.dumps(model_data, indent=2, default=str)}"
+                )
                 continue
 
         logger.debug(
@@ -808,8 +845,6 @@ class SnowplowBDPClient:
 
             return response.pipelines
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse pipelines: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -838,6 +873,9 @@ class SnowplowBDPClient:
             return Pipeline.model_validate(response_data)
         except Exception as e:
             logger.error(f"Failed to parse pipeline {pipeline_id}: {e}")
+            logger.error(
+                f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+            )
             return None
 
     def get_enrichments(self, pipeline_id: str) -> List[Enrichment]:
@@ -873,8 +911,6 @@ class SnowplowBDPClient:
 
             return enrichments
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse enrichments: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -920,8 +956,6 @@ class SnowplowBDPClient:
 
             return destinations
         except Exception as e:
-            import json
-
             logger.error(f"Failed to parse destinations: {e}")
             logger.error(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
@@ -996,8 +1030,6 @@ class SnowplowBDPClient:
             logger.info(f"Found {len(users)} users")
             return users
         except Exception as e:
-            import json
-
             logger.warning(f"Failed to fetch users: {e}")
             if isinstance(response_data, list) and response_data:
                 logger.error(

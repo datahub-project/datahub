@@ -13,7 +13,7 @@
 - **Event Specifications**: High-level tracking plans referencing schemas
 - **Tracking Scenarios**: Business scenarios grouping event specifications
 - **Data Products**: Business-level groupings with ownership and domain
-- **Enrichments**: Processing steps within pipelines (not yet available via API)
+- **Enrichments**: Processing steps within pipelines that transform event data
 
 ## Entity Mapping
 
@@ -21,7 +21,7 @@
 |----------------|---------------------|---------|--------|-------|
 | Organization | Container | N/A | None | Top-level container |
 | Pipeline | DataFlow | N/A | None | Data processing pipeline |
-| Enrichment | DataJob | N/A | Pipeline (DataFlow) | **Future**: Not yet available via API |
+| Enrichment | DataJob | N/A | Pipeline (DataFlow) | Processing steps within pipeline |
 | Data Structure (Schema) | Dataset | Schema | Organization | JSON schemas in Iglu format |
 | Event Specification | Dataset | Event Spec | Organization | References schemas, has lineage |
 | Tracking Scenario | Container | Tracking Scenario | Organization | Groups event specifications |
@@ -32,14 +32,14 @@
 **Pipeline → DataFlow** (not Container):
 - Pipelines represent actual data processing flows
 - Have operational status (ready, starting, stopping)
-- Contain enrichment jobs (when API becomes available)
+- Contain enrichment jobs as DataJob entities
 - Process data structures → produce enriched events
 
-**Enrichments → DataJob** (future):
+**Enrichments → DataJob**:
 - Individual processing steps within pipeline
 - Transform and enrich event data
 - Belong to pipeline DataFlow
-- **API not yet available** - documented as future enhancement
+- Extract field-level lineage for specific enrichment types
 
 ## Metadata Extraction Plan
 
@@ -56,29 +56,27 @@
 - [x] Data products as containers
 - [x] Data product → event spec relationships
 - [x] Data product ownership extraction
-
-### 🚧 In Progress:
-- [ ] Pipelines as DataFlow entities
-- [ ] Pipeline configuration and status
-- [ ] Pipeline → data structure relationships
+- [x] Pipelines as DataFlow entities
+- [x] Pipeline configuration and status
+- [x] Enrichments as DataJob entities
+- [x] Enrichment → pipeline relationships
+- [x] Enrichment field-level lineage (IP Lookup, UA Parser, Referer Parser, Currency Conversion)
+- [x] Warehouse lineage via Data Models API (disabled by default)
+- [x] Iglu-only mode with automatic schema discovery
 
 ### 🔮 Future Enhancements:
-- [ ] Enrichments as DataJob entities (waiting for API availability)
-- [ ] Enrichment → pipeline relationships
-- [ ] Data structure → enrichment → output lineage
+- [ ] Additional enrichment lineage extractors (as needed)
 - [ ] Workspace extraction (if needed)
+- [ ] Column-level lineage from warehouse query logs (use warehouse connector instead)
 
 ## Lineage Extraction Plan
 
-### Current Lineage:
+### Implemented Lineage:
 1. **Event Spec → Schema**: Event specifications reference schemas via `eventSchemas` field
 2. **Tracking Scenario → Event Spec**: Tracking scenarios contain event specs via `eventSpecs` field
 3. **Data Product → Event Spec**: Data products reference event specs via `eventSpecs` field
-
-### Planned Lineage (with Pipelines):
-1. **Data Structure → Pipeline**: Schemas consumed by pipeline
-2. **Pipeline → Enriched Events**: Pipeline produces enriched output
-3. **Enrichment Jobs → Data**: Individual enrichment transformations (future)
+4. **Schema → Enrichment → atomic.events**: Field-level lineage through enrichment jobs
+5. **atomic.events → Data Models → derived tables**: Table-level lineage via Data Models API (disabled by default)
 
 ## Fine-Grained (Column-Level) Lineage Plan
 
@@ -726,7 +724,7 @@ Created new `field_tagging.py` module with:
 | Schema Version | `snowplow_schema_v1-0-0` | Track which version added/modified field |
 | Event Type | `snowplow_event_checkout` | Group fields by event category |
 | Data Class | `PII`, `Sensitive` | From Snowplow's PII enrichment flags |
-| Authorship | `added_by_ryan` | Who deployed the field |
+| Authorship | `added_by_ryan_smith` | Who deployed the field (full name) |
 
 **Implementation**:
 

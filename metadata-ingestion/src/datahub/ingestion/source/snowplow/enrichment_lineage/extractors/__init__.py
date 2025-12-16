@@ -5,8 +5,14 @@ This package contains individual extractor implementations for each type of
 Snowplow enrichment.
 """
 
+from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.campaign_attribution import (
+    CampaignAttributionLineageExtractor,
+)
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.currency_conversion import (
     CurrencyConversionLineageExtractor,
+)
+from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.event_fingerprint import (
+    EventFingerprintLineageExtractor,
 )
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.ip_lookup import (
     IpLookupLineageExtractor,
@@ -23,4 +29,6 @@ __all__ = [
     "UaParserLineageExtractor",
     "RefererParserLineageExtractor",
     "CurrencyConversionLineageExtractor",
+    "CampaignAttributionLineageExtractor",
+    "EventFingerprintLineageExtractor",
 ]

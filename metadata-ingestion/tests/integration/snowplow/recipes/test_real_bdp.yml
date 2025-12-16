@@ -17,7 +17,6 @@ source:
     extract_tracking_scenarios: true
     extract_data_products: true
     extract_event_specifications: true  # Required for relationships
-
     # Extract pipelines and enrichments (for lineage)
     extract_pipelines: true
     extract_enrichments: true
@@ -37,6 +36,7 @@ source:
       tag_data_class: true
       tag_authorship: true
       use_pii_enrichment: true
+      track_field_versions: true
 
 sink:
   type: datahub-rest

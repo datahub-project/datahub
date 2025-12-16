@@ -6,6 +6,7 @@ Supports two deployment modes:
 2. Open Source - Self-hosted with Iglu registry access
 """
 
+import logging
 from typing import List, Optional
 
 import pydantic
@@ -191,7 +192,16 @@ class FieldTaggingConfig(ConfigModel):
 
     tag_authorship: bool = Field(
         default=True,
-        description="Tag fields with authorship (e.g., added_by_ryan)",
+        description="Tag fields with authorship (e.g., added_by_ryan_smith)",
+    )
+
+    # Field version tracking
+    track_field_versions: bool = Field(
+        default=False,
+        description="Track which version each field was added in. "
+        "When enabled, compares schema versions to determine when fields were introduced. "
+        "Tags fields with their introduction version and adds 'Added in version X' to descriptions. "
+        "Disabled by default as it requires fetching all schema versions (slower ingestion).",
     )
 
     # Custom tag patterns
@@ -241,6 +251,29 @@ class FieldTaggingConfig(ConfigModel):
             "auth",
         ],
         description="Field name patterns to classify as Sensitive",
+    )
+
+
+class PerformanceConfig(ConfigModel):
+    """
+    Performance and scaling configuration.
+
+    Controls parallel processing, caching, and limits for large-scale deployments.
+    """
+
+    # API concurrency
+    max_concurrent_api_calls: int = Field(
+        default=10,
+        description="Maximum concurrent API calls for deployment fetching. "
+        "Increase for faster ingestion of large organizations with many schemas. "
+        "Recommended: 5-20 depending on API rate limits.",
+    )
+
+    enable_parallel_fetching: bool = Field(
+        default=True,
+        description="Enable parallel fetching of schema deployments. "
+        "Significantly speeds up ingestion when field version tracking is enabled. "
+        "Disable for debugging or if API rate limits are strict.",
     )
 
 
@@ -386,6 +419,15 @@ class SnowplowSourceConfig(
     )
 
     # ============================================
+    # Performance & Scaling
+    # ============================================
+
+    performance: PerformanceConfig = Field(
+        default_factory=PerformanceConfig,
+        description="Performance and scaling configuration for large deployments",
+    )
+
+    # ============================================
     # Stateful Ingestion
     # ============================================
 
@@ -410,8 +452,6 @@ class SnowplowSourceConfig(
 
         # Iglu-only mode: automatic discovery via /api/schemas endpoint
         if self.bdp_connection is None and self.iglu_connection is not None:
-            import logging
-
             logging.getLogger(__name__).info(
                 "Iglu-only mode: will use automatic schema discovery via /api/schemas endpoint. "
                 "Requires Iglu Server 0.6+ with list schemas support."
@@ -426,8 +466,6 @@ class SnowplowSourceConfig(
         if v:
             bdp_conn = info.data.get("bdp_connection")
             if bdp_conn is None:
-                import logging
-
                 logging.getLogger(__name__).warning(
                     "extract_event_specifications is enabled but bdp_connection is not configured. "
                     "Event specifications are only available via BDP Console API."
@@ -441,8 +479,6 @@ class SnowplowSourceConfig(
         if v:
             bdp_conn = info.data.get("bdp_connection")
             if bdp_conn is None:
-                import logging
-
                 logging.getLogger(__name__).warning(
                     "extract_tracking_scenarios is enabled but bdp_connection is not configured. "
                     "Tracking scenarios are only available via BDP Console API."

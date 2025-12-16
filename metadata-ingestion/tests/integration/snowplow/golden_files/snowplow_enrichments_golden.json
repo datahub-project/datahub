@@ -19,7 +19,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -35,7 +35,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -51,7 +51,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -69,7 +69,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -85,7 +85,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -101,7 +101,27 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:snowplow_event_checkout"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -147,9 +167,6 @@
                                 "tag": "urn:li:tag:added_by_jane"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_checkout"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-1-0"
                             }
                         ]
@@ -171,9 +188,6 @@
                         "tags": [
                             {
                                 "tag": "urn:li:tag:added_by_jane"
-                            },
-                            {
-                                "tag": "urn:li:tag:snowplow_event_checkout"
                             },
                             {
                                 "tag": "urn:li:tag:snowplow_schema_v1-1-0"
@@ -199,9 +213,6 @@
                                 "tag": "urn:li:tag:added_by_jane"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_checkout"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-1-0"
                             }
                         ]
@@ -209,7 +220,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "items",
+                    "fieldPath": "[version=2.0].items",
                     "nullable": true,
                     "description": "Items in checkout",
                     "type": {
@@ -229,7 +240,73 @@
                                 "tag": "urn:li:tag:added_by_jane"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_checkout"
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].items.[type=array].product_id",
+                    "nullable": false,
+                    "description": "Product identifier",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].items.[type=array].quantity",
+                    "nullable": false,
+                    "description": "Quantity of items",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
+                            },
+                            {
+                                "tag": "urn:li:tag:snowplow_schema_v1-1-0"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].items.[type=array].price",
+                    "nullable": false,
+                    "description": "Price per item in cents",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:added_by_jane"
                             },
                             {
                                 "tag": "urn:li:tag:snowplow_schema_v1-1-0"
@@ -243,7 +320,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -259,7 +336,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -275,10 +352,11 @@
                 "schemaVersion": "1-1-0",
                 "schema_type": "event",
                 "hidden": "False",
+                "igluUri": "iglu:com.acme/checkout_started/jsonschema/1-1-0",
                 "team": "checkout",
                 "format": "jsonschema"
             },
-            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/com.acme/checkout_started/1-1-0",
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/abc123def456?version=1-1-0",
             "name": "checkout_started",
             "description": "Event fired when user starts checkout process",
             "tags": []
@@ -286,7 +364,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -302,7 +380,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -320,7 +398,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -358,7 +436,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -379,7 +457,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -407,7 +485,10 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),amount)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),currency)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),discount_code)",
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),items)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items.[type=array].product_id)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items.[type=array].quantity)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items.[type=array].price)"
                     ],
                     "downstreamType": "FIELD_SET",
                     "downstreams": [
@@ -420,7 +501,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -436,7 +517,27 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:snowplow_event_product"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -482,9 +583,6 @@
                                 "tag": "urn:li:tag:added_by_alice"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_product"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
                             }
                         ]
@@ -508,9 +606,6 @@
                                 "tag": "urn:li:tag:added_by_alice"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_product"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
                             }
                         ]
@@ -532,9 +627,6 @@
                         "tags": [
                             {
                                 "tag": "urn:li:tag:added_by_alice"
-                            },
-                            {
-                                "tag": "urn:li:tag:snowplow_event_product"
                             },
                             {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
@@ -563,9 +655,6 @@
                                 "tag": "urn:li:tag:added_by_alice"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_product"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
                             }
                         ]
@@ -577,7 +666,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -593,7 +682,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -609,10 +698,11 @@
                 "schemaVersion": "1-0-0",
                 "schema_type": "event",
                 "hidden": "False",
+                "igluUri": "iglu:com.acme/product_viewed/jsonschema/1-0-0",
                 "team": "product",
                 "format": "jsonschema"
             },
-            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/com.acme/product_viewed/1-0-0",
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/def456ghi789?version=1-0-0",
             "name": "product_viewed",
             "description": "Event fired when user views a product",
             "tags": []
@@ -620,7 +710,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -636,7 +726,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -654,7 +744,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -684,7 +774,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -705,7 +795,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -746,7 +836,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -762,7 +852,27 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:snowplow_event_user"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -811,9 +921,6 @@
                                 "tag": "urn:li:tag:added_by_bob"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_user"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
                             }
                         ]
@@ -835,9 +942,6 @@
                         "tags": [
                             {
                                 "tag": "urn:li:tag:added_by_bob"
-                            },
-                            {
-                                "tag": "urn:li:tag:snowplow_event_user"
                             },
                             {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
@@ -863,9 +967,6 @@
                                 "tag": "urn:li:tag:added_by_bob"
                             },
                             {
-                                "tag": "urn:li:tag:snowplow_event_user"
-                            },
-                            {
                                 "tag": "urn:li:tag:snowplow_schema_v1-0-0"
                             }
                         ]
@@ -877,7 +978,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -893,7 +994,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -909,9 +1010,10 @@
                 "schemaVersion": "1-0-0",
                 "schema_type": "entity",
                 "hidden": "False",
+                "igluUri": "iglu:com.acme/user_context/jsonschema/1-0-0",
                 "format": "jsonschema"
             },
-            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/com.acme/user_context/1-0-0",
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/ghi789jkl012?version=1-0-0",
             "name": "user_context",
             "description": "User context entity",
             "tags": []
@@ -919,7 +1021,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -935,7 +1037,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -953,7 +1055,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -983,7 +1085,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1004,7 +1106,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1044,7 +1146,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1070,7 +1172,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1086,7 +1188,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1102,7 +1204,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1123,7 +1225,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1146,7 +1248,7 @@
                 "parameters": "{'fields': {'mktCampaign': ['utm_campaign'], 'mktContent': ['utm_content'], 'mktMedium': ['utm_medium'], 'mktSource': ['utm_source'], 'mktTerm': ['utm_term']}, 'mapping': 'static'}"
             },
             "name": "campaign_attribution",
-            "description": "campaign_attribution enrichment",
+            "description": "## campaign_attribution enrichment\n\n**Adds fields:**\n- `mkt_campaign`\n- `mkt_clickid`\n- `mkt_content`\n- `mkt_medium`\n- `mkt_network`\n- `mkt_source`\n- `mkt_term`\n\n**From source fields:**\n- `page_urlquery`",
             "type": {
                 "string": "ENRICHMENT"
             }
@@ -1154,7 +1256,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1170,7 +1272,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1187,12 +1289,98 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_medium)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_source)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_term)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_content)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_campaign)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_clickid)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),page_urlquery)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_network)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1215,7 +1403,7 @@
                 "parameters": "{'excludeParameters': ['cv', 'eid', 'nuid', 'stm'], 'hashAlgorithm': 'MD5'}"
             },
             "name": "event_fingerprint_config",
-            "description": "event_fingerprint_config enrichment",
+            "description": "## event_fingerprint_config enrichment\n\n**Adds fields:**\n- `event_fingerprint`\n\n**From source fields:**\n- `app_id`\n- `collector_tstamp`\n- `domain_sessionid`\n- `domain_userid`\n- `dvce_created_tstamp`\n- `event`\n- `event_id`\n- `event_name`\n- `network_userid`\n- `platform`\n- `user_id`\n- `user_ipaddress`",
             "type": {
                 "string": "ENRICHMENT"
             }
@@ -1223,7 +1411,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1239,7 +1427,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1256,12 +1444,280 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),event_id)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),event_name)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),domain_userid)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),network_userid)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),user_id)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),user_ipaddress)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),domain_sessionid)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),collector_tstamp)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),dvce_created_tstamp)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),event)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),platform)",
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),app_id)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:((urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_fingerprint)"
+                    ],
+                    "transformOperation": "DERIVED",
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,snowplow-pipeline,PROD),collector)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_type": "collector",
+                "source": "snowplow-tracker",
+                "destination": "atomic-events",
+                "standard_columns_count": "128"
+            },
+            "name": "collector",
+            "description": "Snowplow event collector that captures raw event data from trackers and writes standard event columns to the atomic events table. This job represents the initial data collection phase before enrichment.",
+            "type": {
+                "string": "BATCH"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,snowplow-pipeline,PROD),collector)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "DATASET",
+                    "upstreams": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+                        "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)"
+                    ],
+                    "downstreamType": "FIELD_SET",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),app_id)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),platform)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),etl_tstamp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),collector_tstamp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),dvce_created_tstamp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_id)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),txn_id)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),name_tracker)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),v_tracker)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),v_collector)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),v_etl)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),user_id)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),user_ipaddress)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),user_fingerprint)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),domain_userid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),domain_sessionidx)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),network_userid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_country)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_region)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_city)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_zipcode)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_latitude)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_longitude)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_region_name)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ip_isp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ip_organization)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ip_domain)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ip_netspeed)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_url)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_title)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_referrer)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_urlscheme)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_urlhost)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_urlport)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_urlpath)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_urlquery)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),page_urlfragment)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_urlscheme)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_urlhost)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_urlport)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_urlpath)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_urlquery)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_urlfragment)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_medium)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_source)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_term)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_medium)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_source)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_term)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_content)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_campaign)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),se_category)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),se_action)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),se_label)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),se_property)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),se_value)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_orderid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_affiliation)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_total)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_tax)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_shipping)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_city)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_state)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_country)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_orderid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_sku)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_name)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_category)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_price)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_quantity)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),pp_xoffset_min)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),pp_xoffset_max)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),pp_yoffset_min)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),pp_yoffset_max)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),useragent)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_name)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_family)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_version)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_type)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_renderengine)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_lang)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_pdf)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_flash)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_java)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_director)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_quicktime)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_realplayer)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_windowsmedia)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_gears)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_features_silverlight)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_cookies)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_colordepth)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_viewwidth)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),br_viewheight)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),os_name)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),os_family)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),os_manufacturer)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),os_timezone)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),dvce_type)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),dvce_ismobile)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),dvce_screenwidth)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),dvce_screenheight)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),doc_charset)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),doc_width)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),doc_height)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_currency)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_total_base)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_tax_base)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),tr_shipping_base)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_currency)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),ti_price_base)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),base_currency)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),geo_timezone)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_clickid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),mkt_network)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),etl_tags)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),dvce_sent_tstamp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_domain_userid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),refr_dvce_tstamp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),domain_sessionid)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),derived_tstamp)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_vendor)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_name)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_format)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_version)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),event_fingerprint)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.atomic.events,PROD),true_tstamp)"
+                    ],
+                    "transformOperation": "COLLECT",
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowplow,snowplow-pipeline,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowplow",
+                "env": "PROD"
+            },
+            "name": "snowplow-pipeline",
+            "description": "Snowplow data pipeline including event collection and enrichment"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowplow,snowplow-pipeline,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowplow,snowplow-pipeline,PROD),collector)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1277,7 +1733,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1293,7 +1749,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1309,7 +1765,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1325,7 +1781,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1341,7 +1797,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1357,7 +1813,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1373,7 +1829,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1389,7 +1845,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1405,7 +1861,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1421,7 +1877,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-5d9pc4",
+        "runId": "snowplow-2024_01_01-00_00_00-vsdbbo",
         "lastRunId": "no-run-id-provided"
     }
 }

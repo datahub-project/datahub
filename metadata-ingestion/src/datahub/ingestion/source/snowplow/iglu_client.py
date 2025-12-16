@@ -7,6 +7,7 @@ or as a fallback for BDP deployments.
 API Documentation: https://docs.snowplow.io/docs/api-reference/iglu/iglu-repositories/iglu-server/
 """
 
+import json
 import logging
 from typing import List, Optional
 
@@ -91,8 +92,16 @@ class IgluClient:
             response.raise_for_status()
 
             # Parse response using Pydantic model
-            schema = IgluSchema.model_validate(response.json())
-            return schema
+            response_data = response.json()
+            try:
+                schema = IgluSchema.model_validate(response_data)
+                return schema
+            except Exception as parse_error:
+                logger.error(f"Failed to parse Iglu schema response: {parse_error}")
+                logger.error(
+                    f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
+                )
+                return None
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:

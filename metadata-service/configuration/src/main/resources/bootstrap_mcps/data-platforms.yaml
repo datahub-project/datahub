@@ -338,6 +338,16 @@
     displayName: Snowflake
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/snowflakelogo.png"
+- entityUrn: urn:li:dataPlatform:snowplow
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: snowplow
+    displayName: Snowplow
+    type: OTHERS
+    logoUrl: "assets/platforms/snowplowlogo.png"
 - entityUrn: urn:li:dataPlatform:redshift
   entityType: dataPlatform
   aspectName: dataPlatformInfo

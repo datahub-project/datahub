@@ -117,7 +117,8 @@
                 "schemaVersion": "1-0-0",
                 "schema_type": "event",
                 "format": "jsonschema",
-                "hidden": "false"
+                "hidden": "false",
+                "igluUri": "iglu:com.test.event/page_view/jsonschema/1-0-0"
             },
             "name": "page_view",
             "description": "Page view event for testing Iglu-only mode",
@@ -125,8 +126,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765805825103,
-        "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-9ygm9h",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -139,27 +140,6 @@
         "json": {
             "typeNames": [
                 "snowplow_event_schema"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1765805825104,
-        "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test.com.test.event.page_view,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test)"
-                }
             ]
         }
     },
@@ -300,7 +280,8 @@
                 "schemaVersion": "1-0-0",
                 "schema_type": "event",
                 "format": "jsonschema",
-                "hidden": "false"
+                "hidden": "false",
+                "igluUri": "iglu:com.test.event/checkout_started/jsonschema/1-0-0"
             },
             "name": "checkout_started",
             "description": "Checkout started event",
@@ -308,8 +289,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765805825132,
-        "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-9ygm9h",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -327,27 +308,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1765805825132,
-        "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test.com.test.event.checkout_started,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1765805825133,
         "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
         "lastRunId": "no-run-id-provided"
     }
@@ -470,7 +430,8 @@
                 "schemaVersion": "1-0-0",
                 "schema_type": "entity",
                 "format": "jsonschema",
-                "hidden": "false"
+                "hidden": "false",
+                "igluUri": "iglu:com.test.context/user_context/jsonschema/1-0-0"
             },
             "name": "user_context",
             "description": "User context entity",
@@ -478,8 +439,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765805825140,
-        "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-9ygm9h",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -492,27 +453,6 @@
         "json": {
             "typeNames": [
                 "snowplow_entity_schema"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1765805825140,
-        "runId": "snowplow-2025_12_15-14_37_03-0t1mkx",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test.com.test.context.user_context,TEST)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowplow,iglu_autodiscovery_test)"
-                }
             ]
         }
     },

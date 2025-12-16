@@ -20,10 +20,11 @@ class TestFieldTagger:
     """Test the FieldTagger class."""
 
     def test_generate_all_tags(self):
-        """Test generating all tag types."""
+        """Test generating all tag types for an incremental field."""
         config = FieldTaggingConfig()
         tagger = FieldTagger(config)
 
+        # Incremental field (skip_version_tag=False, which is default)
         context = FieldTagContext(
             schema_version="1-0-0",
             vendor="com.acme",
@@ -33,6 +34,7 @@ class TestFieldTagger:
             field_description="User identifier",
             deployment_initiator="ryan@company.com",
             pii_fields={"user_id"},
+            skip_version_tag=False,  # Explicit: this is an incremental field
         )
 
         tags = tagger.generate_tags(context)
@@ -40,10 +42,9 @@ class TestFieldTagger:
         assert tags is not None
         tag_values = [t.tag for t in tags.tags]
 
-        # Should have 4 tags: version, event type, PII, authorship
-        assert len(tag_values) == 4
+        # Should have 3 tags: version, PII, authorship (event type is now dataset-level)
+        assert len(tag_values) == 3
         assert "urn:li:tag:snowplow_schema_v1-0-0" in tag_values
-        assert "urn:li:tag:snowplow_event_checkout" in tag_values
         assert "urn:li:tag:PII" in tag_values
         assert "urn:li:tag:added_by_ryan" in tag_values
 
@@ -110,23 +111,6 @@ class TestFieldTagger:
         tagger = FieldTagger(config)
         assert tagger._make_version_tag("1-0-0") == "v1-0-0"
 
-    def test_event_type_tag_formatting(self):
-        """Test event type tag formatting."""
-        config = FieldTaggingConfig()
-        tagger = FieldTagger(config)
-
-        # Test default pattern
-        assert (
-            tagger._make_event_type_tag("checkout_started") == "snowplow_event_checkout"
-        )
-        assert tagger._make_event_type_tag("product_viewed") == "snowplow_event_product"
-        assert tagger._make_event_type_tag("single") == "snowplow_event_single"
-
-        # Test custom pattern
-        config.event_type_pattern = "event_{name}"
-        tagger = FieldTagger(config)
-        assert tagger._make_event_type_tag("checkout_started") == "event_checkout"
-
     def test_authorship_tag_formatting(self):
         """Test authorship tag formatting."""
         config = FieldTaggingConfig()
@@ -138,8 +122,8 @@ class TestFieldTagger:
             tagger._make_authorship_tag("jane.doe@company.com") == "added_by_jane_doe"
         )
 
-        # Test names
-        assert tagger._make_authorship_tag("Ryan Smith") == "added_by_ryan"
+        # Test names (includes full name)
+        assert tagger._make_authorship_tag("Ryan Smith") == "added_by_ryan_smith"
         assert tagger._make_authorship_tag("Jane") == "added_by_jane"
 
         # Test custom pattern
@@ -277,6 +261,142 @@ class TestFieldTagger:
 
         # Tags should be sorted
         assert tag_values == sorted(tag_values)
+
+    def test_skip_version_tag_for_initial_version_fields(self):
+        """Test that initial version fields skip version tags."""
+        config = FieldTaggingConfig(
+            tag_schema_version=True,
+            tag_event_type=True,
+            tag_data_class=False,
+            tag_authorship=False,
+        )
+        tagger = FieldTagger(config)
+
+        # Field from initial version - should skip version tag
+        context = FieldTagContext(
+            schema_version="1-0-0",
+            vendor="com.acme",
+            name="checkout_started",
+            field_name="items",
+            field_type="array",
+            field_description="Items in cart",
+            deployment_initiator=None,
+            pii_fields=set(),
+            skip_version_tag=True,  # Skip version tag for initial version
+        )
+
+        tags = tagger.generate_tags(context)
+
+        # Should have NO tags (event type is dataset-level now, version skipped)
+        assert tags is None
+
+    def test_skip_authorship_tag_for_initial_version_fields(self):
+        """Test that initial version fields skip authorship tags, same as version tags."""
+        config = FieldTaggingConfig(
+            tag_schema_version=True,
+            tag_event_type=True,
+            tag_data_class=False,
+            tag_authorship=True,
+        )
+        tagger = FieldTagger(config)
+
+        # Field from initial version with deployment_initiator - should skip authorship tag
+        context = FieldTagContext(
+            schema_version="1-0-0",
+            vendor="com.acme",
+            name="checkout_started",
+            field_name="items",
+            field_type="array",
+            field_description="Items in cart",
+            deployment_initiator="ryan@company.com",  # Has initiator
+            pii_fields=set(),
+            skip_version_tag=True,  # Skip version/authorship tags for initial version
+        )
+
+        tags = tagger.generate_tags(context)
+
+        # Should have NO tags (event type is dataset-level, version/authorship skipped)
+        assert tags is None
+
+    def test_include_version_tag_for_incremental_fields(self):
+        """Test that incrementally added fields get version tags."""
+        config = FieldTaggingConfig(
+            tag_schema_version=True,
+            tag_event_type=True,
+            tag_data_class=False,
+            tag_authorship=True,
+        )
+        tagger = FieldTagger(config)
+
+        # Field added in later version - should include version tag
+        context = FieldTagContext(
+            schema_version="1-1-0",
+            vendor="com.acme",
+            name="checkout_started",
+            field_name="discount_code",
+            field_type="string",
+            field_description="Discount code applied (Added in version 1-1-0)",
+            deployment_initiator="ryan@company.com",
+            pii_fields=set(),
+            skip_version_tag=False,  # Include version tag for incremental field
+        )
+
+        tags = tagger.generate_tags(context)
+
+        assert tags is not None
+        tag_values = [t.tag for t in tags.tags]
+
+        # Should have version tag and authorship tag (event type is dataset-level)
+        assert "urn:li:tag:snowplow_schema_v1-1-0" in tag_values
+        assert "urn:li:tag:added_by_ryan" in tag_values
+        assert len(tag_values) == 2
+
+    def test_skip_version_tag_default_value(self):
+        """Test that skip_version_tag defaults to False."""
+        context = FieldTagContext(
+            schema_version="1-0-0",
+            vendor="com.acme",
+            name="checkout_started",
+            field_name="amount",
+            field_type="number",
+            field_description=None,
+            deployment_initiator=None,
+            pii_fields=set(),
+            # skip_version_tag not specified - should default to False
+        )
+
+        assert context.skip_version_tag is False
+
+    def test_version_tag_with_skip_flag_false(self):
+        """Test that version tag is included when skip_version_tag is explicitly False."""
+        config = FieldTaggingConfig(
+            tag_schema_version=True,
+            tag_event_type=False,
+            tag_data_class=False,
+            tag_authorship=False,
+        )
+        tagger = FieldTagger(config)
+
+        context = FieldTagContext(
+            schema_version="2-0-0",
+            vendor="com.acme",
+            name="product_viewed",
+            field_name="new_field",
+            field_type="string",
+            field_description=None,
+            deployment_initiator=None,
+            pii_fields=set(),
+            skip_version_tag=False,
+        )
+
+        tags = tagger.generate_tags(context)
+
+        assert tags is not None
+        tag_values = [t.tag for t in tags.tags]
+
+        # Should have version tag
+        assert "urn:li:tag:snowplow_schema_v2-0-0" in tag_values
+        assert len(tag_values) == 1
 
 
 class TestFieldTagContext:

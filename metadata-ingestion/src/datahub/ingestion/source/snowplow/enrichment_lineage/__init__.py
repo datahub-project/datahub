@@ -31,7 +31,9 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.base import (
     FieldLineage,
 )
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors import (
+    CampaignAttributionLineageExtractor,
     CurrencyConversionLineageExtractor,
+    EventFingerprintLineageExtractor,
     IpLookupLineageExtractor,
     RefererParserLineageExtractor,
     UaParserLineageExtractor,
@@ -48,4 +50,6 @@ __all__ = [
     "UaParserLineageExtractor",
     "RefererParserLineageExtractor",
     "CurrencyConversionLineageExtractor",
+    "CampaignAttributionLineageExtractor",
+    "EventFingerprintLineageExtractor",
 ]

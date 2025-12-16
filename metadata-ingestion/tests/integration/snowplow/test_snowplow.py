@@ -27,7 +27,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
     config_file = test_resources_dir / "snowplow_to_file.yml"
-    golden_file = test_resources_dir / "snowplow_mces_golden.json"
+    golden_file = test_resources_dir / "golden_files/snowplow_mces_golden.json"
 
     # Load mock data with ownership
     with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
@@ -116,7 +116,7 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
     4. Container relationships from tracking scenarios to event specs are created
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "snowplow_event_specs_golden.json"
+    golden_file = test_resources_dir / "golden_files/snowplow_event_specs_golden.json"
 
     # Load mock data
     with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
@@ -225,7 +225,7 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
     3. Container relationships from data products to event specs are created
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "snowplow_data_products_golden.json"
+    golden_file = test_resources_dir / "golden_files/snowplow_data_products_golden.json"
 
     # Load mock data
     with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
@@ -345,7 +345,7 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
     3. Pipeline status is included
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "snowplow_pipelines_golden.json"
+    golden_file = test_resources_dir / "golden_files/snowplow_pipelines_golden.json"
 
     # Load mock data
     with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
@@ -447,7 +447,7 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
     3. Enrichment configuration and status are captured
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "snowplow_enrichments_golden.json"
+    golden_file = test_resources_dir / "golden_files/snowplow_enrichments_golden.json"
 
     # Load mock data
     with open(test_resources_dir / "fixtures/data_structures_with_ownership.json") as f:
@@ -568,24 +568,25 @@ def test_snowplow_iglu_autodiscovery(pytestconfig, tmp_path, mock_time):
     3. Verifies schemas are extracted from Iglu registry
 
     Setup:
-        cd tests/integration/snowplow
+        cd tests/integration/snowplow/setup
         docker compose -f docker-compose.iglu.yml up -d
         python setup_iglu.py
 
     Teardown:
+        cd tests/integration/snowplow/setup
         docker compose -f docker-compose.iglu.yml down -v
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "snowplow_iglu_autodiscovery_golden.json"
+    golden_file = test_resources_dir / "golden_files/snowplow_iglu_autodiscovery_golden.json"
 
     # Check if Iglu Server is running
     import requests
     try:
         response = requests.get("http://localhost:8081/api/meta/health", timeout=2)
         if response.status_code != 200:
-            pytest.skip("Iglu Server not running. Start with: docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py")
+            pytest.skip("Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py")
     except requests.exceptions.RequestException:
-        pytest.skip("Iglu Server not running. Start with: docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py")
+        pytest.skip("Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py")
 
     # Run ingestion with Iglu-only mode
     pipeline = Pipeline.create(

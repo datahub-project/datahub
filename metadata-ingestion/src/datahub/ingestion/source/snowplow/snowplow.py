@@ -14,6 +14,9 @@ Supports both:
 
 import logging
 import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from pydantic import Field
@@ -21,6 +24,7 @@ from pydantic import Field
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_flow_urn,
+    make_data_job_urn_with_flow,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
@@ -45,8 +49,10 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.snowplow.enrichment_lineage import (
+    CampaignAttributionLineageExtractor,
     CurrencyConversionLineageExtractor,
     EnrichmentLineageRegistry,
+    EventFingerprintLineageExtractor,
     IpLookupLineageExtractor,
     RefererParserLineageExtractor,
     UaParserLineageExtractor,
@@ -79,11 +85,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
+    DataFlowInfoClass,
+    DataJobInfoClass,
+    DataJobInputOutputClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -91,13 +101,158 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaMetadataClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 from datahub.sdk.dataset import Dataset
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.sentinels import unset
 
 logger = logging.getLogger(__name__)
+
+
+# Constants
+WAREHOUSE_PLATFORM_MAP = {
+    "snowflake": "snowflake",
+    "bigquery": "bigquery",
+    "redshift": "redshift",
+    "databricks": "databricks",
+    "postgres": "postgres",
+}
+
+# Standard Snowplow atomic event columns
+# Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/
+SNOWPLOW_STANDARD_COLUMNS = [
+    "app_id",
+    "platform",
+    "etl_tstamp",
+    "collector_tstamp",
+    "dvce_created_tstamp",
+    "event",
+    "event_id",
+    "txn_id",
+    "name_tracker",
+    "v_tracker",
+    "v_collector",
+    "v_etl",
+    "user_id",
+    "user_ipaddress",
+    "user_fingerprint",
+    "domain_userid",
+    "domain_sessionidx",
+    "network_userid",
+    "geo_country",
+    "geo_region",
+    "geo_city",
+    "geo_zipcode",
+    "geo_latitude",
+    "geo_longitude",
+    "geo_region_name",
+    "ip_isp",
+    "ip_organization",
+    "ip_domain",
+    "ip_netspeed",
+    "page_url",
+    "page_title",
+    "page_referrer",
+    "page_urlscheme",
+    "page_urlhost",
+    "page_urlport",
+    "page_urlpath",
+    "page_urlquery",
+    "page_urlfragment",
+    "refr_urlscheme",
+    "refr_urlhost",
+    "refr_urlport",
+    "refr_urlpath",
+    "refr_urlquery",
+    "refr_urlfragment",
+    "refr_medium",
+    "refr_source",
+    "refr_term",
+    "mkt_medium",
+    "mkt_source",
+    "mkt_term",
+    "mkt_content",
+    "mkt_campaign",
+    "se_category",
+    "se_action",
+    "se_label",
+    "se_property",
+    "se_value",
+    "tr_orderid",
+    "tr_affiliation",
+    "tr_total",
+    "tr_tax",
+    "tr_shipping",
+    "tr_city",
+    "tr_state",
+    "tr_country",
+    "ti_orderid",
+    "ti_sku",
+    "ti_name",
+    "ti_category",
+    "ti_price",
+    "ti_quantity",
+    "pp_xoffset_min",
+    "pp_xoffset_max",
+    "pp_yoffset_min",
+    "pp_yoffset_max",
+    "useragent",
+    "br_name",
+    "br_family",
+    "br_version",
+    "br_type",
+    "br_renderengine",
+    "br_lang",
+    "br_features_pdf",
+    "br_features_flash",
+    "br_features_java",
+    "br_features_director",
+    "br_features_quicktime",
+    "br_features_realplayer",
+    "br_features_windowsmedia",
+    "br_features_gears",
+    "br_features_silverlight",
+    "br_cookies",
+    "br_colordepth",
+    "br_viewwidth",
+    "br_viewheight",
+    "os_name",
+    "os_family",
+    "os_manufacturer",
+    "os_timezone",
+    "dvce_type",
+    "dvce_ismobile",
+    "dvce_screenwidth",
+    "dvce_screenheight",
+    "doc_charset",
+    "doc_width",
+    "doc_height",
+    "tr_currency",
+    "tr_total_base",
+    "tr_tax_base",
+    "tr_shipping_base",
+    "ti_currency",
+    "ti_price_base",
+    "base_currency",
+    "geo_timezone",
+    "mkt_clickid",
+    "mkt_network",
+    "etl_tags",
+    "dvce_sent_tstamp",
+    "refr_domain_userid",
+    "refr_dvce_tstamp",
+    "domain_sessionid",
+    "derived_tstamp",
+    "event_vendor",
+    "event_name",
+    "event_format",
+    "event_version",
+    "event_fingerprint",
+    "true_tstamp",
+]
 
 
 # Container key definitions
@@ -206,10 +361,16 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.enrichment_lineage_registry.register(UaParserLineageExtractor())
         self.enrichment_lineage_registry.register(RefererParserLineageExtractor())
         self.enrichment_lineage_registry.register(CurrencyConversionLineageExtractor())
+        self.enrichment_lineage_registry.register(CampaignAttributionLineageExtractor())
+        self.enrichment_lineage_registry.register(EventFingerprintLineageExtractor())
 
         # Initialize field tagger
         self.field_tagger = FieldTagger(self.config.field_tagging)
         self._pii_fields_cache: Optional[set] = None  # Cache for PII fields
+
+        # Performance optimization caches (Phase 1 improvements)
+        self._cached_data_structures: Optional[List[DataStructure]] = None
+        self._cached_event_schema_urns: Optional[List[str]] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnowplowSource":
@@ -560,15 +721,26 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         else:
             logger.error("No API client configured for schema extraction")
 
-    def _get_data_structures_filtered(self) -> List[DataStructure]:
+    def _get_data_structures_filtered(self) -> List[DataStructure]:  # noqa: C901
         """
         Get data structures from BDP with pagination and timestamp filtering.
+
+        Performance optimizations (Phase 1):
+        - Caching: Returns cached data if available (prevents redundant API calls)
+        - Parallel fetching: Fetches deployments concurrently when enabled
 
         Returns:
             List of data structures, filtered by deployed_since if configured
         """
         if not self.bdp_client:
             return []
+
+        # Check cache first (Phase 1 optimization)
+        if self._cached_data_structures is not None:
+            logger.info(
+                f"Using cached data structures ({len(self._cached_data_structures)} schemas)"
+            )
+            return self._cached_data_structures
 
         # Fetch all data structures with pagination
         try:
@@ -584,11 +756,88 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             )
             return []
 
+        # Fetch deployment history for field version tracking
+        # Phase 1 optimization: Parallel fetching with ThreadPoolExecutor
+        if self.config.field_tagging.track_field_versions:
+            logger.info(
+                "Field version tracking enabled - fetching full deployment history for all schemas"
+            )
+
+            # Filter schemas that need deployment fetching
+            schemas_needing_deployments = [ds for ds in data_structures if ds.hash]
+
+            if (
+                self.config.performance.enable_parallel_fetching
+                and len(schemas_needing_deployments) > 1
+            ):
+                # Phase 1: Parallel fetching (10x speedup)
+                max_workers = self.config.performance.max_concurrent_api_calls
+                logger.info(
+                    f"Fetching deployments in parallel (max_workers={max_workers}) "
+                    f"for {len(schemas_needing_deployments)} schemas"
+                )
+
+                def fetch_deployments_for_schema(
+                    ds: DataStructure,
+                ) -> Tuple[DataStructure, Optional[Exception]]:
+                    """Thread-safe deployment fetching."""
+                    try:
+                        if self.bdp_client and ds.hash:
+                            ds.deployments = (
+                                self.bdp_client.get_data_structure_deployments(ds.hash)
+                            )
+                            logger.debug(
+                                f"Fetched {len(ds.deployments) if ds.deployments else 0} deployments "
+                                f"for {ds.vendor}/{ds.name}"
+                            )
+                        elif not ds.hash:
+                            logger.debug(
+                                f"Skipping deployment fetch for {ds.vendor}/{ds.name} - no hash"
+                            )
+                        return ds, None
+                    except Exception as e:
+                        return ds, e
+
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = [
+                        executor.submit(fetch_deployments_for_schema, ds)
+                        for ds in schemas_needing_deployments
+                    ]
+
+                    for future in as_completed(futures):
+                        ds, error = future.result()
+                        if error:
+                            logger.warning(
+                                f"Failed to fetch deployments for {ds.vendor}/{ds.name}: {error}"
+                            )
+
+                logger.info(
+                    f"Completed parallel deployment fetching for {len(schemas_needing_deployments)} schemas"
+                )
+            else:
+                # Sequential fetching (original behavior)
+                for ds in schemas_needing_deployments:
+                    try:
+                        if ds.hash:
+                            deployments = (
+                                self.bdp_client.get_data_structure_deployments(ds.hash)
+                            )
+                            ds.deployments = deployments
+                            logger.debug(
+                                f"Fetched {len(deployments)} deployments for {ds.vendor}/{ds.name}"
+                            )
+                        else:
+                            logger.debug(
+                                f"Skipping deployment fetch for {ds.vendor}/{ds.name} - no hash"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to fetch deployments for {ds.vendor}/{ds.name}: {e}"
+                        )
+
         # Filter by deployment timestamp if configured
         if self.config.deployed_since:
             try:
-                from datetime import datetime
-
                 since_dt = datetime.fromisoformat(
                     self.config.deployed_since.replace("Z", "+00:00")
                 )
@@ -656,7 +905,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 f"Filtered schemas by schema_pattern: "
                 f"{len(filtered_by_pattern)}/{len(data_structures)} schemas"
             )
-            return filtered_by_pattern
+            data_structures = filtered_by_pattern
+
+        # Cache the result (Phase 1 optimization)
+        self._cached_data_structures = data_structures
+        logger.debug(f"Cached {len(data_structures)} data structures for reuse")
 
         return data_structures
 
@@ -711,6 +964,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             schema_uris: List of schema URIs in format 'iglu:vendor/name/format/version'
         """
         for uri in schema_uris:
+            if not self.iglu_client:
+                logger.warning("Iglu client not configured, skipping URI extraction")
+                return
             parsed = self.iglu_client.parse_iglu_uri(uri)
             if not parsed:
                 logger.warning(f"Skipping invalid Iglu URI: {uri}")
@@ -794,6 +1050,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             "schema_type": schema_type,
             "format": iglu_schema.self_descriptor.format,
             "hidden": "false",  # Iglu doesn't have hidden flag
+            "igluUri": f"iglu:{vendor}/{name}/jsonschema/{version}",
         }
 
         # No parent container in Iglu-only mode (no organization)
@@ -842,14 +1099,16 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             display_name=name,
             external_url=None,  # No BDP Console URL in Iglu-only mode
             custom_properties=custom_properties,
-            parent_container=parent_container,
+            parent_container=parent_container
+            if parent_container is not None
+            else unset,
             subtype=subtype,
             owners=owners_list,
             extra_aspects=extra_aspects,
         )
 
         # Yield the dataset
-        yield dataset
+        yield from dataset.as_workunits()
 
         logger.info(f"Emitted schema dataset: {schema_identifier} (version {version})")
         self.report.report_schema_extracted(schema_type)
@@ -857,12 +1116,103 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Column-level lineage (if warehouse configured via Data Models API)
         if schema_metadata:
             yield from self._emit_column_lineage(
-                dataset_urn=dataset.urn,
+                dataset_urn=str(dataset.urn),
                 vendor=vendor,
                 name=name,
                 version=version,
                 schema_metadata=schema_metadata,
             )
+
+    def _fetch_full_schema_definition(
+        self, data_structure: DataStructure
+    ) -> DataStructure:
+        """
+        Fetch full schema definition if only minimal info available.
+
+        Args:
+            data_structure: Data structure from BDP API
+
+        Returns:
+            Updated data structure with full schema definition (if available)
+        """
+        if (
+            data_structure.data is not None
+            or not data_structure.hash
+            or not self.bdp_client
+        ):
+            return data_structure
+
+        if not data_structure.deployments:
+            logger.warning(
+                f"No deployments found for {data_structure.vendor}/{data_structure.name}, cannot determine version to fetch"
+            )
+            return data_structure
+
+        # Use version from most recent PROD deployment, fall back to any deployment
+        prod_deployments = [d for d in data_structure.deployments if d.env == "PROD"]
+        if prod_deployments:
+            latest_deployment = sorted(
+                prod_deployments, key=lambda d: d.ts or "", reverse=True
+            )[0]
+        else:
+            latest_deployment = sorted(
+                data_structure.deployments,
+                key=lambda d: d.ts or "",
+                reverse=True,
+            )[0]
+
+        version = latest_deployment.version
+        env = latest_deployment.env
+
+        logger.info(
+            f"Fetching schema definition for {data_structure.vendor}/{data_structure.name} version {version} from {env}"
+        )
+
+        # Fetch using the /versions/{version} endpoint which returns full schema
+        full_structure = self.bdp_client.get_data_structure_version(
+            data_structure.hash, version, env
+        )
+
+        if full_structure and full_structure.data:
+            logger.info(
+                f"Successfully fetched schema definition with {len(full_structure.data.properties or {})} properties"
+            )
+            # Preserve metadata from list response
+            full_structure.meta = data_structure.meta
+            full_structure.deployments = data_structure.deployments
+            return full_structure
+        else:
+            logger.warning(
+                f"Could not fetch schema definition for {data_structure.hash}/{version}, skipping field-level metadata"
+            )
+            return data_structure
+
+    def _get_schema_version(self, data_structure: DataStructure) -> Optional[str]:
+        """
+        Extract schema version from data structure.
+
+        Args:
+            data_structure: Data structure from BDP API
+
+        Returns:
+            Schema version string, or None if cannot be determined
+        """
+        # Get version from schema definition if available
+        if data_structure.data:
+            return data_structure.data.self_descriptor.version
+
+        # Otherwise use version from latest deployment
+        if data_structure.deployments:
+            sorted_deployments = sorted(
+                data_structure.deployments, key=lambda d: d.ts or "", reverse=True
+            )
+            version = sorted_deployments[0].version
+            logger.info(
+                f"Schema definition missing, using version from latest deployment: {version}"
+            )
+            return version
+
+        return None
 
     def _process_data_structure(
         self, data_structure: DataStructure
@@ -873,55 +1223,8 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         Args:
             data_structure: Data structure from BDP API
         """
-        # If schema data is missing (list endpoint returns minimal info), fetch full schema definition
-        # using the /versions/{version} endpoint which returns the actual JSON Schema with fields
-        if data_structure.data is None and data_structure.hash and self.bdp_client:
-            # Determine which version to fetch
-            if data_structure.deployments:
-                # Use version from most recent PROD deployment, fall back to any deployment
-                prod_deployments = [
-                    d for d in data_structure.deployments if d.env == "PROD"
-                ]
-                if prod_deployments:
-                    latest_deployment = sorted(
-                        prod_deployments, key=lambda d: d.ts or "", reverse=True
-                    )[0]
-                else:
-                    latest_deployment = sorted(
-                        data_structure.deployments,
-                        key=lambda d: d.ts or "",
-                        reverse=True,
-                    )[0]
-
-                version = latest_deployment.version
-                env = latest_deployment.env
-
-                logger.info(
-                    f"Fetching schema definition for {data_structure.vendor}/{data_structure.name} version {version} from {env}"
-                )
-
-                # Fetch using the /versions/{version} endpoint which returns full schema
-                full_structure = self.bdp_client.get_data_structure_version(
-                    data_structure.hash, version, env
-                )
-
-                if full_structure and full_structure.data:
-                    logger.info(
-                        f"Successfully fetched schema definition with {len(full_structure.data.properties or {})} properties"
-                    )
-                    # Preserve metadata from list response
-                    full_structure.meta = data_structure.meta
-                    full_structure.deployments = data_structure.deployments
-                    data_structure = full_structure
-                else:
-                    logger.warning(
-                        f"Could not fetch schema definition for {data_structure.hash}/{version}, skipping field-level metadata"
-                    )
-            else:
-                logger.warning(
-                    f"No deployments found for {data_structure.vendor}/{data_structure.name}, cannot determine version to fetch"
-                )
-                # Continue without schema definition - will skip field extraction
+        # Fetch full schema definition if missing
+        data_structure = self._fetch_full_schema_definition(data_structure)
 
         # Check if we have basic required fields (vendor, name, meta)
         if (
@@ -939,21 +1242,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         schema_meta = data_structure.meta
         schema_type = schema_meta.schema_type or "event"  # "event" or "entity"
 
-        # Get version from schema definition if available, otherwise from latest deployment
-        if data_structure.data:
-            schema_data = data_structure.data
-            schema_self = schema_data.self_descriptor
-            version = schema_self.version
-        elif data_structure.deployments:
-            # Use version from most recent deployment
-            sorted_deployments = sorted(
-                data_structure.deployments, key=lambda d: d.ts or "", reverse=True
-            )
-            version = sorted_deployments[0].version
-            logger.info(
-                f"Schema definition missing, using version from latest deployment: {version}"
-            )
-        else:
+        # Get version
+        version = self._get_schema_version(data_structure)
+        if not version:
             logger.warning(f"Cannot determine version for {vendor}/{name}, skipping")
             return
 
@@ -997,6 +1288,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             "schemaVersion": version,  # Current schema version
             "schema_type": schema_type or "unknown",
             "hidden": str(schema_meta.hidden),
+            "igluUri": f"iglu:{vendor}/{name}/jsonschema/{version}",
             **schema_meta.custom_data,
         }
         # Note: latestVersion and allVersions will be added when multi-version
@@ -1032,6 +1324,15 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         extra_aspects: List[Any] = [
             StatusClass(removed=False),
         ]
+
+        # Add dataset-level tags if enabled
+        if (
+            self.config.field_tagging.enabled
+            and self.config.field_tagging.tag_event_type
+        ):
+            dataset_tags = self._build_dataset_tags(name, schema_type)
+            if dataset_tags:
+                extra_aspects.append(dataset_tags)
 
         # Schema metadata (only if full schema definition available)
         schema_metadata = None
@@ -1074,16 +1375,20 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             if data_structure.data
             else None,
             display_name=name,
-            external_url=self._get_schema_url(vendor, name, version),
+            external_url=self._get_schema_url(
+                vendor, name, version, data_structure.hash
+            ),
             custom_properties=custom_properties,
-            parent_container=parent_container,
+            parent_container=parent_container
+            if parent_container is not None
+            else unset,
             subtype=subtype,
             owners=owners_list,
             extra_aspects=extra_aspects,
         )
 
         # Yield the dataset
-        yield dataset
+        yield from dataset.as_workunits()
 
         # Column-level lineage: Iglu schema fields → atomic.events Snowflake columns
         # (must be emitted separately as it's not part of the Dataset object itself)
@@ -1467,10 +1772,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         try:
-            from datahub.metadata.schema_classes import (
-                DataFlowInfoClass,
-            )
-
             pipelines = self.bdp_client.get_pipelines()
             self.report.num_pipelines_found = len(pipelines)
 
@@ -1581,14 +1882,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     destination = destinations[0]
 
                     # Map destination type to DataHub platform
-                    platform_map = {
-                        "snowflake": "snowflake",
-                        "bigquery": "bigquery",
-                        "redshift": "redshift",
-                        "databricks": "databricks",
-                        "postgres": "postgres",
-                    }
-                    warehouse_platform = platform_map.get(
+                    warehouse_platform = WAREHOUSE_PLATFORM_MAP.get(
                         destination.destination_type, destination.destination_type
                     )
 
@@ -1629,14 +1923,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     warehouse_type = organization.source.name.lower()
 
                     # Map warehouse type to DataHub platform
-                    platform_map = {
-                        "snowflake": "snowflake",
-                        "bigquery": "bigquery",
-                        "redshift": "redshift",
-                        "databricks": "databricks",
-                        "postgres": "postgres",
-                    }
-                    warehouse_platform = platform_map.get(
+                    warehouse_platform = WAREHOUSE_PLATFORM_MAP.get(
                         warehouse_type, warehouse_type
                     )
 
@@ -1669,6 +1956,13 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         This is used to create lineage between enrichments and the event schemas they process.
         """
+        # Check cache first (Phase 1 optimization)
+        if self._cached_event_schema_urns is not None:
+            logger.info(
+                f"Using cached event schema URNs ({len(self._cached_event_schema_urns)} schemas)"
+            )
+            return self._cached_event_schema_urns
+
         event_schema_urns: List[str] = []
 
         if not self.bdp_client:
@@ -1717,7 +2011,66 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(f"Failed to get event schema URNs: {e}")
 
+        # Cache the result (Phase 1 optimization)
+        self._cached_event_schema_urns = event_schema_urns
+        logger.debug(f"Cached {len(event_schema_urns)} event schema URNs for reuse")
+
         return event_schema_urns
+
+    def _build_enrichment_description(
+        self,
+        enrichment_name: str,
+        fine_grained_lineages: List[FineGrainedLineageClass],
+    ) -> str:
+        """
+        Build enrichment description with field lineage information.
+
+        Args:
+            enrichment_name: Name of the enrichment
+            fine_grained_lineages: List of fine-grained lineage objects
+
+        Returns:
+            Enhanced description with field information
+        """
+        if not fine_grained_lineages:
+            return f"{enrichment_name} enrichment"
+
+        # Extract unique upstream and downstream field names
+        upstream_fields = set()
+        downstream_fields = set()
+
+        for lineage in fine_grained_lineages:
+            # Extract field names from URNs
+            for upstream_urn in lineage.upstreams or []:
+                # URN format: urn:li:schemaField:(urn:li:dataset:...,field_name)
+                if "," in upstream_urn:
+                    field_name = upstream_urn.split(",")[-1].rstrip(")")
+                    upstream_fields.add(field_name)
+
+            for downstream_urn in lineage.downstreams or []:
+                if "," in downstream_urn:
+                    field_name = downstream_urn.split(",")[-1].rstrip(")")
+                    downstream_fields.add(field_name)
+
+        # Build markdown-formatted description with proper structure
+        description_lines = [f"## {enrichment_name} enrichment", ""]
+
+        if downstream_fields:
+            # Sort for consistent output and show ALL fields as individual bullets
+            downstream_list = sorted(downstream_fields)
+            description_lines.append("**Adds fields:**")
+            for field in downstream_list:
+                description_lines.append(f"- `{field}`")
+            description_lines.append("")
+
+        if upstream_fields:
+            # Sort for consistent output and show ALL fields as individual bullets
+            upstream_list = sorted(upstream_fields)
+            description_lines.append("**From source fields:**")
+            for field in upstream_list:
+                description_lines.append(f"- `{field}`")
+
+        return "\n".join(description_lines)
 
     def _extract_enrichment_field_lineage(
         self,
@@ -1785,6 +2138,134 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         return fine_grained_lineages
 
+    def _emit_collector_datajob(
+        self,
+        event_schema_urns: List[str],
+        warehouse_table_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit a default "collector" DataJob that represents the Snowplow event collection process.
+
+        This DataJob creates column-level lineage for standard Snowplow event fields that are
+        NOT enriched (fields that come directly from the tracker to atomic.events).
+
+        Standard Snowplow columns include: app_id, platform, event_id, event_name, user_id,
+        collector_tstamp, dvce_created_tstamp, page_url, page_title, etc.
+
+        Lineage flow:
+        - Inputs: Event schemas (from tracker)
+        - Outputs: Warehouse atomic.events table (standard columns)
+
+        Args:
+            event_schema_urns: List of event schema URNs (inputs)
+            warehouse_table_urn: Warehouse table URN (output)
+
+        Yields:
+            MetadataWorkUnits for the collector DataJob
+        """
+        try:
+            # Create DataFlow URN for the "snowplow-pipeline" flow
+            dataflow_urn = make_data_flow_urn(
+                orchestrator="snowplow",
+                flow_id="snowplow-pipeline",
+                cluster=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
+
+            # Create DataJob URN for the "collector" job
+            datajob_urn = make_data_job_urn_with_flow(
+                flow_urn=dataflow_urn,
+                job_id="collector",
+            )
+
+            # Standard Snowplow event columns (non-enriched fields)
+            # Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/
+            standard_columns = SNOWPLOW_STANDARD_COLUMNS
+
+            # Create field URNs for standard columns
+            downstream_field_urns = [
+                make_schema_field_urn(warehouse_table_urn, col)
+                for col in standard_columns
+            ]
+
+            # Get all field URNs from input event schemas
+            # Note: This is a simplified approach - we're creating a FIELD_SET to FIELD_SET mapping
+            # showing that event schema fields flow through the collector to standard event columns
+            upstream_field_urns: List[str] = []
+            for event_schema_urn in event_schema_urns:
+                # Get schema metadata to extract field URNs
+                # For simplicity, we'll just reference the dataset itself
+                # In reality, specific fields from event schemas map to specific standard columns
+                upstream_field_urns.append(event_schema_urn)
+
+            # Create fine-grained lineage for collector
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            if upstream_field_urns and downstream_field_urns:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                        upstreams=event_schema_urns,  # Event schemas as upstreams
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+                        downstreams=downstream_field_urns,  # Standard columns as downstreams
+                        transformOperation="COLLECT",
+                    )
+                )
+
+            # Create DataJob info
+            datajob_info = DataJobInfoClass(
+                name="collector",
+                description=(
+                    "Snowplow event collector that captures raw event data from trackers "
+                    "and writes standard event columns to the atomic events table. "
+                    "This job represents the initial data collection phase before enrichment."
+                ),
+                type="BATCH",
+                customProperties={
+                    "job_type": "collector",
+                    "source": "snowplow-tracker",
+                    "destination": "atomic-events",
+                    "standard_columns_count": str(len(standard_columns)),
+                },
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datajob_urn, aspect=datajob_info
+            ).as_workunit()
+
+            # Emit DataJobInputOutput with column-level lineage
+            datajob_input_output = DataJobInputOutputClass(
+                inputDatasets=event_schema_urns,
+                outputDatasets=[warehouse_table_urn],
+                fineGrainedLineages=fine_grained_lineages
+                if fine_grained_lineages
+                else None,
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datajob_urn,
+                aspect=datajob_input_output,
+            ).as_workunit()
+
+            # Link collector job to DataFlow
+            dataflow_info_aspect = DataFlowInfoClass(
+                name="snowplow-pipeline",
+                description="Snowplow data pipeline including event collection and enrichment",
+                customProperties={
+                    "platform": "snowplow",
+                    "env": self.config.env,
+                },
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataflow_urn,
+                aspect=dataflow_info_aspect,
+            ).as_workunit()
+
+            logger.info(
+                f"Created collector DataJob with {len(standard_columns)} standard columns mapped"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to emit collector DataJob: {e}")
+
     def _extract_enrichments(self) -> Iterable[MetadataWorkUnit]:
         """
         Extract enrichments as DataJob entities from BDP Console API.
@@ -1802,12 +2283,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         try:
-            from datahub.emitter.mce_builder import make_data_job_urn_with_flow
-            from datahub.metadata.schema_classes import (
-                DataJobInfoClass,
-                DataJobInputOutputClass,
-            )
-
             # Get all event schemas to link as inputs for enrichments
             event_schema_urns = self._get_event_schema_urns()
             logger.info(
@@ -1859,6 +2334,14 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                         job_id=enrichment.id,
                     )
 
+                    # Extract field-level lineage for this enrichment FIRST
+                    # (needed to build description with field information)
+                    fine_grained_lineages = self._extract_enrichment_field_lineage(
+                        enrichment=enrichment,
+                        event_schema_urns=event_schema_urns,
+                        warehouse_table_urn=warehouse_table_urn,
+                    )
+
                     # Build custom properties from enrichment config
                     custom_properties = {
                         "enrichmentId": enrichment.id,
@@ -1887,6 +2370,13 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                             custom_properties["parameters"] = params_str
 
                         description = f"{enrichment_name} enrichment"
+
+                    # Enhance description with field lineage information
+                    if fine_grained_lineages:
+                        description = self._build_enrichment_description(
+                            enrichment_name=enrichment_name,
+                            fine_grained_lineages=fine_grained_lineages,
+                        )
 
                     # Emit DataJob info
                     datajob_info = DataJobInfoClass(
@@ -1934,13 +2424,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                             [warehouse_table_urn] if warehouse_table_urn else []
                         )
 
-                        # Extract field-level lineage for this enrichment
-                        fine_grained_lineages = self._extract_enrichment_field_lineage(
-                            enrichment=enrichment,
-                            event_schema_urns=event_schema_urns,
-                            warehouse_table_urn=warehouse_table_urn,
-                        )
-
+                        # Note: fine_grained_lineages already extracted above (before DataJobInfo creation)
                         datajob_input_output = DataJobInputOutputClass(
                             inputDatasets=event_schema_urns,
                             outputDatasets=output_datasets,
@@ -1968,6 +2452,15 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_enrichment_extracted()
 
             self.report.num_enrichments_found = total_enrichments
+
+            # Emit collector DataJob for non-enriched columns
+            if event_schema_urns and warehouse_table_urn:
+                logger.info("Creating collector DataJob for non-enriched event columns")
+                for wu in self._emit_collector_datajob(
+                    event_schema_urns=event_schema_urns,
+                    warehouse_table_urn=warehouse_table_urn,
+                ):
+                    yield wu
 
         except Exception as e:
             self.report.report_failure(
@@ -2248,8 +2741,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
                 exc=e,
             )
-            import traceback
-
             traceback.print_exc()
 
     # ============================================
@@ -2266,6 +2757,148 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         )
         return org_key.as_urn()
 
+    def _build_field_version_mapping(
+        self, data_structure: DataStructure
+    ) -> Dict[str, str]:
+        """
+        Build mapping of field paths to the version they were first added in.
+
+        Compares all versions of a schema to determine when each field was introduced.
+
+        Args:
+            data_structure: Data structure with deployments containing version history
+
+        Returns:
+            Dict mapping field_path -> version_added (e.g., {"email": "1-0-0", "phone": "1-1-0"})
+        """
+        schema_key = f"{data_structure.vendor}/{data_structure.name}"
+        field_version_map: Dict[str, str] = {}
+
+        # Need BDP client and deployments for version history
+        if (
+            not self.bdp_client
+            or not data_structure.deployments
+            or not data_structure.hash
+        ):
+            logger.debug(
+                f"Cannot track field versions for {schema_key}: missing BDP client, deployments, or hash"
+            )
+            return {}
+
+        # Extract all unique versions from deployments and sort
+        versions = sorted(
+            set(d.version for d in data_structure.deployments if d.version),
+            key=lambda v: self._parse_schemaver(v),
+        )
+
+        if not versions:
+            logger.debug(f"No versions found in deployments for {schema_key}")
+            return {}
+
+        logger.info(
+            f"Tracking field versions for {schema_key}: {len(versions)} versions to compare"
+        )
+
+        # Track fields seen in each version
+        previous_fields: set = set()
+
+        for version in versions:
+            try:
+                # Fetch this version's schema
+                version_ds = self.bdp_client.get_data_structure_version(
+                    data_structure.hash, version
+                )
+
+                if not version_ds or not version_ds.data:
+                    logger.warning(
+                        f"Could not fetch schema for {schema_key} version {version}"
+                    )
+                    continue
+
+                # Extract field paths from this version
+                current_fields = set(version_ds.data.properties.keys())
+
+                # Fields that are new in this version
+                new_fields = current_fields - previous_fields
+
+                # Record when each new field was added
+                for field_path in new_fields:
+                    if field_path not in field_version_map:
+                        field_version_map[field_path] = version
+                        logger.debug(
+                            f"Field '{field_path}' added in version {version} of {schema_key}"
+                        )
+
+                # Update for next iteration
+                previous_fields = current_fields
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to process version {version} of {schema_key}: {e}"
+                )
+                continue
+
+        logger.info(
+            f"Field version tracking complete for {schema_key}: {len(field_version_map)} fields tracked"
+        )
+
+        return field_version_map
+
+    @staticmethod
+    def _parse_schemaver(version: str) -> Tuple[int, int, int]:
+        """
+        Parse SchemaVer version string into tuple for sorting.
+
+        Args:
+            version: Version string like "1-0-0" or "2-1-3"
+
+        Returns:
+            Tuple of (model, revision, addition) for comparison
+        """
+        try:
+            parts = version.split("-")
+            return (int(parts[0]), int(parts[1]), int(parts[2]))
+        except (ValueError, IndexError):
+            logger.warning(f"Invalid SchemaVer format: {version}, using (0,0,0)")
+            return (0, 0, 0)
+
+    def _build_dataset_tags(
+        self, name: str, schema_type: Optional[str]
+    ) -> Optional[GlobalTagsClass]:
+        """
+        Build dataset-level tags.
+
+        Dataset-level tags apply to the schema/dataset as a whole, not individual fields.
+        Currently adds:
+        - Event type tag: Category derived from schema name (e.g., "checkout" from "checkout_started")
+
+        Args:
+            name: Schema name (e.g., "checkout_started")
+            schema_type: Schema type ("event" or "entity")
+
+        Returns:
+            GlobalTagsClass with dataset-level tags, or None if no tags to add
+        """
+        tags = set()
+
+        # Event type tag (category derived from name)
+        # Extract first word: checkout_started → checkout
+        event_name = name.split("_")[0] if "_" in name else name
+        event_type_tag = self.config.field_tagging.event_type_pattern.format(
+            name=event_name
+        )
+        tags.add(event_type_tag)
+
+        if not tags:
+            return None
+
+        # Convert to TagAssociationClass
+        tag_associations = [
+            TagAssociationClass(tag=f"urn:li:tag:{tag}") for tag in sorted(tags)
+        ]
+
+        return GlobalTagsClass(tags=tag_associations)
+
     def _add_field_tags(
         self,
         schema_metadata: SchemaMetadataClass,
@@ -2275,38 +2908,90 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         """
         Add tags to schema fields.
 
-        Generates tags for:
-        - Schema version (which version this field appears in)
-        - Event type (derived from schema name)
+        Generates field-level tags for:
+        - Schema version (which version this field was added in, if track_field_versions enabled)
         - Data classification (PII, Sensitive from enrichment config + patterns)
-        - Authorship (who deployed this version)
+        - Authorship (who deployed the version when field was added)
+
+        Note: Event type tags are added at dataset level, not field level (see _build_dataset_tags).
         """
         # Get PII fields from enrichments (if configured)
         pii_fields = self._extract_pii_fields()
 
-        # Get latest deployment initiator
-        initiator = None
+        # Build field version mapping if enabled
+        field_version_map: Dict[str, str] = {}
+        if self.config.field_tagging.track_field_versions:
+            field_version_map = self._build_field_version_mapping(data_structure)
+
+        # Build deployment version -> initiator mapping
+        deployment_initiators: Dict[str, Optional[str]] = {}
+        if data_structure.deployments:
+            for dep in data_structure.deployments:
+                if dep.version:
+                    deployment_initiators[dep.version] = dep.initiator
+
+        # Get latest deployment initiator as fallback
+        fallback_initiator = None
         if data_structure.deployments:
             sorted_deps = sorted(
                 data_structure.deployments,
                 key=lambda d: d.ts or "",
                 reverse=True,
             )
-            initiator = sorted_deps[0].initiator
+            fallback_initiator = sorted_deps[0].initiator
 
-        # Add tags to each field
+        # Determine the initial version (oldest version) for this schema
+        initial_version = None
+        if self.config.field_tagging.track_field_versions and field_version_map:
+            initial_version = min(
+                field_version_map.values(),
+                key=lambda v: self._parse_schemaver(v),
+                default=None,
+            )
+
+        # Add tags and descriptions to each field
         for field in schema_metadata.fields:
+            # Determine which version to use for this field
+            field_version = version  # Default: current version
+            field_initiator = fallback_initiator  # Default: latest initiator
+            skip_version_tag = False  # Whether to skip version tag for this field
+
+            if self.config.field_tagging.track_field_versions and field_version_map:
+                # Use the version when field was added
+                added_in_version = field_version_map.get(field.fieldPath)
+                if added_in_version:
+                    # Check if this is the initial version
+                    if added_in_version == initial_version:
+                        # Don't tag initial version fields - they were there from the start
+                        skip_version_tag = True
+                    else:
+                        # Field was added later - tag it with the version it was added
+                        field_version = added_in_version
+                        field_initiator = deployment_initiators.get(
+                            added_in_version, fallback_initiator
+                        )
+
+                        # Add "Added in version X" to description
+                        version_note = f" (Added in version {added_in_version})"
+                        if field.description:
+                            field.description = field.description + version_note
+                        else:
+                            field.description = f"Added in version {added_in_version}"
+
+            # Create tagging context
             context = FieldTagContext(
-                schema_version=version,
+                schema_version=field_version,
                 vendor=data_structure.vendor or "",
                 name=data_structure.name or "",
                 field_name=field.fieldPath,
                 field_type=field.nativeDataType,
                 field_description=field.description,
-                deployment_initiator=initiator,
+                deployment_initiator=field_initiator,
                 pii_fields=pii_fields,
+                skip_version_tag=skip_version_tag,
             )
 
+            # Generate and apply tags
             field_tags = self.field_tagger.generate_tags(context)
             if field_tags:
                 field.globalTags = field_tags
@@ -2484,11 +3169,39 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         )
         return scenario_key.as_urn()
 
-    def _get_schema_url(self, vendor: str, name: str, version: str) -> Optional[str]:
-        """Generate BDP Console URL for schema (if BDP configured)."""
+    def _get_schema_url(
+        self,
+        vendor: str,
+        name: str,
+        version: str,
+        data_structure_hash: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Generate BDP Console URL for schema (if BDP configured).
+
+        Args:
+            vendor: Schema vendor (for fallback if hash not available)
+            name: Schema name (for fallback if hash not available)
+            version: Schema version
+            data_structure_hash: Data structure hash/ID from BDP API
+
+        Returns:
+            BDP Console URL or None if not in BDP mode
+        """
         if self.config.bdp_connection:
             org_id = self.config.bdp_connection.organization_id
-            # Example URL format (may vary)
+
+            # Use hash-based URL if available (correct format)
+            if data_structure_hash:
+                return (
+                    f"https://console.snowplowanalytics.com/{org_id}/"
+                    f"data-structures/{data_structure_hash}?version={version}"
+                )
+
+            # Fallback to vendor/name format (may not work, but better than nothing)
+            logger.warning(
+                f"Data structure hash not available for {vendor}/{name}, using fallback URL format"
+            )
             return (
                 f"https://console.snowplowanalytics.com/{org_id}/"
                 f"data-structures/{vendor}/{name}/{version}"
