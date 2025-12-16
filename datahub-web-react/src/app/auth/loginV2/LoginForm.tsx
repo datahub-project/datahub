@@ -39,14 +39,14 @@ export default function LoginForm({ form, handleSubmit, onFormChange, isSubmitDi
                 <ItemContainer>
                     <FieldLabel label="Username" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your username' }]} name="username">
-                        <Input placeholder="Enter username" data-testid="username" />
+                        <Input placeholder="Enter username" inputTestId="username" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
                     <FieldLabel label="Password" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your password' }]} name="password">
-                        <Input placeholder="********" type="password" data-testid="password" />
+                        <Input placeholder="********" type="password" inputTestId="password" />
                     </Form.Item>
                 </ItemContainer>
             </Form>
