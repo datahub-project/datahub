@@ -1,8 +1,3 @@
-from datahub.ingestion.source.fivetran.config import (
-    MAX_COLUMN_LINEAGE_PER_CONNECTOR_DEFAULT,
-    MAX_JOBS_PER_CONNECTOR_DEFAULT,
-    MAX_TABLE_LINEAGE_PER_CONNECTOR_DEFAULT,
-)
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 
