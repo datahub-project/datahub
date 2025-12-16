@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { FormValues } from '@app/auth/signupV2/types';
+import { SignupFormValues } from '@app/auth/shared/types';
 import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
 
 const FormContainer = styled.div`
@@ -28,7 +28,7 @@ const CheckboxContainer = styled.div`
 
 interface Props {
     form: FormInstance;
-    handleSubmit: (values: FormValues) => void;
+    handleSubmit: (values: SignupFormValues) => void;
     onFormChange: () => void;
 }
 
