@@ -69,6 +69,10 @@ class _TableName(_FrozenModel):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
+        # Track if this is a temp table (for MSSQL # prefix restoration)
+        is_local_temp = False
+        is_global_temp = False
+
         if isinstance(table.this, sqlglot.exp.Dot):
             # For tables that are more than 3 parts, the extra parts will be in a Dot.
             # For now, we just merge them into the table name.
@@ -79,8 +83,30 @@ class _TableName(_FrozenModel):
                 exp = exp.expression
             parts.append(exp.name)
             table_name = ".".join(parts)
+
+            # For multi-part names, check the final identifier for temp flags
+            if hasattr(exp, "args"):
+                is_local_temp = exp.args.get("temporary", False)
+                is_global_temp = exp.args.get("global_", False)
         else:
             table_name = table.this.name
+
+            # Check the identifier for temp flags
+            if hasattr(table.this, "args"):
+                is_local_temp = table.this.args.get("temporary", False)
+                is_global_temp = table.this.args.get("global_", False)
+
+        # For MSSQL dialect, SQLGlot strips the # or ## prefix from temp tables
+        # but sets flags on the identifier. We need to restore the prefix so that
+        # downstream temp table detection (which checks for startswith("#")) works.
+        # - Local temp tables (#name): 'temporary' flag is set
+        # - Global temp tables (##name): 'global_' flag is set
+        # Note: Redshift also uses # for temp tables but SQLGlot keeps the prefix intact.
+        if is_global_temp and not table_name.startswith("##"):
+            table_name = f"##{table_name}"
+        elif is_local_temp and not table_name.startswith("#"):
+            table_name = f"#{table_name}"
+
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
