@@ -80,7 +80,9 @@ class Db2Config(BasicSQLAlchemyConfig):
     )
 
     # Override defaults
-    host_port: str = pydantic.Field(default="localhost:50000")
+    host_port: str = pydantic.Field(
+        default="localhost:50000", description="Db2 host URL."
+    )
     scheme: str = pydantic.Field(
         default="db2",
         description="ibm_db_sa scheme to use (db2, db2+pyodbc, db2+pyodbc400).",
