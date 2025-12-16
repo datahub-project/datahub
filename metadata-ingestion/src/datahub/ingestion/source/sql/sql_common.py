@@ -1156,11 +1156,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             return ""
 
     def get_view_default_db_schema(
-        self, dataset_name: str, _inspector: Inspector, _schema: str, _view: str
+        self, _inspector: Inspector, dataset_identifier: str
     ) -> Tuple[Optional[str], Optional[str]]:
-        # Some databases use different implicit databases/schemas for unqualified
-        # names in view definitions than the database/schema of the view itself.
-        return None, None
+        # Most systems will resolve unqualified names in view definitions to the
+        # same database and schema that the view itself lives in. However, some
+        # systems (like IBM Db2), use different implicit databases/schemas that
+        # must be looked up, so this function exists as an override point for subclasses.
+        # TODO: database/schema should be passed directly, instead of being serialized
+        # into a dataset identifier string and then parsed back out.
+        return self.get_db_schema(dataset_identifier)
 
     def _process_view(
         self,
@@ -1209,7 +1213,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             default_schema = None
             try:
                 default_db, default_schema = self.get_view_default_db_schema(
-                    dataset_name, inspector, schema, view
+                    inspector, dataset_name
                 )
             except Exception as e:
                 self.report.warning(
@@ -1217,12 +1221,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     context=dataset_name,
                     exc=e,
                 )
-            try:
-                dataset_db, dataset_schema = self.get_db_schema(dataset_name)
-                default_db = default_db or dataset_db
-                default_schema = default_schema or dataset_schema
-            except ValueError:
-                logger.warning(f"Invalid view identifier: {dataset_name}")
 
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,

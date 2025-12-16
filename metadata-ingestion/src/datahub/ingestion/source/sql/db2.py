@@ -139,13 +139,13 @@ class Db2Source(SQLAlchemySource):
         return f"{self.get_db_name(inspector)}.{schema}.{entity}"
 
     def get_view_default_db_schema(
-        self, _dataset_name: str, inspector: Inspector, schema: str, view: str
+        self, inspector: Inspector, dataset_identifier: str
     ) -> Tuple[Optional[str], Optional[str]]:
         # Db2 views on LUW and z/OS look up unqualified names in the schema from the session
         # when the view was created. Not the schema that the view itself lives in!
-        schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
-        db_name = self.get_db_name(inspector)
-        return db_name, schema_name
+        database, schema, view = dataset_identifier.split(".")
+        implicit_schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
+        return database, implicit_schema_name
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, _db_name: str
