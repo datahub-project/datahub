@@ -185,6 +185,7 @@ build==1.2.2
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   inotify
 cached-property==1.5.2
     # via
     #   -r requirements.txt
@@ -655,6 +656,11 @@ inflect==7.2.1
     #   acryl-datahub-integrations
 iniconfig==2.0.0
     # via pytest
+inotify==0.2.12
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 ipykernel==6.29.5
     # via acryl-datahub-integrations (pyproject.toml)
 ipython==9.2.0

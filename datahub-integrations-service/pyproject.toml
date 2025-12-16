@@ -75,6 +75,7 @@ dependencies = [
 	# Debugging tools.
 	"debugpy", # Enables remote debugging. Used in dev env
 	"py-spy",
+	"inotify",
 ]
 
 [project.optional-dependencies]

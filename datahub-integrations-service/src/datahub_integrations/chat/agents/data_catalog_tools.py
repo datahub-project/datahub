@@ -143,7 +143,8 @@ def is_smart_search_enabled() -> bool:
 
     Checks in order:
     1. If CHATBOT_SMART_SEARCH_ENABLED is explicitly set, use that value
-    2. Otherwise, check if Bedrock client's region supports Cohere rerank models
+    2. Check to see if `MODEL_CUSTOM_BASE_URL` is set and disable when using a custom model provider
+    3. Otherwise, check if Bedrock client's region supports Cohere rerank models
 
     This is lazily evaluated so we don't initialize the Bedrock client at module import time.
     The cache decorator ensures thread-safe singleton behavior.
@@ -159,6 +160,14 @@ def is_smart_search_enabled() -> bool:
             f"Smart search tool {'ENABLED' if enabled else 'DISABLED'} for DataCatalog agent (explicit env var)"
         )
         return enabled
+
+    # Check to see if `MODEL_CUSTOM_BASE_URL` is set and disable when using a custom model provider
+    custom_base_url = os.environ.get("MODEL_CUSTOM_BASE_URL")
+    if custom_base_url is not None:
+        logger.info(
+            "Smart search tool 'DISABLED' for DataCatalog agent (custom model_provider set)"
+        )
+        return False
 
     # Otherwise, check if the Bedrock region supports Cohere rerank
     try:

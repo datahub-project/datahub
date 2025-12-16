@@ -108,7 +108,9 @@ bottleneck==1.6.0
 bracex==2.6
     # via wcmatch
 build==1.2.2
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-integrations
+    #   inotify
 cached-property==1.5.2
     # via acryl-datahub
 cachetools==5.3.3
@@ -408,6 +410,8 @@ importlib-metadata==7.1.0
     #   mlflow-skinny
     #   opentelemetry-api
 inflect==7.2.1
+    # via acryl-datahub-integrations
+inotify==0.2.12
     # via acryl-datahub-integrations
 isodate==0.7.2
     # via msrest
