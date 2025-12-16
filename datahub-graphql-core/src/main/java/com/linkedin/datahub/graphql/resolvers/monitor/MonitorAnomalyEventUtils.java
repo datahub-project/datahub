@@ -78,6 +78,42 @@ public class MonitorAnomalyEventUtils {
     return anomalyEvent;
   }
 
+  /**
+   * Builds a MonitorAnomalyEvent for a freshness assertion from an operation timestamp. For
+   * freshness assertions, we mark Operations (not metricCubeEvent) as anomalies.
+   *
+   * @param assertionUrn the URN of the assertion
+   * @param operationTimestampMillis the timestamp of the operation (lastUpdatedTimestamp)
+   * @param state the anomaly review state
+   * @param nowMillis the current timestamp in milliseconds
+   * @return the constructed MonitorAnomalyEvent
+   */
+  @Nonnull
+  public static MonitorAnomalyEvent buildFreshnessAnomalyEvent(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Long operationTimestampMillis,
+      @Nonnull final AnomalyReviewState state,
+      @Nonnull final Long nowMillis) {
+
+    // Create anomaly source (no properties needed for freshness operations)
+    final AnomalySource anomalySource = new AnomalySource();
+    anomalySource.setSourceUrn(assertionUrn);
+    anomalySource.setSourceEventTimestampMillis(operationTimestampMillis);
+    anomalySource.setType(AnomalySourceType.USER_FEEDBACK);
+    // No properties needed - freshness assertions don't have assertion metrics
+
+    // Create anomaly event
+    final TimeStamp now = new TimeStamp().setTime(nowMillis);
+    final MonitorAnomalyEvent anomalyEvent = new MonitorAnomalyEvent();
+    anomalyEvent.setTimestampMillis(nowMillis);
+    anomalyEvent.setState(state);
+    anomalyEvent.setSource(anomalySource);
+    anomalyEvent.setCreated(now);
+    anomalyEvent.setLastUpdated(now);
+
+    return anomalyEvent;
+  }
+
   /** Builds a map from source event timestamp to its latest anomaly event. */
   @Nonnull
   public static Map<Long, MonitorAnomalyEvent> buildAnomalyEventMapBySourceEvent(

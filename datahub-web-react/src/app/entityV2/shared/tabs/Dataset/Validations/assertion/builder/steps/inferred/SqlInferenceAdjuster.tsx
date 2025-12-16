@@ -4,6 +4,8 @@ import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
+import { getDatasetUrnFromMonitorUrn } from '@app/entity/shared/utils';
 import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
 import { ExclusionWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster';
 import { InferenceSensitivityAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/InferenceSensitivityAdjuster';
@@ -78,6 +80,16 @@ export const SqlInferenceAdjuster = ({ state, updateState, disabled, isEditMode,
                                 if (!monitor) {
                                     message.error('Could not find the monitor for this assertion.');
                                 } else {
+                                    analytics.event({
+                                        type: EventType.TunePredictionsClickEvent,
+                                        location: 'sqlInferenceAdjuster',
+                                        tuningMode: 'smart',
+                                        assertionUrn: assertion.urn,
+                                        assertionType: assertion.info?.type ?? 'Unknown',
+                                        monitorUrn: monitor.urn,
+                                        datasetUrn: getDatasetUrnFromMonitorUrn(monitor.urn),
+                                        hasMonitor: true,
+                                    });
                                     setIsTunePredictionsModalOpen(true);
                                 }
                             }}

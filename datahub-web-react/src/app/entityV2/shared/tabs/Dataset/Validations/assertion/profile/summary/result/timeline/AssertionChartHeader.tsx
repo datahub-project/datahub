@@ -4,6 +4,8 @@ import { Sparkle } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
+import { getDatasetUrnFromMonitorUrn } from '@app/entity/shared/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     AssertionChartType,
@@ -58,6 +60,16 @@ const AssertionChartHeader = ({ title, timeRange, assertion, monitor, onOpenTune
                         variant="secondary"
                         size="sm"
                         onClick={() => {
+                            analytics.event({
+                                type: EventType.TunePredictionsClickEvent,
+                                location: 'assertionChartHeader',
+                                tuningMode: bestChartType === AssertionChartType.Freshness ? 'freshness' : 'smart',
+                                assertionUrn: assertion.urn,
+                                assertionType: assertion.info?.type ?? 'Unknown',
+                                monitorUrn: monitor?.urn,
+                                datasetUrn: monitor?.urn ? getDatasetUrnFromMonitorUrn(monitor.urn) : undefined,
+                                hasMonitor: !!monitor,
+                            });
                             if (!monitor) {
                                 message.error('Could not find the monitor for this assertion.');
                             } else {

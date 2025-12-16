@@ -1,10 +1,12 @@
 import { Modal, Text, colors } from '@components';
-import { DatePicker, message } from 'antd';
+import { Modal as AntdModal, DatePicker, message } from 'antd';
 import moment from 'moment';
-import { Sparkle } from 'phosphor-react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Info, Sparkle } from 'phosphor-react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
+import { getDatasetUrnFromMonitorUrn } from '@app/entity/shared/utils';
 import { DEFAULT_SMART_ASSERTION_TRAINING_LOOKBACK_WINDOW_DAYS } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/LookBackWindowAdjuster';
 import { MonitorInferenceSettingsControlPanel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/MonitorInferenceSettingsControlPanel';
 import { TuningHelpBanner } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuningHelpBanner';
@@ -14,14 +16,25 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/chart/AddNamedExclusionWindowModal';
 import { DataFreshnessChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/chart/freshness/DataFreshnessChart';
 import { usePollForNewPredictions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/poller';
+import { getChangedTunePredictionsSettings } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/tunePredictionsAnalytics.utils';
 import { LAST_UPDATED_TIMESTAMP_FILTER_NAME, OPERATION_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { useGetOperationsQuery } from '@graphql/dataset.generated';
 import {
+    useBulkUpdateAnomaliesMutation,
     useGetAssertionWithMonitorsQuery,
+    useListMonitorAnomaliesQuery,
     useUpdateAssertionMonitorSettingsMutation,
 } from '@graphql/monitor.generated';
-import { Assertion, AssertionAdjustmentSettings, DateInterval, FilterOperator, Monitor, OperationType } from '@types';
+import {
+    AnomalyReviewState,
+    Assertion,
+    AssertionAdjustmentSettings,
+    DateInterval,
+    FilterOperator,
+    Monitor,
+    OperationType,
+} from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -159,7 +172,7 @@ export const TuneFreshnessAssertionModal = ({ onClose, assertion, monitor: origi
     const predictionsGeneratedAt = firstAssertion?.context?.inferenceDetails?.generatedAt;
 
     // -------- Polling for new predictions after settings update -------- //
-    const { isPolling, startPolling } = usePollForNewPredictions(refetchMonitor, predictionsGeneratedAt);
+    const { isPolling, startPolling } = usePollForNewPredictions(refetchMonitor, predictionsGeneratedAt, 3000);
 
     // Extract freshness prediction from the assertion's schedule
     // Use the assertion from the query result if available, otherwise fall back to the prop
@@ -187,29 +200,37 @@ export const TuneFreshnessAssertionModal = ({ onClose, assertion, monitor: origi
     const [updateAssertionMonitorSettings] = useUpdateAssertionMonitorSettingsMutation();
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const onUpdateAssertionMonitorSettings = useCallback(
-        async (settings: AssertionAdjustmentSettings) => {
-            setIsUpdating(true);
-            try {
-                await updateAssertionMonitorSettings({
-                    variables: { input: { urn: monitor.urn, adjustmentSettings: settings } },
-                });
-                // Start polling for new predictions after successful settings update
-                startPolling();
-                await refetchMonitor();
-            } catch (error) {
-                console.error('Error updating assertion monitor settings:', error);
-                message.error('Failed to update assertion monitor settings');
-            } finally {
-                setIsUpdating(false);
-            }
-        },
-        [monitor.urn, updateAssertionMonitorSettings, refetchMonitor, startPolling],
-    );
+    const onUpdateAssertionMonitorSettings = async (settings: AssertionAdjustmentSettings) => {
+        setIsUpdating(true);
+        try {
+            await updateAssertionMonitorSettings({
+                variables: { input: { urn: monitor.urn, adjustmentSettings: settings } },
+            });
+            const changedFields = getChangedTunePredictionsSettings(inferenceSettings ?? undefined, settings);
+            analytics.event({
+                type: EventType.TunePredictionsUpdateMonitorSettingsEvent,
+                tuningMode: 'freshness',
+                monitorUrn: monitor.urn,
+                assertionUrn: assertion.urn,
+                datasetUrn: getDatasetUrnFromMonitorUrn(monitor.urn),
+                changedFields,
+                trainingDataLookbackWindowDays: settings.trainingDataLookbackWindowDays ?? undefined,
+                sensitivityLevel: settings.sensitivity?.level ?? undefined,
+                exclusionWindowsCount: settings.exclusionWindows?.length ?? 0,
+                algorithm: (settings.algorithmName || settings.algorithm) ?? undefined,
+            });
+            // Start polling for new predictions after successful settings update
+            startPolling();
+            await refetchMonitor();
+        } catch (error) {
+            message.error('Failed to update assertion monitor settings');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
 
     const addNamedExclusionWindowModalRef = useRef<AddNamedExclusionWindowModalRef>(null);
 
-    // -------- Operations data -------- //
     const entityUrn = assertion.info?.entityUrn;
 
     if (!entityUrn) {
@@ -253,15 +274,151 @@ export const TuneFreshnessAssertionModal = ({ onClose, assertion, monitor: origi
 
     const operations = data?.dataset?.operations || [];
 
-    // Convert current range to moment objects for the date picker
-    const currentDateRange = useMemo(
-        () =>
-            [range.start ? moment(range.start) : null, range.end ? moment(range.end) : null] as [
-                moment.Moment | null,
-                moment.Moment | null,
-            ],
-        [range.start, range.end],
+    const { data: anomalyData, refetch: refetchAnomalies } = useListMonitorAnomaliesQuery({
+        variables: {
+            input: {
+                monitorUrn: monitor.urn,
+                startTimeMillis: queryStart,
+                endTimeMillis: queryEnd,
+                filter: {
+                    latestBySourceEventOnly: true,
+                    states: [AnomalyReviewState.Confirmed],
+                },
+            },
+        },
+    });
+
+    const anomalyTimestamps = new Set<number>(
+        (anomalyData?.listMonitorAnomalies?.anomalies || [])
+            .map((anomaly) => anomaly.source?.sourceEventTimestampMillis)
+            .filter((ts): ts is number => !!ts),
     );
+
+    // -------- Bulk mark anomalies -------- //
+    const [bulkUpdateAnomalies] = useBulkUpdateAnomaliesMutation();
+
+    const onBulkMarkAnomalies = (startTimeMillis: number, endTimeMillis: number) => {
+        AntdModal.confirm({
+            title: 'Mark Operation(s) as Anomalous?',
+            content:
+                'This action will mark all operations in the selected time range as confirmed anomalies. This will help improve future predictions.',
+            okText: 'Mark as Anomalous',
+            cancelText: 'Cancel',
+            icon: <Info size={24} color={colors.gray[900]} />,
+            onOk: async () => {
+                try {
+                    setIsUpdating(true);
+
+                    // Use bulkUpdateAnomalies mutation - the backend will handle finding operations
+                    // and creating anomaly events for freshness assertions
+                    const result = await bulkUpdateAnomalies({
+                        variables: {
+                            input: {
+                                monitorUrn: monitor.urn,
+                                assertionUrn: assertion.urn,
+                                startTimeMillis,
+                                endTimeMillis,
+                                state: AnomalyReviewState.Confirmed,
+                            },
+                        },
+                    });
+
+                    const count = result.data?.bulkUpdateAnomalies?.length || 0;
+                    if (count > 0) {
+                        message.success(`${count} operation${count > 1 ? 's' : ''} marked as anomalies.`);
+                        analytics.event({
+                            type: EventType.TunePredictionsMarkAnomalyEvent,
+                            tuningMode: 'freshness',
+                            action: 'mark',
+                            monitorUrn: monitor.urn,
+                            assertionUrn: assertion.urn,
+                            datasetUrn: getDatasetUrnFromMonitorUrn(monitor.urn),
+                            startTimeMillis,
+                            endTimeMillis,
+                            updatedCount: count,
+                            state: AnomalyReviewState.Confirmed,
+                        });
+                        // Start polling for new predictions after successful bulk update
+                        // Refetch will happen automatically when polling completes via onPollingComplete callback
+                        startPolling(() => {
+                            refetchMonitor();
+                            refetchAnomalies();
+                        });
+                    } else {
+                        message.warning('No operations found in the selected time range.');
+                    }
+                } catch (err) {
+                    message.error('Failed to bulk mark anomalies. Please try again later.');
+                } finally {
+                    setIsUpdating(false);
+                }
+            },
+        });
+    };
+
+    // -------- Bulk unmark anomalies -------- //
+    const onBulkUnmarkAnomalies = (startTimeMillis: number, endTimeMillis: number) => {
+        AntdModal.confirm({
+            title: 'Unmark Operation(s) as Anomalous?',
+            content:
+                'This action will unmark all operations in the selected time range as anomalies. This will help improve future predictions.',
+            okText: 'Unmark as Anomalous',
+            cancelText: 'Cancel',
+            icon: <Info size={24} color={colors.gray[900]} />,
+            onOk: async () => {
+                try {
+                    setIsUpdating(true);
+
+                    const result = await bulkUpdateAnomalies({
+                        variables: {
+                            input: {
+                                monitorUrn: monitor.urn,
+                                assertionUrn: assertion.urn,
+                                startTimeMillis,
+                                endTimeMillis,
+                                state: AnomalyReviewState.Rejected,
+                            },
+                        },
+                    });
+
+                    const count = result.data?.bulkUpdateAnomalies?.length || 0;
+                    if (count > 0) {
+                        message.success(`${count} operation${count > 1 ? 's' : ''} unmarked as anomalies.`);
+                        analytics.event({
+                            type: EventType.TunePredictionsMarkAnomalyEvent,
+                            tuningMode: 'freshness',
+                            action: 'unmark',
+                            monitorUrn: monitor.urn,
+                            assertionUrn: assertion.urn,
+                            datasetUrn: getDatasetUrnFromMonitorUrn(monitor.urn),
+                            startTimeMillis,
+                            endTimeMillis,
+                            updatedCount: count,
+                            state: AnomalyReviewState.Rejected,
+                        });
+                        // Start polling for new predictions after successful bulk update
+                        // Refetch will happen automatically when polling completes via onPollingComplete callback
+                        startPolling(() => {
+                            refetchMonitor();
+                            refetchAnomalies();
+                        });
+                    } else {
+                        message.warning('No anomalies found in the selected time range.');
+                    }
+                } catch (err) {
+                    message.error('Failed to bulk unmark anomalies. Please try again later.');
+                } finally {
+                    setIsUpdating(false);
+                }
+            },
+        });
+    };
+
+    // Convert current range to moment objects for the date picker
+    const currentDateRange = [range.start ? moment(range.start) : null, range.end ? moment(range.end) : null] as [
+        moment.Moment | null,
+        moment.Moment | null,
+    ];
 
     // Handle date range changes from the picker
     const handleDateRangeChange = (dates: [moment.Moment | null, moment.Moment | null] | null) => {
@@ -330,7 +487,7 @@ export const TuneFreshnessAssertionModal = ({ onClose, assertion, monitor: origi
                 },
             ]}
         >
-            <TuningHelpBanner />
+            <TuningHelpBanner message="Drag your cursor around anomalous update intervals to exclude them and improve model quality" />
             {error && (
                 <div style={{ marginBottom: 16, padding: 12, background: '#fff2f0', borderRadius: 4 }}>
                     <Text color="red" size="sm">
@@ -347,6 +504,9 @@ export const TuneFreshnessAssertionModal = ({ onClose, assertion, monitor: origi
                 resetRange={hasRangeChanged ? () => setRange(getOriginalRange()) : undefined}
                 currentTime={nowRef.current}
                 range={range}
+                onBulkMarkAnomalies={onBulkMarkAnomalies}
+                onBulkUnmarkAnomalies={onBulkUnmarkAnomalies}
+                anomalyTimestamps={anomalyTimestamps}
             />
             <MonitorInferenceSettingsControlPanel
                 onUpdateSettings={onUpdateAssertionMonitorSettings}

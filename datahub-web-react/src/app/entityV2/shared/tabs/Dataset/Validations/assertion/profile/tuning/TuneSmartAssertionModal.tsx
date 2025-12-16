@@ -5,6 +5,8 @@ import { Info } from 'phosphor-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
+import { getDatasetUrnFromMonitorUrn } from '@app/entity/shared/utils';
 import { DEFAULT_SMART_ASSERTION_TRAINING_LOOKBACK_WINDOW_DAYS } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/LookBackWindowAdjuster';
 import {
     AssertionPrediction,
@@ -19,6 +21,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/chart/AddNamedExclusionWindowModal';
 import { MonitorMetricsChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/chart/MonitorMetricsChart';
 import { usePollForNewPredictions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/poller';
+import { getChangedTunePredictionsSettings } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/tunePredictionsAnalytics.utils';
 import Loading from '@app/shared/Loading';
 
 import {
@@ -124,6 +127,19 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
                 await updateAssertionMonitorSettings({
                     variables: { input: { urn: monitor.urn, adjustmentSettings: settings } },
                 });
+                const changedFields = getChangedTunePredictionsSettings(inferenceSettings ?? undefined, settings);
+                analytics.event({
+                    type: EventType.TunePredictionsUpdateMonitorSettingsEvent,
+                    tuningMode: 'smart',
+                    monitorUrn: monitor.urn,
+                    assertionUrn: assertion.urn,
+                    datasetUrn: getDatasetUrnFromMonitorUrn(monitor.urn),
+                    changedFields,
+                    trainingDataLookbackWindowDays: settings.trainingDataLookbackWindowDays ?? undefined,
+                    sensitivityLevel: settings.sensitivity?.level ?? undefined,
+                    exclusionWindowsCount: settings.exclusionWindows?.length ?? 0,
+                    algorithm: (settings.algorithmName || settings.algorithm) ?? undefined,
+                });
                 // Start polling for new predictions after successful settings update
                 startPolling();
                 await refetchMonitor();
@@ -134,7 +150,7 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
                 setIsUpdating(false);
             }
         },
-        [monitor.urn, updateAssertionMonitorSettings, refetchMonitor, startPolling],
+        [updateAssertionMonitorSettings, monitor.urn, inferenceSettings, assertion.urn, startPolling, refetchMonitor],
     );
 
     const [bulkUpdateAnomalies] = useBulkUpdateAnomaliesMutation();
@@ -156,6 +172,18 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
                 });
                 const count = result.data?.bulkUpdateAnomalies?.length;
                 message.success(`${count} anomalies bulk updated successfully.`);
+                analytics.event({
+                    type: EventType.TunePredictionsMarkAnomalyEvent,
+                    tuningMode: 'smart',
+                    action: 'unmark',
+                    monitorUrn: monitor.urn,
+                    assertionUrn: assertion.urn,
+                    datasetUrn: getDatasetUrnFromMonitorUrn(monitor.urn),
+                    startTimeMillis,
+                    endTimeMillis,
+                    updatedCount: count || 0,
+                    state: AnomalyReviewState.Rejected,
+                });
                 // Start polling for new predictions after successful bulk update
                 startPolling();
                 setTimeout(() => refetchListMonitorMetrics(), 3000);

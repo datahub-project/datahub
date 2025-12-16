@@ -263,3 +263,11 @@ query listMonitorMetrics($input: ListMonitorMetricsInput!) {
         }
     }
 }
+
+query listMonitorAnomalies($input: ListMonitorAnomaliesInput!) {
+    listMonitorAnomalies(input: $input) {
+        anomalies {
+            ...monitorAnomalyEventDetails
+        }
+    }
+}

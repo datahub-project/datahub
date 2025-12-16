@@ -11,6 +11,7 @@ import {
     ActionRequestType,
     ActionWorkflowCategory,
     AllowedValue,
+    AnomalyReviewState,
     AssertionType,
     DataHubPageModuleType,
     DataHubViewType,
@@ -214,6 +215,9 @@ export enum EventType {
     GiveAnomalyFeedback,
     UndoAnomalyFeedback,
     RetrainAsNewNormal,
+    TunePredictionsClickEvent,
+    TunePredictionsMarkAnomalyEvent,
+    TunePredictionsUpdateMonitorSettingsEvent,
     CreateActionWorkflowFormRequest,
     ReviewActionWorkflowFormRequest,
     BatchReviewActionWorkflowFormRequest,
@@ -1619,6 +1623,54 @@ export interface RetrainAsNewNormalEvent extends BaseEvent {
     };
 }
 
+export type TunePredictionsMode = 'smart' | 'freshness' | 'unknown';
+
+/**
+ * Logged when a user clicks a "Tune Predictions" entry point.
+ */
+export interface TunePredictionsClickEvent extends BaseEvent {
+    type: EventType.TunePredictionsClickEvent;
+    location: string;
+    tuningMode: TunePredictionsMode;
+    assertionUrn?: string;
+    assertionType?: AssertionType | 'Unknown';
+    monitorUrn?: string;
+    datasetUrn?: string;
+    hasMonitor?: boolean;
+}
+
+/**
+ * Logged when a user marks / unmarks anomalies from within Tune Predictions.
+ */
+export interface TunePredictionsMarkAnomalyEvent extends BaseEvent {
+    type: EventType.TunePredictionsMarkAnomalyEvent;
+    tuningMode: TunePredictionsMode;
+    action: 'mark' | 'unmark';
+    monitorUrn: string;
+    assertionUrn: string;
+    datasetUrn?: string;
+    startTimeMillis: number;
+    endTimeMillis: number;
+    updatedCount: number;
+    state: AnomalyReviewState;
+}
+
+/**
+ * Logged when a user updates monitor inference settings from within Tune Predictions.
+ */
+export interface TunePredictionsUpdateMonitorSettingsEvent extends BaseEvent {
+    type: EventType.TunePredictionsUpdateMonitorSettingsEvent;
+    tuningMode: TunePredictionsMode;
+    monitorUrn: string;
+    assertionUrn?: string;
+    datasetUrn?: string;
+    changedFields: string[];
+    trainingDataLookbackWindowDays?: number;
+    sensitivityLevel?: number;
+    exclusionWindowsCount?: number;
+    algorithm?: string;
+}
+
 export interface DatasetHealthFilterEvent extends BaseEvent {
     type: EventType.DatasetHealthFilterEvent;
     tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
@@ -2251,6 +2303,9 @@ export type Event =
     | GiveAnomalyFeedbackEvent
     | UndoAnomalyFeedbackEvent
     | RetrainAsNewNormalEvent
+    | TunePredictionsClickEvent
+    | TunePredictionsMarkAnomalyEvent
+    | TunePredictionsUpdateMonitorSettingsEvent
     | CreateActionWorkflowFormRequestEvent
     | BatchReviewActionWorkflowFormRequestEvent
     | ReviewActionWorkflowFormRequestEvent

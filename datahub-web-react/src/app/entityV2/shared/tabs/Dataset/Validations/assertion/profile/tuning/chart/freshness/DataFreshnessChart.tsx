@@ -7,7 +7,7 @@ import { Bar } from '@visx/shape';
 import { TooltipWithBounds, useTooltip } from '@visx/tooltip';
 import { scaleLinear } from 'd3-scale';
 import moment from 'moment';
-import { ArrowCounterClockwise } from 'phosphor-react';
+import { ArrowCounterClockwise, CheckCircle, MagnifyingGlass, Warning } from 'phosphor-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -17,7 +17,8 @@ import Loading from '@app/shared/Loading';
 import { Operation } from '@types';
 
 const BAR_COLOR = '#533FD1';
-const BAR_EXCEEDS_MAX_COLOR = '#C4360B';
+const ANOMALY_COLOR = '#C4360B';
+const BAR_EXCEEDS_MAX_COLOR = '#EDC001';
 
 const CLIP_INDICATOR_HEIGHT = 7;
 
@@ -74,6 +75,58 @@ const LegendControlsContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+`;
+
+const ActionMenuBackdrop = styled.div`
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+`;
+
+const ActionMenu = styled.div<{ x: number; y: number }>`
+    position: absolute;
+    left: ${(props) => props.x}px;
+    top: ${(props) => props.y}px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    font-size: 12px;
+    overflow: hidden;
+    transform: translateX(-50%); // Center horizontally over selection
+`;
+
+const ActionButton = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: white;
+    color: ${colors.gray[700]};
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: ${colors.primary[0]};
+    }
+
+    &:first-child {
+        border-top-left-radius: 5px;
+        border-top-right-radius: 5px;
+    }
+
+    &:last-child {
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
+    }
 `;
 
 const ResetZoomButton = styled(Button)`
@@ -136,6 +189,9 @@ type Props = {
     resetRange?: () => void;
     currentTime: number;
     range?: { start: number; end: number };
+    onBulkMarkAnomalies?: (startTimeMillis: number, endTimeMillis: number) => void;
+    onBulkUnmarkAnomalies?: (startTimeMillis: number, endTimeMillis: number) => void;
+    anomalyTimestamps?: Set<number>;
 };
 
 /**
@@ -317,6 +373,9 @@ export const DataFreshnessChart = ({
     resetRange,
     currentTime,
     range,
+    onBulkMarkAnomalies,
+    onBulkUnmarkAnomalies,
+    anomalyTimestamps,
 }: Props) => {
     // Calculate time range from range prop if provided, otherwise from operations data
     const timeRange = (() => {
@@ -417,6 +476,15 @@ export const DataFreshnessChart = ({
     const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
     const [selectionEnd, setSelectionEnd] = useState<{ x: number; y: number } | null>(null);
 
+    // Action menu state for drag selection
+    const [actionMenu, setActionMenu] = useState<{
+        show: boolean;
+        x: number;
+        y: number;
+        startTime: number;
+        endTime: number;
+    } | null>(null);
+
     // Tooltip state
     const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } = useTooltip<{
         timeSinceLastUpdate: number;
@@ -501,9 +569,16 @@ export const DataFreshnessChart = ({
 
             // Use found entries or fallback to first/last
             if (startData && endData && startData.timestampMillis <= endData.timestampMillis) {
-                onRangeChange({
-                    start: startData.timestampMillis,
-                    end: endData.timestampMillis,
+                // Show action menu instead of immediately zooming
+                const centerX = (minX + maxX) / 2;
+                const menuY = selectionStart.y;
+
+                setActionMenu({
+                    show: true,
+                    x: centerX,
+                    y: menuY,
+                    startTime: startData.timestampMillis,
+                    endTime: endData.timestampMillis,
                 });
             }
         }
@@ -512,6 +587,44 @@ export const DataFreshnessChart = ({
         setSelectionStart(null);
         setSelectionEnd(null);
     }, [isSelecting, selectionStart, selectionEnd, xScale, onRangeChange, barData]);
+
+    // Action menu handlers
+    const handleZoomAction = useCallback(() => {
+        if (actionMenu && onRangeChange) {
+            onRangeChange({
+                start: actionMenu.startTime,
+                end: actionMenu.endTime,
+            });
+        }
+        setActionMenu(null);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+    }, [actionMenu, onRangeChange]);
+
+    const handleMarkAnomaliesAction = useCallback(() => {
+        if (onBulkMarkAnomalies && actionMenu) {
+            onBulkMarkAnomalies(actionMenu.startTime, actionMenu.endTime);
+        }
+        setActionMenu(null);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+    }, [actionMenu, onBulkMarkAnomalies]);
+
+    const handleUnmarkAnomaliesAction = useCallback(() => {
+        if (onBulkUnmarkAnomalies && actionMenu) {
+            onBulkUnmarkAnomalies(actionMenu.startTime, actionMenu.endTime);
+        }
+        setActionMenu(null);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+    }, [actionMenu, onBulkUnmarkAnomalies]);
+
+    // Close action menu when clicking outside
+    const handleCloseActionMenu = useCallback(() => {
+        setActionMenu(null);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+    }, []);
 
     if (loading) {
         return (
@@ -553,7 +666,8 @@ export const DataFreshnessChart = ({
         <ChartContainer>
             <Legend>
                 <LegendItem $color={BAR_COLOR}>Included in training set</LegendItem>
-                <LegendItem $color={BAR_EXCEEDS_MAX_COLOR}>Included in training set, but later than usual</LegendItem>
+                <LegendItem $color={ANOMALY_COLOR}>Marked as anomaly</LegendItem>
+                <LegendItem $color={BAR_EXCEEDS_MAX_COLOR}>Exceeds max cadence</LegendItem>
                 <LegendControlsContainer>
                     {resetRange && (
                         <ResetZoomButton onClick={resetRange} variant="secondary">
@@ -650,6 +764,9 @@ export const DataFreshnessChart = ({
                             // Check if this data point exceeds the max Y value
                             const exceedsMax = data.timeSinceLastUpdate > cadenceMaxY;
 
+                            // Check if this operation is marked as an anomaly
+                            const isAnomaly = anomalyTimestamps?.has(data.timestampMillis) ?? false;
+
                             // Calculate bar height: timeSinceLastUpdate determines the height
                             // yScale maps timeSinceLastUpdate to y position, so we need to convert that to height
                             // If it exceeds max, cap it at the max for display
@@ -661,6 +778,14 @@ export const DataFreshnessChart = ({
                             const barWidth = Math.max(12, Math.min(8, xScale.bandwidth() || 0));
                             const centerX = xOffset + (xScale.bandwidth() || 0) / 2;
                             const barX = centerX - barWidth / 2;
+
+                            // Determine bar color: use anomaly color if marked as anomaly, otherwise use normal/exceedsMax logic
+                            let barColor = BAR_COLOR;
+                            if (exceedsMax) {
+                                barColor = BAR_EXCEEDS_MAX_COLOR;
+                            } else if (isAnomaly) {
+                                barColor = ANOMALY_COLOR;
+                            }
 
                             return (
                                 <g
@@ -695,7 +820,7 @@ export const DataFreshnessChart = ({
                                         y={yPosition}
                                         width={barWidth}
                                         height={barHeight}
-                                        fill={exceedsMax ? BAR_EXCEEDS_MAX_COLOR : BAR_COLOR}
+                                        fill={barColor}
                                         stroke="white"
                                         strokeWidth={1}
                                     />
@@ -748,6 +873,32 @@ export const DataFreshnessChart = ({
                             </div>
                         </div>
                     </TooltipWithBounds>
+                )}
+
+                {/* Action menu */}
+                {actionMenu?.show && (
+                    <>
+                        {/* Backdrop to close menu when clicking outside */}
+                        <ActionMenuBackdrop onClick={handleCloseActionMenu} />
+                        <ActionMenu x={actionMenu.x} y={actionMenu.y}>
+                            <ActionButton onClick={handleZoomAction}>
+                                <MagnifyingGlass size={16} weight="bold" />
+                                Zoom
+                            </ActionButton>
+                            {onBulkMarkAnomalies && (
+                                <ActionButton onClick={handleMarkAnomaliesAction}>
+                                    <Warning size={16} weight="fill" />
+                                    Mark as Anomalous
+                                </ActionButton>
+                            )}
+                            {onBulkUnmarkAnomalies && (
+                                <ActionButton onClick={handleUnmarkAnomaliesAction}>
+                                    <CheckCircle size={16} weight="fill" />
+                                    Unmark as Anomalous
+                                </ActionButton>
+                            )}
+                        </ActionMenu>
+                    </>
                 )}
             </ChartInteractionContainer>
         </ChartContainer>
