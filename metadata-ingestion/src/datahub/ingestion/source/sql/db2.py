@@ -298,7 +298,7 @@ def _db2_get_procedures(
         )
 
 
-def _split_zos_pathschemas(text):
+def _split_zos_pathschemas(text: str) -> list[str]:
     # format is schema names in double quotes separated by commas
     # e.g.: "SYSIBM","SYSPROC","SMITH","SESSION_USER"
 
