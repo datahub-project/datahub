@@ -71,7 +71,6 @@ public class DocumentService {
    * @param parentDocumentUrn optional parent document URN
    * @param relatedAssetUrns optional list of related asset URNs
    * @param relatedDocumentUrns optional list of related document URNs
-   * @param draftOfUrn deprecated - always pass null (draft feature not yet implemented)
    * @param settings optional document settings (defaults to showInGlobalContext=true if not
    *     provided)
    * @param actorUrn the URN of the user creating the document
@@ -90,7 +89,6 @@ public class DocumentService {
       @Nullable Urn parentDocumentUrn,
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
-      @Nullable Urn draftOfUrn,
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
       @Nonnull Urn actorUrn)
       throws Exception {
@@ -107,7 +105,6 @@ public class DocumentService {
           String.format("Document with ID %s already exists", documentId));
     }
 
-    // Note: draftOfUrn parameter is deprecated and should always be null
     // Draft feature is not yet implemented in the UI
 
     // Create document key

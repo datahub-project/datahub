@@ -60,7 +60,6 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
-            null, // no draftOfUrn
             null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 
@@ -93,7 +92,6 @@ public class DocumentServiceTest {
             TEST_PARENT_URN,
             Arrays.asList(TEST_ASSET_URN),
             Arrays.asList(TEST_DOCUMENT_URN),
-            null, // no draftOfUrn
             null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 
@@ -126,7 +124,6 @@ public class DocumentServiceTest {
           null,
           null,
           null,
-          null, // no draftOfUrn
           null, // showInGlobalContext
           TEST_USER_URN);
       Assert.fail("Expected IllegalArgumentException");
@@ -689,7 +686,6 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
-            null, // no draftOfUrn
             new com.linkedin.knowledge.DocumentSettings()
                 .setShowInGlobalContext(false), // showInGlobalContext = false
             TEST_USER_URN);
@@ -723,7 +719,6 @@ public class DocumentServiceTest {
             null, // no parent
             null, // no related assets
             null, // no related documents
-            null, // no draftOfUrn
             null, // showInGlobalContext defaults to true
             TEST_USER_URN);
 

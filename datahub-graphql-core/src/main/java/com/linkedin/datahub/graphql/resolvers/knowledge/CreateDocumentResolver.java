@@ -112,7 +112,6 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     parentDocumentUrn,
                     relatedAssetUrns,
                     relatedDocumentUrns,
-                    null, // draftOfUrn - draft feature not yet implemented
                     settings,
                     UrnUtils.getUrn(context.getActorUrn()));
 

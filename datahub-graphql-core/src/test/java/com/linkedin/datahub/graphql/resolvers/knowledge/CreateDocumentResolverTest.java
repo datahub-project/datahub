@@ -60,7 +60,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any(Urn.class))) // actor
         .thenReturn(TEST_DOCUMENT_URN);
@@ -97,7 +96,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any(Urn.class)); // actor URN
 
@@ -131,7 +129,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any()); // actor
   }
@@ -162,7 +159,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any()); // actor
   }
@@ -232,7 +228,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any())) // actor
         .thenThrow(new RuntimeException("Service error"));
