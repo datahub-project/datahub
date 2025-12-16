@@ -57,6 +57,9 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
@@ -66,13 +69,13 @@ jobs:
           echo "✅ **Retriggering workflow** (first failure detected)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "Retriggering '${{ github.event.workflow_run.name }}' (Run ID: ${{ github.event.workflow_run.id }})..."
+          echo "Retriggering '${WORKFLOW_NAME}' (Run ID: ${RUN_ID})..."
 
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/rerun-failed-jobs
+            "/repos/${REPOSITORY}/actions/runs/${RUN_ID}/rerun-failed-jobs"
 
           EXIT_CODE=$?
 
