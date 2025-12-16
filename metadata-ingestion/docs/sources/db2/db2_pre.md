@@ -23,8 +23,8 @@ uri_args:
 
 This source has been tested against:
 
-- Db2 for LUW using the default CLI driver (included)
-- Db2 for IBM i (AS/400) using the IBM i Access ODBC Driver (not included, see [Using the IBM i Access ODBC Driver](#using-the-ibm-i-access-odbc-driver) below)
+- Db2 for LUW using the default CLI driver (already included when installing the `acryl-datahub[db2]` package)
+- Db2 for IBM i (AS/400) using the IBM i Access ODBC Driver (not included and so must be installed separately by the end user; see [Using the IBM i Access ODBC Driver](#using-the-ibm-i-access-odbc-driver) below)
 
 This source also includes nominal support for:
 
