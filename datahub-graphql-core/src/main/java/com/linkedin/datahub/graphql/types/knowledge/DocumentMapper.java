@@ -39,6 +39,8 @@ import javax.annotation.Nullable;
 /** Maps GMS EntityResponse representing a Document to a GraphQL Document object. */
 public class DocumentMapper {
 
+  private static final String DATAHUB_DATA_PLATFORM_URN = "urn:li:dataPlatform:datahub";
+
   public static Document map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Document result = new Document();
     final Urn entityUrn = entityResponse.getUrn();
@@ -72,14 +74,28 @@ public class DocumentMapper {
       }
     }
 
-    // Map DataPlatformInstance aspect
+    // Map DataPlatformInstance aspect (following pattern from
+    // DataJobMapper/DataProcessInstanceMapper)
     final EnvelopedAspect envelopedDataPlatformInstance =
         aspects.get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     if (envelopedDataPlatformInstance != null) {
       final DataPlatformInstance dataPlatformInstance =
           new DataPlatformInstance(envelopedDataPlatformInstance.getValue().data());
-      result.setDataPlatformInstance(
-          DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance));
+      final com.linkedin.datahub.graphql.generated.DataPlatformInstance value =
+          DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance);
+      // Always set platform directly (resolved by platform resolver)
+      result.setPlatform(value.getPlatform());
+      // Only set dataPlatformInstance if there's an actual instance (to avoid null urn/type errors)
+      if (dataPlatformInstance.hasInstance()) {
+        result.setDataPlatformInstance(value);
+      }
+    } else {
+      // Platform is ALWAYS required, so we set the platform to "datahub" for internal documents.
+      result.setPlatform(
+          com.linkedin.datahub.graphql.generated.DataPlatform.builder()
+              .setType(EntityType.DATA_PLATFORM)
+              .setUrn(DATAHUB_DATA_PLATFORM_URN)
+              .build());
     }
 
     // Map Ownership aspect
