@@ -227,6 +227,7 @@ class HTTPRecorder:
             Handles:
             - Comma-separated ID lists in filters (order-independent)
             - Sort keys for consistent comparison
+            - Binary bodies (returns as-is for byte comparison)
             """
             import json
 
@@ -235,7 +236,12 @@ class HTTPRecorder:
 
             try:
                 if isinstance(body, bytes):
-                    body = body.decode("utf-8")
+                    # Try to decode as UTF-8, but handle binary data gracefully
+                    try:
+                        body = body.decode("utf-8")
+                    except UnicodeDecodeError:
+                        # Binary body (protobuf, gRPC, etc.) - return as-is for byte comparison
+                        return body
                 data = json.loads(body)
 
                 # Normalize filters with comma-separated IDs
@@ -248,7 +254,13 @@ class HTTPRecorder:
                             filters[key] = ",".join(values)
 
                 return json.dumps(data, sort_keys=True)
-            except (json.JSONDecodeError, TypeError, AttributeError):
+            except (
+                json.JSONDecodeError,
+                TypeError,
+                AttributeError,
+                UnicodeDecodeError,
+            ):
+                # Not JSON or binary data - return as-is
                 return body
 
         def custom_body_matcher(r1: Any, r2: Any) -> bool:
@@ -343,7 +355,13 @@ class HTTPReplayerForLiveSink:
             return any(endpoint in uri for endpoint in AUTH_ENDPOINTS)
 
         def normalize_json_body(body: Any) -> Any:
-            """Normalize JSON body for comparison."""
+            """Normalize JSON body for comparison.
+
+            Handles:
+            - Comma-separated ID lists in filters (order-independent)
+            - Sort keys for consistent comparison
+            - Binary bodies (returns as-is for byte comparison)
+            """
             import json
 
             if not body:
@@ -351,7 +369,12 @@ class HTTPReplayerForLiveSink:
 
             try:
                 if isinstance(body, bytes):
-                    body = body.decode("utf-8")
+                    # Try to decode as UTF-8, but handle binary data gracefully
+                    try:
+                        body = body.decode("utf-8")
+                    except UnicodeDecodeError:
+                        # Binary body (protobuf, gRPC, etc.) - return as-is for byte comparison
+                        return body
                 data = json.loads(body)
 
                 # Normalize filters with comma-separated IDs
@@ -363,7 +386,13 @@ class HTTPReplayerForLiveSink:
                             filters[key] = ",".join(values)
 
                 return json.dumps(data, sort_keys=True)
-            except (json.JSONDecodeError, TypeError, AttributeError):
+            except (
+                json.JSONDecodeError,
+                TypeError,
+                AttributeError,
+                UnicodeDecodeError,
+            ):
+                # Not JSON or binary data - return as-is
                 return body
 
         # Custom matcher that allows live hosts to bypass recording
