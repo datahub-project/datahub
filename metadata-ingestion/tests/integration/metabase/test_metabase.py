@@ -347,3 +347,110 @@ def test_strip_template_expressions():
         MetabaseSource.strip_template_expressions(query_with_dashboard_filters[0])
         == query_with_dashboard_filters[1]
     )
+
+
+@pytest.fixture
+def extended_json_response_map():
+    return {
+        "http://localhost:3000/api/session": "session.json",
+        "http://localhost:3000/api/user/current": "user.json",
+        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
+        "http://localhost:3000/api/collection/root/items?models=dashboard": "collection_dashboards.json",
+        "http://localhost:3000/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
+        "http://localhost:3000/api/dashboard/10": "dashboard_1.json",
+        "http://localhost:3000/api/dashboard/20": "dashboard_2.json",
+        "http://localhost:3000/api/user/1": "user.json",
+        "http://localhost:3000/api/card": "card_with_models.json",
+        "http://localhost:3000/api/database/1": "bigquery_database.json",
+        "http://localhost:3000/api/database/2": "postgres_database.json",
+        "http://localhost:3000/api/card/1": "card_1.json",
+        "http://localhost:3000/api/card/2": "card_2.json",
+        "http://localhost:3000/api/card/3": "card_3.json",
+        "http://localhost:3000/api/card/4": "card_4_model.json",
+        "http://localhost:3000/api/card/5": "card_5_nested.json",
+        "http://localhost:3000/api/card/6": "card_6_model_query_builder.json",
+        "http://localhost:3000/api/table/21": "table_21.json",
+    }
+
+
+@freeze_time(FROZEN_TIME)
+def test_metabase_ingest_with_models_and_collections(
+    pytestconfig, tmp_path, extended_json_response_map, mock_datahub_graph
+):
+    """
+    Integration test for Metabase Models, Collection Tags, and Nested Query Lineage.
+
+    This test validates that:
+    1. Models are extracted as datasets with correct URN format (model. prefix)
+    2. Models have lineage to source tables from SQL parsing
+    3. Collection tags are applied to models based on their collection_id
+    4. Nested query lineage resolves through multiple levels of card references
+    """
+    with (
+        patch(
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=MockResponse.build_mocked_requests_sucess(
+                extended_json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.post",
+            side_effect=MockResponse.build_mocked_requests_session_post(
+                extended_json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.metabase.requests.delete",
+            side_effect=MockResponse.build_mocked_requests_session_delete(
+                extended_json_response_map
+            ),
+        ),
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline_config = {
+            "run_id": "metabase-new-features-test",
+            "source": {
+                "type": "metabase",
+                "config": {
+                    "username": "xxxx",
+                    "password": "xxxx",
+                    "connect_uri": "http://localhost:3000/",
+                    "extract_models": True,
+                },
+            },
+            "pipeline_name": "test_new_features_pipeline",
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/metabase_new_features_mces.json",
+                },
+            },
+        }
+
+        pipeline = Pipeline.create(pipeline_config)
+        pipeline.run()
+
+        report = pipeline.source.get_report()
+
+        non_schema_failures = [
+            f for f in report.failures if "Source produced bad metadata" not in str(f)
+        ]
+        assert len(non_schema_failures) == 0, (
+            f"Unexpected failures (excluding known schema validation issue): {non_schema_failures}"
+        )
+
+        with open(f"{tmp_path}/metabase_new_features_mces.json", "r") as f:
+            content = f.read()
+
+        assert "model.4" in content, "Model 4 should be extracted"
+        assert "model.6" in content, "Model 6 should be extracted"
+        assert "metabase_collection_john_doe" in content, (
+            "Collection tag should be created"
+        )

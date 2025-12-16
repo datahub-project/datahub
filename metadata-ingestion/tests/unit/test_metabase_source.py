@@ -157,8 +157,6 @@ def test_get_table_urns_from_native_query(mock_post, mock_get, mock_delete):
     )
     ctx = PipelineContext(run_id="metabase-test")
     ctx.graph = None
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -167,13 +165,9 @@ def test_get_table_urns_from_native_query(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock get_datasource_from_id
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
-
-    # Test with a simple SQL query
     card_details = {
         "database_id": "1",
         "dataset_query": {
@@ -184,11 +178,11 @@ def test_get_table_urns_from_native_query(mock_post, mock_get, mock_delete):
     }
 
     table_urns = metabase_source._get_table_urns_from_native_query(card_details)
-
-    # Should extract both tables
-    assert len(table_urns) == 2
-    assert any("users" in urn for urn in table_urns)
-    assert any("orders" in urn for urn in table_urns)
+    expected_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+    }
+    assert set(table_urns) == expected_urns
 
     metabase_source.close()
 
@@ -204,8 +198,6 @@ def test_get_table_urns_from_query_builder(mock_post, mock_get, mock_delete):
         password=pydantic.SecretStr("pwd"),
     )
     ctx = PipelineContext(run_id="metabase-test")
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -214,27 +206,22 @@ def test_get_table_urns_from_query_builder(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock dependencies
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "products")
     )
-
-    # Test with query builder query
     card_details = {
         "database_id": "1",
         "dataset_query": {"query": {"source-table": "42"}},
     }
 
     table_urns = metabase_source._get_table_urns_from_query_builder(card_details)
-
-    # Should extract one table
-    assert len(table_urns) == 1
-    assert "products" in table_urns[0]
-    assert "postgres" in table_urns[0]
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.products,PROD)"
+    )
+    assert table_urns == [expected_urn]
 
     metabase_source.close()
 
@@ -250,8 +237,6 @@ def test_get_table_urns_from_nested_query(mock_post, mock_get, mock_delete):
         password=pydantic.SecretStr("pwd"),
     )
     ctx = PipelineContext(run_id="metabase-test")
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -260,37 +245,28 @@ def test_get_table_urns_from_nested_query(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock dependencies
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "products")
     )
-
-    # The referenced card
     referenced_card = {
         "database_id": "1",
         "dataset_query": {"type": "query", "query": {"source-table": "42"}},
     }
 
-    # Mock get_card_details_by_id to return the referenced card
     metabase_source.get_card_details_by_id = MagicMock(return_value=referenced_card)  # type: ignore[method-assign]
-
-    # Test with nested query (card referencing another card)
     card_details = {
         "database_id": "1",
         "dataset_query": {"query": {"source-table": "card__123"}},
     }
 
     table_urns = metabase_source._get_table_urns_from_query_builder(card_details)
-
-    # Should recursively resolve to the underlying table
-    assert len(table_urns) == 1
-    assert "products" in table_urns[0]
-
-    # Verify that get_card_details_by_id was called with the correct ID
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.products,PROD)"
+    )
+    assert table_urns == [expected_urn]
     metabase_source.get_card_details_by_id.assert_called_with("123")
 
     metabase_source.close()
@@ -308,8 +284,6 @@ def test_construct_dashboard_lineage(mock_post, mock_get, mock_delete):
     )
     ctx = PipelineContext(run_id="metabase-test")
     ctx.graph = None
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -318,16 +292,12 @@ def test_construct_dashboard_lineage(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock dependencies
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "products")
     )
-
-    # Define cards that will be returned
     card1 = {
         "database_id": "1",
         "dataset_query": {
@@ -352,29 +322,28 @@ def test_construct_dashboard_lineage(mock_post, mock_get, mock_delete):
         side_effect=mock_get_card_details
     )
 
-    # Test dashboard with multiple cards
     dashboard_details = {
         "id": "100",
         "name": "Test Dashboard",
         "dashcards": [{"card": {"id": "1"}}, {"card": {"id": "2"}}],
     }
-
-    # Create a mock AuditStamp for last_modified
     last_modified = AuditStamp(time=0, actor="urn:li:corpuser:test")
 
     dataset_edges = metabase_source.construct_dashboard_lineage(
         dashboard_details, last_modified
     )
-
-    # Should create dataset edges
     assert dataset_edges is not None
     assert isinstance(dataset_edges, list)
-    assert len(dataset_edges) >= 1  # At least one dataset edge
+    assert len(dataset_edges) == 2
 
-    # All edges should have destination URNs
+    destination_urns = {edge.destinationUrn for edge in dataset_edges}
+    expected_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.products,PROD)",
+    }
+    assert destination_urns == expected_urns
     for edge in dataset_edges:
-        assert edge.destinationUrn is not None
-        assert edge.lastModified is not None
+        assert edge.lastModified == last_modified
 
     metabase_source.close()
 
@@ -390,8 +359,6 @@ def test_construct_dashboard_lineage_empty_dashcards(mock_post, mock_get, mock_d
         password=pydantic.SecretStr("pwd"),
     )
     ctx = PipelineContext(run_id="metabase-test")
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -401,21 +368,16 @@ def test_construct_dashboard_lineage_empty_dashcards(mock_post, mock_get, mock_d
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    # Test dashboard with no cards
     dashboard_details = {
         "id": "100",
         "name": "Empty Dashboard",
         "dashcards": [],
     }
-
-    # Create a mock AuditStamp for last_modified
     last_modified = AuditStamp(time=0, actor="urn:li:corpuser:test")
 
     dataset_edges = metabase_source.construct_dashboard_lineage(
         dashboard_details, last_modified
     )
-
-    # Should return None for empty dashboard
     assert dataset_edges is None
 
     metabase_source.close()
@@ -433,8 +395,6 @@ def test_construct_dashboard_lineage_deduplication(mock_post, mock_get, mock_del
     )
     ctx = PipelineContext(run_id="metabase-test")
     ctx.graph = None
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -443,16 +403,12 @@ def test_construct_dashboard_lineage_deduplication(mock_post, mock_get, mock_del
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock dependencies
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
     metabase_source.get_source_table_from_id = MagicMock(
         return_value=("public", "users")
     )
-
-    # Both cards reference the same table
     card1 = {
         "database_id": "1",
         "dataset_query": {
@@ -479,25 +435,22 @@ def test_construct_dashboard_lineage_deduplication(mock_post, mock_get, mock_del
     metabase_source.get_card_details_by_id = MagicMock(  # type: ignore[method-assign]
         side_effect=mock_get_card_details
     )
-
-    # Dashboard with two cards referencing the same table
     dashboard_details = {
         "id": "100",
         "name": "Test Dashboard",
         "dashcards": [{"card": {"id": "1"}}, {"card": {"id": "2"}}],
     }
-
-    # Create a mock AuditStamp for last_modified
     last_modified = AuditStamp(time=0, actor="urn:li:corpuser:test")
 
     dataset_edges = metabase_source.construct_dashboard_lineage(
         dashboard_details, last_modified
     )
-
-    # Should deduplicate to only one dataset edge
     assert dataset_edges is not None
     assert len(dataset_edges) == 1
-    assert "users" in dataset_edges[0].destinationUrn
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)"
+    )
+    assert dataset_edges[0].destinationUrn == expected_urn
 
     metabase_source.close()
 
@@ -513,8 +466,6 @@ def test_get_table_urns_handles_missing_database_id(mock_post, mock_get, mock_de
         password=pydantic.SecretStr("pwd"),
     )
     ctx = PipelineContext(run_id="metabase-test")
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -523,8 +474,6 @@ def test_get_table_urns_handles_missing_database_id(mock_post, mock_get, mock_de
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Test with missing database_id
     card_details = {
         "dataset_query": {
             "type": "native",
@@ -533,8 +482,6 @@ def test_get_table_urns_handles_missing_database_id(mock_post, mock_get, mock_de
     }
 
     table_urns = metabase_source._get_table_urns_from_native_query(card_details)
-
-    # Should return empty list
     assert table_urns == []
 
     metabase_source.close()
@@ -551,8 +498,6 @@ def test_get_table_urns_handles_missing_query(mock_post, mock_get, mock_delete):
         password=pydantic.SecretStr("pwd"),
     )
     ctx = PipelineContext(run_id="metabase-test")
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -565,16 +510,12 @@ def test_get_table_urns_handles_missing_query(mock_post, mock_get, mock_delete):
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
-
-    # Test with missing query
     card_details = {
         "database_id": "1",
         "dataset_query": {"native": {}},
     }
 
     table_urns = metabase_source._get_table_urns_from_native_query(card_details)
-
-    # Should return empty list
     assert table_urns == []
 
     metabase_source.close()
@@ -615,9 +556,10 @@ def test_extract_tags_from_collection(mock_post, mock_get, mock_delete):
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
     tags = metabase_source._get_tags_from_collection("1")
-
     assert tags is not None
     assert isinstance(tags, GlobalTagsClass)
+    assert len(tags.tags) == 1
+    assert tags.tags[0].tag == "urn:li:tag:metabase_collection_sales_dashboard"
     metabase_source.close()
 
 
@@ -656,9 +598,6 @@ def test_is_metabase_model(mock_post, mock_get, mock_delete):
 @patch("requests.post")
 def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
     """Test construction of DatasetSnapshot for Metabase Models"""
-    from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-        DatasetSnapshot,
-    )
 
     metabase_config = MetabaseConfig(
         connect_uri="http://localhost:3000",
@@ -679,8 +618,6 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
-
-    # Mock collections API response
     collections_response = MagicMock()
     collections_response.status_code = 200
     collections_response.json.return_value = [
@@ -700,31 +637,55 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
         "description": "A model for customer revenue analysis",
         "type": "model",
         "database_id": 1,
-        "query_type": "native",  # This triggers ViewPropertiesClass
+        "query_type": "native",
         "dataset_query": {
             "type": "native",
             "native": {
                 "query": "SELECT customer_id, SUM(revenue) FROM orders GROUP BY customer_id"
             },
         },
+        "result_metadata": [
+            {
+                "name": "customer_id",
+                "display_name": "Customer ID",
+                "base_type": "type/Integer",
+                "effective_type": "type/Integer",
+            },
+            {
+                "name": "revenue_sum",
+                "display_name": "Total Revenue",
+                "base_type": "type/Decimal",
+                "effective_type": "type/Decimal",
+            },
+        ],
         "collection_id": 42,
         "creator_id": 1,
         "created_at": "2024-01-15T10:00:00Z",
     }
 
-    dataset_snapshot = metabase_source.construct_model_from_api_data(model_card)
+    workunits = list(metabase_source._emit_model_workunits(model_card))
 
-    assert dataset_snapshot is not None
-    assert isinstance(dataset_snapshot, DatasetSnapshot)
-    assert "metabase" in dataset_snapshot.urn
-    assert "123" in dataset_snapshot.urn
+    assert len(workunits) > 0
 
-    aspect_types = [type(aspect).__name__ for aspect in dataset_snapshot.aspects]
-    assert "DatasetPropertiesClass" in aspect_types
-    assert "SubTypesClass" in aspect_types
-    assert "ViewPropertiesClass" in aspect_types
-    assert "OwnershipClass" in aspect_types
-    assert "GlobalTagsClass" in aspect_types  # Tags from collection
+    expected_urn = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.123,PROD)"
+
+    # Verify all work units are for the correct entity
+    for wu in workunits:
+        mcp = wu.metadata
+        assert mcp.entityUrn == expected_urn  # type: ignore[union-attr]
+
+    # Check for SchemaMetadata aspect
+    from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
+
+    schema_wu = next(
+        (wu for wu in workunits if isinstance(wu.metadata.aspect, SchemaMetadata)),  # type: ignore[union-attr]
+        None,
+    )
+    assert schema_wu is not None, "Models must have schema metadata"
+    schema_aspect = schema_wu.metadata.aspect  # type: ignore[union-attr]
+    assert len(schema_aspect.fields) == 2  # type: ignore[arg-type,union-attr]
+    assert schema_aspect.fields[0].fieldPath == "customer_id"  # type: ignore[index,union-attr]
+    assert schema_aspect.fields[1].fieldPath == "revenue_sum"  # type: ignore[index,union-attr]
 
     metabase_source.close()
 
@@ -767,18 +728,24 @@ def test_construct_model_with_lineage(mock_post, mock_get, mock_delete):
         "creator_id": 1,
     }
 
-    dataset_snapshot = metabase_source.construct_model_from_api_data(model_card)
+    workunits = list(metabase_source._emit_model_workunits(model_card))
+    assert len(workunits) > 0
 
-    assert dataset_snapshot is not None
-    upstream_lineage = None
-    for aspect in dataset_snapshot.aspects:
-        if isinstance(aspect, UpstreamLineageClass):
-            upstream_lineage = aspect
-            break
-
-    assert upstream_lineage is not None
-    assert len(upstream_lineage.upstreams) > 0
-    assert any("sales" in upstream.dataset for upstream in upstream_lineage.upstreams)
+    lineage_wu = next(
+        (
+            wu
+            for wu in workunits
+            if isinstance(wu.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
+        ),
+        None,
+    )
+    assert lineage_wu is not None
+    upstream_lineage = lineage_wu.metadata.aspect  # type: ignore[union-attr]
+    assert len(upstream_lineage.upstreams) == 1  # type: ignore[arg-type,union-attr]
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.sales,PROD)"
+    )
+    assert upstream_lineage.upstreams[0].dataset == expected_urn  # type: ignore[index,union-attr]
 
     metabase_source.close()
 
@@ -857,8 +824,6 @@ def test_recursion_depth_limit_prevents_stack_overflow(
         password=pydantic.SecretStr("pwd"),
     )
     ctx = PipelineContext(run_id="metabase-test")
-
-    # Mock successful authentication
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"id": "session-token"}
@@ -867,8 +832,6 @@ def test_recursion_depth_limit_prevents_stack_overflow(
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Create circular reference: card A → card B → card A
     card_a = {
         "id": "A",
         "database_id": "1",
@@ -891,12 +854,9 @@ def test_recursion_depth_limit_prevents_stack_overflow(
     metabase_source.get_card_details_by_id = MagicMock(  # type: ignore[method-assign]
         side_effect=mock_get_card_details
     )
-
-    # Should hit recursion limit and return empty list instead of stack overflow
     table_urns = metabase_source._get_table_urns_from_card(card_a)
 
     assert table_urns == []
-    # Verify warning was reported
     assert len(metabase_source.report.warnings) > 0
 
     metabase_source.close()
@@ -924,8 +884,6 @@ def test_recursion_depth_tracking_through_nested_cards(
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock dependencies
     metabase_source.get_datasource_from_id = MagicMock(
         return_value=("postgres", "mydb", "public", None)
     )
@@ -933,8 +891,6 @@ def test_recursion_depth_tracking_through_nested_cards(
         return_value=("public", "base_table")
     )
 
-    # Create deep nesting: A → B → C → D → E → F → G → base_table
-    # With DATASOURCE_URN_RECURSION_LIMIT of 5, this should exceed the limit
     def mock_get_card_details(card_id):
         nested_cards = {
             "A": {
@@ -1001,8 +957,6 @@ def test_recursion_depth_tracking_through_nested_cards(
     table_urns = metabase_source._get_table_urns_from_card(
         mock_get_card_details("A"), recursion_depth=0
     )
-
-    # Should hit recursion limit and return empty list
     assert table_urns == []
     assert len(metabase_source.report.warnings) > 0
 
@@ -1091,8 +1045,6 @@ def test_collection_name_empty_after_sanitization(mock_post, mock_get, mock_dele
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
     tags = metabase_source._get_tags_from_collection("1")
-
-    # Should return None for empty sanitized name
     assert tags is None
 
     metabase_source.close()
@@ -1127,24 +1079,31 @@ def test_collection_api_caching(mock_post, mock_get, mock_delete):
         {"id": "2", "name": "Collection B"},
     ]
 
-    call_count = 0
+    api_call_count = 0
 
     def mock_get_collections(url):
-        nonlocal call_count
+        nonlocal api_call_count
         if "/api/collection/" in url:
-            call_count += 1
+            api_call_count += 1
             return collections_response
         return mock_response
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
-
-    # Call multiple times - should only make one API call due to caching
-    metabase_source._get_collections_map()
-    metabase_source._get_collections_map()
-    metabase_source._get_collections_map()
-
-    # Should only call API once due to @lru_cache
-    assert call_count == 1
+    metabase_source._get_collections_map.cache_clear()
+    result1 = metabase_source._get_collections_map()
+    api_calls_after_first = api_call_count
+    assert api_calls_after_first >= 1  # At least one API call
+    assert "1" in result1
+    assert result1["1"]["name"] == "Collection A"
+    result2 = metabase_source._get_collections_map()
+    assert api_call_count == api_calls_after_first  # No new API calls
+    assert result2 is result1  # Same object reference proves cache hit
+    result3 = metabase_source._get_collections_map()
+    assert api_call_count == api_calls_after_first  # Still no new API calls
+    assert result3 is result1
+    cache_info = metabase_source._get_collections_map.cache_info()
+    assert cache_info.hits >= 2  # At least 2 cache hits
+    assert cache_info.misses == 1  # Exactly 1 cache miss
 
     metabase_source.close()
 
@@ -1187,14 +1146,10 @@ def test_collection_map_returns_dict_keyed_by_id(mock_post, mock_get, mock_delet
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
 
     collections_map = metabase_source._get_collections_map()
-
-    # Should return dict, not list
     assert isinstance(collections_map, dict)
-    # Should be keyed by collection ID as string
     assert "1" in collections_map
     assert "2" in collections_map
     assert "3" in collections_map
-    # Should support O(1) lookup
     assert collections_map["1"]["name"] == "Collection A"
     assert collections_map["2"]["name"] == "Collection B"
     assert collections_map["3"]["name"] == "Collection C"
@@ -1223,8 +1178,6 @@ def test_collection_404_error_handling(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Create 404 error response
     error_response = MagicMock()
     error_response.status_code = 404
     http_error = HTTPError()
@@ -1236,12 +1189,8 @@ def test_collection_404_error_handling(mock_post, mock_get, mock_delete):
         return mock_response
 
     metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
-
-    # Should return empty dict without raising exception
     collections = metabase_source._get_collections_map()
     assert collections == {}
-
-    # Should not report warning for 404
     assert len(metabase_source.report.warnings) == 0
 
     metabase_source.close()
@@ -1318,7 +1267,6 @@ def test_get_datasource_urn_delegates_to_get_table_urns(
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    # Mock the internal method to verify delegation
     expected_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)"
     ]
@@ -1333,11 +1281,7 @@ def test_get_datasource_urn_delegates_to_get_table_urns(
             "native": {"query": "SELECT * FROM users"},
         },
     }
-
-    # Call get_datasource_urn
     result = metabase_source.get_datasource_urn(card_details)
-
-    # Should delegate to _get_table_urns_from_card
     metabase_source._get_table_urns_from_card.assert_called_once()
     assert result == expected_urns
 
@@ -1367,12 +1311,9 @@ def test_get_datasource_urn_returns_none_for_empty_list(
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    # Mock _get_table_urns_from_card to return empty list
     metabase_source._get_table_urns_from_card = MagicMock(return_value=[])  # type: ignore[method-assign]
 
     card_details = {"database_id": "1", "dataset_query": {}}
-
-    # Should return None instead of empty list
     result = metabase_source.get_datasource_urn(card_details)
     assert result is None
 
@@ -1401,13 +1342,9 @@ def test_get_datasource_urn_respects_recursion_limit(mock_post, mock_get, mock_d
     metabase_source = MetabaseSource(ctx, metabase_config)
 
     card_details = {"database_id": "1", "dataset_query": {}}
-
-    # Call with recursion depth at limit
     result = metabase_source.get_datasource_urn(
         card_details, recursion_depth=DATASOURCE_URN_RECURSION_LIMIT + 1
     )
-
-    # Should return None and report warning
     assert result is None
     assert len(metabase_source.report.warnings) > 0
 
@@ -1437,8 +1374,6 @@ def test_emit_card_mces_skips_models_when_extraction_enabled(
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-
-    # Mock API response with mixed cards and models
     card_response = MagicMock()
     card_response.status_code = 200
     card_response.json.return_value = [
@@ -1454,22 +1389,364 @@ def test_emit_card_mces_skips_models_when_extraction_enabled(
 
     metabase_source.session.get = MagicMock(side_effect=mock_session_get)  # type: ignore[method-assign]
 
-    # Mock construct_card_from_api_data to track what gets called
     called_card_ids = []
 
-    def mock_construct_card(card_info):
+    def mock_emit_chart(card_info):
         called_card_ids.append(card_info["id"])
-        return None  # Return None to skip workunit generation
+        return []  # Return empty list of workunits
 
-    metabase_source.construct_card_from_api_data = MagicMock(  # type: ignore[method-assign]
-        side_effect=mock_construct_card
+    metabase_source._emit_chart_workunits = MagicMock(  # type: ignore[method-assign,attr-defined]
+        side_effect=mock_emit_chart
     )
 
     list(metabase_source.emit_card_mces())
-
-    # Should only process non-model cards (IDs 1 and 3)
     assert 1 in called_card_ids
     assert 3 in called_card_ids
     assert 2 not in called_card_ids  # Model should be skipped
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_malformed_sql_parsing_failure(mock_post, mock_get, mock_delete):
+    """Test that malformed SQL that parser can't handle returns empty list gracefully"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    ctx.graph = None
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+
+    metabase_source.get_datasource_from_id = MagicMock(
+        return_value=("postgres", "mydb", "public", None)
+    )
+    card_details = {
+        "database_id": "1",
+        "dataset_query": {
+            "native": {
+                "query": "SELECT * FROM {{invalid syntax}} WHERE [[broken clause"
+            }
+        },
+    }
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    assert table_urns == []
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_sql_with_cte_and_subqueries(mock_post, mock_get, mock_delete):
+    """Test SQL parsing with CTEs and complex subqueries"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    ctx.graph = None
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+
+    metabase_source.get_datasource_from_id = MagicMock(
+        return_value=("postgres", "mydb", "public", None)
+    )
+    card_details = {
+        "database_id": "1",
+        "dataset_query": {
+            "native": {
+                "query": """
+                    WITH active_users AS (
+                        SELECT id, name FROM users WHERE active = true
+                    ),
+                    recent_orders AS (
+                        SELECT user_id, total FROM orders WHERE date > '2024-01-01'
+                    )
+                    SELECT au.name, ro.total
+                    FROM active_users au
+                    JOIN recent_orders ro ON au.id = ro.user_id
+                    UNION
+                    SELECT name, 0 as total FROM customers
+                """
+            }
+        },
+    }
+
+    table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+    expected_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+    }
+    assert set(table_urns) == expected_urns
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_api_500_error_handling(mock_post, mock_get, mock_delete):
+    """Test that 500 errors are reported without crashing"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    error_response = MagicMock()
+    error_response.status_code = 500
+    error_response.raise_for_status.side_effect = HTTPError()
+
+    def mock_get_cards(url):
+        if "/api/card" in url:
+            return error_response
+        return mock_response
+
+    metabase_source.session.get = MagicMock(side_effect=mock_get_cards)  # type: ignore[method-assign]
+    workunits = list(metabase_source.emit_card_mces())
+    assert len(workunits) == 0
+    assert len(metabase_source.report.failures) > 0
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_empty_query_returns_empty_list(mock_post, mock_get, mock_delete):
+    """Test that cards with empty/null queries return empty lineage gracefully"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+
+    metabase_source.get_datasource_from_id = MagicMock(
+        return_value=("postgres", "mydb", "public", None)
+    )
+
+    test_cases = [
+        {"database_id": "1", "dataset_query": {"native": {"query": ""}}},
+        {"database_id": "1", "dataset_query": {"native": {"query": None}}},
+        {"database_id": "1", "dataset_query": {"native": {}}},
+        {"database_id": "1", "dataset_query": {}},
+    ]
+
+    for card_details in test_cases:
+        table_urns = metabase_source._get_table_urns_from_native_query(card_details)
+        assert table_urns == [], f"Failed for: {card_details}"
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_model_referencing_another_model(mock_post, mock_get, mock_delete):
+    """Test that models can reference other models (nested model resolution)"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+
+    metabase_source.get_datasource_from_id = MagicMock(
+        return_value=("postgres", "mydb", "public", None)
+    )
+    metabase_source.get_source_table_from_id = MagicMock(
+        return_value=("public", "base_table")
+    )
+    model_b = {
+        "id": "model_b",
+        "type": "model",
+        "database_id": "1",
+        "dataset_query": {"type": "query", "query": {"source-table": "42"}},
+    }
+    model_a_details = {
+        "id": "model_a",
+        "type": "model",
+        "database_id": "1",
+        "dataset_query": {"type": "query", "query": {"source-table": "card__model_b"}},
+    }
+
+    metabase_source.get_card_details_by_id = MagicMock(return_value=model_b)  # type: ignore[method-assign]
+    table_urns = metabase_source._get_table_urns_from_query_builder(
+        model_a_details, recursion_depth=0
+    )
+
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.base_table,PROD)"
+    )
+    assert table_urns == [expected_urn]
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_collection_hierarchy_parent_child(mock_post, mock_get, mock_delete):
+    """Test that collection tags work with parent-child hierarchy"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+        extract_collections_as_tags=True,
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    collections_response = MagicMock()
+    collections_response.status_code = 200
+    collections_response.json.return_value = [
+        {"id": "1", "name": "Marketing", "location": "/"},
+        {"id": "2", "name": "Campaigns", "location": "/1/"},  # Child of Marketing
+    ]
+
+    def mock_get_collections(url):
+        if "/api/collection/" in url:
+            return collections_response
+        return mock_response
+
+    metabase_source.session.get = MagicMock(side_effect=mock_get_collections)  # type: ignore[method-assign]
+
+    parent_tags = metabase_source._get_tags_from_collection("1")
+    assert parent_tags is not None
+    assert parent_tags.tags[0].tag == "urn:li:tag:metabase_collection_marketing"
+
+    child_tags = metabase_source._get_tags_from_collection("2")  # type: ignore[attr-defined]
+    assert child_tags is not None
+    assert child_tags.tags[0].tag == "urn:li:tag:metabase_collection_campaigns"
+
+    metabase_source.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_realistic_card_data_with_all_fields(mock_post, mock_get, mock_delete):
+    """Test with realistic Metabase card containing 15+ fields like production data"""
+    metabase_config = MetabaseConfig(
+        connect_uri="http://localhost:3000",
+        username="test",
+        password=pydantic.SecretStr("pwd"),
+    )
+    ctx = PipelineContext(run_id="metabase-test")
+    ctx.graph = None
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"id": "session-token"}
+    mock_get.return_value = mock_response
+    mock_post.return_value = mock_response
+    mock_delete.return_value = mock_response
+
+    metabase_source = MetabaseSource(ctx, metabase_config)
+    metabase_source.get_datasource_from_id = MagicMock(
+        return_value=("postgres", "mydb", "public", None)
+    )
+    realistic_card = {
+        "id": 456,
+        "name": "Revenue Analysis",
+        "description": "Quarterly revenue breakdown by region",
+        "display": "table",
+        "visualization_settings": {"table.columns": []},
+        "dataset_query": {
+            "type": "native",
+            "native": {
+                "query": "SELECT region, SUM(revenue) FROM sales GROUP BY region",
+                "template-tags": {},
+            },
+            "database": 1,
+        },
+        "database_id": 1,
+        "table_id": None,
+        "query_type": "native",
+        "creator_id": 5,
+        "created_at": "2024-01-15T10:30:00.000Z",
+        "updated_at": "2024-01-20T14:45:00.000Z",
+        "made_public_by_id": None,
+        "public_uuid": None,
+        "cache_ttl": None,
+        "enable_embedding": False,
+        "embedding_params": None,
+        "collection_id": 12,
+        "collection_position": 1,
+        "result_metadata": [],
+        "last-edit-info": {
+            "id": 5,
+            "email": "analyst@company.com",
+            "first_name": "Data",
+            "last_name": "Analyst",
+            "timestamp": "2024-01-20T14:45:00.000Z",
+        },
+        "type": "question",
+        "archived": False,
+    }
+
+    table_urns = metabase_source._get_table_urns_from_native_query(realistic_card)
+
+    expected_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.sales,PROD)"
+    )
+    assert table_urns == [expected_urn]
 
     metabase_source.close()
