@@ -200,6 +200,58 @@ def test_trino_hive_ingest(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_trino_without_column_lineage(
+    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+):
+    """Test that disabling column lineage (include_column_lineage=False) still produces correct table-level lineage."""
+    mce_out_file = "trino_no_column_lineage_mces.json"
+    events_file = tmp_path / mce_out_file
+
+    pipeline_config = {
+        "run_id": "trino-no-column-lineage-test",
+        "source": {
+            "type": data_platform,
+            "config": TrinoConfig(
+                host_port="localhost:5300",
+                database="hivedb",
+                username="foo",
+                schema_pattern=AllowDenyPattern(allow=["^db1"]),
+                ingest_lineage_to_connectors=True,
+                include_column_lineage=False,  # Explicitly disable column lineage
+                catalog_to_connector_details={
+                    "hivedb": ConnectorDetail(
+                        connector_platform="hive",
+                        platform_instance="local_server",
+                    )
+                },
+            ).model_dump(),
+        },
+        "sink": {
+            "type": "file",
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
+        },
+    }
+
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(pipeline_config)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    # Verify the output - should have table-level lineage but no column-level lineage
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=events_file,
+        golden_path=test_resources_dir / "trino_no_column_lineage_mces_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
+        ],
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

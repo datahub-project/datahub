@@ -77,7 +77,68 @@ Column-level lineage between Trino and upstream connectors is enabled by default
 
 ### View Lineage
 
-Trino views are automatically parsed to extract lineage to upstream Trino tables via the `include_view_lineage` config (enabled by default). This handles complex transformations, aliases, and joins within Trino view definitions.
+The Trino connector supports two types of view lineage:
+
+#### 1. Trino View-to-Table Lineage (SQL Parsing)
+
+**Config**: `include_view_lineage` (enabled by default)  
+**Scope**: Within Trino
+
+This parses Trino view definitions to extract lineage from views to their upstream **Trino** tables/views:
+
+- `trino:catalog.schema.my_view` → `trino:catalog.schema.source_table1`
+- `trino:catalog.schema.my_view` → `trino:catalog.schema.source_table2`
+
+**What it handles**:
+
+- Complex SQL transformations (JOINs, UNIONs, CTEs, subqueries)
+- Column aliases and expressions
+- Multi-table dependencies
+- Nested views (view referencing other views)
+
+**Column-level lineage**: Enabled via `include_view_column_lineage` - tracks which source columns flow into which view columns through the SQL transformations.
+
+#### 2. Connector View Lineage (1:1 Mapping)
+
+**Config**: `ingest_lineage_to_connectors` + `include_column_lineage` (both enabled by default)  
+**Scope**: Trino to upstream connector
+
+This creates lineage from Trino views to their corresponding **upstream connector views**:
+
+- `trino:hive_catalog.schema.my_view` → `hive:schema.my_view`
+
+**What it handles**:
+
+- Direct view exposure from connectors (Hive views, PostgreSQL views, etc.)
+- Assumes the view exists in the upstream connector
+- Column-level: 1:1 name mapping (no transformation tracking)
+
+#### Example: Combined View Lineage
+
+For a Hive view accessed through Trino:
+
+```
+Hive View (source) → Trino View → Downstream Consumer
+    hive:db.vw_sales → trino:hive_cat.db.vw_sales → looker:sales_dashboard
+```
+
+1. **Connector lineage** links Trino to Hive: `trino:hive_cat.db.vw_sales` → `hive:db.vw_sales`
+2. **Trino view lineage** (if view has dependencies within Trino) would parse the view SQL to find upstream Trino tables
+
+**Key Difference**:
+
+- **Connector view lineage**: Simple identity mapping between Trino and upstream connector
+- **Trino view lineage**: SQL-based transformation tracking within Trino itself
+
+### Performance Considerations
+
+**Column-level lineage** is enabled by default via `include_column_lineage: true`. This creates fine-grained column mappings between Trino tables/views and their upstream connector sources.
+
+**Impact**: Makes additional database queries for each table/view. For large deployments (1000+ tables), consider:
+
+- Disabling column lineage: `include_column_lineage: false`
+- Limiting scope with `schema_pattern` or `table_pattern`
+- Estimated overhead: +2-5 minutes per 1,000 tables
 
 ### Caveats
 

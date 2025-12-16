@@ -71,6 +71,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+
+logger = logging.getLogger(__name__)
 
 register_custom_type(datatype.ROW, RecordTypeClass)
 register_custom_type(datatype.MAP, MapTypeClass)
@@ -429,6 +432,9 @@ class TrinoSource(SQLAlchemySource):
 
         Returns:
             SchemaMetadata if successful, None if an error occurs
+
+        Raises:
+            sqlalchemy.exc.OperationalError: For critical connection failures (re-raised to fail fast)
         """
         try:
             columns = self._get_columns(dataset_name, inspector, schema, table)
@@ -436,7 +442,6 @@ class TrinoSource(SQLAlchemySource):
 
             extra_tags = self.get_extra_tags(inspector, schema, table)
 
-            # For tables, include partition information; for views, skip it
             partitions = (
                 None if is_view else self.get_partitions(inspector, schema, table)
             )
@@ -459,9 +464,11 @@ class TrinoSource(SQLAlchemySource):
                 canonical_schema=schema_fields,
             )
         except sqlalchemy.exc.SQLAlchemyError as e:
-            logging.warning(
-                f"Failed to fetch schema metadata for column lineage on {dataset_name}: {e}. "
-                "Skipping column-level lineage for this dataset."
+            self.report.warning(
+                title="Failed to Fetch Schema Metadata for Column Lineage",
+                message="Unable to fetch schema metadata for column-level lineage. Skipping column lineage for this table. Table-level lineage will still be captured.",
+                context=dataset_name,
+                exc=e,
             )
             return None
 
@@ -487,6 +494,37 @@ class TrinoSource(SQLAlchemySource):
             ),
         ).as_workunit()
 
+    def _match_upstream_field_path(
+        self,
+        trino_field_path: str,
+        upstream_schema: Dict[str, SchemaField],
+    ) -> Optional[str]:
+        """
+        Match a Trino field path to the corresponding upstream connector field path.
+
+        Handles v1/v2 field path format differences by trying both exact match and normalized match.
+
+        Args:
+            trino_field_path: Field path from Trino schema
+            upstream_schema: Dict mapping field paths to SchemaField objects from upstream
+
+        Returns:
+            The upstream field path that matches, or None if no match found
+        """
+        if trino_field_path in upstream_schema:
+            return trino_field_path
+
+        trino_field_v1 = get_simple_field_path_from_v2_field_path(trino_field_path)
+
+        for upstream_field_path in upstream_schema:
+            upstream_field_v1 = get_simple_field_path_from_v2_field_path(
+                upstream_field_path
+            )
+            if trino_field_v1 == upstream_field_v1:
+                return upstream_field_path
+
+        return None
+
     def gen_lineage_workunit(
         self,
         dataset_urn: str,
@@ -510,31 +548,62 @@ class TrinoSource(SQLAlchemySource):
         - Trino views that exist in the connector (e.g., Hive views) have matching schemas
         - The view definition resides in the connector, so Trino exposes the same columns
 
+        The lineage generation intelligently handles v1/v2 field path format differences by:
+        1. Looking up the upstream schema from DataHub (if available)
+        2. Matching Trino fields to upstream fields using normalized field paths
+        3. Falling back to direct field path usage if DataHub is unavailable
+
         Note: This is separate from view-to-table lineage, which is handled by the base
         SQLAlchemySource class via SQL parsing of view definitions (include_view_lineage config).
         That mechanism correctly handles transformations, aliases, and joins within Trino views.
         """
         fine_grained_lineages: Optional[List[FineGrainedLineage]] = None
 
-        # Generate column-level lineage if enabled and schema metadata is available
         if (
             self.config.include_column_lineage
             and schema_metadata is not None
             and schema_metadata.fields
         ):
+            upstream_schema: Optional[Dict[str, SchemaField]] = None
+            if self.ctx.graph:
+                try:
+                    upstream_schema_metadata = self.ctx.graph.get_aspect(
+                        source_dataset_urn, SchemaMetadata
+                    )
+                    if upstream_schema_metadata and upstream_schema_metadata.fields:
+                        upstream_schema = {
+                            field.fieldPath: field
+                            for field in upstream_schema_metadata.fields
+                        }
+                        logger.debug(
+                            f"Found upstream schema for {source_dataset_urn} with {len(upstream_schema)} fields"
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Could not fetch upstream schema for {source_dataset_urn}: {e}"
+                    )
+
             fine_grained_lineages = []
             for field in schema_metadata.fields:
-                if any(char in field.fieldPath for char in ["[", "]", ".", " "]):
-                    logging.debug(
-                        f"Column '{field.fieldPath}' in {dataset_urn} contains special characters. "
-                        "Ensure upstream connector has matching column name."
+                if upstream_schema:
+                    upstream_field_path = self._match_upstream_field_path(
+                        field.fieldPath, upstream_schema
                     )
+                    if not upstream_field_path:
+                        logger.debug(
+                            f"Could not match field {field.fieldPath} to upstream schema for {source_dataset_urn}"
+                        )
+                        continue
+                else:
+                    upstream_field_path = field.fieldPath
 
                 fine_grained_lineages.append(
                     FineGrainedLineage(
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                         upstreams=[
-                            make_schema_field_urn(source_dataset_urn, field.fieldPath)
+                            make_schema_field_urn(
+                                source_dataset_urn, upstream_field_path
+                            )
                         ],
                         downstreamType=FineGrainedLineageDownstreamType.FIELD,
                         downstreams=[
