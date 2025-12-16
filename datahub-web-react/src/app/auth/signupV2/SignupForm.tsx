@@ -5,7 +5,7 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { SignupFormValues } from '@app/auth/shared/types';
-import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
+import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FormContainer = styled.div`
     display: flex;
