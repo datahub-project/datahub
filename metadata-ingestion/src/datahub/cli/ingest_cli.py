@@ -122,6 +122,14 @@ def ingest() -> None:
     "Can also be set via DATAHUB_RECORDING_PASSWORD env var.",
 )
 @click.option(
+    "--record-output-path",
+    type=str,
+    default=None,
+    help="Path to save the recording archive (local path or S3 URL when s3_upload=true). "
+    "Overrides recording.output_path in recipe. "
+    "If not provided, uses INGESTION_ARTIFACT_DIR env var or temp directory.",
+)
+@click.option(
     "--no-s3-upload",
     type=bool,
     is_flag=True,
@@ -162,6 +170,7 @@ def run(
     no_progress: bool,
     record: bool,
     record_password: Optional[str],
+    record_output_path: Optional[str],
     no_s3_upload: bool,
     no_secret_redaction: bool,
 ) -> None:
@@ -233,6 +242,7 @@ def run(
         recorder = _setup_recording(
             pipeline_config,
             record_password,
+            record_output_path,
             no_s3_upload,
             no_secret_redaction,
             raw_pipeline_config,
@@ -370,6 +380,7 @@ def deploy(
 def _setup_recording(
     pipeline_config: dict,
     record_password: Optional[str],
+    record_output_path: Optional[str],
     no_s3_upload: bool,
     no_secret_redaction: bool,
     raw_config: dict,
@@ -392,6 +403,10 @@ def _setup_recording(
     password = record_password or get_recording_password_from_env()
     if password:
         recording_config_dict["password"] = password
+
+    # CLI --record-output-path flag overrides recipe
+    if record_output_path:
+        recording_config_dict["output_path"] = record_output_path
 
     # CLI --no-s3-upload flag overrides recipe
     if no_s3_upload:
