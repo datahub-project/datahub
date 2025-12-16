@@ -249,10 +249,22 @@ def extract_dbt_entities(
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
+        max_loaded_at_str = None
+        source_entry = sources_by_id.get(key)
+        if source_entry is not None:
+            max_loaded_at_str = source_entry.get("max_loaded_at")
         max_loaded_at = None
         if max_loaded_at_str:
             max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
+        elif manifest_node.get("resource_type") == "source":
+            # Log debug info for sources missing from sources.json or missing max_loaded_at
+            if source_entry is None:
+                logger.debug(f"Source {key} not found in sources.json. ")
+            else:
+                logger.debug(
+                    f"Source {key} found in sources.json but missing max_loaded_at field. "
+                    f"Source entry keys: {list(source_entry.keys())}"
+                )
 
         test_info = None
         if manifest_node.get("resource_type") == "test":
@@ -555,9 +567,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             dbt_sources_json = self.load_file_as_json(
                 self.config.sources_path, self.config.aws_connection
             )
-            sources_results = dbt_sources_json["results"]
+            sources_results = dbt_sources_json.get("results", [])
+            logger.debug(
+                f"Loaded {len(sources_results)} source freshness results from sources.json"
+            )
         else:
-            sources_results = {}
+            sources_results = []
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
         manifest_version = dbt_manifest_json["metadata"].get("dbt_version")
