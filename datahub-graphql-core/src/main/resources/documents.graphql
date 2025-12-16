@@ -44,13 +44,6 @@ extend type Mutation {
   updateDocumentSubType(input: UpdateDocumentSubTypeInput!): Boolean!
 
   """
-  Merge a draft document into its parent (the document it is a draft of).
-  This copies the draft's content to the published document and optionally deletes the draft.
-  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for both documents, or MANAGE_DOCUMENTS platform privilege.
-  """
-  mergeDraft(input: MergeDraftInput!): Boolean!
-
-  """
   Update the settings of a Document (e.g., visibility in sidebar).
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
@@ -173,13 +166,6 @@ type Document implements Entity {
   privileges: EntityPrivileges
 
   """
-  All draft documents that have this document as their draftOf target.
-  These are UNPUBLISHED documents being worked on as potential new versions.
-  Note: This field requires a separate query/batch loader to fetch.
-  """
-  drafts: [Document!]
-
-  """
   Change history for this document.
   Returns a chronological list of changes made to the document.
   """
@@ -262,12 +248,6 @@ type DocumentInfo {
   parentDocument: DocumentParentDocument
 
   """
-  If this document is a draft, the document it is a draft of.
-  When set, this document should be hidden from normal knowledge base browsing.
-  """
-  draftOf: DocumentDraftOf
-
-  """
   Custom properties of the Document
   """
   customProperties: [CustomPropertiesEntry!]
@@ -344,16 +324,6 @@ The parent document of the document
 type DocumentParentDocument {
   """
   The hierarchical parent document for this document
-  """
-  document: Document!
-}
-
-"""
-Indicates this document is a draft of another document
-"""
-type DocumentDraftOf {
-  """
-  The document that this document is a draft of
   """
   document: Document!
 }
@@ -445,12 +415,6 @@ input CreateDocumentInput {
   Optional URNs of related documents
   """
   relatedDocuments: [String!]
-
-  """
-  If provided, the new document will be created as a draft of the specified published document URN.
-  Draft documents should have UNPUBLISHED state and will be hidden from normal knowledge base browsing.
-  """
-  draftFor: String
 
   """
   Optional settings for the document. If not provided, defaults will be used.
@@ -747,21 +711,6 @@ type RelatedDocumentsResult {
   Facets for filtering search results
   """
   facets: [FacetMetadata!]
-}
-
-"""
-Input required to merge a draft into its parent document
-"""
-input MergeDraftInput {
-  """
-  The URN of the draft document to merge
-  """
-  draftUrn: String!
-
-  """
-  Whether to delete the draft document after merging. Defaults to true.
-  """
-  deleteDraft: Boolean
 }
 
 """
