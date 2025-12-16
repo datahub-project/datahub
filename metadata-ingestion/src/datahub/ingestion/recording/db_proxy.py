@@ -230,12 +230,21 @@ class QueryRecording:
     def _serialize_params(
         params: Optional[Union[Dict[str, Any], Tuple[Any, ...]]],
     ) -> Optional[Union[Dict[str, Any], List[Any]]]:
-        """Serialize parameters for JSON storage."""
+        """Serialize parameters for JSON storage.
+
+        Handles datetime objects and other non-JSON-serializable types
+        by converting them using _serialize_value.
+        """
         if params is None:
             return None
         if isinstance(params, tuple):
-            return list(params)
-        return params
+            return [_serialize_value(item) for item in params]
+        if isinstance(params, dict):
+            return {k: _serialize_value(v) for k, v in params.items()}
+        if isinstance(params, list):
+            return [_serialize_value(item) for item in params]
+        # For single values, serialize directly
+        return _serialize_value(params)
 
     def get_key(self) -> str:
         """Generate a unique key for this query based on query text and parameters.

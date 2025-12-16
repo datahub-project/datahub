@@ -92,6 +92,7 @@ class HTTPRecorder:
 
         self.cassette_path = cassette_path
         self._request_count = 0
+        self._total_requests_recorded = 0
 
         def _log_request(request: Any) -> Any:
             """Log each request as it's being recorded."""
@@ -163,11 +164,13 @@ class HTTPRecorder:
                 try:
                     yield self
                 finally:
+                    # Store request count before clearing cassette
+                    self._total_requests_recorded = len(cassette)
                     self._cassette = None
                     # Log detailed recording stats
                     logger.info(
                         f"HTTP recording complete. "
-                        f"Recorded {len(cassette)} request(s) to {self.cassette_path}"
+                        f"Recorded {self._total_requests_recorded} request(s) to {self.cassette_path}"
                     )
         finally:
             # Always restore original behavior
@@ -293,7 +296,8 @@ class HTTPRecorder:
         """Number of requests recorded/replayed in current session."""
         if self._cassette is not None:
             return len(self._cassette)
-        return 0
+        # If cassette is cleared (after recording context exits), return stored count
+        return self._total_requests_recorded
 
 
 class HTTPReplayerForLiveSink:
