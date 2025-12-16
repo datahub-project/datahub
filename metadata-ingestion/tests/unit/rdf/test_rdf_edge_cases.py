@@ -91,6 +91,7 @@ class TestRDFEdgeCases:
         unicode_file = tmp_path / "unicode.ttl"
         unicode_file.write_text(
             "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
             "ex:Term a skos:Concept ;\n"
             '    skos:prefLabel "Term with émojis 🎉 and 中文" ;\n'
             '    skos:definition "Definition with special chars: àáâãäå" .'
@@ -178,7 +179,9 @@ class TestRDFEdgeCases:
         nested_dir.mkdir(parents=True)
         nested_file = nested_dir / "file.ttl"
         nested_file.write_text(
-            '@prefix ex: <http://example.org/> .\nex:Term a skos:Concept ; skos:prefLabel "Term" .'
+            "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Term" .'
         )
 
         config_dict = {"source": str(tmp_path), "recursive": True}
@@ -212,7 +215,9 @@ class TestRDFEdgeCases:
         """Test handling of relative paths."""
         test_file = tmp_path / "test.ttl"
         test_file.write_text(
-            '@prefix ex: <http://example.org/> .\nex:Term a skos:Concept ; skos:prefLabel "Term" .'
+            "@prefix ex: <http://example.org/> .\n"
+            "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n"
+            'ex:Term a skos:Concept ; skos:prefLabel "Term" .'
         )
 
         # Change to tmp_path directory and use relative path
