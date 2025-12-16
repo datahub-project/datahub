@@ -19,24 +19,32 @@ jobs:
 
     steps:
       - name: Print workflow summary
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_EVENT: ${{ github.event.workflow_run.event }}
+          CREATED_AT: ${{ github.event.workflow_run.created_at }}
+          UPDATED_AT: ${{ github.event.workflow_run.updated_at }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
           echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Workflow Name** | ${{ github.event.workflow_run.name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Branch** | ${{ github.event.workflow_run.head_branch }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Event** | ${{ github.event.workflow_run.event }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Start Time** | ${{ github.event.workflow_run.created_at }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **End Time** | ${{ github.event.workflow_run.updated_at }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Completion Status** | ${{ github.event.workflow_run.conclusion }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Run Number** | ${{ github.event.workflow_run.run_attempt }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Workflow Name** | $WORKFLOW_NAME |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | $HEAD_BRANCH |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Event** | $WORKFLOW_EVENT |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Start Time** | $CREATED_AT |" >> $GITHUB_STEP_SUMMARY
+          echo "| **End Time** | $UPDATED_AT |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Completion Status** | $CONCLUSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Run Number** | $RUN_ATTEMPT |" >> $GITHUB_STEP_SUMMARY
 
-          echo "Workflow '${{ github.event.workflow_run.name }}' completed"
-          echo "  Status: ${{ github.event.workflow_run.conclusion }}"
-          echo "  Branch: ${{ github.event.workflow_run.head_branch }}"
-          echo "  Event: ${{ github.event.workflow_run.event }}"
-          echo "  Run Attempt: ${{ github.event.workflow_run.run_attempt }}"
+          echo "Workflow '$WORKFLOW_NAME' completed"
+          echo "  Status: $CONCLUSION"
+          echo "  Branch: $HEAD_BRANCH"
+          echo "  Event: $WORKFLOW_EVENT"
+          echo "  Run Attempt: $RUN_ATTEMPT"
 
           # TODO: This info needs to be published to something like posthog or equivalent for analysis.
 
