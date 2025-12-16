@@ -106,7 +106,7 @@ export default function SignUpModal() {
 
     return (
         <Modal
-            title={<ModalHeader />}
+            title={<ModalHeader subHeading="Before we get started we just have a few questions" />}
             buttons={[
                 {
                     text: 'Get Started',

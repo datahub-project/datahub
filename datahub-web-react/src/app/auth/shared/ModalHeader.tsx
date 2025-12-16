@@ -21,7 +21,11 @@ const HeaderText = styled.div`
     gap: 4px;
 `;
 
-export default function ModalHeader() {
+interface Props {
+    subHeading?: string;
+}
+
+export default function ModalHeader({ subHeading }: Props) {
     const themeConfig = useTheme();
 
     return (
@@ -31,9 +35,11 @@ export default function ModalHeader() {
                 <Text size="3xl" color="gray" colorLevel={600} weight="bold" lineHeight="normal">
                     Welcome to Datahub
                 </Text>
-                <Text size="lg" color="gray" colorLevel={1700} lineHeight="normal">
-                    Before we get started we just have a few questions
-                </Text>
+                {subHeading && (
+                    <Text size="lg" color="gray" colorLevel={1700} lineHeight="normal">
+                        {subHeading}
+                    </Text>
+                )}
             </HeaderText>
         </HeaderContainer>
     );
