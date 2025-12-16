@@ -747,6 +747,7 @@ entities:
     keyAspect: dataHubFileKey
     aspects:
       - dataHubFileInfo
+      - status
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey

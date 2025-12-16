@@ -33,11 +33,26 @@ function mockYamlLoadThrows(error: Error) {
 
 function mockReactRouter() {
     vi.doMock('react-router', () => ({
-        Route: ({ path, render: renderProp }: any) => (
-            <div>
-                Route: {path} - {renderProp()}
-            </div>
-        ),
+        Route: ({ path, render: renderProp, component: Component, ...rest }: any) => {
+            let content: React.ReactNode = null;
+            if (renderProp) {
+                content = renderProp(rest);
+            } else if (Component) {
+                content = React.createElement(Component, rest);
+            }
+            return (
+                <div>
+                    Route: {path} - {content}
+                </div>
+            );
+        },
+        Switch: ({ children }: any) => <div>Switch: {children}</div>,
+        useHistory: () => ({
+            replace: vi.fn(),
+            push: vi.fn(),
+            goBack: vi.fn(),
+            location: {},
+        }),
     }));
 }
 
