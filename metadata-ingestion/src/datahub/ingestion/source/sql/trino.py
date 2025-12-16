@@ -461,6 +461,8 @@ class TrinoSource(SQLAlchemySource):
                 canonical_schema=schema_fields,
             )
         except sqlalchemy.exc.SQLAlchemyError as e:
+            # Catches all SQLAlchemy errors (e.g., connection issues, permission errors, missing tables).
+            # These are treated as recoverable - we skip column lineage for this table but continue ingestion.
             self.report.warning(
                 title="Failed to Fetch Schema Metadata for Column Lineage",
                 message="Unable to fetch schema metadata for column-level lineage. Skipping column lineage for this table. Table-level lineage will still be captured.",
@@ -520,6 +522,10 @@ class TrinoSource(SQLAlchemySource):
             if trino_field_v1 == upstream_field_v1:
                 return upstream_field_path
 
+        logger.debug(
+            f"No matching upstream field found for Trino field '{trino_field_path}' "
+            f"(normalized: '{trino_field_v1}'). Available upstream fields: {list(upstream_schema.keys())[:5]}..."
+        )
         return None
 
     def gen_lineage_workunit(
@@ -666,7 +672,7 @@ class TrinoSource(SQLAlchemySource):
                 self.report.column_lineage_time_seconds += column_duration
 
                 if column_duration > 5.0:
-                    logger.debug(
+                    logger.warning(
                         f"Column lineage for {dataset_name} took {column_duration:.2f}s - "
                         "consider optimizing database queries or limiting scope with table_pattern"
                     )
