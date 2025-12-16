@@ -530,9 +530,10 @@ plugins: Dict[str, Set[str]] = {
         *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
+    # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2"},
+    | {"psycopg2-binary", "pymysql>=1.0.2", "pymetastore", "tenacity>=8.0.1"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests"},
@@ -802,6 +803,7 @@ full_test_dev_requirements = {
             "feast",
             "hana",
             "hive",
+            "hive-metastore",
             "iceberg",
             "iceberg-catalog",
             "kafka-connect",

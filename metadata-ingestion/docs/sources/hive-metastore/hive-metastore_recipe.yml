@@ -1,3 +1,6 @@
+# =============================================================================
+# SQL Mode (Default) - Direct database connection
+# =============================================================================
 source:
   type: hive-metastore
   config:
@@ -30,3 +33,34 @@ source:
 
 sink:
   # sink configs
+
+# =============================================================================
+# Thrift Mode - HMS Thrift API connection (use when database access unavailable)
+# =============================================================================
+# source:
+#   type: hive-metastore
+#   config:
+#     connection_type: thrift  # Enable Thrift mode
+#     host_port: hms.company.com:9083
+#
+#     # Kerberos authentication (optional)
+#     use_kerberos: true
+#     kerberos_service_name: hive
+#     # kerberos_hostname_override: hms-internal.company.com  # If using load balancer
+#
+#     # HMS 3.x catalog support (optional)
+#     # catalog_name: spark_catalog
+#     # include_catalog_name_in_ids: true
+#
+#     # Filtering (WHERE clauses NOT supported in Thrift mode)
+#     database_pattern:
+#       allow:
+#         - "^prod_.*"
+#       deny:
+#         - "^test_.*"
+#
+#     # Storage lineage works the same as SQL mode
+#     emit_storage_lineage: true
+#
+# sink:
+#   # sink configs

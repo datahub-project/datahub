@@ -1,6 +1,19 @@
 ### Prerequisites
 
-The Hive Metastore source connects directly to the Hive metastore database (MySQL, PostgreSQL, etc.) to extract metadata. This approach is faster and more comprehensive than connecting via HiveServer2, especially for large deployments.
+The Hive Metastore connector supports two connection modes:
+
+1. **SQL Mode (Default)**: Connects directly to the Hive metastore database (MySQL, PostgreSQL, etc.)
+2. **Thrift Mode**: Connects to Hive Metastore via the Thrift API (port 9083), with Kerberos support
+
+Choose your connection mode based on your environment:
+
+| Feature            | SQL Mode (default)               | Thrift Mode                      |
+| ------------------ | -------------------------------- | -------------------------------- |
+| **Use when**       | Direct database access available | Only HMS Thrift API accessible   |
+| **Authentication** | Database credentials             | Kerberos/SASL or unauthenticated |
+| **Port**           | Database port (3306/5432)        | Thrift port (9083)               |
+| **Dependencies**   | Database drivers                 | `pymetastore`, `thrift-sasl`     |
+| **Filtering**      | SQL WHERE clauses supported      | Pattern-based filtering only     |
 
 Before configuring the DataHub connector, ensure you have:
 
@@ -172,6 +185,49 @@ source:
     options:
       connect_args:
         sslmode: require
+```
+
+### Thrift Connection Mode
+
+Use `connection_type: thrift` when you cannot access the metastore database directly but have access to the HMS Thrift API (typically port 9083). This is common in:
+
+- Kerberized Hadoop clusters where database access is restricted
+- Cloud-managed Hive services that only expose the Thrift API
+- Environments with strict network segmentation
+
+#### Basic Thrift Configuration
+
+```yaml
+source:
+  type: hive-metastore
+  config:
+    connection_type: thrift
+    host_port: hms.company.com:9083
+```
+
+#### Thrift with Kerberos Authentication
+
+Ensure you have a valid Kerberos ticket (`kinit -kt /path/to/keytab user@REALM`) before running ingestion:
+
+```yaml
+source:
+  type: hive-metastore
+  config:
+    connection_type: thrift
+    host_port: hms.company.com:9083
+    use_kerberos: true
+    kerberos_service_name: hive # Change if HMS uses different principal
+    # kerberos_hostname_override: hms-internal.company.com  # If using load balancer
+    # catalog_name: spark_catalog  # For HMS 3.x multi-catalog
+    database_pattern: # Pattern filtering (WHERE clauses NOT supported)
+      allow:
+        - "^prod_.*"
+```
+
+#### Thrift Mode Dependencies
+
+```bash
+pip install 'acryl-datahub[hive-metastore]'  # Add thrift-sasl for Kerberos
 ```
 
 ### Storage Lineage

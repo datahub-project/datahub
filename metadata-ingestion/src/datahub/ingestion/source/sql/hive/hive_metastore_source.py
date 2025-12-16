@@ -3,9 +3,9 @@ import dataclasses
 import json
 import logging
 from collections import namedtuple
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
@@ -71,11 +71,76 @@ logger: logging.Logger = logging.getLogger(__name__)
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
+# =============================================================================
+# Row Type Definitions for Data-Fetching Methods
+#
+# These TypedDicts define the expected row format for each _fetch_* method.
+# Subclasses (e.g., HiveMetastoreThriftSource) must return rows matching these
+# formats to ensure compatibility with the WorkUnit generation logic.
+#
+# STABILITY NOTE: These are extension points. Changes to these types or the
+# _fetch_* method signatures should be considered breaking changes for
+# subclasses. If you modify these, also update the Thrift connector.
+# =============================================================================
+
+
+class TableRow(TypedDict):
+    """Row format for _fetch_table_rows(). One row per column."""
+
+    schema_name: str  # Database/schema name
+    table_name: str  # Table name
+    table_type: str  # EXTERNAL_TABLE, MANAGED_TABLE
+    create_date: str  # YYYY-MM-DD format
+    col_name: str  # Column name
+    col_sort_order: int  # Column ordinal position
+    col_description: str  # Column comment (may be empty)
+    col_type: str  # Hive type string (e.g., "string", "struct<...>")
+    is_partition_col: int  # 0 = regular column, 1 = partition column
+    table_location: str  # Storage location (e.g., s3://..., hdfs://...)
+
+
+class ViewRow(TypedDict):
+    """Row format for _fetch_hive_view_rows(). One row per column."""
+
+    schema_name: str  # Database/schema name
+    table_name: str  # View name
+    table_type: str  # VIRTUAL_VIEW
+    view_expanded_text: str  # Expanded SQL definition
+    description: str  # View description (may be empty)
+    create_date: str  # YYYY-MM-DD format
+    col_name: str  # Column name
+    col_sort_order: int  # Column ordinal position
+    col_description: str  # Column comment (may be empty)
+    col_type: str  # Hive type string
+
+
+class SchemaRow(TypedDict):
+    """Row format for _fetch_schema_rows()."""
+
+    schema: str  # Database/schema name
+
+
+class TablePropertiesRow(TypedDict):
+    """Row format for _fetch_table_properties_rows(). One row per property."""
+
+    schema_name: str  # Database/schema name
+    table_name: str  # Table name
+    PARAM_KEY: str  # Property key
+    PARAM_VALUE: str  # Property value
+
+
 class HiveMetastoreConfigMode(StrEnum):
     hive = "hive"
     presto = "presto"
     presto_on_hive = "presto-on-hive"
     trino = "trino"
+
+
+class HiveMetastoreConnectionType(StrEnum):
+    """Connection type for HiveMetastoreSource."""
+
+    sql = "sql"
+    thrift = "thrift"
 
 
 @dataclasses.dataclass
@@ -148,6 +213,94 @@ class HiveMetastore(BasicSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
     )
 
+    # -------------------------------------------------------------------------
+    # Connection type and Thrift-specific settings
+    # -------------------------------------------------------------------------
+
+    connection_type: HiveMetastoreConnectionType = Field(
+        default=HiveMetastoreConnectionType.sql,
+        description="Connection method: 'sql' for direct database access (MySQL/PostgreSQL), "
+        "'thrift' for HMS Thrift API with optional Kerberos support.",
+    )
+
+    # Thrift-specific settings (only used when connection_type="thrift")
+    use_kerberos: bool = Field(
+        default=False,
+        description="Whether to use Kerberos/SASL authentication. Only used when connection_type='thrift'.",
+    )
+    kerberos_service_name: str = Field(
+        default="hive",
+        description="Kerberos service name for the HMS principal. Only used when connection_type='thrift'.",
+    )
+    kerberos_hostname_override: Optional[str] = Field(
+        default=None,
+        description="Override the hostname used for Kerberos principal construction. "
+        "Use this when connecting through a load balancer where the connection "
+        "hostname differs from the Kerberos principal hostname. "
+        "Example: If you connect to 'hms-lb.company.com:9083' but the Kerberos principal is "
+        "'hive/hms-internal.company.com@REALM', set this to 'hms-internal.company.com'. "
+        "Only used when connection_type='thrift'.",
+    )
+    timeout_seconds: int = Field(
+        default=60,
+        description="Connection timeout in seconds. Only used when connection_type='thrift'.",
+    )
+    catalog_name: Optional[str] = Field(
+        default=None,
+        description="Catalog name for HMS 3.x multi-catalog deployments. Only used when connection_type='thrift'.",
+    )
+
+    @model_validator(mode="after")
+    def validate_thrift_settings(self) -> "HiveMetastore":
+        """Validate settings compatibility with Thrift connection."""
+        if self.connection_type == HiveMetastoreConnectionType.thrift:
+            # Validate mode - Thrift only supports 'hive' mode
+            # presto/trino modes require SQLAlchemy for view queries
+            if self.mode != HiveMetastoreConfigMode.hive:
+                raise ValueError(
+                    f"'mode: {self.mode.value}' is not supported with 'connection_type: thrift'.\n\n"
+                    "Thrift mode only supports 'mode: hive' because presto/trino modes require "
+                    "direct database queries to extract view definitions.\n\n"
+                    "If you need presto/trino view extraction, use 'connection_type: sql' with "
+                    "a SQLAlchemy connection to the metastore database instead."
+                )
+
+            # Validate WHERE clauses - not supported in Thrift mode
+            where_clause_error = (
+                "SQL WHERE clause filtering is not supported in Thrift mode.\n\n"
+                "Your config uses 'connection_type: thrift', which connects via the "
+                "Thrift API instead of direct database queries. WHERE clauses only work "
+                "with database queries.\n\n"
+                "Please use the standard DataHub pattern-based filtering instead:\n"
+                "  - database_pattern: Filter databases by regex (e.g., allow: ['^prod_.*'])\n"
+                "  - table_pattern: Filter tables by regex (e.g., deny: ['.*_temp$'])\n"
+                "  - view_pattern: Filter views by regex\n\n"
+                "Example:\n"
+                "  source:\n"
+                "    type: hive-metastore\n"
+                "    config:\n"
+                "      connection_type: thrift\n"
+                "      host_port: hms.company.com:9083\n"
+                "      database_pattern:\n"
+                "        allow:\n"
+                "          - '^prod_.*'\n"
+                "        deny:\n"
+                "          - '^test_.*'"
+            )
+            if self.schemas_where_clause_suffix:
+                raise ValueError(
+                    f"'schemas_where_clause_suffix' cannot be used with 'connection_type: thrift'.\n\n{where_clause_error}"
+                )
+            if self.tables_where_clause_suffix:
+                raise ValueError(
+                    f"'tables_where_clause_suffix' cannot be used with 'connection_type: thrift'.\n\n{where_clause_error}"
+                )
+            if self.views_where_clause_suffix:
+                raise ValueError(
+                    f"'views_where_clause_suffix' cannot be used with 'connection_type: thrift'.\n\n{where_clause_error}"
+                )
+        return self
+
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
@@ -203,6 +356,9 @@ class HiveMetastoreSource(SQLAlchemySource):
     - Metadata for Presto views and Hive tables (external / managed)
     - Column types associated with each table / view
     - Detailed table / view property info
+
+    Subclasses can override the data-fetching methods to use different data sources
+    (e.g., Thrift API instead of direct database access).
     """
 
     _TABLES_SQL_STATEMENT = """
@@ -405,7 +561,143 @@ class HiveMetastoreSource(SQLAlchemySource):
     @classmethod
     def create(cls, config_dict, ctx):
         config = HiveMetastore.model_validate(config_dict)
+
+        # Route to Thrift source if connection_type is thrift
+        if config.connection_type == HiveMetastoreConnectionType.thrift:
+            from datahub.ingestion.source.sql.hive.hive_metastore_thrift_source import (
+                HiveMetastoreThriftSource,
+            )
+
+            return HiveMetastoreThriftSource.create(config_dict, ctx)
+
         return cls(config, ctx)
+
+    # =========================================================================
+    # EXTENSION POINTS: Overridable Data-Fetching Methods
+    # =========================================================================
+    #
+    # These methods define the contract between HiveMetastoreSource and its
+    # subclasses (e.g., HiveMetastoreThriftSource). Subclasses override these
+    # to fetch data from different sources while reusing all WorkUnit logic.
+    #
+    # STABILITY CONTRACT:
+    # - Return types must conform to TableRow, ViewRow, SchemaRow, TablePropertiesRow
+    # - Method signatures should not change without updating subclasses
+    # - Changes here may break HiveMetastoreThriftSource - test both paths!
+    #
+    # See: hive_metastore_thrift_source.py for the Thrift implementation
+    # =========================================================================
+
+    def _get_tables_sql_statement(self, where_clause_suffix: str) -> str:
+        """Get the SQL statement for fetching tables. Override in subclasses if needed."""
+        return (
+            HiveMetastoreSource._TABLES_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in self.config.scheme
+            else HiveMetastoreSource._TABLES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+
+    def _fetch_table_rows(self, where_clause_suffix: str) -> Iterable[Dict[str, Any]]:
+        """
+        Fetch table/column rows from the data source.
+
+        This is an EXTENSION POINT - subclasses (e.g., Thrift connector) override
+        this to use different data sources while reusing WorkUnit generation.
+
+        Args:
+            where_clause_suffix: SQL WHERE clause suffix (ignored by Thrift connector)
+
+        Returns:
+            Iterable of dicts matching TableRow format. See TableRow TypedDict for field definitions.
+
+        Note:
+            Each row represents one column. Tables with N columns produce N rows.
+            Partition columns have is_partition_col=1 and appear after regular columns.
+        """
+        statement = self._get_tables_sql_statement(where_clause_suffix)
+        return self._alchemy_client.execute_query(statement)
+
+    def _fetch_hive_view_rows(
+        self, where_clause_suffix: str
+    ) -> Iterable[Dict[str, Any]]:
+        """
+        Fetch Hive view rows from the data source.
+
+        This is an EXTENSION POINT - subclasses override to use different data sources.
+
+        Args:
+            where_clause_suffix: SQL WHERE clause suffix (ignored by Thrift connector)
+
+        Returns:
+            Iterable of dicts matching ViewRow format. See ViewRow TypedDict for field definitions.
+
+        Note:
+            Each row represents one column. Views with N columns produce N rows.
+        """
+        statement = (
+            HiveMetastoreSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in self.config.scheme
+            else HiveMetastoreSource._HIVE_VIEWS_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+        return self._alchemy_client.execute_query(statement)
+
+    def _fetch_schema_rows(self, where_clause_suffix: str) -> Iterable[Dict[str, Any]]:
+        """
+        Fetch schema/database rows from the data source.
+
+        This is an EXTENSION POINT - subclasses override to use different data sources.
+
+        Args:
+            where_clause_suffix: SQL WHERE clause suffix (ignored by Thrift connector)
+
+        Returns:
+            Iterable of SchemaRow dicts. See SchemaRow TypedDict for field definitions.
+        """
+        statement = (
+            HiveMetastoreSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in self.config.scheme
+            else HiveMetastoreSource._SCHEMAS_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+        return self._alchemy_client.execute_query(statement)
+
+    def _fetch_table_properties_rows(
+        self, where_clause_suffix: str
+    ) -> Iterable[Dict[str, Any]]:
+        """
+        Fetch table properties rows from the data source.
+
+        This is an EXTENSION POINT - subclasses override to use different data sources.
+
+        Args:
+            where_clause_suffix: SQL WHERE clause suffix (ignored by Thrift connector)
+
+        Returns:
+            Iterable of dicts matching TablePropertiesRow format. See TablePropertiesRow TypedDict.
+
+        Note:
+            Each row represents one property. Tables with N properties produce N rows.
+        """
+        statement = (
+            HiveMetastoreSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in self.config.scheme
+            else HiveMetastoreSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+        return self._alchemy_client.execute_query(statement)
 
     def gen_database_containers(
         self,
@@ -443,17 +735,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         ):
             where_clause_suffix = f"{self.config.schemas_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
-        statement: str = (
-            HiveMetastoreSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-            if "postgresql" in self.config.scheme
-            else HiveMetastoreSource._SCHEMAS_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-        )
-
-        iter_res = self._alchemy_client.execute_query(statement)
+        iter_res = self._fetch_schema_rows(where_clause_suffix)
         for row in iter_res:
             schema = row["schema"]
             if not self.config.database_pattern.allowed(schema):
@@ -494,16 +776,7 @@ class HiveMetastoreSource(SQLAlchemySource):
     def _get_table_properties(
         self, db_name: str, scheme: str, where_clause_suffix: str
     ) -> Dict[str, Dict[str, str]]:
-        statement: str = (
-            HiveMetastoreSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-            if "postgresql" in scheme
-            else HiveMetastoreSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-        )
-        iter_res = self._alchemy_client.execute_query(statement)
+        iter_res = self._fetch_table_properties_rows(where_clause_suffix)
         table_properties: Dict[str, Dict[str, str]] = {}
         for row in iter_res:
             dataset_name = f"{row['schema_name']}.{row['table_name']}"
@@ -532,15 +805,6 @@ class HiveMetastoreSource(SQLAlchemySource):
         if not isinstance(sql_config, HiveMetastore):
             raise TypeError(f"Expected HiveMetastore, got {type(sql_config).__name__}")
         where_clause_suffix = f"{sql_config.tables_where_clause_suffix} {self._get_db_filter_where_clause()}"
-        statement: str = (
-            HiveMetastoreSource._TABLES_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-            if "postgresql" in sql_config.scheme
-            else HiveMetastoreSource._TABLES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-        )
 
         db_name = self.get_db_name(inspector)
 
@@ -550,7 +814,7 @@ class HiveMetastoreSource(SQLAlchemySource):
             where_clause_suffix=where_clause_suffix,
         )
 
-        iter_res = self._alchemy_client.execute_query(statement)
+        iter_res = self._fetch_table_rows(where_clause_suffix)
 
         for key, group in groupby_unsorted(iter_res, self._get_table_key):
             schema_name = (
@@ -699,17 +963,7 @@ class HiveMetastoreSource(SQLAlchemySource):
         if self.config.views_where_clause_suffix or self._get_db_filter_where_clause():
             where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
-        statement: str = (
-            HiveMetastoreSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-            if "postgresql" in self.config.scheme
-            else HiveMetastoreSource._HIVE_VIEWS_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-        )
-
-        iter_res = self._alchemy_client.execute_query(statement)
+        iter_res = self._fetch_hive_view_rows(where_clause_suffix)
         for key, group in groupby_unsorted(iter_res, self._get_table_key):
             db_name = self.get_db_name(inspector)
 

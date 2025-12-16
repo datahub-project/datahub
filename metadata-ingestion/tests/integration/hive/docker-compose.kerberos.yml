@@ -1,0 +1,126 @@
+# Kerberos overlay for Hive integration tests
+# Usage: docker compose -f docker-compose.yml -f docker-compose.kerberos.yml up -d
+#
+# This extends the base docker-compose.yml with Kerberos authentication.
+# The base file remains unchanged for non-Kerberized testing.
+#
+# Customer Environment Simulation:
+# - HMS with Kerberos SASL authentication (port 9083)
+# - Custom service name support (default: "hive", configurable)
+# - No HiveServer2 dependency for metadata extraction
+#
+# Key Fixes Applied:
+# 1. HDFS proxy user configuration for HMS impersonation
+# 2. Proper keytab synchronization between KDC and services
+# 3. Python-based test data loading via HMS Thrift API
+
+services:
+  # MIT Kerberos KDC with automatic keytab initialization
+  kdc:
+    build:
+      context: ./kerberos
+      dockerfile: Dockerfile.kdc
+    hostname: kdc.test.local
+    container_name: kdc
+    environment:
+      KRB5_REALM: TEST.LOCAL
+      KRB5_KDC: kdc.test.local
+      KRB5_PASS: admin
+    volumes:
+      - krb5-keytabs:/keytabs
+    ports:
+      - "88:88/udp"
+      - "88:88/tcp"
+      - "749:749"
+    healthcheck:
+      test: ["CMD", "test", "-f", "/keytabs/hive.keytab"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  # Override namenode to add proxy user configuration
+  # This allows HMS to impersonate users when connecting to HDFS
+  namenode:
+    environment:
+      CLUSTER_NAME: test
+      # CRITICAL: Allow hive service to impersonate any user
+      # Without this, HMS cannot create databases/tables on behalf of users
+      CORE_CONF_hadoop_proxyuser_hive_hosts: "*"
+      CORE_CONF_hadoop_proxyuser_hive_groups: "*"
+    env_file:
+      - ./hadoop-hive.env
+
+  # Override hive-metastore to enable Kerberos
+  # This is the PRIMARY target for the new connector (port 9083)
+  hive-metastore:
+    hostname: hive-metastore
+    env_file:
+      - ./hadoop-hive.env
+      - ./kerberos/hive-kerberos.env
+    environment:
+      SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432 kdc:88"
+      # Enable Kerberos debug logging
+      HIVE_OPTS: "-Dsun.security.krb5.debug=true -Djavax.security.auth.useSubjectCredsOnly=false"
+    volumes:
+      - krb5-keytabs:/keytabs:ro
+      - ./kerberos/krb5.conf:/etc/krb5.conf:ro
+      - ./kerberos/hive-site-kerberos.xml:/opt/hive/conf/hive-site.xml:ro
+    depends_on:
+      kdc:
+        condition: service_healthy
+
+  # Override hive-server - NOT used for customer scenario but kept for compatibility
+  # HiveServer2 is disabled (authentication=NONE) since customer doesn't have it
+  hive-server:
+    hostname: hive-server
+    env_file:
+      - ./hadoop-hive.env
+      - ./kerberos/hive-kerberos.env
+    environment:
+      SERVICE_PRECONDITION: "hive-metastore:9083 kdc:88"
+    volumes:
+      - krb5-keytabs:/keytabs:ro
+      - ./kerberos/krb5.conf:/etc/krb5.conf:ro
+      - ./kerberos/hive-site-kerberos.xml:/opt/hive/conf/hive-site.xml:ro
+    depends_on:
+      kdc:
+        condition: service_healthy
+
+  # Test client container for Kerberos testing and data loading
+  # This simulates the DataHub ingestion environment
+  kerberos-client:
+    image: ubuntu:22.04
+    container_name: kerberos-client
+    hostname: client.test.local
+    volumes:
+      - krb5-keytabs:/keytabs:ro
+      - ./kerberos/krb5.conf:/tmp/krb5.conf:ro
+      - ./kerberos/test-connection.sh:/test-connection.sh:ro
+      - ./kerberos/setup-test-data.py:/setup-test-data.py:ro
+    depends_on:
+      - kdc
+      - hive-metastore
+    command: >
+      bash -c "
+        set -e &&
+        cp /tmp/krb5.conf /etc/krb5.conf &&
+        export DEBIAN_FRONTEND=noninteractive &&
+        echo 'Installing packages...' &&
+        apt-get update -qq &&
+        apt-get install -y --no-install-recommends krb5-user libkrb5-dev python3 python3-pip python3-dev gcc netcat-openbsd > /dev/null 2>&1 &&
+        pip3 install -q pyhive thrift thrift-sasl pure-sasl kerberos pymetastore &&
+        echo 'Waiting for HMS to be ready...' &&
+        sleep 30 &&
+        echo 'Setting up test data...' &&
+        kinit -kt /keytabs/testuser.keytab testuser@TEST.LOCAL &&
+        python3 /setup-test-data.py &&
+        echo 'Client ready!' &&
+        tail -f /dev/null
+      "
+    environment:
+      KRB5_CONFIG: /etc/krb5.conf
+      DEBIAN_FRONTEND: noninteractive
+
+volumes:
+  krb5-keytabs:
