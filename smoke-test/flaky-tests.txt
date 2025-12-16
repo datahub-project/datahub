@@ -1,0 +1,7 @@
+# Flaky Cypress tests to run repeatedly for validation
+# Format: One test file path per line, relative to cypress/e2e/
+# Lines starting with # are ignored
+
+domains/nested_domains.js
+ingestionV2/sources.js
+mutationsV2/v2_managing_secrets.js
