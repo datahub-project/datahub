@@ -1,6 +1,7 @@
 """Entity processing utilities for Dataplex source (Lakes/Zones/Entities API)."""
 
 import logging
+from collections.abc import Callable
 from threading import Lock
 from typing import Iterable, Optional
 
@@ -52,7 +53,7 @@ def process_zone_entities(
     bq_containers: dict[str, set[str]],
     bq_containers_lock: Lock,
     report_lock: Lock,
-    construct_mcps_fn,
+    construct_mcps_fn: Callable[[str, list], Iterable[MetadataChangeProposalWrapper]],
 ) -> Iterable[MetadataChangeProposalWrapper]:
     """Process all entities for a single zone (called by parallel workers).
 

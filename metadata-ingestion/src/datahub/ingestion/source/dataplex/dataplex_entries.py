@@ -1,6 +1,7 @@
 """Entry processing utilities for Dataplex source (Universal Catalog/Entries API)."""
 
 import logging
+from collections.abc import Callable
 from threading import Lock
 from typing import Iterable
 
@@ -43,7 +44,7 @@ def process_entry(
     entity_data_lock: Lock,
     bq_containers: dict[str, set[str]],
     bq_containers_lock: Lock,
-    construct_mcps_fn,
+    construct_mcps_fn: Callable[[str, list], Iterable[MetadataChangeProposalWrapper]],
 ) -> Iterable[MetadataChangeProposalWrapper]:
     """Process a single entry from Universal Catalog.
 
