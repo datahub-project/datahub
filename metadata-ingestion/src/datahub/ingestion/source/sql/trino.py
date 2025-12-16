@@ -432,9 +432,6 @@ class TrinoSource(SQLAlchemySource):
 
         Returns:
             SchemaMetadata if successful, None if an error occurs
-
-        Raises:
-            sqlalchemy.exc.OperationalError: For critical connection failures (re-raised to fail fast)
         """
         try:
             columns = self._get_columns(dataset_name, inspector, schema, table)
@@ -663,9 +660,16 @@ class TrinoSource(SQLAlchemySource):
                 schema_metadata = self._get_schema_metadata_for_lineage(
                     dataset_name, inspector, schema, table_or_view, is_view=is_view
                 )
+                column_duration = time.time() - column_start
                 if schema_metadata:
                     self.report.num_column_lineage_processed += 1
-                self.report.column_lineage_time_seconds += time.time() - column_start
+                self.report.column_lineage_time_seconds += column_duration
+
+                if column_duration > 5.0:
+                    logger.debug(
+                        f"Column lineage for {dataset_name} took {column_duration:.2f}s - "
+                        "consider optimizing database queries or limiting scope with table_pattern"
+                    )
 
             yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
             yield from self.gen_lineage_workunit(
