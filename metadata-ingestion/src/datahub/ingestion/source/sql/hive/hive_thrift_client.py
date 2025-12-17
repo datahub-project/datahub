@@ -31,6 +31,7 @@ from typing import (
 
 from tenacity import (
     retry,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -314,7 +315,7 @@ class HiveMetastoreThriftClient:
             )
 
         return retry(
-            retry=should_retry,
+            retry=retry_if_exception(should_retry),
             stop=stop_after_attempt(self.config.max_retries),
             wait=wait_exponential(multiplier=2, max=30),  # Sensible defaults
             reraise=True,
@@ -354,22 +355,27 @@ class HiveMetastoreThriftClient:
                 raise _wrap_thrift_error(e, self.config.use_kerberos) from e
 
             # Check for BrokenPipeError in the exception chain
-            current = e
+            current: Optional[BaseException] = e
             while current is not None:
                 if isinstance(current, BrokenPipeError):
                     raise _wrap_thrift_error(current, self.config.use_kerberos) from e
                 # Check TTransportException's inner attribute
                 if hasattr(current, "inner"):
-                    inner_str = str(current.inner).lower() if current.inner else ""
+                    inner = getattr(current, "inner", None)
+                    inner_str = str(inner).lower() if inner else ""
                     if (
-                        isinstance(current.inner, BrokenPipeError)
+                        isinstance(inner, BrokenPipeError)
                         or "read 0 bytes" in inner_str
                     ):
+                        # inner is a known Exception type here
+                        error_to_wrap: Exception = (
+                            inner if isinstance(inner, Exception) else e
+                        )
                         raise _wrap_thrift_error(
-                            current.inner if current.inner else current,
+                            error_to_wrap,
                             self.config.use_kerberos,
                         ) from e
-                    current = current.inner
+                    current = inner
                 else:
                     current = current.__cause__
             # Re-raise original exception if not a wrapped error type

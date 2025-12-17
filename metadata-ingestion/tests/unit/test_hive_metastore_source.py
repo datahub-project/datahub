@@ -85,19 +85,19 @@ def test_hive_metastore_source_initialization():
     config = HiveMetastore.model_validate(config_dict)
     ctx = PipelineContext(run_id="test-run")
 
-    with patch(
-        "datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient"
-    ):
+    with patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient"):
         source = HiveMetastoreSource(config, ctx)
 
         assert source.config == config
-        assert source.storage_lineage is not None
-        assert source.storage_lineage.config.emit_storage_lineage is True
+        # Storage lineage config is on the source config
+        assert source.config.emit_storage_lineage is True
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_hive_metastore_source_with_storage_lineage_disabled(mock_client):
     """Test that storage lineage is not emitted when disabled"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
+
     config_dict = {
         "username": "test_user",
         "password": "test_password",
@@ -106,14 +106,14 @@ def test_hive_metastore_source_with_storage_lineage_disabled(mock_client):
         "emit_storage_lineage": False,
     }
     config = HiveMetastore.model_validate(config_dict)
-    ctx = PipelineContext(run_id="test-run")
 
-    source = HiveMetastoreSource(config, ctx)
+    # Test storage lineage directly
+    storage_lineage = HiveStorageLineage(config=config, env=config.env)
 
     table_dict = {"StorageDescriptor": {"Location": "s3://my-bucket/path/to/table"}}
 
     lineage_mcps = list(
-        source.storage_lineage.get_lineage_mcp(
+        storage_lineage.get_lineage_mcp(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hive,test_table,PROD)",
             table=table_dict,
         )
@@ -228,9 +228,9 @@ def test_hive_metastore_simplify_nested_field_paths():
     assert config.simplify_nested_field_paths is True
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_hive_metastore_source_storage_lineage_integration(mock_client):
-    """Test that storage lineage is properly initialized in source"""
+    """Test that storage lineage config is properly set on source"""
     config_dict = {
         "username": "test_user",
         "password": "test_password",
@@ -248,11 +248,10 @@ def test_hive_metastore_source_storage_lineage_integration(mock_client):
 
     source = HiveMetastoreSource(config, ctx)
 
-    assert source.storage_lineage is not None
-    assert source.storage_lineage.config.emit_storage_lineage is True
-    assert source.storage_lineage.config.hive_storage_lineage_direction == "upstream"
-    assert source.storage_lineage.config.include_column_lineage is True
-    assert source.storage_lineage.env == "PROD"
+    # Storage lineage config is on the source config
+    assert source.config.emit_storage_lineage is True
+    assert source.config.hive_storage_lineage_direction == "upstream"
+    assert source.config.include_column_lineage is True
 
 
 def test_hive_metastore_all_storage_platforms():
@@ -301,7 +300,7 @@ def test_hive_metastore_view_lineage_config_disabled():
     assert config.include_view_lineage is False
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_hive_metastore_get_db_schema_without_catalog(mock_client):
     """Test get_db_schema parsing for schema.table format"""
     config_dict = {
@@ -322,7 +321,7 @@ def test_hive_metastore_get_db_schema_without_catalog(mock_client):
     assert default_schema == "my_schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_hive_metastore_get_db_schema_with_catalog(mock_client):
     """Test get_db_schema parsing for catalog.schema.table format"""
     config_dict = {
@@ -343,7 +342,7 @@ def test_hive_metastore_get_db_schema_with_catalog(mock_client):
     assert default_schema == "my_schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_hive_metastore_get_db_schema_single_part(mock_client):
     """Test get_db_schema parsing for single-part identifiers"""
     config_dict = {
@@ -363,7 +362,7 @@ def test_hive_metastore_get_db_schema_single_part(mock_client):
     assert default_schema == "my_view"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_hive_metastore_aggregator_initialization(mock_client):
     """Test that SQL aggregator is initialized for view lineage"""
     config_dict = {
@@ -378,12 +377,13 @@ def test_hive_metastore_aggregator_initialization(mock_client):
 
     source = HiveMetastoreSource(config, ctx)
 
-    assert hasattr(source, "aggregator")
-    assert source.aggregator is not None
+    # Aggregator is now private attribute _aggregator
+    assert hasattr(source, "_aggregator")
+    assert source._aggregator is not None
     assert source.config.include_view_lineage is True
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_get_db_schema_empty_identifier_raises_error(mock_client):
     """Test that get_db_schema raises ValueError for empty identifier"""
     config_dict = {
@@ -403,7 +403,7 @@ def test_get_db_schema_empty_identifier_raises_error(mock_client):
     assert "cannot be empty" in str(exc_info.value)
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_get_db_schema_whitespace_only_raises_error(mock_client):
     """Test that get_db_schema raises ValueError for whitespace-only identifier"""
     config_dict = {
@@ -423,7 +423,7 @@ def test_get_db_schema_whitespace_only_raises_error(mock_client):
     assert "cannot be empty" in str(exc_info.value)
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_get_db_schema_double_dots_raises_error(mock_client):
     """Test that get_db_schema raises ValueError for malformed identifiers with double dots"""
     config_dict = {
@@ -443,7 +443,7 @@ def test_get_db_schema_double_dots_raises_error(mock_client):
     assert "Invalid dataset identifier" in str(exc_info.value)
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_get_db_schema_catalog_with_two_parts(mock_client):
     """Test get_db_schema with catalog mode and two-part identifier"""
     config_dict = {
@@ -464,7 +464,7 @@ def test_get_db_schema_catalog_with_two_parts(mock_client):
     assert default_schema == "schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_get_db_schema_four_parts_with_catalog(mock_client):
     """Test get_db_schema handles identifiers with more than 3 parts"""
     config_dict = {
@@ -485,11 +485,15 @@ def test_get_db_schema_four_parts_with_catalog(mock_client):
     assert default_schema == "schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_presto_view_column_metadata_parsing(mock_client):
-    """Test _get_presto_view_column_metadata parses encoded view correctly"""
+    """Test HiveMetadataProcessor._get_presto_view_column_metadata parses encoded view correctly"""
     import base64
     import json
+
+    from datahub.ingestion.source.sql.hive.hive_metadata_processor import (
+        HiveMetadataProcessor,
+    )
 
     config_dict = {
         "username": "test_user",
@@ -502,6 +506,14 @@ def test_presto_view_column_metadata_parsing(mock_client):
     ctx = PipelineContext(run_id="test-run")
 
     source = HiveMetastoreSource(config, ctx)
+
+    # Create processor to test the method
+    processor = HiveMetadataProcessor(
+        config=config,
+        fetcher=source._fetcher,
+        report=source.report,
+        platform=source.platform,
+    )
 
     view_data = {
         "originalSql": "SELECT id, name FROM users WHERE active = true",
@@ -513,7 +525,7 @@ def test_presto_view_column_metadata_parsing(mock_client):
     encoded_data = base64.b64encode(json.dumps(view_data).encode()).decode()
     view_original_text = f"/* Presto View: {encoded_data} */"
 
-    columns, view_definition = source._get_presto_view_column_metadata(
+    columns, view_definition = processor._get_presto_view_column_metadata(
         view_original_text
     )
 
@@ -525,11 +537,15 @@ def test_presto_view_column_metadata_parsing(mock_client):
     assert columns[1]["col_type"] == "varchar"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_presto_view_complex_sql(mock_client):
-    """Test _get_presto_view_column_metadata handles complex SQL definitions"""
+    """Test HiveMetadataProcessor._get_presto_view_column_metadata handles complex SQL definitions"""
     import base64
     import json
+
+    from datahub.ingestion.source.sql.hive.hive_metadata_processor import (
+        HiveMetadataProcessor,
+    )
 
     config_dict = {
         "username": "test_user",
@@ -542,6 +558,14 @@ def test_presto_view_complex_sql(mock_client):
     ctx = PipelineContext(run_id="test-run")
 
     source = HiveMetastoreSource(config, ctx)
+
+    # Create processor to test the method
+    processor = HiveMetadataProcessor(
+        config=config,
+        fetcher=source._fetcher,
+        report=source.report,
+        platform=source.platform,
+    )
 
     complex_sql = """
     SELECT
@@ -565,7 +589,7 @@ def test_presto_view_complex_sql(mock_client):
     encoded_data = base64.b64encode(json.dumps(view_data).encode()).decode()
     view_original_text = f"/* Presto View: {encoded_data} */"
 
-    columns, view_definition = source._get_presto_view_column_metadata(
+    columns, view_definition = processor._get_presto_view_column_metadata(
         view_original_text
     )
 
@@ -574,7 +598,7 @@ def test_presto_view_complex_sql(mock_client):
     assert len(columns) == 3
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_metastore_source.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
 def test_view_lineage_adds_to_aggregator(mock_client):
     """Test that view definitions are added to the aggregator when view lineage is enabled"""
     config_dict = {
@@ -590,8 +614,8 @@ def test_view_lineage_adds_to_aggregator(mock_client):
     source = HiveMetastoreSource(config, ctx)
 
     assert source.config.include_view_lineage is True
-    assert hasattr(source, "aggregator")
-    assert source.aggregator is not None
+    assert hasattr(source, "_aggregator")
+    assert source._aggregator is not None
 
 
 def test_hive_metastore_storage_lineage_config_from_mixin():
@@ -618,7 +642,8 @@ def test_hive_metastore_storage_lineage_config_from_mixin():
     assert config.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM
 
 
-def test_hive_metastore_subtype_config():
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+def test_hive_metastore_subtype_config(mock_client):
     """Test that HiveMetastoreSource correctly initializes table and view subtypes"""
     config_dict = {
         "username": "test_user",
@@ -629,17 +654,14 @@ def test_hive_metastore_subtype_config():
     config = HiveMetastore.model_validate(config_dict)
     ctx = PipelineContext(run_id="test-run")
 
-    try:
-        source = HiveMetastoreSource(config, ctx)
-        # Verify that the source uses DatasetSubTypes enum values
-        assert source.table_subtype == DatasetSubTypes.TABLE
-        assert source.view_subtype == DatasetSubTypes.VIEW
-    except Exception:
-        # If initialization fails due to missing dependencies, at least verify config
-        pass
+    source = HiveMetastoreSource(config, ctx)
+    # Verify that the source uses DatasetSubTypes enum values
+    assert source.table_subtype == DatasetSubTypes.TABLE
+    assert source.view_subtype == DatasetSubTypes.VIEW
 
 
-def test_hive_metastore_subtype_config_pascalcase():
+@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+def test_hive_metastore_subtype_config_pascalcase(mock_client):
     """Test that HiveMetastoreSource correctly handles PascalCase subtype config"""
     config_dict = {
         "username": "test_user",
@@ -651,11 +673,7 @@ def test_hive_metastore_subtype_config_pascalcase():
     config = HiveMetastore.model_validate(config_dict)
     ctx = PipelineContext(run_id="test-run")
 
-    try:
-        source = HiveMetastoreSource(config, ctx)
-        # When PascalCase is enabled, verify the title() transformation
-        assert source.table_subtype == DatasetSubTypes.TABLE.title()
-        assert source.view_subtype == DatasetSubTypes.VIEW.title()
-    except Exception:
-        # If initialization fails due to missing dependencies, at least verify config
-        pass
+    source = HiveMetastoreSource(config, ctx)
+    # When PascalCase is enabled, verify the title() transformation
+    assert source.table_subtype == DatasetSubTypes.TABLE.title()
+    assert source.view_subtype == DatasetSubTypes.VIEW.title()
