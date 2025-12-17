@@ -115,7 +115,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     "config_file,golden_file",
     [
         ("doris_to_file.yml", "doris_mces_golden.json"),
-        ("doris_profile_table_level_only.yml", "doris_profile_table_level_golden.json"),
+        ("doris_profile.yml", "doris_profile_golden.json"),
         ("doris_multi_db.yml", "doris_multi_db_golden.json"),
     ],
 )
@@ -134,11 +134,19 @@ def test_doris_ingest(
     config_file = (test_resources_dir / config_file).resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
+    # Ignore timestamp field profile values (min/max/sampleValues) as they use NOW() in SQL
+    ignore_paths = [
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['min'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['max'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+    ]
+
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "doris_mces.json",
         golden_path=test_resources_dir / golden_file,
+        ignore_paths=ignore_paths,
     )
 
 

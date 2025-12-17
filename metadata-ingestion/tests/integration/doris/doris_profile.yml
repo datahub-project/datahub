@@ -14,4 +14,4 @@ source:
 sink:
   type: file
   config:
-    filename: "./doris_profile_mces.json"
+    filename: "./doris_mces.json"

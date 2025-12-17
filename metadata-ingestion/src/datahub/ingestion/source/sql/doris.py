@@ -17,6 +17,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.source import ge_data_profiler
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
@@ -137,10 +139,54 @@ except Exception as e:
     logger.warning(f"Failed to patch get_columns for Doris type preservation: {e}")
 
 
+# Patch profiler to exclude Doris-specific types that don't support COUNT DISTINCT
+# These types cannot be profiled using standard SQL aggregations
+try:
+    _original_get_column_types_to_ignore = ge_data_profiler._get_column_types_to_ignore
+
+    def _get_column_types_to_ignore_with_doris(dialect_name: str) -> list:
+        ignored_types = _original_get_column_types_to_ignore(dialect_name)
+
+        # For MySQL dialect (which Doris uses), add Doris-specific types
+        # These types throw: "COUNT DISTINCT could not process type"
+        if dialect_name.lower() == "mysql":
+            ignored_types.extend(
+                [
+                    "HLL",
+                    "BITMAP",
+                    "QUANTILE_STATE",
+                    "ARRAY",
+                    "JSONB",
+                ]
+            )
+
+        return ignored_types
+
+    ge_data_profiler._get_column_types_to_ignore = (
+        _get_column_types_to_ignore_with_doris  # type: ignore[assignment]
+    )
+    logger.debug(
+        "Successfully patched profiler to exclude Doris-specific unprofil types"
+    )
+
+except Exception as e:
+    logger.warning(f"Failed to patch profiler for Doris type exclusion: {e}")
+
+
 class DorisConfig(MySQLConfig):
     host_port: str = Field(
         default="localhost:9030",
         description="Doris FE (Frontend) host and port. Default port is 9030.",
+    )
+
+    profiling: GEProfilingConfig = Field(
+        default_factory=GEProfilingConfig,
+        description=(
+            "Configuration for profiling Doris tables. "
+            "Note: Doris-specific types (HLL, BITMAP, QUANTILE_STATE, ARRAY, JSONB) are automatically "
+            "excluded from field-level profiling as they do not support COUNT DISTINCT operations. "
+            "Table-level metrics (row counts, column counts) are still collected for all tables."
+        ),
     )
 
     # Hidden from docs because information_schema.ROUTINES is always empty in Doris
