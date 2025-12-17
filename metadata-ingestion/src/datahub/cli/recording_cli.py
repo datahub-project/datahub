@@ -260,7 +260,9 @@ def _ensure_local_archive(archive_path: str) -> Path:
         bucket = parsed.netloc
         key = parsed.path.lstrip("/")
 
-        local_path = Path(tempfile.mktemp(suffix=".zip"))
+        # Use NamedTemporaryFile with delete=False for secure, atomic file creation
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmpfile:
+            local_path = Path(tmpfile.name)
 
         s3_client = boto3.client("s3")
         s3_client.download_file(bucket, key, str(local_path))

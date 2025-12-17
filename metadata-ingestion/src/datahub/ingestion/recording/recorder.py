@@ -211,7 +211,9 @@ class IngestionRecorder:
         # S3 upload uses temp file that gets uploaded then cleaned up
         if self.s3_upload:
             # S3 upload - create temp archive, upload to output_path (S3 URL)
-            archive_path = Path(tempfile.mktemp(suffix=".zip"))
+            # Use NamedTemporaryFile with delete=False for secure, atomic file creation
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmpfile:
+                archive_path = Path(tmpfile.name)
         elif self.output_path:
             # Explicit local output path provided - takes precedence
             archive_path = Path(self.output_path)
@@ -228,7 +230,11 @@ class IngestionRecorder:
                     f"Saving recording to INGESTION_ARTIFACT_DIR: {archive_path}"
                 )
             else:
-                archive_path = Path(tempfile.mktemp(suffix=".zip"))
+                # Use NamedTemporaryFile with delete=False for secure, atomic file creation
+                with tempfile.NamedTemporaryFile(
+                    suffix=".zip", delete=False
+                ) as tmpfile:
+                    archive_path = Path(tmpfile.name)
 
         # Create manifest with exception info if present
         manifest = ArchiveManifest(
