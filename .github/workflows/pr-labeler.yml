@@ -65,7 +65,7 @@ jobs:
           "kyungsoo-datahub",
           "AdrianMachado",
           "pdruley",
-          "dinesh-verma-datahub"
+          "alokr-dhub"
           ]'),
           github.actor
           )
