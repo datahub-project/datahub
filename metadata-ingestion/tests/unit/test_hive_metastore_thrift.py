@@ -509,3 +509,213 @@ class TestThriftClientBehavior:
         view_names = {r["table_name"] for r in view_rows}
         assert "my_view" in view_names
         assert "regular_table" not in view_names
+
+
+class TestHMS3CatalogSupport:
+    """
+    Tests for HMS 3.x catalog support.
+
+    These tests verify the fixes for catalog-aware APIs:
+    1. Cache keys include catalog to handle multi-catalog scenarios
+    2. Failure reporting includes catalog context
+    3. get_all_tables without catalog uses standard API
+
+    Note: Tests that trigger pymetastore imports are skipped if pymetastore is not installed.
+    The HMS 3.x catalog APIs are tested in integration tests with actual HMS 3.x.
+    """
+
+    @pytest.fixture
+    def mock_client(self) -> HiveMetastoreThriftClient:
+        """Create client with mocked Thrift backend."""
+        config = ThriftConnectionConfig(host="localhost", port=9083, use_kerberos=False)
+        client = HiveMetastoreThriftClient(config)
+        client._client = MagicMock()
+        return client
+
+    def test_get_all_tables_without_catalog_uses_standard_api(self, mock_client):
+        """Test that get_all_tables without catalog uses standard HMS 2.x API."""
+        mock_client._client.get_all_tables.return_value = ["table1"]
+
+        tables = mock_client.get_all_tables("my_db")
+
+        mock_client._client.get_all_tables.assert_called_with("my_db")
+        assert tables == ["table1"]
+        # get_tables_ext should NOT be called
+        mock_client._client.get_tables_ext.assert_not_called()
+
+    def test_get_fields_without_catalog_uses_standard_api(self, mock_client):
+        """Test that get_fields without catalog uses standard get_fields API."""
+        mock_field = MagicMock()
+        mock_field.name = "col1"
+        mock_field.type = "string"
+        mock_field.comment = ""
+        mock_client._client.get_fields.return_value = [mock_field]
+
+        result = mock_client.get_fields("my_db", "my_table")
+
+        mock_client._client.get_fields.assert_called_with("my_db", "my_table")
+        # get_table_req should NOT be called
+        mock_client._client.get_table_req.assert_not_called()
+        # Verify the result
+        assert len(result) == 1
+        assert result[0]["col_name"] == "col1"
+
+    def test_cache_key_structure_includes_catalog(self, mock_client):
+        """Test that cache keys include catalog to handle multi-catalog scenarios.
+
+        This tests the internal cache structure without triggering HMS API calls.
+        """
+        # Manually populate the cache with entries from different catalogs
+        mock_client._table_cache[("catalog1", "my_db", "my_table")] = {
+            "table_name": "my_table",
+            "table_type": "EXTERNAL_TABLE",
+            "location": "s3://bucket1/path",
+        }
+        mock_client._table_cache[("catalog2", "my_db", "my_table")] = {
+            "table_name": "my_table",
+            "table_type": "EXTERNAL_TABLE",
+            "location": "s3://bucket2/path",  # Different location!
+        }
+
+        # Verify both entries exist and are distinct
+        assert len(mock_client._table_cache) == 2
+        assert (
+            mock_client._table_cache[("catalog1", "my_db", "my_table")]["location"]
+            == "s3://bucket1/path"
+        )
+        assert (
+            mock_client._table_cache[("catalog2", "my_db", "my_table")]["location"]
+            == "s3://bucket2/path"
+        )
+
+    def test_database_failure_key_structure_includes_catalog(self, mock_client):
+        """Test that database failure keys include catalog."""
+        # Set failures with different catalogs
+        mock_client._database_failures[("catalog1", "my_db")] = "Error 1"
+        mock_client._database_failures[("catalog2", "my_db")] = "Error 2"
+
+        # Verify both are tracked separately
+        assert len(mock_client._database_failures) == 2
+        assert mock_client._database_failures[("catalog1", "my_db")] == "Error 1"
+        assert mock_client._database_failures[("catalog2", "my_db")] == "Error 2"
+
+    def test_table_failure_key_structure_includes_catalog(self, mock_client):
+        """Test that table failure keys include catalog."""
+        # Set failures with different catalogs
+        mock_client._table_failures[("catalog1", "my_db", "my_table")] = "Error 1"
+        mock_client._table_failures[("catalog2", "my_db", "my_table")] = "Error 2"
+
+        # Verify both are tracked separately
+        assert len(mock_client._table_failures) == 2
+
+    def test_database_failures_include_catalog_in_display(self, mock_client):
+        """Test that failure reporting includes catalog context."""
+        # Manually set a database failure with catalog
+        mock_client._database_failures[("spark_catalog", "my_db")] = "Connection error"
+
+        failures = mock_client.get_database_failures()
+
+        assert len(failures) == 1
+        # Display name should include catalog
+        assert failures[0][0] == "spark_catalog.my_db"
+        assert failures[0][1] == "Connection error"
+
+    def test_table_failures_include_catalog_in_display(self, mock_client):
+        """Test that table failure reporting includes catalog context."""
+        # Manually set a table failure with catalog
+        mock_client._table_failures[("spark_catalog", "my_db", "my_table")] = (
+            "Table not found"
+        )
+
+        failures = mock_client.get_table_failures()
+
+        assert len(failures) == 1
+        # Display name should include catalog
+        assert failures[0][0] == "spark_catalog.my_db"
+        assert failures[0][1] == "my_table"
+        assert failures[0][2] == "Table not found"
+
+    def test_failures_without_catalog_display_correctly(self, mock_client):
+        """Test that failures without catalog display without prefix."""
+        # Set failures without catalog (None)
+        mock_client._database_failures[(None, "my_db")] = "Error"
+        mock_client._table_failures[(None, "my_db", "my_table")] = "Error"
+
+        db_failures = mock_client.get_database_failures()
+        table_failures = mock_client.get_table_failures()
+
+        # Should NOT have catalog prefix
+        assert db_failures[0][0] == "my_db"
+        assert table_failures[0][0] == "my_db"
+
+    def test_clear_failures_clears_catalog_keyed_data(self, mock_client):
+        """Test that clear_failures clears catalog-keyed failure data."""
+        # Populate some data
+        mock_client._database_failures[("catalog1", "db1")] = "Error"
+        mock_client._table_failures[("catalog1", "db1", "table1")] = "Error"
+        mock_client._table_cache[("catalog1", "db1", "table1")] = {"data": "value"}
+
+        # Clear
+        mock_client.clear_failures()
+
+        # Verify all cleared
+        assert len(mock_client._database_failures) == 0
+        assert len(mock_client._table_failures) == 0
+        assert len(mock_client._table_cache) == 0
+
+
+class TestCatalogConfigIntegration:
+    """Test catalog configuration integration with source."""
+
+    def test_catalog_name_passed_to_data_fetching(self):
+        """Test that catalog_name config is passed to Thrift client methods."""
+        ctx = PipelineContext(run_id="test")
+        config = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+            "use_kerberos": False,
+            "catalog_name": "spark_catalog",
+            "database_pattern": {"allow": ["my_db"]},
+        }
+
+        source = HiveMetastoreThriftSource.create(config, ctx)
+
+        # Verify catalog_name is set
+        assert source.config.catalog_name == "spark_catalog"
+
+        # Mock the client
+        mock_client = MagicMock(spec=HiveMetastoreThriftClient)
+        mock_client.get_all_databases.return_value = ["my_db"]
+        mock_client.iter_table_rows.return_value = iter([])
+        source._thrift_client = mock_client
+
+        # Trigger data fetching
+        list(source._fetch_table_rows(""))
+
+        # Verify catalog_name was passed to iter_table_rows
+        mock_client.iter_table_rows.assert_called_once()
+        call_args = mock_client.iter_table_rows.call_args
+        assert call_args[1].get("catalog_name") == "spark_catalog" or (
+            len(call_args[0]) > 1 and call_args[0][1] == "spark_catalog"
+        )
+
+    def test_include_catalog_name_in_ids_with_catalog_name(self):
+        """Test URN generation when include_catalog_name_in_ids is True."""
+        ctx = PipelineContext(run_id="test")
+        config = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+            "use_kerberos": False,
+            "catalog_name": "spark_catalog",
+            "include_catalog_name_in_ids": True,
+        }
+
+        source = HiveMetastoreThriftSource.create(config, ctx)
+
+        # get_db_name should return the catalog name
+        db_name = source.get_db_name(source._thrift_inspector)  # type: ignore[arg-type]
+        assert db_name == "spark_catalog"
+
+        # With include_catalog_name_in_ids=True, URNs will be prefixed with catalog
+        # The parent class logic uses: f"{db_name}.{schema}" when include_catalog_name_in_ids
+        assert source.config.include_catalog_name_in_ids is True

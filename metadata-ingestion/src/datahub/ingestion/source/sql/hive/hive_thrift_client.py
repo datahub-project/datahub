@@ -49,17 +49,20 @@ logger = logging.getLogger(__name__)
 # These should trigger fallback to non-catalog APIs.
 #
 # FALLBACK STRATEGY: When a catalog-aware API fails with one of these exceptions,
-# we fall back to the non-catalog HMS 2.x API. This includes network errors during
-# catalog detection (TTransportException) because:
-# 1. Transient network issues shouldn't fail the entire ingestion
-# 2. We can't distinguish "method not found" from network errors in all cases
-# 3. The fallback to HMS 2.x APIs is safe and doesn't lose data
+# we fall back to the non-catalog HMS 2.x API.
 #
-# If the fallback also fails, that error will be raised normally.
+# IMPORTANT: We intentionally do NOT catch TTransportException here because:
+# 1. Network errors should propagate so users know there's a connectivity issue
+# 2. Silently falling back on network errors could mask real problems
+# 3. Only "method not found" type errors should trigger fallback
 _CATALOG_NOT_SUPPORTED_EXCEPTIONS = (
     AttributeError,  # Method doesn't exist on client
-    TException,  # Thrift "method not found" or protocol errors
-    TTransport.TTransportException,  # Network issues during catalog call
+    TException,  # Thrift "method not found" or protocol errors (but not transport errors)
+)
+
+# More specific exception for when we need to distinguish API not found vs other errors
+_CATALOG_API_NOT_FOUND_EXCEPTIONS = (
+    AttributeError,  # Method doesn't exist on client
 )
 
 
@@ -110,24 +113,44 @@ class HiveMetastoreThriftClient:
         self.config = config
         self._transport: Optional[TTransport.TBufferedTransport] = None
         self._client: Optional["ThriftHiveMetastore.Client"] = None
-        # Track failures for reporting - use sets to avoid duplicates
+        # Track failures for reporting - use dicts to avoid duplicates
         # (both iter_table_rows and iter_table_properties_rows call _iter_tables_and_views)
-        self._database_failures: Dict[str, str] = {}  # db_name -> error_message
+        # Keys include catalog to handle multi-catalog scenarios
+        self._database_failures: Dict[
+            Tuple[Optional[str], str], str
+        ] = {}  # (catalog_name, db_name) -> error_message
         self._table_failures: Dict[
-            Tuple[str, str], str
-        ] = {}  # (db_name, table_name) -> error_message
+            Tuple[Optional[str], str, str], str
+        ] = {}  # (catalog_name, db_name, table_name) -> error_message
         # Cache table info to avoid duplicate API calls
+        # Keys include catalog to handle multi-catalog scenarios
         self._table_cache: Dict[
-            Tuple[str, str], Dict[str, Any]
-        ] = {}  # (db_name, table_name) -> table_info
+            Tuple[Optional[str], str, str], Dict[str, Any]
+        ] = {}  # (catalog_name, db_name, table_name) -> table_info
 
     def get_database_failures(self) -> List[Tuple[str, str]]:
-        """Get list of database failures as (db_name, error_message) tuples."""
-        return list(self._database_failures.items())
+        """Get list of database failures as (db_name, error_message) tuples.
+
+        Note: For multi-catalog scenarios, the db_name may be prefixed with catalog.
+        """
+        result = []
+        for (catalog, db_name), err in self._database_failures.items():
+            # Include catalog in db_name for clarity if present
+            display_name = f"{catalog}.{db_name}" if catalog else db_name
+            result.append((display_name, err))
+        return result
 
     def get_table_failures(self) -> List[Tuple[str, str, str]]:
-        """Get list of table failures as (db_name, table_name, error_message) tuples."""
-        return [(db, tbl, err) for (db, tbl), err in self._table_failures.items()]
+        """Get list of table failures as (db_name, table_name, error_message) tuples.
+
+        Note: For multi-catalog scenarios, the db_name may be prefixed with catalog.
+        """
+        result = []
+        for (catalog, db_name, table_name), err in self._table_failures.items():
+            # Include catalog in db_name for clarity if present
+            display_name = f"{catalog}.{db_name}" if catalog else db_name
+            result.append((display_name, table_name, err))
+        return result
 
     def clear_failures(self) -> None:
         """Clear tracked failures and table cache."""
@@ -257,20 +280,19 @@ class HiveMetastoreThriftClient:
 
         Args:
             catalog_name: Optional catalog name for HMS 3.x. If provided and HMS
-                          supports catalogs, uses catalog-aware API.
+                          supports catalogs, uses catalog-aware pattern syntax.
+
+        For HMS 3.x, databases in a specific catalog can be listed using the
+        pattern syntax: @{catalog_name}# (e.g., @spark_catalog#)
         """
 
         @self._get_retry_decorator()
         def _call() -> List[str]:
             if catalog_name:
                 try:
-                    from pymetastore.hive_metastore.ttypes import GetDatabasesRequest
-
-                    req = GetDatabasesRequest(catalogName=catalog_name)
-                    result = self.client.get_databases(req)
-                    # Result can be a list or a GetDatabasesResponse object
-                    if hasattr(result, "databases"):
-                        return list(result.databases) if result.databases else []
+                    # HMS 3.x uses pattern @{catalog_name}# to list databases in a catalog
+                    pattern = f"@{catalog_name}#"
+                    result = self.client.get_databases(pattern)
                     return list(result) if result else []
                 except _CATALOG_NOT_SUPPORTED_EXCEPTIONS as e:
                     logger.debug(
@@ -320,26 +342,24 @@ class HiveMetastoreThriftClient:
         Args:
             db_name: Database name
             catalog_name: Optional catalog name for HMS 3.x
+
+        For HMS 3.x with catalog support, uses the pattern syntax
+        @{catalog_name}#{db_name} to specify the catalog context.
+        Falls back to standard get_all_tables() for HMS 2.x.
         """
 
         @self._get_retry_decorator()
         def _call() -> List[str]:
             if catalog_name:
                 try:
-                    from pymetastore.hive_metastore.ttypes import GetTablesRequest
-
-                    req = GetTablesRequest(catName=catalog_name, dbName=db_name)
-                    # Try the catalog-aware API first
-                    try:
-                        tables_result = self.client.get_table_objects_by_name_req(req)
-                        return [t.tableName for t in tables_result.tables]
-                    except _CATALOG_NOT_SUPPORTED_EXCEPTIONS:
-                        # Fall back to listing all tables
-                        return self.client.get_all_tables(db_name)
+                    # HMS 3.x uses pattern @{catalog}#{db} to list tables in a catalog
+                    pattern = f"@{catalog_name}#{db_name}"
+                    result = self.client.get_all_tables(pattern)
+                    return list(result) if result else []
                 except _CATALOG_NOT_SUPPORTED_EXCEPTIONS as e:
                     logger.debug(
                         f"Catalog-aware get_all_tables failed for catalog '{catalog_name}', "
-                        f"falling back: {e}"
+                        f"falling back to default: {e}"
                     )
                     return self.client.get_all_tables(db_name)
             return self.client.get_all_tables(db_name)
@@ -418,14 +438,72 @@ class HiveMetastoreThriftClient:
         Args:
             db_name: Database name
             table_name: Table name
-            catalog_name: Optional catalog name for HMS 3.x (currently unused,
-                          as get_fields doesn't have catalog-aware variant)
+            catalog_name: Optional catalog name for HMS 3.x
+
+        Note: The Thrift get_fields() API doesn't have a catalog-aware variant.
+        For HMS 3.x with catalog context, we extract columns from the table's
+        StorageDescriptor (fetched via get_table_req with catalog).
         """
 
         @self._get_retry_decorator()
         def _call() -> List[Dict[str, Any]]:
-            # Note: get_fields doesn't have a catalog-aware variant in the Thrift API
-            # The table's catalog is implicit in the database context
+            if catalog_name:
+                # For HMS 3.x with catalog: get columns from table's StorageDescriptor
+                # This ensures we get columns from the correct catalog context
+                try:
+                    from pymetastore.hive_metastore.ttypes import GetTableRequest
+
+                    req = GetTableRequest(
+                        catName=catalog_name, dbName=db_name, tblName=table_name
+                    )
+                    response = self.client.get_table_req(req)
+                    table = response.table
+
+                    # Extract columns from StorageDescriptor
+                    if table.sd and table.sd.cols:
+                        return [
+                            {
+                                "col_name": col.name,
+                                "col_type": col.type,
+                                "col_description": col.comment or "",
+                            }
+                            for col in table.sd.cols
+                        ]
+                    return []
+                except _CATALOG_API_NOT_FOUND_EXCEPTIONS as e:
+                    # API doesn't exist - fall back to standard get_fields
+                    logger.debug(
+                        f"Catalog-aware get_table_req not available for fields, "
+                        f"falling back: {e}"
+                    )
+                    fields = self.client.get_fields(db_name, table_name)
+                    return [
+                        {
+                            "col_name": field.name,
+                            "col_type": field.type,
+                            "col_description": field.comment or "",
+                        }
+                        for field in fields
+                    ]
+                except TException as e:
+                    # Check if it's an unsupported method error
+                    error_str = str(e).lower()
+                    if "unknown" in error_str or "invalid" in error_str:
+                        logger.debug(
+                            f"Catalog-aware API failed, falling back to get_fields: {e}"
+                        )
+                        fields = self.client.get_fields(db_name, table_name)
+                        return [
+                            {
+                                "col_name": field.name,
+                                "col_type": field.type,
+                                "col_description": field.comment or "",
+                            }
+                            for field in fields
+                        ]
+                    raise
+
+            # Standard HMS 2.x API
             fields = self.client.get_fields(db_name, table_name)
             return [
                 {
@@ -543,12 +621,16 @@ class HiveMetastoreThriftClient:
 
         Note:
             - Table info is cached to avoid duplicate API calls when called multiple times
+            - Cache keys include catalog_name to handle multi-catalog scenarios
             - Failures are tracked in dicts (not lists) to avoid duplicate entries
             - Use get_database_failures() and get_table_failures() to retrieve failures
         """
         for db_name in databases:
+            # Cache key includes catalog for multi-catalog support
+            db_cache_key = (catalog_name, db_name)
+
             # Skip databases that already failed
-            if db_name in self._database_failures:
+            if db_cache_key in self._database_failures:
                 continue
 
             try:
@@ -556,27 +638,28 @@ class HiveMetastoreThriftClient:
             except Exception as e:
                 error_msg = f"Failed to get tables for database {db_name}: {e}"
                 logger.warning(error_msg)
-                self._database_failures[db_name] = str(e)
+                self._database_failures[db_cache_key] = str(e)
                 continue
 
             for table_name in table_names:
-                cache_key = (db_name, table_name)
+                # Cache key includes catalog for multi-catalog support
+                table_cache_key = (catalog_name, db_name, table_name)
 
                 # Skip tables that already failed
-                if cache_key in self._table_failures:
+                if table_cache_key in self._table_failures:
                     continue
 
                 # Use cached table info if available
-                if cache_key in self._table_cache:
-                    table_info = self._table_cache[cache_key]
+                if table_cache_key in self._table_cache:
+                    table_info = self._table_cache[table_cache_key]
                 else:
                     try:
                         table_info = self.get_table(db_name, table_name, catalog_name)
-                        self._table_cache[cache_key] = table_info
+                        self._table_cache[table_cache_key] = table_info
                     except Exception as e:
                         error_msg = f"Failed to get table {db_name}.{table_name}: {e}"
                         logger.warning(error_msg)
-                        self._table_failures[cache_key] = str(e)
+                        self._table_failures[table_cache_key] = str(e)
                         continue
 
                 # Apply table type filter
@@ -634,7 +717,7 @@ class HiveMetastoreThriftClient:
                 fields = self.get_fields(db_name, table_name, catalog_name)
             except Exception as e:
                 logger.warning(f"Failed to get fields for {db_name}.{table_name}: {e}")
-                self._table_failures[(db_name, table_name)] = (
+                self._table_failures[(catalog_name, db_name, table_name)] = (
                     f"Failed to get fields: {e}"
                 )
                 fields = []
@@ -708,7 +791,7 @@ class HiveMetastoreThriftClient:
                 logger.warning(
                     f"Failed to get fields for view {db_name}.{table_name}: {e}"
                 )
-                self._table_failures[(db_name, table_name)] = (
+                self._table_failures[(catalog_name, db_name, table_name)] = (
                     f"Failed to get view fields: {e}"
                 )
                 fields = []
