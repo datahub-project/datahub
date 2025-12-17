@@ -221,16 +221,16 @@ class TestIsTempTableForAliases:
         assert mssql_source.is_temp_table("db1.dbo.#temp_table")
 
     def test_is_temp_table_cross_db_undiscovered(self, mssql_source):
-        """Test that cross-DB undiscovered tables are NOT marked as temp."""
+        """Test that cross-DB undiscovered tables ARE marked as temp (filtered)."""
         # Clear schema_resolver
         mssql_source.get_schema_resolver().has_urn = MagicMock(return_value=False)
 
-        # Cross-DB table not in discovered_datasets
-        # Current implementation doesn't distinguish - this test documents current behavior
+        # Cross-DB table not in discovered_datasets and not in schema_resolver
+        # No evidence it's a real table - filter it out
         result = mssql_source.is_temp_table("other_db.dbo.unknown_table")
 
-        # This will be True with schema_resolver approach (treats all undiscovered as temp)
-        # This is the known limitation we're addressing with upstream filtering
+        # Tables not in schema_resolver and not matching patterns are filtered
+        # We don't assume cross-DB references are real without evidence
         assert result
 
 

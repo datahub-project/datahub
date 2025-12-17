@@ -1530,9 +1530,9 @@ class SQLServerSource(SQLAlchemySource):
                     else:
                         return False
                 else:
-                    # Qualified name outside our patterns (cross-database reference)
-                    # Assume it's a real table in another database - not a temp table
-                    return False
+                    # Qualified name outside our patterns and not in schema_resolver
+                    # No evidence it's a real table - filter it out
+                    return True
 
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS (1-part or 2-part),
             # treat as alias/temp table since we can't verify they're real tables
