@@ -66,7 +66,8 @@ jobs:
           "AdrianMachado",
           "pdruley",
           "alokr-dhub",
-          "alfiyas-datahub"
+          "alfiyas-datahub",
+          "dinesh-verma-datahub"
           ]'),
           github.actor
           )
