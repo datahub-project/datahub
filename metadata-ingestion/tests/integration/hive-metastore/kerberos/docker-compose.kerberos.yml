@@ -1,8 +1,5 @@
-# Kerberos overlay for Hive integration tests
-# Usage: docker compose -f docker-compose.yml -f docker-compose.kerberos.yml up -d
-#
-# This extends the base docker-compose.yml with Kerberos authentication.
-# The base file remains unchanged for non-Kerberized testing.
+# Standalone Kerberos Hive environment for integration tests
+# Usage: docker compose -f kerberos/docker-compose.kerberos.yml up -d
 #
 # Customer Environment Simulation:
 # - HMS with Kerberos SASL authentication (port 9083)
@@ -18,7 +15,7 @@ services:
   # MIT Kerberos KDC with automatic keytab initialization
   kdc:
     build:
-      context: ./kerberos
+      context: .
       dockerfile: Dockerfile.kdc
     hostname: kdc.test.local
     container_name: kdc
@@ -39,9 +36,11 @@ services:
       retries: 30
       start_period: 20s
 
-  # Override namenode to add proxy user configuration
-  # This allows HMS to impersonate users when connecting to HDFS
+  # HDFS NameNode with proxy user configuration for HMS impersonation
   namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    volumes:
+      - namenode:/hadoop/dfs/name
     environment:
       CLUSTER_NAME: test
       # CRITICAL: Allow hive service to impersonate any user
@@ -49,43 +48,73 @@ services:
       CORE_CONF_hadoop_proxyuser_hive_hosts: "*"
       CORE_CONF_hadoop_proxyuser_hive_groups: "*"
     env_file:
-      - ./hadoop-hive.env
+      - ../setup/hadoop-hive.env
+    ports:
+      - "50070"
 
-  # Override hive-metastore to enable Kerberos
-  # This is the PRIMARY target for the new connector (port 9083)
-  hive-metastore:
-    hostname: hive-metastore
+  # HDFS DataNode
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    volumes:
+      - datanode:/hadoop/dfs/data
     env_file:
-      - ./hadoop-hive.env
-      - ./kerberos/hive-kerberos.env
+      - ../setup/hadoop-hive.env
+    environment:
+      SERVICE_PRECONDITION: "namenode:50070"
+    ports:
+      - "50075:50075"
+
+  # Hive Metastore with Kerberos - PRIMARY target for the connector (port 9083)
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: "hive-metastore"
+    hostname: hive-metastore
+    command: /opt/hive/bin/hive --service metastore
+    env_file:
+      - ../setup/hadoop-hive.env
+      - ./hive-kerberos.env
     environment:
       SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432 kdc:88"
       # Enable Kerberos debug logging
       HIVE_OPTS: "-Dsun.security.krb5.debug=true -Djavax.security.auth.useSubjectCredsOnly=false"
     volumes:
       - krb5-keytabs:/keytabs:ro
-      - ./kerberos/krb5.conf:/etc/krb5.conf:ro
-      - ./kerberos/hive-site-kerberos.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./krb5.conf:/etc/krb5.conf:ro
+      - ./hive-site-kerberos.xml:/opt/hive/conf/hive-site.xml:ro
+    ports:
+      - "9083:9083"
     depends_on:
       kdc:
         condition: service_healthy
 
-  # Override hive-server - NOT used for customer scenario but kept for compatibility
+  # HiveServer2 - NOT used for customer scenario but kept for compatibility
   # HiveServer2 is disabled (authentication=NONE) since customer doesn't have it
   hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: "hiveserver2"
     hostname: hive-server
     env_file:
-      - ./hadoop-hive.env
-      - ./kerberos/hive-kerberos.env
+      - ../setup/hadoop-hive.env
+      - ./hive-kerberos.env
     environment:
+      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
       SERVICE_PRECONDITION: "hive-metastore:9083 kdc:88"
     volumes:
       - krb5-keytabs:/keytabs:ro
-      - ./kerberos/krb5.conf:/etc/krb5.conf:ro
-      - ./kerberos/hive-site-kerberos.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./krb5.conf:/etc/krb5.conf:ro
+      - ./hive-site-kerberos.xml:/opt/hive/conf/hive-site.xml:ro
+      - ../setup/hive_setup.sql:/hive_setup.sql
+    ports:
+      - "10000:10000"
     depends_on:
       kdc:
         condition: service_healthy
+
+  # PostgreSQL backend for HMS metadata storage
+  hive-metastore-postgresql:
+    image: bde2020/hive-metastore-postgresql:2.3.0
+    ports:
+      - "5432:5432"
 
   # Test client container for Kerberos testing and data loading
   # This simulates the DataHub ingestion environment
@@ -95,9 +124,9 @@ services:
     hostname: client.test.local
     volumes:
       - krb5-keytabs:/keytabs:ro
-      - ./kerberos/krb5.conf:/tmp/krb5.conf:ro
-      - ./kerberos/test-connection.sh:/test-connection.sh:ro
-      - ./kerberos/setup-test-data.py:/setup-test-data.py:ro
+      - ./krb5.conf:/tmp/krb5.conf:ro
+      - ./test-connection.sh:/test-connection.sh:ro
+      - ./setup-test-data.py:/setup-test-data.py:ro
     depends_on:
       - kdc
       - hive-metastore
@@ -123,4 +152,6 @@ services:
       DEBIAN_FRONTEND: noninteractive
 
 volumes:
+  namenode:
+  datanode:
   krb5-keytabs:

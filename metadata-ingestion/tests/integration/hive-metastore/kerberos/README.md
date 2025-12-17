@@ -17,11 +17,11 @@ pip wheel . -w /tmp/datahub_wheels --no-deps
 ### 2. Start Kerberized Environment
 
 ```bash
-cd tests/integration/hive
+cd tests/integration/hive-metastore/kerberos
 
 # Clean start
-docker compose -f docker-compose.yml -f docker-compose.kerberos.yml down -v
-docker compose -f docker-compose.yml -f docker-compose.kerberos.yml up -d
+docker compose -f docker-compose.kerberos.yml down -v
+docker compose -f docker-compose.kerberos.yml up -d
 
 # Wait ~2 min for setup
 sleep 120
@@ -45,7 +45,8 @@ docker exec kerberos-client bash -c "
 
 # Verify
 docker exec kerberos-client python3 -c "
-from datahub.ingestion.source.sql.hive.hive_metastore_thrift_source import HiveMetastoreThriftSource
+from datahub.ingestion.source.sql.hive.hive_metastore_source import HiveMetastoreSource
+from datahub.ingestion.source.sql.hive.hive_thrift_fetcher import ThriftDataFetcher
 print('✓ Import successful')
 "
 ```
@@ -84,6 +85,12 @@ docker exec kerberos-client bash -c "
   grep -o 'urn:li:dataset[^\"]*' /tmp/output.json | sort -u | head -10
 "
 ```
+
+Expected output:
+
+- **9 tables scanned** (8 from db1 + 1 from db2)
+- **62 events produced** (~6-7 aspects per table + containers)
+- No failures
 
 ## Validate Kerberos Connection (Quick Test)
 
@@ -135,7 +142,8 @@ source:
 ## Cleanup
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.kerberos.yml down -v
+cd tests/integration/hive-metastore/kerberos
+docker compose -f docker-compose.kerberos.yml down -v
 ```
 
 ## Dependencies
