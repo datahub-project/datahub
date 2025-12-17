@@ -222,6 +222,9 @@ information like tokens.
 | spark.datahub.captureColumnLevelLineage                          |          | true                    | Set this to false to disable column-level lineage capture for improved performance on large datasets.                                                                                                        |
 | spark.datahub.capture_spark_plan                                 |          | false                   | Set this to true to capture the Spark plan. By default, it is disabled.                                                                                                                                      |
 | spark.datahub.metadata.dataset.enableEnhancedMergeIntoExtraction |          | false                   | Set this to true to enable enhanced table name extraction for Delta Lake MERGE INTO commands. This improves lineage tracking by including the target table name in the job name. By default, it is disabled. |
+| spark.openlineage.columnLineage.rddLineageCorrectionEnabled      |          | false                   | Set this to true to enable RDD lineage correction using positional schema mapping. When DataFrames are converted to RDDs and back (df.rdd → createDataFrame), the logical plan is lost, resulting in self-referential column lineage. This flag enables detection and correction of such cases. By default, it is disabled. |
+| spark.openlineage.columnLineage.rddLineageSchemaMaxAge           |          | 3600000                 | Maximum age (in milliseconds) for schema snapshots used in RDD lineage correction. Older snapshots are discarded. Default: 3600000 (1 hour).                                                                  |
+| spark.openlineage.columnLineage.rddLineageSchemaMaxSnapshots     |          | 10                      | Maximum number of schema snapshots to retain per dataset for RDD lineage correction. Default: 10.                                                                                                              |
 
 ## What to Expect: The Metadata Model
 
@@ -360,6 +363,65 @@ When enabled, the agent will:
 For example, a job named `execute_merge_into_command_edge` will be enhanced to `execute_merge_into_command_edge.database_table_name`,
 making it clear which table was being modified.
 
+### RDD Lineage Correction
+
+When DataFrames are converted to RDDs and back (e.g., `df.rdd` → `spark.createDataFrame(rdd, schema)`), Spark's logical plan is lost. This causes OpenLineage to generate self-referential column lineage where output columns incorrectly reference themselves (e.g., `cust_id ← cust_id`) instead of tracking the actual source columns (e.g., `cust_id ← id`).
+
+The RDD lineage correction feature solves this problem by:
+
+1. **Schema Tracking**: Recording schemas for dataset WRITE and READ operations
+2. **Mismatch Detection**: Identifying when a dataset is read with a different schema than it was written with
+3. **Positional Mapping**: Applying column mapping corrections based on column positions when schema mismatches are detected
+4. **File Metadata Reading**: Reading schema information from actual files (Parquet, ORC, etc.) to work across application boundaries
+
+#### Enabling RDD Lineage Correction
+
+```properties
+spark.openlineage.columnLineage.rddLineageCorrectionEnabled=true
+spark.openlineage.columnLineage.rddLineageSchemaMaxAge=3600000
+spark.openlineage.columnLineage.rddLineageSchemaMaxSnapshots=10
+```
+
+#### How It Works
+
+**Example scenario:**
+```python
+# Read data with schema [id, name]
+df = spark.read.parquet("/data/input")
+
+# Transform through RDD (loses logical plan)
+rdd = df.rdd.map(lambda row: (row[0] + 100, row[1].upper()))
+
+# Create new DataFrame with renamed columns [cust_id, cust_name]
+new_df = spark.createDataFrame(rdd, schema=["cust_id", "cust_name"])
+new_df.write.parquet("/data/output")
+```
+
+**Without correction:**
+- Column lineage shows: `cust_id ← cust_id`, `cust_name ← cust_name` (self-referential, incorrect)
+
+**With correction:**
+- Column lineage shows: `cust_id ← id`, `cust_name ← name` (traces back to original columns, correct)
+
+#### Supported File Formats
+
+The file metadata reading capability currently supports:
+- **Parquet** (recommended and most common)
+- Can be extended to support ORC, Avro, and Delta Lake
+
+For non-file sources (JDBC, Kafka, etc.), the feature gracefully falls back to in-memory tracking within the same Spark application.
+
+#### Performance Characteristics
+
+- **Fast**: File metadata reading only accesses file headers/footers (< 1ms overhead per dataset)
+- **Cached**: Spark caches schema information automatically
+- **Safe**: Graceful fallback if files don't exist or are in unsupported formats
+- **Memory efficient**: Automatic cleanup of old schema snapshots based on configured retention
+
+#### Intermediate Dataset Detection
+
+When `spark.datahub.coalesce_jobs=true` is enabled, the agent also automatically detects and excludes intermediate datasets (datasets that are both produced and consumed within the same Spark application) from the coalesced job's output list. This prevents confusing self-references and provides cleaner lineage views.
+
 ### Debugging
 
 - Following info logs are generated
@@ -414,6 +476,9 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 
 ### Next
 
+- _New Features_:
+  - **RDD Lineage Correction**: Fixes self-referential column lineage when DataFrames are converted to RDDs and back (df.rdd → createDataFrame). Uses positional schema mapping with file metadata reading to correctly track column transformations across application boundaries. Opt-in via `spark.openlineage.columnLineage.rddLineageCorrectionEnabled=true`.
+  - **Intermediate Dataset Detection**: Automatically excludes intermediate datasets (produced and consumed within the same application) from coalesced job outputs, providing cleaner lineage views. Works automatically when `spark.datahub.coalesce_jobs=true`.
 - _Changes_:
   - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
 - _Fixes_:
