@@ -60,10 +60,10 @@ const BreadcrumbContainer = styled.div`
 interface Props {
     title?: string;
     titlePill?: React.ReactNode;
-    subTitle?: string;
+    subTitle?: string | React.ReactNode;
     leftPanelContent?: React.ReactNode;
     rightPanelContent?: React.ReactNode;
-    buttomPanelContent?: React.ReactNode;
+    bottomPanelContent?: React.ReactNode;
     topBreadcrumb?: React.ReactNode;
 }
 
@@ -74,7 +74,7 @@ export function PageLayout({
     subTitle,
     leftPanelContent,
     rightPanelContent,
-    buttomPanelContent,
+    bottomPanelContent,
     topBreadcrumb,
 }: React.PropsWithChildren<Props>) {
     return (
@@ -82,7 +82,7 @@ export function PageLayout({
             <HorizontalContainer>
                 {leftPanelContent && <SidePannel>{leftPanelContent}</SidePannel>}
 
-                <PageWrapper $hasBottomPanel={!!buttomPanelContent}>
+                <PageWrapper $hasBottomPanel={!!bottomPanelContent}>
                     {topBreadcrumb && <BreadcrumbContainer>{topBreadcrumb}</BreadcrumbContainer>}
                     {title && (
                         <PageTitleWrapper>
@@ -94,7 +94,7 @@ export function PageLayout({
 
                 {rightPanelContent && <SidePannel>{rightPanelContent}</SidePannel>}
             </HorizontalContainer>
-            {buttomPanelContent && <BottomPanel>{buttomPanelContent}</BottomPanel>}
+            {bottomPanelContent && <BottomPanel>{bottomPanelContent}</BottomPanel>}
         </VerticalContainer>
     );
 }

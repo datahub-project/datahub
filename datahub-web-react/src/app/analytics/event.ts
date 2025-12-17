@@ -173,6 +173,8 @@ export enum EventType {
     MoveDocumentEvent,
     EditDocumentEvent,
     DeleteDocumentEvent,
+    IngestionTestConnectionClickEvent,
+    IngestionTestConnectionCloseEvent,
 }
 
 /**
@@ -237,7 +239,7 @@ export interface HomePageViewEvent extends BaseEvent {
  */
 export interface SignUpEvent extends BaseEvent {
     type: EventType.SignUpEvent;
-    title: string;
+    title?: string;
 }
 
 /**
@@ -649,6 +651,22 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     outcome?: string;
 }
 
+export interface IngestionTestConnectionClickEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionClickEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
+export interface IngestionTestConnectionCloseEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionCloseEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    hasCompleted?: boolean;
+    status?: 'success' | 'failure' | 'partialSuccess' | 'running';
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
 export interface IngestionViewAllClickEvent extends BaseEvent {
     type: EventType.IngestionViewAllClickEvent;
     executionUrn?: string;
@@ -680,6 +698,7 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -689,6 +708,7 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1438,4 +1458,6 @@ export type Event =
     | CreateDocumentEvent
     | MoveDocumentEvent
     | EditDocumentEvent
-    | DeleteDocumentEvent;
+    | DeleteDocumentEvent
+    | IngestionTestConnectionClickEvent
+    | IngestionTestConnectionCloseEvent;

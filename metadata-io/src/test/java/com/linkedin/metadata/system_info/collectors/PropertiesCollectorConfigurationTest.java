@@ -274,6 +274,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumer.stopOnDeserializationError",
           "kafka.consumerPool.initialSize",
           "kafka.consumerPool.maxSize",
+          "kafka.consumerPool.validationTimeoutSeconds",
+          "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.compressionType",
@@ -632,6 +634,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.threadCount",
           "elasticsearch.useSSL",
           "elasticsearch.username",
+          "elasticsearch.search.validation.maxQueryLength",
+          "elasticsearch.search.validation.regex",
+          "elasticsearch.search.validation.maxLengthEnabled",
+          "elasticsearch.search.validation.enabled",
 
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
