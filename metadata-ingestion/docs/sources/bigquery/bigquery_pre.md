@@ -145,6 +145,7 @@ source:
 The `pushdown_user_filter` option pushes down `user_email_pattern` filtering directly to BigQuery's SQL query, reducing data transfer and improving performance for large query volumes.
 
 **When to Use:**
+
 - You have large query volumes (>10k queries in your time window)
 - You're using `user_email_pattern` to filter users
 - You want to reduce BigQuery data transfer costs
@@ -155,8 +156,8 @@ The `pushdown_user_filter` option pushes down `user_email_pattern` filtering dir
 source:
   type: bigquery
   config:
-    use_queries_v2: true  # Required for pushdown
-    pushdown_user_filter: true  # Enable pushdown optimization
+    use_queries_v2: true # Required for pushdown
+    pushdown_user_filter: true # Enable pushdown optimization
     user_email_pattern:
       allow:
         - "analyst_.*@example\\.com"
@@ -165,11 +166,13 @@ source:
 ```
 
 **Behavior:**
+
 - When enabled: Filtering happens in BigQuery SQL using `REGEXP_CONTAINS()`
 - When disabled (default): Filtering happens client-side using Python regex
 - Both modes produce identical results; pushdown is purely a performance optimization
 
 **Prerequisites:**
+
 - `use_queries_v2: true` must be enabled (default)
 - Patterns must be valid regex (Python regex syntax is converted to BigQuery's RE2 syntax)
 
