@@ -487,6 +487,20 @@ def _is_allow_all_pattern(allow_patterns: List[str]) -> bool:
     Check if allow patterns effectively match everything.
 
     This detects common "match all" patterns to avoid unnecessary filtering.
+    When a pattern matches everything, we skip adding it to the WHERE clause
+    since it would have no effect on filtering.
+
+    Recognized "allow all" patterns:
+        - ".*"        : Zero or more of any character
+        - ".+"        : One or more of any character
+        - "^.*$"      : Anchored zero or more of any character
+        - "^.+$"      : Anchored one or more of any character
+        - "[\\s\\S]*" : Zero or more of whitespace or non-whitespace (matches all)
+        - "[\\s\\S]+" : One or more of whitespace or non-whitespace (matches all)
+
+    Note: Only single-pattern lists are checked. Multiple patterns are never
+    considered "allow all" even if one of them is ".*", because the intent
+    is likely to restrict to specific patterns.
 
     Args:
         allow_patterns: List of regex pattern strings
@@ -556,6 +570,11 @@ def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
     """
     conditions = []
 
+    logger.debug(
+        f"Translating user_email_pattern to SQL: "
+        f"allow={pattern.allow}, deny={pattern.deny}, ignoreCase={pattern.ignoreCase}"
+    )
+
     # Handle ALLOW patterns (inclusions)
     # Skip if it's the default "allow all" pattern
     if pattern.allow and not _is_allow_all_pattern(pattern.allow):
@@ -563,6 +582,7 @@ def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
         for regex_pattern in pattern.allow:
             # Escape for SQL safety (prevents SQL injection)
             escaped = _escape_for_bigquery_string(regex_pattern)
+            logger.debug(f"Allow pattern '{regex_pattern}' escaped to '{escaped}'")
             # Use case-insensitive matching if configured
             # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
             # e.g., [A-Z] and [[:upper:]] should work correctly
@@ -572,12 +592,17 @@ def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
                 allow_conditions.append(f"REGEXP_CONTAINS(user_email, '{escaped}')")
         if allow_conditions:
             conditions.append(f"({' OR '.join(allow_conditions)})")
+    elif pattern.allow:
+        logger.debug(
+            f"Skipping allow patterns {pattern.allow} - detected as 'allow all' pattern"
+        )
 
     # Handle DENY patterns (exclusions)
     if pattern.deny:
         for regex_pattern in pattern.deny:
             # Escape for SQL safety (prevents SQL injection)
             escaped = _escape_for_bigquery_string(regex_pattern)
+            logger.debug(f"Deny pattern '{regex_pattern}' escaped to '{escaped}'")
             # Use case-insensitive matching if configured
             # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
             if pattern.ignoreCase:
@@ -585,7 +610,9 @@ def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
             else:
                 conditions.append(f"NOT REGEXP_CONTAINS(user_email, '{escaped}')")
 
-    return " AND ".join(conditions) if conditions else "TRUE"
+    result = " AND ".join(conditions) if conditions else "TRUE"
+    logger.debug(f"Generated SQL user filter: {result}")
+    return result
 
 
 def _extract_query_text(row: BigQueryJob) -> str:

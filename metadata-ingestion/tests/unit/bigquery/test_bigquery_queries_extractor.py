@@ -17,6 +17,14 @@ Security Tests:
     - Backslash-quote escape bypass attempts
     - Multiple backslash edge cases
     - Full integration security validation
+
+Note on ignoreCase=False:
+    Most tests use ignoreCase=False to test pattern translation logic in isolation.
+    This separates pattern escaping/translation concerns from case-sensitivity behavior.
+    Case-insensitive behavior (the default in AllowDenyPattern) is tested separately in:
+      - test_case_insensitive_pattern
+      - test_case_insensitive_preserves_character_classes
+      - test_full_flow_with_case_insensitive
 """
 
 from datetime import datetime, timezone
@@ -47,7 +55,9 @@ class TestBuildUserFilterFromPattern:
 
     def test_single_allow_pattern(self):
         """Single allow pattern should generate REGEXP_CONTAINS condition."""
-        pattern = AllowDenyPattern(allow=["analyst_.*@example\\.com"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=["analyst_.*@example\\.com"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # Uses regular strings (not raw) with escaped backslashes
         assert "REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')" in result
@@ -55,7 +65,9 @@ class TestBuildUserFilterFromPattern:
     def test_multiple_allow_patterns(self):
         """Multiple allow patterns should be OR'd together."""
         pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com", "admin_.*@example\\.com"], deny=[]
+            allow=["analyst_.*@example\\.com", "admin_.*@example\\.com"],
+            deny=[],
+            ignoreCase=False,
         )
         result = _build_user_filter_from_pattern(pattern)
         assert "REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')" in result
@@ -64,13 +76,15 @@ class TestBuildUserFilterFromPattern:
 
     def test_single_deny_pattern(self):
         """Single deny pattern should generate NOT REGEXP_CONTAINS condition."""
-        pattern = AllowDenyPattern(allow=[".*"], deny=["bot_.*"])
+        pattern = AllowDenyPattern(allow=[".*"], deny=["bot_.*"], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
 
     def test_multiple_deny_patterns(self):
         """Multiple deny patterns should each generate separate NOT conditions."""
-        pattern = AllowDenyPattern(allow=[".*"], deny=["bot_.*", "service_.*"])
+        pattern = AllowDenyPattern(
+            allow=[".*"], deny=["bot_.*", "service_.*"], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
         assert "NOT REGEXP_CONTAINS(user_email, 'service_.*')" in result
@@ -80,7 +94,9 @@ class TestBuildUserFilterFromPattern:
     def test_combined_allow_and_deny_patterns(self):
         """Combined allow and deny patterns should produce proper AND conditions."""
         pattern = AllowDenyPattern(
-            allow=["analyst_.*@example\\.com"], deny=["bot_.*", "test_.*"]
+            allow=["analyst_.*@example\\.com"],
+            deny=["bot_.*", "test_.*"],
+            ignoreCase=False,
         )
         result = _build_user_filter_from_pattern(pattern)
         # Should have allow condition
@@ -113,7 +129,7 @@ class TestBuildUserFilterFromPattern:
 
     def test_single_quote_escaping(self):
         """Single quotes in patterns should be escaped for SQL safety."""
-        pattern = AllowDenyPattern(allow=["user's_pattern"], deny=[])
+        pattern = AllowDenyPattern(allow=["user's_pattern"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Single quote should be escaped with backslash
         assert "\\'" in result
@@ -123,7 +139,9 @@ class TestBuildUserFilterFromPattern:
     def test_complex_regex_pattern(self):
         """Complex regex patterns should be passed through correctly."""
         pattern = AllowDenyPattern(
-            allow=["^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"], deny=[]
+            allow=["^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"],
+            deny=[],
+            ignoreCase=False,
         )
         result = _build_user_filter_from_pattern(pattern)
         # Backslashes are doubled for SQL string literal
@@ -134,14 +152,17 @@ class TestBuildUserFilterFromPattern:
 
     def test_wildcard_pattern(self):
         """Wildcard patterns (.*) should work correctly."""
-        pattern = AllowDenyPattern(allow=[".*@company\\.com"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=[".*@company\\.com"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         assert "REGEXP_CONTAINS(user_email, '.*@company\\\\.com')" in result
 
     def test_only_deny_with_default_allow(self):
         """Only deny patterns with default allow should just have deny conditions."""
-        pattern = AllowDenyPattern.allow_all()
-        pattern.deny = ["bot_.*", "service_.*"]
+        pattern = AllowDenyPattern(
+            allow=[".*"], deny=["bot_.*", "service_.*"], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # Should not have allow condition (default .* is skipped)
         assert result.count("REGEXP_CONTAINS") == 2  # Only deny conditions
@@ -152,21 +173,23 @@ class TestBuildUserFilterFromPattern:
 
     def test_backslash_in_pattern(self):
         """Backslashes in patterns should be doubled for SQL string literals."""
-        pattern = AllowDenyPattern(allow=["user\\d+@example\\.com"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=["user\\d+@example\\.com"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # Backslash is doubled in SQL string literal
         assert "user\\\\d+@example\\\\.com" in result
 
     def test_special_regex_anchors(self):
         """Regex anchors (^, $) should work correctly."""
-        pattern = AllowDenyPattern(allow=["^admin@.*$"], deny=[])
+        pattern = AllowDenyPattern(allow=["^admin@.*$"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         assert "^admin@.*$" in result
 
     def test_regex_groups_and_alternation(self):
         """Regex groups and alternation should be preserved."""
         pattern = AllowDenyPattern(
-            allow=["(analyst|engineer)_.*@example\\.com"], deny=[]
+            allow=["(analyst|engineer)_.*@example\\.com"], deny=[], ignoreCase=False
         )
         result = _build_user_filter_from_pattern(pattern)
         # Backslashes doubled for SQL
@@ -174,49 +197,55 @@ class TestBuildUserFilterFromPattern:
 
     def test_empty_string_pattern(self):
         """Empty string pattern should still work (matches empty)."""
-        pattern = AllowDenyPattern(allow=[""], deny=[])
+        pattern = AllowDenyPattern(allow=[""], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Empty string is a valid regex pattern - uses regular string
         assert "REGEXP_CONTAINS(user_email, '')" in result
 
     def test_dot_star_only_in_allow(self):
         """Single .* in allow should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=[".*"], deny=[])
+        pattern = AllowDenyPattern(allow=[".*"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Should return TRUE since .* is allow-all
         assert result == "TRUE"
 
     def test_multiple_patterns_including_dot_star(self):
         """Multiple allow patterns including .* should not skip filtering."""
-        pattern = AllowDenyPattern(allow=[".*", "specific_user"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=[".*", "specific_user"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # When there are multiple patterns, we shouldn't treat as allow-all
         assert "REGEXP_CONTAINS" in result
 
     def test_unicode_pattern(self):
         """Unicode characters in patterns should work."""
-        pattern = AllowDenyPattern(allow=["用户.*@example\\.com"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=["用户.*@example\\.com"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # Backslashes doubled
         assert "用户.*@example\\\\.com" in result
 
     def test_newline_in_pattern(self):
         """Newline escape sequences in patterns should be preserved."""
-        pattern = AllowDenyPattern(allow=["user\\ntest"], deny=[])
+        pattern = AllowDenyPattern(allow=["user\\ntest"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Backslashes doubled for SQL
         assert "user\\\\ntest" in result
 
     def test_multiple_single_quotes(self):
         """Multiple single quotes should all be escaped."""
-        pattern = AllowDenyPattern(allow=["user's_name's_pattern"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=["user's_name's_pattern"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # Each single quote should be escaped
         assert result.count("\\'") == 2
 
     def test_deny_only_without_explicit_allow(self):
         """Deny-only patterns without explicit allow should work."""
-        pattern = AllowDenyPattern(deny=["bot_.*"])
+        pattern = AllowDenyPattern(deny=["bot_.*"], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         assert "NOT REGEXP_CONTAINS(user_email, 'bot_.*')" in result
 
@@ -233,7 +262,7 @@ class TestBuildUserFilterFromPattern:
     def test_very_long_pattern(self):
         """Very long patterns should be handled without truncation."""
         long_domain = "a" * 100 + "@" + "b" * 100 + "\\.com"
-        pattern = AllowDenyPattern(allow=[long_domain], deny=[])
+        pattern = AllowDenyPattern(allow=[long_domain], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Backslash in \\.com is doubled
         expected = "a" * 100 + "@" + "b" * 100 + "\\\\.com"
@@ -242,7 +271,7 @@ class TestBuildUserFilterFromPattern:
     def test_sql_injection_attempt_semicolon(self):
         """SQL injection attempts with semicolons should be safely escaped."""
         pattern = AllowDenyPattern(
-            allow=["user@example.com; DROP TABLE users;--"], deny=[]
+            allow=["user@example.com; DROP TABLE users;--"], deny=[], ignoreCase=False
         )
         result = _build_user_filter_from_pattern(pattern)
         # The pattern is safely escaped in a regular string
@@ -253,7 +282,9 @@ class TestBuildUserFilterFromPattern:
     def test_parentheses_balanced(self):
         """Generated SQL should have balanced parentheses."""
         pattern = AllowDenyPattern(
-            allow=["analyst_.*", "admin_.*"], deny=["bot_.*", "service_.*"]
+            allow=["analyst_.*", "admin_.*"],
+            deny=["bot_.*", "service_.*"],
+            ignoreCase=False,
         )
         result = _build_user_filter_from_pattern(pattern)
         # Count parentheses
@@ -265,7 +296,9 @@ class TestBuildUserFilterFromPattern:
         """SQL injection attempts with quote breakout should be safely escaped."""
         # This is the critical security test - the pattern tries to break out
         # of the string literal using a single quote
-        pattern = AllowDenyPattern(allow=["test') OR 1=1 --"], deny=[])
+        pattern = AllowDenyPattern(
+            allow=["test') OR 1=1 --"], deny=[], ignoreCase=False
+        )
         result = _build_user_filter_from_pattern(pattern)
         # The single quote should be escaped
         assert "\\'" in result
@@ -276,7 +309,7 @@ class TestBuildUserFilterFromPattern:
         """SQL injection using backslash to escape the escape should be prevented."""
         # Attack: pattern ends with backslash, trying to escape our escape character
         # e.g., input "test\" would try to make \' become \\ followed by unescaped '
-        pattern = AllowDenyPattern(allow=["test\\"], deny=[])
+        pattern = AllowDenyPattern(allow=["test\\"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Backslash should be doubled, so result is test\\ which is safe
         assert "test\\\\" in result
@@ -287,14 +320,14 @@ class TestBuildUserFilterFromPattern:
         """Backslash before quote should not allow injection."""
         # Attack: \' in pattern - if we only escape quotes, this becomes \\' in SQL
         # which is a literal backslash followed by an unescaped quote = injection!
-        pattern = AllowDenyPattern(allow=["test\\'more"], deny=[])
+        pattern = AllowDenyPattern(allow=["test\\'more"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Both backslash and quote are escaped: test\\'more -> test\\\\'more in SQL
         assert "test\\\\\\'more" in result
 
     def test_sql_injection_multiple_backslashes_and_quote(self):
         """Multiple backslashes followed by quote should be safely handled."""
-        pattern = AllowDenyPattern(allow=["test\\\\'end"], deny=[])
+        pattern = AllowDenyPattern(allow=["test\\\\'end"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         # Each backslash doubled, then quote escaped
         # Input: test\\'end (two backslashes, then quote)
@@ -305,19 +338,19 @@ class TestBuildUserFilterFromPattern:
 
     def test_dot_plus_treated_as_allow_all(self):
         """Pattern .+ should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=[".+"], deny=[])
+        pattern = AllowDenyPattern(allow=[".+"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         assert result == "TRUE"
 
     def test_anchored_dot_star_treated_as_allow_all(self):
         """Pattern ^.*$ should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=["^.*$"], deny=[])
+        pattern = AllowDenyPattern(allow=["^.*$"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         assert result == "TRUE"
 
     def test_anchored_dot_plus_treated_as_allow_all(self):
         """Pattern ^.+$ should be treated as allow-all."""
-        pattern = AllowDenyPattern(allow=["^.+$"], deny=[])
+        pattern = AllowDenyPattern(allow=["^.+$"], deny=[], ignoreCase=False)
         result = _build_user_filter_from_pattern(pattern)
         assert result == "TRUE"
 
@@ -463,6 +496,7 @@ class TestIntegration:
         pattern = AllowDenyPattern(
             allow=["analyst_.*@example\\.com", "data_.*@example\\.com"],
             deny=["bot_.*", "service_account_.*"],
+            ignoreCase=False,
         )
 
         user_filter = _build_user_filter_from_pattern(pattern)
@@ -528,6 +562,7 @@ class TestIntegration:
         pattern = AllowDenyPattern(
             allow=["legit@example.com"],
             deny=["attacker') OR 1=1 --"],
+            ignoreCase=False,
         )
 
         user_filter = _build_user_filter_from_pattern(pattern)
