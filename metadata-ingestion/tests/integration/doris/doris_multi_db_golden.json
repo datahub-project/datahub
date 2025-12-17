@@ -148,7 +148,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -160,7 +160,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(100)",
+                                "nativeDataType": "varchar(100)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -172,7 +172,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME",
+                                "nativeDataType": "datetime",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -184,7 +184,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "BLOB",
+                                "nativeDataType": "hll",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -196,7 +196,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "BLOB",
+                                "nativeDataType": "bitmap",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -208,7 +208,7 @@
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
-                                "nativeDataType": "BLOB",
+                                "nativeDataType": "array<varchar(50)>",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -220,7 +220,7 @@
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
                                     }
                                 },
-                                "nativeDataType": "JSON",
+                                "nativeDataType": "json",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -232,7 +232,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "BLOB",
+                                "nativeDataType": "quantile_state",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -348,7 +348,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -360,7 +360,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(100)",
+                                "nativeDataType": "varchar(100)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -372,7 +372,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(100)",
+                                "nativeDataType": "varchar(100)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -384,7 +384,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(50)",
+                                "nativeDataType": "varchar(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -396,7 +396,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME",
+                                "nativeDataType": "datetime",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -512,7 +512,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -524,7 +524,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -536,7 +536,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE",
+                                "nativeDataType": "date",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -548,7 +548,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DECIMAL(10, 2)",
+                                "nativeDataType": "decimal(10,2)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -560,7 +560,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(50)",
+                                "nativeDataType": "varchar(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -572,7 +572,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME",
+                                "nativeDataType": "datetime",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -691,7 +691,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -703,7 +703,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(100)",
+                                "nativeDataType": "varchar(100)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -715,7 +715,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT",
+                                "nativeDataType": "bigint",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -727,7 +727,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DECIMAL(38, 2)",
+                                "nativeDataType": "decimal(38,2)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -949,7 +949,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -961,7 +961,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(100)",
+                                "nativeDataType": "varchar(100)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -973,7 +973,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DOUBLE",
+                                "nativeDataType": "double",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -985,7 +985,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME",
+                                "nativeDataType": "datetime",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1101,7 +1101,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER",
+                                "nativeDataType": "int",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1113,7 +1113,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(100)",
+                                "nativeDataType": "varchar(100)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1125,7 +1125,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME",
+                                "nativeDataType": "datetime",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1137,7 +1137,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "BLOB",
+                                "nativeDataType": "bitmap",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

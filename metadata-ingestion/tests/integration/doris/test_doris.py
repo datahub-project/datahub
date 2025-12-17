@@ -16,7 +16,10 @@ DORIS_PORT = 9030  # Doris MySQL protocol port
 
 # Note: Doris FE 3.0.8 uses Java 17 which has cgroup v2 incompatibility issues in CI
 # Workaround: JAVA_OPTS=-XX:-UseContainerSupport is explicitly exported in entrypoint scripts
-pytestmark = pytest.mark.integration_batch_4
+pytestmark = [
+    pytest.mark.integration_batch_4,
+    pytest.mark.filterwarnings("ignore::sqlalchemy.exc.SAWarning"),
+]
 
 
 @pytest.fixture(scope="module")
@@ -112,25 +115,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     "config_file,golden_file",
     [
         ("doris_to_file.yml", "doris_mces_golden.json"),
-        # NOTE: Profiling tests are currently commented out due to a known issue:
-        # Great Expectations (acryl_great_expectations 0.15.50.1) has a metaclass conflict
-        # with pydantic v2 in Python 3.10: "TypeError: metaclass conflict at ConstrainedDate"
-        # This affects ALL profiling tests, not just Doris
-        # The test configs are ready and will work once GE is updated for pydantic v2
-        # pytest.param(
-        #     "doris_profile_table_level_only.yml",
-        #     "doris_profile_table_level_golden.json",
-        #     marks=pytest.mark.skip(
-        #         reason="Great Expectations pydantic v2 incompatibility (Python 3.10)"
-        #     ),
-        # ),
-        # pytest.param(
-        #     "doris_profile_with_filtering.yml",
-        #     "doris_profile_with_filtering_golden.json",
-        #     marks=pytest.mark.skip(
-        #         reason="Great Expectations pydantic v2 incompatibility (Python 3.10)"
-        #     ),
-        # ),
+        ("doris_profile_table_level_only.yml", "doris_profile_table_level_golden.json"),
         ("doris_multi_db.yml", "doris_multi_db_golden.json"),
     ],
 )

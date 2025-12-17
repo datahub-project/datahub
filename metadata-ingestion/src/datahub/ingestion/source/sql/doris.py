@@ -1,8 +1,10 @@
+import logging
 import warnings
 from typing import Any, List
 
 from pydantic.fields import Field
-from sqlalchemy.dialects.mysql import base
+from sqlalchemy import text
+from sqlalchemy.dialects.mysql import base, mysqldb
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SAWarning
 
@@ -27,49 +29,53 @@ from datahub.metadata.schema_classes import (
     RecordTypeClass,
 )
 
+logger = logging.getLogger(__name__)
+
 # Suppress SQLAlchemy warnings about Doris-specific DDL syntax
 # SQLAlchemy's MySQL dialect doesn't understand Doris-specific CREATE TABLE syntax like:
 # - DUPLICATE KEY(...) / AGGREGATE KEY(...) / UNIQUE KEY(...) - Doris table models
 # - DISTRIBUTED BY HASH(...) BUCKETS N - Doris distribution strategy
 # - PROPERTIES (...) - Doris table properties
-# These warnings are harmless and can be safely ignored
+# - REPLACE aggregation type on non-key columns in AGGREGATE KEY tables
 warnings.filterwarnings(
     "ignore",
     message=".*Unknown schema content.*",
     category=SAWarning,
 )
+warnings.filterwarnings(
+    "ignore",
+    message=".*Incomplete reflection of column definition.*",
+    category=SAWarning,
+)
 
-# Register Doris-specific data types
-# These types are unique to Apache Doris and not present in standard MySQL
+# Register Doris-specific data types unique to Apache Doris
 
 # HyperLogLog - Used for approximate distinct count aggregations
 HLL = make_sqlalchemy_type("HLL")
-register_custom_type(HLL, BytesTypeClass)  # Treat as binary data in DataHub
+register_custom_type(HLL, BytesTypeClass)
 
 # Bitmap - Used for bitmap indexing and set operations
 BITMAP = make_sqlalchemy_type("BITMAP")
-register_custom_type(BITMAP, BytesTypeClass)  # Treat as binary data in DataHub
+register_custom_type(BITMAP, BytesTypeClass)
 
 # Array - Native array type support
 DORIS_ARRAY = make_sqlalchemy_type("ARRAY")
-register_custom_type(DORIS_ARRAY, ArrayTypeClass)  # Proper array type in DataHub
+register_custom_type(DORIS_ARRAY, ArrayTypeClass)
 
 # JSONB - Binary JSON format (more efficient than MySQL's JSON)
 JSONB = make_sqlalchemy_type("JSONB")
-register_custom_type(JSONB, RecordTypeClass)  # Treat as record/struct in DataHub
+register_custom_type(JSONB, RecordTypeClass)
 
 # QUANTILE_STATE - For approximate percentile calculations
 QUANTILE_STATE = make_sqlalchemy_type("QUANTILE_STATE")
 register_custom_type(QUANTILE_STATE, BytesTypeClass)
 
-# Register these types with the MySQL dialect so SQLAlchemy recognizes them
 base.ischema_names["hll"] = HLL
 base.ischema_names["bitmap"] = BITMAP
 base.ischema_names["array"] = DORIS_ARRAY
 base.ischema_names["jsonb"] = JSONB
 base.ischema_names["quantile_state"] = QUANTILE_STATE
 
-# Handle case variations
 base.ischema_names["HLL"] = HLL
 base.ischema_names["BITMAP"] = BITMAP
 base.ischema_names["ARRAY"] = DORIS_ARRAY
@@ -77,15 +83,67 @@ base.ischema_names["JSONB"] = JSONB
 base.ischema_names["QUANTILE_STATE"] = QUANTILE_STATE
 
 
+# Patch MySQL dialect to preserve original Doris type names in nativeDataType
+# Without this patch, HLL/BITMAP/QUANTILE_STATE show as "BLOB" and JSONB shows as "JSON"
+try:
+    _original_get_columns = mysqldb.MySQLDialect_mysqldb.get_columns
+
+    def get_columns_with_full_type(self, connection, table_name, schema=None, **kw):
+        """
+        Override get_columns to preserve the original Doris type string.
+
+        This ensures nativeDataType shows "HLL" instead of "BLOB", "BITMAP" instead of "BLOB", etc.
+
+        Note: We use DESCRIBE instead of INFORMATION_SCHEMA.COLUMNS because:
+        - INFORMATION_SCHEMA doesn't recognize Doris-specific types (shows "unknown" for HLL/BITMAP/etc)
+        - DESCRIBE returns cleaner type names ("int" vs "int(11)", "decimal(10,2)" vs "decimalv3(10, 2)")
+        - Performance impact is acceptable: one DESCRIBE per table during metadata extraction
+        """
+        columns = _original_get_columns(self, connection, table_name, schema, **kw)
+
+        current_schema = schema or connection.engine.url.database
+        if not current_schema:
+            return columns
+
+        try:
+            quote = self.identifier_preparer.quote_identifier
+            full_name = ".".join(
+                quote(p) for p in [current_schema, table_name] if p is not None
+            )
+
+            result = connection.execute(text(f"DESCRIBE {full_name}"))
+            type_map = {}
+            for row in result:
+                col_name = row[0]
+                col_type = row[1]
+                type_map[col_name] = col_type
+
+            for col in columns:
+                col_name = col["name"]
+                if col_name in type_map:
+                    col["full_type"] = type_map[col_name]
+        except Exception as e:
+            logger.debug(
+                f"Could not fetch original type names for {current_schema}.{table_name}: {e}. "
+                "Falling back to SQLAlchemy type names."
+            )
+
+        return columns
+
+    mysqldb.MySQLDialect_mysqldb.get_columns = get_columns_with_full_type  # type: ignore[method-assign]
+    logger.debug("Successfully patched MySQL dialect to preserve Doris type names")
+
+except Exception as e:
+    logger.warning(f"Failed to patch get_columns for Doris type preservation: {e}")
+
+
 class DorisConfig(MySQLConfig):
-    # Override host_port to document Doris's default port
     host_port: str = Field(
         default="localhost:9030",
-        description="Doris FE (Frontend) host and port in the format host:port. Default port is 9030 (MySQL protocol), not 3306.",
+        description="Doris FE (Frontend) host and port. Default port is 9030.",
     )
 
-    # Override to hide stored procedure-related fields from docs since they don't work in Doris
-    # information_schema.ROUTINES is always empty per Doris documentation
+    # Hidden from docs because information_schema.ROUTINES is always empty in Doris
     # https://doris.apache.org/docs/3.x/admin-manual/system-tables/information_schema/routines
     include_stored_procedures: HiddenFromDocs[bool] = Field(
         default=False,
@@ -139,14 +197,10 @@ class DorisSource(MySQLSource):
         https://doris.apache.org/docs/3.x/admin-manual/system-tables/information_schema/routines
         "This table is solely for the purpose of maintaining compatibility with MySQL behavior.
         It is always empty."
-
-        Therefore, stored procedures are always disabled for Doris.
         """
         if not self.config.include_stored_procedures:
             return []
 
-        # Even if user explicitly enables stored procedures, return empty list
-        # because information_schema.ROUTINES is documented as always empty in Doris
         self.report.report_warning(
             f"{db_name}.{schema}",
             "Stored procedures are not supported in Apache Doris. "
