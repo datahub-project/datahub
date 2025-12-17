@@ -112,6 +112,26 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     "config_file,golden_file",
     [
         ("doris_to_file.yml", "doris_mces_golden.json"),
+        # NOTE: Profiling tests are currently commented out due to a known issue:
+        # Great Expectations (acryl_great_expectations 0.15.50.1) has a metaclass conflict
+        # with pydantic v2 in Python 3.10: "TypeError: metaclass conflict at ConstrainedDate"
+        # This affects ALL profiling tests, not just Doris
+        # The test configs are ready and will work once GE is updated for pydantic v2
+        # pytest.param(
+        #     "doris_profile_table_level_only.yml",
+        #     "doris_profile_table_level_golden.json",
+        #     marks=pytest.mark.skip(
+        #         reason="Great Expectations pydantic v2 incompatibility (Python 3.10)"
+        #     ),
+        # ),
+        # pytest.param(
+        #     "doris_profile_with_filtering.yml",
+        #     "doris_profile_with_filtering_golden.json",
+        #     marks=pytest.mark.skip(
+        #         reason="Great Expectations pydantic v2 incompatibility (Python 3.10)"
+        #     ),
+        # ),
+        ("doris_multi_db.yml", "doris_multi_db_golden.json"),
     ],
 )
 @freeze_time(FROZEN_TIME)
@@ -138,8 +158,9 @@ def test_doris_ingest(
 
 
 @pytest.mark.parametrize(
-    "config_dict, is_success",
+    "config_dict, is_success, expected_error",
     [
+        # Success case
         (
             {
                 "host_port": "localhost:59030",
@@ -148,25 +169,50 @@ def test_doris_ingest(
                 "password": "",
             },
             True,
+            None,
         ),
+        # Wrong port (connection refused)
         (
             {
                 "host_port": "localhost:59999",
-                "database": "wrong_db",
+                "database": "dorisdb",
+                "username": "root",
+                "password": "",
+            },
+            False,
+            "Connection refused",
+        ),
+        # Wrong credentials (access denied)
+        (
+            {
+                "host_port": "localhost:59030",
+                "database": "dorisdb",
                 "username": "wrong_user",
                 "password": "wrong_pass",
             },
             False,
+            "Access denied",
+        ),
+        # Non-existent database
+        (
+            {
+                "host_port": "localhost:59030",
+                "database": "nonexistent_db",
+                "username": "root",
+                "password": "",
+            },
+            False,
+            "Unknown database",
         ),
     ],
 )
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_doris_test_connection(doris_runner, config_dict, is_success):
+def test_doris_test_connection(doris_runner, config_dict, is_success, expected_error):
     report = test_connection_helpers.run_test_connection(DorisSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)
     else:
         test_connection_helpers.assert_basic_connectivity_failure(
-            report, "Connection refused"
+            report, expected_error
         )

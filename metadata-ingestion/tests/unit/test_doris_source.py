@@ -1,4 +1,7 @@
+from unittest.mock import MagicMock
+
 from sqlalchemy.dialects.mysql import base
+from sqlalchemy.engine import Inspector
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.doris import (
@@ -83,3 +86,109 @@ def test_doris_custom_types_mapped_to_datahub_types():
 
     # JSONB should map to RecordTypeClass (like JSON)
     assert _field_type_mapping[JSONB] == RecordTypeClass
+
+
+def test_get_procedures_for_schema_returns_empty_list():
+    """Test that get_procedures_for_schema always returns empty list for Doris"""
+    config = DorisConfig(include_stored_procedures=False)
+    source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    mock_inspector = MagicMock(spec=Inspector)
+    procedures = source.get_procedures_for_schema(
+        inspector=mock_inspector, schema="dorisdb", db_name="dorisdb"
+    )
+
+    assert procedures == []
+    assert len(procedures) == 0
+
+
+def test_get_procedures_for_schema_warns_when_explicitly_enabled():
+    """Test that enabling stored procedures generates a warning for Doris"""
+    config = DorisConfig(include_stored_procedures=True)
+    source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    mock_inspector = MagicMock(spec=Inspector)
+    procedures = source.get_procedures_for_schema(
+        inspector=mock_inspector, schema="dorisdb", db_name="dorisdb"
+    )
+
+    # Should still return empty list even when explicitly enabled
+    assert procedures == []
+    # Should have generated a warning about stored procedures
+    assert len(source.report.warnings) > 0
+
+
+def test_doris_config_default_port():
+    """Test that DorisConfig uses correct default port (9030)"""
+    config = DorisConfig()
+    assert config.host_port == "localhost:9030"
+    assert "9030" in config.host_port
+
+
+def test_doris_config_custom_port():
+    """Test that DorisConfig accepts custom port"""
+    config = DorisConfig(host_port="doris.example.com:9999")
+    assert config.host_port == "doris.example.com:9999"
+
+
+def test_doris_type_registration_case_insensitive():
+    """Test that Doris types work regardless of case"""
+    # Test lowercase
+    assert base.ischema_names["hll"] == HLL
+    assert base.ischema_names["bitmap"] == BITMAP
+    assert base.ischema_names["array"] == DORIS_ARRAY
+    assert base.ischema_names["jsonb"] == JSONB
+    assert base.ischema_names["quantile_state"] == QUANTILE_STATE
+
+    # Test uppercase
+    assert base.ischema_names["HLL"] == HLL
+    assert base.ischema_names["BITMAP"] == BITMAP
+    assert base.ischema_names["ARRAY"] == DORIS_ARRAY
+    assert base.ischema_names["JSONB"] == JSONB
+    assert base.ischema_names["QUANTILE_STATE"] == QUANTILE_STATE
+
+    # Verify they're the same type instance
+    assert base.ischema_names["hll"] is base.ischema_names["HLL"]
+    assert base.ischema_names["bitmap"] is base.ischema_names["BITMAP"]
+
+
+def test_doris_vs_mysql_stored_procedure_defaults():
+    """Test that Doris and MySQL have different defaults for stored procedures"""
+    doris_config = DorisConfig()
+    mysql_config = MySQLConfig()
+
+    # Doris should default to False
+    assert doris_config.include_stored_procedures is False
+
+    # MySQL should default to True
+    assert mysql_config.include_stored_procedures is True
+
+
+def test_doris_config_validation():
+    """Test DorisConfig validation for edge cases"""
+    # Valid minimal config
+    config = DorisConfig(username="root")
+    assert config.username == "root"
+
+    # Valid config with all Doris-specific fields
+    config = DorisConfig(
+        host_port="doris-cluster.example.com:9030",
+        username="admin",
+        password="secret",
+        database="analytics",
+        include_stored_procedures=False,
+    )
+    assert config.host_port == "doris-cluster.example.com:9030"
+    assert config.database == "analytics"
+    assert config.include_stored_procedures is False
+
+
+def test_doris_source_platform_name():
+    """Test that DorisSource returns correct platform identifier"""
+    config = DorisConfig()
+    source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    # Platform should be 'doris', not 'mysql'
+    assert source.get_platform() == "doris"
+    assert source.get_platform() != "mysql"
+    assert source.platform == "doris"

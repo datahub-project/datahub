@@ -17,7 +17,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -33,7 +33,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -49,7 +49,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -67,7 +67,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -83,7 +83,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -99,7 +99,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -244,7 +244,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -262,7 +262,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -283,7 +283,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -299,7 +299,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -408,7 +408,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -426,7 +426,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -447,7 +447,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -463,7 +463,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -584,7 +584,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -602,7 +602,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -623,7 +623,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -639,7 +639,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -739,7 +739,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -757,7 +757,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -775,7 +775,420 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b6f0701f59028362849a2a8ebbb1de41",
+                    "urn": "urn:li:container:b6f0701f59028362849a2a8ebbb1de41"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "doris",
+                "env": "PROD",
+                "database": "dorisdb_analytics"
+            },
+            "name": "dorisdb_analytics",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:doris"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.metrics,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "metrics",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "dorisdb_analytics.metrics",
+                        "platform": "urn:li:dataPlatform:doris",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "metric_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "metric_name",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(100)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "metric_value",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "DOUBLE",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "event_time",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATETIME",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+                    "urn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.user_segments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.user_segments,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "user_segments",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "dorisdb_analytics.user_segments",
+                        "platform": "urn:li:dataPlatform:doris",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "segment_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "segment_name",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(100)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "created_at",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATETIME",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "user_ids",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.BytesType": {}
+                                    }
+                                },
+                                "nativeDataType": "BLOB",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.user_segments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb_analytics.user_segments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c",
+                    "urn": "urn:li:container:5498dcb8d15e4e496073c87e8f066b1c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -872,28 +1285,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customer_orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:b6f0701f59028362849a2a8ebbb1de41",
-                    "urn": "urn:li:container:b6f0701f59028362849a2a8ebbb1de41"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -922,7 +1314,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -972,7 +1364,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -988,7 +1380,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1004,7 +1396,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "doris-test",
+        "runId": "doris-multidb-test",
         "lastRunId": "no-run-id-provided"
     }
 }
