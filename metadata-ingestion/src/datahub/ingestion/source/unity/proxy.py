@@ -465,7 +465,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 host=self._workspace_client.config.host,
                 azure_tenant_id=self._azure_auth.tenant_id,
                 azure_client_id=self._azure_auth.client_id,
-                azure_client_secret=self._azure_auth.client_secret,
+                azure_client_secret=self._azure_auth.client_secret.get_secret_value(),
                 product="datahub",
                 product_version=nice_version_name(),
             )
