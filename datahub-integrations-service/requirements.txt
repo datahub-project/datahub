@@ -4,13 +4,15 @@
     # via -r requirements-local.in
 -e ../metadata-ingestion-modules/acryl-cloud
     # via -r requirements-local.in
-acryl-datahub==1.3.1.2
+acryl-datahub==1.3.1.5rc3
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-cloud
     #   acryl-datahub-integrations
-acryl-datahub-actions==1.3.1.2
+acryl-datahub-actions==1.3.1.5rc3
     # via acryl-datahub-integrations
+acryl-datahub-classify==0.0.11
+    # via acryl-datahub
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.12.15
@@ -76,6 +78,8 @@ beautifulsoup4==4.14.2
     # via acryl-datahub-integrations
 blinker==1.9.0
     # via flask
+blis==0.7.11
+    # via thinc
 botbuilder-core==4.17.0
     # via acryl-datahub-integrations
 botbuilder-schema==4.17.0
@@ -120,6 +124,11 @@ cachetools==5.3.3
     #   google-auth
     #   mlflow-skinny
     #   mlflow-tracing
+catalogue==2.0.10
+    # via
+    #   spacy
+    #   srsly
+    #   thinc
 certifi==2024.2.2
     # via
     #   httpcore
@@ -146,6 +155,8 @@ click==8.1.7
     #   flask
     #   litellm
     #   mlflow-skinny
+    #   typer
+    #   typer-slim
     #   uvicorn
 click-default-group==1.2.4
     # via
@@ -153,6 +164,8 @@ click-default-group==1.2.4
     #   acryl-datahub-actions
 click-spinner==0.1.10
     # via acryl-datahub
+cloudpathlib==0.23.0
+    # via weasel
 cloudpickle==3.1.1
     # via mlflow-skinny
 colorama==0.4.6 ; os_name == 'nt' or sys_platform == 'win32'
@@ -163,8 +176,13 @@ colorama==0.4.6 ; os_name == 'nt' or sys_platform == 'win32'
     #   loguru
     #   tqdm
     #   uvicorn
+    #   wasabi
 colorlog==6.8.2
     # via reactpy
+confection==0.1.5
+    # via
+    #   thinc
+    #   weasel
 confluent-kafka==2.3.0
     # via
     #   acryl-datahub
@@ -188,6 +206,11 @@ cycler==0.12.1
     # via matplotlib
 cyclopts==3.22.2
     # via fastmcp
+cymem==2.0.13
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 databricks-sdk==0.50.0
     # via
     #   mlflow-skinny
@@ -409,10 +432,14 @@ importlib-metadata==7.1.0
     #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
+importlib-resources==6.5.2 ; python_full_version < '3.12'
+    # via schwifty
 inflect==7.2.1
     # via acryl-datahub-integrations
 inotify==0.2.12
     # via acryl-datahub-integrations
+ipaddress==1.0.23
+    # via acryl-datahub-classify
 isodate==0.7.2
     # via msrest
 itsdangerous==2.2.0
@@ -422,6 +449,7 @@ jinja2==3.1.3
     #   acryl-datahub-integrations
     #   flask
     #   litellm
+    #   spacy
 jiter==0.10.0
     # via openai
 jmespath==1.0.1
@@ -465,6 +493,8 @@ langchain-google-vertexai==3.0.3
     # via acryl-datahub-integrations
 langchain-openai==1.0.2
     # via acryl-datahub-integrations
+langcodes==3.5.1
+    # via spacy
 langgraph==1.0.3
     # via langchain
 langgraph-checkpoint==3.0.1
@@ -536,6 +566,11 @@ multidict==6.0.5
     # via
     #   aiohttp
     #   yarl
+murmurhash==1.0.15
+    # via
+    #   preshed
+    #   spacy
+    #   thinc
 mypy-extensions==1.0.0
     # via
     #   reactpy
@@ -544,6 +579,8 @@ numexpr==2.14.1
     # via langchain-google-vertexai
 numpy==1.26.4
     # via
+    #   acryl-datahub
+    #   blis
     #   bottleneck
     #   contourpy
     #   databricks-sql-connector
@@ -554,6 +591,8 @@ numpy==1.26.4
     #   scikit-learn
     #   scipy
     #   shapely
+    #   spacy
+    #   thinc
 oauthlib==3.2.2
     # via
     #   databricks-sql-connector
@@ -603,7 +642,10 @@ packaging==24.2
     #   mlflow-skinny
     #   mlflow-tracing
     #   snowflake-connector-python
+    #   spacy
     #   sqlalchemy-bigquery
+    #   thinc
+    #   weasel
 pandas==2.2.3
     # via
     #   acryl-datahub
@@ -614,10 +656,18 @@ parse==1.20.2
     # via acryl-datahub
 patchy==2.8.0
     # via acryl-datahub
+phonenumbers==8.13.0
+    # via acryl-datahub-classify
 pillow==11.3.0
     # via matplotlib
+pip==25.3
+    # via acryl-datahub
 platformdirs==4.2.1
     # via snowflake-connector-python
+preshed==3.0.12
+    # via
+    #   spacy
+    #   thinc
 progressbar2==4.4.2
     # via
     #   acryl-datahub
@@ -668,6 +718,8 @@ pyasn1==0.6.1
     #   rsa
 pyasn1-modules==0.4.1
     # via google-auth
+pycountry==24.6.1
+    # via schwifty
 pycparser==2.22
     # via cffi
 pydantic==2.11.7
@@ -675,6 +727,7 @@ pydantic==2.11.7
     #   acryl-datahub
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+    #   confection
     #   fastapi
     #   fastmcp
     #   google-cloud-aiplatform
@@ -691,6 +744,9 @@ pydantic==2.11.7
     #   openai
     #   openapi-pydantic
     #   pydantic-settings
+    #   spacy
+    #   thinc
+    #   weasel
 pydantic-core==2.33.2
     # via
     #   acryl-datahub
@@ -744,6 +800,8 @@ python-http-client==3.3.7
     # via sendgrid
 python-multipart==0.0.20
     # via mcp
+python-stdnum==2.1
+    # via acryl-datahub-classify
 python-utils==3.8.2
     # via progressbar2
 pytz==2024.1
@@ -800,7 +858,9 @@ requests==2.31.0
     #   requests-oauthlib
     #   requests-toolbelt
     #   snowflake-connector-python
+    #   spacy
     #   tiktoken
+    #   weasel
 requests-auth-aws-sigv4==0.7
     # via acryl-datahub-integrations
 requests-file==2.0.0
@@ -814,6 +874,7 @@ rich==14.0.0
     #   cyclopts
     #   fastmcp
     #   rich-rst
+    #   typer
 rich-rst==1.3.1
     # via cyclopts
 rpds-py==0.18.0
@@ -822,12 +883,18 @@ rpds-py==0.18.0
     #   referencing
 rsa==4.9
     # via google-auth
+rstr==3.2.2
+    # via schwifty
 ruamel-yaml==0.17.17
     # via acryl-datahub
 s3transfer==0.14.0
     # via boto3
 sagemaker-mlflow==0.1.1
     # via acryl-datahub-integrations
+schwifty==2025.9.0
+    # via
+    #   acryl-datahub
+    #   acryl-datahub-classify
 scikit-learn==1.7.2
     # via mlflow
 scipy==1.16.2
@@ -840,8 +907,14 @@ sentry-sdk==2.33.0
     # via
     #   acryl-datahub
     #   acryl-datahub-integrations
+setuptools==80.9.0
+    # via
+    #   spacy
+    #   thinc
 shapely==2.1.2
     # via google-cloud-aiplatform
+shellingham==1.5.4
+    # via typer
 six==1.16.0
     # via
     #   avro-gen3
@@ -853,6 +926,8 @@ slack-bolt==1.23.0
     # via acryl-datahub-integrations
 slack-sdk==3.35.0
     # via slack-bolt
+smart-open==7.5.0
+    # via weasel
 smmap==5.0.1
     # via gitdb
 sniffio==1.3.1
@@ -869,6 +944,12 @@ sortedcontainers==2.4.0
     # via snowflake-connector-python
 soupsieve==2.8
     # via beautifulsoup4
+spacy==3.7.5
+    # via acryl-datahub-classify
+spacy-legacy==3.0.12
+    # via spacy
+spacy-loggers==1.0.5
+    # via spacy
 sqlalchemy==1.4.52
     # via
     #   alembic
@@ -884,6 +965,12 @@ sqlglotrs==0.7.3
     # via sqlglot
 sqlparse==0.5.0
     # via mlflow-skinny
+srsly==2.5.2
+    # via
+    #   confection
+    #   spacy
+    #   thinc
+    #   weasel
 sse-starlette==2.3.6
     # via mcp
 stackprinter==0.2.12
@@ -902,6 +989,8 @@ tenacity==9.0.0
     #   acryl-datahub-integrations
     #   google-genai
     #   langchain-core
+thinc==8.2.5
+    # via spacy
 threadpoolctl==3.6.0
     # via scikit-learn
 thrift==0.16.0
@@ -922,8 +1011,13 @@ tqdm==4.67.1
     # via
     #   huggingface-hub
     #   openai
+    #   spacy
 typeguard==4.2.1
     # via inflect
+typer==0.20.0
+    # via spacy
+typer-slim==0.20.0
+    # via weasel
 types-croniter==6.0.0.20250809
     # via acryl-datahub-cloud
 typing-extensions==4.15.0
@@ -956,6 +1050,8 @@ typing-extensions==4.15.0
     #   reactpy-router
     #   snowflake-connector-python
     #   typeguard
+    #   typer
+    #   typer-slim
     #   typing-inspect
     #   typing-inspection
 typing-inspect==0.9.0
@@ -991,12 +1087,21 @@ uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'c
     # via uvicorn
 validators==0.35.0
     # via langchain-google-vertexai
+vininfo==1.9.2
+    # via acryl-datahub-classify
 waitress==3.0.2 ; sys_platform == 'win32'
     # via mlflow
+wasabi==1.1.3
+    # via
+    #   spacy
+    #   thinc
+    #   weasel
 watchfiles==0.21.0
     # via uvicorn
 wcmatch==10.1
     # via acryl-datahub
+weasel==0.4.3
+    # via spacy
 websockets==15.0.1
     # via
     #   google-genai
@@ -1008,7 +1113,9 @@ werkzeug==3.1.3
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
 wrapt==1.16.0
-    # via deprecated
+    # via
+    #   deprecated
+    #   smart-open
 xxhash==3.6.0
     # via langgraph
 yarl==1.20.1

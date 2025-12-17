@@ -154,7 +154,7 @@ class SmartColumnMetricAssertionClient:
             assertion_entity, monitor_entity
         )
 
-    def _retrieve_and_merge_smart_column_metric_assertion_and_monitor(
+    def _retrieve_and_merge_smart_column_metric_assertion_and_monitor(  # noqa: C901
         self,
         dataset_urn: Union[str, DatasetUrn],
         urn: Optional[Union[str, AssertionUrn]],

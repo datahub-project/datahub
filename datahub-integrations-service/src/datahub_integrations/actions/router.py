@@ -45,6 +45,53 @@ actions_router = fastapi.APIRouter()
 
 actions_gql = (pathlib.Path(__file__).parent / "actions.gql").read_text()
 
+KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX = "KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX"
+
+
+class KafkaConfigurationError(Exception):
+    pass
+
+
+def validate_kafka_consumer_group_config() -> None:
+    """
+    Validate Kafka consumer group configuration at startup.
+
+    This ensures that:
+    1. KAFKA_PROPERTIES_GROUP_ID is NOT set (it would override per-action consumer groups)
+    2. KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX is set (required for proper consumer group naming)
+
+    If KAFKA_PROPERTIES_GROUP_ID is set, it gets converted to group.id in consumer_config,
+    which overrides the per-action pipeline name, causing all actions to share a single
+    consumer group. This results in each action only receiving a fraction of events.
+
+    Raises:
+        KafkaConfigurationError: If configuration is invalid.
+    """
+    legacy_group_id = os.getenv("KAFKA_PROPERTIES_GROUP_ID")
+    consumer_group_prefix = os.getenv(KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX)
+
+    if legacy_group_id:
+        logger.error(
+            "KAFKA_PROPERTIES_GROUP_ID is set but must NOT be used. "
+            "This variable gets passed as group.id to Kafka, which overrides the per-action "
+            "consumer group and causes all actions to share a single consumer group. "
+            "Please unset KAFKA_PROPERTIES_GROUP_ID and use KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX instead."
+        )
+        raise KafkaConfigurationError(
+            "Invalid Kafka consumer group configuration. KAFKA_PROPERTIES_GROUP_ID is set but must NOT be used."
+        )
+
+    if not consumer_group_prefix:
+        logger.error(
+            "KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX is not set but is required. "
+            "This variable is used as a prefix for per-action consumer group names "
+            "(e.g., 'datahub' results in consumer groups like 'datahub_urn:li:dataHubAction:...'). "
+            "Please set KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX to a unique identifier for this deployment."
+        )
+        raise KafkaConfigurationError(
+            "Invalid Kafka consumer group configuration. KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX is not set but is required."
+        )
+
 
 def get_kafka_consumer_config_from_env() -> dict[str, Any]:
     """
@@ -144,6 +191,15 @@ _httpx_client = httpx.AsyncClient()
 
 @contextlib.asynccontextmanager
 async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
+    # Validate Kafka consumer group configuration before starting actions.
+    # This must be done early to prevent silent misconfiguration where all actions
+    # share a single consumer group and only receive a fraction of events.
+    validate_kafka_consumer_group_config()
+    logger.debug(
+        f"Kafka consumer group configuration validated. "
+        f"Using prefix: {os.getenv(KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX)}"
+    )
+
     async with pipeline_manager:
         logger.debug("Fetching registered actions.")
 
@@ -232,7 +288,9 @@ def get_config_from_details(
         action_details["config"]["recipe"], secret_stores, strict_secret_resolution
     )
     action_name = action_urn
-    consumer_group_prefix = os.getenv("KAFKA_PROPERTIES_GROUP_ID")
+    # Use the validated consumer group prefix to create unique per-action consumer groups.
+    # The prefix is validated at startup to ensure it's set and KAFKA_PROPERTIES_GROUP_ID is not.
+    consumer_group_prefix = os.getenv(KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX)
     if consumer_group_prefix:
         # Add a tenant prefix to the pipeline name to control the consumer group.
         action_name = f"{consumer_group_prefix}_{action_name}"

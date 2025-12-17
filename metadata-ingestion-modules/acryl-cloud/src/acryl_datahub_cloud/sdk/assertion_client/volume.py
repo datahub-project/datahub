@@ -111,7 +111,7 @@ class VolumeAssertionClient:
         #     raise e
         return VolumeAssertion._from_entities(assertion_entity, monitor_entity)
 
-    def _retrieve_and_merge_native_volume_assertion_and_monitor(
+    def _retrieve_and_merge_native_volume_assertion_and_monitor(  # noqa: C901
         self,
         dataset_urn: Union[str, DatasetUrn],
         urn: Optional[Union[str, AssertionUrn]],

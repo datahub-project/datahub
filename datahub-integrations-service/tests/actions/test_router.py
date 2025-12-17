@@ -1,8 +1,13 @@
 from unittest.mock import patch
 
+import pytest
+
 from datahub_integrations.actions.router import (
+    KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX,
+    KafkaConfigurationError,
     get_config_from_details,
     get_kafka_consumer_config_from_env,
+    validate_kafka_consumer_group_config,
 )
 
 
@@ -173,7 +178,7 @@ def test_get_config_from_details_uses_base_config_as_fallback() -> None:
 
 
 def test_get_config_from_details_adds_consumer_group_prefix() -> None:
-    """Test that consumer group prefix is added to action name when environment variable is set."""
+    """Test that consumer group prefix is added to action name when KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX is set."""
     action_details = {
         "config": {
             "recipe": """{
@@ -201,19 +206,74 @@ def test_get_config_from_details_adds_consumer_group_prefix() -> None:
                             "action": {"type": "test.action", "config": {}}
                         }
 
-                        # Test without consumer group prefix
-                        with patch("os.getenv", return_value=None):
+                        # Test without consumer group prefix - action name should be just the URN
+                        with patch.dict(
+                            "os.environ",
+                            {KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX: ""},
+                            clear=False,
+                        ):
                             recipe = get_config_from_details(
                                 action_urn, action_details, executor_id
                             )
                             assert recipe["name"] == action_urn
 
-                        # Test with consumer group prefix
-                        with patch("os.getenv", return_value="tenant1"):
+                        # Test with consumer group prefix - action name should include prefix
+                        with patch.dict(
+                            "os.environ",
+                            {KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX: "tenant1"},
+                            clear=False,
+                        ):
                             recipe = get_config_from_details(
                                 action_urn, action_details, executor_id
                             )
                             assert recipe["name"] == f"tenant1_{action_urn}"
+
+
+def test_validate_kafka_consumer_group_config_valid() -> None:
+    """Test validation passes when KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX is set and KAFKA_PROPERTIES_GROUP_ID is not."""
+    with patch.dict(
+        "os.environ",
+        {
+            KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX: "datahub",
+        },
+        clear=True,
+    ):
+        # Should not raise any exception
+        validate_kafka_consumer_group_config()
+
+
+def test_validate_kafka_consumer_group_config_missing_prefix() -> None:
+    """Test validation fails when KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX is not set."""
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(KafkaConfigurationError):
+            validate_kafka_consumer_group_config()
+
+
+def test_validate_kafka_consumer_group_config_legacy_group_id_set() -> None:
+    """Test validation fails when legacy KAFKA_PROPERTIES_GROUP_ID is set."""
+    with patch.dict(
+        "os.environ",
+        {
+            KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX: "datahub",
+            "KAFKA_PROPERTIES_GROUP_ID": "some-group-id",
+        },
+        clear=True,
+    ):
+        with pytest.raises(KafkaConfigurationError):
+            validate_kafka_consumer_group_config()
+
+
+def test_validate_kafka_consumer_group_config_both_errors() -> None:
+    """Test validation fails with both errors when both conditions are violated."""
+    with patch.dict(
+        "os.environ",
+        {
+            "KAFKA_PROPERTIES_GROUP_ID": "some-group-id",
+        },
+        clear=True,
+    ):
+        with pytest.raises(KafkaConfigurationError):
+            validate_kafka_consumer_group_config()
 
 
 def test_get_kafka_consumer_config_from_env_basic() -> None:
