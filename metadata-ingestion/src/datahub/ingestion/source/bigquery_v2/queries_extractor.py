@@ -482,12 +482,62 @@ class BigQueryQueriesExtractor(Closeable):
         self.aggregator.close()
 
 
+def _is_allow_all_pattern(allow_patterns: list) -> bool:
+    """
+    Check if allow patterns effectively match everything.
+
+    This detects common "match all" patterns to avoid unnecessary filtering.
+
+    Args:
+        allow_patterns: List of regex pattern strings
+
+    Returns:
+        True if the patterns effectively allow all, False otherwise
+    """
+    if not allow_patterns:
+        return True
+    if len(allow_patterns) == 1:
+        pattern = allow_patterns[0]
+        # Common patterns that match everything
+        return pattern in [".*", ".+", "^.*$", "^.+$", "[\\s\\S]*", "[\\s\\S]+"]
+    return False
+
+
+def _escape_for_bigquery_string(pattern: str) -> str:
+    """
+    Escape a regex pattern for safe use in a BigQuery SQL string literal.
+
+    BigQuery raw strings (r'...') don't support escaping quotes, which creates
+    SQL injection vulnerabilities. Instead, we use regular strings with proper
+    escaping:
+    1. Escape backslashes first (so regex escapes like \\d work correctly)
+    2. Escape single quotes (to prevent SQL injection)
+
+    Args:
+        pattern: The regex pattern to escape
+
+    Returns:
+        The escaped pattern safe for use in BigQuery SQL string literal
+    """
+    # First escape backslashes: \ → \\
+    # This ensures regex patterns like \d become \\d in SQL, which BigQuery
+    # interprets as \d for the regex engine
+    escaped = pattern.replace("\\", "\\\\")
+    # Then escape single quotes: ' → \'
+    # This prevents SQL injection attacks
+    escaped = escaped.replace("'", "\\'")
+    return escaped
+
+
 def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
     """
     Convert AllowDenyPattern (Python regex) to BigQuery SQL WHERE clause.
 
     Uses REGEXP_CONTAINS for full regex support. This allows pushing down
     user filtering to BigQuery for improved performance.
+
+    Security: Uses regular string literals (not raw strings) with proper escaping
+    to prevent SQL injection. Backslashes are escaped first, then single quotes.
 
     Args:
         pattern: AllowDenyPattern with allow/deny regex patterns
@@ -498,40 +548,38 @@ def _build_user_filter_from_pattern(pattern: AllowDenyPattern) -> str:
     Example:
         pattern = AllowDenyPattern(allow=["analyst_.*@example\\.com"], deny=["bot_.*"])
         result = _build_user_filter_from_pattern(pattern)
-        # Returns: "(REGEXP_CONTAINS(user_email, r'analyst_.*@example\\.com')) AND NOT REGEXP_CONTAINS(user_email, r'bot_.*')"
+        # Returns: "(REGEXP_CONTAINS(user_email, 'analyst_.*@example\\\\.com')) AND NOT REGEXP_CONTAINS(user_email, 'bot_.*')"
     """
     conditions = []
 
     # Handle ALLOW patterns (inclusions)
     # Skip if it's the default "allow all" pattern
-    if pattern.allow and pattern.allow != [".*"]:
+    if pattern.allow and not _is_allow_all_pattern(pattern.allow):
         allow_conditions = []
         for regex_pattern in pattern.allow:
-            # Escape single quotes for SQL safety
-            escaped = regex_pattern.replace("'", "\\'")
+            # Escape for SQL safety (prevents SQL injection)
+            escaped = _escape_for_bigquery_string(regex_pattern)
             # Use case-insensitive matching if configured
             # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
             # e.g., [A-Z] and [[:upper:]] should work correctly
             if pattern.ignoreCase:
-                allow_conditions.append(
-                    f"REGEXP_CONTAINS(user_email, r'(?i){escaped}')"
-                )
+                allow_conditions.append(f"REGEXP_CONTAINS(user_email, '(?i){escaped}')")
             else:
-                allow_conditions.append(f"REGEXP_CONTAINS(user_email, r'{escaped}')")
+                allow_conditions.append(f"REGEXP_CONTAINS(user_email, '{escaped}')")
         if allow_conditions:
             conditions.append(f"({' OR '.join(allow_conditions)})")
 
     # Handle DENY patterns (exclusions)
     if pattern.deny:
         for regex_pattern in pattern.deny:
-            # Escape single quotes for SQL safety
-            escaped = regex_pattern.replace("'", "\\'")
+            # Escape for SQL safety (prevents SQL injection)
+            escaped = _escape_for_bigquery_string(regex_pattern)
             # Use case-insensitive matching if configured
             # Note: We use (?i) flag instead of LOWER() to preserve character class semantics
             if pattern.ignoreCase:
-                conditions.append(f"NOT REGEXP_CONTAINS(user_email, r'(?i){escaped}')")
+                conditions.append(f"NOT REGEXP_CONTAINS(user_email, '(?i){escaped}')")
             else:
-                conditions.append(f"NOT REGEXP_CONTAINS(user_email, r'{escaped}')")
+                conditions.append(f"NOT REGEXP_CONTAINS(user_email, '{escaped}')")
 
     return " AND ".join(conditions) if conditions else "TRUE"
 
