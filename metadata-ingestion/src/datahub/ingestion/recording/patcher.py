@@ -414,11 +414,24 @@ class ModulePatcher:
                             dataset_id=result_dict.get("dataset_id", ""),
                         )
                         dataset = Dataset(dataset_ref)
-                        if "labels" in result_dict:
-                            dataset.labels = result_dict["labels"]
+                        # Initialize _properties first (required for dataset.dataset_id to work)
                         # _properties is used by BigQuery source to get location
                         if "_properties" in result_dict:
                             dataset._properties = result_dict["_properties"]  # type: ignore[attr-defined]
+                        else:
+                            # Ensure _properties exists even if not recorded
+                            dataset._properties = {  # type: ignore[attr-defined]
+                                "datasetReference": {
+                                    "datasetId": result_dict.get("dataset_id", ""),
+                                    "projectId": result_dict.get("project", ""),
+                                },
+                            }
+                        # Set labels after _properties is initialized
+                        if "labels" in result_dict:
+                            dataset.labels = result_dict["labels"]
+                            # Also store labels in _properties in case Dataset object requires it there
+                            if dataset._properties:  # type: ignore[attr-defined]
+                                dataset._properties["labels"] = result_dict["labels"]  # type: ignore[attr-defined]
                         datasets.append(dataset)
 
                     logger.debug(
@@ -604,31 +617,32 @@ class ModulePatcher:
                             )
                             # Skip this table if we can't create it
                             continue
-                            if (
-                                "time_partitioning" in result_dict
-                                and result_dict["time_partitioning"]
-                            ):
-                                tp_dict = result_dict["time_partitioning"]
-                                # JSON may store expiration_ms as string/float, convert to int
-                                expiration_ms = tp_dict.get("expiration_ms")
-                                if expiration_ms is not None:
-                                    try:
-                                        if isinstance(expiration_ms, (str, float)):
-                                            expiration_ms = int(expiration_ms)
-                                        elif isinstance(expiration_ms, int):
-                                            pass
-                                        else:
-                                            expiration_ms = int(expiration_ms)
-                                        if not isinstance(expiration_ms, int):
-                                            logger.warning(
-                                                f"expiration_ms is still not an int after conversion: {expiration_ms} ({type(expiration_ms)}). Setting to None."
-                                            )
-                                            expiration_ms = None
-                                    except (ValueError, TypeError) as e:
+
+                        if (
+                            "time_partitioning" in result_dict
+                            and result_dict["time_partitioning"]
+                        ):
+                            tp_dict = result_dict["time_partitioning"]
+                            # JSON may store expiration_ms as string/float, convert to int
+                            expiration_ms = tp_dict.get("expiration_ms")
+                            if expiration_ms is not None:
+                                try:
+                                    if isinstance(expiration_ms, (str, float)):
+                                        expiration_ms = int(expiration_ms)
+                                    elif isinstance(expiration_ms, int):
+                                        pass
+                                    else:
+                                        expiration_ms = int(expiration_ms)
+                                    if not isinstance(expiration_ms, int):
                                         logger.warning(
-                                            f"Failed to convert expiration_ms to int: {expiration_ms} ({type(expiration_ms)}): {e}. Setting to None."
+                                            f"expiration_ms is still not an int after conversion: {expiration_ms} ({type(expiration_ms)}). Setting to None."
                                         )
                                         expiration_ms = None
+                                except (ValueError, TypeError) as e:
+                                    logger.warning(
+                                        f"Failed to convert expiration_ms to int: {expiration_ms} ({type(expiration_ms)}): {e}. Setting to None."
+                                    )
+                                    expiration_ms = None
                             try:
                                 if expiration_ms is not None and not isinstance(
                                     expiration_ms, int
@@ -672,6 +686,7 @@ class ModulePatcher:
                                 )
                                 # Set to None if we can't create it
                                 table_item.time_partitioning = None
+
                         if "_properties" in result_dict:
                             table_item._properties = result_dict["_properties"]
                         # Validate expiration_ms type to catch errors early
@@ -809,6 +824,9 @@ class ModulePatcher:
                         dataset_id=result_dict.get("dataset_id", ""),
                     )
                     dataset = Dataset(dataset_ref)
+                    # _properties should already be recorded with datasetReference structure from real Dataset
+                    if "_properties" in result_dict:
+                        dataset._properties = result_dict["_properties"]  # type: ignore[attr-defined]
 
                     # Set additional properties if they were recorded
                     if "description" in result_dict:
@@ -817,6 +835,8 @@ class ModulePatcher:
                     # They will be None in replay mode, which is acceptable
                     if "location" in result_dict:
                         dataset.location = result_dict["location"]
+                    if "labels" in result_dict:
+                        dataset.labels = result_dict["labels"]
 
                     logger.debug(f"Replaying get_dataset() for {dataset_ref}")
                     return dataset
