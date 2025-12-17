@@ -219,6 +219,29 @@ module.exports = {
           ],
         },
         {
+          label: "Context Graph",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/context-graph/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/context-graph/datahub-context-documents",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/context-graph/external-context-documents",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/context-graph/building-agents",
+            },
+          ],
+        },
+        {
           label: "Asset Summaries",
           type: "doc",
           id: "docs/features/feature-guides/custom-asset-summaries",

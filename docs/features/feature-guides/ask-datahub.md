@@ -4,11 +4,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-**Ask DataHub** is DataHub's conversational AI assistant that brings intelligent, context-aware help directly to where you work. Using Ask DataHub, you can ask questions about your organization's metadata and get instant, accurate answers about your data landscape.
+**Ask DataHub** is DataHub's conversational AI assistant that brings intelligent, context-aware help directly to where you work. Using Ask DataHub, you can ask questions about your organization's data and get instant, accurate answers grounded in both your **metadata graph** and your **organizational knowledge**—like runbooks, policies, and FAQs stored in Context Graph.
 
 ## What Can Ask DataHub Do?
 
-Ask DataHub empowers your organization to navigate & understand your entire data ecosystem with ease.
+Ask DataHub empowers your organization to navigate and understand your entire data ecosystem with ease—combining technical metadata with your team's tribal knowledge for smarter, more reliable answers.
 
 Key capabilities include:
 
@@ -32,6 +32,21 @@ Get insights into the human side of your data:
 - **Expertise**: Identify domain experts and frequent users
 - **Collaboration**: Understand which teams work with particular datasets
 - **History**: Learn about past usage patterns and organizational knowledge
+
+### Answer Questions Using Curated Knowledge
+
+Ask DataHub can reference your organization's **Context Graph documents** to provide consistent, reliable answers grounded in your team's shared knowledge:
+
+- **Metric definitions**: Get accurate definitions of business metrics with proper context
+- **Data policies**: Understand compliance requirements and handling guidelines
+- **Best practices**: Follow documented runbooks and quality standards
+- **Access procedures**: Learn the right process for requesting data access
+
+When Ask DataHub references a Context Graph document, it provides citations so you can verify the source and explore more details.
+
+:::tip Improve Ask DataHub Responses
+Document your most-asked questions, policies, and definitions in [Context Graph](context-graph/overview.md) to help Ask DataHub provide more accurate, consistent answers across your organization.
+:::
 
 ### Assess Data Quality
 
@@ -60,6 +75,8 @@ To start using Ask DataHub:
    - "What would break if I change the orders table schema?"
    - "Find me the most reliable revenue datasets"
    - "Show me tables with data quality issues"
+   - "What's the definition of Gross Revenue?" (references Context Graph documents)
+   - "What data quality checks should I add to customer tables?" (references runbooks)
 
 ### Slack
 
@@ -101,8 +118,12 @@ Custom base prompts can be used to:
 
 - Define response style and tone
 - Define organization specific terminology or terms
-- Guide the model on how to navigate Glossary Terms, Tags, Domains, and properties.
-- Guide the assistant toward specific of recommendations (e.g. helping differentiate production over staging assets)
+- Guide the model on how to navigate Glossary Terms, Tags, Domains, and properties
+- Guide the assistant toward specific recommendations (e.g. helping differentiate production over staging assets)
+
+:::tip Context Graph + Custom Instructions
+For organization-specific definitions, policies, and procedures, consider documenting them in [Context Graph](context-graph/overview.md) instead of (or in addition to) custom instructions. Context Graph documents are governable, versionable, and can be linked to specific assets—making them easier to maintain as your organization evolves.
+:::
 
 ### Default Organization View
 
@@ -116,7 +137,7 @@ After updating custom prompts or organization view settings, it may take up to 5
 
 ## How It Works
 
-Ask DataHub leverages your complete metadata graph to provide intelligent, context-aware responses. The AI assistant considers:
+Ask DataHub leverages your complete metadata graph **and organizational knowledge** to provide intelligent, context-aware responses. The AI assistant considers:
 
 - Asset names, descriptions, and documentation
 - Lineage relationships (upstream and downstream)
@@ -125,3 +146,16 @@ Ask DataHub leverages your complete metadata graph to provide intelligent, conte
 - Data quality and assertion results
 - Tags, glossary terms, and classifications
 - Schema information and sample values
+- **Context Graph documents** (published runbooks, policies, FAQs, and definitions)
+
+By combining structured metadata with unstructured organizational knowledge, Ask DataHub can answer both technical questions ("What's in this table?") and contextual questions ("How should I use this table?") with consistent, reliable answers grounded in your team's shared understanding.
+
+### Making Responses More Reliable
+
+The more you document in [Context Graph](context-graph/overview.md), the better Ask DataHub becomes. Published documents are automatically indexed and used to ground responses, which means:
+
+- **Consistency**: Everyone gets the same answer to "What's our revenue definition?"
+- **Reliability**: Answers cite authoritative sources your team has reviewed
+- **Context**: Technical metadata is paired with the "why" and "how" from your documentation
+
+Learn more: [Context Graph](context-graph/overview.md)
