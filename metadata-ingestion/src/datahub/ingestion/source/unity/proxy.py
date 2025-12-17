@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
@@ -186,7 +186,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self._azure_auth = azure_auth
         self._current_token = None
         self._token_expiration = None
-        
+
         if azure_auth:
             self._workspace_client = WorkspaceClient(
                 host=workspace_url,
@@ -210,9 +210,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
         self._workspace_url = workspace_url
-        
+
         # Initialize connection params with initial token
-        initial_token = self._get_fresh_token() if azure_auth else self._workspace_client.config.token
+        initial_token = (
+            self._get_fresh_token()
+            if azure_auth
+            else self._workspace_client.config.token
+        )
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
                 "https://", ""
@@ -406,7 +410,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """Check if the token should be refreshed based on expiration time."""
         if self._token_expiration is None:
             return True
-        
+
         # Refresh token if it expires within 5 minutes
         remaining_time = self._token_expiration - datetime.now(timezone.utc)
         return remaining_time < timedelta(minutes=10)
@@ -417,29 +421,31 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if not self._azure_auth:
             # If not using Azure auth, return the static token
             return self._workspace_client.config.token or ""
-            
+
         if self._current_token and not self._should_refresh_token():
             return self._current_token
-            
+
         # Get fresh token from workspace client
         token = self._workspace_client.config.authenticate()
-        
+
         if isinstance(token, dict):
             auth_header = token.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 self._current_token = auth_header[7:]  # Remove "Bearer " prefix
             else:
                 self._current_token = token.get("access_token", "")
-                
+
             # Try to get expiration time if available
             expires_in = token.get("expires_in")
             if expires_in:
-                self._token_expiration = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+                self._token_expiration = datetime.now(timezone.utc) + timedelta(
+                    seconds=int(expires_in)
+                )
             else:
                 # Default to 1 hour expiration if not specified
                 self._token_expiration = datetime.now(timezone.utc) + timedelta(hours=1)
-                
-        elif hasattr(token, 'token'):
+
+        elif hasattr(token, "token"):
             self._current_token = token.token
             # Set default expiration
             self._token_expiration = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -447,7 +453,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             self._current_token = str(token)
             # Set default expiration
             self._token_expiration = datetime.now(timezone.utc) + timedelta(hours=1)
-            
+
         return self._current_token or ""
 
     def _refresh_workspace_client(self):
@@ -463,7 +469,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 product="datahub",
                 product_version=nice_version_name(),
             )
-    
+
     def _refresh_sql_connection_token(self):
         """Refresh the access token in SQL connection parameters."""
         if self._azure_auth:
@@ -1400,7 +1406,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if self._azure_auth and self._should_refresh_token():
                 logger.info("Refreshing SQL connection token as it is about to expire")
                 self._refresh_sql_connection_token()
-                
+
             with (
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
