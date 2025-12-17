@@ -1,0 +1,102 @@
+--- patches/upstream-1.38.0/EventEmitter.java	2025-12-17 16:16:13.560008967 +0100
++++ src/main/java/io/openlineage/spark/agent/EventEmitter.java	2025-12-17 10:56:25.886701817 +0100
+@@ -11,6 +11,9 @@
+ import io.openlineage.client.OpenLineageClientUtils;
+ import io.openlineage.client.transports.TransportFactory;
+ import io.openlineage.client.utils.UUIDUtils;
++import io.openlineage.spark.agent.lifecycle.plan.column.RddLineageEventInterceptor;
++import io.openlineage.spark.agent.lifecycle.plan.column.SchemaHistoryTracker;
++import io.openlineage.spark.api.ColumnLineageConfig;
+ import io.openlineage.spark.api.DebugConfig;
+ import io.openlineage.spark.api.SparkOpenLineageConfig;
+ import java.net.URISyntaxException;
+@@ -37,6 +40,7 @@
+   @Getter private UUID applicationRunId;
+   @Getter private String applicationJobName;
+   @Getter private Optional<List<String>> customEnvironmentVariables;
++  @Getter private RddLineageEventInterceptor rddLineageInterceptor;
+ 
+   public EventEmitter(SparkOpenLineageConfig config, String applicationJobName)
+       throws URISyntaxException {
+@@ -71,35 +75,58 @@
+             .transport(new TransportFactory(config.getTransportConfig()).build())
+             .disableFacets(disabledFacets.toArray(new String[0]))
+             .build();
+-    this.applicationJobName = this.overriddenAppName.orElse(applicationJobName);
++    this.applicationJobName = applicationJobName;
+     this.applicationRunId = UUIDUtils.generateNewUUID();
++
++    // Initialize RDD lineage interceptor
++    this.rddLineageInterceptor = initializeRddLineageInterceptor(config);
++  }
++
++  private RddLineageEventInterceptor initializeRddLineageInterceptor(
++      SparkOpenLineageConfig config) {
++    ColumnLineageConfig columnLineageConfig = config.getColumnLineageConfig();
++    if (columnLineageConfig == null) {
++      log.debug("Column lineage config is null, RDD lineage correction will be disabled");
++      return new RddLineageEventInterceptor(false);
++    }
++
++    boolean enabled = columnLineageConfig.isRddLineageCorrectionEnabled();
++    if (!enabled) {
++      log.info("RDD lineage correction is disabled via configuration");
++      return new RddLineageEventInterceptor(false);
++    }
++
++    // Create schema tracker with configured settings
++    long maxAge = columnLineageConfig.getRddLineageSchemaMaxAge();
++    int maxSnapshots = columnLineageConfig.getRddLineageSchemaMaxSnapshots();
++    SchemaHistoryTracker schemaTracker = new SchemaHistoryTracker(maxAge, maxSnapshots);
++
++    log.info(
++        "RDD lineage correction enabled with maxAge={}ms, maxSnapshots={}", maxAge, maxSnapshots);
++    return new RddLineageEventInterceptor(true, schemaTracker);
+   }
+ 
+   public void emit(OpenLineage.RunEvent event) {
+     try {
+-      this.client.emit(event);
++      // Apply RDD lineage correction if enabled
++      OpenLineage.RunEvent correctedEvent = rddLineageInterceptor.intercept(event);
++
++      this.client.emit(correctedEvent);
+       if (log.isDebugEnabled()) {
+         log.debug(
+             "Emitting lineage completed successfully  with run id: {}: {}",
+-            event.getRun().getRunId(),
+-            OpenLineageClientUtils.toJson(event));
++            correctedEvent.getRun().getRunId(),
++            OpenLineageClientUtils.toJson(correctedEvent));
+       } else {
+         log.info(
+-            "Emitting lineage completed successfully with run id: {}", event.getRun().getRunId());
++            "Emitting lineage completed successfully with run id: {}",
++            correctedEvent.getRun().getRunId());
+       }
+     } catch (OpenLineageClientException exception) {
+       log.error("Could not emit lineage w/ exception", exception);
+     }
+   }
+ 
+-  public void close() {
+-    try {
+-      client.close();
+-    } catch (Exception e) {
+-      log.error("Failed to close OpenLineage client", e);
+-    }
+-  }
+-
+   private static Optional<UUID> convertToUUID(String uuid) {
+     try {
+       return Optional.ofNullable(uuid).map(UUID::fromString);
+@@ -107,4 +134,9 @@
+       return Optional.empty();
+     }
+   }
++
++  public void close() {
++    // Close the OpenLineage client if needed
++    // The client doesn't have a close method in older versions, so we just ensure cleanup
++  }
+ }

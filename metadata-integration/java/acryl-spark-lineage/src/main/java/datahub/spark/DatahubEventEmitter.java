@@ -43,6 +43,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -151,6 +152,10 @@ public class DatahubEventEmitter extends EventEmitter {
 
   public void emit(OpenLineage.RunEvent event) {
     long startTime = System.currentTimeMillis();
+
+    // Apply RDD lineage correction before converting to DataHub
+    event = getRddLineageInterceptor().intercept(event);
+
     // We have to serialize and deserialize the event to make sure the event is in the correct
     // format
     event = OpenLineageClientUtils.runEventFromJson(OpenLineageClientUtils.toJson(event));
@@ -223,6 +228,29 @@ public class DatahubEventEmitter extends EventEmitter {
     DatahubJob datahubJob = DatahubJob.builder().build();
     AtomicLong minStartTime = new AtomicLong(Long.MAX_VALUE);
     AtomicLong maxEndTime = new AtomicLong();
+
+    // Track datasets that appear as both inputs and outputs to detect intermediate datasets
+    Set<String> allInputUrns = new java.util.HashSet<>();
+    Set<String> allOutputUrns = new java.util.HashSet<>();
+
+    // First pass: collect all input and output URNs
+    _datahubJobs.forEach(
+        job -> {
+          job.getInSet().forEach(ds -> allInputUrns.add(ds.getUrn().toString()));
+          job.getOutSet().forEach(ds -> allOutputUrns.add(ds.getUrn().toString()));
+        });
+
+    // Identify intermediate datasets (produced and consumed within the same application)
+    Set<String> intermediateDatasets = new java.util.HashSet<>(allOutputUrns);
+    intermediateDatasets.retainAll(allInputUrns);
+
+    if (!intermediateDatasets.isEmpty()) {
+      log.info(
+          "Detected {} intermediate dataset(s) that are both produced and consumed within the application: {}",
+          intermediateDatasets.size(),
+          intermediateDatasets);
+    }
+
     _datahubJobs.forEach(
         storedDatahubJob -> {
           log.info("Merging job stored job {} with {}", storedDatahubJob, datahubJob);
@@ -265,8 +293,10 @@ public class DatahubEventEmitter extends EventEmitter {
             maxEndTime.set(storedDatahubJob.getEndTime());
           }
 
-          mergeDatasets(storedDatahubJob.getOutSet(), datahubJob.getOutSet());
+          // Merge outputs, excluding intermediate datasets
+          mergeDatasets(storedDatahubJob.getOutSet(), datahubJob.getOutSet(), intermediateDatasets);
 
+          // Merge inputs normally
           mergeDatasets(storedDatahubJob.getInSet(), datahubJob.getInSet());
 
           mergeDataProcessInstance(datahubJob, storedDatahubJob);
@@ -305,7 +335,23 @@ public class DatahubEventEmitter extends EventEmitter {
 
   private static void mergeDatasets(
       Set<DatahubDataset> storedDatahubJob, Set<DatahubDataset> datahubJob) {
+    mergeDatasets(storedDatahubJob, datahubJob, Collections.emptySet());
+  }
+
+  private static void mergeDatasets(
+      Set<DatahubDataset> storedDatahubJob,
+      Set<DatahubDataset> datahubJob,
+      Set<String> intermediateDatasets) {
     for (DatahubDataset dataset : storedDatahubJob) {
+      // Skip intermediate datasets when merging outputs
+      if (!intermediateDatasets.isEmpty()
+          && intermediateDatasets.contains(dataset.getUrn().toString())) {
+        log.info(
+            "Skipping intermediate dataset from coalesced outputs: {}",
+            dataset.getUrn().toString());
+        continue;
+      }
+
       Optional<DatahubDataset> oldDataset =
           datahubJob.stream().filter(ds -> ds.getUrn().equals(dataset.getUrn())).findFirst();
       if (oldDataset.isPresent()) {

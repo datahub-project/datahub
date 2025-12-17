@@ -1,0 +1,75 @@
+# ColumnLineageCorrector.java
+
+## Status: Entirely DataHub-Specific Implementation
+
+This file is a **complete custom implementation** by DataHub and has **no upstream equivalent** in OpenLineage.
+
+## Purpose
+
+Applies positional mapping corrections to column lineage in OpenLineage RunEvents when RDD conversions are detected.
+
+## Key Features
+
+- **Event Correction**: Modifies OpenLineage RunEvents to fix column lineage
+- **Positional Mapping**: Maps columns based on position when schema mismatch detected
+- **Non-Invasive**: Creates new corrected events without modifying originals
+- **Selective Correction**: Only corrects datasets with detected schema mismatches
+
+## How It Works
+
+1. **Detect Mismatches**: Check if any input fields reference datasets with schema mismatches
+2. **Apply Mapping**: For each affected field, replace column name using positional mapping
+3. **Rebuild Event**: Create new RunEvent with corrected column lineage facets
+4. **Preserve Other Data**: Keep all other event data (run info, job info, etc.) unchanged
+
+## Example Correction
+
+**Before Correction:**
+```
+Output Dataset: /output/path
+  Column Lineage:
+    cust_id ← cust_id (from /input/path)     # WRONG - self-referential
+    cust_name ← cust_name (from /input/path) # WRONG - self-referential
+```
+
+**After Correction:**
+```
+Output Dataset: /output/path
+  Column Lineage:
+    cust_id ← id (from /input/path)          # CORRECT - traces to original
+    cust_name ← name (from /input/path)      # CORRECT - traces to original
+```
+
+## Positional Mapping Logic
+
+Given schema mismatch:
+- Actual file schema: [id, name]
+- Imposed read schema: [cust_id, cust_name]
+
+Positional mapping:
+- Position 0: cust_id → id
+- Position 1: cust_name → name
+
+## Related Files
+
+- Depends on: `SchemaHistoryTracker.java` (provides mismatch information)
+- Used by: `RddLineageEventInterceptor.java` (calls correction logic)
+
+## Configuration
+
+Correction is applied automatically when:
+- `spark.openlineage.columnLineage.rddLineageCorrectionEnabled=true`
+- Schema mismatch is detected by SchemaHistoryTracker
+
+## Maintenance
+
+Since this is entirely custom code:
+- No upstream changes to merge during OpenLineage upgrades
+- Maintained independently by DataHub team
+- No patch file needed (entire file is custom)
+
+## Known Limitations
+
+1. **Positional Mapping Only**: Assumes column positions are preserved (no reordering)
+2. **Column Count Match**: No correction if column counts differ (safety check)
+3. **Top-Level Columns**: Limited support for nested schema structures

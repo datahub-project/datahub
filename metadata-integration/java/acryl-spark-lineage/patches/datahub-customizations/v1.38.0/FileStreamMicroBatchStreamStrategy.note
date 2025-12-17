@@ -1,0 +1,27 @@
+# FileStreamMicroBatchStreamStrategy.java
+
+## Status: Entirely DataHub-Specific Implementation
+
+This file is a **complete custom implementation** by DataHub and has **no upstream equivalent** in OpenLineage.
+
+## Purpose
+
+Provides support for file-based streaming sources in Spark Structured Streaming micro-batch mode. This strategy extracts lineage information from streaming queries that read from file sources.
+
+## Key Features
+
+- Detects file-based streaming sources in micro-batch execution
+- Extracts input dataset information from streaming execution plans
+- Integrates with DataHub's streaming lineage tracking
+
+## Maintenance
+
+Since this is entirely custom code:
+- No upstream changes to merge during OpenLineage upgrades
+- Maintained independently by DataHub team
+- No patch file needed (entire file is custom)
+
+## Related Files
+
+- Used by: StreamingDataSourceV2RelationVisitor.java
+- Depends on: OpenLineage Spark agent utilities
