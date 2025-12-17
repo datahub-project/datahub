@@ -444,8 +444,8 @@ jobs:
     needs: [setup, smoke_test_matrix, base_build]
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
-    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix || '{"include":[]}') }}
+    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '' && needs.smoke_test_matrix.outputs.matrix != '{"include":[]}' }}
     env:
       # TODO Chakru: Review if required
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
@@ -831,9 +831,9 @@ jobs:
 
   publish_images:
     name: Push images after tests pass
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs: [setup, smoke_test, base_build]
-    if: ${{ always() && !failure() && !cancelled() }}
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
