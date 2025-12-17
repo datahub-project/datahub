@@ -10,7 +10,9 @@ Run:
     pytest tests/integration/recording/test_postgres_recording.py -v -s
 """
 
+import importlib
 import json
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
@@ -22,6 +24,40 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 # Mark as integration test
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True, scope="function")
+def reset_module_state():
+    """Ensure clean module state before recording test to avoid interference from other tests.
+
+    This fixture:
+    1. Reloads sqlalchemy module to clear any patches
+    2. Reloads postgres source module to clear stale import references
+    3. Ensures ModulePatcher starts with fresh module state
+
+    This prevents issues where other tests patch sqlalchemy.create_engine
+    and leave stale references that interfere with recording.
+    """
+    # Modules that might have stale references
+    modules_to_reload = [
+        "sqlalchemy",
+        "sqlalchemy.engine",
+        "datahub.ingestion.source.sql.postgres",
+    ]
+
+    # Reload modules to clear any patches or stale references
+    for module_name in modules_to_reload:
+        if module_name in sys.modules:
+            try:
+                importlib.reload(sys.modules[module_name])
+            except Exception:
+                # If reload fails, it's not critical - continue
+                pass
+
+    yield
+
+    # Optional: cleanup after test (though not strictly necessary)
+    # The ModulePatcher should handle cleanup via __exit__
 
 
 @pytest.fixture(scope="module")
