@@ -205,7 +205,6 @@ def _create_wrapped_execute(original_execute: Any, recorder: QueryRecorder) -> A
     def wrapped_execute(statement: Any, *args: Any, **kwargs: Any) -> Any:
         """Wrapped execute that records queries and results."""
         query = _get_query_string(statement)
-        logger.info(f"📊 SQLAlchemy execute() called: {query[:100]}...")
 
         # Execute the query
         result = original_execute(statement, *args, **kwargs)
