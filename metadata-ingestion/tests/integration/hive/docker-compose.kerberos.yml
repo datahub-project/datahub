@@ -109,7 +109,7 @@ services:
         echo 'Installing packages...' &&
         apt-get update -qq &&
         apt-get install -y --no-install-recommends krb5-user libkrb5-dev python3 python3-pip python3-dev gcc netcat-openbsd > /dev/null 2>&1 &&
-        pip3 install -q pyhive thrift thrift-sasl pure-sasl kerberos pymetastore &&
+        pip3 install -q 'acryl-pyhive[hive-pure-sasl]' 'pymetastore>=0.4.2' kerberos &&
         echo 'Waiting for HMS to be ready...' &&
         sleep 30 &&
         echo 'Setting up test data...' &&

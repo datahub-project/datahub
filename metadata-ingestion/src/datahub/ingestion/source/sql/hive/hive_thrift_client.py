@@ -31,7 +31,6 @@ from typing import (
 
 from tenacity import (
     retry,
-    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
 )
@@ -64,6 +63,56 @@ _CATALOG_NOT_SUPPORTED_EXCEPTIONS = (
 _CATALOG_API_NOT_FOUND_EXCEPTIONS = (
     AttributeError,  # Method doesn't exist on client
 )
+
+
+class HMSConnectionError(Exception):
+    """Custom exception for HMS connection errors with helpful messages."""
+
+    pass
+
+
+def _wrap_thrift_error(e: Exception, use_kerberos: bool) -> Exception:
+    """
+    Wrap Thrift errors with more helpful messages.
+
+    Args:
+        e: The original exception
+        use_kerberos: Whether Kerberos auth is enabled in config
+
+    Returns:
+        A more descriptive exception or the original exception
+    """
+    error_str = str(e).lower()
+
+    # Check for auth-related connection errors
+    is_auth_error = (
+        isinstance(e, BrokenPipeError)
+        or "broken pipe" in error_str
+        or "read 0 bytes" in error_str  # EOF - server closed connection
+        or "end of file" in error_str
+        or "connection reset" in error_str
+    )
+
+    if is_auth_error:
+        if not use_kerberos:
+            return HMSConnectionError(
+                f"Connection closed by HMS server. "
+                f"This typically means the Hive Metastore requires SASL/Kerberos authentication, "
+                f"but 'use_kerberos' is set to False. "
+                f"Try setting 'use_kerberos: true' and configuring 'kerberos_service_name'. "
+                f"Original error: {e}"
+            )
+        else:
+            return HMSConnectionError(
+                f"Connection closed by HMS server. "
+                f"Kerberos is enabled but the connection failed. Check that: "
+                f"1) You have a valid Kerberos ticket (run 'klist' to verify) "
+                f"2) The 'kerberos_service_name' matches the HMS principal "
+                f"3) Network connectivity to the HMS server is stable. "
+                f"Original error: {e}"
+            )
+
+    return e
 
 
 class ThriftInspectorAdapter:
@@ -241,15 +290,90 @@ class HiveMetastoreThriftClient:
     def _get_retry_decorator(
         self,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        """Create a retry decorator with exponential backoff."""
+        """Create a retry decorator with exponential backoff.
+
+        Note: BrokenPipeError is NOT retried as it typically indicates
+        an authentication mismatch (e.g., HMS requires SASL but client
+        didn't use it). Such errors are wrapped with helpful messages.
+        """
+
+        def should_retry(exception: BaseException) -> bool:
+            """Determine if an exception should trigger a retry."""
+            # Don't retry on BrokenPipeError - it's not transient
+            if isinstance(exception, BrokenPipeError):
+                return False
+            # Check for broken pipe in nested exceptions
+            if hasattr(exception, "inner") and isinstance(
+                exception.inner, BrokenPipeError
+            ):
+                return False
+            # Retry on transport/connection errors
+            return isinstance(
+                exception,
+                (TTransport.TTransportException, ConnectionError, TimeoutError),
+            )
+
         return retry(
-            retry=retry_if_exception_type(
-                (TTransport.TTransportException, ConnectionError, TimeoutError)
-            ),
+            retry=should_retry,
             stop=stop_after_attempt(self.config.max_retries),
             wait=wait_exponential(multiplier=2, max=30),  # Sensible defaults
             reraise=True,
         )
+
+    def _call_with_error_handling(
+        self, func: Callable[[], Any], operation_name: str = "HMS operation"
+    ) -> Any:
+        """
+        Call a function with error handling and helpful error messages.
+
+        Args:
+            func: The function to call
+            operation_name: Description of the operation for error messages
+
+        Returns:
+            The result of the function call
+
+        Raises:
+            HMSConnectionError: With helpful message for connection issues
+            Other exceptions: Re-raised with original context
+        """
+        try:
+            return func()
+        except Exception as e:
+            # Check if this looks like an auth-related connection error
+            error_str = str(e).lower()
+            is_auth_error = (
+                isinstance(e, BrokenPipeError)
+                or "broken pipe" in error_str
+                or "read 0 bytes" in error_str
+                or "end of file" in error_str
+                or "connection reset" in error_str
+            )
+
+            if is_auth_error:
+                raise _wrap_thrift_error(e, self.config.use_kerberos) from e
+
+            # Check for BrokenPipeError in the exception chain
+            current = e
+            while current is not None:
+                if isinstance(current, BrokenPipeError):
+                    raise _wrap_thrift_error(current, self.config.use_kerberos) from e
+                # Check TTransportException's inner attribute
+                if hasattr(current, "inner"):
+                    inner_str = str(current.inner).lower() if current.inner else ""
+                    if (
+                        isinstance(current.inner, BrokenPipeError)
+                        or "read 0 bytes" in inner_str
+                    ):
+                        raise _wrap_thrift_error(
+                            current.inner if current.inner else current,
+                            self.config.use_kerberos,
+                        ) from e
+                    current = current.inner
+                else:
+                    current = current.__cause__
+            # Re-raise original exception if not a wrapped error type
+            raise
 
     # -------------------------------------------------------------------------
     # HMS API Methods - return data in dict format matching hive_metastore.py
@@ -302,7 +426,7 @@ class HiveMetastoreThriftClient:
                     return self.client.get_all_databases()
             return self.client.get_all_databases()
 
-        return _call()
+        return self._call_with_error_handling(_call, "get_all_databases")
 
     def get_database(
         self, db_name: str, catalog_name: Optional[str] = None

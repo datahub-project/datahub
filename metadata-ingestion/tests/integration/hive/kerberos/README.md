@@ -37,12 +37,10 @@ docker logs kerberos-client 2>&1 | tail -30
 WHEEL=$(ls /tmp/datahub_wheels/*.whl | head -1)
 docker cp "$WHEEL" kerberos-client:/tmp/datahub.whl
 
-# Install local wheel + dependencies
+# Install local wheel + hive-metastore extras (includes kerberos for GSSAPI)
 docker exec kerberos-client bash -c "
   mv /tmp/datahub.whl /tmp/acryl_datahub-0.0.0.dev0-py3-none-any.whl
-  pip3 install /tmp/acryl_datahub-0.0.0.dev0-py3-none-any.whl
-  pip3 install 'acryl-datahub[hive-metastore]'
-  pip3 install /tmp/acryl_datahub-0.0.0.dev0-py3-none-any.whl --force-reinstall --no-deps
+  pip3 install '/tmp/acryl_datahub-0.0.0.dev0-py3-none-any.whl[hive-metastore]'
 "
 
 # Verify
@@ -140,6 +138,20 @@ source:
 docker compose -f docker-compose.yml -f docker-compose.kerberos.yml down -v
 ```
 
+## Dependencies
+
+The `hive-metastore` extra includes all required dependencies for Kerberos/GSSAPI authentication:
+
+- `acryl-pyhive[hive-pure-sasl]` - Thrift transport with SASL support
+- `pymetastore>=0.4.2` - HMS Thrift client
+- `kerberos>=1.3.0` - Python GSSAPI bindings (used by pure-sasl)
+- `tenacity>=8.0.1` - Retry logic
+
+System requirements (already in container):
+
+- `krb5-user` - Kerberos client tools (kinit, klist)
+- `libkrb5-dev` - Kerberos development headers
+
 ## Troubleshooting
 
 | Issue                   | Solution                                                                             |
@@ -147,3 +159,4 @@ docker compose -f docker-compose.yml -f docker-compose.kerberos.yml down -v
 | Kerberos ticket expired | `docker exec kerberos-client kinit -kt /keytabs/testuser.keytab testuser@TEST.LOCAL` |
 | Connection refused      | Wait for HMS: `docker compose logs hive-metastore`                                   |
 | ModuleNotFoundError     | Reinstall wheel (Step 3)                                                             |
+| GSSAPI import error     | Ensure `kerberos` package is installed: `pip install kerberos`                       |
