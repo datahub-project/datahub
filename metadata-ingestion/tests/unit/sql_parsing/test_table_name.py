@@ -186,7 +186,9 @@ class TestMSSQLTempTableExtraction:
         assert len(tables) == 1
 
         table_name = _TableName.from_sqlglot_table(tables[0])
-        assert table_name.table == "#staging", f"Expected #staging, got {table_name.table}"
+        assert table_name.table == "#staging", (
+            f"Expected #staging, got {table_name.table}"
+        )
         assert table_name.database == "mydb"
         assert table_name.db_schema == "dbo"
 
@@ -200,7 +202,9 @@ class TestMSSQLTempTableExtraction:
         assert len(tables) == 1
 
         table_name = _TableName.from_sqlglot_table(tables[0])
-        assert table_name.table == "##staging", f"Expected ##staging, got {table_name.table}"
+        assert table_name.table == "##staging", (
+            f"Expected ##staging, got {table_name.table}"
+        )
         assert table_name.database == "mydb"
         assert table_name.db_schema == "dbo"
 
