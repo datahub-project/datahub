@@ -90,7 +90,8 @@ class _TableName(_FrozenModel):
             # This ensures we get "a.b.#temptable" not "#a.b.temptable"
             if hasattr(exp, "args"):
                 is_local_temp = exp.args.get("temporary", False)
-                is_global_temp = exp.args.get("global_", False)
+                # SQLGlot uses 'global' (no underscore) for global temp tables
+                is_global_temp = exp.args.get("global", False)
 
                 if is_global_temp and not final_part.startswith("##"):
                     final_part = f"##{final_part}"
@@ -105,13 +106,14 @@ class _TableName(_FrozenModel):
             # Check the identifier for temp flags
             if hasattr(table.this, "args"):
                 is_local_temp = table.this.args.get("temporary", False)
-                is_global_temp = table.this.args.get("global_", False)
+                # SQLGlot uses 'global' (no underscore) for global temp tables
+                is_global_temp = table.this.args.get("global", False)
 
             # For MSSQL dialect, SQLGlot strips the # or ## prefix from temp tables
             # but sets flags on the identifier. We need to restore the prefix so that
             # downstream temp table detection (which checks for startswith("#")) works.
             # - Local temp tables (#name): 'temporary' flag is set
-            # - Global temp tables (##name): 'global_' flag is set
+            # - Global temp tables (##name): 'global' flag is set
             # Note: Redshift also uses # for temp tables but SQLGlot keeps the prefix intact.
             #
             # The following functions depend on the # prefix for temp table detection:

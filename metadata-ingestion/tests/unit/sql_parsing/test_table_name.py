@@ -248,7 +248,7 @@ class TestMSSQLTempTableExtraction:
     def test_no_double_prefix_global_temp(self):
         """Table with existing ## should not get another ## added."""
         table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="##already_prefixed", **{"global_": True}),
+            this=sqlglot.exp.Identifier(this="##already_prefixed", **{"global": True}),
         )
         result = _TableName.from_sqlglot_table(table)
         assert result.table == "##already_prefixed"
@@ -262,7 +262,7 @@ class TestMSSQLTempTableExtraction:
         # Create identifier WITHOUT ## prefix but WITH global_=True
         # This mimics what SQLGlot does when parsing ##globaltemp
         table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="globaltemp", **{"global_": True}),
+            this=sqlglot.exp.Identifier(this="globaltemp", **{"global": True}),
         )
         result = _TableName.from_sqlglot_table(table)
         assert result.table == "##globaltemp", (
@@ -438,7 +438,7 @@ class TestDotExpressionTableNames:
             expression=sqlglot.exp.Dot(
                 this=sqlglot.exp.Identifier(this="b"),
                 expression=sqlglot.exp.Identifier(
-                    this="globaltemp", **{"global_": True}
+                    this="globaltemp", **{"global": True}
                 ),
             ),
         )
