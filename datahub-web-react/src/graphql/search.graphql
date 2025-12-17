@@ -1,4 +1,5 @@
 #import "./incident.graphql"
+#import "./fragments.graphql"
 
 fragment autoCompleteFields on Entity {
     urn
@@ -369,15 +370,15 @@ fragment autoCompleteFields on Entity {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
         info {
             title
-            created {
-                time
-                actor
-            }
-            lastModified {
-                time
-                actor
+            source {
+                sourceType
+                externalUrl
+                externalId
             }
         }
         parentDocuments {
@@ -1184,15 +1185,40 @@ fragment searchResultsWithoutSchemaField on Entity {
         urn
         type
         subType
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         info {
             title
+            source {
+                sourceType
+                externalUrl
+                externalId
+            }
             created {
                 time
-                actor
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
             }
             lastModified {
                 time
-                actor
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        pictureLink
+                    }
+                }
             }
         }
         parentDocuments {
