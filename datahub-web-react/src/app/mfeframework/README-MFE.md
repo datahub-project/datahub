@@ -20,15 +20,15 @@ Edit [`mfe.config.local.yaml`](/datahub-frontend/conf/mfe.config.local.yaml) to 
 ```yaml
 subNavigationMode: false
 microFrontends:
-  - id: HelloWorld
-    label: HelloWorld DEV
-    path: /helloworld-mfe
-    remoteEntry: http://localhost:3002/remoteEntry.js
-    module: helloWorldMFE/mount
-    flags:
-      enabled: true
-      showInNav: true
-    navIcon: HandWaving
+    - id: HelloWorld
+      label: HelloWorld DEV
+      path: /helloworld-mfe
+      remoteEntry: http://localhost:3002/remoteEntry.js
+      module: helloWorldMFE/mount
+      flags:
+          enabled: true
+          showInNav: true
+      navIcon: HandWaving
 ```
 
 To ensure compatibility between the DataHub MFE config above, and your actual MFE, verify the following:
@@ -104,15 +104,15 @@ cd datahub-frontend
 ```
 
 Push the image to your container registry and reference it in your Kubernetes deployment files.  
-In your Kubernetes YAML, ensure the environment variable `MFE_CONFIG_FILE_PATH` points to your *dev* config:
+In your Kubernetes YAML, ensure the environment variable `MFE_CONFIG_FILE_PATH` points to your _dev_ config:
 
 ```yaml
 env:
-  - name: MFE_CONFIG_FILE_PATH
-    value: /datahub-frontend/conf/mfe.config.dev.yaml
+    - name: MFE_CONFIG_FILE_PATH
+      value: /datahub-frontend/conf/mfe.config.dev.yaml
 ```
 
-If your organization uses multiple environments (e.g., *dev*, *uat*, *prod*), you can use a single Docker image for all environments:
+If your organization uses multiple environments (e.g., _dev_, _uat_, _prod_), you can use a single Docker image for all environments:
 
 - Create separate config files for each environment and place them in the [`conf`](/datahub-frontend/conf) directory, following the filename pattern `mfe.*.yaml`.
 - Build the Docker image after adding the config files.
