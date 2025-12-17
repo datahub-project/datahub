@@ -102,6 +102,13 @@ class _TableName(_FrozenModel):
         # - Local temp tables (#name): 'temporary' flag is set
         # - Global temp tables (##name): 'global_' flag is set
         # Note: Redshift also uses # for temp tables but SQLGlot keeps the prefix intact.
+        #
+        # The following functions depend on the # prefix for temp table detection:
+        #   - datahub.ingestion.source.sql.mssql.source.SQLServerSource.is_temp_table()
+        #   - datahub.ingestion.source.sql_queries.SqlQueriesSource.is_temp_table()
+        #   - datahub.ingestion.source.bigquery_v2.queries_extractor.BigQueryQueriesExtractor.is_temp_table()
+        #   - datahub.ingestion.source.snowflake.snowflake_queries.SnowflakeQueriesExtractor.is_temp_table()
+        #   - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()
         if is_global_temp and not table_name.startswith("##"):
             table_name = f"##{table_name}"
         elif is_local_temp and not table_name.startswith("#"):

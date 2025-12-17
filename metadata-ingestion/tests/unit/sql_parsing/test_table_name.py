@@ -77,6 +77,7 @@ class TestMSSQLTempTableExtraction:
         """MSSQL SELECT INTO #temptable should preserve # prefix."""
         sql = "SELECT key INTO #mytemptable FROM source_table"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -90,6 +91,7 @@ class TestMSSQLTempTableExtraction:
         """MSSQL SELECT FROM #temptable should preserve # prefix."""
         sql = "SELECT key FROM #mytemptable"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -100,6 +102,7 @@ class TestMSSQLTempTableExtraction:
         """MSSQL CREATE TABLE #temp should preserve # prefix."""
         sql = "CREATE TABLE #mytemptable (id INT)"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -110,6 +113,7 @@ class TestMSSQLTempTableExtraction:
         """MSSQL SELECT INTO ##globaltemp should preserve ## prefix."""
         sql = "SELECT key INTO ##globaltemp FROM source_table"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -122,6 +126,7 @@ class TestMSSQLTempTableExtraction:
         """MSSQL SELECT FROM ##globaltemp should preserve ## prefix."""
         sql = "SELECT key FROM ##globaltemp"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -132,6 +137,7 @@ class TestMSSQLTempTableExtraction:
         """MSSQL CREATE TABLE ##global should preserve ## prefix."""
         sql = "CREATE TABLE ##globaltemp (id INT)"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -149,6 +155,7 @@ class TestMSSQLTempTableExtraction:
         # Query 1: Create temp table from raw table
         sql1 = "SELECT key INTO #mytemptable FROM [mydb].[myschema].myrawtable"
         parsed1 = sqlglot.parse(sql1, dialect="tsql")[0]
+        assert parsed1 is not None
 
         tables1 = {
             _TableName.from_sqlglot_table(t).table
@@ -160,6 +167,7 @@ class TestMSSQLTempTableExtraction:
         # Query 2: Create prod table from temp table
         sql2 = "SELECT key INTO [mydb].[myschema].myprodtable FROM #mytemptable"
         parsed2 = sqlglot.parse(sql2, dialect="tsql")[0]
+        assert parsed2 is not None
 
         tables2 = {
             _TableName.from_sqlglot_table(t).table
@@ -168,10 +176,55 @@ class TestMSSQLTempTableExtraction:
         assert "#mytemptable" in tables2, "Query 2 should have #mytemptable"
         assert "myprodtable" in tables2, "Query 2 should have myprodtable"
 
+    def test_mssql_multipart_local_temp_table(self):
+        """MSSQL multi-part temp table names like mydb.dbo.#staging should work."""
+        sql = "SELECT * FROM mydb.dbo.#staging"
+        parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
+
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        assert len(tables) == 1
+
+        table_name = _TableName.from_sqlglot_table(tables[0])
+        assert table_name.table == "#staging", f"Expected #staging, got {table_name.table}"
+        assert table_name.database == "mydb"
+        assert table_name.db_schema == "dbo"
+
+    def test_mssql_multipart_global_temp_table(self):
+        """MSSQL multi-part global temp table names like mydb.dbo.##staging should work."""
+        sql = "SELECT * FROM mydb.dbo.##staging"
+        parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
+
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        assert len(tables) == 1
+
+        table_name = _TableName.from_sqlglot_table(tables[0])
+        assert table_name.table == "##staging", f"Expected ##staging, got {table_name.table}"
+        assert table_name.database == "mydb"
+        assert table_name.db_schema == "dbo"
+
+    def test_mssql_insert_into_multipart_temp(self):
+        """MSSQL INSERT INTO mydb.dbo.#staging should preserve # prefix."""
+        sql = "INSERT INTO mydb.dbo.#staging SELECT * FROM source_table"
+        parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
+
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table_names = {_TableName.from_sqlglot_table(t) for t in tables}
+
+        # Find the temp table
+        temp_tables = [t for t in table_names if t.table.startswith("#")]
+        assert len(temp_tables) == 1
+        assert temp_tables[0].table == "#staging"
+        assert temp_tables[0].database == "mydb"
+        assert temp_tables[0].db_schema == "dbo"
+
     def test_regular_table_not_affected(self):
         """Regular tables (without temporary flag) should not get # prefix."""
         sql = "SELECT * FROM regular_table"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         assert len(tables) == 1
@@ -207,6 +260,7 @@ class TestMSSQLTempTableExtraction:
         # Local temp
         sql = "SELECT key INTO #mytemp FROM source"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
         for t in parsed.find_all(sqlglot.exp.Table):
             table_name = _TableName.from_sqlglot_table(t)
             if table_name.table.startswith("#"):
@@ -215,6 +269,7 @@ class TestMSSQLTempTableExtraction:
         # Global temp
         sql = "SELECT key INTO ##myglobal FROM source"
         parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
         for t in parsed.find_all(sqlglot.exp.Table):
             table_name = _TableName.from_sqlglot_table(t)
             if table_name.table.startswith("##"):
@@ -233,6 +288,7 @@ class TestRedshiftTempTableExtraction:
         """Redshift CREATE TABLE #name preserves # prefix (no flag needed)."""
         sql = "CREATE TABLE #staging AS SELECT * FROM source"
         parsed = sqlglot.parse(sql, dialect="redshift")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -245,6 +301,7 @@ class TestRedshiftTempTableExtraction:
         """Redshift CREATE TEMP TABLE name works without # prefix."""
         sql = "CREATE TEMP TABLE staging AS SELECT * FROM source"
         parsed = sqlglot.parse(sql, dialect="redshift")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -264,6 +321,7 @@ class TestOtherDialectsTempTables:
         """PostgreSQL temp tables should NOT get # prefix."""
         sql = "CREATE TEMPORARY TABLE my_temp AS SELECT * FROM source"
         parsed = sqlglot.parse(sql, dialect="postgres")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -276,6 +334,7 @@ class TestOtherDialectsTempTables:
         """Snowflake temp tables should NOT get # prefix."""
         sql = "CREATE TEMPORARY TABLE my_temp AS SELECT * FROM source"
         parsed = sqlglot.parse(sql, dialect="snowflake")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -288,6 +347,7 @@ class TestOtherDialectsTempTables:
         """BigQuery temp tables should NOT get # prefix."""
         sql = "CREATE TEMP TABLE my_temp AS SELECT * FROM source"
         parsed = sqlglot.parse(sql, dialect="bigquery")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
@@ -300,6 +360,7 @@ class TestOtherDialectsTempTables:
         """Hive temp tables should NOT get # prefix."""
         sql = "CREATE TEMPORARY TABLE my_temp AS SELECT * FROM source"
         parsed = sqlglot.parse(sql, dialect="hive")[0]
+        assert parsed is not None
 
         tables = list(parsed.find_all(sqlglot.exp.Table))
         table_names = [_TableName.from_sqlglot_table(t).table for t in tables]
