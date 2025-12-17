@@ -27,6 +27,9 @@ sink:
 #Example: using ingestion with ODBC and encryption
 #This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
 #See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+#
+# Note: When using source type 'mssql-odbc', the 'use_odbc' option is automatically
+# enabled - you don't need to explicitly set it in your config.
 # ------------------------------------------------------------------------
 
 source:
@@ -41,6 +44,7 @@ source:
     password: password
 
     # Options
+    # Note: 'use_odbc: true' is automatically inferred from source type 'mssql-odbc'
     uri_args:
       driver: "ODBC Driver 17 for SQL Server"
       Encrypt: "yes"
