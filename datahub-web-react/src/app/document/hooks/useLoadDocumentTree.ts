@@ -6,6 +6,7 @@ import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { documentToTreeNode, sortDocumentsByCreationTime } from '@app/document/utils/documentUtils';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
+import { DocumentSourceType } from '@types';
 
 /**
  * Hook to load and populate the document tree from backend queries.
@@ -27,6 +28,7 @@ export function useLoadDocumentTree() {
         start: 0,
         count: 100,
         fetchPolicy: 'cache-first',
+        sourceTypes: [DocumentSourceType.Native],
     });
 
     // Check if multiple documents have children (batch query)

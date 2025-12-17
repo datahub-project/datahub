@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -11,7 +12,7 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
-import { Document, EntityType } from '@types';
+import { EntityType } from '@types';
 
 const headerDropdownItems = new Set([EntityMenuItems.COPY_URL, EntityMenuItems.SHARE]);
 
@@ -20,18 +21,12 @@ const headerDropdownItems = new Set([EntityMenuItems.COPY_URL, EntityMenuItems.S
  * Uses the traditional EntityProfile with tabs instead of the custom DocumentSimpleProfile
  */
 export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element => {
-    const getOverrideProperties = (document: Document) => {
-        return {
-            name: document.info?.title,
-        };
-    };
-
     return (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Document}
             useEntityQuery={useGetDocumentQuery}
-            getOverrideProperties={getOverrideProperties}
+            getOverrideProperties={new DocumentEntity().getOverridePropertiesFromEntity}
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {

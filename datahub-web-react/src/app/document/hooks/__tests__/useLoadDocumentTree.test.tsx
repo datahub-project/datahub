@@ -30,6 +30,11 @@ describe('useLoadDocumentTree', () => {
         updateNodeTitle: vi.fn(),
         moveNode: vi.fn(),
         getNode: vi.fn(),
+        expandedUrns: new Set<string>(),
+        setExpandedUrns: vi.fn(),
+        toggleExpanded: vi.fn(),
+        expandNode: vi.fn(),
+        collapseNode: vi.fn(),
     };
 
     beforeEach(() => {
