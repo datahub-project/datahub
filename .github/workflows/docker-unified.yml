@@ -831,9 +831,9 @@ jobs:
 
   publish_images:
     name: Push images after tests pass
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs: [setup, smoke_test, base_build]
-    if: ${{ always() && !failure() && !cancelled() }}
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
