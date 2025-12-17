@@ -28,16 +28,18 @@ jobs:
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
-          echo "## Workflow Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Workflow Name** | $WORKFLOW_NAME |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Branch** | $HEAD_BRANCH |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Event** | $WORKFLOW_EVENT |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Start Time** | $CREATED_AT |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Completion Status** | $CONCLUSION |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Run Number** | $RUN_ATTEMPT |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Workflow Summary"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| **Workflow Name** | $WORKFLOW_NAME |"
+            echo "| **Branch** | $HEAD_BRANCH |"
+            echo "| **Event** | $WORKFLOW_EVENT |"
+            echo "| **Start Time** | $CREATED_AT |"
+            echo "| **Completion Status** | $CONCLUSION |"
+            echo "| **Run Number** | $RUN_ATTEMPT |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           echo "Workflow '$WORKFLOW_NAME' completed"
           echo "  Status: $CONCLUSION"
@@ -114,13 +116,15 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Retry Decision" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Retriggering workflow** (first failure detected)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Retry Decision"
+            echo ""
+            echo "✅ **Retriggering workflow** (first failure detected)"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           echo "Retriggering '${WORKFLOW_NAME}' (Run ID: ${RUN_ID})..."
 
@@ -133,7 +137,7 @@ jobs:
           EXIT_CODE=$?
 
           if [ $EXIT_CODE -eq 0 ]; then
-            echo "✅ Successfully triggered workflow retry" | tee -a $GITHUB_STEP_SUMMARY
+            echo "✅ Successfully triggered workflow retry" | tee -a "$GITHUB_STEP_SUMMARY"
           else
-            echo "❌ Failed to retrigger workflow (exit code: $EXIT_CODE)" | tee -a $GITHUB_STEP_SUMMARY
+            echo "❌ Failed to retrigger workflow (exit code: $EXIT_CODE)" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
