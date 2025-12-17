@@ -75,20 +75,30 @@ class _TableName(_FrozenModel):
 
         if isinstance(table.this, sqlglot.exp.Dot):
             # For tables that are more than 3 parts, the extra parts will be in a Dot.
-            # For now, we just merge them into the table name.
+            # Unwind the Dot chain to get all parts.
             parts = []
             exp = table.this
             while isinstance(exp, sqlglot.exp.Dot):
                 parts.append(exp.this.name)
                 exp = exp.expression
-            parts.append(exp.name)
-            table_name = ".".join(parts)
 
-            # For multi-part names (>3 parts), check the final identifier for temp flags.
-            # Note: MSSQL temp tables rarely have >3 parts, but we handle it for completeness.
+            # exp now points to the final/rightmost identifier
+            final_part = exp.name
+
+            # For MSSQL temp tables, check the FINAL identifier for temp flags
+            # and add the prefix to ONLY the final part before joining.
+            # This ensures we get "a.b.#temptable" not "#a.b.temptable"
             if hasattr(exp, "args"):
                 is_local_temp = exp.args.get("temporary", False)
                 is_global_temp = exp.args.get("global_", False)
+
+                if is_global_temp and not final_part.startswith("##"):
+                    final_part = f"##{final_part}"
+                elif is_local_temp and not final_part.startswith("#"):
+                    final_part = f"#{final_part}"
+
+            parts.append(final_part)
+            table_name = ".".join(parts)
         else:
             table_name = table.this.name
 
@@ -97,23 +107,23 @@ class _TableName(_FrozenModel):
                 is_local_temp = table.this.args.get("temporary", False)
                 is_global_temp = table.this.args.get("global_", False)
 
-        # For MSSQL dialect, SQLGlot strips the # or ## prefix from temp tables
-        # but sets flags on the identifier. We need to restore the prefix so that
-        # downstream temp table detection (which checks for startswith("#")) works.
-        # - Local temp tables (#name): 'temporary' flag is set
-        # - Global temp tables (##name): 'global_' flag is set
-        # Note: Redshift also uses # for temp tables but SQLGlot keeps the prefix intact.
-        #
-        # The following functions depend on the # prefix for temp table detection:
-        #   - datahub.ingestion.source.sql.mssql.source.SQLServerSource.is_temp_table()
-        #   - datahub.ingestion.source.sql_queries.SqlQueriesSource.is_temp_table()
-        #   - datahub.ingestion.source.bigquery_v2.queries_extractor.BigQueryQueriesExtractor.is_temp_table()
-        #   - datahub.ingestion.source.snowflake.snowflake_queries.SnowflakeQueriesExtractor.is_temp_table()
-        #   - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()
-        if is_global_temp and not table_name.startswith("##"):
-            table_name = f"##{table_name}"
-        elif is_local_temp and not table_name.startswith("#"):
-            table_name = f"#{table_name}"
+            # For MSSQL dialect, SQLGlot strips the # or ## prefix from temp tables
+            # but sets flags on the identifier. We need to restore the prefix so that
+            # downstream temp table detection (which checks for startswith("#")) works.
+            # - Local temp tables (#name): 'temporary' flag is set
+            # - Global temp tables (##name): 'global_' flag is set
+            # Note: Redshift also uses # for temp tables but SQLGlot keeps the prefix intact.
+            #
+            # The following functions depend on the # prefix for temp table detection:
+            #   - datahub.ingestion.source.sql.mssql.source.SQLServerSource.is_temp_table()
+            #   - datahub.ingestion.source.sql_queries.SqlQueriesSource.is_temp_table()
+            #   - datahub.ingestion.source.bigquery_v2.queries_extractor.BigQueryQueriesExtractor.is_temp_table()
+            #   - datahub.ingestion.source.snowflake.snowflake_queries.SnowflakeQueriesExtractor.is_temp_table()
+            #   - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()
+            if is_global_temp and not table_name.startswith("##"):
+                table_name = f"##{table_name}"
+            elif is_local_temp and not table_name.startswith("#"):
+                table_name = f"#{table_name}"
 
         return cls(
             database=table.catalog or default_db,

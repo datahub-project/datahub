@@ -253,6 +253,22 @@ class TestMSSQLTempTableExtraction:
         result = _TableName.from_sqlglot_table(table)
         assert result.table == "##already_prefixed"
 
+    def test_global_temp_prefix_added_when_missing(self):
+        """Global temp table without ## prefix should get ## added.
+
+        This tests the case where SQLGlot strips the ## prefix but sets
+        the global_ flag. We need to restore the prefix.
+        """
+        # Create identifier WITHOUT ## prefix but WITH global_=True
+        # This mimics what SQLGlot does when parsing ##globaltemp
+        table = sqlglot.exp.Table(
+            this=sqlglot.exp.Identifier(this="globaltemp", **{"global_": True}),
+        )
+        result = _TableName.from_sqlglot_table(table)
+        assert result.table == "##globaltemp", (
+            f"Expected ##globaltemp, got {result.table}"
+        )
+
     def test_is_temp_table_compatibility(self):
         """Verify is_temp_table() pattern works with restored prefix."""
 
