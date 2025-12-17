@@ -668,7 +668,7 @@ jobs:
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew :docker:buildImagesQuickstartEs -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -693,6 +693,14 @@ jobs:
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          ELASTICSEARCH_SHIM_AUTO_DETECT: true
+          ELASTICSEARCH_SHIM_ENABLED: true
+          ELASTICSEARCH_SHIM_ENGINE_TYPE: AUTO_DETECT
+          DATAHUB_SEARCH_IMAGE: elasticsearch
+          DATAHUB_SEARCH_TAG: 8.17.10
+          DATAHUB_ANALYTICS_ENABLED: false
+          XPACK_SECURITY_ENABLED: "xpack.security.enabled: false"
+          PROFILE_NAME: quickstart-elasticsearch
         run: |
           # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
           ./smoke-test/run-quickstart.sh

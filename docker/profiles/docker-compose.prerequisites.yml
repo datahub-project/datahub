@@ -12,6 +12,7 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
+  - quickstart-elasticsearch
 
 # Which profiles to run mysql setup
 x-mysql-setup-profiles-dev: &mysql-setup-profiles-dev
@@ -31,6 +32,7 @@ x-mysql-profiles: &mysql-profiles
   - quickstart-storage
   - quickstart-consumers
   - quickstart-consumers-cdc
+  - quickstart-elasticsearch
   - debug
   - debug-min
   - debug-datahub-actions
@@ -67,6 +69,7 @@ x-neo4j-profiles: &neo4j-profiles
 # Search Storage Profiles
 x-elasticsearch-profiles: &elasticsearch-profiles
   - debug-elasticsearch
+  - quickstart-elasticsearch
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
@@ -382,9 +385,10 @@ services:
       timeout: 5s
     volumes:
       - esdata:/usr/share/elasticsearch/data
-  elasticsearch-setup-dev: &elasticsearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
-    profiles: *elasticsearch-profiles
+  elasticsearch-setup: &elasticsearch-setup
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    profiles:
+      - quickstart-elasticsearch
     hostname: elasticsearch-setup
     env_file: elasticsearch-setup/env/docker.env
     environment:
@@ -395,6 +399,12 @@ services:
         condition: service_healthy
     labels:
       datahub_setup_job: true
+  elasticsearch-setup-dev:
+    <<: *elasticsearch-setup
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
+    profiles:
+      - debug-elasticsearch
+    hostname: elasticsearch-setup
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
@@ -414,7 +424,7 @@ services:
     volumes:
       - osdata:/usr/share/opensearch/data
   opensearch-setup: &opensearch-setup
-    <<: *elasticsearch-setup-dev
+    <<: *elasticsearch-setup
     profiles: *opensearch-profiles-quickstart
     hostname: opensearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}

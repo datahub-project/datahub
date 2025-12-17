@@ -222,6 +222,7 @@ services:
     - quickstart-storage
     - quickstart-consumers
     - quickstart-consumers-cdc
+    - quickstart-elasticsearch
     - debug
     - debug-min
     - debug-datahub-actions
@@ -273,6 +274,7 @@ services:
     - quickstart-frontend
     - quickstart-storage
     - quickstart-consumers
+    - quickstart-elasticsearch
     depends_on:
       mysql:
         condition: service_healthy

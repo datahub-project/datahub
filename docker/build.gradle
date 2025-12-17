@@ -67,6 +67,25 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartES': [
+                    profile: 'quickstart-elasticsearch',
+                    modules: python_services_modules + backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':metadata-jobs:mce-consumer-job',
+                            ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions',
+                    ],
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env",
+                            // these env vars help switch to ES8
+                            ELASTICSEARCH_SHIM_AUTO_DETECT: true,
+                            ELASTICSEARCH_SHIM_ENABLED: true,
+                            ELASTICSEARCH_SHIM_ENGINE_TYPE: "AUTO_DETECT",
+                            DATAHUB_SEARCH_IMAGE: "elasticsearch",
+                            DATAHUB_SEARCH_TAG: "8.17.10",
+                            DATAHUB_ANALYTICS_ENABLED: false
+                    ]
+            ],
             'quickstartCLI': [
                     profile: 'quickstart',
                     modules: python_services_modules + backend_profile_modules + [
@@ -80,6 +99,21 @@ ext {
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartDebugES': [
+                    profile: 'debug-elasticsearch',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env",
+                            // these env vars help switch to ES8
+                            ELASTICSEARCH_SHIM_AUTO_DETECT: true,
+                            ELASTICSEARCH_SHIM_ENABLED: true,
+                            ELASTICSEARCH_SHIM_ENGINE_TYPE: "AUTO_DETECT",
+                            DATAHUB_SEARCH_IMAGE: "elasticsearch",
+                            DATAHUB_SEARCH_TAG: "8.17.10",
+                            DATAHUB_ANALYTICS_ENABLED: false
                     ]
             ],
             'quickstartDebugAws': [

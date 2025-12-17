@@ -76,6 +76,13 @@ services:
     depends_on:
       system-update-quickstart-postgres-cdc:
         condition: service_completed_successfully
+  frontend-quickstart-elasticsearch:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-elasticsearch
+    depends_on:
+      system-update-quickstart-elasticsearch:
+        condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev
     profiles:
