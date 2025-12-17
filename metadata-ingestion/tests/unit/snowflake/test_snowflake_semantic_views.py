@@ -1,79 +1,8 @@
 import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeDataDictionary,
-)
-
-
-def test_snowflake_config_semantic_view_pattern():
-    """Test that SnowflakeV2Config includes semantic view pattern filtering."""
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test_account",
-            "username": "test_user",
-            "password": "test_password",
-            "semantic_view_pattern": AllowDenyPattern(
-                allow=["TEST_DB\\.PUBLIC\\..*"],
-                deny=[".*_INTERNAL"],
-            ),
-        }
-    )
-
-    assert config.semantic_view_pattern is not None
-    assert config.semantic_view_pattern.allowed("TEST_DB.PUBLIC.SALES_SV")
-    assert not config.semantic_view_pattern.allowed(
-        "TEST_DB.PUBLIC.INTERNAL_SV_INTERNAL"
-    )
-
-
-@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
-def test_get_semantic_views_for_database(mock_connection):
-    """Test fetching semantic views for a database."""
-    # Mock the connection query method
-    mock_cursor = MagicMock()
-    mock_cursor.__iter__ = MagicMock(
-        return_value=iter(
-            [
-                {
-                    "name": "test_semantic_view_1",
-                    "schema_name": "PUBLIC",
-                    "created_on": datetime.datetime.now(),
-                    "comment": "Test semantic view 1",
-                    "text": "yaml: definition 1",
-                },
-                {
-                    "name": "test_semantic_view_2",
-                    "schema_name": "PUBLIC",
-                    "created_on": datetime.datetime.now(),
-                    "comment": "Test semantic view 2",
-                    "text": "yaml: definition 2",
-                },
-            ]
-        )
-    )
-
-    mock_connection_instance = MagicMock()
-    mock_connection_instance.query.return_value = mock_cursor
-
-    report = SnowflakeV2Report()
-    data_dict = SnowflakeDataDictionary(
-        connection=mock_connection_instance,
-        report=report,
-    )
-
-    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
-
-    assert semantic_views is not None
-    assert "PUBLIC" in semantic_views
-    assert len(semantic_views["PUBLIC"]) == 2
-    assert semantic_views["PUBLIC"][0].name == "test_semantic_view_1"
-    assert semantic_views["PUBLIC"][1].name == "test_semantic_view_2"
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
@@ -178,9 +107,601 @@ def test_populate_semantic_view_base_tables(mock_connection):
     # Check that base tables were populated
     semantic_view = semantic_views["PUBLIC"][0]
     assert len(semantic_view.base_tables) == 2
-    assert ("TEST_DB", "PUBLIC", "CUSTOMERS") in semantic_view.base_tables
-    assert ("TEST_DB", "PUBLIC", "ORDERS") in semantic_view.base_tables
+
+    # Check base tables (they are SnowflakeTableIdentifier objects)
+    base_table_strs = [str(bt) for bt in semantic_view.base_tables]
+    assert "TEST_DB.PUBLIC.CUSTOMERS" in base_table_strs
+    assert "TEST_DB.PUBLIC.ORDERS" in base_table_strs
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_columns_with_dimensions(mock_connection):
+    """Test populating semantic view columns with dimensions."""
+    # Mock semantic views
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "sales_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Sales semantic view",
+        },
+    ]
+
+    # Mock dimensions
+    mock_dimensions_cursor = MagicMock()
+    mock_dimensions_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "NAME": "customer_name",
+            "DATA_TYPE": "VARCHAR",
+            "COMMENT": "Customer name",
+            "TABLE_NAME": "customers",
+            "SYNONYMS": '["client_name", "buyer_name"]',
+            "EXPRESSION": None,
+        },
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "NAME": "product_category",
+            "DATA_TYPE": "VARCHAR",
+            "COMMENT": "Product category",
+            "TABLE_NAME": "products",
+            "SYNONYMS": None,
+            "EXPRESSION": None,
+        },
+    ]
+
+    # Mock empty cursors for other queries
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+    mock_empty_cursor.fetchone.return_value = None
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "semantic_dimensions" in query_lower:
+            return mock_dimensions_cursor
+        elif (
+            "semantic_facts" in query_lower
+            or "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+            or "get_ddl" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    assert "PUBLIC" in semantic_views
+    semantic_view = semantic_views["PUBLIC"][0]
+
+    # Verify columns were populated
+    assert len(semantic_view.columns) == 2
+    assert semantic_view.columns[0].name == "customer_name"
+    assert semantic_view.columns[0].data_type == "VARCHAR"
+    assert semantic_view.columns[1].name == "product_category"
+
+    # Verify column subtypes
+    assert semantic_view.column_subtypes["CUSTOMER_NAME"] == "DIMENSION"
+    assert semantic_view.column_subtypes["PRODUCT_CATEGORY"] == "DIMENSION"
+
+    # Verify synonyms were parsed
+    assert "CUSTOMER_NAME" in semantic_view.column_synonyms
+    assert len(semantic_view.column_synonyms["CUSTOMER_NAME"]) == 2
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_columns_with_duplicates(mock_connection):
+    """Test handling of duplicate columns (same column appearing as dimension and fact)."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "sales_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Sales view",
+        },
+    ]
+
+    # Mock dimension
+    mock_dimensions_cursor = MagicMock()
+    mock_dimensions_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "NAME": "amount",
+            "DATA_TYPE": "NUMBER",
+            "COMMENT": "Amount as dimension",
+            "TABLE_NAME": "sales",
+            "SYNONYMS": None,
+            "EXPRESSION": None,
+        },
+    ]
+
+    # Mock fact with same name
+    mock_facts_cursor = MagicMock()
+    mock_facts_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "NAME": "amount",
+            "DATA_TYPE": "NUMBER",
+            "COMMENT": "Amount as fact",
+            "TABLE_NAME": "orders",
+            "SYNONYMS": None,
+            "EXPRESSION": None,
+        },
+    ]
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+    mock_empty_cursor.fetchone.return_value = None
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "semantic_dimensions" in query_lower:
+            return mock_dimensions_cursor
+        elif "semantic_facts" in query_lower:
+            return mock_facts_cursor
+        elif (
+            "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+            or "get_ddl" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    semantic_view = semantic_views["PUBLIC"][0]
+
+    # Should have only 1 deduplicated column
+    assert len(semantic_view.columns) == 1
+    assert semantic_view.columns[0].name == "amount"
+
+    # Should have merged subtype
+    assert semantic_view.column_subtypes["AMOUNT"] == "DIMENSION,FACT"
+
+    # Should have both table mappings
+    assert len(semantic_view.column_table_mappings["AMOUNT"]) == 2
+    assert "sales" in semantic_view.column_table_mappings["AMOUNT"]
+    assert "orders" in semantic_view.column_table_mappings["AMOUNT"]
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_semantic_view_with_metrics(mock_connection):
+    """Test semantic view with metric columns."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "metrics_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Metrics view",
+        },
+    ]
+
+    # Mock metrics
+    mock_metrics_cursor = MagicMock()
+    mock_metrics_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "metrics_view",
+            "NAME": "total_revenue",
+            "DATA_TYPE": "NUMBER",
+            "COMMENT": "Total revenue metric",
+            "TABLE_NAME": None,
+            "SYNONYMS": '["revenue", "sales_total"]',
+            "EXPRESSION": "SUM(amount)",
+        },
+    ]
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+    mock_empty_cursor.fetchone.return_value = None
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "semantic_metrics" in query_lower:
+            return mock_metrics_cursor
+        elif (
+            "semantic_dimensions" in query_lower
+            or "semantic_facts" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+            or "get_ddl" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    semantic_view = semantic_views["PUBLIC"][0]
+
+    # Verify metric column
+    assert len(semantic_view.columns) == 1
+    assert semantic_view.columns[0].name == "total_revenue"
+    assert semantic_view.columns[0].expression == "SUM(amount)"
+
+    # Verify subtype
+    assert semantic_view.column_subtypes["TOTAL_REVENUE"] == "METRIC"
+
+    # Verify synonyms
+    assert len(semantic_view.column_synonyms["TOTAL_REVENUE"]) == 2
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_orphaned_columns_warning(mock_connection):
+    """Test that orphaned columns (columns without corresponding semantic view) trigger warnings."""
+    # Mock semantic views - only one view
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "existing_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Existing view",
+        },
+    ]
+
+    # Mock dimensions - includes columns for a non-existent view
+    mock_dimensions_cursor = MagicMock()
+    mock_dimensions_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "existing_view",
+            "NAME": "valid_column",
+            "DATA_TYPE": "VARCHAR",
+            "COMMENT": "Valid column",
+            "TABLE_NAME": "table1",
+            "SYNONYMS": None,
+            "EXPRESSION": None,
+        },
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "missing_view",  # This view doesn't exist!
+            "NAME": "orphaned_column",
+            "DATA_TYPE": "VARCHAR",
+            "COMMENT": "Orphaned column",
+            "TABLE_NAME": "table2",
+            "SYNONYMS": None,
+            "EXPRESSION": None,
+        },
+    ]
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+    mock_empty_cursor.fetchone.return_value = None
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "semantic_dimensions" in query_lower:
+            return mock_dimensions_cursor
+        elif (
+            "semantic_facts" in query_lower
+            or "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+            or "get_ddl" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    # Should log warning but not crash
+    with patch(
+        "datahub.ingestion.source.snowflake.snowflake_schema.logger"
+    ) as mock_logger:
+        semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+        # Verify warning was logged for orphaned columns
+        warning_calls = [
+            call
+            for call in mock_logger.warning.call_args_list
+            if "missing_view" in str(call)
+        ]
+        assert len(warning_calls) > 0, "Expected warning for orphaned columns"
+
+    # Verify only valid view has columns
+    assert semantic_views is not None
+    assert "PUBLIC" in semantic_views
+    assert len(semantic_views["PUBLIC"]) == 1
+    assert semantic_views["PUBLIC"][0].name == "existing_view"
+    assert len(semantic_views["PUBLIC"][0].columns) == 1
+    assert semantic_views["PUBLIC"][0].columns[0].name == "valid_column"
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_synonym_case_insensitive_deduplication(mock_connection):
+    """Test that synonyms are deduplicated case-insensitively."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "test_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Test view",
+        },
+    ]
+
+    # Mock dimension appearing twice with synonyms in different cases
+    mock_dimensions_cursor = MagicMock()
+    mock_dimensions_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_view",
+            "NAME": "customer_id",
+            "DATA_TYPE": "NUMBER",
+            "COMMENT": "Customer ID as dimension",
+            "TABLE_NAME": "customers",
+            "SYNONYMS": '["client_id", "BUYER_ID", "Customer_Number"]',
+            "EXPRESSION": None,
+        },
+    ]
+
+    # Mock fact with same column and overlapping synonyms in different cases
+    mock_facts_cursor = MagicMock()
+    mock_facts_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_view",
+            "NAME": "customer_id",
+            "DATA_TYPE": "NUMBER",
+            "COMMENT": "Customer ID as fact",
+            "TABLE_NAME": "orders",
+            "SYNONYMS": '["CLIENT_ID", "buyer_id", "cust_id"]',  # CLIENT_ID and buyer_id are duplicates (different case)
+            "EXPRESSION": None,
+        },
+    ]
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+    mock_empty_cursor.fetchone.return_value = None
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "semantic_dimensions" in query_lower:
+            return mock_dimensions_cursor
+        elif "semantic_facts" in query_lower:
+            return mock_facts_cursor
+        elif (
+            "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+            or "get_ddl" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    semantic_view = semantic_views["PUBLIC"][0]
+
+    # Verify synonyms were deduplicated case-insensitively
+    synonyms = semantic_view.column_synonyms["CUSTOMER_ID"]
+    # Should have: client_id, BUYER_ID, Customer_Number, cust_id (4 unique case-insensitive)
+    # Not 6 (which would be without deduplication)
+    assert len(synonyms) == 4, (
+        f"Expected 4 deduplicated synonyms, got {len(synonyms)}: {synonyms}"
+    )
+
+    # Verify all expected synonyms are present (case-insensitive check)
+    synonyms_upper = [s.upper() for s in synonyms]
+    assert "CLIENT_ID" in synonyms_upper
+    assert "BUYER_ID" in synonyms_upper
+    assert "CUSTOMER_NUMBER" in synonyms_upper
+    assert "CUST_ID" in synonyms_upper
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_show_semantic_views_fallback_to_information_schema(mock_connection):
+    """Test fallback from SHOW SEMANTIC VIEWS to INFORMATION_SCHEMA queries."""
+    # First call to SHOW SEMANTIC VIEWS fails
+    show_call_count = [0]
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "show semantic views" in query_lower:
+            show_call_count[0] += 1
+            raise Exception("SHOW SEMANTIC VIEWS not supported")
+        else:
+            # Return empty for information_schema queries
+            mock_empty = MagicMock()
+            mock_empty.__iter__.return_value = []
+            return mock_empty
+
+    mock_connection_instance = MagicMock()
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    # Should return None when SHOW fails (indicating fallback needed)
+    result = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert result is None, "Expected None when SHOW SEMANTIC VIEWS fails"
+    assert show_call_count[0] == 1, "SHOW SEMANTIC VIEWS should have been called once"
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_ddl_fetch_success(mock_connection):
+    """Test successful DDL fetching via GET_DDL."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "test_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Test view",
+        },
+    ]
+
+    # Mock successful DDL fetch
+    mock_ddl_cursor = MagicMock()
+    mock_ddl_cursor.fetchone.return_value = {
+        "DDL": "CREATE SEMANTIC VIEW test_view AS SELECT * FROM base_table"
+    }
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "get_ddl" in query_lower:
+            return mock_ddl_cursor
+        elif (
+            "semantic_dimensions" in query_lower
+            or "semantic_facts" in query_lower
+            or "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    semantic_view = semantic_views["PUBLIC"][0]
+    assert semantic_view.view_definition is not None
+    assert "CREATE SEMANTIC VIEW" in semantic_view.view_definition
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_ddl_fetch_failure(mock_connection):
+    """Test graceful handling when DDL fetch fails."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "name": "test_view",
+            "schema_name": "PUBLIC",
+            "created_on": datetime.datetime.now(),
+            "comment": "Test view",
+        },
+    ]
+
+    # Mock DDL fetch that returns None
+    mock_ddl_cursor = MagicMock()
+    mock_ddl_cursor.fetchone.return_value = None
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str):
+        query_lower = query_str.lower()
+        if "get_ddl" in query_lower:
+            return mock_ddl_cursor
+        elif (
+            "semantic_dimensions" in query_lower
+            or "semantic_facts" in query_lower
+            or "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "semantic_relationships" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+    )
+
+    # Should log warning but not crash
+    with patch(
+        "datahub.ingestion.source.snowflake.snowflake_schema.logger"
+    ) as mock_logger:
+        semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+        # Verify warning was logged
+        warning_calls = [
+            call
+            for call in mock_logger.warning.call_args_list
+            if "get_ddl" in str(call).lower() or "ddl" in str(call).lower()
+        ]
+        assert len(warning_calls) > 0, "Expected warning for missing DDL"
+
+    assert semantic_views is not None
+    semantic_view = semantic_views["PUBLIC"][0]
+    # view_definition should remain None
+    assert semantic_view.view_definition is None

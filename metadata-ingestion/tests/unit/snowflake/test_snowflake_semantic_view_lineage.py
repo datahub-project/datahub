@@ -7,6 +7,7 @@ import pytest
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SemanticViewColumnMetadata,
     SnowflakeColumn,
     SnowflakeDataDictionary,
     SnowflakeSemanticView,
@@ -226,20 +227,24 @@ class TestSnowflakeSemanticViewColumnMerging:
     def test_merge_dimension_and_fact_with_different_descriptions(self, data_dict):
         """Test merging when same column is both DIMENSION and FACT with different descriptions."""
         occurrences = [
-            {
-                "name": "ORDER_ID",
-                "data_type": "NUMBER",
-                "comment": "Order identifier for lookups",
-                "subtype": "DIMENSION",
-                "expression": None,
-            },
-            {
-                "name": "ORDER_ID",
-                "data_type": "NUMBER",
-                "comment": "Order ID used in aggregations",
-                "subtype": "FACT",
-                "expression": "ORDER_ID",
-            },
+            SemanticViewColumnMetadata(
+                name="ORDER_ID",
+                data_type="NUMBER",
+                comment="Order identifier for lookups",
+                subtype="DIMENSION",
+                table_name=None,
+                synonyms=[],
+                expression=None,
+            ),
+            SemanticViewColumnMetadata(
+                name="ORDER_ID",
+                data_type="NUMBER",
+                comment="Order ID used in aggregations",
+                subtype="FACT",
+                table_name=None,
+                synonyms=[],
+                expression="ORDER_ID",
+            ),
         ]
 
         data_type, merged_comment, merged_subtype = data_dict._merge_column_metadata(
@@ -257,13 +262,15 @@ class TestSnowflakeSemanticViewColumnMerging:
     def test_merge_single_metric_with_expression(self, data_dict):
         """Test that single METRIC occurrence includes expression in comment."""
         occurrences = [
-            {
-                "name": "TOTAL_REVENUE",
-                "data_type": "NUMBER",
-                "comment": "Total revenue calculation",
-                "subtype": "METRIC",
-                "expression": "SUM(ORDERS.ORDER_TOTAL)",
-            },
+            SemanticViewColumnMetadata(
+                name="TOTAL_REVENUE",
+                data_type="NUMBER",
+                comment="Total revenue calculation",
+                subtype="METRIC",
+                table_name=None,
+                synonyms=[],
+                expression="SUM(ORDERS.ORDER_TOTAL)",
+            ),
         ]
 
         data_type, merged_comment, merged_subtype = data_dict._merge_column_metadata(
@@ -278,20 +285,24 @@ class TestSnowflakeSemanticViewColumnMerging:
     def test_merge_conflicting_data_types(self, data_dict):
         """Test merging when same column has conflicting data types (uses first)."""
         occurrences = [
-            {
-                "name": "VALUE",
-                "data_type": "NUMBER",
-                "comment": "Numeric value",
-                "subtype": "FACT",
-                "expression": None,
-            },
-            {
-                "name": "VALUE",
-                "data_type": "VARCHAR",
-                "comment": "String value",
-                "subtype": "DIMENSION",
-                "expression": None,
-            },
+            SemanticViewColumnMetadata(
+                name="VALUE",
+                data_type="NUMBER",
+                comment="Numeric value",
+                subtype="FACT",
+                table_name=None,
+                synonyms=[],
+                expression=None,
+            ),
+            SemanticViewColumnMetadata(
+                name="VALUE",
+                data_type="VARCHAR",
+                comment="String value",
+                subtype="DIMENSION",
+                table_name=None,
+                synonyms=[],
+                expression=None,
+            ),
         ]
 
         data_type, _, merged_subtype = data_dict._merge_column_metadata(
@@ -412,7 +423,3 @@ class TestSnowflakeSemanticViewDerivationResolution:
         # Result should be empty (no physical sources found due to cycle)
         assert isinstance(result, list)
         # Should complete without hanging
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

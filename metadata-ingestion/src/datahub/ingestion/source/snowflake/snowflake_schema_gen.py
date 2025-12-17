@@ -482,7 +482,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 views, snowflake_schema, db_name, schema_name
             )
 
-        if self.config.include_semantic_views:
+        if self.config.semantic_views.enabled:
             semantic_views = self.fetch_semantic_views_for_schema(
                 snowflake_schema, db_name
             )
@@ -615,9 +615,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         for semantic_view in semantic_views:
             upstream_urns = []
             if semantic_view.base_tables:
-                for base_db, base_schema, base_table in semantic_view.base_tables:
+                for base_table_id in semantic_view.base_tables:
                     base_table_identifier = self.identifiers.get_dataset_identifier(
-                        base_table, base_schema, base_db
+                        base_table_id.table,
+                        base_table_id.schema,
+                        base_table_id.database,
                     )
                     is_allowed = self.filters.is_dataset_pattern_allowed(
                         base_table_identifier, SnowflakeObjectDomain.TABLE
@@ -1112,7 +1114,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             )
 
         # Generate and emit column lineage AFTER schema
-        if self.config.include_semantic_view_column_lineage:
+        if self.config.semantic_views.column_lineage:
             try:
                 semantic_view_urn = self.identifiers.gen_dataset_urn(semantic_view_name)
                 column_lineages = self._generate_column_lineage_for_semantic_view(
@@ -2485,10 +2487,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_views = self.data_dictionary.get_semantic_views_for_database(db_name)
 
         if semantic_views is not None:
-            # Some schemas may not have any semantic views
             return semantic_views.get(schema_name, [])
 
-        # Fall back to per-schema queries if database-level query fails.
         return (
             self.data_dictionary.get_semantic_views_for_schema_using_information_schema(
                 db_name=db_name,

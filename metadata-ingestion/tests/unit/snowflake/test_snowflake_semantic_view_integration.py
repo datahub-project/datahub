@@ -3,6 +3,17 @@ Integration-level tests for Snowflake Semantic View ingestion.
 
 These tests cover end-to-end flows with realistic data, testing the interaction
 between multiple components (data dictionary, schema generator, lineage generation).
+
+NOTE: Despite being in the unit test folder, these are integration-style tests that
+test multiple components together. They use mocked Snowflake connections but test
+the full ingestion pipeline.
+
+TODO: Consider moving to tests/integration/snowflake/ and using golden MCE files
+for more comprehensive assertions instead of manual field checks. Golden files would:
+- Capture the complete output structure
+- Make it easier to spot regressions
+- Reduce test maintenance when output format changes
+- Follow the pattern used in other Snowflake integration tests
 """
 
 import datetime
@@ -17,6 +28,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
     SnowflakeDataDictionary,
     SnowflakeSemanticView,
+    SnowflakeTableIdentifier,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
@@ -242,8 +254,15 @@ class TestSemanticViewEndToEndFlow:
 
         # Verify base tables populated
         assert len(sv.base_tables) == 2
-        assert ("TEST_DB", "PUBLIC", "ORDERS") in sv.base_tables
-        assert ("TEST_DB", "PUBLIC", "CUSTOMERS") in sv.base_tables
+        # Check using SnowflakeTableIdentifier objects
+        orders_id = SnowflakeTableIdentifier(
+            database="TEST_DB", schema="PUBLIC", table="ORDERS"
+        )
+        customers_id = SnowflakeTableIdentifier(
+            database="TEST_DB", schema="PUBLIC", table="CUSTOMERS"
+        )
+        assert orders_id in sv.base_tables
+        assert customers_id in sv.base_tables
 
         # Verify logical to physical mapping
         assert "ORDERS" in sv.logical_to_physical_table
@@ -333,7 +352,7 @@ class TestSemanticViewLineageGeneration:
                 "account_id": "test",
                 "username": "user",
                 "password": "pass",
-                "include_semantic_view_column_lineage": True,
+                "semantic_views": {"enabled": True, "column_lineage": True},
             }
         )
         report = SnowflakeV2Report()
@@ -425,8 +444,12 @@ class TestSemanticViewLineageGeneration:
                 "CUSTOMERS": ("TEST_DB", "PUBLIC", "CUSTOMERS"),
             },
             base_tables=[
-                ("TEST_DB", "PUBLIC", "ORDERS"),
-                ("TEST_DB", "PUBLIC", "CUSTOMERS"),
+                SnowflakeTableIdentifier(
+                    database="TEST_DB", schema="PUBLIC", table="ORDERS"
+                ),
+                SnowflakeTableIdentifier(
+                    database="TEST_DB", schema="PUBLIC", table="CUSTOMERS"
+                ),
             ],
         )
 
@@ -467,8 +490,7 @@ class TestSemanticViewOrchestrationFlow:
                 "account_id": "test",
                 "username": "user",
                 "password": "pass",
-                "include_semantic_views": True,
-                "include_semantic_view_column_lineage": True,
+                "semantic_views": {"enabled": True, "column_lineage": True},
                 "include_technical_schema": True,
             }
         )
@@ -607,7 +629,7 @@ class TestSemanticViewOrchestrationFlow:
     def test_process_semantic_view_column_lineage_disabled(self, mock_schema_gen):
         """Test _process_semantic_view skips lineage when disabled."""
         gen = mock_schema_gen
-        gen.config.include_semantic_view_column_lineage = False
+        gen.config.semantic_views.column_lineage = False
 
         semantic_view = SnowflakeSemanticView(
             name="TEST_VIEW",
@@ -685,17 +707,6 @@ class TestSemanticViewOrchestrationFlow:
 class TestSemanticViewEdgeCases:
     """Test edge cases in semantic view processing."""
 
-    def test_empty_semantic_views_returns_empty_dict(self):
-        """Test handling when no semantic views exist."""
-        mock_conn = create_mock_connection({"semantic_views": []})
-        report = SnowflakeV2Report()
-        data_dict = SnowflakeDataDictionary(connection=mock_conn, report=report)
-
-        result = data_dict.get_semantic_views_for_database("TEST_DB")
-
-        assert result is not None
-        assert len(result) == 0
-
     def test_malformed_json_in_synonyms_handled_gracefully(self):
         """Test that malformed JSON in SYNONYMS field doesn't crash."""
         query_results = {
@@ -751,7 +762,3 @@ class TestSemanticViewEdgeCases:
         sv = result["PUBLIC"][0]
         # Should still have view, just no base tables
         assert len(sv.base_tables) == 0
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

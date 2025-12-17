@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -7,6 +8,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
+
+logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
@@ -317,7 +320,12 @@ WHERE TABLE_CATALOG = '{db_name}'
         semantic_view_pagination_marker: Optional[str] = None,
     ) -> str:
         # SHOW SEMANTIC VIEWS can return a maximum of 10000 rows.
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+        if limit > SHOW_COMMAND_MAX_PAGE_SIZE:
+            logger.warning(
+                f"Requested limit {limit} exceeds maximum page size {SHOW_COMMAND_MAX_PAGE_SIZE}, "
+                f"capping to {SHOW_COMMAND_MAX_PAGE_SIZE}"
+            )
+            limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
