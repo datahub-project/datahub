@@ -46,7 +46,7 @@ def recording() -> None:
 def info(archive_path: str, password: Optional[str], output_json: bool) -> None:
     """Display information about a recording archive.
 
-    ARCHIVE_PATH can be a local file or S3 URL.
+    archive_path can be a local file or S3 URL.
     """
     from datahub.ingestion.recording.archive import get_archive_info
     from datahub.ingestion.recording.config import (
@@ -150,7 +150,7 @@ def extract(
 ) -> None:
     """Extract a recording archive to a directory.
 
-    ARCHIVE_PATH can be a local file or S3 URL.
+    archive_path can be a local file or S3 URL.
     """
     from datahub.ingestion.recording.archive import RecordingArchive
     from datahub.ingestion.recording.config import (
@@ -209,7 +209,7 @@ def extract(
 def list_contents(archive_path: str, password: Optional[str]) -> None:
     """List contents of a recording archive.
 
-    ARCHIVE_PATH can be a local file or S3 URL.
+    archive_path can be a local file or S3 URL.
     """
     from datahub.ingestion.recording.archive import list_archive_contents
     from datahub.ingestion.recording.config import (

@@ -60,6 +60,7 @@ def _patch_requests_for_thread_safety() -> Callable[[], None]:
         pass  # Snowflake connector not installed
 
     def restore() -> None:
+        """Restore original request methods, removing thread-safety patches."""
         for cls, attr, original in originals:
             setattr(cls, attr, original)
 

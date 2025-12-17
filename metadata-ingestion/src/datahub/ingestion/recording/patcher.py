@@ -1025,6 +1025,7 @@ class MockQueryResult:
 
     @property
     def total_rows(self) -> int:
+        """Get the total number of rows in the result set."""
         return len(self.results)
 
     def result(self) -> "MockQueryResult":

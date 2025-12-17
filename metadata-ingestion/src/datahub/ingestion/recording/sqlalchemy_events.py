@@ -160,25 +160,61 @@ class _ResultIterator:
         raise StopIteration
 
     def fetchall(self):
+        """Fetch all rows from the result set.
+
+        Returns:
+            List of all rows.
+        """
         return self._rows
 
     def all(self):
+        """Return all rows from the result set (SQLAlchemy 2.x style).
+
+        Returns:
+            List of all rows.
+        """
         return self._rows
 
     def first(self):
+        """Return the first row or None if no rows.
+
+        Returns:
+            First row or None if result set is empty.
+        """
         return self._rows[0] if self._rows else None
 
     def one(self):
+        """Return exactly one row, raising ValueError if not exactly one.
+
+        Returns:
+            The single row.
+
+        Raises:
+            ValueError: If result set does not contain exactly one row.
+        """
         if len(self._rows) == 1:
             return self._rows[0]
         raise ValueError("Expected exactly one row")
 
     def one_or_none(self):
+        """Return one row or None if no rows, raising ValueError if multiple rows.
+
+        Returns:
+            The single row, or None if no rows.
+
+        Raises:
+            ValueError: If result set contains more than one row.
+        """
         if len(self._rows) == 1:
             return self._rows[0]
         return None
 
     def scalar(self):
+        """Return the first column of the first row, or None if no rows.
+
+        Returns:
+            Scalar value from first column of first row, or None if empty.
+        """
         if self._rows and len(self._rows) > 0:
             first_row = self._rows[0]
             if hasattr(first_row, "__getitem__"):

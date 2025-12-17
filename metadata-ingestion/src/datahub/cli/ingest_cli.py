@@ -885,7 +885,7 @@ def replay(
     """
     Replay a recorded ingestion run for debugging.
 
-    ARCHIVE_PATH can be a local file path or an S3 URL (s3://bucket/path/to/recording.zip).
+    archive_path can be a local file path or an S3 URL (s3://bucket/path/to/recording.zip).
 
     This command runs an ingestion using recorded HTTP and database responses,
     allowing offline debugging without network access.
