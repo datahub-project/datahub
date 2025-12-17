@@ -83,12 +83,12 @@ export default function LoginModal() {
                     onClick: handleSSOLogin,
                     variant: 'text',
                     color: 'gray',
-                    buttonDataTestId: 'sign-in',
                 },
                 {
                     text: 'Login',
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
+                    buttonDataTestId: 'sign-in',
                 },
             ]}
             onCancel={() => {}}
