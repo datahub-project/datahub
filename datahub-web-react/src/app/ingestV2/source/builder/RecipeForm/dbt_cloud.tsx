@@ -2,7 +2,13 @@ import { get } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setFieldValueOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 
 const TipSection = styled.div`
     margin-bottom: 12px;
@@ -216,7 +222,7 @@ export const INCLUDE_TEST_RESULTS: RecipeField = {
 };
 
 const nodeAllowFieldPath = 'source.config.node_name_pattern.allow';
-export const NODE_ALLOW: RecipeField = {
+export const NODE_ALLOW: FilterRecipeField = {
     name: 'node_name_pattern.allow',
     label: 'Allow Patterns',
     helper: 'Include specific dbt Nodes',
@@ -224,6 +230,7 @@ export const NODE_ALLOW: RecipeField = {
         'Only include specific dbt Nodes (resources) by providing their name, or a Regular Expression (REGEX). If not provided, all Nodes will be included.',
     placeholder: 'model_name',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: nodeAllowFieldPath,
     rules: null,
@@ -231,7 +238,7 @@ export const NODE_ALLOW: RecipeField = {
 };
 
 const nodeDenyFieldPath = 'source.config.node_name_pattern.deny';
-export const NODE_DENY: RecipeField = {
+export const NODE_DENY: FilterRecipeField = {
     name: 'node_name_pattern.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific dbt Nodes',
@@ -239,6 +246,7 @@ export const NODE_DENY: RecipeField = {
         'Exclude specific dbt Nodes (Resources) by providing their name, or a Regular Expression (REGEX). If not provided, all Nodes will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'node_name',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: nodeDenyFieldPath,
     rules: null,

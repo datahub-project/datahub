@@ -1,7 +1,8 @@
 import { useApolloClient } from '@apollo/client';
-import { Loader } from '@components';
+import { Loader, Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useMemo } from 'react';
+import deepEqual from 'fast-deep-equal';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useHistory, useLocation, useParams } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -22,6 +23,7 @@ import {
     mapSourceTypeAliases,
     removeExecutionsFromIngestionSource,
 } from '@app/ingestV2/source/utils';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { PageRoutes } from '@conf/Global';
 
@@ -47,6 +49,7 @@ export function IngestionSourceUpdatePage() {
     const history = useHistory();
     const location = useLocation();
     const client = useApolloClient();
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const ingestionSourcesListQueryInputs = useMemo(() => location.state?.queryInputs, [location.state]);
     const ingestionSourcesListBackUrl = useMemo(() => location.state?.backUrl, [location.state]);
@@ -66,6 +69,7 @@ export function IngestionSourceUpdatePage() {
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
+            setIsSubmitting(true);
 
             const shouldRun = options?.shouldRun;
             try {
@@ -97,6 +101,7 @@ export function IngestionSourceUpdatePage() {
                     interval: input.schedule?.interval,
                     numOwners: data.owners?.length,
                     outcome: shouldRun ? 'save_and_run' : 'save',
+                    ingestionOnboardingRedesignV1: true,
                 });
 
                 message.success({
@@ -117,6 +122,8 @@ export function IngestionSourceUpdatePage() {
                     });
                 }
             }
+
+            setIsSubmitting(false);
             return undefined;
         },
         [
@@ -135,19 +142,68 @@ export function IngestionSourceUpdatePage() {
         history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
     }, [history, ingestionSourcesListBackUrl]);
 
+    const isDirtyChecker = useCallback(
+        (
+            initialStateToCheck: MultiStepSourceBuilderState | undefined,
+            currentStateToCheck: MultiStepSourceBuilderState | undefined,
+        ) => {
+            // These fields could have differences without real changes so we exclude them from deepEqual comparison
+            const excludedFieldsFromComparison = {
+                isConnectionDetailsValid: null,
+                owners: null,
+                ingestionSource: null,
+            };
+            const initialStateToCompare = {
+                ...(initialStateToCheck ?? {}),
+                ...excludedFieldsFromComparison,
+            };
+            const currentStateToCompare = { ...(currentStateToCheck ?? {}), ...excludedFieldsFromComparison };
+
+            if (!deepEqual(initialStateToCompare, currentStateToCompare)) {
+                return true;
+            }
+
+            const initialOwnersUrns = new Set(
+                initialStateToCheck?.ingestionSource?.ownership?.owners?.map((owner) => owner.owner.urn) ?? [],
+            );
+            const currentOwnersUrns = new Set(currentStateToCheck?.owners?.map((owner) => owner.urn) ?? []);
+
+            // Check if the owner sets are different
+            return !(
+                initialOwnersUrns.size === currentOwnersUrns.size &&
+                [...initialOwnersUrns].every((value) => currentOwnersUrns.has(value))
+            );
+        },
+        [],
+    );
+
     if (!ingestionSourceData?.ingestionSource || loading) {
         return <Loader />;
     }
 
     return (
-        <IngestionSourceBuilder
-            steps={STEPS}
-            onSubmit={onSubmit}
-            onCancel={onCancel}
-            initialState={{
-                ...mapSourceTypeAliases(removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource)),
-                ...{ isEditing: true, ingestionSource: ingestionSourceData.ingestionSource as IngestionSource },
-            }}
-        />
+        <DiscardUnsavedChangesConfirmationProvider
+            enableRedirectHandling={!isSubmitting}
+            confirmationModalTitle="You have unsaved change"
+            confirmationModalText={
+                <>
+                    <Text type="span">You have unsaved changes to this source. </Text>
+                    <Text type="span" weight="bold">
+                        Are you sure you want to leave and discard your changes?
+                    </Text>
+                </>
+            }
+        >
+            <IngestionSourceBuilder
+                steps={STEPS}
+                onSubmit={onSubmit}
+                onCancel={onCancel}
+                initialState={{
+                    ...mapSourceTypeAliases(removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource)),
+                    ...{ isEditing: true, ingestionSource: ingestionSourceData.ingestionSource as IngestionSource },
+                }}
+                isDirtyChecker={isDirtyChecker}
+            />
+        </DiscardUnsavedChangesConfirmationProvider>
     );
 }
