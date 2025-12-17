@@ -10,6 +10,10 @@ source:
     # SSL verification for HTTPS connections
     verify_ssl: true # optional, default is true
 
+    # Ownership configuration
+    ingest_owners: true # optional, default is true - extract dashboard ownership
+    remove_email_suffix: true # optional, default is true - remove email suffix like @acryl.io
+
     # Source type mapping for lineage
     connection_to_platform_map:
       postgres:
