@@ -45,7 +45,6 @@ def attach_sqlalchemy_recorder(
         original_connect = engine.connect
 
         def wrapped_connect(*args: Any, **kwargs: Any) -> Any:
-            """Wrap engine.connect() to wrap the returned connection."""
             conn = original_connect(*args, **kwargs)
             return _wrap_connection_for_recording(conn)
 
@@ -239,18 +238,13 @@ def _create_wrapped_execute(original_execute: Any, recorder: QueryRecorder) -> A
     """
 
     def wrapped_execute(statement: Any, *args: Any, **kwargs: Any) -> Any:
-        """Wrapped execute that records queries and results."""
         query = _get_query_string(statement)
-
-        # Execute the query
         result = original_execute(statement, *args, **kwargs)
 
-        # Materialize and record results
         try:
             rows = list(result)
             results = _materialize_results(result) if rows else []
 
-            # Record the query
             recording = QueryRecording(
                 query=query,
                 parameters=kwargs.get("parameters") or (args[0] if args else None),
@@ -261,12 +255,10 @@ def _create_wrapped_execute(original_execute: Any, recorder: QueryRecorder) -> A
 
             logger.debug(f"Recorded SQL query: {query[:100]}... ({len(results)} rows)")
 
-            # Return iterator over materialized results
             return _ResultIterator(rows, result)
 
         except Exception as e:
             logger.error(f"Error recording query: {e}", exc_info=True)
-            # Record error but still return original result
             recording = QueryRecording(
                 query=query,
                 parameters=kwargs.get("parameters") or (args[0] if args else None),
@@ -284,7 +276,6 @@ def _wrap_connection_for_recording(conn: Any) -> Any:
     This is called when a connection is created from engine.connect().
     We wrap the execute method to intercept queries and materialize results.
     """
-    # Get engine from connection
     engine = getattr(conn, "engine", None)
     if not engine:
         logger.debug("No engine found on connection - skipping wrap")
@@ -298,15 +289,12 @@ def _wrap_connection_for_recording(conn: Any) -> Any:
 
     recorder, is_replay = recorder_info
     if is_replay:
-        # Replay handled by raw_connection wrapper
         return conn
 
-    # Check if connection has execute method
     if not hasattr(conn, "execute"):
         logger.warning("Connection does not have execute() method - cannot wrap")
         return conn
 
-    # Wrap the execute method to capture results
     original_execute = conn.execute
     logger.info("✅ Wrapping connection.execute() for recording")
     # Dynamically patch connection.execute() - intentional method assignment

@@ -219,14 +219,12 @@ class ModulePatcher:
 
                     # Get the true original - check if we already stored it, otherwise use current
                     if (module_path, func_name) in self._originals:
-                        # We've patched this before in this session, use stored original
                         original = self._originals[(module_path, func_name)]
                         logger.debug(
                             f"Module {module_path}.{func_name} already in _originals, "
                             f"using stored original (type={type(original).__name__}, id={id(original)})"
                         )
                     else:
-                        # First time patching - store the current function as original
                         original = current_func
                         self._originals[(module_path, func_name)] = original
                         logger.debug(
@@ -245,7 +243,6 @@ class ModulePatcher:
                     self._patched_modules.append(f"{module_path}.{func_name}")
 
             except ImportError:
-                # Module not installed, skip
                 logger.debug(f"Module {module_path} not installed, skipping")
 
     def _patch_clients(self) -> None:
@@ -277,11 +274,9 @@ class ModulePatcher:
 
         def wrapped_connect(*args: Any, **kwargs: Any) -> Any:
             if is_replay:
-                # In replay mode, return mock connection
                 logger.debug("Returning replay connection (no real DB connection)")
                 return ReplayConnection(recorder)
 
-            # In recording mode, wrap the real connection
             try:
                 real_connection = original_connect(*args, **kwargs)
                 logger.info("Database connection established (recording mode)")
@@ -291,8 +286,7 @@ class ModulePatcher:
                     is_replay=False,
                 )
             except Exception as e:
-                # Check if error might be from VCR interference
-                # This can happen with Snowflake (vendored urllib3) or Databricks (Thrift client)
+                # VCR can interfere with Snowflake (vendored urllib3) or Databricks (Thrift client)
                 if _is_vcr_interference_error(e):
                     logger.warning(
                         f"Database connection failed with VCR active. "
@@ -318,7 +312,6 @@ class ModulePatcher:
                                 is_replay=False,
                             )
                     except Exception as retry_error:
-                        # Bypass didn't help - this was a real connection error
                         logger.error(
                             f"Database connection failed even with VCR bypassed. "
                             f"This is a real connection error, not VCR interference. "
@@ -326,7 +319,6 @@ class ModulePatcher:
                         )
                         raise retry_error
                 else:
-                    # Not VCR-related, re-raise immediately
                     logger.error(f"Database connection failed: {e}")
                     raise
 
@@ -344,7 +336,6 @@ class ModulePatcher:
         is_replay = self.is_replay
 
         def wrapped_create_engine(*args: Any, **kwargs: Any) -> Any:
-            # Create the real engine
             engine = original_create_engine(*args, **kwargs)
 
             if is_replay:
@@ -412,8 +403,6 @@ class ModulePatcher:
                         )
 
                     # Reconstruct Dataset objects from recorded results
-                    # list_datasets() returns an iterator of Dataset objects (with reference attribute)
-                    # The results should be a list of dicts with dataset_id, project, etc.
                     from google.cloud.bigquery import Dataset
                     from google.cloud.bigquery.dataset import DatasetReference
 
@@ -425,10 +414,9 @@ class ModulePatcher:
                             dataset_id=result_dict.get("dataset_id", ""),
                         )
                         dataset = Dataset(dataset_ref)
-                        # Set additional properties if they were recorded
                         if "labels" in result_dict:
                             dataset.labels = result_dict["labels"]
-                        # Store _properties if available (used by BigQuery source)
+                        # _properties is used by BigQuery source to get location
                         if "_properties" in result_dict:
                             dataset._properties = result_dict["_properties"]  # type: ignore[attr-defined]
                         datasets.append(dataset)
@@ -441,17 +429,14 @@ class ModulePatcher:
                 # Recording mode - execute and record
                 try:
                     datasets_iter = super().list_datasets(*args, **kwargs)
-                    # Materialize the iterator to record it
                     datasets_list = list(datasets_iter)
 
-                    # Convert Dataset objects to dicts for recording
                     results = []
                     for dataset in datasets_list:
                         dataset_dict = {
                             "dataset_id": dataset.dataset_id,
                             "project": dataset.project,
                         }
-                        # Record additional properties if available
                         # _properties is used by BigQuery source to get location
                         if hasattr(dataset, "_properties") and isinstance(
                             dataset._properties, dict
@@ -461,7 +446,6 @@ class ModulePatcher:
                             dataset_dict["labels"] = dataset.labels
                         results.append(dataset_dict)
 
-                    # Record the call
                     recording_obj = QueryRecording(
                         query=call_key,
                         results=results,
@@ -471,7 +455,6 @@ class ModulePatcher:
 
                     logger.debug(f"Recorded list_datasets() - {len(results)} datasets")
 
-                    # Return the original iterator
                     return iter(datasets_list)
 
                 except Exception as e:
@@ -502,7 +485,6 @@ class ModulePatcher:
                             f"Recorded list_tables error: {recording.error}"
                         )
 
-                    # Reconstruct TableListItem objects from recorded results
                     # TableListItem is not directly constructible, so we create a mock class
                     from datetime import datetime
 
@@ -586,30 +568,24 @@ class ModulePatcher:
                     tables = []
                     for result_dict in recording.results:
                         try:
-                            # Create a mock TableListItem from the recorded data
                             table_item = MockTableListItem(
                                 table_id=result_dict.get("table_id", ""),
                                 dataset_id=result_dict.get("dataset_id", ""),
                                 project=result_dict.get("project", ""),
                             )
-                            # Set additional properties if they were recorded
                             if "table_type" in result_dict:
                                 table_item.table_type = result_dict["table_type"]
                             if "labels" in result_dict:
                                 table_item.labels = result_dict["labels"]
                             if "expires" in result_dict and result_dict["expires"]:
-                                # Parse ISO format datetime string
                                 expires_value = result_dict["expires"]
                                 if isinstance(expires_value, str):
-                                    # It's already a string, parse it
                                     table_item.expires = datetime.fromisoformat(
                                         expires_value.replace("Z", "+00:00")
                                     )
                                 elif isinstance(expires_value, datetime):
-                                    # It's already a datetime object (shouldn't happen, but handle it)
                                     table_item.expires = expires_value
                                 elif isinstance(expires_value, (int, float)):
-                                    # It's a timestamp, convert it
                                     table_item.expires = datetime.fromtimestamp(
                                         expires_value
                                     )
@@ -628,39 +604,32 @@ class ModulePatcher:
                             )
                             # Skip this table if we can't create it
                             continue
-                        if (
-                            "time_partitioning" in result_dict
-                            and result_dict["time_partitioning"]
-                        ):
-                            # Reconstruct TimePartitioning from dict
-                            tp_dict = result_dict["time_partitioning"]
-                            # Convert expiration_ms to int if needed (JSON may store as string/float)
-                            expiration_ms = tp_dict.get("expiration_ms")
-                            if expiration_ms is not None:
-                                try:
-                                    # Ensure expiration_ms is an int (JSON may store as string/float)
-                                    if isinstance(expiration_ms, (str, float)):
-                                        expiration_ms = int(expiration_ms)
-                                    elif isinstance(expiration_ms, int):
-                                        # Already an int, keep it
-                                        pass
-                                    else:
-                                        # Try to convert any other type to int
-                                        expiration_ms = int(expiration_ms)
-                                    # Verify it's actually an int now
-                                    if not isinstance(expiration_ms, int):
+                            if (
+                                "time_partitioning" in result_dict
+                                and result_dict["time_partitioning"]
+                            ):
+                                tp_dict = result_dict["time_partitioning"]
+                                # JSON may store expiration_ms as string/float, convert to int
+                                expiration_ms = tp_dict.get("expiration_ms")
+                                if expiration_ms is not None:
+                                    try:
+                                        if isinstance(expiration_ms, (str, float)):
+                                            expiration_ms = int(expiration_ms)
+                                        elif isinstance(expiration_ms, int):
+                                            pass
+                                        else:
+                                            expiration_ms = int(expiration_ms)
+                                        if not isinstance(expiration_ms, int):
+                                            logger.warning(
+                                                f"expiration_ms is still not an int after conversion: {expiration_ms} ({type(expiration_ms)}). Setting to None."
+                                            )
+                                            expiration_ms = None
+                                    except (ValueError, TypeError) as e:
                                         logger.warning(
-                                            f"expiration_ms is still not an int after conversion: {expiration_ms} ({type(expiration_ms)}). Setting to None."
+                                            f"Failed to convert expiration_ms to int: {expiration_ms} ({type(expiration_ms)}): {e}. Setting to None."
                                         )
                                         expiration_ms = None
-                                except (ValueError, TypeError) as e:
-                                    logger.warning(
-                                        f"Failed to convert expiration_ms to int: {expiration_ms} ({type(expiration_ms)}): {e}. Setting to None."
-                                    )
-                                    expiration_ms = None
-                            # Ensure all parameters are the correct type before creating TimePartitioning
                             try:
-                                # Double-check expiration_ms is int or None before creating TimePartitioning
                                 if expiration_ms is not None and not isinstance(
                                     expiration_ms, int
                                 ):
@@ -668,15 +637,13 @@ class ModulePatcher:
                                         f"expiration_ms is not int or None: {expiration_ms} ({type(expiration_ms)}). Setting to None."
                                     )
                                     expiration_ms = None
-                                # Handle require_partition_filter - preserve None if not set, otherwise convert to bool
+                                # Preserve None if not set, otherwise convert to bool
                                 require_partition_filter = tp_dict.get(
                                     "require_partition_filter"
                                 )
                                 if require_partition_filter is None:
-                                    # Not set in dict, use None (TimePartitioning default)
                                     require_partition_filter = None
                                 else:
-                                    # Explicitly set value, convert to bool
                                     require_partition_filter = bool(
                                         require_partition_filter
                                     )
@@ -687,7 +654,6 @@ class ModulePatcher:
                                     expiration_ms=expiration_ms,
                                     require_partition_filter=require_partition_filter,
                                 )
-                                # Verify the created object has the correct type
                                 if (
                                     table_item.time_partitioning
                                     and table_item.time_partitioning.expiration_ms
@@ -708,11 +674,9 @@ class ModulePatcher:
                                 table_item.time_partitioning = None
                         if "_properties" in result_dict:
                             table_item._properties = result_dict["_properties"]
-                        # Validate time_partitioning.expiration_ms is an int before it's used
-                        # This will catch the error early if expiration_ms is a string
+                        # Validate expiration_ms type to catch errors early
                         if table_item.time_partitioning:
                             try:
-                                # Access expiration_ms and ensure it's an int or None
                                 expiration_ms_val = (
                                     table_item.time_partitioning.expiration_ms
                                 )
@@ -723,10 +687,9 @@ class ModulePatcher:
                                         f"time_partitioning.expiration_ms is not int for table {result_dict.get('table_id')}: {expiration_ms_val} (type: {type(expiration_ms_val)}). This will cause 'str' object cannot be interpreted as an integer error. Setting to None.",
                                         exc_info=True,
                                     )
-                                    # Try to fix it by converting to int
                                     try:
                                         fixed_expiration_ms = int(expiration_ms_val)
-                                        # We can't directly set expiration_ms on TimePartitioning, so we need to recreate it
+                                        # TimePartitioning is immutable, recreate it
                                         tp = table_item.time_partitioning
                                         table_item.time_partitioning = TimePartitioning(
                                             field=tp.field,
@@ -744,7 +707,6 @@ class ModulePatcher:
                                     f"Unexpected error validating expiration_ms for table {result_dict.get('table_id')}: {e}",
                                     exc_info=True,
                                 )
-                                # Set to None to avoid the error
                                 table_item.time_partitioning = None
                         tables.append(table_item)
 
@@ -756,10 +718,8 @@ class ModulePatcher:
                 # Recording mode - execute and record
                 try:
                     tables_iter = super().list_tables(*args, **kwargs)
-                    # Materialize the iterator to record it
                     tables_list = list(tables_iter)
 
-                    # Convert TableListItem objects to dicts for recording
                     from datetime import datetime
 
                     results = []
@@ -775,7 +735,6 @@ class ModulePatcher:
                         if hasattr(table, "labels"):
                             table_dict["labels"] = table.labels
                         if hasattr(table, "expires") and table.expires:
-                            # Convert datetime to ISO format string
                             table_dict["expires"] = table.expires.isoformat()
                         if hasattr(table, "clustering_fields"):
                             table_dict["clustering_fields"] = table.clustering_fields
@@ -783,7 +742,6 @@ class ModulePatcher:
                             hasattr(table, "time_partitioning")
                             and table.time_partitioning
                         ):
-                            # Convert TimePartitioning to dict
                             tp = table.time_partitioning
                             table_dict["time_partitioning"] = {
                                 "field": tp.field,
@@ -795,7 +753,6 @@ class ModulePatcher:
                             table_dict["_properties"] = table._properties
                         results.append(table_dict)
 
-                    # Record the call
                     recording_obj = QueryRecording(
                         query=call_key,
                         results=results,
