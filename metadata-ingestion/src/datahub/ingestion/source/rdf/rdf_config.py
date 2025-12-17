@@ -55,6 +55,39 @@ class RDFSourceConfig(
             environment: PROD
         ```
 
+    Example with zip file:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: /path/to/rdf_data.zip
+            format: turtle
+            recursive: true
+            environment: PROD
+        ```
+
+    Example with zip file URL:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: https://example.org/rdf_data.zip
+            format: turtle
+            recursive: true
+            environment: PROD
+        ```
+
+    Example with web folder URL:
+        ```yaml
+        source:
+          type: rdf
+          config:
+            source: https://example.org/rdf_data/
+            format: turtle
+            recursive: true
+            environment: PROD
+        ```
+
     Example with filtering:
         ```yaml
         source:
@@ -69,8 +102,11 @@ class RDFSourceConfig(
     # Source Options
     source: str = Field(
         description=(
-            "Source to process: file path, folder path, server URL, or comma-separated files. "
-            "Examples: '/path/to/file.ttl', './rdf_data/', 'http://example.org/ontology.owl', '/path/to/file1.ttl,/path/to/file2.ttl'"
+            "Source to process: file path, folder path, zip file (local or remote), "
+            "web folder URL, server URL, or comma-separated files. "
+            "Examples: '/path/to/file.ttl', './rdf_data/', '/path/to/data.zip', "
+            "'http://example.org/data.zip', 'http://example.org/folder/', "
+            "'http://example.org/ontology.owl', '/path/to/file1.ttl,/path/to/file2.ttl'"
         )
     )
     format: Optional[str] = Field(
