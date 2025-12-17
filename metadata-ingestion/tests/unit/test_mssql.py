@@ -387,9 +387,6 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
     assert direct_step["database_name"] == "test_db"
 
 
-# Tests for automatic use_odbc detection when source type is mssql-odbc
-
-
 def test_mssql_odbc_type_auto_enables_use_odbc():
     """Test that use_odbc is automatically set to True when source type is mssql-odbc"""
     # Create a mock pipeline config with mssql-odbc source type
