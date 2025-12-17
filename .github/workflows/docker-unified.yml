@@ -858,7 +858,7 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
-          FILTERED_TESTS: ${{ steps.parse-failures.outputs.filtered_tests_file || '' }}
+          FILTERED_TESTS: ${{ steps.parse-cypress-failures.outputs.filtered_tests_file || steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
           DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
