@@ -804,4 +804,104 @@ describe('useChatStream', () => {
         const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
         expect(requestBody.context).toBeUndefined();
     });
+
+    it('should ignore SSE comments (keepalive messages) and continue processing', async () => {
+        // SSE comments start with ':' and are used for keepalives to prevent connection timeouts
+        // The frontend should silently ignore them and continue processing real messages
+        const mockResponse = {
+            ok: true,
+            body: {
+                getReader: vi.fn().mockReturnValue({
+                    read: vi
+                        .fn()
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode(
+                                'event: message\ndata: {"conversation_urn":"urn:li:agentConversation:test-conversation","message":{"type":"text","content":{"text":"Hello"}}}\n\n',
+                            ),
+                        })
+                        .mockResolvedValueOnce({
+                            done: false,
+                            // SSE comment for keepalive - should be ignored
+                            value: new TextEncoder().encode(': keepalive\n\n'),
+                        })
+                        .mockResolvedValueOnce({
+                            done: false,
+                            // Another keepalive variant
+                            value: new TextEncoder().encode(':\n\n'),
+                        })
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode(
+                                'event: message\ndata: {"conversation_urn":"urn:li:agentConversation:test-conversation","message":{"type":"text","content":{"text":" world"}}}\n\n',
+                            ),
+                        })
+                        .mockResolvedValueOnce({
+                            done: false,
+                            value: new TextEncoder().encode(
+                                'event: complete\ndata: {"conversation_urn":"urn:li:agentConversation:test-conversation"}\n\n',
+                            ),
+                        })
+                        .mockResolvedValueOnce({
+                            done: true,
+                            value: undefined,
+                        }),
+                }),
+            },
+        };
+
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const { result } = renderHook(() =>
+            useChatStream({
+                conversationUrn: mockConversationUrn,
+                onMessageReceived: mockOnMessageReceived,
+                onStreamComplete: mockOnStreamComplete,
+            }),
+        );
+
+        await act(async () => {
+            await result.current.sendMessage('Test message');
+        });
+
+        await waitFor(() => {
+            expect(result.current.isStreaming).toBe(false);
+        });
+
+        // Should complete successfully despite keepalive comments in the stream
+        expect(mockOnStreamComplete).toHaveBeenCalled();
+
+        // Should receive the actual text messages (keepalives should be silently ignored)
+        // Note: text messages are received individually, accumulation happens in hook state
+        expect(mockOnMessageReceived).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: 'text',
+                content: { text: 'Hello' },
+            }),
+        );
+        expect(mockOnMessageReceived).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: 'text',
+                content: { text: ' world' },
+            }),
+        );
+
+        // Verify keepalive comments were NOT passed to onMessageReceived
+        // SSE comments (lines starting with ':') should be silently ignored
+        const allCalls = mockOnMessageReceived.mock.calls;
+        allCalls.forEach((call) => {
+            const message = call[0];
+            // Ensure no message contains keepalive-related content
+            expect(message.content?.text).not.toContain('keepalive');
+            expect(message.content?.text).not.toBe(':');
+            expect(message.content?.text).not.toBe('');
+            expect(message.type).not.toBe('keepalive');
+        });
+
+        // Should only have received 2 messages (Hello and world), not 4 (with keepalives)
+        expect(mockOnMessageReceived).toHaveBeenCalledTimes(2);
+
+        // Verify no error occurred
+        expect(result.current.error).toBeNull();
+    });
 });

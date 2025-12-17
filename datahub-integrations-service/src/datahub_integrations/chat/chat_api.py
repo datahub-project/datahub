@@ -208,6 +208,11 @@ def send_streaming_message(
                 agent_name=request.agent_name,
                 message_context=request.context,
             ):
+                # Handle keepalive events with SSE comment format (ignored by clients)
+                if event.is_keepalive:
+                    yield ": keepalive\n\n"
+                    continue
+
                 sse_data = event_to_sse(event)
 
                 # Use appropriate event name based on whether it's an error

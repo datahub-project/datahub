@@ -204,12 +204,13 @@ The DataHub Integrations Service provides integrations between DataHub and exter
 
 #### Chat Assistant AI
 
-| Environment Variable           | Default                                                | Unit/Type | Components               | Description                                                                                                                                          |
-| ------------------------------ | ------------------------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CHATBOT_MODEL`                | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for DataHub chat assistant. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`)  |
-| `CHAT_SUMMARIZATION_MODEL`     | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for chat summary generation. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`) |
-| `CHATBOT_PLANNING_ENABLED`     | `true`                                                 | boolean   | [`Integrations Service`] | Enable planning mode for the DataHub chatbot to create and execute plans.                                                                            |
-| `CHATBOT_SMART_SEARCH_ENABLED` | `false`                                                | boolean   | [`Integrations Service`] | Enable smart search capabilities in the chatbot. **Note:** Smart search is only supported with AWS cloud.                                            |
+| Environment Variable                  | Default                                                | Unit/Type | Components               | Description                                                                                                                                          |
+| ------------------------------------- | ------------------------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHATBOT_MODEL`                       | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for DataHub chat assistant. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`)  |
+| `CHAT_SUMMARIZATION_MODEL`            | `bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0` | string    | [`Integrations Service`] | Model identifier for chat summary generation. Supports models from AWS bedrock (prefix: `bedrock/`) or Google Vertex AI (prefix: `google_vertexai/`) |
+| `CHATBOT_PLANNING_ENABLED`            | `true`                                                 | boolean   | [`Integrations Service`] | Enable planning mode for the DataHub chatbot to create and execute plans.                                                                            |
+| `CHATBOT_SMART_SEARCH_ENABLED`        | `false`                                                | boolean   | [`Integrations Service`] | Enable smart search capabilities in the chatbot. **Note:** Smart search is only supported with AWS cloud.                                            |
+| `CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS` | `20`                                                   | seconds   | [`Integrations Service`] | Interval between SSE keepalive messages during chat streaming. Prevents load balancer timeouts (typically 30s).                                      |
 
 #### Term Suggestion AI
 

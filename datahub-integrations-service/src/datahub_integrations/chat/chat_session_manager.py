@@ -38,6 +38,7 @@ from datahub_integrations.chat.agents import (
     create_ingestion_troubleshooting_agent,
 )
 from datahub_integrations.chat.chat_history import ChatHistory
+from datahub_integrations.chat.config import CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS
 from datahub_integrations.chat.datahub_ai_conversation_client import (
     DataHubAiConversationClient,
 )
@@ -51,13 +52,25 @@ from datahub_integrations.mcp_integration.tool import ToolWrapper
 class ChatMessageEvent:
     """Domain event for chat messages - transport-agnostic."""
 
-    message_type: str  # TEXT, THINKING, TOOL_CALL, TOOL_RESULT
+    message_type: str  # TEXT, THINKING, TOOL_CALL, TOOL_RESULT, KEEPALIVE
     text: str
     conversation_urn: str
     timestamp: int
     # Optional fields
     user_urn: Optional[str] = None  # Set for user messages
     error: Optional[str] = None  # Set if there was an error
+    is_keepalive: bool = False  # True for keepalive-only events
+
+    @classmethod
+    def keepalive(cls, conversation_urn: str) -> "ChatMessageEvent":
+        """Create a keepalive event to prevent SSE connection timeouts."""
+        return cls(
+            message_type="KEEPALIVE",
+            text="",
+            conversation_urn=conversation_urn,
+            timestamp=int(time.time() * 1000),
+            is_keepalive=True,
+        )
 
 
 class AgentFactory(Protocol):
@@ -332,14 +345,14 @@ class ChatSessionManager:
         try:
             while True:
                 try:
-                    event = progress_q.get(timeout=0.05)  # 50ms for low latency
+                    event = progress_q.get(timeout=CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS)
                     if event is None:  # None signals completion
                         completed_successfully = True
                         break
                     yield event
                 except queue.Empty:
-                    # Timeout - continue waiting (keepalives handled by caller)
-                    continue
+                    # Timeout expired - send keepalive to prevent connection timeout
+                    yield ChatMessageEvent.keepalive(conversation_urn)
         finally:
             # Mark as inactive if stream didn't complete successfully
             if not completed_successfully:

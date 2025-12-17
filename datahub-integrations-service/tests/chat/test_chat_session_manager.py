@@ -1121,5 +1121,127 @@ def test_send_message_with_message_context(mock_datahub_client: Mock) -> None:
             )
 
 
+def test_send_message_yields_keepalive_events(mock_datahub_client: Mock) -> None:
+    """Test that send_message yields keepalive events during long-running operations."""
+    import time
+
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
+
+    # Mock _generate_with_progress to take longer than keepalive interval
+    def slow_generate(session, progress_callback=None):
+        # Sleep for slightly longer than the keepalive interval
+        # We'll patch the interval to be very short for testing
+        time.sleep(0.15)
+        return NextMessage(text="Done", suggestions=[])
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        # Patch keepalive interval to be very short for testing (0.05 seconds)
+        with patch(
+            "datahub_integrations.chat.chat_session_manager.CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS",
+            0.05,
+        ):
+            with patch.object(
+                manager, "_generate_with_progress", side_effect=slow_generate
+            ):
+                urn = "urn:li:dataHubAiConversation:123"
+                events = list(
+                    manager.send_message(
+                        text="Test",
+                        user_urn="urn:li:corpuser:test",
+                        conversation_urn=urn,
+                    )
+                )
+
+                # Should have: user message + at least 1 keepalive + final response
+                keepalive_events = [e for e in events if e.is_keepalive]
+                assert len(keepalive_events) >= 1, (
+                    f"Expected at least 1 keepalive event, got {len(keepalive_events)}"
+                )
+
+                # Verify keepalive events have correct structure
+                for ka in keepalive_events:
+                    assert ka.message_type == "KEEPALIVE"
+                    assert ka.text == ""
+                    assert ka.conversation_urn == urn
+                    assert ka.is_keepalive is True
+
+
+def test_keepalive_resets_timer_on_real_events(mock_datahub_client: Mock) -> None:
+    """Test that keepalive timer resets when real events are yielded."""
+    import time
+
+    manager = ChatSessionManager(
+        system_client=mock_datahub_client, tools_client=mock_datahub_client
+    )
+
+    # Mock _generate_with_progress to emit progress updates frequently
+    # Note: progress callback expects CUMULATIVE updates (same pattern as FilteredProgressListener)
+    def generate_with_frequent_updates(session, progress_callback=None):
+        # Emit updates more frequently than keepalive interval
+        updates = []
+        for i in range(3):
+            updates.append(ProgressUpdate(text=f"Step {i}", message_type="THINKING"))
+            if progress_callback:
+                # Send cumulative list of all updates so far
+                progress_callback(list(updates))
+            time.sleep(0.03)  # Less than keepalive interval
+        return NextMessage(text="Done", suggestions=[])
+
+    with patch(
+        "datahub_integrations.chat.chat_session_manager.DataHubAiConversationClient"
+    ) as mock_cm:
+        mock_instance = mock_cm.return_value
+        mock_instance.load_conversation_with_metadata.return_value = (
+            ChatHistory(messages=[]),
+            ChatType.DATAHUB_UI,
+            None,
+        )
+        mock_instance.save_message_to_conversation = Mock()
+
+        # Patch keepalive interval to be slightly longer than update frequency
+        with patch(
+            "datahub_integrations.chat.chat_session_manager.CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS",
+            0.05,
+        ):
+            with patch.object(
+                manager,
+                "_generate_with_progress",
+                side_effect=generate_with_frequent_updates,
+            ):
+                urn = "urn:li:dataHubAiConversation:123"
+                events = list(
+                    manager.send_message(
+                        text="Test",
+                        user_urn="urn:li:corpuser:test",
+                        conversation_urn=urn,
+                    )
+                )
+
+                # Should NOT have keepalive events since real events reset the timer
+                keepalive_events = [e for e in events if e.is_keepalive]
+                thinking_events = [e for e in events if e.message_type == "THINKING"]
+
+                # We should have thinking events
+                assert len(thinking_events) == 3
+
+                # Keepalives should be minimal or zero since timer resets on each event
+                # Allow some keepalives but they shouldn't dominate
+                assert len(keepalive_events) <= len(thinking_events), (
+                    "Keepalives should not exceed real events when updates are frequent"
+                )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
