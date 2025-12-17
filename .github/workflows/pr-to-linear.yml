@@ -11,6 +11,7 @@ on:
 jobs:
   create-linear-ticket:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Close Linear ticket if PR closed
         if: github.event.action == 'closed'
@@ -118,7 +119,7 @@ jobs:
           echo "should_skip=false" >> $GITHUB_OUTPUT
 
           # Check if author is DataHub org member (for info only)
-          ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External Contribution")
+          ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External")
           echo "contributor_type=$ORG_CHECK" >> $GITHUB_OUTPUT
           echo "✅ Author: $AUTHOR ($ORG_CHECK)"
 
