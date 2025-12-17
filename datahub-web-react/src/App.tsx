@@ -10,6 +10,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
 
+import { ExternalScriptLoader } from '@app/ExternalScriptLoader';
 import { Routes } from '@app/Routes';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
@@ -89,6 +90,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <GlobalStyles />
+                <ExternalScriptLoader />
                 <FilesUploadingDownloadingLatencyTracker />
 
                 <Helmet>

@@ -35,6 +35,7 @@ export type Theme = {
     };
     assets: {
         logoUrl: string;
+        externalScripts?: string[];
     };
     content: {
         title: string;
