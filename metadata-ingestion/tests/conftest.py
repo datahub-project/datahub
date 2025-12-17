@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 import time
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -58,7 +58,9 @@ def mock_time(monkeypatch):
     yield
 
 
-def pytest_ignore_collect(collection_path, path, config):
+def pytest_ignore_collect(
+    collection_path: pathlib.Path, config: pytest.Config
+) -> Optional[bool]:
     """Prevent collecting non-recording tests when running recording batch.
 
     Pytest's collection phase imports all test files to check their markers.
@@ -73,13 +75,8 @@ def pytest_ignore_collect(collection_path, path, config):
     # Check if we're running with integration_batch_recording marker
     marker_expr = config.getoption("-m", default="")
     if marker_expr and "integration_batch_recording" in marker_expr:
-        # Convert path to pathlib.Path (handles both LocalPath and Path)
-        if hasattr(path, "strpath"):
-            # It's a py.path.local.LocalPath, convert it
-            path_obj = pathlib.Path(path.strpath)
-        else:
-            # It's already a pathlib.Path
-            path_obj = pathlib.Path(path)
+        # collection_path is already a pathlib.Path in pytest 7.0+
+        path_obj = collection_path
 
         # Only collect files from the recording directory
         root = pathlib.Path(config.rootpath)
