@@ -2,6 +2,8 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 
 
@@ -383,3 +385,110 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
     # Verify database_name is properly set
     assert sp_step["database_name"] == "test_db"
     assert direct_step["database_name"] == "test_db"
+
+
+class TestMssqlOdbcAutoDetection:
+    """Tests for automatic use_odbc detection when source type is mssql-odbc"""
+
+    def test_mssql_odbc_type_auto_enables_use_odbc(self):
+        """Test that use_odbc is automatically set to True when source type is mssql-odbc"""
+        # Create a mock pipeline config with mssql-odbc source type
+        mock_source_config = MagicMock()
+        mock_source_config.type = "mssql-odbc"
+
+        mock_pipeline_config = MagicMock(spec=PipelineConfig)
+        mock_pipeline_config.source = mock_source_config
+
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.pipeline_config = mock_pipeline_config
+
+        config_dict = {
+            "host_port": "localhost:1433",
+            "username": "test",
+            "password": "test",
+            "database": "test_db",
+            "uri_args": {"driver": "ODBC Driver 17 for SQL Server"},
+            "include_descriptions": False,
+        }
+
+        # Mock the parent class's __init__ to avoid DB connections
+        with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+            source = SQLServerSource.create(config_dict, mock_ctx)
+
+        # Verify use_odbc was automatically set to True
+        assert source.config.use_odbc is True
+
+    def test_mssql_type_does_not_auto_enable_use_odbc(self):
+        """Test that use_odbc remains False when source type is mssql (not mssql-odbc)"""
+        # Create a mock pipeline config with mssql source type
+        mock_source_config = MagicMock()
+        mock_source_config.type = "mssql"
+
+        mock_pipeline_config = MagicMock(spec=PipelineConfig)
+        mock_pipeline_config.source = mock_source_config
+
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.pipeline_config = mock_pipeline_config
+
+        config_dict = {
+            "host_port": "localhost:1433",
+            "username": "test",
+            "password": "test",
+            "database": "test_db",
+            "include_descriptions": False,
+        }
+
+        # Mock the parent class's __init__ to avoid DB connections
+        with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+            source = SQLServerSource.create(config_dict, mock_ctx)
+
+        # Verify use_odbc remains False (default)
+        assert source.config.use_odbc is False
+
+    def test_explicit_use_odbc_false_not_overridden(self):
+        """Test that explicit use_odbc: false is not overridden even with mssql-odbc type"""
+        # Create a mock pipeline config with mssql-odbc source type
+        mock_source_config = MagicMock()
+        mock_source_config.type = "mssql-odbc"
+
+        mock_pipeline_config = MagicMock(spec=PipelineConfig)
+        mock_pipeline_config.source = mock_source_config
+
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.pipeline_config = mock_pipeline_config
+
+        config_dict = {
+            "host_port": "localhost:1433",
+            "username": "test",
+            "password": "test",
+            "database": "test_db",
+            "use_odbc": False,  # Explicitly set to False
+            "include_descriptions": False,
+        }
+
+        # Mock the parent class's __init__ to avoid DB connections
+        with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+            source = SQLServerSource.create(config_dict, mock_ctx)
+
+        # Verify use_odbc respects explicit False value
+        assert source.config.use_odbc is False
+
+    def test_no_pipeline_config_does_not_crash(self):
+        """Test that source creation works when pipeline_config is None"""
+        mock_ctx = MagicMock(spec=PipelineContext)
+        mock_ctx.pipeline_config = None
+
+        config_dict = {
+            "host_port": "localhost:1433",
+            "username": "test",
+            "password": "test",
+            "database": "test_db",
+            "include_descriptions": False,
+        }
+
+        # Mock the parent class's __init__ to avoid DB connections
+        with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+            source = SQLServerSource.create(config_dict, mock_ctx)
+
+        # Verify use_odbc remains False (default) and no crash
+        assert source.config.use_odbc is False

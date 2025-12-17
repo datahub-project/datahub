@@ -321,6 +321,15 @@ class SQLServerSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "SQLServerSource":
+        # If source type is mssql-odbc, automatically enable use_odbc unless explicitly set
+        if (
+            ctx.pipeline_config
+            and hasattr(ctx.pipeline_config.source, "type")
+            and ctx.pipeline_config.source.type == "mssql-odbc"
+            and "use_odbc" not in config_dict
+        ):
+            config_dict = {**config_dict, "use_odbc": True}
+
         config = SQLServerConfig.model_validate(config_dict)
         return cls(config, ctx)
 
