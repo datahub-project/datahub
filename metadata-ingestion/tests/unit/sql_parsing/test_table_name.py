@@ -374,6 +374,121 @@ class TestOtherDialectsTempTables:
         )
 
 
+class TestDotExpressionTableNames:
+    """Tests for table names with more than 3 parts (Dot expressions).
+
+    When a table has more than 3 parts (e.g., a.b.c.d.table), SQLGlot
+    represents the table name as a Dot expression rather than a simple
+    Identifier. We need to handle this case for temp table detection.
+    """
+
+    def test_multipart_dot_table_name(self):
+        """Table with >3 parts should merge into table name."""
+        # Construct a Dot expression: a.b.tablename
+        dot_expr = sqlglot.exp.Dot(
+            this=sqlglot.exp.Identifier(this="a"),
+            expression=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="b"),
+                expression=sqlglot.exp.Identifier(this="tablename"),
+            ),
+        )
+        table = sqlglot.exp.Table(this=dot_expr)
+
+        result = _TableName.from_sqlglot_table(table)
+        assert result.table == "a.b.tablename"
+
+    def test_multipart_dot_local_temp_table(self):
+        """Dot expression with temporary flag should get # prefix."""
+        # Construct a Dot expression where the final identifier has temporary=True
+        dot_expr = sqlglot.exp.Dot(
+            this=sqlglot.exp.Identifier(this="a"),
+            expression=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="b"),
+                expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
+            ),
+        )
+        table = sqlglot.exp.Table(this=dot_expr)
+
+        result = _TableName.from_sqlglot_table(table)
+        assert result.table == "a.b.#temptable", (
+            f"Expected a.b.#temptable, got {result.table}"
+        )
+
+    def test_multipart_dot_global_temp_table(self):
+        """Dot expression with global_ flag should get ## prefix."""
+        # Construct a Dot expression where the final identifier has global_=True
+        dot_expr = sqlglot.exp.Dot(
+            this=sqlglot.exp.Identifier(this="a"),
+            expression=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="b"),
+                expression=sqlglot.exp.Identifier(
+                    this="globaltemp", **{"global_": True}
+                ),
+            ),
+        )
+        table = sqlglot.exp.Table(this=dot_expr)
+
+        result = _TableName.from_sqlglot_table(table)
+        assert result.table == "a.b.##globaltemp", (
+            f"Expected a.b.##globaltemp, got {result.table}"
+        )
+
+    def test_multipart_dot_no_temp_flags(self):
+        """Dot expression without temp flags should not get # prefix."""
+        dot_expr = sqlglot.exp.Dot(
+            this=sqlglot.exp.Identifier(this="part1"),
+            expression=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="part2"),
+                expression=sqlglot.exp.Identifier(this="regular_table"),
+            ),
+        )
+        table = sqlglot.exp.Table(this=dot_expr)
+
+        result = _TableName.from_sqlglot_table(table)
+        assert result.table == "part1.part2.regular_table"
+        assert not result.table.endswith("#regular_table")
+
+    def test_mssql_4part_temp_table_real_sql(self):
+        """Test 4-part temp table name with real SQL parsing.
+
+        4-part names (server.database.schema.table) create Dot expressions
+        in SQLGlot, which exercises the Dot branch in from_sqlglot_table.
+        """
+        sql = "SELECT * FROM server.mydb.dbo.#staging"
+        parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
+
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        assert len(tables) == 1
+
+        # Verify this creates a Dot expression (4-part name)
+        assert isinstance(tables[0].this, sqlglot.exp.Dot)
+
+        table_name = _TableName.from_sqlglot_table(tables[0])
+        # The # prefix should be restored in the merged table name
+        assert "#staging" in table_name.table, (
+            f"Expected #staging in table name, got {table_name.table}"
+        )
+
+    def test_mssql_4part_global_temp_table_real_sql(self):
+        """Test 4-part global temp table name with real SQL parsing."""
+        sql = "SELECT * FROM server.mydb.dbo.##globaltemp"
+        parsed = sqlglot.parse(sql, dialect="tsql")[0]
+        assert parsed is not None
+
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        assert len(tables) == 1
+
+        # Verify this creates a Dot expression
+        assert isinstance(tables[0].this, sqlglot.exp.Dot)
+
+        table_name = _TableName.from_sqlglot_table(tables[0])
+        # The ## prefix should be restored
+        assert "##globaltemp" in table_name.table, (
+            f"Expected ##globaltemp in table name, got {table_name.table}"
+        )
+
+
 class TestTableNameEquality:
     """Tests for _TableName equality and hashing."""
 

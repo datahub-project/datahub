@@ -84,7 +84,8 @@ class _TableName(_FrozenModel):
             parts.append(exp.name)
             table_name = ".".join(parts)
 
-            # For multi-part names, check the final identifier for temp flags
+            # For multi-part names (>3 parts), check the final identifier for temp flags.
+            # Note: MSSQL temp tables rarely have >3 parts, but we handle it for completeness.
             if hasattr(exp, "args"):
                 is_local_temp = exp.args.get("temporary", False)
                 is_global_temp = exp.args.get("global_", False)
