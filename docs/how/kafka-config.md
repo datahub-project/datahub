@@ -90,6 +90,7 @@ the System Update container for topic setup:
 #### Topic Setup
 
 - `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have datahub create them.
+  When enabled, DataHub will create missing topics and increase partition counts for existing topics that have fewer partitions than configured (Kafka does not support decreasing partition counts).
 
 ### MCE Consumer (datahub-mce-consumer)
 
