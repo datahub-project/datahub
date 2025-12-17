@@ -2,14 +2,18 @@
 """
 Simple RDF Graph Loader
 
-Supports loading RDF from files, folders, URLs, and glob patterns.
+Supports loading RDF from files, folders, URLs, zip files (local and remote),
+web folder URLs (HTML directory listings), and glob patterns.
 """
 
 import glob
+import io
 import logging
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import List, Optional, Set
+from urllib.parse import urljoin, urlparse
 
 import requests
 from rdflib import Graph
@@ -94,7 +98,8 @@ def load_rdf_graph(
     Load an RDF graph from various sources.
 
     Args:
-        source: File path, folder path, URL, comma-separated files, or glob pattern
+        source: File path, folder path, URL, zip file (local or remote),
+               web folder URL, comma-separated files, or glob pattern
         format: RDF format (auto-detected from extension if not specified)
         recursive: Enable recursive folder processing (default: True)
         file_extensions: File extensions to process when source is a folder
@@ -124,6 +129,29 @@ def load_rdf_graph(
 
     # Check if it's a server URL
     if source.startswith(("http://", "https://")):
+        # Check if it's a zip file URL
+        if _is_zip_url(source):
+            return _load_from_zip_url(
+                source,
+                recursive,
+                file_extensions,
+                format,
+                url_timeout,
+                max_url_size,
+                max_file_size,
+            )
+        # Check if it's a web folder (HTML directory listing)
+        if _is_web_folder_url(source):
+            return _load_from_web_folder(
+                source,
+                recursive,
+                file_extensions,
+                format,
+                url_timeout,
+                max_url_size,
+                max_file_size,
+            )
+        # Otherwise, treat as a single RDF file URL
         url_format = format or "turtle"
         if format:
             url_format = _validate_format(format)
@@ -139,6 +167,12 @@ def load_rdf_graph(
     if path.exists() and path.is_dir():
         return _load_folder(
             graph, path, recursive, file_extensions, format, max_file_size, base_dir
+        )
+
+    # Check if it's a zip file (local)
+    if path.exists() and path.is_file() and _is_zip_file(path):
+        return _load_from_zip_file(
+            path, recursive, file_extensions, format, max_file_size, base_dir
         )
 
     # Check if it's a single file (before glob)
@@ -540,6 +574,524 @@ def _load_folder(
         f"Loaded {len(graph)} triples from {files_loaded} files in {folder_path}"
     )
     return graph
+
+
+def _is_zip_file(path: Path) -> bool:
+    """
+    Check if a file is a zip file by extension or by trying to open it.
+
+    Args:
+        path: Path to file
+
+    Returns:
+        True if file is a zip file, False otherwise
+    """
+    # Check by extension first (fast)
+    zip_extensions = {".zip", ".jar", ".war", ".ear"}
+    if path.suffix.lower() in zip_extensions:
+        return True
+
+    # Try to open as zip file (more reliable)
+    try:
+        with zipfile.ZipFile(path, "r") as zf:
+            # Just check if we can read the file list
+            zf.testzip()
+            return True
+    except (zipfile.BadZipFile, IOError, OSError):
+        return False
+
+
+def _is_zip_url(url: str) -> bool:
+    """
+    Check if a URL points to a zip file.
+
+    Args:
+        url: URL to check
+
+    Returns:
+        True if URL likely points to a zip file, False otherwise
+    """
+    # Check by extension in URL
+    zip_extensions = {".zip", ".jar", ".war", ".ear"}
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+    return any(path.endswith(ext) for ext in zip_extensions)
+
+
+def _is_web_folder_url(url: str) -> bool:
+    """
+    Check if a URL is likely a web folder (HTML directory listing).
+
+    Args:
+        url: URL to check
+
+    Returns:
+        True if URL likely points to a web folder, False otherwise
+    """
+    # URLs ending with / are likely folders
+    if url.endswith("/"):
+        return True
+
+    # Check if URL doesn't have a file extension (likely a folder)
+    parsed = urlparse(url)
+    path = parsed.path
+    if not path or path == "/":
+        return True
+
+    # If path ends with /, it's a folder
+    if path.endswith("/"):
+        return True
+
+    # If no extension, might be a folder
+    if "." not in Path(path).name:
+        return True
+
+    return False
+
+
+def _load_from_zip_file(
+    zip_path: Path,
+    recursive: bool,
+    file_extensions: List[str],
+    format: Optional[str] = None,
+    max_file_size: int = DEFAULT_MAX_FILE_SIZE,
+    base_dir: Optional[str] = None,
+) -> Graph:
+    """
+    Load RDF from a local zip file.
+
+    Args:
+        zip_path: Path to zip file
+        recursive: Enable recursive processing
+        file_extensions: File extensions to process
+        format: RDF format (auto-detected if not specified)
+        max_file_size: Maximum file size in bytes for individual files
+        base_dir: Optional base directory for path traversal protection
+
+    Returns:
+        RDFLib Graph containing the loaded RDF data
+
+    Raises:
+        FileNotFoundError: If zip file doesn't exist
+        ValueError: If zip file is invalid or exceeds size limits
+        zipfile.BadZipFile: If file is not a valid zip file
+    """
+    if not zip_path.exists():
+        raise FileNotFoundError(f"Zip file not found: {zip_path}")
+
+    # Check zip file size
+    zip_size = zip_path.stat().st_size
+    if (
+        zip_size > max_file_size * 10
+    ):  # Allow larger zip files (10x individual file limit)
+        raise ValueError(
+            f"Zip file too large: {zip_size} bytes (max: {max_file_size * 10} bytes)"
+        )
+
+    graph = Graph()
+    files_loaded = 0
+
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # Get all file names in zip
+            file_names = zf.namelist()
+
+            for file_name in file_names:
+                # Skip directories
+                if file_name.endswith("/"):
+                    continue
+
+                # Check if file matches extensions
+                file_path = Path(file_name)
+                if file_path.suffix.lower() not in [
+                    ext.lower() for ext in file_extensions
+                ]:
+                    continue
+
+                # Check recursive processing
+                if not recursive and "/" in file_name:
+                    # Check if file is in a subdirectory
+                    parts = file_name.split("/")
+                    if len(parts) > 2:  # More than just filename
+                        continue
+
+                # Get file info for size check
+                try:
+                    file_info = zf.getinfo(file_name)
+                    if file_info.file_size > max_file_size:
+                        logger.warning(
+                            f"File {file_name} in zip too large ({file_info.file_size} bytes), skipping"
+                        )
+                        continue
+                except Exception as e:
+                    logger.warning(
+                        f"Could not check size of {file_name} in zip: {e}, skipping"
+                    )
+                    continue
+
+                # Validate path security (prevent zip slip attacks)
+                # Reject absolute paths and paths with .. components that could escape
+                if file_name.startswith("/") or ".." in file_name:
+                    logger.warning(
+                        f"Skipping {file_name}: potential zip slip attack detected (absolute path or '..' component)"
+                    )
+                    continue
+
+                # Read and parse file from zip
+                try:
+                    with zf.open(file_name) as file_in_zip:
+                        content = file_in_zip.read()
+                        format_str = format or _detect_format_from_extension(
+                            file_path.suffix
+                        )
+                        graph.parse(data=content, format=format_str)
+                        files_loaded += 1
+                        logger.debug(f"Loaded {file_name} from zip {zip_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to load {file_name} from zip: {e}")
+
+    except zipfile.BadZipFile:
+        raise ValueError(f"Invalid zip file: {zip_path}") from None
+    except Exception as e:
+        logger.error(f"Failed to process zip file {zip_path}: {e}")
+        raise
+
+    logger.info(
+        f"Loaded {len(graph)} triples from {files_loaded} files in zip {zip_path}"
+    )
+    return graph
+
+
+def _load_from_zip_url(
+    url: str,
+    recursive: bool,
+    file_extensions: List[str],
+    format: Optional[str] = None,
+    url_timeout: int = DEFAULT_URL_TIMEOUT,
+    max_url_size: int = DEFAULT_MAX_URL_SIZE,
+    max_file_size: int = DEFAULT_MAX_FILE_SIZE,
+) -> Graph:
+    """
+    Load RDF from a zip file URL.
+
+    Args:
+        url: URL to zip file
+        recursive: Enable recursive processing
+        file_extensions: File extensions to process
+        format: RDF format (auto-detected if not specified)
+        url_timeout: Request timeout in seconds
+        max_url_size: Maximum zip file size in bytes
+        max_file_size: Maximum file size in bytes for individual files in zip
+
+    Returns:
+        RDFLib Graph containing the loaded RDF data
+
+    Raises:
+        requests.RequestException: If request fails
+        ValueError: If zip file exceeds size limit or is invalid
+    """
+    graph = Graph()
+
+    try:
+        # Create session with retry strategy
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        session.max_redirects = 10
+
+        # Download zip file
+        response = session.get(url, timeout=url_timeout, stream=True)
+        response.raise_for_status()
+
+        # Check content length
+        content_length = None
+        if "content-length" in response.headers:
+            content_length = int(response.headers["content-length"])
+            if content_length > max_url_size:
+                raise ValueError(
+                    f"Zip file too large: {content_length} bytes (max: {max_url_size} bytes)"
+                )
+
+        # Download zip content
+        zip_content = b""
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                zip_content += chunk
+                if len(zip_content) > max_url_size:
+                    raise ValueError(
+                        f"Zip file exceeds size limit: {len(zip_content)} bytes "
+                        f"(max: {max_url_size} bytes)"
+                    )
+
+        # Process zip from memory
+        files_loaded = 0
+        with zipfile.ZipFile(io.BytesIO(zip_content), "r") as zf:
+            file_names = zf.namelist()
+
+            for file_name in file_names:
+                # Skip directories
+                if file_name.endswith("/"):
+                    continue
+
+                # Check if file matches extensions
+                file_path = Path(file_name)
+                if file_path.suffix.lower() not in [
+                    ext.lower() for ext in file_extensions
+                ]:
+                    continue
+
+                # Check recursive processing
+                if not recursive and "/" in file_name:
+                    parts = file_name.split("/")
+                    if len(parts) > 2:
+                        continue
+
+                # Get file info for size check
+                try:
+                    file_info = zf.getinfo(file_name)
+                    if file_info.file_size > max_file_size:
+                        logger.warning(
+                            f"File {file_name} in zip too large ({file_info.file_size} bytes), skipping"
+                        )
+                        continue
+                except Exception as e:
+                    logger.warning(
+                        f"Could not check size of {file_name} in zip: {e}, skipping"
+                    )
+                    continue
+
+                # Read and parse file from zip
+                try:
+                    with zf.open(file_name) as file_in_zip:
+                        content = file_in_zip.read()
+                        format_str = format or _detect_format_from_extension(
+                            file_path.suffix
+                        )
+                        graph.parse(data=content, format=format_str)
+                        files_loaded += 1
+                        logger.debug(f"Loaded {file_name} from zip URL {url}")
+                except Exception as e:
+                    logger.warning(f"Failed to load {file_name} from zip: {e}")
+
+        logger.info(
+            f"Loaded {len(graph)} triples from {files_loaded} files in zip from {url}"
+        )
+        return graph
+
+    except requests.Timeout:
+        raise ValueError(
+            f"Request to {url} timed out after {url_timeout} seconds"
+        ) from None
+    except requests.RequestException as e:
+        raise ValueError(f"Failed to load zip from URL {url}: {e}") from e
+    except zipfile.BadZipFile:
+        raise ValueError(f"Invalid zip file from URL: {url}") from None
+
+
+def _create_retry_session() -> requests.Session:
+    """Create a requests session with retry strategy."""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.max_redirects = 10
+    return session
+
+
+def _parse_html_directory_listing(
+    html_content: str, base_url: str, file_extensions: List[str], recursive: bool
+) -> tuple[List[str], List[str]]:
+    """Parse HTML directory listing and return (file_urls, folder_urls)."""
+    from html.parser import HTMLParser
+
+    class DirectoryListingParser(HTMLParser):
+        def __init__(self, base_url: str, file_extensions: List[str], recursive: bool):
+            super().__init__()
+            self.base_url = base_url
+            self.file_extensions = file_extensions
+            self.recursive = recursive
+            self.links: List[str] = []
+            self.folders: List[str] = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "a":
+                attrs_dict = dict(attrs)
+                href = attrs_dict.get("href", "")
+                if href and href != "../" and href != "../":
+                    # Resolve relative URL
+                    full_url = urljoin(self.base_url, href)
+                    # Check if it's a file or folder
+                    if href.endswith("/"):
+                        if self.recursive:
+                            self.folders.append(full_url)
+                    else:
+                        # Check if file matches extensions
+                        path = Path(href)
+                        if path.suffix.lower() in [
+                            ext.lower() for ext in self.file_extensions
+                        ]:
+                            self.links.append(full_url)
+
+    parser = DirectoryListingParser(base_url, file_extensions, recursive)
+    parser.feed(html_content)
+    return parser.links, parser.folders
+
+
+def _download_and_parse_rdf_file(
+    session: requests.Session,
+    file_url: str,
+    format: Optional[str],
+    url_timeout: int,
+    max_url_size: int,
+    graph: Graph,
+) -> bool:
+    """Download and parse a single RDF file. Returns True if successful."""
+    try:
+        file_response = session.get(file_url, timeout=url_timeout, stream=True)
+        file_response.raise_for_status()
+
+        # Check content length
+        if "content-length" in file_response.headers:
+            file_size = int(file_response.headers["content-length"])
+            if file_size > max_url_size:
+                logger.warning(
+                    f"File {file_url} too large ({file_size} bytes), skipping"
+                )
+                return False
+
+        # Download file content
+        file_content = b""
+        for chunk in file_response.iter_content(chunk_size=8192):
+            if chunk:
+                file_content += chunk
+                if len(file_content) > max_url_size:
+                    logger.warning(f"File {file_url} exceeds size limit, skipping")
+                    return False
+
+        if len(file_content) > max_url_size:
+            return False
+
+        # Parse RDF
+        file_path = Path(file_url)
+        format_str = format or _detect_format_from_extension(file_path.suffix)
+        graph.parse(data=file_content, format=format_str)
+        logger.debug(f"Loaded {file_url}")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Failed to load {file_url}: {e}")
+        return False
+
+
+def _load_from_web_folder(
+    url: str,
+    recursive: bool,
+    file_extensions: List[str],
+    format: Optional[str] = None,
+    url_timeout: int = DEFAULT_URL_TIMEOUT,
+    max_url_size: int = DEFAULT_MAX_URL_SIZE,
+    max_file_size: int = DEFAULT_MAX_FILE_SIZE,
+) -> Graph:
+    """
+    Load RDF from a web folder URL (HTML directory listing).
+
+    This function attempts to parse HTML directory listings and download
+    RDF files from the folder. This works with servers that provide HTML
+    directory listings (like Apache's mod_autoindex).
+
+    Args:
+        url: URL to web folder (should end with /)
+        recursive: Enable recursive processing (downloads from subfolders)
+        file_extensions: File extensions to process
+        format: RDF format (auto-detected if not specified)
+        url_timeout: Request timeout in seconds
+        max_url_size: Maximum file size in bytes for individual files
+        max_file_size: Maximum file size in bytes (same as max_url_size for consistency)
+
+    Returns:
+        RDFLib Graph containing the loaded RDF data
+
+    Raises:
+        requests.RequestException: If request fails
+        ValueError: If folder cannot be accessed or parsed
+    """
+    graph = Graph()
+
+    try:
+        # Ensure URL ends with /
+        if not url.endswith("/"):
+            url = url + "/"
+
+        # Create session with retry strategy
+        session = _create_retry_session()
+
+        # Fetch HTML directory listing
+        response = session.get(url, timeout=url_timeout)
+        response.raise_for_status()
+
+        # Check if response is HTML
+        content_type = response.headers.get("content-type", "").lower()
+        if "text/html" not in content_type:
+            raise ValueError(
+                f"URL {url} does not appear to be an HTML directory listing "
+                f"(content-type: {content_type})"
+            )
+
+        # Parse HTML to find links
+        file_urls, folder_urls = _parse_html_directory_listing(
+            response.text, url, file_extensions, recursive
+        )
+
+        files_loaded = 0
+
+        # Download and parse RDF files
+        for file_url in file_urls:
+            if _download_and_parse_rdf_file(
+                session, file_url, format, url_timeout, max_url_size, graph
+            ):
+                files_loaded += 1
+
+        # Recursively process subfolders if enabled
+        if recursive:
+            for folder_url in folder_urls:
+                try:
+                    subgraph = _load_from_web_folder(
+                        folder_url,
+                        recursive,
+                        file_extensions,
+                        format,
+                        url_timeout,
+                        max_url_size,
+                        max_file_size,
+                    )
+                    # Merge subgraph into main graph
+                    for triple in subgraph:
+                        graph.add(triple)
+                except Exception as e:
+                    logger.warning(f"Failed to process subfolder {folder_url}: {e}")
+
+        logger.info(
+            f"Loaded {len(graph)} triples from {files_loaded} files in web folder {url}"
+        )
+        return graph
+
+    except requests.Timeout:
+        raise ValueError(
+            f"Request to {url} timed out after {url_timeout} seconds"
+        ) from None
+    except requests.RequestException as e:
+        raise ValueError(f"Failed to load from web folder {url}: {e}") from e
 
 
 def _detect_format_from_extension(extension: str) -> str:
