@@ -64,8 +64,7 @@ jobs:
           "askumar27",
           "kyungsoo-datahub",
           "AdrianMachado",
-          "pdruley",
-          "alokr-dhub"
+          "pdruley"
           ]'),
           github.actor
           )
