@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.FieldConfiguration;
@@ -65,7 +66,9 @@ public class CustomizedQueryHandlerTest {
   public static final SearchQueryBuilder SEARCH_QUERY_BUILDER;
 
   static {
-    SEARCH_QUERY_BUILDER = new SearchQueryBuilder(new SearchConfiguration(), TEST_SEARCH_CONFIG);
+    SearchConfiguration searchConfiguration = new SearchConfiguration();
+    searchConfiguration.setValidation(new SearchValidationConfiguration());
+    SEARCH_QUERY_BUILDER = new SearchQueryBuilder(searchConfiguration, TEST_SEARCH_CONFIG);
   }
 
   private static final List<QueryConfiguration> EXPECTED_CONFIGURATION =
