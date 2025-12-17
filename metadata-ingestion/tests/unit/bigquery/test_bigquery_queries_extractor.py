@@ -7,7 +7,7 @@ patterns (AllowDenyPattern) to BigQuery SQL WHERE clauses using REGEXP_CONTAINS.
 Test Classes:
     TestBuildUserFilterFromPattern: Core filter building logic (27 tests)
     TestEscapeForBigQueryString: SQL-injection-safe escaping (6 tests)
-    TestIsAllowAllPattern: Allow-all pattern detection (6 tests)
+    TestIsAllowAllPattern: Allow-all pattern detection (8 tests)
     TestBuildEnrichedQueryLogQuery: Query builder integration (4 tests)
     TestIntegration: End-to-end flow tests (4 tests)
     TestFetchRegionQueryLogWithPushdown: Integration with extractor (2 tests)
@@ -375,6 +375,14 @@ class TestIsAllowAllPattern:
         assert _is_allow_all_pattern(["^.*$"]) is True
         assert _is_allow_all_pattern(["^.+$"]) is True
 
+    def test_whitespace_nonwhitespace_star_is_allow_all(self):
+        """Pattern [\\s\\S]* (whitespace + non-whitespace, zero or more) should be allow-all."""
+        assert _is_allow_all_pattern(["[\\s\\S]*"]) is True
+
+    def test_whitespace_nonwhitespace_plus_is_allow_all(self):
+        """Pattern [\\s\\S]+ (whitespace + non-whitespace, one or more) should be allow-all."""
+        assert _is_allow_all_pattern(["[\\s\\S]+"]) is True
+
     def test_specific_pattern_not_allow_all(self):
         """Specific patterns should not be allow-all."""
         assert _is_allow_all_pattern(["analyst_.*"]) is False
@@ -568,15 +576,15 @@ class TestFetchRegionQueryLogWithPushdown:
         mock_connection.query.return_value = iter([])  # Empty result set
         mock_report = MagicMock()
 
-        # Patch the logger to verify debug message
-        with (
-            patch(
-                "datahub.ingestion.source.bigquery_v2.queries_extractor.logger"
-            ) as mock_logger,
-            patch.object(
-                BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
-            ),
-        ):
+        # Patch the logger and __init__ to verify debug message
+        logger_patch = patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.logger"
+        )
+        init_patch = patch.object(
+            BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+        )
+
+        with logger_patch as mock_logger, init_patch:
             extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
             extractor.config = config
             extractor.connection = mock_connection

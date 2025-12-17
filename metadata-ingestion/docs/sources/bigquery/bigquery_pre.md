@@ -123,7 +123,7 @@ DataHub's BigQuery connector supports two approaches for extracting lineage and 
   - Query popularity statistics and rankings
   - Multi-region support via `region_qualifiers`
   - Table and column-level usage statistics
-  - User filtering pushdown for performance (`pushdown_user_filter` with `user_email_pattern`)
+  - User filtering pushdown for performance (see [User Email Filtering Pushdown](#user-email-filtering-pushdown-performance-optimization) section below)
 - **Requirements**:
   - `bigquery.jobs.listAll` permission on target projects
   - No additional Cloud Logging permissions needed
@@ -139,6 +139,39 @@ source:
     include_query_usage_statistics: true # Query popularity stats
     region_qualifiers: ["region-us", "region-eu"] # Multi-region support
 ```
+
+##### User Email Filtering Pushdown (Performance Optimization)
+
+The `pushdown_user_filter` option pushes down `user_email_pattern` filtering directly to BigQuery's SQL query, reducing data transfer and improving performance for large query volumes.
+
+**When to Use:**
+- You have large query volumes (>10k queries in your time window)
+- You're using `user_email_pattern` to filter users
+- You want to reduce BigQuery data transfer costs
+
+**Example Configuration:**
+
+```yaml
+source:
+  type: bigquery
+  config:
+    use_queries_v2: true  # Required for pushdown
+    pushdown_user_filter: true  # Enable pushdown optimization
+    user_email_pattern:
+      allow:
+        - "analyst_.*@example\\.com"
+      deny:
+        - "bot_.*"
+```
+
+**Behavior:**
+- When enabled: Filtering happens in BigQuery SQL using `REGEXP_CONTAINS()`
+- When disabled (default): Filtering happens client-side using Python regex
+- Both modes produce identical results; pushdown is purely a performance optimization
+
+**Prerequisites:**
+- `use_queries_v2: true` must be enabled (default)
+- Patterns must be valid regex (Python regex syntax is converted to BigQuery's RE2 syntax)
 
 #### Legacy Approach: `use_queries_v2: false`
 
