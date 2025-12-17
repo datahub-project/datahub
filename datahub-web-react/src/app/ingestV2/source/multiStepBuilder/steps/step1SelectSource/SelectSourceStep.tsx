@@ -4,12 +4,15 @@ import styled from 'styled-components';
 
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
 import {
     CARD_WIDTH,
+    EXTERNAL_SOURCE_REDIRECT_URL,
+    MISCELLANEOUS_CATEGORY_NAME,
     computeRows,
     groupByCategory,
     sortByPopularFirst,
@@ -84,12 +87,17 @@ export function SelectSourceStep() {
 
     const [showAllByCategory, setShowAllByCategory] = useState<Record<string, boolean>>({});
 
-    const onSelectCard = (platformName: string) => {
+    const onSelectCard = (platformSource: SourceConfig) => {
+        if (platformSource.isExternal) {
+            window.open(platformSource.docsUrl ?? EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
+            return;
+        }
+
         if (!isCurrentStepCompleted()) {
             setCurrentStepCompleted();
         }
         updateState({
-            type: platformName,
+            type: platformSource.name,
             // Reset state of the connection details form
             isConnectionDetailsValid: false,
             config: undefined,
@@ -118,14 +126,18 @@ export function SelectSourceStep() {
                 <CardsContainer>
                     {Object.entries(categories)
                         .sort(([a], [b]) => {
-                            if (a === 'Other') return 1;
-                            if (b === 'Other') return -1;
+                            if (a === MISCELLANEOUS_CATEGORY_NAME) return 1;
+                            if (b === MISCELLANEOUS_CATEGORY_NAME) return -1;
                             return a.localeCompare(b);
                         })
                         .map(([category, list]) => {
                             const sorted = sortByPopularFirst(list);
-                            const popular = sorted.filter((s) => s.isPopular);
-                            const nonPopular = sorted.filter((s) => !s.isPopular);
+                            const popular = sorted
+                                .filter((s) => s.isPopular)
+                                .sort((a, b) => a.displayName.localeCompare(b.displayName));
+                            const nonPopular = sorted
+                                .filter((s) => !s.isPopular)
+                                .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
                             const { visible: computedVisible, hidden: computedHidden } = computeRows(
                                 popular,
@@ -192,6 +204,7 @@ export function SelectSourceStep() {
                         })}
                 </CardsContainer>
             )}
+            <CreateSourceEducationModal />
         </StepContainer>
     );
 }
