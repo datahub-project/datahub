@@ -224,7 +224,6 @@ helm repo update
 helm install \
   --set global.datahub.executor.pool_id="remote" \
   --set global.datahub.gms.url="https://<your-company>.acryl.io/gms" \
-  --set image.tag=v0.3.10.2-acryl \
   acryl-executor-worker acryl/datahub-executor-worker
 ```
 
