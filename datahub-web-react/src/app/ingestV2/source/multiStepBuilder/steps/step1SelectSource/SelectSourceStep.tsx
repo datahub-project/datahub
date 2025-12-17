@@ -3,8 +3,8 @@ import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
