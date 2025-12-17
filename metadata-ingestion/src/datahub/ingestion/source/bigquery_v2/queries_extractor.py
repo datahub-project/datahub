@@ -482,7 +482,7 @@ class BigQueryQueriesExtractor(Closeable):
         self.aggregator.close()
 
 
-def _is_allow_all_pattern(allow_patterns: list) -> bool:
+def _is_allow_all_pattern(allow_patterns: List[str]) -> bool:
     """
     Check if allow patterns effectively match everything.
 
@@ -507,11 +507,15 @@ def _escape_for_bigquery_string(pattern: str) -> str:
     """
     Escape a regex pattern for safe use in a BigQuery SQL string literal.
 
-    BigQuery raw strings (r'...') don't support escaping quotes, which creates
-    SQL injection vulnerabilities. Instead, we use regular strings with proper
-    escaping:
-    1. Escape backslashes first (so regex escapes like \\d work correctly)
-    2. Escape single quotes (to prevent SQL injection)
+    Security Note:
+        This function is SQL-injection-safe. BigQuery raw strings (r'...')
+        don't support escaping quotes, which creates SQL injection vulnerabilities.
+        Instead, we use regular strings with proper two-step escaping:
+        1. Escape backslashes first (so regex escapes like \\d work correctly)
+        2. Escape single quotes (to prevent SQL injection)
+
+        The order is critical: if we escaped quotes first, a pattern like \\'
+        would become \\\\' which is a literal backslash followed by an unescaped quote.
 
     Args:
         pattern: The regex pattern to escape

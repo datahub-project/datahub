@@ -1,8 +1,22 @@
 """
 Unit tests for BigQuery queries extractor user filter functionality.
 
-Tests the _build_user_filter_from_pattern function that converts
-AllowDenyPattern (Python regex) to BigQuery SQL WHERE clauses.
+This module tests the pushdown_user_filter feature that converts Python regex
+patterns (AllowDenyPattern) to BigQuery SQL WHERE clauses using REGEXP_CONTAINS.
+
+Test Classes:
+    TestBuildUserFilterFromPattern: Core filter building logic (27 tests)
+    TestEscapeForBigQueryString: SQL-injection-safe escaping (6 tests)
+    TestIsAllowAllPattern: Allow-all pattern detection (6 tests)
+    TestBuildEnrichedQueryLogQuery: Query builder integration (4 tests)
+    TestIntegration: End-to-end flow tests (4 tests)
+    TestFetchRegionQueryLogWithPushdown: Integration with extractor (2 tests)
+
+Security Tests:
+    - SQL injection with quote breakout attempts
+    - Backslash-quote escape bypass attempts
+    - Multiple backslash edge cases
+    - Full integration security validation
 """
 
 from datetime import datetime, timezone
@@ -521,3 +535,114 @@ class TestIntegration:
         assert "attacker\\') OR 1=1 --" in query
         # The pattern should be fully contained within REGEXP_CONTAINS
         assert "NOT REGEXP_CONTAINS(user_email, 'attacker\\') OR 1=1 --')" in query
+
+
+class TestFetchRegionQueryLogWithPushdown:
+    """Tests for fetch_region_query_log with pushdown_user_filter enabled.
+
+    These tests cover the integration path where pushdown_user_filter=True
+    triggers the call to _build_user_filter_from_pattern.
+    """
+
+    def test_pushdown_user_filter_builds_filter_and_logs(self):
+        """Test that pushdown_user_filter=True builds filter and logs debug message."""
+        from unittest.mock import MagicMock, patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractor,
+            BigQueryQueriesExtractorConfig,
+        )
+
+        # Create a mock config with pushdown enabled
+        config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.pushdown_user_filter = True
+        config.user_email_pattern = AllowDenyPattern(
+            allow=["analyst_.*@example\\.com"], deny=["bot_.*"]
+        )
+        config.window = MagicMock()
+        config.window.start_time = None
+        config.window.end_time = None
+
+        # Create mock dependencies
+        mock_connection = MagicMock()
+        mock_connection.query.return_value = iter([])  # Empty result set
+        mock_report = MagicMock()
+
+        # Patch the logger to verify debug message
+        with (
+            patch(
+                "datahub.ingestion.source.bigquery_v2.queries_extractor.logger"
+            ) as mock_logger,
+            patch.object(
+                BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+            ),
+        ):
+            extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+            extractor.config = config
+            extractor.connection = mock_connection
+            extractor.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+            extractor.end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+            extractor.structured_report = mock_report
+
+            # Create mock project
+            mock_project = MagicMock()
+            mock_project.id = "test-project"
+
+            # Call fetch_region_query_log which should use pushdown filter
+            list(extractor.fetch_region_query_log(mock_project, "region-us"))
+
+            # Verify _build_user_filter_from_pattern was called (via the query)
+            # The query should contain our filter pattern
+            call_args = mock_connection.query.call_args[0][0]
+            assert "analyst_.*@example\\\\.com" in call_args
+            assert "NOT REGEXP_CONTAINS" in call_args
+            assert "bot_.*" in call_args
+
+            # Verify debug log was called
+            mock_logger.debug.assert_called()
+            debug_call = str(mock_logger.debug.call_args)
+            assert "pushdown user filter" in debug_call.lower()
+
+    def test_pushdown_disabled_uses_true_filter(self):
+        """Test that pushdown_user_filter=False uses TRUE as filter."""
+        from unittest.mock import MagicMock, patch
+
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractor,
+            BigQueryQueriesExtractorConfig,
+        )
+
+        # Create a mock config with pushdown DISABLED
+        config = MagicMock(spec=BigQueryQueriesExtractorConfig)
+        config.pushdown_user_filter = False
+        config.user_email_pattern = AllowDenyPattern(
+            allow=["analyst_.*@example\\.com"], deny=["bot_.*"]
+        )
+
+        # Create mock dependencies
+        mock_connection = MagicMock()
+        mock_connection.query.return_value = iter([])  # Empty result set
+        mock_report = MagicMock()
+
+        # Create extractor with mocked dependencies
+        with patch.object(
+            BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+        ):
+            extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
+            extractor.config = config
+            extractor.connection = mock_connection
+            extractor.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+            extractor.end_time = datetime(2024, 1, 2, tzinfo=timezone.utc)
+            extractor.structured_report = mock_report
+
+            # Create mock project
+            mock_project = MagicMock()
+            mock_project.id = "test-project"
+
+            # Call fetch_region_query_log
+            list(extractor.fetch_region_query_log(mock_project, "region-us"))
+
+            # Verify the query uses TRUE (no pushdown filter)
+            call_args = mock_connection.query.call_args[0][0]
+            # Should NOT contain the pattern (pushdown disabled)
+            assert "analyst_.*@example" not in call_args or "TRUE" in call_args
