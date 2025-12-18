@@ -2502,3 +2502,138 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **f8818da881** - feat(context): Context Base V1 Fix Ups (#15532)
   *by John Joyce on 2025-12-15*
 
+
+## Upstream Merge Session - 2025-12-18 23:35:49
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-18-233547`
+- **Merge Base**: `f8818da8816f6b5bf92f3fea5927d9fc01e04302`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 40
+- **Strategy**: stacked
+- **Started**: Thu Dec 18 23:35:49 UTC 2025
+
+### Commits Included in This Merge
+- **dcb37eb773** - fix(gh to linear): fix missing gh repo in action (#15678)
+  *by Gabe Lyons on 2025-12-15*
+
+- **af1533d3b1** - feat(ci): re-run only failed smokle-tests in workflow reruns (#15552)
+  *by Chakru on 2025-12-16*
+
+- **b01cf54e7a** - feat(ci): add workflow monitor for automatic retrigger on first failure (#15683)
+  *by Chakru on 2025-12-16*
+
+- **2af16d9848** - improvement(ui/ingestion): add external sources and update categories and pills of sources (#15542)
+  *by Purnima Garg on 2025-12-16*
+
+- **f59ab47543** - docs: fix broken link on slack setup docs (#15680)
+  *by Hyejin Yoon on 2025-12-17*
+
+- **0eac2fc4a9** - fix(dataplex): Several fixes and refactoring for the Dataplex MVP (#15677)
+  *by Patrick Druley on 2025-12-16*
+
+- **4a4aba9830** - feat(ui) Show ingestion onboarding popup on new select source screen (#15685)
+  *by Chris Collins on 2025-12-16*
+
+- **60a913bfa1** - feat(ui/signup): redesign the user sign up page (#15684)
+  *by Purnima Garg on 2025-12-16*
+
+- **15272de4e0** - feat(docs): Adding Context Base Python APIs + docs (#15319)
+  *by John Joyce on 2025-12-16*
+
+- **6508ac7738** - feat(ui/login): implement redesign of login page (#15686)
+  *by Purnima Garg on 2025-12-16*
+
+- **fb0c9cb8f6** - feat(ui) Update styling of the filters section in new ingestion forms (#15687)
+  *by Chris Collins on 2025-12-16*
+
+- **dff0f7c527** - feat(context): Remove "drafts" concept pre-release (#15536)
+  *by John Joyce on 2025-12-16*
+
+- **7f262628cb** - fix(ui) Fix linting error on master (#15692)
+  *by Chris Collins on 2025-12-16*
+
+- **50a8f36b3d** - feat: Add useFinalSidebarTabs hook for entity sidebar extensibility (#15690)
+  *by Anna Everhart on 2025-12-16*
+
+- **e07a2004ec** - feat(search): add basic search validations (#15369)
+  *by RyanHolstien on 2025-12-16*
+
+- **dd4565eb07** - fix(structured-properties): fix property definition version type (#15688)
+  *by david-leifker on 2025-12-16*
+
+- **3e00d3f655** - docs: fix command for remote executor helm chart & aws deploy (#15681)
+  *by Hyejin Yoon on 2025-12-17*
+
+- **8dd322a99f** - fix(pr-to-linear): make task non blocking (#15694)
+  *by Gabe Lyons on 2025-12-17*
+
+- **b4b728aef9** - fix(ci): handle empty smoke-test matrix (#15697)
+  *by Chakru on 2025-12-17*
+
+- **c6ceadbc4f** - feat(ci): publish workflow metrics to posthog (#15700)
+  *by Chakru on 2025-12-17*
+
+- **345122b1a8** - fix: adds missing tenacity dep for dataplex plugin (#15701)
+  *by Sergio Gómez Villamor on 2025-12-17*
+
+- **511d06934c** - Add Alok to pr-labeler.yml (#15705)
+  *by Alok Ranjan on 2025-12-17*
+
+- **1ec152d33b** - fix(ingestion/grafana): fix broken ownership ingestion (#15525)
+  *by David Haglund on 2025-12-17*
+
+- **fbdec88450** - chore: add dinesh-verma-datahub to pr-labeler team members (#15706)
+  *by dinesh-verma-datahub on 2025-12-17*
+
+- **bffb5abfdf** - updated pr-labeler.yml (#15708)
+  *by Alfiya S on 2025-12-17*
+
+- **6f35d83457** - fix(masking): mask passwords in SQLAlchemy URLs using correct encoding (#15696)
+  *by Alok Ranjan on 2025-12-17*
+
+- **e6715a509c** - feat(ingestion): add discard changes confirmation (#15543)
+  *by v-tarasevich-blitz-brain on 2025-12-17*
+
+- **d691669f06** - feat(ingestion): add descriptions to sources (#15671)
+  *by v-tarasevich-blitz-brain on 2025-12-17*
+
+- **3d899de721** - feat(ui): update design of reset credentials page (#15711)
+  *by Purnima Garg on 2025-12-18*
+
+- **19d07da237** - feat(ingestion): Add Redshift Query Tagging (#15676)
+  *by Adrian Machado on 2025-12-17*
+
+- **4241f2f70e** - feat(ci): test failure metric reporting (#15717)
+  *by Chakru on 2025-12-18*
+
+- **4fdf043f49** - fix(pr-to-linear): fixing possible error conditions (#15726)
+  *by Gabe Lyons on 2025-12-18*
+
+- **07bf7bba7e** - fix(reset-credentials): submit reset credentials form on enter and fix tests (#15724)
+  *by Purnima Garg on 2025-12-18*
+
+- **59b37cb64f** - feat(ui) Fix issues with new sign up page and show them be default (#15716)
+  *by Chris Collins on 2025-12-18*
+
+- **ba549a9827** - feat(hive): Add Thrift connection mode with Kerberos support to hive-metastore connector (#15691)
+  *by Max Margalith on 2025-12-18*
+
+- **d8e056b890** - feat(ingestion): Add OAuth callback support for Kafka producers/sinks (#15673)
+  *by Max Margalith on 2025-12-18*
+
+- **602a9ac6d3** - fix(ui): bring back change for fixing search bar loading style bug (#15720)
+  *by Purnima Garg on 2025-12-19*
+
+- **38cd22e0a5** - refactor(fivetran): update handling of database and schema names to use quoted identifiers  (#15321)
+  *by Anush Kumar on 2025-12-18*
+
+- **4fa222d88e** - fix(ui): update button styles for login/signup screens (#15722)
+  *by Purnima Garg on 2025-12-19*
+
+- **0b97a6680a** - feat(ingestion): add telemetry events for the new ingestion flow (#15721)
+  *by Purnima Garg on 2025-12-19*
+
