@@ -10,7 +10,6 @@ Usage:
     python setup_iglu.py
 """
 
-import json
 import logging
 import sys
 import time
@@ -43,9 +42,7 @@ def wait_for_iglu() -> bool:
         except requests.exceptions.RequestException:
             pass
 
-        logger.info(
-            f"Iglu Server not ready yet (attempt {attempt + 1}/{MAX_RETRIES})"
-        )
+        logger.info(f"Iglu Server not ready yet (attempt {attempt + 1}/{MAX_RETRIES})")
         time.sleep(RETRY_DELAY)
 
     logger.error("Iglu Server did not become ready in time")
@@ -206,9 +203,7 @@ def verify_schema(schema_path: str) -> bool:
             logger.info(f"✓ Verified schema: {schema_path}")
             return True
         else:
-            logger.error(
-                f"✗ Failed to verify {schema_path}: {response.status_code}"
-            )
+            logger.error(f"✗ Failed to verify {schema_path}: {response.status_code}")
             return False
     except requests.exceptions.RequestException as e:
         logger.error(f"✗ Error verifying {schema_path}: {e}")
@@ -240,7 +235,7 @@ def main():
     # Step 3: Verify schemas
     logger.info("Verifying uploaded schemas...")
     verify_count = 0
-    for schema_path in schemas.keys():
+    for schema_path in schemas:
         if verify_schema(schema_path):
             verify_count += 1
 

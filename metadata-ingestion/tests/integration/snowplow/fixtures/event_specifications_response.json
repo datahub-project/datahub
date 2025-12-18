@@ -11,6 +11,18 @@
       "event": {
         "source": "iglu:com.acme/checkout_started/jsonschema/1-1-0"
       },
+      "entities": {
+        "tracked": [
+          {
+            "source": "iglu:com.acme/user_context/jsonschema/1-0-0",
+            "minCardinality": 1
+          },
+          {
+            "source": "iglu:com.acme/session_context/jsonschema/1-0-0",
+            "minCardinality": 0
+          }
+        ]
+      },
       "eventSchemas": [
         {
           "vendor": "com.acme",
@@ -34,6 +46,14 @@
       "updatedAt": "2024-01-25T14:00:00Z",
       "event": {
         "source": "iglu:com.acme/product_viewed/jsonschema/1-0-0"
+      },
+      "entities": {
+        "tracked": [
+          {
+            "source": "iglu:com.acme/user_context/jsonschema/1-0-0",
+            "minCardinality": 0
+          }
+        ]
       },
       "eventSchemas": [
         {

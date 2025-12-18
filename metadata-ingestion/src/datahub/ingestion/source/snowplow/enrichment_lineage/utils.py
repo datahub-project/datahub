@@ -8,6 +8,8 @@ such as field name conversions and URN construction.
 import re
 from typing import Optional
 
+from datahub.emitter.mce_builder import make_schema_field_urn
+
 
 def camel_to_snake(name: str) -> str:
     """
@@ -41,20 +43,17 @@ def make_field_urn(dataset_urn: str, field_name: str) -> str:
     """
     Create a schemaField URN for a dataset field.
 
+    Uses DataHub's standard make_schema_field_urn to ensure correct URN format
+    for fine-grained lineage processing.
+
     Args:
-        dataset_urn: The URN of the dataset (e.g., 'urn:li:dataset:(...)')
+        dataset_urn: The full URN of the dataset (e.g., 'urn:li:dataset:(...)')
         field_name: The name of the field (e.g., 'user_ipaddress')
 
     Returns:
-        The schemaField URN (e.g., 'urn:li:schemaField:(...,user_ipaddress)')
+        The schemaField URN (e.g., 'urn:li:schemaField:(urn:li:dataset:(...),user_ipaddress)')
     """
-    # Remove urn:li:dataset: prefix and wrap in schemaField format
-    if dataset_urn.startswith("urn:li:dataset:"):
-        dataset_part = dataset_urn[len("urn:li:dataset:") :]
-        return f"urn:li:schemaField:({dataset_part},{field_name})"
-    else:
-        # Fallback: just append field name
-        return f"{dataset_urn}.{field_name}"
+    return make_schema_field_urn(dataset_urn, field_name)
 
 
 def parse_json_config(parameters: Optional[str]) -> dict:

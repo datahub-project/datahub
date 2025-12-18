@@ -153,24 +153,134 @@ class EventSchemaReference(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class EntitySchemaReference(BaseModel):
+    """
+    Reference to an entity/context schema within an event specification.
+
+    The API returns entity schemas with an Iglu URI format:
+    iglu:vendor/name/jsonschema/version
+
+    Example: iglu:com.datahub/user/jsonschema/1-0-0
+    """
+
+    source: str = Field(description="Iglu URI (iglu:vendor/name/jsonschema/version)")
+    min_cardinality: int = Field(
+        default=0,
+        alias="minCardinality",
+        description="Minimum number of times this entity must be attached (0 = optional)",
+    )
+    json_schema: Optional[Dict[str, Any]] = Field(
+        default=None,
+        alias="schema",
+        description="JSON Schema definition (optional, included in some API responses)",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    def parse_iglu_uri(self) -> tuple[str, str, str]:
+        """
+        Parse Iglu URI into vendor, name, version.
+
+        Example: iglu:com.datahub/user/jsonschema/1-0-0
+        Returns: ("com.datahub", "user", "1-0-0")
+        """
+        # Remove "iglu:" prefix
+        uri = self.source.replace("iglu:", "")
+
+        # Split by / -> ["com.datahub", "user", "jsonschema", "1-0-0"]
+        parts = uri.split("/")
+
+        if len(parts) != 4:
+            raise ValueError(f"Invalid Iglu URI format: {self.source}")
+
+        vendor = parts[0]
+        name = parts[1]
+        # Skip parts[2] which is "jsonschema"
+        version = parts[3]
+
+        return vendor, name, version
+
+
+class EntitiesSection(BaseModel):
+    """
+    Entities section from event specification API.
+
+    Documents which entity/context schemas are attached to this event.
+    """
+
+    tracked: List[EntitySchemaReference] = Field(
+        default_factory=list,
+        description="Entity schemas that are tracked with this event",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class EventSpecification(BaseModel):
-    """Event specification from BDP API."""
+    """
+    Event specification from BDP API.
+
+    Event specifications document which event and entity schemas are used together.
+    This allows creating accurate lineage showing which entities flow with which events.
+
+    API returns two formats:
+    1. List format: {"eventSchemas": [{vendor, name, version}, ...]}
+    2. Detail format: {"event": {"source": "iglu:..."}, "entities": {"tracked": [...]}}
+    """
 
     id: str = Field(description="Event specification ID")
     name: str = Field(description="Event specification name")
     description: Optional[str] = Field(
         None, description="Event specification description"
     )
+
+    # Legacy list format (still supported by some API endpoints)
     event_schemas: List[EventSchemaReference] = Field(
         default_factory=list,
         alias="eventSchemas",
-        description="Referenced event schemas",
+        description="Referenced event schemas (legacy list format)",
     )
+
+    # New detail format (used by individual event spec endpoint)
+    event: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Event schema reference with Iglu URI (detail format: {source: 'iglu:...'})",
+    )
+
+    entities: Optional[EntitiesSection] = Field(
+        default=None,
+        description="Entity schemas attached to this event (only in detail format)",
+    )
+
     status: Optional[str] = Field(None, description="Status (draft, published, etc.)")
     created_at: Optional[str] = Field(None, alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
+    data_product_id: Optional[str] = Field(None, alias="dataProductId")
 
     model_config = ConfigDict(populate_by_name=True)
+
+    def get_event_iglu_uri(self) -> Optional[str]:
+        """
+        Get the event Iglu URI from either format.
+
+        Returns:
+            Iglu URI string (e.g., "iglu:com.acme/checkout_started/jsonschema/1-0-0")
+            or None if not available
+        """
+        if self.event and "source" in self.event:
+            return self.event["source"]
+        return None
+
+    def get_entity_iglu_uris(self) -> List[str]:
+        """
+        Get all entity Iglu URIs attached to this event.
+
+        Returns:
+            List of Iglu URI strings
+        """
+        if not self.entities or not self.entities.tracked:
+            return []
+        return [entity.source for entity in self.entities.tracked]
 
 
 class EventSpecificationsResponse(BaseModel):

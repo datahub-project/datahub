@@ -14,8 +14,14 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.currency_co
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.event_fingerprint import (
     EventFingerprintLineageExtractor,
 )
+from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.iab_spiders_robots import (
+    IabSpidersRobotsLineageExtractor,
+)
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.ip_lookup import (
     IpLookupLineageExtractor,
+)
+from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.pii_pseudonymization import (
+    PiiPseudonymizationLineageExtractor,
 )
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.referer_parser import (
     RefererParserLineageExtractor,
@@ -23,10 +29,16 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.referer_par
 from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.ua_parser import (
     UaParserLineageExtractor,
 )
+from datahub.ingestion.source.snowplow.enrichment_lineage.extractors.yauaa import (
+    YauaaLineageExtractor,
+)
 
 __all__ = [
     "IpLookupLineageExtractor",
     "UaParserLineageExtractor",
+    "YauaaLineageExtractor",
+    "IabSpidersRobotsLineageExtractor",
+    "PiiPseudonymizationLineageExtractor",
     "RefererParserLineageExtractor",
     "CurrencyConversionLineageExtractor",
     "CampaignAttributionLineageExtractor",

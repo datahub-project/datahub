@@ -204,6 +204,25 @@ class FieldTaggingConfig(ConfigModel):
         "Disabled by default as it requires fetching all schema versions (slower ingestion).",
     )
 
+    # Structured properties vs tags
+    use_structured_properties: bool = Field(
+        default=True,
+        description="Use structured properties for field metadata instead of (or in addition to) tags. "
+        "Structured properties provide strongly-typed metadata with better querying capabilities. "
+        "When enabled, field authorship, version, timestamp, and classification are emitted as "
+        "structured properties on the schemaField entity. "
+        "Note: Requires structured property definitions to be registered in DataHub first. "
+        "See snowplow_field_structured_properties.yaml in the connector directory.",
+    )
+
+    emit_tags_and_structured_properties: bool = Field(
+        default=False,
+        description="Emit both tags and structured properties for fields. "
+        "When True, both tags and structured properties are emitted. "
+        "When False, only the method specified by use_structured_properties is used. "
+        "Useful during migration from tags to structured properties.",
+    )
+
     # Custom tag patterns
     schema_version_pattern: str = Field(
         default="snowplow_schema_v{version}",

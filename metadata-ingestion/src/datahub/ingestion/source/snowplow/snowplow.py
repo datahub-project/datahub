@@ -22,6 +22,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from pydantic import Field
 
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_container_urn,
     make_data_flow_urn,
     make_data_job_urn_with_flow,
@@ -31,6 +32,16 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.structured import (
+    StructuredPropertyDefinition,
+)
+from datahub.metadata.urns import (
+    DataTypeUrn,
+    EntityTypeUrn,
+    SchemaFieldUrn,
+    StructuredPropertyUrn,
+)
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -53,9 +64,12 @@ from datahub.ingestion.source.snowplow.enrichment_lineage import (
     CurrencyConversionLineageExtractor,
     EnrichmentLineageRegistry,
     EventFingerprintLineageExtractor,
+    IabSpidersRobotsLineageExtractor,
     IpLookupLineageExtractor,
+    PiiPseudonymizationLineageExtractor,
     RefererParserLineageExtractor,
     UaParserLineageExtractor,
+    YauaaLineageExtractor,
 )
 from datahub.ingestion.source.snowplow.field_tagging import (
     FieldTagContext,
@@ -84,6 +98,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ChangeTypeClass,
     ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
@@ -94,12 +109,17 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    PropertyValueClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -115,10 +135,14 @@ logger = logging.getLogger(__name__)
 # Constants
 WAREHOUSE_PLATFORM_MAP = {
     "snowflake": "snowflake",
+    "snowflake_db": "snowflake",  # Common variation
     "bigquery": "bigquery",
+    "bigquery_enterprise": "bigquery",  # Common variation
     "redshift": "redshift",
+    "red_shift": "redshift",  # Common variation
     "databricks": "databricks",
     "postgres": "postgres",
+    "postgresql": "postgres",  # Common variation
 }
 
 # Standard Snowplow atomic event columns
@@ -359,6 +383,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.enrichment_lineage_registry = EnrichmentLineageRegistry()
         self.enrichment_lineage_registry.register(IpLookupLineageExtractor())
         self.enrichment_lineage_registry.register(UaParserLineageExtractor())
+        self.enrichment_lineage_registry.register(YauaaLineageExtractor())
+        self.enrichment_lineage_registry.register(IabSpidersRobotsLineageExtractor())
+        self.enrichment_lineage_registry.register(PiiPseudonymizationLineageExtractor())
         self.enrichment_lineage_registry.register(RefererParserLineageExtractor())
         self.enrichment_lineage_registry.register(CurrencyConversionLineageExtractor())
         self.enrichment_lineage_registry.register(CampaignAttributionLineageExtractor())
@@ -372,6 +399,42 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self._cached_data_structures: Optional[List[DataStructure]] = None
         self._cached_event_schema_urns: Optional[List[str]] = None
 
+        # Event-specific DataFlow mapping (for new architecture)
+        self._event_spec_dataflow_urns: Dict[
+            str, str
+        ] = {}  # event_spec_id -> dataflow_urn
+        self._physical_pipeline: Optional[Any] = None  # Reference to physical pipeline
+
+        # Atomic event dataset URN (standard Snowplow event fields)
+        self._atomic_event_urn: Optional[str] = None
+
+        # Parsed Events dataset URN (intermediate dataset after collector/parser, before enrichments)
+        self._parsed_events_urn: Optional[str] = None
+
+        # Warehouse table URN cache (performance optimization - computed once, reused across enrichments/loader)
+        self._warehouse_table_urn_cache: Optional[str] = None
+
+        # Extracted schema URNs cache (for pipeline collector job)
+        self._extracted_schema_urns: List[str] = []
+
+        # Cached schema fields for Event dataset
+        self._atomic_event_fields: List[SchemaFieldClass] = []
+        self._extracted_schema_fields: List[
+            Tuple[str, SchemaFieldClass]
+        ] = []  # (schema_urn, field)
+
+        # Track event spec for parsed events dataset naming
+        self._event_spec_id: Optional[str] = (
+            None  # Event spec ID (e.g., "650986b2-ad4a-453f-a0f1-4a2df337c31d")
+        )
+        self._event_spec_name: Optional[str] = (
+            None  # Event spec name (e.g., "checkout_started")
+        )
+
+        # Track first event schema for parsed events dataset naming (fallback when no event spec)
+        self._first_event_schema_vendor: Optional[str] = None
+        self._first_event_schema_name: Optional[str] = None
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnowplowSource":
         config = SnowplowSourceConfig.model_validate(config_dict)
@@ -382,23 +445,45 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         Main extraction logic.
 
         Order:
+        0. Register structured property definitions (if using structured properties)
         1. Emit organization container
-        2. Extract event and entity schemas
-        3. Extract event specifications (BDP only)
-        4. Extract tracking scenarios (BDP only)
-        5. Extract warehouse lineage (optional)
+        2. Create atomic event dataset (synthetic schema for enrichment lineage)
+        3. Extract event and entity schemas
+        4. Extract event specifications (BDP only)
+        5. Extract tracking scenarios (BDP only)
+        6. Extract warehouse lineage (optional)
         """
+
+        # Register structured property definitions if enabled
+        if self.config.field_tagging.use_structured_properties:
+            logger.info("Registering Snowplow field structured property definitions")
+            yield from self._register_structured_properties()
+
+            # Wait for DataHub's structured properties cache to invalidate
+            # This ensures the properties are available when we try to use them
+            cache_invalidation_seconds = 10
+            logger.info(
+                f"Waiting {cache_invalidation_seconds} seconds for structured properties cache to invalidate"
+            )
+            time.sleep(cache_invalidation_seconds)
 
         # Emit organization container
         if self.bdp_client and self.config.bdp_connection:
             yield from self._process_organization()
 
+        # Create atomic event dataset (for enrichment lineage)
+        yield from self._create_atomic_event_dataset()
+
         # Extract schemas
         yield from self._extract_schemas()
 
-        # Extract event specifications (BDP only)
+        # Extract event specifications (BDP only) - MUST be before parsed events dataset creation
+        # so we can capture the event spec ID and name for dataset naming
         if self.config.extract_event_specifications and self.bdp_client:
             yield from self._extract_event_specifications()
+
+        # Create parsed events dataset (intermediate output of collector/parser, input to enrichments)
+        yield from self._create_parsed_events_dataset()
 
         # Extract tracking scenarios (BDP only)
         if self.config.extract_tracking_scenarios and self.bdp_client:
@@ -453,6 +538,365 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 "platform": "snowplow",
                 "connection_mode": self.report.connection_mode,
             },
+        )
+
+    def _create_atomic_event_dataset(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Create a synthetic dataset representing the Snowplow Atomic Event schema.
+
+        The atomic event schema contains ~130 standard fields defined in the canonical event model.
+        Only ~12 fields are REQUIRED (always populated): app_id, platform, collector_tstamp, event,
+        event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version.
+
+        Other fields like user_ipaddress, page_urlquery, geo_country, mkt_medium are OPTIONAL but
+        part of the standard schema. Enrichments read from these atomic event schema fields and write
+        enriched fields to the warehouse table.
+
+        This dataset represents the SCHEMA (what fields are available), not a guarantee that all
+        fields are populated on every event. This is correct for field-level lineage purposes - we
+        model what fields enrichments CAN read/write based on schema, not runtime data presence.
+
+        Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/
+        Schema definition: https://github.com/snowplow/snowplow/blob/master/4-storage/redshift-storage/sql/atomic-def.sql
+        """
+        # Create URN for atomic event dataset (Event Core)
+        # Use direct dataset name without vendor prefix (synthetic Snowplow concept, not an Iglu schema)
+        self._atomic_event_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name="event_core",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        # Define standard Snowplow atomic event fields that enrichments commonly read/write
+        # Based on: https://github.com/snowplow/snowplow/blob/master/4-storage/redshift-storage/sql/atomic-def.sql
+        atomic_fields = [
+            # App & Platform (REQUIRED fields)
+            ("app_id", "Application ID (REQUIRED)"),
+            ("platform", "Platform - web, mobile, server, etc. (REQUIRED)"),
+            # Event metadata (REQUIRED fields)
+            ("event_id", "Unique event ID (REQUIRED)"),
+            ("event", "Event type - page_view, struct, unstruct, etc. (REQUIRED)"),
+            ("event_name", "Event name for custom events (REQUIRED)"),
+            ("event_vendor", "Event vendor (REQUIRED)"),
+            ("event_format", "Event format (REQUIRED)"),
+            ("event_version", "Event version (REQUIRED)"),
+            ("collector_tstamp", "Collector timestamp (REQUIRED)"),
+            # Tracker information (v_tracker REQUIRED)
+            ("name_tracker", "Tracker name (optional)"),
+            ("v_tracker", "Tracker version (REQUIRED)"),
+            ("v_collector", "Collector version (REQUIRED)"),
+            ("v_etl", "ETL version (REQUIRED)"),
+            # Timestamps (optional)
+            ("etl_tstamp", "ETL timestamp (optional)"),
+            ("dvce_created_tstamp", "Device timestamp (optional)"),
+            ("dvce_sent_tstamp", "Device sent timestamp (optional)"),
+            ("derived_tstamp", "Derived timestamp (optional)"),
+            ("true_tstamp", "True timestamp (optional)"),
+            # User identifiers (optional)
+            ("user_id", "User ID from tracker (optional)"),
+            (
+                "user_ipaddress",
+                "User IP address (optional) - commonly read by IP Lookup enrichment",
+            ),
+            ("user_fingerprint", "User fingerprint (optional)"),
+            ("domain_userid", "Domain user ID - 1st party cookie (optional)"),
+            ("domain_sessionid", "Domain session ID (optional)"),
+            ("domain_sessionidx", "Domain session index (optional)"),
+            ("network_userid", "Network user ID - 3rd party cookie (optional)"),
+            # Page fields (optional)
+            (
+                "page_url",
+                "Page URL (optional) - commonly read by URL Parser enrichment",
+            ),
+            (
+                "page_urlquery",
+                "Page URL query string (optional) - commonly read by Campaign Attribution enrichment",
+            ),
+            (
+                "page_referrer",
+                "Page referrer URL (optional) - commonly read by Referer Parser enrichment",
+            ),
+            ("page_title", "Page title (optional)"),
+            ("page_urlscheme", "Page URL scheme (optional)"),
+            ("page_urlhost", "Page URL host (optional)"),
+            ("page_urlport", "Page URL port (optional)"),
+            ("page_urlpath", "Page URL path (optional)"),
+            ("page_urlfragment", "Page URL fragment (optional)"),
+            # Referrer URL components (optional)
+            ("refr_urlscheme", "Referrer URL scheme (optional)"),
+            ("refr_urlhost", "Referrer URL host (optional)"),
+            ("refr_urlport", "Referrer URL port (optional)"),
+            ("refr_urlpath", "Referrer URL path (optional)"),
+            ("refr_urlquery", "Referrer URL query (optional)"),
+            ("refr_urlfragment", "Referrer URL fragment (optional)"),
+            # Browser/User Agent input fields (read by enrichments)
+            (
+                "useragent",
+                "User agent string (optional) - read by UA Parser and YAUAA enrichments to derive browser/OS/device info",
+            ),
+            ("br_lang", "Browser language (optional)"),
+            ("br_cookies", "Browser cookies enabled (optional)"),
+            ("br_colordepth", "Browser color depth (optional)"),
+            ("br_viewwidth", "Browser viewport width (optional)"),
+            ("br_viewheight", "Browser viewport height (optional)"),
+            ("refr_domain_userid", "Referrer domain user ID (optional)"),
+            ("refr_dvce_tstamp", "Referrer device timestamp (optional)"),
+            # Device fields (captured by tracker, not enriched)
+            ("dvce_screenwidth", "Device screen width (optional)"),
+            ("dvce_screenheight", "Device screen height (optional)"),
+            # Note: Enriched output fields (geo_*, ip_*, mkt_*, refr_medium/source/term,
+            # br_name/family/version/type/renderengine, os_*, dvce_type/ismobile, event_fingerprint)
+            # are NOT included here because they don't exist until AFTER enrichments run.
+            # The Event dataset represents the state BEFORE enrichments.
+        ]
+
+        # Create schema fields
+        schema_fields = []
+        for field_name, description in atomic_fields:
+            schema_fields.append(
+                SchemaFieldClass(
+                    fieldPath=field_name,
+                    nativeDataType="string",  # Simplified - actual types vary
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    description=description,
+                    nullable=True,
+                    recursive=False,
+                )
+            )
+
+        # Cache atomic event fields for Event dataset
+        self._atomic_event_fields = schema_fields
+
+        # Create schema metadata
+        schema_metadata = SchemaMetadataClass(
+            schemaName="snowplow/atomic_event",
+            platform=f"urn:li:dataPlatform:{self.platform}",
+            version=0,
+            fields=schema_fields,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
+
+        # Emit schema metadata
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._atomic_event_urn,
+            aspect=schema_metadata,
+        ).as_workunit()
+
+        # Emit dataset properties
+        dataset_properties = DatasetPropertiesClass(
+            name="Event Core",
+            description=(
+                "**Event Core** represents the standard Snowplow atomic event schema as it exists BEFORE enrichments run. "
+                "Contains ~50 core fields including:\n"
+                "- **Required fields** (~12): app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version\n"
+                "- **Input fields for enrichments**: user_ipaddress, useragent, page_urlquery, page_referrer\n"
+                "- **Other atomic fields**: timestamps, user IDs, page URLs, referrer URLs, browser/device properties\n\n"
+                "**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, etc. "
+                "Those fields are created by enrichments and only exist in the warehouse table.\n\n"
+                "Enrichments read from Event Core fields and write new enriched fields to the warehouse table. "
+                "\n\n"
+                "This dataset represents the SCHEMA (available fields), not a guarantee that all fields are "
+                "populated on every event. This is correct for field-level lineage - we model what fields "
+                "enrichments CAN read/write based on schema definition."
+                "\n\n"
+                "Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/"
+            ),
+            customProperties={
+                "schema_type": "event_core",
+                "platform": "snowplow",
+                "field_count": str(len(atomic_fields)),
+                "required_fields": "app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version",
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._atomic_event_urn,
+            aspect=dataset_properties,
+        ).as_workunit()
+
+        # Emit status
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._atomic_event_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        # Emit subTypes
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._atomic_event_urn,
+            aspect=SubTypesClass(typeNames=["event_core"]),
+        ).as_workunit()
+
+        # Emit container (organization)
+        if self.config.bdp_connection:
+            org_container_urn = self._make_organization_urn(
+                self.config.bdp_connection.organization_id
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self._atomic_event_urn,
+                aspect=ContainerClass(container=org_container_urn),
+            ).as_workunit()
+
+        logger.info(
+            f"Created Event Core dataset with {len(atomic_fields)} atomic fields (excluding enriched output fields)"
+        )
+
+    def _create_parsed_events_dataset(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Create a synthetic dataset representing parsed events after collector/parser stage.
+
+        This dataset represents all fields from all schemas (atomic + custom events + entities)
+        after they've been validated and parsed by the Snowplow pipeline, but BEFORE enrichments run.
+
+        This serves as the intermediate output of the Collector/Parser job and input to enrichment jobs.
+
+        Fields included:
+        - All atomic event fields (~130 standard fields)
+        - All custom event schema fields
+        - All entity schema fields
+
+        This dataset is synthetic and does not correspond to a real table/file.
+        It's used for lineage modeling purposes only.
+        """
+        # Create URN for parsed events dataset using same pattern as Event Core
+        # Use direct dataset name without vendor prefix (synthetic Snowplow concept, not an Iglu schema)
+        # Name after the event specification ID to link it to the event spec
+        # URN format: {event_spec_id}_event (e.g., "650986b2-ad4a-453f-a0f1-4a2df337c31d_event")
+        # Display name: {event_spec_name} Event (e.g., "checkout_started Event")
+        if self._event_spec_id and self._event_spec_name:
+            dataset_name = f"{self._event_spec_id}_event"
+            display_name = f"{self._event_spec_name} Event"
+        elif self._first_event_schema_vendor and self._first_event_schema_name:
+            # Fallback to first event schema found (more specific than generic "Event")
+            # URN format: {vendor}.{name}_event (e.g., "com.example.checkout_started_event")
+            # Display name: {name} Event (e.g., "checkout_started Event")
+            schema_identifier = f"{self._first_event_schema_vendor}.{self._first_event_schema_name}".replace(
+                "/", "."
+            )
+            dataset_name = f"{schema_identifier}_event"
+            display_name = f"{self._first_event_schema_name} Event"
+            logger.info(
+                f"Using event schema for Event dataset naming: {self._first_event_schema_vendor}/{self._first_event_schema_name}"
+            )
+        else:
+            # Final fallback if no event spec or event schema found
+            dataset_name = "event"
+            display_name = "Event"
+            logger.warning(
+                "No event spec or event schema found - using generic 'Event' dataset name"
+            )
+
+        self._parsed_events_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        # Create dataset properties
+        dataset_properties = DatasetPropertiesClass(
+            name=display_name,
+            description=(
+                f"**{display_name}** represents all parsed event fields after the Collector/Parser stage and BEFORE enrichments run.\n\n"
+                "This dataset models the intermediate state of events after the Snowplow pipeline has:\n"
+                "1. **Collected** events from trackers\n"
+                "2. **Validated** against Iglu schemas\n"
+                "3. **Parsed** atomic fields, custom event data, and entity data\n\n"
+                "**But BEFORE** enrichments (IP Lookup, UA Parser, YAUAA, Campaign Attribution, etc.) add computed fields.\n\n"
+                "## Fields Included\n"
+                "This dataset contains ALL fields from:\n"
+                "- **Event Core**: ~50 standard Snowplow atomic fields (user_ipaddress, page_url, useragent, etc.)\n"
+                "- **Event Data Structures**: Application-specific event data\n"
+                "- **Entity Data Structures**: Contextual data attached to events\n\n"
+                "**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, event_fingerprint, etc. "
+                "Those fields are created by enrichments and only exist in the warehouse table.\n\n"
+                "## Purpose\n"
+                "Used for lineage modeling to show:\n"
+                "- Collector/Parser job outputs to this dataset\n"
+                "- Enrichment jobs read from this dataset and write new enriched fields to warehouse\n\n"
+                "**Note**: This is a synthetic dataset for metadata purposes only. "
+                "It does not correspond to a real table or file in your infrastructure."
+            ),
+            customProperties={
+                "synthetic": "true",
+                "purpose": "lineage_modeling",
+                "stage": "post_parse_pre_enrich",
+                "event_spec_id": self._event_spec_id or "",
+                "event_spec_name": self._event_spec_name or "",
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._parsed_events_urn,
+            aspect=dataset_properties,
+        ).as_workunit()
+
+        # Emit schema metadata
+        # The Event dataset contains ALL fields from ALL schemas (Event Core + Event Data Structures + Entity Data Structures)
+        # Combine all cached fields
+        all_event_fields = []
+
+        # Add atomic event fields (Event Core)
+        if self._atomic_event_fields:
+            all_event_fields.extend(self._atomic_event_fields)
+
+        # Add custom event and entity fields
+        if self._extracted_schema_fields:
+            # Extract just the fields from the (urn, field) tuples
+            all_event_fields.extend(
+                [field for _, field in self._extracted_schema_fields]
+            )
+
+        if all_event_fields:
+            event_schema_metadata = SchemaMetadataClass(
+                schemaName="snowplow/event",
+                platform="urn:li:dataPlatform:snowplow",
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=all_event_fields,
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self._parsed_events_urn,
+                aspect=event_schema_metadata,
+            ).as_workunit()
+
+            logger.info(
+                f"Event dataset schema contains {len(all_event_fields)} fields from all schemas "
+                f"(Event Core: {len(self._atomic_event_fields)}, "
+                f"Event/Entity Data Structures: {len(self._extracted_schema_fields)})"
+            )
+        else:
+            logger.warning(
+                "No schema fields available for Event dataset - schemas may not have been extracted yet"
+            )
+
+        # Emit status
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._parsed_events_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        # Emit subTypes
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self._parsed_events_urn,
+            aspect=SubTypesClass(typeNames=["event"]),
+        ).as_workunit()
+
+        # Emit container (organization)
+        if self.config.bdp_connection:
+            org_container_urn = self._make_organization_urn(
+                self.config.bdp_connection.organization_id
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self._parsed_events_urn,
+                aspect=ContainerClass(container=org_container_urn),
+            ).as_workunit()
+
+        logger.info(
+            "Created Event dataset (intermediate: collector/parser → enrichments)"
         )
 
     def _load_user_cache(self) -> None:
@@ -1037,6 +1481,14 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(f"Skipping schema {schema_identifier} with type {schema_type}")
             return
 
+        # Capture first event schema for parsed events dataset naming (if not already set)
+        if schema_type == "event" and self._first_event_schema_vendor is None:
+            self._first_event_schema_vendor = vendor
+            self._first_event_schema_name = name
+            logger.debug(
+                f"Captured first event schema for Event dataset naming: {vendor}/{name}"
+            )
+
         # Build dataset name
         if self.config.include_version_in_urn:
             dataset_name = f"{vendor}.{name}.{version}".replace("/", ".")
@@ -1109,6 +1561,14 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         # Yield the dataset
         yield from dataset.as_workunits()
+
+        # Cache the schema URN for pipeline collector job
+        self._extracted_schema_urns.append(str(dataset.urn))
+
+        # Cache schema fields for Event dataset along with their source URN
+        if schema_metadata and schema_metadata.fields:
+            for field in schema_metadata.fields:
+                self._extracted_schema_fields.append((str(dataset.urn), field))
 
         logger.info(f"Emitted schema dataset: {schema_identifier} (version {version})")
         self.report.report_schema_extracted(schema_type)
@@ -1274,6 +1734,14 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         elif schema_meta.hidden:
             self.report.report_hidden_schema(skipped=False)
 
+        # Capture first event schema for parsed events dataset naming (if not already set)
+        if schema_type == "event" and self._first_event_schema_vendor is None:
+            self._first_event_schema_vendor = vendor
+            self._first_event_schema_name = name
+            logger.debug(
+                f"Captured first event schema for Event dataset naming: {vendor}/{name}"
+            )
+
         # Build dataset name (consistent with URN generation)
         if self.config.include_version_in_urn:
             # Legacy behavior: version in URN
@@ -1356,6 +1824,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 # Add schema metadata to extra aspects
                 extra_aspects.append(schema_metadata)
 
+                # Cache schema fields for Event dataset along with their source URN
+                if schema_metadata and schema_metadata.fields:
+                    # Will be set after dataset.as_workunits() is called
+                    pass
+
             except Exception as e:
                 error_msg = f"Failed to parse schema {schema_identifier}: {e}"
                 self.report.report_schema_parsing_error(error_msg)
@@ -1389,6 +1862,27 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         # Yield the dataset
         yield from dataset.as_workunits()
+
+        # Emit field-level structured properties if enabled
+        if (
+            self.config.field_tagging.enabled
+            and self.config.field_tagging.use_structured_properties
+            and schema_metadata
+        ):
+            yield from self._emit_field_structured_properties(
+                dataset_urn=str(dataset.urn),
+                schema_metadata=schema_metadata,
+                data_structure=data_structure,
+                version=version,
+            )
+
+        # Cache the schema URN for pipeline collector job
+        self._extracted_schema_urns.append(str(dataset.urn))
+
+        # Cache schema fields for Event dataset along with their source URN
+        if schema_metadata and schema_metadata.fields:
+            for field in schema_metadata.fields:
+                self._extracted_schema_fields.append((str(dataset.urn), field))
 
         # Column-level lineage: Iglu schema fields → atomic.events Snowflake columns
         # (must be emitted separately as it's not part of the Dataset object itself)
@@ -1434,6 +1928,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
             # Track that this event spec was emitted (for container linking)
             self._emitted_event_spec_ids.add(event_spec.id)
+
+            # Capture first event spec ID and name for parsed events dataset naming
+            if self._event_spec_id is None:
+                self._event_spec_id = event_spec.id
+                self._event_spec_name = event_spec.name
 
             yield from self._process_event_specification(event_spec)
 
@@ -1764,64 +2263,111 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
     def _extract_pipelines(self) -> Iterable[MetadataWorkUnit]:
         """
-        Extract pipelines as DataFlow entities from BDP Console API.
+        Extract event-specific pipelines as DataFlow entities.
 
-        Pipelines represent data processing flows (Collect → Enrich → Load).
+        NEW ARCHITECTURE (per event specification):
+        - One DataFlow per event specification (instead of per physical pipeline)
+        - DataFlow represents the data flow for a specific event through the pipeline
+        - Inputs: event schema + entity schemas from event specification
+        - Tagged with physical pipeline name/ID
+
+        This provides better visibility into which entities flow with which events.
         """
         if not self.bdp_client:
             return
 
         try:
-            pipelines = self.bdp_client.get_pipelines()
-            self.report.num_pipelines_found = len(pipelines)
+            # Get event specifications (with entity mappings)
+            event_specs = self.bdp_client.get_event_specifications()
+            logger.info(
+                f"Extracting event-specific DataFlows from {len(event_specs)} event specifications"
+            )
 
-            logger.info(f"Extracting {len(pipelines)} pipelines as DataFlow entities")
+            # Get physical pipelines (for tagging)
+            physical_pipelines = self.bdp_client.get_pipelines()
+            self.report.num_pipelines_found = len(physical_pipelines)
 
-            for pipeline in pipelines:
+            # Use first pipeline as default (most orgs have one pipeline)
+            default_pipeline = physical_pipelines[0] if physical_pipelines else None
+
+            # Cache physical pipeline info for later use by enrichments
+            self._physical_pipeline = default_pipeline
+
+            # Create DataFlow for each event specification that has entity data
+            for event_spec in event_specs:
+                # Only create DataFlow if event specification has entity information
+                # (otherwise it's just documentation without lineage value)
+                event_iglu_uri = event_spec.get_event_iglu_uri()
+                entity_iglu_uris = event_spec.get_entity_iglu_uris()
+
+                if not event_iglu_uri:
+                    logger.debug(
+                        f"Skipping event spec {event_spec.name} - no event URI found"
+                    )
+                    continue
+
                 self.report.report_pipeline_found()
 
-                # Create DataFlow URN for pipeline
+                # Create DataFlow URN for this event specification
+                # Include pipeline ID to ensure uniqueness across multiple pipelines
+                pipeline_id = default_pipeline.id if default_pipeline else "unknown"
                 dataflow_urn = make_data_flow_urn(
                     orchestrator="snowplow",
-                    flow_id=pipeline.id,
+                    flow_id=f"{pipeline_id}_event_{event_spec.id}",
                     cluster=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
 
-                # Build custom properties from pipeline config
+                # Store mapping for enrichment extraction
+                self._event_spec_dataflow_urns[event_spec.id] = dataflow_urn
+
+                # Build custom properties
                 custom_properties = {
-                    "pipelineId": pipeline.id,
-                    "status": pipeline.status,
+                    "eventSpecId": event_spec.id,
+                    "eventIgluUri": event_iglu_uri,
+                    "entityCount": str(len(entity_iglu_uris)),
                 }
 
-                if pipeline.label:
-                    custom_properties["label"] = pipeline.label
+                # Tag with physical pipeline info
+                if default_pipeline:
+                    custom_properties["physicalPipelineId"] = default_pipeline.id
+                    custom_properties["physicalPipelineName"] = default_pipeline.name
+                    custom_properties["pipelineStatus"] = default_pipeline.status
 
-                if pipeline.workspace_id:
-                    custom_properties["workspaceId"] = pipeline.workspace_id
+                    if default_pipeline.label:
+                        custom_properties["pipelineLabel"] = default_pipeline.label
 
-                if pipeline.config:
-                    if pipeline.config.collector_endpoints:
+                    if (
+                        default_pipeline.config
+                        and default_pipeline.config.collector_endpoints
+                    ):
                         custom_properties["collectorEndpoints"] = ", ".join(
-                            pipeline.config.collector_endpoints
+                            default_pipeline.config.collector_endpoints
                         )
-                    custom_properties["incompleteStreamDeployed"] = str(
-                        pipeline.config.incomplete_stream_deployed
-                    )
-                    custom_properties["enrichAcceptInvalid"] = str(
-                        pipeline.config.enrich_accept_invalid
-                    )
+
+                # Add entity URIs as custom properties (for reference)
+                if entity_iglu_uris:
+                    custom_properties["entityIgluUris"] = ", ".join(
+                        entity_iglu_uris[:5]
+                    )  # Limit to avoid too long
+                    if len(entity_iglu_uris) > 5:
+                        custom_properties["entityIgluUris"] += (
+                            f" (+{len(entity_iglu_uris) - 5} more)"
+                        )
 
                 # Build description
-                description = (
-                    f"Snowplow {pipeline.label or 'pipeline'} ({pipeline.status})"
+                pipeline_name = (
+                    default_pipeline.name if default_pipeline else "Unknown Pipeline"
                 )
-                if pipeline.config and pipeline.config.collector_endpoints:
-                    description += f" - Collector: {', '.join(pipeline.config.collector_endpoints)}"
+                description = f"Snowplow event flow for '{event_spec.name}'"
+                if entity_iglu_uris:
+                    description += f" with {len(entity_iglu_uris)} entity context(s)"
+                if default_pipeline:
+                    description += f" (Pipeline: {pipeline_name})"
 
                 # Emit DataFlow info
                 dataflow_info = DataFlowInfoClass(
-                    name=pipeline.name,
+                    name=f"{event_spec.name} ({pipeline_name})",  # Include pipeline name for clarity
                     description=description,
                     customProperties=custom_properties,
                 )
@@ -1837,7 +2383,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
-                # Optionally link to organization container
+                # Link to organization container
                 if self.config.bdp_connection:
                     org_container_urn = self._make_organization_urn(
                         self.config.bdp_connection.organization_id
@@ -1848,13 +2394,15 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                         aspect=container_aspect,
                     ).as_workunit()
 
-                logger.debug(f"Extracted pipeline: {pipeline.name} ({pipeline.id})")
+                logger.debug(
+                    f"Extracted event-specific DataFlow: {event_spec.name} (event_spec_id={event_spec.id})"
+                )
                 self.report.report_pipeline_extracted()
 
         except Exception as e:
             self.report.report_failure(
-                title="Failed to extract pipelines",
-                message="Unable to retrieve pipelines from BDP API. Check API credentials and permissions.",
+                title="Failed to extract event-specific pipelines",
+                message="Unable to retrieve event specifications or pipelines from BDP API. Check API credentials and permissions.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
                 exc=e,
             )
@@ -1862,6 +2410,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
     def _get_warehouse_table_urn(self) -> Optional[str]:
         """
         Get URN for the warehouse atomic events table (where enriched data lands).
+
+        Uses caching to avoid redundant API calls - the warehouse table is the same
+        across all enrichments and the loader job.
 
         Priority:
         1. Use destinations API (most accurate - actual pipeline configuration)
@@ -1871,6 +2422,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         Returns:
             Warehouse table URN, or None if not available
         """
+        # Return cached URN if available
+        if self._warehouse_table_urn_cache is not None:
+            return self._warehouse_table_urn_cache
+
         # Try destinations API first (most accurate)
         if self.bdp_client:
             try:
@@ -1882,8 +2437,14 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     destination = destinations[0]
 
                     # Map destination type to DataHub platform
+                    # Sanitize platform name: lowercase, replace spaces/hyphens with underscores
+                    destination_type_clean = (
+                        destination.destination_type.lower()
+                        .replace(" ", "_")
+                        .replace("-", "_")
+                    )
                     warehouse_platform = WAREHOUSE_PLATFORM_MAP.get(
-                        destination.destination_type, destination.destination_type
+                        destination_type_clean, destination_type_clean
                     )
 
                     # Extract database and schema from destination config
@@ -1907,6 +2468,8 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(
                         f"Using destination API for warehouse: {warehouse_platform}://{warehouse_table_name}"
                     )
+                    # Cache the URN for subsequent calls
+                    self._warehouse_table_urn_cache = warehouse_urn
                     return warehouse_urn
 
             except Exception as e:
@@ -1920,11 +2483,16 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 organization = self.bdp_client.get_organization()
 
                 if organization and organization.source:
-                    warehouse_type = organization.source.name.lower()
+                    # Sanitize platform name: lowercase, replace spaces/hyphens with underscores
+                    warehouse_type_clean = (
+                        organization.source.name.lower()
+                        .replace(" ", "_")
+                        .replace("-", "_")
+                    )
 
                     # Map warehouse type to DataHub platform
                     warehouse_platform = WAREHOUSE_PLATFORM_MAP.get(
-                        warehouse_type, warehouse_type
+                        warehouse_type_clean, warehouse_type_clean
                     )
 
                     # Use default database/schema names (can be made configurable if needed)
@@ -1940,8 +2508,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
                     logger.debug(
-                        f"Using organization's warehouse destination: {warehouse_type}"
+                        f"Using organization's warehouse destination: {warehouse_type_clean} (from {organization.source.name})"
                     )
+                    # Cache the URN for subsequent calls
+                    self._warehouse_table_urn_cache = warehouse_urn
                     return warehouse_urn
 
             except Exception as e:
@@ -2083,8 +2653,8 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
         Args:
             enrichment: The enrichment to extract lineage for
-            event_schema_urns: Event schema URNs (inputs to enrichment)
-            warehouse_table_urn: Warehouse table URN (output from enrichment)
+            event_schema_urns: Event schema URNs (inputs to enrichment) - NOT USED for atomic field enrichments
+            warehouse_table_urn: Warehouse table URN (used as both input and output for atomic field enrichments)
 
         Returns:
             List of FineGrainedLineageClass objects representing field transformations
@@ -2099,18 +2669,34 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             )
             return fine_grained_lineages
 
-        # Use first event schema as input (enrichments process all event schemas uniformly)
-        event_schema_urn = event_schema_urns[0] if event_schema_urns else None
-        if not event_schema_urn:
-            logger.debug("No event schema URN available for field lineage extraction")
+        # IMPORTANT: Enrichments read from Event dataset fields (user_ipaddress, page_urlquery, etc.),
+        # which are standard Snowplow fields present on every event, and write enriched fields
+        # to the Snowflake warehouse table.
+        #
+        # The Event dataset contains all fields from:
+        # - Event Core: Standard atomic fields (user_ipaddress, page_urlquery, etc.)
+        # - Event/Entity Data Structures: Custom fields
+        #
+        # Enrichments transform:
+        # - Input: Event dataset fields (e.g., user_ipaddress from Event)
+        # - Output: Enriched fields in warehouse table (e.g., geo_country in Snowflake)
+        if not self._parsed_events_urn:
+            logger.debug("Event URN not available - skipping field lineage extraction")
+            return fine_grained_lineages
+
+        if not warehouse_table_urn:
+            logger.debug(
+                "No warehouse table URN available - skipping field lineage extraction"
+            )
             return fine_grained_lineages
 
         # Extract field lineages using the registered extractor
+        # Pass parsed_events_urn as input and warehouse_table_urn as output
         try:
             field_lineages = extractor.extract_lineage(
                 enrichment=enrichment,
-                event_schema_urn=event_schema_urn,
-                warehouse_table_urn=warehouse_table_urn,
+                event_schema_urn=self._parsed_events_urn,  # Use Event as source for fields
+                warehouse_table_urn=warehouse_table_urn,  # Use warehouse table as output for enriched fields
             )
 
             # Convert FieldLineage objects to DataHub FineGrainedLineageClass
@@ -2266,201 +2852,564 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(f"Failed to emit collector DataJob: {e}")
 
+    def _parse_iglu_uri(self, uri: str) -> tuple[str | None, str | None, str | None]:
+        """Parse Iglu URI into vendor, name, and version components."""
+        uri_clean = uri.replace("iglu:", "")
+        parts = uri_clean.split("/")
+        if len(parts) == 4:
+            return (parts[0], parts[1], parts[3])
+        return (None, None, None)
+
+    def _build_enrichment_input_urns(
+        self, event_spec: "EventSpecification"
+    ) -> list[str]:
+        """Build list of input schema URNs (event + entities) for an event specification."""
+        event_iglu_uri = event_spec.get_event_iglu_uri()
+        entity_iglu_uris = event_spec.get_entity_iglu_uris()
+
+        if not event_iglu_uri:
+            return []
+
+        input_schema_urns = []
+
+        # Add event schema URN
+        event_vendor, event_name, event_version = self._parse_iglu_uri(event_iglu_uri)
+        if event_name and event_vendor and event_version:
+            event_schema_urn = self._make_schema_dataset_urn(
+                event_vendor, event_name, event_version
+            )
+            input_schema_urns.append(event_schema_urn)
+
+        # Add entity schema URNs
+        for entity_iglu_uri in entity_iglu_uris:
+            entity_vendor, entity_name, entity_version = self._parse_iglu_uri(
+                entity_iglu_uri
+            )
+            if entity_name and entity_vendor and entity_version:
+                entity_schema_urn = self._make_schema_dataset_urn(
+                    entity_vendor, entity_name, entity_version
+                )
+                input_schema_urns.append(entity_schema_urn)
+
+        return input_schema_urns
+
+    def _emit_enrichment_datajob(
+        self,
+        enrichment: "Enrichment",
+        dataflow_urn: str,
+        input_dataset_urn: str,
+        warehouse_table_urn: str | None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit all aspects for a single enrichment DataJob."""
+        # Create DataJob URN
+        datajob_urn = make_data_job_urn_with_flow(
+            flow_urn=dataflow_urn,
+            job_id=enrichment.id,
+        )
+
+        # Extract field-level lineage
+        # Enrichments read from Event dataset and write enriched fields to warehouse
+        logger.debug(
+            f"Extracting field lineage for {enrichment.filename}: "
+            f"warehouse_urn={'SET' if warehouse_table_urn else 'NONE'}"
+        )
+        fine_grained_lineages = self._extract_enrichment_field_lineage(
+            enrichment=enrichment,
+            event_schema_urns=[input_dataset_urn],  # Event dataset as input
+            warehouse_table_urn=warehouse_table_urn,  # Warehouse table as output
+        )
+        if fine_grained_lineages:
+            logger.info(
+                f"✅ Extracted {len(fine_grained_lineages)} column-level lineages for {enrichment.filename}"
+            )
+        else:
+            logger.debug(f"No column-level lineage extracted for {enrichment.filename}")
+
+        # Build custom properties
+        custom_properties = {
+            "enrichmentId": enrichment.id,
+            "filename": enrichment.filename,
+            "enabled": str(enrichment.enabled),
+            "lastUpdate": enrichment.last_update,
+        }
+
+        if self._physical_pipeline:
+            custom_properties["pipelineId"] = self._physical_pipeline.id
+            custom_properties["pipelineName"] = self._physical_pipeline.name
+
+        # Extract enrichment name and description
+        enrichment_name = enrichment.filename
+        description = f"Snowplow enrichment: {enrichment_name}"
+
+        if enrichment.content and enrichment.content.data:
+            enrichment_name = enrichment.content.data.name
+            custom_properties["vendor"] = enrichment.content.data.vendor
+            custom_properties["schema"] = enrichment.content.schema_ref
+
+            if enrichment.content.data.parameters:
+                params_str = str(enrichment.content.data.parameters)
+                if len(params_str) > 500:
+                    params_str = params_str[:500] + "..."
+                custom_properties["parameters"] = params_str
+
+            description = f"{enrichment_name} enrichment"
+
+        if fine_grained_lineages:
+            description = self._build_enrichment_description(
+                enrichment_name=enrichment_name,
+                fine_grained_lineages=fine_grained_lineages,
+            )
+
+        # Emit DataJob info
+        datajob_info = DataJobInfoClass(
+            name=enrichment_name,
+            type="ENRICHMENT",
+            description=description,
+            customProperties=custom_properties,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=datajob_info,
+        ).as_workunit()
+
+        # Emit ownership if configured
+        if self.config.enrichment_owner:
+            ownership = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=make_user_urn(self.config.enrichment_owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ],
+                lastModified=AuditStampClass(
+                    time=int(time.time() * 1000),
+                    actor=make_user_urn("datahub"),
+                ),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datajob_urn,
+                aspect=ownership,
+            ).as_workunit()
+
+        # Emit status
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        # Emit input/output lineage
+        # Input: Event dataset (contains all fields from all schemas)
+        # Output: Warehouse table (with enriched fields added)
+        output_datasets = [warehouse_table_urn] if warehouse_table_urn else []
+        datajob_input_output = DataJobInputOutputClass(
+            inputDatasets=[input_dataset_urn],
+            outputDatasets=output_datasets,
+            fineGrainedLineages=fine_grained_lineages
+            if fine_grained_lineages
+            else None,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=datajob_input_output,
+        ).as_workunit()
+
+        if warehouse_table_urn:
+            logger.debug(
+                f"Linked enrichment {enrichment_name}: Event → warehouse table"
+            )
+        else:
+            logger.debug(
+                f"Linked enrichment {enrichment_name}: Event (no warehouse output)"
+            )
+
+        logger.debug(f"Extracted enrichment: {enrichment_name}")
+        self.report.report_enrichment_extracted()
+
+    def _emit_loader_datajob(
+        self,
+        dataflow_urn: str,
+        input_dataset_urn: str,
+        warehouse_table_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit Loader DataJob that loads enriched events from Event dataset to warehouse table.
+
+        This job models the Loader stage of the Snowplow pipeline which writes the fully
+        processed and enriched events to the data warehouse (Snowflake, BigQuery, etc.).
+
+        Inputs: Event dataset (all fields including enriched fields)
+        Output: Warehouse table
+        """
+        # Create DataJob URN
+        datajob_urn = make_data_job_urn_with_flow(
+            flow_urn=dataflow_urn,
+            job_id="loader",
+        )
+
+        # Emit DataJob info
+        datajob_info = DataJobInfoClass(
+            name="Loader",
+            type="BATCH_SCHEDULED",
+            description=(
+                "Snowplow Loader stage that writes enriched events to the data warehouse.\n\n"
+                "**Input**: Event dataset (all fields from Event Core + custom schemas + enriched fields)\n"
+                "**Process**: Writes all event data to warehouse table\n"
+                "**Output**: Warehouse table (Snowflake, BigQuery, etc.)\n\n"
+                "This stage runs after all enrichments have been applied to the events."
+            ),
+            customProperties={
+                "pipelineId": self._physical_pipeline.id
+                if self._physical_pipeline
+                else "unknown",
+                "pipelineName": self._physical_pipeline.name
+                if self._physical_pipeline
+                else "unknown",
+                "stage": "loader",
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=datajob_info,
+        ).as_workunit()
+
+        # Emit status
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        # Build fine-grained lineages (field-level)
+        # The Loader passes through all fields from Event dataset to warehouse table
+        fine_grained_lineages = []
+
+        # Map all Event fields to warehouse fields
+        # Combine Event Core fields + extracted schema fields
+        all_event_fields = []
+        if self._atomic_event_fields:
+            all_event_fields.extend(self._atomic_event_fields)
+        if self._extracted_schema_fields:
+            all_event_fields.extend(
+                [field for _, field in self._extracted_schema_fields]
+            )
+
+        if all_event_fields:
+            for field in all_event_fields:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(input_dataset_urn, field.fieldPath)
+                        ],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(warehouse_table_urn, field.fieldPath)
+                        ],
+                    )
+                )
+
+            logger.info(
+                f"Created {len(fine_grained_lineages)} field-level lineages for Loader job"
+            )
+
+        # Emit input/output lineage
+        datajob_input_output = DataJobInputOutputClass(
+            inputDatasets=[input_dataset_urn],
+            outputDatasets=[warehouse_table_urn],
+            fineGrainedLineages=fine_grained_lineages
+            if fine_grained_lineages
+            else None,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datajob_urn,
+            aspect=datajob_input_output,
+        ).as_workunit()
+
+        logger.debug(f"Linked Loader job: Event → {warehouse_table_urn}")
+
+    def _emit_pipeline_collector_job(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit a Collector/Parser DataJob that processes schemas and outputs parsed events.
+
+        This job models the Collector → Parser stage of the Snowplow pipeline:
+        1. Collector receives events from trackers
+        2. Parser validates against schemas and extracts all fields
+
+        Inputs: All schemas (atomic event, custom events, entities)
+        Output: Parsed Events dataset (all fields from all schemas)
+
+        The parsed events then flow to enrichment jobs (IP Lookup, UA Parser, etc.)
+        which add computed fields and write to the warehouse.
+        """
+        if not self._physical_pipeline:
+            logger.debug("No physical pipeline - skipping pipeline collector job")
+            return
+
+        if not self._parsed_events_urn:
+            logger.debug(
+                "Parsed events dataset not available - skipping pipeline collector job"
+            )
+            return
+
+        # Collect all schema URNs as inputs
+        input_schema_urns = []
+
+        # Add atomic event schema
+        if self._atomic_event_urn:
+            input_schema_urns.append(self._atomic_event_urn)
+
+        # Add all extracted custom event and entity schemas
+        # Get schemas from our cache
+        if hasattr(self, "_extracted_schema_urns"):
+            input_schema_urns.extend(self._extracted_schema_urns)
+
+        if not input_schema_urns:
+            logger.debug("No schema URNs available - skipping pipeline collector job")
+            return
+
+        # Create DataFlow for the pipeline
+        pipeline_dataflow_urn = make_data_flow_urn(
+            orchestrator="snowplow",
+            flow_id=f"{self._physical_pipeline.id}_pipeline",
+            cluster=self.config.env,
+        )
+
+        # Store for enrichments to use
+        self._pipeline_dataflow_urn = pipeline_dataflow_urn
+
+        # Emit DataFlow info
+        dataflow_info = DataFlowInfoClass(
+            name=f"Snowplow Pipeline ({self._physical_pipeline.name})",
+            description=(
+                f"Snowplow event processing pipeline for {self._physical_pipeline.name}.\n\n"
+                "This pipeline processes events through:\n"
+                "1. **Collector/Parser**: Receives events from trackers, validates against Iglu schemas, "
+                "parses all fields (atomic + custom events + entities)\n"
+                "2. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n"
+                "3. **Loader**: Writes enriched data to warehouse\n\n"
+                "The pipeline contains multiple tasks:\n"
+                "- Collector/Parser task: Schemas → Parsed Events\n"
+                "- Enrichment tasks: Parsed Events → Warehouse (with enriched fields)"
+            ),
+            customProperties={
+                "pipelineId": self._physical_pipeline.id,
+                "pipelineName": self._physical_pipeline.name,
+                "platform": "snowplow",
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=pipeline_dataflow_urn,
+            aspect=dataflow_info,
+        ).as_workunit()
+
+        # Emit container (organization)
+        if self.config.bdp_connection:
+            org_container_urn = self._make_organization_urn(
+                self.config.bdp_connection.organization_id
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=pipeline_dataflow_urn,
+                aspect=ContainerClass(container=org_container_urn),
+            ).as_workunit()
+
+        # Create DataJob for the collector/parser
+        pipeline_job_urn = make_data_job_urn_with_flow(
+            flow_urn=pipeline_dataflow_urn,
+            job_id="collector_parser",
+        )
+
+        # Emit DataJob info
+        datajob_info = DataJobInfoClass(
+            name="Collector/Parser",
+            type="BATCH_SCHEDULED",
+            description=(
+                "Snowplow Collector and Parser stage that receives, validates, and parses events.\n\n"
+                "**Inputs**: Event and entity schemas from Iglu registry\n"
+                "**Process**:\n"
+                "- Collector receives tracker events (HTTP requests)\n"
+                "- Parser validates against schemas\n"
+                "- Extracts all fields: atomic event fields + custom event data + entity data\n\n"
+                "**Output**: Parsed Events dataset containing all fields from all schemas\n\n"
+                "The parsed events then flow to enrichment jobs (IP Lookup, Campaign Attribution, etc.) "
+                "which add computed fields before writing to the warehouse."
+            ),
+            customProperties={
+                "pipelineId": self._physical_pipeline.id,
+                "pipelineName": self._physical_pipeline.name,
+                "stage": "collector_parser",
+            },
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=pipeline_job_urn,
+            aspect=datajob_info,
+        ).as_workunit()
+
+        # Build fine-grained lineages (field-level)
+        # The Collector/Parser passes through all fields from input schemas to the Event dataset
+        fine_grained_lineages = []
+
+        # Map fields from Event Core to Event
+        if self._atomic_event_urn and self._atomic_event_fields:
+            for field in self._atomic_event_fields:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(
+                                self._atomic_event_urn, field.fieldPath
+                            )
+                        ],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(
+                                self._parsed_events_urn, field.fieldPath
+                            )
+                        ],
+                    )
+                )
+
+        # Map fields from Event/Entity Data Structures to Event
+        if self._extracted_schema_fields:
+            # Each tuple is (source_urn, field) - we now properly track which field came from which schema
+            for source_urn, field in self._extracted_schema_fields:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[make_schema_field_urn(source_urn, field.fieldPath)],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(
+                                self._parsed_events_urn, field.fieldPath
+                            )
+                        ],
+                    )
+                )
+
+        logger.info(
+            f"Created {len(fine_grained_lineages)} field-level lineages for Collector/Parser job"
+        )
+
+        # Emit input/output lineage
+        datajob_input_output = DataJobInputOutputClass(
+            inputDatasets=input_schema_urns,
+            outputDatasets=[self._parsed_events_urn],
+            fineGrainedLineages=fine_grained_lineages
+            if fine_grained_lineages
+            else None,
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=pipeline_job_urn,
+            aspect=datajob_input_output,
+        ).as_workunit()
+
+        # Emit status
+        yield MetadataChangeProposalWrapper(
+            entityUrn=pipeline_job_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        logger.info(
+            f"✅ Created Collector/Parser job: {len(input_schema_urns)} schemas → Event"
+        )
+
     def _extract_enrichments(self) -> Iterable[MetadataWorkUnit]:
         """
-        Extract enrichments as DataJob entities from BDP Console API.
+        Extract enrichments as DataJob entities in the Pipeline DataFlow.
 
-        Enrichments are processing steps within pipelines that transform/enrich event data.
-        Each enrichment is represented as a DataJob linked to its parent pipeline DataFlow.
+        NEW ARCHITECTURE:
+        - Creates one DataJob per enrichment (not per event specification)
+        - Enrichments are tasks within the Snowplow Pipeline DataFlow
+        - Input: Parsed Events dataset (all fields from all schemas)
+        - Output: Warehouse table (with enriched fields added)
 
-        Lineage flow:
-        - Inputs: All event schemas in the organization (enrichments process all events)
-        - Outputs: Warehouse atomic events table (from destinations API or organization config)
+        Flow: Schemas → Collector/Parser → Parsed Events → Enrichments → Warehouse
 
-        Example: [Event Schemas] → [Enrichment DataJob] → [Snowflake atomic.events]
+        Example: [Parsed Events] → [IP Lookup DataJob] → [Warehouse]
         """
         if not self.bdp_client:
             return
 
         try:
-            # Get all event schemas to link as inputs for enrichments
-            event_schema_urns = self._get_event_schema_urns()
-            logger.info(
-                f"Found {len(event_schema_urns)} event schemas to link to enrichments"
-            )
-
             # Get warehouse destination table URN (if configured)
             warehouse_table_urn = self._get_warehouse_table_urn()
             if warehouse_table_urn:
                 logger.info(
-                    f"Enrichments will output to warehouse table: {warehouse_table_urn}"
+                    f"✅ Enrichments will output to warehouse table: {warehouse_table_urn}"
                 )
+                logger.info("✅ Column-level lineage will be extracted for enrichments")
             else:
-                logger.info(
-                    "No warehouse connection configured - enrichment outputs will not be linked"
+                logger.warning(
+                    "⚠️  No warehouse table URN found - column-level lineage will NOT be extracted"
+                )
+                logger.warning(
+                    "⚠️  To enable column-level lineage, ensure your Snowplow pipeline has a destination configured"
                 )
 
-            # Get all pipelines first to extract enrichments for each
-            pipelines = self.bdp_client.get_pipelines()
+            # Emit Pipeline/Collector job that processes all schemas and outputs to parsed events
+            # This must be called before enrichments so enrichments can use the Pipeline DataFlow
+            yield from self._emit_pipeline_collector_job()
 
-            total_enrichments = 0
-            for pipeline in pipelines:
-                enrichments = self.bdp_client.get_enrichments(pipeline.id)
-                total_enrichments += len(enrichments)
-
-                logger.info(
-                    f"Extracting {len(enrichments)} enrichments for pipeline {pipeline.name}"
+            # Get enrichments from physical pipeline (enrichments configured once, apply to all events)
+            if not self._physical_pipeline:
+                logger.warning(
+                    "No physical pipeline found - cannot extract enrichments. "
+                    "Make sure _extract_pipelines() ran first."
                 )
+                return
 
-                for enrichment in enrichments:
-                    self.report.report_enrichment_found()
+            if (
+                not hasattr(self, "_pipeline_dataflow_urn")
+                or not self._pipeline_dataflow_urn
+            ):
+                logger.warning(
+                    "Pipeline DataFlow URN not available - cannot extract enrichments. "
+                    "Make sure _emit_pipeline_collector_job() ran first."
+                )
+                return
 
-                    # Skip disabled enrichments
-                    if not enrichment.enabled:
-                        self.report.report_enrichment_filtered(enrichment.filename)
-                        logger.debug(
-                            f"Skipping disabled enrichment: {enrichment.filename}"
-                        )
-                        continue
+            if not self._parsed_events_urn:
+                logger.warning(
+                    "Parsed events URN not available - cannot extract enrichments."
+                )
+                return
 
-                    # Create DataJob URN for enrichment
-                    datajob_urn = make_data_job_urn_with_flow(
-                        flow_urn=make_data_flow_urn(
-                            orchestrator="snowplow",
-                            flow_id=pipeline.id,
-                            cluster=self.config.env,
-                            platform_instance=self.config.platform_instance,
-                        ),
-                        job_id=enrichment.id,
-                    )
+            enrichments = self.bdp_client.get_enrichments(self._physical_pipeline.id)
+            total_enrichments = len(enrichments)
+            logger.info(
+                f"Found {total_enrichments} enrichments in pipeline {self._physical_pipeline.name}"
+            )
 
-                    # Extract field-level lineage for this enrichment FIRST
-                    # (needed to build description with field information)
-                    fine_grained_lineages = self._extract_enrichment_field_lineage(
-                        enrichment=enrichment,
-                        event_schema_urns=event_schema_urns,
-                        warehouse_table_urn=warehouse_table_urn,
-                    )
+            # Enrichments apply to ALL events, so we emit them once (not per-event-spec)
+            # They read from the Parsed Events dataset and write to warehouse
+            for enrichment in enrichments:
+                self.report.report_enrichment_found()
 
-                    # Build custom properties from enrichment config
-                    custom_properties = {
-                        "enrichmentId": enrichment.id,
-                        "filename": enrichment.filename,
-                        "enabled": str(enrichment.enabled),
-                        "lastUpdate": enrichment.last_update,
-                        "pipelineId": pipeline.id,
-                        "pipelineName": pipeline.name,
-                    }
+                if not enrichment.enabled:
+                    self.report.report_enrichment_filtered(enrichment.filename)
+                    logger.debug(f"Skipping disabled enrichment: {enrichment.filename}")
+                    continue
 
-                    # Extract enrichment name and vendor from content if available
-                    enrichment_name = enrichment.filename
-                    description = f"Snowplow enrichment: {enrichment_name}"
-
-                    if enrichment.content and enrichment.content.data:
-                        enrichment_name = enrichment.content.data.name
-                        custom_properties["vendor"] = enrichment.content.data.vendor
-                        custom_properties["schema"] = enrichment.content.schema_ref
-
-                        # Add key parameters to custom properties
-                        if enrichment.content.data.parameters:
-                            params_str = str(enrichment.content.data.parameters)
-                            # Truncate if too long
-                            if len(params_str) > 500:
-                                params_str = params_str[:500] + "..."
-                            custom_properties["parameters"] = params_str
-
-                        description = f"{enrichment_name} enrichment"
-
-                    # Enhance description with field lineage information
-                    if fine_grained_lineages:
-                        description = self._build_enrichment_description(
-                            enrichment_name=enrichment_name,
-                            fine_grained_lineages=fine_grained_lineages,
-                        )
-
-                    # Emit DataJob info
-                    datajob_info = DataJobInfoClass(
-                        name=enrichment_name,
-                        type="ENRICHMENT",
-                        description=description,
-                        customProperties=custom_properties,
-                    )
-
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=datajob_urn,
-                        aspect=datajob_info,
-                    ).as_workunit()
-
-                    # Emit ownership if configured
-                    if self.config.enrichment_owner:
-                        ownership = OwnershipClass(
-                            owners=[
-                                OwnerClass(
-                                    owner=make_user_urn(self.config.enrichment_owner),
-                                    type=OwnershipTypeClass.DATAOWNER,
-                                )
-                            ],
-                            lastModified=AuditStampClass(
-                                time=int(time.time() * 1000),
-                                actor=make_user_urn("datahub"),
-                            ),
-                        )
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=datajob_urn,
-                            aspect=ownership,
-                        ).as_workunit()
-
-                    # Emit status
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=datajob_urn,
-                        aspect=StatusClass(removed=False),
-                    ).as_workunit()
-
-                    # Emit input/output lineage: enrichments process event schemas and output to warehouse
-                    # Inputs: Event schemas being processed
-                    # Outputs: Warehouse atomic events table (if configured), otherwise no outputs
-                    if event_schema_urns:
-                        output_datasets = (
-                            [warehouse_table_urn] if warehouse_table_urn else []
-                        )
-
-                        # Note: fine_grained_lineages already extracted above (before DataJobInfo creation)
-                        datajob_input_output = DataJobInputOutputClass(
-                            inputDatasets=event_schema_urns,
-                            outputDatasets=output_datasets,
-                            fineGrainedLineages=fine_grained_lineages
-                            if fine_grained_lineages
-                            else None,
-                        )
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=datajob_urn,
-                            aspect=datajob_input_output,
-                        ).as_workunit()
-
-                        if warehouse_table_urn:
-                            logger.debug(
-                                f"Linked enrichment {enrichment_name}: {len(event_schema_urns)} inputs → warehouse table"
-                            )
-                        else:
-                            logger.debug(
-                                f"Linked enrichment {enrichment_name}: {len(event_schema_urns)} inputs (no warehouse output)"
-                            )
-
-                    logger.debug(
-                        f"Extracted enrichment: {enrichment_name} ({enrichment.id})"
-                    )
-                    self.report.report_enrichment_extracted()
+                # Emit enrichment DataJob with all aspects
+                # Enrichments read from Event and write enriched fields to warehouse
+                yield from self._emit_enrichment_datajob(
+                    enrichment=enrichment,
+                    dataflow_urn=self._pipeline_dataflow_urn,
+                    input_dataset_urn=self._parsed_events_urn,
+                    warehouse_table_urn=warehouse_table_urn,
+                )
 
             self.report.num_enrichments_found = total_enrichments
 
-            # Emit collector DataJob for non-enriched columns
-            if event_schema_urns and warehouse_table_urn:
-                logger.info("Creating collector DataJob for non-enriched event columns")
-                for wu in self._emit_collector_datajob(
-                    event_schema_urns=event_schema_urns,
+            # Emit Loader job (Event → Snowflake warehouse)
+            if warehouse_table_urn:
+                yield from self._emit_loader_datajob(
+                    dataflow_urn=self._pipeline_dataflow_urn,
+                    input_dataset_urn=self._parsed_events_urn,
                     warehouse_table_urn=warehouse_table_urn,
-                ):
-                    yield wu
+                )
 
         except Exception as e:
             self.report.report_failure(
@@ -2559,6 +3508,13 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        # Check that parsed events dataset exists (intermediate hop)
+        if not self._parsed_events_urn:
+            logger.debug(
+                f"Parsed events dataset not created, skipping column lineage for {vendor}/{name}"
+            )
+            return
+
         # Extract field paths from schema metadata
         if not schema_metadata.fields:
             logger.debug(f"No fields in schema metadata for {vendor}/{name}")
@@ -2591,8 +3547,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         # Create UpstreamLineage with FineGrainedLineage
+        # Use parsed events dataset as upstream (not the Iglu schema directly)
+        # This creates the correct flow: Schema → Parsed Events → Warehouse
         upstream = UpstreamClass(
-            dataset=dataset_urn,  # Iglu schema
+            dataset=self._parsed_events_urn,  # Parsed events dataset (intermediate)
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
 
@@ -2923,15 +3881,18 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.field_tagging.track_field_versions:
             field_version_map = self._build_field_version_mapping(data_structure)
 
-        # Build deployment version -> initiator mapping
+        # Build deployment version -> initiator and timestamp mappings
         deployment_initiators: Dict[str, Optional[str]] = {}
+        deployment_timestamps: Dict[str, Optional[str]] = {}
         if data_structure.deployments:
             for dep in data_structure.deployments:
                 if dep.version:
                     deployment_initiators[dep.version] = dep.initiator
+                    deployment_timestamps[dep.version] = dep.ts
 
-        # Get latest deployment initiator as fallback
+        # Get latest deployment initiator and timestamp as fallback
         fallback_initiator = None
+        fallback_timestamp = None
         if data_structure.deployments:
             sorted_deps = sorted(
                 data_structure.deployments,
@@ -2939,6 +3900,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 reverse=True,
             )
             fallback_initiator = sorted_deps[0].initiator
+            fallback_timestamp = sorted_deps[0].ts
 
         # Determine the initial version (oldest version) for this schema
         initial_version = None
@@ -2954,6 +3916,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             # Determine which version to use for this field
             field_version = version  # Default: current version
             field_initiator = fallback_initiator  # Default: latest initiator
+            field_timestamp = fallback_timestamp  # Default: latest timestamp
             skip_version_tag = False  # Whether to skip version tag for this field
 
             if self.config.field_tagging.track_field_versions and field_version_map:
@@ -2970,6 +3933,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                         field_initiator = deployment_initiators.get(
                             added_in_version, fallback_initiator
                         )
+                        field_timestamp = deployment_timestamps.get(
+                            added_in_version, fallback_timestamp
+                        )
 
                         # Add "Added in version X" to description
                         version_note = f" (Added in version {added_in_version})"
@@ -2977,6 +3943,15 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                             field.description = field.description + version_note
                         else:
                             field.description = f"Added in version {added_in_version}"
+
+            # Determine event type based on data structure schema type
+            event_type = None
+            if data_structure.meta and data_structure.meta.schema_type:
+                if data_structure.meta.schema_type == "event":
+                    event_type = "self_describing"
+                elif data_structure.meta.schema_type == "entity":
+                    event_type = "context"
+                # Note: atomic events don't have data structures
 
             # Create tagging context
             context = FieldTagContext(
@@ -2987,8 +3962,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 field_type=field.nativeDataType,
                 field_description=field.description,
                 deployment_initiator=field_initiator,
+                deployment_timestamp=field_timestamp,
                 pii_fields=pii_fields,
                 skip_version_tag=skip_version_tag,
+                event_type=event_type,
             )
 
             # Generate and apply tags
@@ -2997,6 +3974,248 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 field.globalTags = field_tags
 
         return schema_metadata
+
+    def _emit_field_structured_properties(
+        self,
+        dataset_urn: str,
+        schema_metadata: SchemaMetadataClass,
+        data_structure: DataStructure,
+        version: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit structured properties for schema fields.
+
+        Args:
+            dataset_urn: URN of the dataset containing the fields
+            schema_metadata: Schema metadata with field information
+            data_structure: Data structure with deployment information
+            version: Schema version
+
+        Yields:
+            MetadataWorkUnit containing structured properties for fields
+        """
+        # Skip if structured properties not enabled
+        if not self.config.field_tagging.use_structured_properties:
+            return
+
+        # Get PII fields from enrichments (if configured)
+        pii_fields = self._extract_pii_fields()
+
+        # Build field version mapping if enabled
+        field_version_map: Dict[str, str] = {}
+        if self.config.field_tagging.track_field_versions:
+            field_version_map = self._build_field_version_mapping(data_structure)
+
+        # Build deployment version -> initiator and timestamp mappings
+        deployment_initiators: Dict[str, Optional[str]] = {}
+        deployment_timestamps: Dict[str, Optional[str]] = {}
+        if data_structure.deployments:
+            for dep in data_structure.deployments:
+                if dep.version:
+                    deployment_initiators[dep.version] = dep.initiator
+                    deployment_timestamps[dep.version] = dep.ts
+
+        # Get latest deployment initiator and timestamp as fallback
+        fallback_initiator = None
+        fallback_timestamp = None
+        if data_structure.deployments:
+            sorted_deps = sorted(
+                data_structure.deployments,
+                key=lambda d: d.ts or "",
+                reverse=True,
+            )
+            fallback_initiator = sorted_deps[0].initiator
+            fallback_timestamp = sorted_deps[0].ts
+
+        # Determine the initial version (oldest version) for this schema
+        initial_version = None
+        if self.config.field_tagging.track_field_versions and field_version_map:
+            initial_version = min(
+                field_version_map.values(),
+                key=lambda v: self._parse_schemaver(v),
+                default=None,
+            )
+
+        # Emit structured properties for each field
+        for field in schema_metadata.fields:
+            # Determine which version to use for this field
+            field_version = version  # Default: current version
+            field_initiator = fallback_initiator  # Default: latest initiator
+            field_timestamp = fallback_timestamp  # Default: latest timestamp
+            skip_version_tag = False  # Whether to skip version tag for this field
+
+            if self.config.field_tagging.track_field_versions and field_version_map:
+                # Use the version when field was added
+                added_in_version = field_version_map.get(field.fieldPath)
+                if added_in_version:
+                    # Check if this is the initial version
+                    if added_in_version == initial_version:
+                        # Don't emit structured properties for initial version fields
+                        skip_version_tag = True
+                    else:
+                        # Field was added later
+                        field_version = added_in_version
+                        field_initiator = deployment_initiators.get(
+                            added_in_version, fallback_initiator
+                        )
+                        field_timestamp = deployment_timestamps.get(
+                            added_in_version, fallback_timestamp
+                        )
+
+            # Determine event type based on data structure schema type
+            event_type = None
+            if data_structure.meta and data_structure.meta.schema_type:
+                if data_structure.meta.schema_type == "event":
+                    event_type = "self_describing"
+                elif data_structure.meta.schema_type == "entity":
+                    event_type = "context"
+                # Note: atomic events don't have data structures
+
+            # Create context for structured properties
+            context = FieldTagContext(
+                schema_version=field_version,
+                vendor=data_structure.vendor or "",
+                name=data_structure.name or "",
+                field_name=field.fieldPath,
+                field_type=field.nativeDataType,
+                field_description=field.description,
+                deployment_initiator=field_initiator,
+                deployment_timestamp=field_timestamp,
+                pii_fields=pii_fields,
+                skip_version_tag=skip_version_tag,
+                event_type=event_type,
+            )
+
+            # Generate and emit structured properties
+            yield from self.field_tagger.generate_field_structured_properties(
+                dataset_urn=dataset_urn,
+                field=field,
+                context=context,
+            )
+
+    def _register_structured_properties(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Register structured property definitions for Snowplow field metadata.
+
+        These structured properties are used to track field authorship, versioning,
+        and classification. This method automatically creates the property definitions
+        in DataHub if they don't already exist.
+
+        Yields:
+            MetadataWorkUnit containing structured property definitions
+        """
+        if not self.config.field_tagging.use_structured_properties:
+            return
+
+        logger.info("Registering Snowplow field structured property definitions")
+
+        # Define structured properties
+        properties: List[Dict[str, Any]] = [
+            {
+                "id": "io.acryl.snowplow.fieldAuthor",
+                "display_name": "Field Author",
+                "description": "The person who added this field to the Snowplow event specification or data structure. "
+                "This tracks the initiator of the deployment that introduced the field.",
+                "value_type": "string",
+                "cardinality": "SINGLE",
+            },
+            {
+                "id": "io.acryl.snowplow.fieldVersionAdded",
+                "display_name": "Version Added",
+                "description": "The schema version when this field was first added to the event specification. "
+                "Format: Major-Minor-Patch (e.g., '1-0-2' for version 1.0.2)",
+                "value_type": "string",
+                "cardinality": "SINGLE",
+            },
+            {
+                "id": "io.acryl.snowplow.fieldAddedTimestamp",
+                "display_name": "Added Timestamp",
+                "description": "ISO 8601 timestamp when this field was first added to the event specification. "
+                "Format: YYYY-MM-DDTHH:MM:SSZ (e.g., '2024-01-15T10:30:00Z')",
+                "value_type": "string",
+                "cardinality": "SINGLE",
+            },
+            {
+                "id": "io.acryl.snowplow.fieldDataClass",
+                "display_name": "Data Classification",
+                "description": "The data classification level for this field based on PII enrichment analysis. "
+                "Values: 'pii', 'sensitive', 'public', 'internal'",
+                "value_type": "string",
+                "cardinality": "SINGLE",
+                "allowed_values": [
+                    {
+                        "value": "pii",
+                        "description": "Contains personally identifiable information",
+                    },
+                    {
+                        "value": "sensitive",
+                        "description": "Contains sensitive business data",
+                    },
+                    {
+                        "value": "public",
+                        "description": "Public information, safe to share externally",
+                    },
+                    {
+                        "value": "internal",
+                        "description": "Internal information, not for external sharing",
+                    },
+                ],
+            },
+            {
+                "id": "io.acryl.snowplow.fieldEventType",
+                "display_name": "Event Type",
+                "description": "The type of Snowplow event this field belongs to. "
+                "Values: 'self_describing', 'atomic', 'context'",
+                "value_type": "string",
+                "cardinality": "SINGLE",
+                "allowed_values": [
+                    {
+                        "value": "self_describing",
+                        "description": "Custom self-describing event field",
+                    },
+                    {"value": "atomic", "description": "Snowplow atomic event field"},
+                    {"value": "context", "description": "Context entity field"},
+                ],
+            },
+        ]
+
+        # Create structured property definitions
+        for prop in properties:
+            urn = StructuredPropertyUrn(prop["id"]).urn()
+
+            # Build allowed values if provided
+            allowed_values = None
+            if "allowed_values" in prop:
+                allowed_values = [
+                    PropertyValueClass(value=av["value"], description=av["description"])
+                    for av in prop["allowed_values"]
+                ]
+
+            aspect = StructuredPropertyDefinition(
+                qualifiedName=prop["id"],
+                displayName=prop["display_name"],
+                description=prop["description"],
+                valueType=DataTypeUrn(f"datahub.{prop['value_type']}").urn(),
+                entityTypes=[
+                    EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+                ],
+                cardinality=prop["cardinality"],
+                allowedValues=allowed_values,
+                lastModified=AuditStamp(
+                    time=get_sys_time(), actor="urn:li:corpuser:datahub"
+                ),
+            )
+
+            # Emit the structured property definition
+            # Using If-None-Match: * header ensures we only create if it doesn't exist
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=aspect,
+                changeType=ChangeTypeClass.CREATE,
+                headers={"If-None-Match": "*"},
+            ).as_workunit()
+
+        logger.info("Registered 5 Snowplow field structured property definitions")
 
     def _extract_pii_fields(self) -> set:
         """

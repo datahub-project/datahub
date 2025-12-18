@@ -1,7 +1,6 @@
 """Integration tests for Snowplow source with golden files."""
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -9,7 +8,6 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
-from tests.test_helpers.click_helpers import run_datahub_cmd
 
 FROZEN_TIME = "2024-01-01 00:00:00"
 
@@ -26,7 +24,6 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
     3. Compares output with golden file
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    config_file = test_resources_dir / "snowplow_to_file.yml"
     golden_file = test_resources_dir / "golden_files/snowplow_mces_golden.json"
 
     # Load mock data with ownership
@@ -49,7 +46,9 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
         # Parse directly as list of DataStructure objects (API returns direct array)
         from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
 
-        data_structures = [DataStructure.model_validate(ds) for ds in mock_data_structures]
+        data_structures = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
         mock_client.get_data_structures.return_value = data_structures
 
         # Mock test_connection
@@ -57,6 +56,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
 
         # Mock get_users for ownership resolution
         from datahub.ingestion.source.snowplow.snowplow_models import User
+
         mock_users = [
             User(id="user1", email="ryan@company.com", name="Ryan Smith"),
             User(id="user2", email="jane@company.com", name="Jane Doe"),
@@ -148,20 +148,47 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
             User,
         )
 
-        data_structures = [DataStructure.model_validate(ds) for ds in mock_data_structures]
+        data_structures = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
         mock_client.get_data_structures.return_value = data_structures
 
         # Mock get_event_specifications
         event_specs = [
-            EventSpecification.model_validate(es) for es in mock_event_specs_response["data"]
+            EventSpecification.model_validate(es)
+            for es in mock_event_specs_response["data"]
         ]
         mock_client.get_event_specifications.return_value = event_specs
 
         # Mock get_tracking_scenarios
         tracking_scenarios = [
-            TrackingScenario.model_validate(ts) for ts in mock_tracking_scenarios_response["data"]
+            TrackingScenario.model_validate(ts)
+            for ts in mock_tracking_scenarios_response["data"]
         ]
         mock_client.get_tracking_scenarios.return_value = tracking_scenarios
+
+        # Mock get_pipelines (needed for event-specific DataFlows)
+        from datahub.ingestion.source.snowplow.snowplow_models import (
+            Pipeline as SnowplowPipelineModel,
+            PipelineConfig,
+        )
+
+        mock_pipeline = SnowplowPipelineModel(
+            id="pipeline-test-id",
+            name="Default",
+            status="active",
+            label="Test Pipeline",
+            workspace_id="workspace-123",
+            config=PipelineConfig(
+                collector_endpoints=["collector.example.com"],
+                incomplete_stream_deployed=False,
+                enrich_accept_invalid=False,
+            ),
+        )
+        mock_client.get_pipelines.return_value = [mock_pipeline]
+
+        # Mock get_enrichments (return empty for this test)
+        mock_client.get_enrichments.return_value = []
 
         # Mock test_connection
         mock_client.test_connection.return_value = True
@@ -188,11 +215,15 @@ def test_snowplow_event_specs_and_tracking_scenarios(pytestconfig, tmp_path, moc
                         },
                         "extract_event_specifications": True,
                         "extract_tracking_scenarios": True,
+                        "extract_pipelines": True,  # Enable event-specific DataFlows
+                        "extract_enrichments": False,  # Disable enrichments for this test
                     },
                 },
                 "sink": {
                     "type": "file",
-                    "config": {"filename": str(tmp_path / "snowplow_event_specs_mces.json")},
+                    "config": {
+                        "filename": str(tmp_path / "snowplow_event_specs_mces.json")
+                    },
                 },
             }
         )
@@ -261,18 +292,22 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
             User,
         )
 
-        data_structures = [DataStructure.model_validate(ds) for ds in mock_data_structures]
+        data_structures = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
         mock_client.get_data_structures.return_value = data_structures
 
         # Mock get_event_specifications
         event_specs = [
-            EventSpecification.model_validate(es) for es in mock_event_specs_response["data"]
+            EventSpecification.model_validate(es)
+            for es in mock_event_specs_response["data"]
         ]
         mock_client.get_event_specifications.return_value = event_specs
 
         # Mock get_tracking_scenarios
         tracking_scenarios = [
-            TrackingScenario.model_validate(ts) for ts in mock_tracking_scenarios_response["data"]
+            TrackingScenario.model_validate(ts)
+            for ts in mock_tracking_scenarios_response["data"]
         ]
         mock_client.get_tracking_scenarios.return_value = tracking_scenarios
 
@@ -281,6 +316,29 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
             DataProduct.model_validate(dp) for dp in mock_data_products_response["data"]
         ]
         mock_client.get_data_products.return_value = data_products
+
+        # Mock get_pipelines (needed for event-specific DataFlows)
+        from datahub.ingestion.source.snowplow.snowplow_models import (
+            Pipeline as SnowplowPipelineModel,
+            PipelineConfig,
+        )
+
+        mock_pipeline = SnowplowPipelineModel(
+            id="pipeline-test-id",
+            name="Default",
+            status="active",
+            label="Test Pipeline",
+            workspace_id="workspace-123",
+            config=PipelineConfig(
+                collector_endpoints=["collector.example.com"],
+                incomplete_stream_deployed=False,
+                enrich_accept_invalid=False,
+            ),
+        )
+        mock_client.get_pipelines.return_value = [mock_pipeline]
+
+        # Mock get_enrichments (return empty for this test)
+        mock_client.get_enrichments.return_value = []
 
         # Mock test_connection
         mock_client.test_connection.return_value = True
@@ -312,7 +370,9 @@ def test_snowplow_data_products(pytestconfig, tmp_path, mock_time):
                 },
                 "sink": {
                     "type": "file",
-                    "config": {"filename": str(tmp_path / "snowplow_data_products_mces.json")},
+                    "config": {
+                        "filename": str(tmp_path / "snowplow_data_products_mces.json")
+                    },
                 },
             }
         )
@@ -372,12 +432,15 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
             Pipeline as SnowplowPipeline,
         )
 
-        data_structures = [DataStructure.model_validate(ds) for ds in mock_data_structures]
+        data_structures = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
         mock_client.get_data_structures.return_value = data_structures
 
         # Mock get_pipelines
         pipelines = [
-            SnowplowPipeline.model_validate(p) for p in mock_pipelines_response["pipelines"]
+            SnowplowPipeline.model_validate(p)
+            for p in mock_pipelines_response["pipelines"]
         ]
         mock_client.get_pipelines.return_value = pipelines
 
@@ -414,7 +477,9 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
                 },
                 "sink": {
                     "type": "file",
-                    "config": {"filename": str(tmp_path / "snowplow_pipelines_mces.json")},
+                    "config": {
+                        "filename": str(tmp_path / "snowplow_pipelines_mces.json")
+                    },
                 },
             }
         )
@@ -478,12 +543,15 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
             Pipeline as SnowplowPipeline,
         )
 
-        data_structures = [DataStructure.model_validate(ds) for ds in mock_data_structures]
+        data_structures = [
+            DataStructure.model_validate(ds) for ds in mock_data_structures
+        ]
         mock_client.get_data_structures.return_value = data_structures
 
         # Mock get_pipelines
         pipelines = [
-            SnowplowPipeline.model_validate(p) for p in mock_pipelines_response["pipelines"]
+            SnowplowPipeline.model_validate(p)
+            for p in mock_pipelines_response["pipelines"]
         ]
         mock_client.get_pipelines.return_value = pipelines
 
@@ -491,8 +559,21 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         enrichments = [Enrichment.model_validate(e) for e in mock_enrichments_response]
         mock_client.get_enrichments.return_value = enrichments
 
+        # Mock get_event_specifications (needed for event-specific enrichments)
+        with open(
+            test_resources_dir / "fixtures/event_specifications_response.json"
+        ) as f:
+            mock_event_specs_response = json.load(f)
+
+        from datahub.ingestion.source.snowplow.snowplow_models import EventSpecification
+
+        event_specs = [
+            EventSpecification.model_validate(es)
+            for es in mock_event_specs_response["data"]
+        ]
+        mock_client.get_event_specifications.return_value = event_specs
+
         # Mock other methods to return empty lists
-        mock_client.get_event_specifications.return_value = []
         mock_client.get_tracking_scenarios.return_value = []
         mock_client.get_data_products.return_value = []
 
@@ -525,7 +606,7 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
                             "api_key_id": "test-key-id",
                             "api_key": "test-secret",
                         },
-                        "extract_event_specifications": False,
+                        "extract_event_specifications": True,  # Needed for event-specific enrichments
                         "extract_tracking_scenarios": False,
                         "extract_data_products": False,
                         "extract_pipelines": True,
@@ -534,7 +615,9 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
                 },
                 "sink": {
                     "type": "file",
-                    "config": {"filename": str(tmp_path / "snowplow_enrichments_mces.json")},
+                    "config": {
+                        "filename": str(tmp_path / "snowplow_enrichments_mces.json")
+                    },
                 },
             }
         )
@@ -577,16 +660,23 @@ def test_snowplow_iglu_autodiscovery(pytestconfig, tmp_path, mock_time):
         docker compose -f docker-compose.iglu.yml down -v
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
-    golden_file = test_resources_dir / "golden_files/snowplow_iglu_autodiscovery_golden.json"
+    golden_file = (
+        test_resources_dir / "golden_files/snowplow_iglu_autodiscovery_golden.json"
+    )
 
     # Check if Iglu Server is running
     import requests
+
     try:
         response = requests.get("http://localhost:8081/api/meta/health", timeout=2)
         if response.status_code != 200:
-            pytest.skip("Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py")
+            pytest.skip(
+                "Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py"
+            )
     except requests.exceptions.RequestException:
-        pytest.skip("Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py")
+        pytest.skip(
+            "Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py"
+        )
 
     # Run ingestion with Iglu-only mode
     pipeline = Pipeline.create(

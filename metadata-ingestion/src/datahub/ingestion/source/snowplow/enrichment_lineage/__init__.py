@@ -34,9 +34,12 @@ from datahub.ingestion.source.snowplow.enrichment_lineage.extractors import (
     CampaignAttributionLineageExtractor,
     CurrencyConversionLineageExtractor,
     EventFingerprintLineageExtractor,
+    IabSpidersRobotsLineageExtractor,
     IpLookupLineageExtractor,
+    PiiPseudonymizationLineageExtractor,
     RefererParserLineageExtractor,
     UaParserLineageExtractor,
+    YauaaLineageExtractor,
 )
 from datahub.ingestion.source.snowplow.enrichment_lineage.registry import (
     EnrichmentLineageRegistry,
@@ -48,6 +51,9 @@ __all__ = [
     "EnrichmentLineageRegistry",
     "IpLookupLineageExtractor",
     "UaParserLineageExtractor",
+    "YauaaLineageExtractor",
+    "IabSpidersRobotsLineageExtractor",
+    "PiiPseudonymizationLineageExtractor",
     "RefererParserLineageExtractor",
     "CurrencyConversionLineageExtractor",
     "CampaignAttributionLineageExtractor",

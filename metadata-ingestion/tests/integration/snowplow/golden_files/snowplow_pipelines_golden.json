@@ -371,32 +371,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "pipelineId": "a44e4bc8-6948-4844-91c4-96bfb1f7f3dc",
-                "status": "ready",
-                "label": "prod",
-                "workspaceId": "8f12a845-7a19-4eb2-b902-d31fe66d1cdf",
-                "collectorEndpoints": "com-datahub-stpgw.collector.snplow.net",
-                "incompleteStreamDeployed": "False",
-                "enrichAcceptInvalid": "False"
-            },
-            "name": "Default",
-            "description": "Snowplow prod (ready) - Collector: com-datahub-stpgw.collector.snplow.net"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-6u6due",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
     "changeType": "UPSERT",
@@ -409,22 +383,6 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-hki20v",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-6u6due",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -536,43 +494,6 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-hbcvf7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-6u6due",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-6u6due",
         "lastRunId": "no-run-id-provided"
     }
 },

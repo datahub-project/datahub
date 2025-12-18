@@ -16,7 +16,7 @@ source:
     # Extract schemas with ownership
     extract_tracking_scenarios: true
     extract_data_products: true
-    extract_event_specifications: true  # Required for relationships
+    extract_event_specifications: false  # Disabled - creates duplicate datasets
     # Extract pipelines and enrichments (for lineage)
     extract_pipelines: true
     extract_enrichments: true
@@ -31,6 +31,7 @@ source:
 
     field_tagging:
       enabled: true
+      use_structured_properties: true  # Use structured properties for field metadata
       tag_schema_version: true
       tag_event_type: true
       tag_data_class: true

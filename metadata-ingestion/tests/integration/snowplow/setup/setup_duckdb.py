@@ -79,13 +79,15 @@ def create_database(db_path: str = "snowplow_test.duckdb") -> None:
     """)
 
     print(f"✅ Created database: {db_path}")
-    print(f"✅ Created schema: snowplow")
-    print(f"✅ Created table: snowplow.events")
+    print("✅ Created schema: snowplow")
+    print("✅ Created table: snowplow.events")
 
     conn.close()
 
 
-def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 100) -> None:
+def generate_sample_events(
+    db_path: str = "snowplow_test.duckdb", count: int = 100
+) -> None:
     """Generate sample events and insert into DuckDB."""
 
     conn = duckdb.connect(db_path)
@@ -139,11 +141,13 @@ def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 1
                     {
                         "product_id": f"prod_{randint(1, 50)}",
                         "quantity": randint(1, 5),
-                        "price": randint(1000, 50000)
+                        "price": randint(1000, 50000),
                     }
-                ]
+                ],
             }
-            event["unstruct_event_com_acme_checkout_started_1"] = json.dumps(checkout_data)
+            event["unstruct_event_com_acme_checkout_started_1"] = json.dumps(
+                checkout_data
+            )
             event["contexts_com_acme_checkout_started_1"] = json.dumps([checkout_data])
 
         elif event_type == "product_viewed":
@@ -151,7 +155,7 @@ def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 1
                 "product_id": f"prod_{randint(1, 50)}",
                 "category": choice(["electronics", "clothing", "books"]),
                 "price": randint(1000, 100000),
-                "user_id": event["user_id"]
+                "user_id": event["user_id"],
             }
             event["unstruct_event_com_acme_product_viewed_1"] = json.dumps(product_data)
             event["contexts_com_acme_product_viewed_1"] = json.dumps([product_data])
@@ -160,7 +164,9 @@ def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 1
         user_context = {
             "user_id": event["user_id"],
             "user_type": choice(["free", "premium", "enterprise"]),
-            "registration_date": (base_time - timedelta(days=randint(1, 365))).strftime("%Y-%m-%d")
+            "registration_date": (base_time - timedelta(days=randint(1, 365))).strftime(
+                "%Y-%m-%d"
+            ),
         }
         event["contexts_com_acme_user_context_1"] = json.dumps([user_context])
 
@@ -168,7 +174,8 @@ def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 1
 
     # Insert events
     for event in events:
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO snowplow.events (
                 app_id, platform, etl_tstamp, collector_tstamp, dvce_created_tstamp,
                 event, event_id, txn_id, name_tracker,
@@ -183,22 +190,41 @@ def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 1
                 unstruct_event_com_acme_product_viewed_1,
                 derived_tstamp, load_tstamp
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            event["app_id"], event["platform"], event["etl_tstamp"],
-            event["collector_tstamp"], event["dvce_created_tstamp"],
-            event["event"], event["event_id"], event["txn_id"], event["name_tracker"],
-            event["user_id"], event["user_ipaddress"],
-            event["page_url"], event["page_title"], event["page_referrer"],
-            event["br_name"], event["br_family"], event["os_name"], event["os_family"],
-            event["geo_country"], event["geo_region"], event["geo_city"],
-            event["geo_zipcode"], event["geo_latitude"], event["geo_longitude"],
-            event.get("contexts_com_acme_checkout_started_1"),
-            event.get("contexts_com_acme_product_viewed_1"),
-            event.get("contexts_com_acme_user_context_1"),
-            event.get("unstruct_event_com_acme_checkout_started_1"),
-            event.get("unstruct_event_com_acme_product_viewed_1"),
-            event["derived_tstamp"], event["load_tstamp"]
-        ))
+        """,
+            (
+                event["app_id"],
+                event["platform"],
+                event["etl_tstamp"],
+                event["collector_tstamp"],
+                event["dvce_created_tstamp"],
+                event["event"],
+                event["event_id"],
+                event["txn_id"],
+                event["name_tracker"],
+                event["user_id"],
+                event["user_ipaddress"],
+                event["page_url"],
+                event["page_title"],
+                event["page_referrer"],
+                event["br_name"],
+                event["br_family"],
+                event["os_name"],
+                event["os_family"],
+                event["geo_country"],
+                event["geo_region"],
+                event["geo_city"],
+                event["geo_zipcode"],
+                event["geo_latitude"],
+                event["geo_longitude"],
+                event.get("contexts_com_acme_checkout_started_1"),
+                event.get("contexts_com_acme_product_viewed_1"),
+                event.get("contexts_com_acme_user_context_1"),
+                event.get("unstruct_event_com_acme_checkout_started_1"),
+                event.get("unstruct_event_com_acme_product_viewed_1"),
+                event["derived_tstamp"],
+                event["load_tstamp"],
+            ),
+        )
 
     # Verify
     result = conn.execute("SELECT COUNT(*) FROM snowplow.events").fetchone()
@@ -210,18 +236,22 @@ def generate_sample_events(db_path: str = "snowplow_test.duckdb", count: int = 1
 def print_sample_query(db_path: str = "snowplow_test.duckdb") -> None:
     """Print sample queries for testing."""
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Sample Queries for Testing")
-    print("="*80)
+    print("=" * 80)
 
     print("\n1. Count events by type:")
-    print(f"   duckdb {db_path} \"SELECT event, COUNT(*) FROM snowplow.events GROUP BY event\"")
+    print(
+        f'   duckdb {db_path} "SELECT event, COUNT(*) FROM snowplow.events GROUP BY event"'
+    )
 
     print("\n2. View checkout events:")
-    print(f"   duckdb {db_path} \"SELECT event_id, user_id, unstruct_event_com_acme_checkout_started_1 FROM snowplow.events WHERE event = 'unstruct' LIMIT 5\"")
+    print(
+        f"   duckdb {db_path} \"SELECT event_id, user_id, unstruct_event_com_acme_checkout_started_1 FROM snowplow.events WHERE event = 'unstruct' LIMIT 5\""
+    )
 
     print("\n3. View all columns:")
-    print(f"   duckdb {db_path} \"SELECT * FROM snowplow.events LIMIT 1\"")
+    print(f'   duckdb {db_path} "SELECT * FROM snowplow.events LIMIT 1"')
 
     print("\n4. Python connection:")
     print("""
@@ -231,16 +261,27 @@ def print_sample_query(db_path: str = "snowplow_test.duckdb") -> None:
     conn.close()
     """)
 
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Setup DuckDB test database for Snowplow")
-    parser.add_argument("--db-path", default="snowplow_test.duckdb", help="Path to DuckDB database file")
-    parser.add_argument("--event-count", type=int, default=100, help="Number of sample events to generate")
-    parser.add_argument("--recreate", action="store_true", help="Recreate database (delete existing)")
+    parser = argparse.ArgumentParser(
+        description="Setup DuckDB test database for Snowplow"
+    )
+    parser.add_argument(
+        "--db-path", default="snowplow_test.duckdb", help="Path to DuckDB database file"
+    )
+    parser.add_argument(
+        "--event-count",
+        type=int,
+        default=100,
+        help="Number of sample events to generate",
+    )
+    parser.add_argument(
+        "--recreate", action="store_true", help="Recreate database (delete existing)"
+    )
 
     args = parser.parse_args()
 
