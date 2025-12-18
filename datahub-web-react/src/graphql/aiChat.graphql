@@ -1,7 +1,7 @@
 # AI Chat Queries and Mutations
 
-query listDataHubAiConversations($start: Int, $count: Int) {
-    listDataHubAiConversations(start: $start, count: $count) {
+query listDataHubAiConversations($start: Int, $count: Int, $originType: DataHubAiConversationOriginType) {
+    listDataHubAiConversations(start: $start, count: $count, originType: $originType) {
         conversations {
             urn
             title

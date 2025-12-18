@@ -1,0 +1,199 @@
+---
+title: Lineage Client
+---
+<div className="sphinx-api-docs">
+<a id="lineage-client"></a>
+
+
+The DataHub Lineage Client provides a client for adding and retrieving lineage information from DataHub.
+
+If you’re looking for higher-level introduction to adding and getting lineage using the SDK, see the [lineage guide](../../docs/api/tutorials/lineage.md).
+
+
+
+### <span className="visually-hidden">LineageClient</span> {#datahub.sdk.lineage_client.LineageClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.lineage_client.</span><span class="class-name">LineageClient</span>(<span class="arg-name">client</span>)<a href="#datahub.sdk.lineage_client.LineageClient" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  **client** ([`DataHubClient`](main-client.mdx#datahub.sdk.main_client.DataHubClient)) – 
+
+#### add_datajob_lineage(\*, datajob, upstreams=None, downstreams=None)
+
+Add lineage between a datajob and datasets/datajobs.
+
+* **Parameters:**
+  * **datajob** (`Union`[`str`, [`DataJobUrn`](../urns.mdx#datahub.metadata.urns.DataJobUrn)]) – The datajob URN to connect lineage with
+  * **upstreams** (`Optional`[`List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`DataJobUrn`](../urns.mdx#datahub.metadata.urns.DataJobUrn)]]]) – List of upstream datasets or datajobs that serve as inputs to the datajob
+  * **downstreams** (`Optional`[`List`[`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]]]) – List of downstream datasets that are outputs of the datajob
+* **Return type:**
+  `None`
+
+#### add_dataset_copy_lineage(\*, upstream, downstream, column_lineage='auto_fuzzy')
+
+* **Parameters:**
+  * **upstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]) – 
+  * **downstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]) – 
+  * **column_lineage** (`Union`[`None`, `Dict`[`str`, `List`[`str`]], `Literal`[`'auto_fuzzy'`, `'auto_strict'`]])
+* **Return type:**
+  `None`
+
+#### add_dataset_transform_lineage(\*, upstream, downstream, column_lineage=None, transformation_text=None)
+
+* **Parameters:**
+  * **upstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]) – 
+  * **downstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn)]) – 
+  * **column_lineage** (`Optional`[`Dict`[`str`, `List`[`str`]]])
+  * **transformation_text** (`Optional`[`str`])
+* **Return type:**
+  `None`
+
+#### add_lineage(\*, upstream, downstream, column_lineage=False, transformation_text=None)
+
+Add lineage between two entities.
+
+This flexible method handles different combinations of entity types:
+- dataset to dataset
+- dataset to datajob
+- datajob to dataset
+- datajob to datajob
+- dashboard to dataset
+- dashboard to chart
+- dashboard to dashboard
+- dataset to chart
+
+* **Parameters:**
+  * **upstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`DataJobUrn`](../urns.mdx#datahub.metadata.urns.DataJobUrn), [`DashboardUrn`](../urns.mdx#datahub.metadata.urns.DashboardUrn), [`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn)]) – URN of the upstream entity (dataset or datajob)
+  * **downstream** (`Union`[`str`, [`DatasetUrn`](../urns.mdx#datahub.metadata.urns.DatasetUrn), [`DataJobUrn`](../urns.mdx#datahub.metadata.urns.DataJobUrn), [`DashboardUrn`](../urns.mdx#datahub.metadata.urns.DashboardUrn), [`ChartUrn`](../urns.mdx#datahub.metadata.urns.ChartUrn)]) – URN of the downstream entity (dataset or datajob)
+  * **column_lineage** (`Union`[`bool`, `Dict`[`str`, `List`[`str`]], `Literal`[`'auto_fuzzy'`, `'auto_strict'`]]) – Optional boolean to indicate if column-level lineage should be added or a lineage mapping type (auto_fuzzy, auto_strict, or a mapping of column-level lineage)
+  * **transformation_text** (`Optional`[`str`]) – Optional SQL query text that defines the transformation
+    (only applicable for dataset-to-dataset lineage)
+* **Raises:**
+  * **InvalidUrnError** – If the URNs provided are invalid
+  * **SdkUsageError** – If certain parameter combinations are not supported
+* **Return type:**
+  `None`
+
+#### get_lineage(\*, source_urn, source_column=None, direction='upstream', max_hops=1, filter=None, count=500)
+
+Retrieve lineage entities connected to a source entity.
+:type source_urn: `Union`[`str`, [`Urn`](../urns.mdx#datahub.metadata.urns.Urn)]
+:param source_urn: Source URN for the lineage search
+:type source_column: `Optional`[`str`]
+:param source_column: Source column for the lineage search
+:type direction: `Literal`[`'upstream'`, `'downstream'`]
+:param direction: Direction of lineage traversal
+:type max_hops: `int`
+:param max_hops: Maximum number of hops to traverse
+:type filter: `Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`, `None`]
+:param filter: Filters to apply to the lineage search
+:type count: `int`
+:param count: Maximum number of results to return
+
+* **Return type:**
+  `List`[[`LineageResult`](#datahub.sdk.lineage_client.LineageResult)]
+* **Returns:**
+  List of lineage results
+* **Raises:**
+  **SdkUsageError for invalid filter values** – 
+* **Parameters:**
+  * **source_urn** (*str* *|* [*Urn*](../urns.mdx#datahub.metadata.urns.Urn)) – 
+  * **source_column** (*str* *|* *None*)
+  * **direction** (*Literal* *[* *'upstream'* *,**'downstream'**]*)
+  * **max_hops** (*int*)
+  * **filter** ( *\_And* *|*  *\_Or* *|*  *\_Not* *|*  *\_EntityTypeFilter* *|*  *\_EntitySubtypeFilter* *|*  *\_StatusFilter* *|*  *\_PlatformFilter* *|*  *\_DomainFilter* *|*  *\_ContainerFilter* *|*  *\_EnvFilter* *|*  *\_OwnerFilter* *|*  *\_GlossaryTermFilter* *|*  *\_TagFilter* *|*  *\_CustomCondition* *|* *None*)
+  * **count** (*int*)
+#### infer_lineage_from_sql(\*, query_text, platform, platform_instance=None, env='PROD', default_db=None, default_schema=None, override_dialect=None)
+
+Add lineage by parsing a SQL query.
+
+* **Parameters:**
+  * **query_text** (`str`)
+  * **platform** (`str`)
+  * **platform_instance** (`Optional`[`str`])
+  * **env** (`str`)
+  * **default_db** (`Optional`[`str`])
+  * **default_schema** (`Optional`[`str`])
+  * **override_dialect** (`Optional`[`str`])
+* **Return type:**
+  `None`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">LineagePath</span> {#datahub.sdk.lineage_client.LineagePath}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.lineage_client.</span><span class="class-name">LineagePath</span>(<span class="arg-name">urn</span>, <span class="arg-name">entity_name</span>, <span class="arg-name">column_name</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.lineage_client.LineagePath" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **entity_name** (`str`)
+  * **column_name** (`Optional`[`str`])
+#### column_name *: `Optional`[`str`]* *= None*
+
+#### entity_name *: `str`*
+
+#### urn *: `str`*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">LineageResult</span> {#datahub.sdk.lineage_client.LineageResult}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.lineage_client.</span><span class="class-name">LineageResult</span>(<span class="arg-name">urn</span>, <span class="arg-name">type</span>, <span class="arg-name">hops</span>, <span class="arg-name">direction</span>, <span class="arg-name">platform</span> = <span class="arg-default">None</span>, <span class="arg-name">name</span> = <span class="arg-default">None</span>, <span class="arg-name">description</span> = <span class="arg-default">None</span>, <span class="arg-name">paths</span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.lineage_client.LineageResult" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  * **urn** (`str`)
+  * **type** (`str`)
+  * **hops** (`int`)
+  * **direction** (`Literal`[`'upstream'`, `'downstream'`])
+  * **platform** (`Optional`[`str`])
+  * **name** (`Optional`[`str`])
+  * **description** (`Optional`[`str`])
+  * **paths** (`Optional`[`List`[[`LineagePath`](#datahub.sdk.lineage_client.LineagePath)]]) – 
+
+#### description *: `Optional`[`str`]* *= None*
+
+#### direction *: `Literal`[`'upstream'`, `'downstream'`]*
+
+#### hops *: `int`*
+
+#### name *: `Optional`[`str`]* *= None*
+
+#### paths *: `Optional`[`List`[[`LineagePath`](#datahub.sdk.lineage_client.LineagePath)]]* *= None*
+
+#### platform *: `Optional`[`str`]* *= None*
+
+#### type *: `str`*
+
+#### urn *: `str`*
+
+
+</div>
+</div>

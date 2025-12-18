@@ -135,7 +135,7 @@ def test_handle_app_mention_chat_max_tool_calls_error() -> None:
 
         assert (
             mock_app.client.chat_update.call_args[1]["text"]
-            == ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question."
+            == ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question.\n\n_Reference: message_id=1234.5678_"
         )
 
 
@@ -168,7 +168,7 @@ def test_handle_app_mention_chat_session_max_tokens_error() -> None:
 
         assert (
             mock_app.client.chat_update.call_args[1]["text"]
-            == ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread."
+            == ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread.\n\n_Reference: message_id=1234.5678_"
         )
 
 

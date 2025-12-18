@@ -1,0 +1,234 @@
+---
+title: Search Client
+---
+<div className="sphinx-api-docs">
+<a id="search-client"></a>
+
+
+The DataHub Search Client provides a client for searching and retrieving metadata from DataHub.
+
+If you’re looking for higher-level introduction to searching using the SDK, see the [search guide](../../docs/api/tutorials/sdk/search_client.md).
+
+
+
+### <span className="visually-hidden">SearchClient</span> {#datahub.sdk.search_client.SearchClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.search_client.</span><span class="class-name">SearchClient</span>(<span class="arg-name">client</span>)<a href="#datahub.sdk.search_client.SearchClient" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  **client** ([`DataHubClient`](main-client.mdx#datahub.sdk.main_client.DataHubClient)) – 
+
+#### get_urns(query=None, filter=None, \*, skip_cache=False)
+
+* **Parameters:**
+  * **query** (`Optional`[`str`])
+  * **filter** (`Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`, `None`])
+  * **skip_cache** (`bool`)
+* **Return type:**
+  `Iterable`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn)]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">compile_filters</span> {#datahub.sdk.search_client.compile_filters}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.sdk.search_client.</span><span class="class-name">compile_filters</span>(<span class="arg-name">filter</span>)<a href="#datahub.sdk.search_client.compile_filters" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **filter** (`Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`, `None`])
+* **Return type:**
+  `Tuple`[`Optional`[`List`[`str`]], `List`[`Dict`[`Literal`[`'and'`], `List`[`Dict`[`str`, `Union`[`str`, `bool`, `List`[`str`]]]]]]]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">compute_entity_types</span> {#datahub.sdk.search_client.compute_entity_types}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.sdk.search_client.</span><span class="class-name">compute_entity_types</span>(<span class="arg-name">filters</span>)<a href="#datahub.sdk.search_client.compute_entity_types" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **filters** (`List`[`_AndSearchFilterRule`])
+* **Return type:**
+  `Optional`[`List`[`str`]]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">FilterDsl</span> {#datahub.sdk.search_filters.FilterDsl}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.search_filters.</span><span class="class-name">FilterDsl</span>()<a href="#datahub.sdk.search_filters.FilterDsl" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+#### *static* and_(\*args)
+
+* **Parameters:**
+  **args** (`Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`])
+* **Return type:**
+  `_And`
+
+#### *static* container(container, /, \*, direct_descendants_only=False)
+
+* **Parameters:**
+  * **container** (`Union`[`str`, `Sequence`[`str`]])
+  * **direct_descendants_only** (`bool`)
+* **Return type:**
+  `_ContainerFilter`
+
+#### *static* custom_filter(field, condition, values)
+
+* **Parameters:**
+  * **field** (`str`)
+  * **condition** (`Literal`[`'CONTAIN'`, `'EQUAL'`, `'IEQUAL'`, `'IN'`, `'EXISTS'`, `'GREATER_THAN'`, `'GREATER_THAN_OR_EQUAL_TO'`, `'LESS_THAN'`, `'LESS_THAN_OR_EQUAL_TO'`, `'START_WITH'`, `'END_WITH'`, `'DESCENDANTS_INCL'`, `'ANCESTORS_INCL'`, `'RELATED_INCL'`])
+  * **values** (`Sequence`[`str`])
+* **Return type:**
+  `_CustomCondition`
+
+#### *static* domain(domain, /)
+
+* **Parameters:**
+  **domain** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_DomainFilter`
+
+#### *static* entity_subtype(entity_subtype)
+
+* **Parameters:**
+  **entity_subtype** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_EntitySubtypeFilter`
+
+#### *static* entity_type(entity_type)
+
+* **Parameters:**
+  **entity_type** (`Union`[`Literal`[`'platformResource'`, `'entityType'`, `'dataType'`, `'businessAttribute'`, `'structuredProperty'`, `'application'`, `'dataProduct'`, `'dataHubIngestionSource'`, `'mlPrimaryKey'`, `'dataHubPolicy'`, `'dataHubPageTemplate'`, `'mlFeatureTable'`, `'notebook'`, `'glossaryNode'`, `'mlModelDeployment'`, `'dataPlatformInstance'`, `'inviteToken'`, `'mlFeature'`, `'dataHubRole'`, `'dashboard'`, `'assertion'`, `'dataset'`, `'dataJob'`, `'dataHubPageModule'`, `'dataHubExecutionRequest'`, `'dataHubAction'`, `'dataHubConnection'`, `'globalSettings'`, `'post'`, `'tag'`, `'dataContract'`, `'schemaField'`, `'erModelRelationship'`, `'glossaryTerm'`, `'test'`, `'dataHubSecret'`, `'dataPlatform'`, `'incident'`, `'dataHubUpgrade'`, `'mlModel'`, `'form'`, `'ownershipType'`, `'versionSet'`, `'dataProcessInstance'`, `'domain'`, `'dataHubAccessToken'`, `'dataProcess'`, `'container'`, `'dataHubView'`, `'corpuser'`, `'dataHubRetention'`, `'dataHubPersona'`, `'role'`, `'query'`, `'chart'`, `'dataFlow'`, `'mlModelGroup'`, `'telemetry'`, `'corpGroup'`, `'dataHubOpenAPISchema'`, `'dataHubStepState'`], `Sequence`[`Literal`[`'platformResource'`, `'entityType'`, `'dataType'`, `'businessAttribute'`, `'structuredProperty'`, `'application'`, `'dataProduct'`, `'dataHubIngestionSource'`, `'mlPrimaryKey'`, `'dataHubPolicy'`, `'dataHubPageTemplate'`, `'mlFeatureTable'`, `'notebook'`, `'glossaryNode'`, `'mlModelDeployment'`, `'dataPlatformInstance'`, `'inviteToken'`, `'mlFeature'`, `'dataHubRole'`, `'dashboard'`, `'assertion'`, `'dataset'`, `'dataJob'`, `'dataHubPageModule'`, `'dataHubExecutionRequest'`, `'dataHubAction'`, `'dataHubConnection'`, `'globalSettings'`, `'post'`, `'tag'`, `'dataContract'`, `'schemaField'`, `'erModelRelationship'`, `'glossaryTerm'`, `'test'`, `'dataHubSecret'`, `'dataPlatform'`, `'incident'`, `'dataHubUpgrade'`, `'mlModel'`, `'form'`, `'ownershipType'`, `'versionSet'`, `'dataProcessInstance'`, `'domain'`, `'dataHubAccessToken'`, `'dataProcess'`, `'container'`, `'dataHubView'`, `'corpuser'`, `'dataHubRetention'`, `'dataHubPersona'`, `'role'`, `'query'`, `'chart'`, `'dataFlow'`, `'mlModelGroup'`, `'telemetry'`, `'corpGroup'`, `'dataHubOpenAPISchema'`, `'dataHubStepState'`]]])
+* **Return type:**
+  `_EntityTypeFilter`
+
+#### *static* env(env, /)
+
+* **Parameters:**
+  **env** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_EnvFilter`
+
+#### *static* false()
+
+* **Return type:**
+  `Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`]
+
+#### *static* glossary_term(glossary_term, /)
+
+* **Parameters:**
+  **glossary_term** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_GlossaryTermFilter`
+
+#### *static* has_custom_property(key, value)
+
+* **Parameters:**
+  * **key** (`str`)
+  * **value** (`str`)
+* **Return type:**
+  `_CustomCondition`
+
+#### *static* not_(arg)
+
+* **Parameters:**
+  **arg** (`Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`])
+* **Return type:**
+  `_Not`
+
+#### *static* or_(\*args)
+
+* **Parameters:**
+  **args** (`Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`])
+* **Return type:**
+  `_Or`
+
+#### *static* owner(owner, /)
+
+* **Parameters:**
+  **owner** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_OwnerFilter`
+
+#### *static* platform(platform, /)
+
+* **Parameters:**
+  **platform** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_PlatformFilter`
+
+#### *static* soft_deleted(status)
+
+* **Parameters:**
+  **status** (`RemovedStatusFilter`)
+* **Return type:**
+  `_StatusFilter`
+
+#### *static* tag(tag, /)
+
+* **Parameters:**
+  **tag** (`Union`[`str`, `Sequence`[`str`]])
+* **Return type:**
+  `_TagFilter`
+
+#### *static* true()
+
+* **Return type:**
+  `Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`]
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">load_filters</span> {#datahub.sdk.search_filters.load_filters}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.sdk.search_filters.</span><span class="class-name">load_filters</span>(<span class="arg-name">obj</span>)<a href="#datahub.sdk.search_filters.load_filters" class="hash-link"></a></div>
+
+
+* **Parameters:**
+  **obj** (`Any`)
+* **Return type:**
+  `Union`[`_And`, `_Or`, `_Not`, `_EntityTypeFilter`, `_EntitySubtypeFilter`, `_StatusFilter`, `_PlatformFilter`, `_DomainFilter`, `_ContainerFilter`, `_EnvFilter`, `_OwnerFilter`, `_GlossaryTermFilter`, `_TagFilter`, `_CustomCondition`]
+
+
+</div>
+</div>

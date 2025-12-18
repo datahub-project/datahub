@@ -91,5 +91,6 @@ public class FeatureFlags {
   private boolean inviteUsersEnabled = false;
   private boolean showAskDataHub = false;
   private boolean supportTicketsEnabled = false;
+  private boolean freshnessAssertionTuningEnabled = false;
   private boolean contextDocumentsEnabled = false;
 }

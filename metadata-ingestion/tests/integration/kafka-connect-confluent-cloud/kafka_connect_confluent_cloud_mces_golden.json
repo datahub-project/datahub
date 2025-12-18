@@ -19,6 +19,47 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.source_postgres_cdc_01,PROD),ecommerce_db.public.customer_addresses)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "source_postgres_cdc_01:ecommerce_db.public.customer_addresses",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-confluent-cloud-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.source_postgres_cdc_01,PROD),ecommerce_db.public.customer_addresses)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.public.customer_addresses,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,public.customer_addresses,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-confluent-cloud-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),public.customer_profiles)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -45,6 +86,47 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.public.customer_profiles,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-confluent-cloud-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.source_postgres_cdc_01,PROD),ecommerce_db.analytics.order_events)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "source_postgres_cdc_01:ecommerce_db.analytics.order_events",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-confluent-cloud-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.source_postgres_cdc_01,PROD),ecommerce_db.analytics.order_events)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,ecommerce_db.analytics.order_events,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,analytics.order_events,PROD)"
             ]
         }
     },
@@ -158,53 +240,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),analytics.transactions)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_postgres_01:analytics.transactions",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),analytics.order_events)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),analytics.transactions)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,analytics.transactions,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.analytics.transactions,PROD)"
-            ]
         }
     },
     "systemMetadata": {
@@ -236,67 +277,6 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),app.events.order_created)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_postgres_01:app.events.order_created",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),analytics.order_events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_postgres_01:analytics.order_events",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),app.events.order_created)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,app.events.order_created,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.app.events.order_created,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),public.product_catalog)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
@@ -304,88 +284,6 @@
         "json": {
             "customProperties": {},
             "name": "sink_postgres_01:public.product_catalog",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),app.events.order_updated)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_postgres_01:app.events.order_updated",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),analytics.order_events)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,analytics.order_events,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.analytics.order_events,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),app.events.order_updated)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,app.events.order_updated,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,reporting_db.public.app.events.order_updated,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),public.customer_profiles)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_snowflake_01:public.customer_profiles",
             "type": {
                 "string": "COMMAND"
             }
@@ -409,27 +307,6 @@
             "type": {
                 "string": "COMMAND"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),public.customer_profiles)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,public.customer_profiles,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,ANALYTICS_DB.public.public_customer_profiles,PROD)"
-            ]
         }
     },
     "systemMetadata": {
@@ -480,47 +357,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),public.product_catalog)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_snowflake_01:public.product_catalog",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),public.product_catalog)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,public.product_catalog,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,ANALYTICS_DB.public.public_product_catalog,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD)",
     "changeType": "UPSERT",
@@ -538,53 +374,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),app.events.order_created)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_snowflake_01:app.events.order_created",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),public.product_catalog)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),app.events.order_created)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,app.events.order_created,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,ANALYTICS_DB.public.app_events_order_created,PROD)"
-            ]
         }
     },
     "systemMetadata": {
@@ -616,53 +411,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),app.events.order_updated)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "sink_snowflake_01:app.events.order_updated",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),analytics.transactions)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),app.events.order_updated)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,app.events.order_updated,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,ANALYTICS_DB.public.app_events_order_updated,PROD)"
-            ]
         }
     },
     "systemMetadata": {
@@ -805,87 +559,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),analytics.order_events)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.outbox-source-connector,PROD),outbox_db.outbox.app.events.order_updated)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),app.events.order_created)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),public.product_catalog)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),analytics.transactions)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),public.customer_profiles)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -933,7 +607,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_postgres_01,PROD),app.events.order_updated)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.source_postgres_cdc_01,PROD),ecommerce_db.analytics.order_events)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -949,23 +623,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),app.events.order_updated)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-confluent-cloud-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.sink_snowflake_01,PROD),app.events.order_created)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent-cloud-prod.source_postgres_cdc_01,PROD),ecommerce_db.public.customer_addresses)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

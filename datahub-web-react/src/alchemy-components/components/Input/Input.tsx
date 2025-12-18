@@ -19,7 +19,7 @@ import { getInputType } from '@components/components/Input/utils';
 export const inputDefaults: InputProps = {
     value: '',
     setValue: () => {},
-    label: 'Label',
+    label: '',
     placeholder: 'Placeholder',
     error: '',
     warning: '',

@@ -634,7 +634,7 @@ class SmartVolumeAssertionInputParams:
     training_data_lookback_days: Optional[int] = None
     incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None
     tags: Optional[TagsInputType] = None
-    created_by: Optional[CorpUserUrn] = None
+    updated_by: Optional[CorpUserUrn] = None
     schedule: Optional[Union[str, models.CronScheduleClass]] = None
 
 
@@ -696,7 +696,7 @@ class SmartVolumeAssertionOutputParams:
                 training_data_lookback_days=30,
                 incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
                 tags=["urn:li:tag:my_tag_1"],
-                created_by=_any_user,
+                updated_by=_any_user,
                 schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
             ),
             SmartVolumeAssertionOutputParams(
@@ -743,7 +743,7 @@ class SmartVolumeAssertionOutputParams:
                     AssertionIncidentBehavior.RESOLVE_ON_PASS,
                 ],
                 tags=["urn:li:tag:my_tag_1", "urn:li:tag:my_tag_2"],
-                created_by=_any_user,
+                updated_by=_any_user,
                 schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
             ),
             SmartVolumeAssertionOutputParams(
@@ -788,7 +788,7 @@ class SmartVolumeAssertionOutputParams:
                 training_data_lookback_days=30,
                 incident_behavior="resolve_on_pass",  # String input
                 tags=["urn:li:tag:my_tag_1"],
-                created_by=_any_user,
+                updated_by=_any_user,
                 schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
             ),
             SmartVolumeAssertionOutputParams(
@@ -812,19 +812,18 @@ class SmartVolumeAssertionOutputParams:
         ),
     ],
 )
-def test_create_smart_volume_assertion_valid_simple_input(
+def test_sync_smart_volume_assertion_creates_with_valid_input(
     freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartVolumeAssertionInputParams,
     expected_output_params: SmartVolumeAssertionOutputParams,
 ) -> None:
+    """Test sync_smart_volume_assertion creates assertion when urn=None."""
     # Arrange
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
-    # Act
-    assertion = client._smart_volume_client._create_smart_volume_assertion(
-        **asdict(input_params)
-    )
+    # Act - sync with urn=None should create
+    assertion = client.sync_smart_volume_assertion(**asdict(input_params))
 
     # Assert
     _validate_volume_assertion_vs_input(assertion, input_params, expected_output_params)
@@ -851,17 +850,18 @@ def test_create_smart_volume_assertion_valid_simple_input(
         ),
     ],
 )
-def test_create_smart_volume_assertion_valid_complex_detection_mechanism_input(
+def test_sync_smart_volume_assertion_creates_with_detection_mechanism(
     freshness_stub_datahub_client: StubDataHubClient,
     detection_mechanism: DetectionMechanismInputTypes,
     expected_detection_mechanism: _DetectionMechanismTypes,
 ) -> None:
+    """Test sync_smart_volume_assertion creates assertion with detection mechanism."""
     # Arrange
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
-    # Act
-    assertion = client._smart_volume_client._create_smart_volume_assertion(
+    # Act - sync with urn=None should create
+    assertion = client.sync_smart_volume_assertion(
         dataset_urn=_any_dataset_urn,
         display_name="Test Assertion",
         detection_mechanism=detection_mechanism,
@@ -871,16 +871,18 @@ def test_create_smart_volume_assertion_valid_complex_detection_mechanism_input(
     assert assertion.detection_mechanism == expected_detection_mechanism
 
 
-def test_create_smart_volume_assertion_entities_client_called(
+def test_sync_smart_volume_assertion_entities_client_upsert_called(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
+    """Test sync_smart_volume_assertion calls upsert twice (assertion + monitor)."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
-    assertion = client._smart_volume_client._create_smart_volume_assertion(
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    assertion = client.sync_smart_volume_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        urn=None,  # Create case
     )
-    assert mock_create.call_count == 2
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
     assert assertion
 
 
@@ -944,13 +946,13 @@ def test_create_smart_volume_assertion_entities_client_called(
         pytest.param(
             SmartVolumeAssertionInputParams(
                 dataset_urn=_any_dataset_urn,
-                created_by="invalid_created_by",  # type: ignore[arg-type] # Test invalid input
+                updated_by="invalid_updated_by",  # type: ignore[arg-type] # Test invalid input
             ),
             SdkUsageError,
             re.escape(
                 "Invalid actor for last updated tuple, expected 'urn:li:corpuser:*' or 'urn:li:corpGroup:*'"
             ),
-            id="invalid_created_by_urn",
+            id="invalid_updated_by_urn",
         ),
         pytest.param(
             SmartVolumeAssertionInputParams(
@@ -963,18 +965,17 @@ def test_create_smart_volume_assertion_entities_client_called(
         ),
     ],
 )
-def test_create_smart_volume_assertion_invalid_input(
+def test_sync_smart_volume_assertion_invalid_input(
     freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartVolumeAssertionInputParams,
     error_type: Type[Exception],
     expected_error_message: str,
 ) -> None:
+    """Test sync_smart_volume_assertion raises error for invalid input."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     with pytest.raises(error_type, match=expected_error_message):
-        client._smart_volume_client._create_smart_volume_assertion(
-            **asdict(input_params)
-        )
+        client.sync_smart_volume_assertion(**asdict(input_params))
 
 
 @dataclass
@@ -1299,32 +1300,27 @@ def test_sync_smart_volume_assertion_valid_full_input(
 
 
 @pytest.mark.parametrize(
-    "urn, expected_create_assertion_call_count, expected_upsert_entity_call_count",
+    "urn",
     [
-        pytest.param(None, 1, 0, id="urn_is_none"),
-        pytest.param(_any_assertion_urn, 0, 2, id="urn_is_not_none"),
+        pytest.param(None, id="urn_is_none"),
+        pytest.param(_any_assertion_urn, id="urn_is_not_none"),
     ],
 )
-def test_sync_smart_volume_assertion_calls_create_assertion_if_urn_is_not_set(
+def test_sync_smart_volume_assertion_upserts_entities(
     volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     urn: Optional[Union[str, AssertionUrn]],
-    expected_create_assertion_call_count: int,
-    expected_upsert_entity_call_count: int,
 ) -> None:
+    """Test that sync_smart_volume_assertion always calls upsert for both assertion and monitor."""
     client = AssertionsClient(volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert_entity = MagicMock()
     client.client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock()
-    client._smart_volume_client._create_smart_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_smart_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=urn,
     )
-    assert mock_create_assertion.call_count == expected_create_assertion_call_count
-    assert mock_upsert_entity.call_count == expected_upsert_entity_call_count
-    if urn is None:
-        assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    # Sync always uses upsert for both assertion and monitor entities
+    assert mock_upsert_entity.call_count == 2
 
 
 @pytest.mark.parametrize(
@@ -1943,32 +1939,28 @@ def test_sync_freshness_assertion_valid_full_input(
 
 
 @pytest.mark.parametrize(
-    "urn, expected_create_assertion_call_count, expected_upsert_entity_call_count",
+    "urn, expected_upsert_entity_call_count",
     [
-        pytest.param(None, 1, 0, id="urn_is_none"),
-        pytest.param(_any_assertion_urn, 0, 2, id="urn_is_not_none"),
+        pytest.param(None, 2, id="urn_is_none"),
+        pytest.param(_any_assertion_urn, 2, id="urn_is_not_none"),
     ],
 )
-def test_sync_freshness_assertion_calls_create_assertion_if_urn_is_not_set(
+def test_sync_freshness_assertion_calls_upsert_for_create_and_update(
     freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     urn: Optional[Union[str, AssertionUrn]],
-    expected_create_assertion_call_count: int,
     expected_upsert_entity_call_count: int,
 ) -> None:
+    """Test that sync_freshness_assertion calls upsert for both create and update scenarios."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert_entity = MagicMock()
     freshness_stub_datahub_client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock()
-    client._freshness_client._create_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=urn,
     )
-    assert mock_create_assertion.call_count == expected_create_assertion_call_count
+    # Should call upsert twice (assertion + monitor) for both create and update scenarios
     assert mock_upsert_entity.call_count == expected_upsert_entity_call_count
-    if urn is None:
-        assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
 
 
 @pytest.mark.parametrize(
@@ -2053,8 +2045,8 @@ def test_sync_freshness_assertion_uses_string_incident_behavior(
 ) -> None:
     """Test that sync_freshness_assertion accepts string incident_behavior."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Act - call with string incident_behavior (without URN to trigger create path)
     assertion = client.sync_freshness_assertion(
@@ -2064,27 +2056,27 @@ def test_sync_freshness_assertion_uses_string_incident_behavior(
 
     # Assert that the method completed successfully
     assert assertion is not None
-    assert mock_create.call_count == 2  # Creates both assertion and monitor
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
 
 
-def test_create_freshness_assertion_uses_string_incident_behavior(
+def test_sync_freshness_assertion_uses_resolve_on_pass_string_incident_behavior(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test that _create_freshness_assertion accepts string incident_behavior."""
+    """Test that sync_freshness_assertion accepts resolve_on_pass string incident_behavior."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Act - call with string incident_behavior
-    assertion = client._freshness_client._create_freshness_assertion(
+    assertion = client.sync_freshness_assertion(
         dataset_urn=_any_dataset_urn,
         incident_behavior="resolve_on_pass",  # String input
-        created_by="urn:li:corpuser:test_user",
+        updated_by="urn:li:corpuser:test_user",
     )
 
     # Assert that the method completed successfully
     assert assertion is not None
-    assert mock_create.call_count == 2  # Creates both assertion and monitor
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
 
 
 def test_sync_volume_assertion_uses_string_incident_behavior(
@@ -2092,10 +2084,10 @@ def test_sync_volume_assertion_uses_string_incident_behavior(
 ) -> None:
     """Test that sync_volume_assertion accepts string incident_behavior."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    # Act - call with string incident_behavior (without URN to trigger create path)
+    # Act - call with string incident_behavior (without URN uses upsert)
     assertion = client.sync_volume_assertion(
         dataset_urn=_any_dataset_urn,
         criteria_condition="ROW_COUNT_IS_WITHIN_A_RANGE",
@@ -2105,29 +2097,30 @@ def test_sync_volume_assertion_uses_string_incident_behavior(
 
     # Assert that the method completed successfully
     assert assertion is not None
-    assert mock_create.call_count == 2  # Creates both assertion and monitor
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
 
 
-def test_create_volume_assertion_uses_string_incident_behavior(
+def test_sync_volume_assertion_uses_string_incident_behavior_resolve_on_pass(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test that _create_volume_assertion accepts string incident_behavior."""
+    """Test that sync_volume_assertion accepts string incident_behavior with resolve_on_pass."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Act - call with string incident_behavior
-    assertion = client._volume_client._create_volume_assertion(
+    assertion = client.sync_volume_assertion(
         dataset_urn=_any_dataset_urn,
+        urn=None,  # Create case
         criteria_condition="ROW_COUNT_IS_WITHIN_A_RANGE",
         criteria_parameters=(100, 1000),
         incident_behavior="resolve_on_pass",  # String input
-        created_by="urn:li:corpuser:test_user",
+        updated_by="urn:li:corpuser:test_user",
     )
 
     # Assert that the method completed successfully
     assert assertion is not None
-    assert mock_create.call_count == 2  # Creates both assertion and monitor
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
 
 
 # SQL Assertion tests
@@ -2147,7 +2140,7 @@ class SqlAssertionInputParams:
         Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
     ] = None
     tags: Optional[TagsInputType] = None
-    created_by: Optional[CorpUserUrn] = None
+    updated_by: Optional[CorpUserUrn] = None
     schedule: Optional[Union[str, models.CronScheduleClass]] = None
 
 
@@ -2222,7 +2215,7 @@ class SqlAssertionOutputParams:
                 enabled=True,
                 incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
                 tags=["urn:li:tag:my_tag_1"],
-                created_by=_any_user,
+                updated_by=_any_user,
                 schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
             ),
             SqlAssertionOutputParams(
@@ -2243,38 +2236,41 @@ class SqlAssertionOutputParams:
         ),
     ],
 )
-def test_create_sql_assertion_valid_input(
+def test_sync_sql_assertion_creates_with_valid_input(
     freshness_stub_datahub_client: StubDataHubClient,
     input_params: SqlAssertionInputParams,
     expected_output_params: SqlAssertionOutputParams,
 ) -> None:
+    """Test sync_sql_assertion creates assertion when urn=None with valid input."""
     # Arrange
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
-    # Act
-    assertion = client._sql_client._create_sql_assertion(**asdict(input_params))
+    # Act - sync with urn=None should create
+    assertion = client.sync_sql_assertion(**asdict(input_params))
 
     # Assert
     _validate_sql_assertion_vs_input(assertion, input_params, expected_output_params)
 
 
-def test_create_sql_assertion_entities_client_called(
+def test_sync_sql_assertion_entities_client_upsert_called(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
+    """Test that sync_sql_assertion calls upsert twice (assertion + monitor)."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    assertion = client._sql_client._create_sql_assertion(
+    assertion = client.sync_sql_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        urn=None,  # Create case
         statement="SELECT COUNT(*) FROM table",
         criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
         incident_behavior=None,
         tags=None,
     )
-    assert mock_create.call_count == 2
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
     assert assertion
 
 
@@ -2294,40 +2290,30 @@ def test_create_sql_assertion_entities_client_called(
         ),
     ],
 )
-def test_create_sql_assertion_invalid_input(
+def test_sync_sql_assertion_invalid_input(
     freshness_stub_datahub_client: StubDataHubClient,
     input_params: SqlAssertionInputParams,
     error_type: Type[Exception],
     expected_error_message: str,
 ) -> None:
+    """Test that sync_sql_assertion raises error for invalid input."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     with pytest.raises(error_type, match=expected_error_message):
-        client._sql_client._create_sql_assertion(**asdict(input_params))
+        client.sync_sql_assertion(**asdict(input_params))
 
 
 @freeze_time(FROZEN_TIME)
-def test_sync_sql_assertion_creates_new_when_urn_not_provided(
+def test_sync_sql_assertion_upserts_when_urn_not_provided(
     freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test sync_sql_assertion creates new assertion when no URN is provided."""
-    # Mock the _create_sql_assertion method to return a dummy SqlAssertion
-    mock_sql_assertion = MagicMock()
-    mock_sql_assertion.urn = "urn:li:assertion:new_sql_assertion"
-    mock_sql_assertion.statement = "SELECT COUNT(*) FROM table"
-    mock_sql_assertion.criteria = SqlAssertionCriteria(
-        condition=SqlAssertionCondition.IS_GREATER_THAN,
-        parameters=100,
-    )
-
+    """Test sync_sql_assertion upserts entities when no URN is provided."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    # Mock the _create_sql_assertion method to return our mock
-    mock_create_sql_assertion = MagicMock(return_value=mock_sql_assertion)
-    client._sql_client._create_sql_assertion = mock_create_sql_assertion  # type: ignore[method-assign]
-
-    # Act - Call without URN, which should trigger creation path
+    # Act - Call without URN, which should trigger creation via upsert
     assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         statement="SELECT COUNT(*) FROM table",
@@ -2335,39 +2321,37 @@ def test_sync_sql_assertion_creates_new_when_urn_not_provided(
         criteria_parameters=100,
     )
 
-    # Assert - should call _create_sql_assertion
-    mock_create_sql_assertion.assert_called_once()
-    call_args = mock_create_sql_assertion.call_args[1]
-    assert call_args["dataset_urn"] == any_dataset_urn
-    assert call_args["statement"] == "SELECT COUNT(*) FROM table"
-    assert call_args["criteria_condition"] == SqlAssertionCondition.IS_GREATER_THAN
-    assert call_args["criteria_parameters"] == 100
+    # Assert - should call upsert twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
 
-    # Should return the mocked assertion
-    assert assertion == mock_sql_assertion
+    # Verify the assertion was created correctly
+    assert assertion is not None
+    assert assertion.statement == "SELECT COUNT(*) FROM table"
+    assert assertion._criteria.condition == SqlAssertionCondition.IS_GREATER_THAN
+    assert assertion._criteria.parameters == 100
 
 
-def test_sync_sql_assertion_calls_create_assertion_when_urn_is_none(
+def test_sync_sql_assertion_upserts_entities_when_urn_is_none(
     freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test that sync_sql_assertion calls _create_sql_assertion when urn is None."""
+    """Test that sync_sql_assertion upserts entities when urn is None."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert_entity = MagicMock()
     freshness_stub_datahub_client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock()
-    client._sql_client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
 
-    client.sync_sql_assertion(
+    assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
-        urn=None,  # This should trigger creation path
+        urn=None,  # This should trigger creation path via upsert
         statement="SELECT COUNT(*) FROM table",
         criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
         criteria_parameters=100,
     )
-    assert mock_create_assertion.call_count == 1
-    assert mock_upsert_entity.call_count == 0  # Should not call upsert when creating
-    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    # Should call upsert twice (assertion + monitor)
+    assert mock_upsert_entity.call_count == 2
+    # Verify assertion was created
+    assert assertion is not None
+    assert str(assertion.dataset_urn) == str(any_dataset_urn)
 
 
 def test_sync_sql_assertion_uses_default_updated_by_when_none_provided(
@@ -2376,11 +2360,8 @@ def test_sync_sql_assertion_uses_default_updated_by_when_none_provided(
 ) -> None:
     """Test that sync_sql_assertion uses default updated_by when none is provided."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-
-    # Mock the _create_sql_assertion method to capture the call
-    mock_sql_assertion = MagicMock()
-    mock_create_assertion = MagicMock(return_value=mock_sql_assertion)
-    client._sql_client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
     client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
@@ -2391,9 +2372,10 @@ def test_sync_sql_assertion_uses_default_updated_by_when_none_provided(
         updated_by=None,  # This should default to DEFAULT_CREATED_BY
     )
 
-    # Check that the created_by parameter was set to the default
-    call_args = mock_create_assertion.call_args[1]
-    assert call_args["created_by"] == DEFAULT_CREATED_BY
+    # Verify upsert was called and check the assertion entity has the default created_by
+    assert mock_upsert.call_count == 2
+    assertion_entity = mock_upsert.call_args_list[0][0][0]
+    assert assertion_entity.last_updated.actor == str(DEFAULT_CREATED_BY)
 
 
 def _validate_sql_assertion_vs_input(
@@ -2433,8 +2415,8 @@ def test_sync_sql_assertion_uses_string_incident_behavior(
 ) -> None:
     """Test that sync_sql_assertion accepts string incident_behavior."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Act - call with string incident_behavior (without URN to trigger create path)
     assertion = client.sync_sql_assertion(
@@ -2447,7 +2429,7 @@ def test_sync_sql_assertion_uses_string_incident_behavior(
 
     # Assert that the method completed successfully
     assert assertion is not None
-    assert mock_create.call_count == 2  # Creates both assertion and monitor
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
 
 
 def test_sync_sql_assertion_missing_required_params_for_creation(
@@ -2515,28 +2497,29 @@ def test_sync_sql_assertion_optional_params_for_merge(
     assert result._criteria.parameters == 100
 
 
-def test_create_sql_assertion_uses_string_incident_behavior(
+def test_sync_sql_assertion_uses_string_incident_behavior_resolve_on_pass(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test that _create_sql_assertion accepts string incident_behavior."""
+    """Test that sync_sql_assertion accepts string incident_behavior with resolve_on_pass."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Act - call with string incident_behavior
-    assertion = client._sql_client._create_sql_assertion(
+    assertion = client.sync_sql_assertion(
         dataset_urn=_any_dataset_urn,
+        urn=None,  # Create case
         statement="SELECT COUNT(*) FROM table",
         criteria_condition="IS_EQUAL_TO",
         criteria_parameters=0,
         incident_behavior="resolve_on_pass",  # String input
         tags=None,
-        created_by="urn:li:corpuser:test_user",
+        updated_by="urn:li:corpuser:test_user",
     )
 
     # Assert that the method completed successfully
     assert assertion is not None
-    assert mock_create.call_count == 2  # Creates both assertion and monitor
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
 
 
 # Smart column metric tests
@@ -2725,7 +2708,7 @@ def test_sync_smart_column_metric_assertion_valid_simple_input(
 ) -> None:
     # Arrange
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Act
     # Filter out operator and criteria_parameters as they are no longer supported for smart assertions
@@ -2782,7 +2765,7 @@ def test_sync_smart_column_metric_assertion_valid_complex_detection_mechanism_in
 ) -> None:
     # Arrange
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Act
     assertion = client.sync_smart_column_metric_assertion(
@@ -2916,23 +2899,22 @@ def test_sync_smart_column_metric_assertion_invalid_input(
         client.sync_smart_column_metric_assertion(**asdict(input_params))
 
 
-def test_create_smart_column_metric_assertion_uses_string_incident_behavior(
+def test_sync_smart_column_metric_assertion_uses_string_incident_behavior(
     freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test that _create_smart_column_metric_assertion accepts string incident_behavior."""
+    """Test that sync_smart_column_metric_assertion accepts string incident_behavior."""
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Act - call with string incident_behavior
-    assertion = (
-        client._smart_column_metric_client._create_smart_column_metric_assertion(
-            dataset_urn=_any_dataset_urn,
-            column_name="amount",
-            metric_type="null_count",
-            incident_behavior="resolve_on_pass",  # String input
-            created_by="urn:li:corpuser:test_user",
-        )
+    assertion = client.sync_smart_column_metric_assertion(
+        dataset_urn=_any_dataset_urn,
+        urn=None,  # Create case
+        column_name="amount",
+        metric_type="null_count",
+        incident_behavior="resolve_on_pass",  # String input
+        updated_by="urn:li:corpuser:test_user",
     )
 
     # Assert - should convert string to enum list

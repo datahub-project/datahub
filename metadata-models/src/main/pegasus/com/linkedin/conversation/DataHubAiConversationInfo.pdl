@@ -38,11 +38,19 @@ record DataHubAiConversationInfo {
     /**
      * Origin type for the chat session
      */
+    @Searchable = {
+      "fieldType": "KEYWORD"
+    }
      originType: enum DataHubAiConversationOriginType {
         /**
-         * Chat session originated in DataHub UI 
+         * Chat session originated in DataHub UI
          */
         DATAHUB_UI
+
+        /**
+         * Chat session originated in Ingestion UI
+         */
+        INGESTION_UI
      } = "DATAHUB_UI"
 
      /**

@@ -1,7 +1,9 @@
 import { DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
 
 /**
- * Helper to check if message is thinking/tool related
+ * Helper to check if message is thinking/tool related.
+ * These intermediate/internal messages are filtered out from the main conversation flow
+ * to provide a cleaner UX, showing only the user-AI text exchange.
  */
 export const isThinkingOrToolMessage = (message: DataHubAiConversationMessage): boolean => {
     return (
@@ -9,6 +11,26 @@ export const isThinkingOrToolMessage = (message: DataHubAiConversationMessage): 
         message.type === DataHubAiConversationMessageType.ToolCall ||
         message.type === DataHubAiConversationMessageType.ToolResult
     );
+};
+
+/**
+ * Simplifies the conversation view by hiding internal processing steps that would
+ * distract users from the actual Q&A exchange and clutter the chat interface.
+ */
+export const extractTextMessages = (messages: DataHubAiConversationMessage[]): DataHubAiConversationMessage[] => {
+    return messages.filter((msg) => !isThinkingOrToolMessage(msg));
+};
+
+/**
+ * Uses natural key deduplication (timestamp + content) because messages lack unique IDs in the schema.
+ * This prevents showing duplicate messages when streaming updates overlap with polling/refetch cycles.
+ */
+export const shouldAddMessage = (
+    existingMessages: DataHubAiConversationMessage[],
+    newMessage: DataHubAiConversationMessage,
+): boolean => {
+    const newText = newMessage.content?.text;
+    return !existingMessages.some((m) => m.time === newMessage.time && m.content?.text === newText);
 };
 
 /**

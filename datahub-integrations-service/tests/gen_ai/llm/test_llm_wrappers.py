@@ -988,10 +988,16 @@ class TestCustomOpenAIProxyLLMWrapper:
         assert "OPENAI_API_KEY" in str(exc_info.value)
 
     @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.threading.Thread")
     @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
     @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
     def test_initialization_with_cert_files(
-        self, mock_httpx_client: Mock, mock_chat_openai: Mock
+        self,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
+        mock_thread: Mock,
     ) -> None:
         """Test that cert_file and key_file create custom httpx client."""
         from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
@@ -1003,6 +1009,12 @@ class TestCustomOpenAIProxyLLMWrapper:
         mock_chat_openai.return_value = mock_client
         mock_http_client = MagicMock()
         mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
+
+        # Mock threading.Thread to avoid actually starting background threads
+        mock_thread_instance = MagicMock()
+        mock_thread.return_value = mock_thread_instance
 
         custom_provider = CustomModelProvider(
             base_url="https://custom.api.com/v1",
@@ -1024,6 +1036,146 @@ class TestCustomOpenAIProxyLLMWrapper:
         # Verify ChatOpenAI was initialized with custom http_client
         call_kwargs = mock_chat_openai.call_args.kwargs
         assert call_kwargs["http_client"] == mock_http_client
+
+        # Verify that a thread was created for watching cert changes
+        mock_thread.assert_called_once()
+        mock_thread_instance.start.assert_called_once()
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.threading.Thread")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
+    def test_initialization_with_cert_and_key_in_different_directories(
+        self,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
+        mock_thread: Mock,
+    ) -> None:
+        """Test that separate watch threads are started when cert and key are in different directories."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_http_client = MagicMock()
+        mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
+
+        # Mock threading.Thread to capture all thread creation calls
+        mock_thread_instances = [MagicMock(), MagicMock()]
+        mock_thread.side_effect = mock_thread_instances
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file="/path/to/certs/cert.pem",
+            key_file="/different/path/keys/key.pem",
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify that two separate watch threads were created (one for each directory)
+        assert mock_thread.call_count == 2
+        mock_thread_instances[0].start.assert_called_once()
+        mock_thread_instances[1].start.assert_called_once()
+
+        # Verify both directories are in cert_file_watches
+        assert len(wrapper.cert_file_watches) == 2
+        assert "/path/to/certs" in wrapper.cert_file_watches
+        assert "/different/path/keys" in wrapper.cert_file_watches
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.threading.Thread")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.os.path.exists")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.os.makedirs")
+    def test_watch_creates_directory_if_not_exists(
+        self,
+        mock_makedirs: Mock,
+        mock_exists: Mock,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
+        mock_thread: Mock,
+    ) -> None:
+        """Test that _start_background_watch creates the directory if it doesn't exist."""
+        from datahub_integrations.gen_ai.llm.custom_openai_proxy import (
+            CustomOpenAIProxyLLMWrapper,
+        )
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_http_client = MagicMock()
+        mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
+
+        # Mock os.path.exists to return False (directory doesn't exist)
+        mock_exists.return_value = False
+
+        # Mock inotify module
+        mock_inotify = MagicMock()
+        mock_inotify_tree_class = MagicMock()
+        mock_inotify.adapters.InotifyTree = mock_inotify_tree_class
+        mock_inotify_instance = MagicMock()
+        mock_inotify_tree_class.return_value = mock_inotify_instance
+
+        # Empty event generator (no events)
+        def mock_event_gen(yield_nones=False):
+            return
+            yield
+
+        mock_inotify_instance.event_gen.return_value = mock_event_gen()
+
+        # Mock threading.Thread to capture the target function
+        mock_thread_instance = MagicMock()
+        captured_target = None
+        captured_args = None
+
+        def mock_thread_init(*args, **kwargs):
+            nonlocal captured_target, captured_args
+            captured_target = kwargs.get("target")
+            captured_args = kwargs.get("args", ())
+            return mock_thread_instance
+
+        mock_thread.side_effect = mock_thread_init
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file="/nonexistent/path/cert.pem",
+            key_file="/nonexistent/path/key.pem",
+        )
+
+        # Patch inotify module
+        with patch(
+            "datahub_integrations.gen_ai.llm.custom_openai_proxy.inotify",
+            mock_inotify,
+        ):
+            CustomOpenAIProxyLLMWrapper(
+                model_name="custom-gpt-4",
+                custom_model_provider=custom_provider,
+            )
+
+            # Run the watch function synchronously
+            if captured_target and captured_args:
+                captured_target(*captured_args)
+
+            # Verify that os.makedirs was called to create the directory
+            mock_makedirs.assert_called_once_with("/nonexistent/path")
+            # Verify that InotifyTree was set up to watch the directory
+            mock_inotify_tree_class.assert_called_once_with("/nonexistent/path")
 
     @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.api.com/v1"})
     @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
@@ -1079,6 +1231,117 @@ class TestCustomOpenAIProxyLLMWrapper:
             response["output"]["message"]["content"][0]["text"]
             == "Hello! How can I help you today?"
         )
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.threading.Thread")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.os.path.exists")
+    def test_client_reinitializes_on_cert_file_change(
+        self,
+        mock_exists: Mock,
+        mock_httpx_client: Mock,
+        mock_httpx_async_client: Mock,
+        mock_chat_openai: Mock,
+        mock_thread: Mock,
+    ) -> None:
+        """Test that self._client gets re-initialized when certificate files are updated."""
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        # Mock the inotify module since it's conditionally imported
+        mock_inotify = MagicMock()
+        mock_inotify_tree_class = MagicMock()
+        mock_inotify.adapters.InotifyTree = mock_inotify_tree_class
+
+        # Create temporary directory for cert files
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cert_file = str(Path(tmpdir) / "cert.pem")
+            key_file = str(Path(tmpdir) / "key.pem")
+
+            # Mock os.path.exists to return True for the cert directory
+            mock_exists.return_value = True
+
+            # Create mock clients - need 2 because _initialize_client is called:
+            # 1. Initial wrapper construction
+            # 2. When watch detects change (simulated in test)
+            mock_initial_client = MagicMock()
+            mock_reinit_client = MagicMock()
+            mock_chat_openai.side_effect = [
+                mock_initial_client,
+                mock_reinit_client,
+            ]
+
+            mock_http_client = MagicMock()
+            mock_httpx_client.return_value = mock_http_client
+            mock_http_async_client = MagicMock()
+            mock_httpx_async_client.return_value = mock_http_async_client
+
+            # Mock inotify to simulate a file change event
+            mock_inotify_instance = MagicMock()
+            mock_inotify_tree_class.return_value = mock_inotify_instance
+
+            # Simulate a cert file change event (only yield once to avoid infinite loop)
+            def mock_event_gen(yield_nones=False):
+                # Yield one event indicating cert file was written
+                yield (None, ["IN_CLOSE_WRITE"], tmpdir, "cert.pem")
+
+            mock_inotify_instance.event_gen.return_value = mock_event_gen()
+
+            # Create wrapper with cert files
+            custom_provider = CustomModelProvider(
+                base_url="https://custom.api.com/v1",
+                api_key="test-key",
+                cert_file=cert_file,
+                key_file=key_file,
+            )
+
+            # Mock threading.Thread to capture the target function and run it synchronously
+            mock_thread_instance = MagicMock()
+            captured_target = None
+            captured_args = None
+
+            def mock_thread_init(*args, **kwargs):
+                nonlocal captured_target, captured_args
+                captured_target = kwargs.get("target")
+                captured_args = kwargs.get("args", ())
+                return mock_thread_instance
+
+            mock_thread.side_effect = mock_thread_init
+
+            # Patch inotify module
+            with patch(
+                "datahub_integrations.gen_ai.llm.custom_openai_proxy.inotify",
+                mock_inotify,
+            ):
+                wrapper = CustomOpenAIProxyLLMWrapper(
+                    model_name="custom-gpt-4o",
+                    custom_model_provider=custom_provider,
+                )
+
+                # Verify that a thread was created to watch the cert directory
+                mock_thread.assert_called_once()
+                mock_thread_instance.start.assert_called_once()
+
+                # Initial client should be set
+                assert wrapper._client == mock_initial_client
+                assert mock_chat_openai.call_count == 1
+
+                # Now simulate the watch thread running and detecting a change
+                # by calling the captured target function
+                if captured_target and captured_args:
+                    captured_target(*captured_args)
+
+                # After simulated watch event, client should be reinitialized
+                assert mock_chat_openai.call_count == 2
+                assert wrapper._client == mock_reinit_client
+
+                # Verify inotify was set up to watch the cert directory
+                mock_inotify_tree_class.assert_called_once_with(tmpdir)
 
 
 class TestLLMFactory:

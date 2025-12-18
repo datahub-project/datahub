@@ -12,4 +12,6 @@ record AnomalySourceProperties {
    * The monitor metric associated with the anomaly, if generated from an assertion monitor (the norm).
    */
   assertionMetric: optional AssertionMetric
+
+  operationRange: optional OperationRange
 }

@@ -120,7 +120,7 @@ services:
   datahub-integrations-debug-aws-dev:
     <<: *datahub-integrations-service-dev
     environment:
-      <<: [ *localstack-env, *datahub-integrations-service-dev-env ]
+      <<: [*localstack-env, *datahub-integrations-service-dev-env]
     profiles:
       - debug-aws
     depends_on:
@@ -213,7 +213,7 @@ services:
   datahub-executor-debug-aws-dev:
     <<: *datahub-executor-dev
     environment:
-      <<: [ *localstack-env, *datahub-executor-dev-env ]
+      <<: [*localstack-env, *datahub-executor-dev-env]
     profiles:
       - debug-aws
     depends_on:

@@ -64,7 +64,7 @@ class TestSearchImplementation:
     """Test the core search implementation logic."""
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_semantic_strategy(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -119,7 +119,7 @@ class TestSearchImplementation:
         assert result["total"] == 100
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_keyword_strategy(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -168,7 +168,7 @@ class TestSearchImplementation:
         assert "viewUrn" in variables  # Should include viewUrn (even if None)
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_default_strategy(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -201,7 +201,7 @@ class TestSearchImplementation:
         assert call_args[1]["operation_name"] == "search"
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     @mock.patch("datahub_integrations.mcp.mcp_server.load_filters")
     @mock.patch("datahub_integrations.mcp.mcp_server.compile_filters")
     def test_search_implementation_with_filters(
@@ -256,7 +256,7 @@ class TestSearchImplementation:
         assert variables["orFilters"] == [{"platform": "snowflake"}]
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_num_results_zero_hack(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -291,7 +291,7 @@ class TestSearchImplementation:
         assert "facets" in result  # facets should remain (non-empty so not cleaned out)
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_with_sorting(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -337,7 +337,7 @@ class TestSearchImplementation:
         }
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_with_ascending_sort(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -378,7 +378,7 @@ class TestSearchImplementation:
         }
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_without_sorting(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -416,7 +416,7 @@ class TestSearchImplementation:
         assert "sortInput" not in variables
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_with_offset(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:
@@ -456,7 +456,7 @@ class TestSearchImplementation:
         assert variables["count"] == 10
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
-    @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")
+    @mock.patch("datahub_integrations.mcp.mcp_server.execute_graphql")
     def test_search_implementation_num_results_cap(
         self, mock_execute_graphql: mock.Mock, mock_get_client: mock.Mock
     ) -> None:

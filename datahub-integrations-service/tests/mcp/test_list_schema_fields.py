@@ -73,7 +73,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": sample_dataset_with_schema}
 
@@ -108,7 +108,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": sample_dataset_with_schema}
 
@@ -144,7 +144,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": large_schema}
 
@@ -180,7 +180,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": large_schema}
 
@@ -223,7 +223,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": small_schema}
 
@@ -251,7 +251,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": sample_dataset_with_schema}
 
@@ -293,7 +293,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": schema_with_keys}
 
@@ -341,7 +341,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": entity_without_schema}
 
@@ -368,7 +368,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": sample_dataset_with_schema}
 
@@ -427,7 +427,7 @@ class TestListSchemaFields:
             mock_client._graph.exists.return_value = True
 
             with patch(
-                "datahub_integrations.mcp.mcp_server._execute_graphql"
+                "datahub_integrations.mcp.mcp_server.execute_graphql"
             ) as mock_gql:
                 mock_gql.return_value = {"entity": dataset_with_tags}
 

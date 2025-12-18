@@ -1,13 +1,8 @@
-from typing import TYPE_CHECKING, List, Sequence
+from functools import cached_property
+from typing import TYPE_CHECKING, List
 
 from loguru import logger
 from typing_extensions import override
-
-from datahub_integrations.gen_ai.bedrock_converse import converse_with_bedrock
-
-if TYPE_CHECKING:
-    from mypy_boto3_bedrock_runtime.type_defs import MessageUnionTypeDef
-
 
 from datahub_integrations.chat.chat_history import (
     ChatHistory,
@@ -19,8 +14,11 @@ from datahub_integrations.chat.context_reducer import (
     ChatContextReducer,
     ContextReducerConfig,
 )
-from datahub_integrations.gen_ai.model_config import BedrockModel
+from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.mcp._token_estimator import TokenCountEstimator
+
+if TYPE_CHECKING:
+    from mypy_boto3_bedrock_runtime.type_defs import MessageUnionTypeDef
 
 _CREATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.
@@ -65,12 +63,17 @@ class ConversationSummarizer(ChatContextReducer):
         config: ContextReducerConfig,
         max_num_messages_to_keep: int,
         min_num_messages_to_keep: int,
-        summarization_model: BedrockModel | str,
+        summarization_model: str,
     ) -> None:
         super().__init__(token_estimator, config)
         self.max_num_messages_to_keep = max_num_messages_to_keep
         self.min_num_messages_to_keep = min_num_messages_to_keep
         self.summarization_model = summarization_model
+
+    @cached_property
+    def llm_client(self):
+        """Lazily initialize the LLM client."""
+        return get_llm_client(self.summarization_model)
 
     @override
     def _reduce(self, history: ChatHistory) -> List[Message]:
@@ -200,25 +203,24 @@ class ConversationSummarizer(ChatContextReducer):
         return text
 
     def _create_summary_text(self, messages: List[Message]) -> str:
-        bedrock_messages: Sequence["MessageUnionTypeDef"] = [
+        bedrock_messages: List["MessageUnionTypeDef"] = [
             {
                 "role": "user",
                 "content": [{"text": self._prepare_conversation_text(messages)}],
             }
         ]
 
-        return converse_with_bedrock(
-            {"text": _CREATE_SUMMARY_SYSTEM_PROMPT},
-            bedrock_messages,
-            self.summarization_model,
-            temperature=0.3,
-            max_tokens=1024,
+        response = self.llm_client.converse(
+            system=[{"text": _CREATE_SUMMARY_SYSTEM_PROMPT}],
+            messages=bedrock_messages,
+            inferenceConfig={"temperature": 0.3, "maxTokens": 1024},
         )
+        return response["output"]["message"]["content"][0]["text"]
 
     def _update_summary_text(
         self, past_summary: str, new_messages: List[Message]
     ) -> str:
-        bedrock_messages: Sequence["MessageUnionTypeDef"] = [
+        bedrock_messages: List["MessageUnionTypeDef"] = [
             {
                 "role": "assistant",
                 "content": [{"text": f"Existing summary:\n {past_summary}"}],
@@ -228,10 +230,9 @@ class ConversationSummarizer(ChatContextReducer):
                 "content": [{"text": self._prepare_conversation_text(new_messages)}],
             },
         ]
-        return converse_with_bedrock(
-            {"text": _UPDATE_SUMMARY_SYSTEM_PROMPT},
-            bedrock_messages,
-            self.summarization_model,
-            temperature=0.3,
-            max_tokens=2048,
+        response = self.llm_client.converse(
+            system=[{"text": _UPDATE_SUMMARY_SYSTEM_PROMPT}],
+            messages=bedrock_messages,
+            inferenceConfig={"temperature": 0.3, "maxTokens": 2048},
         )
+        return response["output"]["message"]["content"][0]["text"]

@@ -90,7 +90,7 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : 'color: #8088a3;'}
+                : `color: ${colors.gray[1800]};`}
     }
 `;
 
@@ -139,6 +139,8 @@ interface DocumentTreeItemProps {
     onClick: () => void;
     onCreateChild: (parentUrn: string) => void;
     hideActions?: boolean;
+    hideActionsMenu?: boolean; // Hide move/delete menu actions
+    hideCreate?: boolean; // Hide create/add button
     parentUrn?: string | null;
 }
 
@@ -154,6 +156,8 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     onClick,
     onCreateChild,
     hideActions = false,
+    hideActionsMenu = false,
+    hideCreate = false,
     parentUrn,
 }) => {
     const [isHovered, setIsHovered] = useState(false);
@@ -200,17 +204,17 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
                         aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     >
                         {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
-                        {!isLoading && isExpanded && <CaretDown size={16} weight="bold" />}
-                        {!isLoading && !isExpanded && <CaretRight size={16} weight="bold" />}
+                        {!isLoading && isExpanded && <CaretDown color={colors.gray[1800]} size={16} weight="bold" />}
+                        {!isLoading && !isExpanded && <CaretRight color={colors.gray[1800]} size={16} weight="bold" />}
                     </ExpandButton>
                 )}
 
                 {showIcon && (
                     <IconWrapper className="tree-item-icon" $isSelected={isSelected}>
                         {hasChildren ? (
-                            <Folder size={16} weight={isSelected ? 'fill' : 'regular'} />
+                            <Folder size={20} weight={isSelected ? 'fill' : 'regular'} />
                         ) : (
-                            <FileText size={16} weight={isSelected ? 'fill' : 'regular'} />
+                            <FileText size={20} weight={isSelected ? 'fill' : 'regular'} />
                         )}
                     </IconWrapper>
                 )}
@@ -222,14 +226,22 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
 
             {!hideActions && (
                 <Actions className="tree-item-actions">
-                    <DocumentActionsMenu documentUrn={urn} currentParentUrn={parentUrn} />
-                    <Tooltip title="New context document" placement="bottom" showArrow={false}>
-                        <ActionButton
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
-                            variant="text"
-                            onClick={handleAddChildClick}
+                    {!hideActionsMenu && (
+                        <DocumentActionsMenu
+                            documentUrn={urn}
+                            currentParentUrn={parentUrn}
+                            shouldNavigateOnDelete={isSelected}
                         />
-                    </Tooltip>
+                    )}
+                    {!hideCreate && (
+                        <Tooltip title="New context document" placement="bottom" showArrow={false}>
+                            <ActionButton
+                                icon={{ icon: 'Plus', source: 'phosphor' }}
+                                variant="text"
+                                onClick={handleAddChildClick}
+                            />
+                        </Tooltip>
+                    )}
                 </Actions>
             )}
         </TreeItemContainer>

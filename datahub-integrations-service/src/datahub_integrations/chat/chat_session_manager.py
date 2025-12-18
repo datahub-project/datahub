@@ -9,7 +9,19 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, List, Optional, Protocol, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+)
+
+if TYPE_CHECKING:
+    from datahub_integrations.chat.chat_api import ChatContext
 
 from datahub.metadata.schema_classes import (
     DataHubAiConversationActorTypeClass,
@@ -26,10 +38,12 @@ from datahub_integrations.chat.agents import (
     create_ingestion_troubleshooting_agent,
 )
 from datahub_integrations.chat.chat_history import ChatHistory
+from datahub_integrations.chat.config import CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS
 from datahub_integrations.chat.datahub_ai_conversation_client import (
     DataHubAiConversationClient,
 )
 from datahub_integrations.chat.types import ChatType, NextMessage
+from datahub_integrations.chat.utils import combine_contexts
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.mcp_integration.tool import ToolWrapper
 
@@ -38,13 +52,25 @@ from datahub_integrations.mcp_integration.tool import ToolWrapper
 class ChatMessageEvent:
     """Domain event for chat messages - transport-agnostic."""
 
-    message_type: str  # TEXT, THINKING, TOOL_CALL, TOOL_RESULT
+    message_type: str  # TEXT, THINKING, TOOL_CALL, TOOL_RESULT, KEEPALIVE
     text: str
     conversation_urn: str
     timestamp: int
     # Optional fields
     user_urn: Optional[str] = None  # Set for user messages
     error: Optional[str] = None  # Set if there was an error
+    is_keepalive: bool = False  # True for keepalive-only events
+
+    @classmethod
+    def keepalive(cls, conversation_urn: str) -> "ChatMessageEvent":
+        """Create a keepalive event to prevent SSE connection timeouts."""
+        return cls(
+            message_type="KEEPALIVE",
+            text="",
+            conversation_urn=conversation_urn,
+            timestamp=int(time.time() * 1000),
+            is_keepalive=True,
+        )
 
 
 class AgentFactory(Protocol):
@@ -140,7 +166,10 @@ class ChatSessionManager:
         return factory(client=self.tools_client, chat_type=chat_type, tools=[mcp])
 
     def load_session(
-        self, conversation_urn: str, agent_type: str = "DataCatalogExplorer"
+        self,
+        conversation_urn: str,
+        agent_type: str = "DataCatalogExplorer",
+        message_context: Optional["ChatContext"] = None,
     ) -> AgentRunner:
         """Load an agent session from GraphQL using conversation history.
 
@@ -150,6 +179,7 @@ class ChatSessionManager:
         Args:
             conversation_urn: URN of the conversation to load
             agent_type: Type of agent to create (e.g., "DataCatalogExplorer")
+            message_context: Optional message-level context to combine with conversation context
 
         Returns:
             Configured AgentRunner instance with loaded history
@@ -166,15 +196,19 @@ class ChatSessionManager:
         (
             history,
             chat_type,
-            context_text,
+            conversation_context,
         ) = self.conversation_manager.load_conversation_with_metadata(conversation_urn)
+
+        # Combine conversation context with message context
+        combined_context = combine_contexts(conversation_context, message_context)
+
         factory = AGENT_FACTORIES[agent_type]
         return factory(
             client=self.tools_client,
             chat_type=chat_type,
             history=history,
             tools=[mcp],
-            context=context_text,
+            context=combined_context,
         )
 
     def add_user_message(self, agent: AgentRunner, text: str) -> None:
@@ -200,6 +234,7 @@ class ChatSessionManager:
         user_urn: str,
         conversation_urn: str,
         agent_name: str | None = None,
+        message_context: Optional["ChatContext"] = None,  # type: ignore
     ) -> Iterator[ChatMessageEvent]:
         """
         Send a message and stream progress updates.
@@ -209,11 +244,18 @@ class ChatSessionManager:
 
         Yields ChatMessageEvent domain objects (transport-agnostic).
         The caller (e.g., chat_api) wraps these for SSE.
+
+        Args:
+            text: Message text
+            user_urn: URN of the user sending the message
+            conversation_urn: URN of the conversation
+            agent_name: Optional agent name/type to use
+            message_context: Optional message-level context that will be combined with conversation context
         """
         # Load existing session
         # Use agent_name as agent_type if provided, otherwise default to DataCatalogExplorer
         agent_type = agent_name if agent_name else "DataCatalogExplorer"
-        agent = self.load_session(conversation_urn, agent_type)
+        agent = self.load_session(conversation_urn, agent_type, message_context)
 
         # Queue for progress updates (None signals completion)
         progress_q: queue.Queue[Optional[ChatMessageEvent]] = queue.Queue()
@@ -303,14 +345,14 @@ class ChatSessionManager:
         try:
             while True:
                 try:
-                    event = progress_q.get(timeout=0.05)  # 50ms for low latency
+                    event = progress_q.get(timeout=CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS)
                     if event is None:  # None signals completion
                         completed_successfully = True
                         break
                     yield event
                 except queue.Empty:
-                    # Timeout - continue waiting (keepalives handled by caller)
-                    continue
+                    # Timeout expired - send keepalive to prevent connection timeout
+                    yield ChatMessageEvent.keepalive(conversation_urn)
         finally:
             # Mark as inactive if stream didn't complete successfully
             if not completed_successfully:

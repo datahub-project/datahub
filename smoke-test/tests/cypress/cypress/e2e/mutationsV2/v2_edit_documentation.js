@@ -12,7 +12,7 @@ const getSampleUrl = (path) => {
 };
 
 const removeLinkByUrl = (url) => {
-  cy.getWithTestId("link-list").within(() => {
+  cy.getWithTestId("related-list").within(() => {
     cy.get(`a[href="${url}"]`)
       .first()
       .closest(".ant-list-item")
@@ -63,7 +63,9 @@ const submitForm = () =>
   cy.clickOptionWithTestId("link-form-modal-submit-button");
 
 const openAddLinkForm = () => {
-  cy.clickOptionWithTestId("add-link-button").wait(1000);
+  // Click the "+" button to open the menu, then click "Add link" menu item
+  cy.clickOptionWithTestId("add-related-button").wait(500);
+  cy.contains("Add link").click().wait(500);
 };
 
 const addLink = (url, label, shouldShowInPreview) => {
@@ -74,7 +76,7 @@ const addLink = (url, label, shouldShowInPreview) => {
 };
 
 const opendUpdateLinkForm = (url, label) => {
-  cy.getWithTestId("link-list").within(() => {
+  cy.getWithTestId("related-list").within(() => {
     cy.get(`[href='${url}']`).each(($el) => {
       cy.wrap($el)
         .closest(".ant-list-item")
@@ -111,13 +113,13 @@ const updateLink = (
 };
 
 const ensureThatUrlIsAvaliableOnDocumentationTab = (url) => {
-  cy.getWithTestId("link-list").within(() => {
+  cy.getWithTestId("related-list").within(() => {
     cy.get(`[href='${url}']`).should("have.length", 1);
   });
 };
 
 const ensureThatUrlIsNotAvaliableOnDocumentationTab = (url) => {
-  cy.getWithTestId("link-list").then(($list) => {
+  cy.getWithTestId("related-list").then(($list) => {
     if ($list && $list.length) {
       cy.wrap($list).within(() => {
         cy.get(`[href='${url}']`).should("not.exist");

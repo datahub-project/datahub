@@ -1,4 +1,5 @@
 import { Button, Tooltip } from '@components';
+import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
@@ -78,6 +79,7 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
             // Reset to initial state when closing
             setSelectedUrns(initialSelectedUrns);
         } catch (error) {
+            message.error('Failed to update related entities. An unexpected error occurred!');
             console.error('Failed to update related entities:', error);
         }
     }, [selectedUrns, documentUrn, onConfirm, initialSelectedUrns]);

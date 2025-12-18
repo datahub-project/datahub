@@ -21,6 +21,7 @@ const PillsWrapper = styled.div`
 
 interface SuggestedQuestionsProps {
     onQuestionSelect: (question: string) => void;
+    questions?: string[];
 }
 
 const DEFAULT_QUESTIONS = [
@@ -29,11 +30,13 @@ const DEFAULT_QUESTIONS = [
     'Help me build a new dashboard',
 ];
 
-export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({ onQuestionSelect }) => {
+export const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({ onQuestionSelect, questions }) => {
+    const questionsToRender = questions && questions.length > 0 ? questions : DEFAULT_QUESTIONS;
+
     return (
         <SuggestionsContainer>
             <PillsWrapper>
-                {DEFAULT_QUESTIONS.map((question) => (
+                {questionsToRender.map((question) => (
                     <Pill
                         key={question}
                         label={question}

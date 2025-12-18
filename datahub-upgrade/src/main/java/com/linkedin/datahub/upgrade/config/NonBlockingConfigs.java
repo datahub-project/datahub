@@ -7,6 +7,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
+import com.linkedin.datahub.upgrade.system.freetrial.IngestFreeTrialData;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
 import com.linkedin.datahub.upgrade.system.semanticsearch.CopyDocumentsToSemanticIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.statistics.OrderDetailsStatisticsGenerator;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -181,6 +183,9 @@ public class NonBlockingConfigs {
 
   @Autowired private OperationContext opContext;
 
+  @Autowired(required = false)
+  private OrderDetailsStatisticsGenerator orderDetailsStatisticsGenerator;
+
   @Bean
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
@@ -202,5 +207,26 @@ public class NonBlockingConfigs {
         configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch(),
         indexConvention,
         enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestFreeTrialData(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      @Value("${systemUpdate.ingestFreeTrialData.enabled}") final boolean enabled,
+      @Value("${systemUpdate.ingestFreeTrialData.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.ingestFreeTrialData.batchSize}") final int batchSize,
+      @Value("${systemUpdate.ingestFreeTrialData.historicalDays}") final int historicalDays,
+      @Value("${systemUpdate.ingestFreeTrialData.futureDays}") final int futureDays) {
+    return new IngestFreeTrialData(
+        opContext,
+        entityService,
+        orderDetailsStatisticsGenerator,
+        enabled,
+        reprocessEnabled,
+        batchSize,
+        historicalDays,
+        futureDays);
   }
 }

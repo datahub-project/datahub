@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional, Union
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
@@ -80,13 +80,13 @@ class VolumeAssertionSyncParams:
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_volume_assertion_minimal_input(
+def test_sync_volume_assertion_creates_with_minimal_input(
     native_volume_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test creating a volume assertion with minimal input parameters."""
+    """Test sync volume assertion creates with minimal input parameters."""
     # Arrange
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     input_params = VolumeAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
@@ -112,16 +112,17 @@ def test_create_volume_assertion_minimal_input(
         updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
     )
 
-    # Act
-    assertion = client._volume_client._create_volume_assertion(
+    # Act - sync with urn=None should create
+    assertion = client.sync_volume_assertion(
         dataset_urn=input_params.dataset_urn,
+        urn=None,  # Create case
         display_name=input_params.display_name,
         criteria_condition=input_params.criteria_condition,
         criteria_parameters=input_params.criteria_parameters,
         detection_mechanism=input_params.detection_mechanism,
         incident_behavior=input_params.incident_behavior,
         tags=input_params.tags,
-        created_by=input_params.created_by,
+        updated_by=input_params.created_by,
         enabled=input_params.enabled if input_params.enabled is not None else True,
     )
 
@@ -133,13 +134,13 @@ def test_create_volume_assertion_minimal_input(
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_volume_assertion_full_input(
+def test_sync_volume_assertion_creates_with_full_input(
     native_volume_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test creating a volume assertion with full input parameters."""
+    """Test sync volume assertion creates with full input parameters."""
     # Arrange
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     input_params = VolumeAssertionCreateParams(
         dataset_urn=_any_dataset_urn,
@@ -171,16 +172,17 @@ def test_create_volume_assertion_full_input(
         updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
     )
 
-    # Act
-    assertion = client._volume_client._create_volume_assertion(
+    # Act - sync with urn=None should create
+    assertion = client.sync_volume_assertion(
         dataset_urn=input_params.dataset_urn,
+        urn=None,  # Create case
         display_name=input_params.display_name,
         criteria_condition=input_params.criteria_condition,
         criteria_parameters=input_params.criteria_parameters,
         detection_mechanism=input_params.detection_mechanism,
         incident_behavior=input_params.incident_behavior,
         tags=input_params.tags,
-        created_by=input_params.created_by,
+        updated_by=input_params.created_by,
         enabled=input_params.enabled if input_params.enabled is not None else True,
     )
 
@@ -191,18 +193,20 @@ def test_create_volume_assertion_full_input(
     )
 
 
-def test_create_volume_assertion_entities_client_called(
+def test_sync_volume_assertion_entities_client_upsert_called(
     native_volume_stub_datahub_client: StubDataHubClient,
 ) -> None:
+    """Test sync_volume_assertion calls upsert twice (assertion + monitor)."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
-    assertion = client._volume_client._create_volume_assertion(
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    assertion = client.sync_volume_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        urn=None,  # Create case
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
-    assert mock_create.call_count == 2
+    assert mock_upsert.call_count == 2  # Upserts both assertion and monitor
     assert assertion
 
 
@@ -214,7 +218,7 @@ def test_create_volume_assertion_entities_client_called(
         pytest.param(False, models.MonitorModeClass.INACTIVE, id="enabled_false"),
     ],
 )
-def test_create_volume_assertion_enabled_parameter(
+def test_sync_volume_assertion_enabled_parameter(
     native_volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     enabled: bool,
@@ -222,45 +226,47 @@ def test_create_volume_assertion_enabled_parameter(
 ) -> None:
     """Test that the enabled parameter controls the monitor mode correctly."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    client._volume_client._create_volume_assertion(
+    client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
+        urn=None,  # Create case
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
         enabled=enabled,
     )
 
-    # Verify that create was called with the correct monitor mode
-    assert mock_create.call_count == 2  # assertion + monitor
+    # Verify that upsert was called with the correct monitor mode
+    assert mock_upsert.call_count == 2  # assertion + monitor
 
     # Check the monitor entity (second call)
-    monitor_entity = mock_create.call_args_list[1][0][0]
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
     assert monitor_entity.info.status.mode == expected_monitor_mode
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_volume_assertion_enabled_defaults_to_true(
+def test_sync_volume_assertion_enabled_defaults_to_true(
     native_volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
     """Test that the enabled parameter defaults to True when not specified."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create = MagicMock()
-    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Don't specify enabled parameter
-    client._volume_client._create_volume_assertion(
+    client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
+        urn=None,  # Create case
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
 
     # Verify that monitor is created as ACTIVE (default enabled=True)
-    assert mock_create.call_count == 2  # assertion + monitor
+    assert mock_upsert.call_count == 2  # assertion + monitor
 
-    monitor_entity = mock_create.call_args_list[1][0][0]
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
     assert monitor_entity.info.status.mode == models.MonitorModeClass.ACTIVE
 
 
@@ -441,39 +447,32 @@ def test_sync_volume_assertion_valid_full_input(
 
 
 @pytest.mark.parametrize(
-    "urn, expected_create_assertion_call_count, expected_upsert_entity_call_count",
+    "urn",
     [
-        pytest.param(None, 1, 0, id="urn_is_none"),
+        pytest.param(None, id="urn_is_none"),
         pytest.param(
             AssertionUrn.from_string("urn:li:assertion:test"),
-            0,
-            2,
             id="urn_is_not_none",
         ),
     ],
 )
-def test_sync_volume_assertion_calls_create_assertion_if_urn_is_not_set(
+def test_sync_volume_assertion_upserts_entities(
     native_volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     urn: Optional[Union[str, AssertionUrn]],
-    expected_create_assertion_call_count: int,
-    expected_upsert_entity_call_count: int,
 ) -> None:
+    """Test that sync_volume_assertion always calls upsert for both assertion and monitor."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert_entity = MagicMock()
     client.client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock()
-    client._volume_client._create_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=urn,
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
-    assert mock_create_assertion.call_count == expected_create_assertion_call_count
-    assert mock_upsert_entity.call_count == expected_upsert_entity_call_count
-    if urn is None:
-        assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    # Sync always uses upsert for both assertion and monitor entities
+    assert mock_upsert_entity.call_count == 2
 
 
 @pytest.mark.parametrize(
@@ -512,11 +511,12 @@ def test_sync_volume_assertion_uses_default_if_updated_by_is_not_set(
     assert mock_create_assertion.call_count == 0
 
 
-def test_sync_volume_assertion_calls_create_if_assertion_and_monitor_entities_do_not_exist(
+def test_sync_volume_assertion_upserts_if_assertion_and_monitor_entities_do_not_exist(
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     any_monitor_urn: MonitorUrn,
 ) -> None:
+    """Test that sync_volume_assertion uses upsert even when entities don't exist."""
     empty_stub_datahub_client = (
         StubDataHubClient()
     )  # Assertion and Monitor entities do not exist
@@ -524,34 +524,20 @@ def test_sync_volume_assertion_calls_create_if_assertion_and_monitor_entities_do
     assert empty_stub_datahub_client.entities.get(any_monitor_urn) is None
 
     client = AssertionsClient(empty_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
     empty_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock(
-        return_value=VolumeAssertion(
-            dataset_urn=any_dataset_urn,
-            urn=any_assertion_urn,
-            display_name="Mock assertion",
-            mode=AssertionMode.ACTIVE,
-            schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-            incident_behavior=[],
-            tags=[],
-            criteria=VolumeAssertionCriteria(
-                condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
-                parameters=100,
-            ),
-        )
-    )
-    client._volume_client._create_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+
     client.sync_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
         criteria_parameters=100,
     )
-    assert mock_upsert.call_count == 0
-    assert mock_create_assertion.call_count == 1
-    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    # Sync always uses upsert for both assertion and monitor entities
+    assert mock_upsert.call_count == 2
+    # Verify the assertion entity was upserted with correct urn
+    upserted_assertion = mock_upsert.call_args_list[0][0][0]
+    assert str(upserted_assertion.urn) == str(any_assertion_urn)
 
 
 def test_sync_volume_assertion_raises_error_if_assertion_and_input_have_different_dataset_urns(
@@ -655,29 +641,29 @@ def test_sync_volume_assertion_enabled_none_preserves_inactive(
 
 
 @freeze_time(FROZEN_TIME)
-def test_sync_volume_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
+def test_sync_volume_assertion_enabled_parameter_when_urn_is_none(
     native_volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test that sync passes enabled parameter to create when urn is None."""
+    """Test that sync respects enabled parameter when urn is None."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    # Mock the create method to verify it's called with enabled parameter
-    with patch.object(client._volume_client, "_create_volume_assertion") as mock_create:
-        mock_create.return_value = MagicMock()  # Return a mock assertion
+    client.sync_volume_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,
+        enabled=False,
+        criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
+        criteria_parameters=100,
+    )
 
-        client.sync_volume_assertion(
-            dataset_urn=any_dataset_urn,
-            urn=None,  # This should trigger create
-            enabled=False,
-            criteria_condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
-            criteria_parameters=100,
-        )
+    # Verify upsert was called for both assertion and monitor
+    assert mock_upsert.call_count == 2
 
-        # Verify create was called with enabled=False
-        mock_create.assert_called_once()
-        call_kwargs = mock_create.call_args[1]
-        assert call_kwargs["enabled"] is False
+    # Verify the monitor entity was upserted with INACTIVE mode (enabled=False)
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.INACTIVE
 
 
 @freeze_time(FROZEN_TIME)
@@ -828,16 +814,17 @@ def _validate_volume_assertion_synced_vs_expected(
 
 
 @freeze_time(FROZEN_TIME)
-def test_create_volume_assertion_with_string_parameters(
+def test_sync_volume_assertion_with_string_parameters(
     native_volume_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    """Test creating a volume assertion using raw string values for enum parameters."""
+    """Test sync volume assertion using raw string values for enum parameters."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
+    client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Use string values instead of enum objects
-    assertion = client._volume_client._create_volume_assertion(
+    assertion = client.sync_volume_assertion(
         dataset_urn=_any_dataset_urn,
+        urn=None,  # Create case
         display_name="String Parameters Test",
         criteria_condition="ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE",  # String instead of enum
         criteria_parameters=(10, 100),
@@ -851,58 +838,37 @@ def test_create_volume_assertion_with_string_parameters(
     )
     assert assertion.criteria.parameters == (10, 100)
 
-    # Verify entity creation was called twice (assertion + monitor)
-    assert client.client.entities.create.call_count == 2
+    # Verify entity upsert was called twice (assertion + monitor)
+    assert client.client.entities.upsert.call_count == 2
 
 
 @freeze_time(FROZEN_TIME)
-def test_sync_volume_assertion_with_string_parameters(
+def test_sync_volume_assertion_with_string_parameters_update(
     native_volume_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
 ) -> None:
-    """Test syncing a volume assertion using raw string values for enum parameters."""
+    """Test syncing (updating) a volume assertion using raw string values for enum parameters."""
     client = AssertionsClient(native_volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    # Mock the underlying methods to avoid complex entity retrieval logic
-    with patch.object(
-        client._volume_client, "_retrieve_and_merge_native_volume_assertion_and_monitor"
-    ) as mock_retrieve:
-        # Create expected assertion with string-converted values
-        expected_assertion = VolumeAssertion(
-            urn=any_assertion_urn,  # Use urn instead of id
-            dataset_urn=_any_dataset_urn,
-            display_name="String Sync Test",
-            criteria=VolumeAssertionCriteria(
-                condition=VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
-                parameters=50,
-            ),
-            mode=AssertionMode.ACTIVE,
-            schedule=DEFAULT_EVERY_SIX_HOURS_SCHEDULE,
-            incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
-            tags=[],
-            created_by=DEFAULT_CREATED_BY,
-            created_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-            updated_by=DEFAULT_CREATED_BY,
-            updated_at=datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc),
-        )
-        mock_retrieve.return_value = expected_assertion
+    # Use string values instead of enum objects
+    assertion = client.sync_volume_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        display_name="String Sync Test",
+        criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",  # String instead of enum
+        criteria_parameters=50,
+    )
 
-        # Use string values instead of enum objects
-        assertion = client.sync_volume_assertion(
-            dataset_urn=_any_dataset_urn,
-            urn=any_assertion_urn,
-            display_name="String Sync Test",
-            criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",  # String instead of enum
-            criteria_parameters=50,
-        )
+    # Verify the assertion was synced successfully
+    assert assertion.display_name == "String Sync Test"
+    assert (
+        assertion.criteria.condition
+        == VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
+    )
+    assert assertion.criteria.parameters == 50
 
-        # Verify the assertion was synced successfully
-        assert assertion.display_name == "String Sync Test"
-        assert (
-            assertion.criteria.condition
-            == VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO
-        )
-        assert assertion.criteria.parameters == 50
-
-        # Verify the underlying method was called with the correct parameters
-        mock_retrieve.assert_called_once()
+    # Verify upsert was called for both assertion and monitor
+    assert mock_upsert.call_count == 2

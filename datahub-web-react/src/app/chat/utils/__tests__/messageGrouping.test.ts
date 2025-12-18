@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { groupMessages, isThinkingOrToolMessage } from '@app/chat/utils/messageGrouping';
+import {
+    extractTextMessages,
+    groupMessages,
+    isThinkingOrToolMessage,
+    shouldAddMessage,
+} from '@app/chat/utils/messageGrouping';
 
 import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
 
@@ -192,6 +197,114 @@ describe('messageGrouping', () => {
             expect(result).toHaveLength(2);
             expect(result[0]).toEqual({ type: 'regular', message: messages[0] });
             expect(result[1]).toEqual({ type: 'thinking', messages: [messages[1]] });
+        });
+    });
+
+    describe('extractTextMessages', () => {
+        it('filters out thinking and tool messages', () => {
+            const messages: DataHubAiConversationMessage[] = [
+                {
+                    type: DataHubAiConversationMessageType.Text,
+                    content: { text: 'Question' },
+                    actor: { type: DataHubAiConversationActorType.User },
+                    time: 1000,
+                },
+                {
+                    type: DataHubAiConversationMessageType.Thinking,
+                    content: { text: 'Thinking...' },
+                    actor: { type: DataHubAiConversationActorType.Agent },
+                    time: 2000,
+                },
+                {
+                    type: DataHubAiConversationMessageType.Text,
+                    content: { text: 'Answer' },
+                    actor: { type: DataHubAiConversationActorType.Agent },
+                    time: 3000,
+                },
+            ];
+
+            const filtered = extractTextMessages(messages);
+
+            expect(filtered).toHaveLength(2);
+            expect(filtered[0].time).toBe(1000);
+            expect(filtered[1].time).toBe(3000);
+        });
+
+        it('returns empty array when only thinking messages', () => {
+            const messages: DataHubAiConversationMessage[] = [
+                {
+                    type: DataHubAiConversationMessageType.Thinking,
+                    content: { text: 'Thinking...' },
+                    actor: { type: DataHubAiConversationActorType.Agent },
+                    time: 1000,
+                },
+            ];
+
+            const filtered = extractTextMessages(messages);
+
+            expect(filtered).toHaveLength(0);
+        });
+    });
+
+    describe('shouldAddMessage', () => {
+        it('returns true for new messages', () => {
+            const existingMessages: DataHubAiConversationMessage[] = [
+                {
+                    type: DataHubAiConversationMessageType.Text,
+                    content: { text: 'Hello' },
+                    actor: { type: DataHubAiConversationActorType.User },
+                    time: 1000,
+                },
+            ];
+
+            const newMessage: DataHubAiConversationMessage = {
+                type: DataHubAiConversationMessageType.Text,
+                content: { text: 'Response' },
+                actor: { type: DataHubAiConversationActorType.Agent },
+                time: 2000,
+            };
+
+            expect(shouldAddMessage(existingMessages, newMessage)).toBe(true);
+        });
+
+        it('returns false for duplicate messages with same time and content', () => {
+            const existingMessages: DataHubAiConversationMessage[] = [
+                {
+                    type: DataHubAiConversationMessageType.Text,
+                    content: { text: 'Hello' },
+                    actor: { type: DataHubAiConversationActorType.User },
+                    time: 1000,
+                },
+            ];
+
+            const duplicateMessage: DataHubAiConversationMessage = {
+                type: DataHubAiConversationMessageType.Text,
+                content: { text: 'Hello' },
+                actor: { type: DataHubAiConversationActorType.User },
+                time: 1000,
+            };
+
+            expect(shouldAddMessage(existingMessages, duplicateMessage)).toBe(false);
+        });
+
+        it('returns true for messages with same content but different time', () => {
+            const existingMessages: DataHubAiConversationMessage[] = [
+                {
+                    type: DataHubAiConversationMessageType.Text,
+                    content: { text: 'Hello' },
+                    actor: { type: DataHubAiConversationActorType.User },
+                    time: 1000,
+                },
+            ];
+
+            const newMessage: DataHubAiConversationMessage = {
+                type: DataHubAiConversationMessageType.Text,
+                content: { text: 'Hello' },
+                actor: { type: DataHubAiConversationActorType.User },
+                time: 2000,
+            };
+
+            expect(shouldAddMessage(existingMessages, newMessage)).toBe(true);
         });
     });
 });

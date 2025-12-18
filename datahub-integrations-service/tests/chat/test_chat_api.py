@@ -367,6 +367,7 @@ async def test_send_streaming_message_calls_manager_correctly() -> None:
                     user_urn="urn:li:corpuser:test",
                     conversation_urn="urn:li:dataHubAiConversation:123",
                     agent_name=None,
+                    message_context=None,
                 )
 
 
@@ -566,6 +567,106 @@ def test_empty_message_accepted():
                     request, authorization="Bearer test_token"
                 )
                 assert response is not None
+
+
+def test_chat_message_event_keepalive_factory() -> None:
+    """Test that ChatMessageEvent.keepalive() creates a valid keepalive event."""
+    conversation_urn = "urn:li:dataHubAiConversation:123"
+    event = ChatMessageEvent.keepalive(conversation_urn)
+
+    assert event.message_type == "KEEPALIVE"
+    assert event.text == ""
+    assert event.conversation_urn == conversation_urn
+    assert event.is_keepalive is True
+    assert event.user_urn is None
+    assert event.error is None
+    # Timestamp should be set to current time (approximately)
+    assert event.timestamp > 0
+
+
+def test_chat_message_event_is_keepalive_default() -> None:
+    """Test that regular ChatMessageEvent has is_keepalive=False by default."""
+    event = ChatMessageEvent(
+        message_type="TEXT",
+        text="Hello",
+        conversation_urn="urn:li:dataHubAiConversation:123",
+        timestamp=1234567890,
+    )
+
+    assert event.is_keepalive is False
+
+
+@pytest.mark.asyncio
+async def test_send_streaming_message_emits_keepalive_as_sse_comment() -> None:
+    """Test that keepalive events are emitted as SSE comments (': keepalive')."""
+    from datahub_integrations.chat.chat_api import send_streaming_message
+
+    request = ChatMessageRequest(
+        text="Test",
+        user_urn="urn:li:corpuser:test",
+        conversation_urn="urn:li:dataHubAiConversation:123",
+    )
+
+    with patch(
+        "datahub_integrations.chat.chat_api.get_system_client"
+    ) as mock_get_system_client:
+        with patch(
+            "datahub_integrations.chat.chat_api.get_tools_client"
+        ) as mock_get_tools_client:
+            with patch(
+                "datahub_integrations.chat.chat_api.ChatSessionManager"
+            ) as mock_manager_class:
+                mock_system_client = Mock()
+                mock_tools_client = Mock()
+                mock_get_system_client.return_value = mock_system_client
+                mock_get_tools_client.return_value = mock_tools_client
+
+                mock_manager = Mock()
+                mock_manager_class.return_value = mock_manager
+
+                # Include a keepalive event among the messages
+                mock_manager.send_message.return_value = iter(
+                    [
+                        ChatMessageEvent(
+                            message_type="TEXT",
+                            text="User message",
+                            conversation_urn="urn:li:dataHubAiConversation:123",
+                            timestamp=1234567890,
+                            user_urn="urn:li:corpuser:test",
+                        ),
+                        ChatMessageEvent.keepalive("urn:li:dataHubAiConversation:123"),
+                        ChatMessageEvent(
+                            message_type="TEXT",
+                            text="Response",
+                            conversation_urn="urn:li:dataHubAiConversation:123",
+                            timestamp=1234567891,
+                        ),
+                    ]
+                )
+
+                response = send_streaming_message(
+                    request, authorization="Bearer test_token"
+                )
+
+                # Collect stream content
+                chunks = []
+                async for chunk in response.body_iterator:
+                    if isinstance(chunk, bytes):
+                        chunks.append(chunk.decode("utf-8"))
+                    elif isinstance(chunk, memoryview):
+                        chunks.append(bytes(chunk).decode("utf-8"))
+                    else:
+                        chunks.append(chunk)
+
+                content = "".join(chunks)
+
+                # Should contain SSE comment for keepalive
+                assert ": keepalive\n\n" in content
+                # Should also contain the actual messages
+                assert "User message" in content
+                assert "Response" in content
+                # Keepalive should NOT be in the data payload (no "KEEPALIVE" in JSON)
+                assert '"KEEPALIVE"' not in content
 
 
 if __name__ == "__main__":

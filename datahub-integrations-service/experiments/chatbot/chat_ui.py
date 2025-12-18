@@ -3,6 +3,8 @@ import os
 import pathlib
 import sys
 from datetime import datetime
+from typing import List, Optional
+
 from dotenv import load_dotenv
 
 # Load .env file if it exists
@@ -45,13 +47,47 @@ from datahub_integrations.chat.agent import AgentRunner
 from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.experimentation.chatbot.st_chat_history import st_chat_history
+from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.mcp_integration.external_mcp_manager import (
+    ExternalMCPManager,
+    ExternalToolWrapper,
+)
 
 assert AI_EXPERIMENTATION_INITIALIZED
+
+# Path to external MCP servers configuration (optional, via environment variable)
+# If EXTERNAL_MCP_CONFIG is not set, no external tools will be loaded
+_MCP_CONFIG_PATH: Optional[pathlib.Path] = None
+if _mcp_config_env := os.environ.get("EXTERNAL_MCP_CONFIG"):
+    _MCP_CONFIG_PATH = pathlib.Path(_mcp_config_env)
 
 
 @st.cache_resource
 def client() -> DataHubClient:
     return DataHubClient.from_env()
+
+
+@st.cache_resource
+def external_mcp_manager() -> Optional[ExternalMCPManager]:
+    """Load external MCP manager if config path is set via EXTERNAL_MCP_CONFIG env var."""
+    if _MCP_CONFIG_PATH is None:
+        return None
+    return ExternalMCPManager.from_config_file_if_exists(_MCP_CONFIG_PATH)
+
+
+def get_external_tools() -> List[ExternalToolWrapper]:
+    """Get tools from external MCP servers."""
+    manager = external_mcp_manager()
+    if manager is None:
+        return []
+    try:
+        tools = manager.get_tools()
+        if tools:
+            logger.info(f"Loaded {len(tools)} tools from external MCP servers")
+        return tools
+    except Exception as e:
+        logger.warning(f"Failed to load external MCP tools: {e}")
+        return []
 
 
 @st.cache_data
@@ -64,7 +100,18 @@ st.markdown(f"Connected to {frontend_url()}")
 
 def _make_empty_agent() -> AgentRunner:
     st.text("Resetting agent session")
-    return create_data_catalog_explorer_agent(client=client())
+
+    # Get external MCP tools (if any configured)
+    external_tools = get_external_tools()
+    if external_tools:
+        st.info(f"Loaded {len(external_tools)} external MCP tools: {[t.name for t in external_tools]}")
+
+    # Create agent with default MCP + external tools
+    # Combine default MCP server with external tools
+    # Note: external tools implement the same interface as ToolWrapper (duck typing)
+    all_tools: list = [mcp] + list(external_tools)  # type: ignore[assignment]
+
+    return create_data_catalog_explorer_agent(client=client(), tools=all_tools)
 
 
 def _get_agent() -> AgentRunner:

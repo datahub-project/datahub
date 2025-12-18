@@ -4,6 +4,7 @@ import { validateURL } from '@app/ingestV2/source/utils';
 export const CSV_FILE_URL: RecipeField = {
     name: 'filename',
     label: 'File URL',
+    helper: 'URL of the CSV file to ingest',
     tooltip: 'File URL of the CSV file to ingest.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.filename',
@@ -15,6 +16,7 @@ export const CSV_FILE_URL: RecipeField = {
 export const CSV_ARRAY_DELIMITER: RecipeField = {
     name: 'array_delimiter',
     label: 'Array delimiter',
+    helper: 'Delimiter for array fields',
     tooltip: 'Delimiter to use when parsing array fields (tags, terms and owners)',
     type: FieldType.TEXT,
     fieldPath: 'source.config.array_delimiter',
@@ -25,6 +27,7 @@ export const CSV_ARRAY_DELIMITER: RecipeField = {
 export const CSV_DELIMITER: RecipeField = {
     name: 'delimiter',
     label: 'Delimiter',
+    helper: 'Delimiter for CSV parsing',
     tooltip: 'Delimiter to use when parsing CSV',
     type: FieldType.TEXT,
     fieldPath: 'source.config.delimiter',
@@ -35,6 +38,7 @@ export const CSV_DELIMITER: RecipeField = {
 export const CSV_WRITE_SEMANTICS: RecipeField = {
     name: 'write_semantics',
     label: 'Write Semantics',
+    helper: 'Override vs patch semantics',
     tooltip:
         'Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
     type: FieldType.SELECT,

@@ -11,7 +11,9 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/types';
 import { getBestChartTypeForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getAssertionResultChartData } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/transformers';
+import { TuneFreshnessAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneFreshnessAssertionModal';
 import { TuneSmartAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartAssertionModal';
+import { useIsFreshnessAssertionTuningEnabled } from '@app/useAppConfig';
 
 import { Assertion, AssertionRunEventsResult, AssertionRunStatus, Maybe, Monitor } from '@types';
 
@@ -49,6 +51,7 @@ export const AssertionResultsTimelineViz = ({
     onTimeRangeChange,
 }: Props) => {
     const [isTunePredictionsModalOpen, setIsTunePredictionsModalOpen] = useState(false);
+    const isFreshnessAssertionTuningEnabled = useIsFreshnessAssertionTuningEnabled();
 
     // Run event data
     const completedRuns =
@@ -112,16 +115,26 @@ export const AssertionResultsTimelineViz = ({
         }
     };
 
+    const showFreshnessAssertionTuningModal =
+        isFreshnessAssertionTuningEnabled && bestChartType === AssertionChartType.Freshness;
     return (
         <VizContainer height={parentDimensions.height} style={{ opacity: isInitializing ? 0 : 1 }}>
             {renderChart()}
-            {isTunePredictionsModalOpen && monitor && (
-                <TuneSmartAssertionModal
-                    onClose={() => setIsTunePredictionsModalOpen(false)}
-                    monitor={monitor}
-                    assertion={assertion}
-                />
-            )}
+            {isTunePredictionsModalOpen &&
+                monitor &&
+                (showFreshnessAssertionTuningModal ? (
+                    <TuneFreshnessAssertionModal
+                        onClose={() => setIsTunePredictionsModalOpen(false)}
+                        assertion={assertion}
+                        monitor={monitor}
+                    />
+                ) : (
+                    <TuneSmartAssertionModal
+                        onClose={() => setIsTunePredictionsModalOpen(false)}
+                        monitor={monitor}
+                        assertion={assertion}
+                    />
+                ))}
         </VizContainer>
     );
 };

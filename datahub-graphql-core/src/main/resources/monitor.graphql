@@ -8,6 +8,13 @@ extend type Query {
   Fetches the metrics for a monitor.
   """
   listMonitorMetrics(input: ListMonitorMetricsInput!): ListMonitorMetricsResult!
+
+  """
+  Fetches the anomaly events for a monitor.
+  """
+  listMonitorAnomalies(
+    input: ListMonitorAnomaliesInput!
+  ): ListMonitorAnomaliesResult!
 }
 
 extend type EntityPrivileges {
@@ -1173,4 +1180,48 @@ type ListMonitorMetricsResult {
   The metrics for the monitor, hydrated with the anomaly event if present.
   """
   metrics: [MonitorMetric!]!
+}
+
+input ListMonitorAnomaliesInput {
+  """
+  The urn of the monitor to list anomalies for.
+  """
+  monitorUrn: String!
+
+  """
+  The start time of the anomalies to list.
+  """
+  startTimeMillis: Long!
+
+  """
+  The end time of the anomalies to list.
+  """
+  endTimeMillis: Long!
+
+  """
+  Optional server-side filters applied to returned anomaly events.
+  """
+  filter: ListMonitorAnomaliesFilterInput
+}
+
+"""
+Filters to apply when listing monitor anomalies.
+"""
+input ListMonitorAnomaliesFilterInput {
+  """
+  If true, return only the latest anomaly event for each sourceEventTimestampMillis.
+  """
+  latestBySourceEventOnly: Boolean
+
+  """
+  Optional list of anomaly states to include. If unset or empty, no state filtering is applied.
+  """
+  states: [AnomalyReviewState!]
+}
+
+type ListMonitorAnomaliesResult {
+  """
+  The anomaly events for the monitor.
+  """
+  anomalies: [MonitorAnomalyEvent!]!
 }

@@ -22,10 +22,16 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -130,9 +136,9 @@ public class DataHubAiConversationServiceTest {
     final SystemEntityClient mockClient = createMockEntityClientWithSearch();
     final DataHubAiConversationService service = new DataHubAiConversationService(mockClient);
 
-    // Test listing conversations
+    // Test listing conversations without additional filters
     final DataHubAiConversationService.ConversationListResult result =
-        service.listConversations(opContext, TEST_USER_URN, 10, 0);
+        service.listConversations(opContext, TEST_USER_URN, 10, 0, null);
 
     // Verify results
     Assert.assertNotNull(result);
@@ -174,12 +180,91 @@ public class DataHubAiConversationServiceTest {
 
     // Test listing with no results
     final DataHubAiConversationService.ConversationListResult result =
-        service.listConversations(opContext, TEST_USER_URN, 10, 0);
+        service.listConversations(opContext, TEST_USER_URN, 10, 0, null);
 
     // Verify empty list
     Assert.assertNotNull(result);
     Assert.assertNotNull(result.getConversations());
     Assert.assertEquals(result.getConversations().size(), 0);
+  }
+
+  @Test
+  public void testListConversationsWithOriginTypeFilter() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearch();
+    final DataHubAiConversationService service = new DataHubAiConversationService(mockClient);
+
+    // Create an originType filter
+    final Filter originTypeFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "originType", Condition.EQUAL, "DATAHUB_UI")))));
+
+    // Test listing conversations with originType filter
+    final DataHubAiConversationService.ConversationListResult result =
+        service.listConversations(opContext, TEST_USER_URN, 10, 0, originTypeFilter);
+
+    // Verify results
+    Assert.assertNotNull(result);
+    Assert.assertNotNull(result.getConversations());
+    Assert.assertEquals(result.getConversations().size(), 1);
+
+    // Verify search was called with combined filter
+    verify(mockClient, times(1))
+        .search(
+            any(OperationContext.class),
+            eq("dataHubAiConversation"),
+            eq("*"),
+            any(Filter.class), // Verify filter was passed
+            any(),
+            eq(0),
+            eq(10));
+  }
+
+  @Test
+  public void testListConversationsWithMultipleFilters() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearch();
+    final DataHubAiConversationService service = new DataHubAiConversationService(mockClient);
+
+    // Create a filter with multiple criteria (originType OR another originType)
+    final Filter multipleOriginsFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "originType", Condition.EQUAL, "DATAHUB_UI"))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "originType", Condition.EQUAL, "INGESTION_UI")))));
+
+    // Test listing conversations with multiple origin types
+    final DataHubAiConversationService.ConversationListResult result =
+        service.listConversations(opContext, TEST_USER_URN, 10, 0, multipleOriginsFilter);
+
+    // Verify results
+    Assert.assertNotNull(result);
+    Assert.assertNotNull(result.getConversations());
+    Assert.assertEquals(result.getConversations().size(), 1);
+
+    // Verify search was called with the combined filter
+    verify(mockClient, times(1))
+        .search(
+            any(OperationContext.class),
+            eq("dataHubAiConversation"),
+            eq("*"),
+            any(Filter.class),
+            any(),
+            eq(0),
+            eq(10));
   }
 
   @Test

@@ -359,7 +359,7 @@ class TagPropagationAction(ExtendedAction[str]):
                         }
 
                         # Get action URN from pipeline context for attribution
-                        action_urn = self._get_action_urn()
+                        action_urn = self.action_urn
                         if action_urn:
                             self._rate_limited_add_tag(
                                 asset,
@@ -410,12 +410,6 @@ class TagPropagationAction(ExtendedAction[str]):
         if context_str is None or context_str == "":
             context_str = "{}"
         return json.loads(context_str)
-
-    def _get_action_urn(self) -> Optional[str]:
-        """
-        Get the action URN from the pipeline context.
-        """
-        return getattr(self.ctx, "pipeline_name", None)
 
     def close(self) -> None:
         return super().close()

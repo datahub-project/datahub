@@ -1,0 +1,29 @@
+---
+title: Docker Container Architecture
+sidebar_label: Docker Container Architecture
+slug: /architecture/docker-containers
+custom_edit_url: >-
+  https://github.com/datahub-project/datahub/blob/master/docs/architecture/docker-containers.md
+---
+
+# Docker Container Architecture
+
+When running DataHub via docker-compose. or helm, the following is a diagram of the containers involved
+with running DataHub and their relationships with each other. The helm chart uses helm hooks to determine
+the proper ordering of the components whereas docker-compose relies on a series of health checks.
+
+```text
+                datahub-frontend-react  datahub-actions
+                                     \   /
+                                       |   datahub-upgrade (NoCodeDataMigration, helm only)
+                                       |   /
+                                datahub-gms (healthy)
+                                       |
+                                datahub-upgrade (SystemUpdate completed)
+            /--------------------/   |      \------------------------------------------------\
+           /                         |                                                         \
+mysql-setup (completed)  elasticsearch-setup (completed)                           (if apply) neo4j (healthy)
+    |                           |
+    |                           |
+mysql (healthy)         elasticsearch (healthy)
+```

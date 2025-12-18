@@ -1,0 +1,49 @@
+---
+title: Resolver Client
+---
+<div className="sphinx-api-docs">
+<a id="resolver-client"></a>
+
+
+The DataHub Resolver Client provides a client for resolving entities by their URN.
+
+
+
+### <span className="visually-hidden">ResolverClient</span> {#datahub.sdk.resolver_client.ResolverClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.resolver_client.</span><span class="class-name">ResolverClient</span>(<span class="arg-name">client</span>)<a href="#datahub.sdk.resolver_client.ResolverClient" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+* **Parameters:**
+  **client** ([`DataHubClient`](main-client.mdx#datahub.sdk.main_client.DataHubClient)) – 
+
+#### domain(\*, name)
+
+* **Parameters:**
+  **name** (`str`)
+* **Return type:**
+  [`DomainUrn`](../urns.mdx#datahub.metadata.urns.DomainUrn)
+
+#### term(\*, name)
+
+* **Parameters:**
+  **name** (`str`)
+* **Return type:**
+  [`GlossaryTermUrn`](../urns.mdx#datahub.metadata.urns.GlossaryTermUrn)
+
+#### user(\*, name=None, email=None)
+
+* **Parameters:**
+  * **name** (`Optional`[`str`])
+  * **email** (`Optional`[`str`])
+* **Return type:**
+  [`CorpUserUrn`](../urns.mdx#datahub.metadata.urns.CorpUserUrn)
+
+
+</div>
+</div>

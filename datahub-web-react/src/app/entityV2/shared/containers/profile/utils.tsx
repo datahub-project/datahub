@@ -1,7 +1,7 @@
 import { BookOpen } from '@phosphor-icons/react';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -14,7 +14,8 @@ import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
+import { useAskDataHubSidebarTabs } from '@app/entityV2/shared/tabs/AskDataHub/utils';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
@@ -40,6 +41,7 @@ import {
     ENTITY_SIDEBAR_V2_PROPERTIES_ID,
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import usePrevious from '@app/shared/usePrevious';
+import { useIsAiChatEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
@@ -309,4 +311,25 @@ export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | 
         };
     }
     return null;
+}
+
+/**
+ * Hook to get final sidebar tabs with all additions applied.
+ * This lives in profile/utils (not AskDataHub) so it can be copied to OSS.
+ * In OSS, this would just call getFinalSidebarTabs directly.
+ * In SaaS, we add the Ask DataHub tab on top of the base OSS behavior.
+ */
+export function useFinalSidebarTabs(
+    baseTabs: EntitySidebarTab[],
+    sidebarSections: EntitySidebarSection[] | undefined,
+    contextType: TabContextType,
+) {
+    const isAiChatEnabled = useIsAiChatEnabled();
+    // SaaS-only: Add Ask DataHub tab when enabled
+    const tabsWithAskDataHub = useAskDataHubSidebarTabs(baseTabs, isAiChatEnabled, contextType);
+
+    return useMemo(
+        () => getFinalSidebarTabs(tabsWithAskDataHub, sidebarSections || []),
+        [tabsWithAskDataHub, sidebarSections],
+    );
 }

@@ -1,0 +1,98 @@
+
+fragment ingestionSourceFields on IngestionSource {
+    urn
+    name
+    type
+    config {
+        recipe
+        version
+        executorId
+        debugMode
+        extraArgs {
+            key
+            value
+        }
+    }
+    schedule {
+        interval
+        timezone
+    }
+    platform {
+        urn
+        type
+        name
+    }
+    source {
+        type
+    }
+}
+
+query ingestionSource($urn: String!) {
+    ingestionSource(urn: $urn) {
+        ...ingestionSourceFields
+    }
+}
+
+fragment ingestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        arguments {
+            key
+            value
+        }
+        actor {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+                active
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+        task
+        executorId
+    }
+    result {
+        status
+        startTimeMs
+        durationMs
+        executorInstanceId                                                #[CLOUD]
+        structuredReport {
+            type
+            serializedValue
+            contentType
+        }
+    }
+}
+
+
+query executionRequest($urn: String!) {
+    executionRequest(urn: $urn) {
+        ...ingestionExecutionRequestFields
+        source {
+            ...ingestionSourceFields
+        }
+    }
+}
+
+query executionRequestResult($urn: String!) {
+    executionRequest(urn: $urn) {
+        urn
+        result {
+            report
+        }
+    }
+}

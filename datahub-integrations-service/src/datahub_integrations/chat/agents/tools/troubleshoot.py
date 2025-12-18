@@ -180,7 +180,7 @@ class RunLLMTroubleshootingProvider(BaseTroubleshootingProvider):
         return [url for _, url in matches]
 
 
-def _create_troubleshooting_provider() -> BaseTroubleshootingProvider:
+def _create_troubleshooting_provider() -> Optional[BaseTroubleshootingProvider]:
     """
     Factory function to create the troubleshooting provider.
     Currently only supports RunLLM. To add new providers:
@@ -188,10 +188,7 @@ def _create_troubleshooting_provider() -> BaseTroubleshootingProvider:
     2. Implement the query() method
     3. Add configuration check and instantiation here
     Returns:
-        Configured troubleshooting provider
-    Raises:
-        RuntimeError: If no provider is configured (should not happen since
-                     tool registration is conditional)
+        Configured troubleshooting provider, or None if no provider is configured
     """
     runllm_api_key = os.getenv("RUNLLM_API_KEY")
     runllm_assistant_id = os.getenv("RUNLLM_ASSISTANT_ID")
@@ -202,9 +199,21 @@ def _create_troubleshooting_provider() -> BaseTroubleshootingProvider:
             api_key=runllm_api_key, assistant_id=runllm_assistant_id
         )
 
-    raise RuntimeError(
-        "No troubleshooting provider configured. Troubleshooting tool is not available."
+    logger.info(
+        "No troubleshooting provider configured (missing RUNLLM_API_KEY or RUNLLM_ASSISTANT_ID). "
+        "Troubleshooting tool will not be available."
     )
+    return None
+
+
+def is_troubleshoot_available() -> bool:
+    """
+    Check if the troubleshoot tool is available.
+
+    Returns:
+        True if a troubleshooting provider is configured, False otherwise
+    """
+    return _create_troubleshooting_provider() is not None
 
 
 def troubleshoot(question: str, context: Optional[str] = None) -> dict:
@@ -231,6 +240,12 @@ def troubleshoot(question: str, context: Optional[str] = None) -> dict:
     import asyncer
 
     provider = _create_troubleshooting_provider()
+
+    if provider is None:
+        return {
+            "answer": "The troubleshooting tool is not currently available. Please check with your administrator about configuring the troubleshooting service.",
+            "sources": [],
+        }
 
     # Run async query in sync context
     response = asyncer.syncify(provider.query, raise_sync_error=False)(

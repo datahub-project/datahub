@@ -110,6 +110,9 @@ class ChatContextReducer(ABC):
                 )
                 span.set_attributes(asdict(reduction_metadata))
                 history.set_reduced_history(reduced_history, asdict(reduction_metadata))
+                logger.info(
+                    f"{self.__class__.__name__} completed: estimated tokens after reduction: {num_tokens_after} (reduced from {num_tokens_before})"
+                )
             except Exception as e:
                 logger.error(
                     f"Error reducing history with {self.__class__.__name__}: {e}"

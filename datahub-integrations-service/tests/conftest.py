@@ -69,6 +69,7 @@ except ImportError:
     os.environ["DATAHUB_GMS_PORT"] = "8080"
 
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
+os.environ["KAFKA_AUTOMATIONS_CONSUMER_GROUP_PREFIX"] = "test"
 
 
 @pytest.fixture(scope="module")

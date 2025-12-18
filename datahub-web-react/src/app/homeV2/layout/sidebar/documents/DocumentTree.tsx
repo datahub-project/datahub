@@ -32,6 +32,8 @@ interface DocumentTreeProps {
     selectedUrn?: string; // For selection mode (e.g., in move dialog)
     onSelectDocument?: (urn: string) => void; // Callback when document is selected
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
+    hideActionsMenu?: boolean; // Hide move/delete menu actions
+    hideCreate?: boolean; // Hide create/add button
 }
 
 export const DocumentTree: React.FC<DocumentTreeProps> = ({
@@ -39,17 +41,19 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     selectedUrn,
     onSelectDocument,
     hideActions = false,
+    hideActionsMenu = false,
+    hideCreate = false,
 }) => {
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
     // Tree state (single source of truth!)
-    const { getRootNodes, getNode } = useDocumentTree();
+    // Note: expandedUrns is now in context to persist across component remounts
+    const { getRootNodes, getNode, expandedUrns, expandNode, collapseNode } = useDocumentTree();
     const { loadChildren, loading } = useLoadDocumentTree();
 
-    // Local UI state for expansion
-    const [expandedUrns, setExpandedUrns] = useState<Set<string>>(new Set());
+    // Local UI state for loading indicators only
     const [loadingUrns, setLoadingUrns] = useState<Set<string>>(new Set());
 
     const rootNodes = getRootNodes();
@@ -68,14 +72,10 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
 
             if (isExpanded) {
                 // Collapse
-                setExpandedUrns((prev) => {
-                    const next = new Set(prev);
-                    next.delete(urn);
-                    return next;
-                });
+                collapseNode(urn);
             } else {
                 // Expand
-                setExpandedUrns((prev) => new Set(prev).add(urn));
+                expandNode(urn);
 
                 // Always fetch from server when expanding (if has children)
                 // The merge logic will combine server data with any optimistic updates
@@ -90,7 +90,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                 }
             }
         },
-        [getNode, expandedUrns, loadChildren],
+        [getNode, expandedUrns, expandNode, collapseNode, loadChildren],
     );
 
     const handleDocumentClick = useCallback(
@@ -133,6 +133,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         onClick={() => handleDocumentClick(node.urn)}
                         onCreateChild={onCreateChild}
                         hideActions={hideActions}
+                        hideActionsMenu={hideActionsMenu}
+                        hideCreate={hideCreate}
                         parentUrn={node.parentUrn}
                     />
                     {isExpanded && children.length > 0 && (
@@ -151,6 +153,8 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             handleDocumentClick,
             onCreateChild,
             hideActions,
+            hideActionsMenu,
+            hideCreate,
         ],
     );
 

@@ -8,6 +8,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import cached_property
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pydantic
@@ -147,6 +148,13 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
 
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
+
 
 class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
@@ -284,8 +292,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
     def is_temp_table(self, name: str) -> bool:
         if any(
-            re.match(pattern, name, flags=re.IGNORECASE)
-            for pattern in self.config.temporary_tables_pattern
+            pattern.match(name)
+            for pattern in self.config._compiled_temporary_tables_pattern
         ):
             return True
 

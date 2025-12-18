@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import redshift_connector
 
+from datahub._version import __version__
 from datahub.ingestion.source.redshift.query import (
     RedshiftCommonQuery,
     RedshiftProvisionedQuery,
@@ -232,6 +233,19 @@ def _stringy(x: Optional[int]) -> Optional[str]:
     return str(x)
 
 
+def _add_redshift_query_tag(query: str) -> str:
+    """
+    Adds AWS Redshift query tagging comment to identify DataHub queries.
+    Format: -- partner: DataHub -v <version>
+
+    This is required for AWS Redshift Ready program compliance and helps
+    identify DataHub traffic in Redshift query logs.
+    """
+    # Add query tag comment at the beginning
+    tag_comment = f"-- partner: DataHub -v {__version__}\n"
+    return tag_comment + query
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     def __init__(self, is_serverless):
@@ -244,10 +258,14 @@ class RedshiftDataDictionary:
         conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
         cursor: redshift_connector.Cursor = conn.cursor()
+
+        # Add query tagging for AWS Redshift Ready program
+        tagged_query = _add_redshift_query_tag(query)
+
         with PerfTimer() as timer:
-            query_hash_id = hash(query)
-            logger.info(f"Executing query [{query_hash_id}]\n{query}")
-            cursor.execute(query)
+            query_hash_id = hash(query)  # Use original query for hash
+            logger.info(f"Executing query [{query_hash_id}]\n{tagged_query}")
+            cursor.execute(tagged_query)  # Execute tagged query
             logger.info(
                 f"Time taken query [{query_hash_id}: {timer.elapsed_seconds():.3f} seconds"
             )

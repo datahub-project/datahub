@@ -18,9 +18,12 @@ interface ColorStyles {
 function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions, theme?: Theme): ColorStyles {
     if (variant === 'version') {
         return {
-            bgColor: getColor('gray', color === 'white' ? 1500 : 100, theme),
-            borderColor: getColor('gray', 100, theme),
-            primaryColor: getColor('gray', 1700, theme),
+            bgColor:
+                color === 'violet'
+                    ? getColor('gray', 0, theme)
+                    : getColor('gray', color === 'white' ? 1500 : 100, theme),
+            borderColor: color === 'violet' ? getColor('gray', 0, theme) : getColor('gray', 100, theme),
+            primaryColor: color === 'violet' ? getColor(color, 500, theme) : getColor('gray', 1700, theme),
         };
     }
 

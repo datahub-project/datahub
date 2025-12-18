@@ -11,6 +11,7 @@ import {
     ActionRequestType,
     ActionWorkflowCategory,
     AllowedValue,
+    AnomalyReviewState,
     AssertionType,
     DataHubPageModuleType,
     DataHubViewType,
@@ -214,6 +215,9 @@ export enum EventType {
     GiveAnomalyFeedback,
     UndoAnomalyFeedback,
     RetrainAsNewNormal,
+    TunePredictionsClickEvent,
+    TunePredictionsMarkAnomalyEvent,
+    TunePredictionsUpdateMonitorSettingsEvent,
     CreateActionWorkflowFormRequest,
     ReviewActionWorkflowFormRequest,
     BatchReviewActionWorkflowFormRequest,
@@ -275,6 +279,8 @@ export enum EventType {
     MoveDocumentEvent,
     EditDocumentEvent,
     DeleteDocumentEvent,
+    IngestionTestConnectionClickEvent,
+    IngestionTestConnectionCloseEvent,
 }
 
 /**
@@ -801,6 +807,22 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     outcome?: string;
 }
 
+export interface IngestionTestConnectionClickEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionClickEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
+export interface IngestionTestConnectionCloseEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionCloseEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    hasCompleted?: boolean;
+    status?: 'success' | 'failure' | 'partialSuccess' | 'running';
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
 export interface IngestionViewAllClickEvent extends BaseEvent {
     type: EventType.IngestionViewAllClickEvent;
     executionUrn?: string;
@@ -832,6 +854,7 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -841,6 +864,7 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1599,6 +1623,54 @@ export interface RetrainAsNewNormalEvent extends BaseEvent {
     };
 }
 
+export type TunePredictionsMode = 'smart' | 'freshness' | 'unknown';
+
+/**
+ * Logged when a user clicks a "Tune Predictions" entry point.
+ */
+export interface TunePredictionsClickEvent extends BaseEvent {
+    type: EventType.TunePredictionsClickEvent;
+    location: string;
+    tuningMode: TunePredictionsMode;
+    assertionUrn?: string;
+    assertionType?: AssertionType | 'Unknown';
+    monitorUrn?: string;
+    datasetUrn?: string;
+    hasMonitor?: boolean;
+}
+
+/**
+ * Logged when a user marks / unmarks anomalies from within Tune Predictions.
+ */
+export interface TunePredictionsMarkAnomalyEvent extends BaseEvent {
+    type: EventType.TunePredictionsMarkAnomalyEvent;
+    tuningMode: TunePredictionsMode;
+    action: 'mark' | 'unmark';
+    monitorUrn: string;
+    assertionUrn: string;
+    datasetUrn?: string;
+    startTimeMillis: number;
+    endTimeMillis: number;
+    updatedCount: number;
+    state: AnomalyReviewState;
+}
+
+/**
+ * Logged when a user updates monitor inference settings from within Tune Predictions.
+ */
+export interface TunePredictionsUpdateMonitorSettingsEvent extends BaseEvent {
+    type: EventType.TunePredictionsUpdateMonitorSettingsEvent;
+    tuningMode: TunePredictionsMode;
+    monitorUrn: string;
+    assertionUrn?: string;
+    datasetUrn?: string;
+    changedFields: string[];
+    trainingDataLookbackWindowDays?: number;
+    sensitivityLevel?: number;
+    exclusionWindowsCount?: number;
+    algorithm?: string;
+}
+
 export interface DatasetHealthFilterEvent extends BaseEvent {
     type: EventType.DatasetHealthFilterEvent;
     tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
@@ -2231,6 +2303,9 @@ export type Event =
     | GiveAnomalyFeedbackEvent
     | UndoAnomalyFeedbackEvent
     | RetrainAsNewNormalEvent
+    | TunePredictionsClickEvent
+    | TunePredictionsMarkAnomalyEvent
+    | TunePredictionsUpdateMonitorSettingsEvent
     | CreateActionWorkflowFormRequestEvent
     | BatchReviewActionWorkflowFormRequestEvent
     | ReviewActionWorkflowFormRequestEvent
@@ -2283,4 +2358,6 @@ export type Event =
     | CreateDocumentEvent
     | MoveDocumentEvent
     | EditDocumentEvent
-    | DeleteDocumentEvent;
+    | DeleteDocumentEvent
+    | IngestionTestConnectionClickEvent
+    | IngestionTestConnectionCloseEvent;

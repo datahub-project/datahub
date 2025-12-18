@@ -51,8 +51,7 @@ export default function TeamsSaveAsDefault({
             <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <SaveAsDefaultCheckbox
                     isChecked={isChecked}
-                    setIsChecked={(value) => {
-                        const newValue = typeof value === 'function' ? value(isChecked) : value;
+                    setIsChecked={(newValue) => {
                         onToggle(newValue);
                     }}
                     label="Save as my default Teams setting"

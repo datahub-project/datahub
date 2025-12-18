@@ -1,0 +1,97 @@
+---
+title: Kafka Emitter
+---
+<div className="sphinx-api-docs">
+<a id="kafka-emitter"></a>
+
+
+The Kafka emitter can be used to push metadata to DataHub.
+
+
+
+### <span className="visually-hidden">DatahubKafkaEmitter</span> {#datahub.emitter.kafka_emitter.DatahubKafkaEmitter}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.kafka_emitter.</span><span class="class-name">DatahubKafkaEmitter</span>(<span class="arg-name">config</span>)<a href="#datahub.emitter.kafka_emitter.DatahubKafkaEmitter" class="hash-link"></a></div>
+
+
+Bases: `Closeable`, `Emitter`
+
+* **Parameters:**
+  **config** ([`KafkaEmitterConfig`](#datahub.emitter.kafka_emitter.KafkaEmitterConfig)) – 
+
+#### close()
+
+* **Return type:**
+  `None`
+
+#### emit(item, callback=None)
+
+* **Parameters:**
+  * **item** (`Union`[[`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass), [`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass), [`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper)]) – 
+  * **callback** (`Optional`[`Callable`[[`Exception`, `str`], `None`]])
+* **Return type:**
+  `None`
+
+#### emit_mce_async(mce, callback)
+
+* **Parameters:**
+  * **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+  * **callback** (`Callable`[[`Exception`, `str`], `None`])
+* **Return type:**
+  `None`
+
+#### emit_mcp_async(mcp, callback)
+
+* **Parameters:**
+  * **mcp** (`Union`[[`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass), [`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper)]) – 
+  * **callback** (`Callable`[[`Exception`, `str`], `None`])
+* **Return type:**
+  `None`
+
+#### flush()
+
+* **Return type:**
+  `None`
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">KafkaEmitterConfig</span> {#datahub.emitter.kafka_emitter.KafkaEmitterConfig}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.kafka_emitter.</span><span class="class-name">KafkaEmitterConfig</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.kafka_emitter.KafkaEmitterConfig" class="hash-link"></a></div>
+
+
+Bases: `ConfigModel`
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **connection** (*KafkaProducerConnectionConfig*)
+  * **topic_routes** (*Dict* *[**str**,**str**]*)
+#### connection *: `KafkaProducerConnectionConfig`*
+
+#### model_config *: ClassVar[ConfigDict]* *= {'_schema_extra': &lt;function ConfigModel.Config._schema_extra>, 'extra': 'forbid', 'ignored_types': (<class 'cached_property.cached_property'>,), 'json_schema_extra': &lt;function ConfigModel.Config._schema_extra>}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### topic_routes *: `Dict`[`str`, `str`]*
+
+#### *classmethod* validate_topic_routes(v)
+
+* **Parameters:**
+  **v** (`Dict`[`str`, `str`])
+* **Return type:**
+  `Dict`[`str`, `str`]
+
+
+</div>
+</div>

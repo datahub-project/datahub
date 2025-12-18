@@ -8,23 +8,23 @@ import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
     color: 'primary',
+    colorLevel: 500,
     size: 'md',
     iconPosition: 'left',
     isCircle: false,
     isLoading: false,
-    isDisabled: false,
     isActive: false,
 };
 
 export const Button = ({
     variant = buttonDefaults.variant,
     color = buttonDefaults.color,
+    colorLevel = buttonDefaults.colorLevel,
     size = buttonDefaults.size,
     icon, // default undefined
     iconPosition = buttonDefaults.iconPosition,
     isCircle = buttonDefaults.isCircle,
     isLoading = buttonDefaults.isLoading,
-    isDisabled = buttonDefaults.isDisabled,
     isActive = buttonDefaults.isActive,
     children,
     ...props
@@ -32,11 +32,11 @@ export const Button = ({
     const styleProps = {
         variant,
         color,
+        colorLevel,
         size,
         isCircle,
         isLoading,
         isActive,
-        isDisabled,
         hasChildren: !!children,
     };
 

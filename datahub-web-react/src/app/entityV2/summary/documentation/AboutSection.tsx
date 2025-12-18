@@ -11,7 +11,7 @@ import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionVi
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
-import Links from '@app/entityV2/summary/links/Links';
+import RelatedSection from '@app/entityV2/summary/links/RelatedSection';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
@@ -135,8 +135,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     />
                 </DescriptionViewer>
             </DescriptionContainer>
-            {!hideLinksButton && <Links />}
-            {showAddLinkModal && <AddLinkModal setShowAddLinkModal={setShowAddLinkModal} />}
+            {!hideLinksButton && <RelatedSection hideLinksButton={hideLinksButton} />}
             {showAddDescriptionModal && (
                 <EditDescriptionModal
                     updatedDescription={updatedDescription}
@@ -160,6 +159,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     onCancel={cancelUpdate}
                 />
             )}
+            {showAddLinkModal && <AddLinkModal setShowAddLinkModal={setShowAddLinkModal} />}
         </div>
     );
 }

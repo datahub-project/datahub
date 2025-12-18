@@ -76,7 +76,7 @@ def test_get_lineage_paths_column_level_with_queries(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -170,7 +170,7 @@ def test_get_lineage_paths_column_level_without_queries(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -232,7 +232,7 @@ def test_get_lineage_paths_dataset_level(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -273,7 +273,7 @@ def test_get_lineage_paths_auto_discover_downstream(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -322,7 +322,7 @@ def test_get_lineage_paths_auto_discover_upstream(mock_client):
     # First call (try downstream: query target's upstream) returns empty
     # Second call (fallback upstream: query source's upstream) returns results
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         side_effect=[mock_empty_response, mock_upstream_response],
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -359,7 +359,7 @@ def test_get_lineage_paths_explicit_direction(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ) as mock_gql:
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -399,7 +399,7 @@ def test_get_lineage_paths_target_not_found(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -427,7 +427,7 @@ def test_get_lineage_paths_no_results(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         with with_datahub_client(mock_client):
@@ -477,7 +477,7 @@ def test_get_lineage_paths_multiple_paths(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -533,7 +533,7 @@ def test_get_lineage_paths_null_string_normalization(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"
@@ -577,7 +577,7 @@ def test_get_lineage_paths_safe_null_handling(mock_client):
     }
 
     with patch(
-        "datahub_integrations.mcp.mcp_server._execute_graphql",
+        "datahub_integrations.mcp.mcp_server.execute_graphql",
         return_value=mock_response,
     ):
         mock_client._graph.url_for = lambda x: f"https://example.com/{x}"

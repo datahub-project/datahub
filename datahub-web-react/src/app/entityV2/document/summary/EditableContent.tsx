@@ -30,7 +30,7 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
     &&& {
         .remirror-editor {
             padding: 0px 0;
-            min-height: 400px;
+            min-height: 460px;
         }
         .remirror-editor.ProseMirror {
             font-size: 15px;

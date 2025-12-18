@@ -392,3 +392,22 @@ class TestCreateDataCatalogExplorerAgent:
         # Planning tools should be present
         assert "create_plan" in tool_names
         assert "revise_plan" in tool_names
+
+    @patch.dict("os.environ", {"MODEL_CUSTOM_BASE_URL": "https://custom.example.com"})
+    def test_disables_smart_search_with_custom_base_url(
+        self,
+        mock_client: Mock,
+    ) -> None:
+        """Should disable smart_search when custom model base URL is set."""
+        # Clear the cache to ensure fresh evaluation
+        from datahub_integrations.chat.agents.data_catalog_tools import (
+            is_smart_search_enabled,
+        )
+
+        is_smart_search_enabled.cache_clear()
+
+        agent = create_data_catalog_explorer_agent(mock_client, tools=[])
+
+        # smart_search should NOT be in plannable tools
+        tool_names = [t.name for t in agent.config.plannable_tools]
+        assert "smart_search" not in tool_names

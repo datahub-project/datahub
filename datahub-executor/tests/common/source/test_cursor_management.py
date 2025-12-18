@@ -7,6 +7,7 @@ to prevent memory leaks.
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
+from datahub._version import __version__
 
 from datahub_executor.common.connection.databricks.databricks_connection import (
     DatabricksConnection,
@@ -182,8 +183,9 @@ class TestRedshiftCursorManagement:
         cursor_context.__enter__.assert_called()
         cursor_context.__exit__.assert_called()
 
-        # Verify query execution
-        self.mock_cursor.execute.assert_called_with(test_query)
+        # Verify query execution with query tagging
+        expected_tagged_query = f"-- partner: DataHub -v {__version__}\n{test_query}"
+        self.mock_cursor.execute.assert_called_with(expected_tagged_query)
         self.mock_cursor.fetchall.assert_called_once()
         assert result == expected_result
 
@@ -204,8 +206,9 @@ class TestRedshiftCursorManagement:
         cursor_context.__enter__.assert_called()
         cursor_context.__exit__.assert_called()
 
-        # Verify query execution
-        self.mock_cursor.execute.assert_called_with(test_query)
+        # Verify query execution with query tagging
+        expected_tagged_query = f"-- partner: DataHub -v {__version__}\n{test_query}"
+        self.mock_cursor.execute.assert_called_with(expected_tagged_query)
         self.mock_cursor.fetchone.assert_called_once()
         assert result == expected_result
 
@@ -227,9 +230,12 @@ class TestRedshiftCursorManagement:
         cursor_context.__enter__.assert_called()
         cursor_context.__exit__.assert_called()
 
-        # Verify both main query and rollback were attempted
+        # Verify both main query (with tagging) and rollback were attempted
+        expected_tagged_query = f"-- partner: DataHub -v {__version__}\n{test_query}"
         assert self.mock_cursor.execute.call_count == 2
-        self.mock_cursor.execute.assert_has_calls([call(test_query), call("rollback")])
+        self.mock_cursor.execute.assert_has_calls(
+            [call(expected_tagged_query), call("rollback")]
+        )
 
     def test_rollback_exception_handled_gracefully(self) -> None:
         """Test that rollback exceptions are handled gracefully"""

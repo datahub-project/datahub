@@ -1,0 +1,16 @@
+namespace com.linkedin.anomaly
+
+/**
+ * The time range of the anomalous operation.
+ */
+record OperationRange {
+  /**
+   * The start timestamp of the operation in milliseconds since epoch.
+   */
+  startTimestampMillis: long
+
+  /**
+   * The end timestamp of the operation in milliseconds since epoch.
+   */
+  endTimestampMillis: long
+}

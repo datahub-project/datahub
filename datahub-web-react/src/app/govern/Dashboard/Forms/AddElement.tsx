@@ -40,7 +40,7 @@ const AddElement = ({
                     <div>
                         <Button
                             onClick={buttonOnClick}
-                            isDisabled={isButtonDisabled}
+                            disabled={isButtonDisabled}
                             data-testid={dataTestIdPrefix && `${dataTestIdPrefix}-button`}
                         >
                             {buttonLabel}

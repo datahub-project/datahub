@@ -28,7 +28,13 @@ const CloseButton = styled(Button)``;
 
 const STORAGE_KEY = 'datahub-tuning-help-banner-dismissed';
 
-export const TuningHelpBanner = () => {
+type TuningHelpBannerProps = {
+    message?: string;
+};
+
+const DEFAULT_MESSAGE = 'Drag your cursor around bad training data to exclude it and improve model quality';
+
+export const TuningHelpBanner = ({ message = DEFAULT_MESSAGE }: TuningHelpBannerProps) => {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
@@ -55,7 +61,7 @@ export const TuningHelpBanner = () => {
             </IconWrapper>
             <TextWrapper>
                 <Text size="md" weight="medium">
-                    Drag your cursor around bad training data to exclude it and improve model quality
+                    {message}
                 </Text>
             </TextWrapper>
             <CloseButton onClick={handleClose} aria-label="Close banner" variant="text" size="xs">

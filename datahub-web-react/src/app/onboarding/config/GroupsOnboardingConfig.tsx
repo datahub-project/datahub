@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const GROUPS_INTRO_ID = 'groups-intro';
 export const GROUPS_CREATE_GROUP_ID = 'groups-create-group';

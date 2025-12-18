@@ -86,6 +86,9 @@ public class StreamingChatClient {
    *
    * @param conversationUrn The conversation URN
    * @param messageText The message text
+   * @param agentName Optional agent name
+   * @param messageContext Optional message-level context (will be combined with conversation
+   *     context by Python service)
    * @param authentication The user's authentication object containing actor and credentials
    * @param progressCallback Callback that receives SSE events with event name and data
    * @return CompletableFuture that completes when streaming is done
@@ -94,6 +97,7 @@ public class StreamingChatClient {
       @Nonnull final String conversationUrn,
       @Nonnull final String messageText,
       @Nullable final String agentName,
+      @Nullable final Map<String, Object> messageContext,
       @Nonnull final Authentication authentication,
       @Nullable final Consumer<SseEvent> progressCallback) {
 
@@ -124,12 +128,15 @@ public class StreamingChatClient {
                 userUrn);
 
             // Build request body
-            final Map<String, String> requestBody = new HashMap<>();
+            final Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("conversation_urn", conversationUrn);
             requestBody.put("user_urn", userUrn);
             requestBody.put("text", messageText);
             if (agentName != null) {
               requestBody.put("agent_name", agentName);
+            }
+            if (messageContext != null) {
+              requestBody.put("context", messageContext);
             }
             final String requestJson = objectMapper.writeValueAsString(requestBody);
             messageRequest.setEntity(new StringEntity(requestJson, StandardCharsets.UTF_8));

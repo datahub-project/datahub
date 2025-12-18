@@ -4,11 +4,14 @@ import logging
 import os
 import pprint
 import time
-from typing import TYPE_CHECKING, List, Optional, Union
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import boto3
 import botocore.config
 import pydantic
+from botocore.credentials import RefreshableCredentials
+from botocore.session import get_session
 from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
 
@@ -38,6 +41,100 @@ _ENABLE_BEDROCK_PROMPT_CACHING = get_boolean_env_variable(
 
 _MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "10"))
 
+# Cache for refreshable sessions used in cross-account role assumption
+_refreshable_sessions: Dict[str, boto3.Session] = {}
+
+
+def _get_bedrock_region() -> Optional[str]:
+    """Get the Bedrock region from environment variables.
+
+    Returns:
+        Region string if BEDROCK_AWS_REGION or AWS_REGION is set, None otherwise.
+    """
+    return os.environ.get("BEDROCK_AWS_REGION") or os.environ.get("AWS_REGION")
+
+
+def _create_refreshable_bedrock_session(
+    role_arn: str, region: Optional[str]
+) -> boto3.Session:
+    """Create a boto3 session with RefreshableCredentials for cross-account access.
+
+    This function creates a session that automatically refreshes credentials when
+    they approach expiration. The credentials are obtained by assuming the specified
+    IAM role via STS.
+
+    Args:
+        role_arn: The ARN of the IAM role to assume in the target account.
+        region: AWS region for the STS client. If None, uses boto3 default resolution.
+
+    Returns:
+        A boto3.Session configured with refreshable credentials.
+
+    Raises:
+        RuntimeError: If role assumption fails.
+
+    Credential refresh behavior:
+        RefreshableCredentials handles refresh failures gracefully:
+        - During "advisory" refresh (credentials still valid but nearing expiration):
+          exceptions are caught and logged as warnings, existing credentials continue to work
+        - During "mandatory" refresh (credentials already expired):
+          exceptions propagate to the caller, but RefreshableCredentials is NOT permanently
+          broken - subsequent API calls will retry the refresh
+
+        Potential causes of refresh failures:
+        - IAM role deleted or trust policy changed → requires admin intervention
+        - Transient network issues → handled by botocore's built-in retries
+
+        This means the system is resilient: temporary failures don't break the session,
+        and persistent failures (IAM misconfiguration) will keep failing until fixed.
+    """
+
+    def _refresh_credentials() -> Dict[str, str]:
+        """Refresh the assumed role credentials."""
+        try:
+            # Get STS client using default credentials (the source account's credentials)
+            if region:
+                sts_client = boto3.client("sts", region_name=region)
+            else:
+                sts_client = boto3.client("sts")
+
+            # Assume the cross-account role
+            session_name = (
+                f"datahub-bedrock-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+            )
+            assumed_role = sts_client.assume_role(
+                RoleArn=role_arn,
+                RoleSessionName=session_name,
+                DurationSeconds=3600,  # 1 hour
+            )
+
+            credentials = assumed_role["Credentials"]
+            return {
+                "access_key": credentials["AccessKeyId"],
+                "secret_key": credentials["SecretAccessKey"],
+                "token": credentials["SessionToken"],
+                "expiry_time": credentials["Expiration"].isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"Failed to refresh credentials for role {role_arn}: {e}")
+            raise RuntimeError(
+                f"Failed to refresh credentials for Bedrock cross-account role: {role_arn}"
+            ) from e
+
+    # Create a botocore session with RefreshableCredentials
+    botocore_session = get_session()
+    refreshable = RefreshableCredentials.create_from_metadata(
+        metadata=_refresh_credentials(),
+        refresh_using=_refresh_credentials,
+        method="sts-assume-role",
+    )
+    botocore_session._credentials = refreshable  # type: ignore[attr-defined]
+    if region:
+        botocore_session.set_config_variable("region", region)
+
+    # Create and return a boto3 session using the botocore session
+    return boto3.Session(botocore_session=botocore_session)
+
 
 # Generic return type for Bedrock inference responses.
 class BedrockResponseBody(pydantic.BaseModel):
@@ -56,26 +153,30 @@ class BedrockPromptMessage(pydantic.BaseModel):
     cache: bool = False
 
 
-@serialized
-@functools.cache
-def get_bedrock_client(
-    read_timeout: int = 60, connect_timeout: int = 60
+def _create_bedrock_client(
+    read_timeout: int = 60,
+    connect_timeout: int = 60,
+    cross_account_role_arn: Optional[str] = None,
 ) -> "BedrockRuntimeClient":
-    """
-    Get a singleton Bedrock client with appropriate authentication.
+    """Create a Bedrock client with the specified configuration.
 
-    Authentication is determined in the following order:
+    This is the internal implementation that does the actual client creation.
+    For production use, call get_bedrock_client() which adds caching and reads
+    the BEDROCK_CROSS_ACCOUNT_ROLE_ARN env var.
+
+    Args:
+        read_timeout: Read timeout in seconds (default: 60)
+        connect_timeout: Connect timeout in seconds (default: 60)
+        cross_account_role_arn: Optional role ARN for cross-account access.
+            If provided, uses STS assume_role with auto-refresh credentials.
+
+    Returns:
+        BedrockRuntimeClient instance
+
+    Authentication priority (when cross_account_role_arn is None):
     1. Explicit credentials via BEDROCK_AWS_ACCESS_KEY_ID and BEDROCK_AWS_SECRET_ACCESS_KEY
     2. AWS Profile via AWS_PROFILE (supports SSO profiles)
     3. Default AWS credential chain (~/.aws/credentials, instance profile, etc.)
-
-    For local development with SSO:
-    - Run: aws sso login --profile your-profile-name
-    - Set: AWS_PROFILE=your-profile-name
-    - Optionally set: BEDROCK_AWS_REGION=us-west-2 (or your preferred region)
-
-    The cache decorator ensures that this is a singleton, and the serialized
-    decorator ensures that it is only initialized once even if called from multiple threads.
     """
     config = botocore.config.Config(
         read_timeout=read_timeout,
@@ -86,33 +187,47 @@ def get_bedrock_client(
 
     if "BEDROCK_AWS_ROLE" in os.environ:
         logger.warning(
-            "Using BEDROCK_AWS_ROLE is to assume a role is no longer supported. "
-            "Use instance profiles or explicit credentials."
+            "Using BEDROCK_AWS_ROLE to assume a role is no longer supported. "
+            "Use BEDROCK_CROSS_ACCOUNT_ROLE_ARN instead."
         )
 
+    region = _get_bedrock_region()
+
+    # Option 1: Cross-account role assumption (for invoking Bedrock in another AWS account)
+    if cross_account_role_arn:
+        logger.info(
+            f"Initializing Bedrock client with cross-account role: {cross_account_role_arn}"
+        )
+        # Create or reuse a refreshable session for this role
+        session_key = f"bedrock-{cross_account_role_arn}-{region}"
+        if session_key not in _refreshable_sessions:
+            _refreshable_sessions[session_key] = _create_refreshable_bedrock_session(
+                cross_account_role_arn, region
+            )
+        boto3_session = _refreshable_sessions[session_key]
+        return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
+
+    # Option 2: Explicit credentials for local development
     if "BEDROCK_AWS_ACCESS_KEY_ID" in os.environ:
-        # Option 1: Explicit credentials for local development
         logger.info("Initializing Bedrock client from explicit env vars")
         boto3_session = boto3.Session(
             aws_access_key_id=os.environ["BEDROCK_AWS_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["BEDROCK_AWS_SECRET_ACCESS_KEY"],
             region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2"),
         )
+    # Option 3: AWS Profile (great for local development with SSO)
     elif "AWS_PROFILE" in os.environ:
-        # Option 2: AWS Profile (great for local development with SSO)
         profile_name = os.environ["AWS_PROFILE"]
         logger.info(f"Initializing Bedrock client from AWS profile: {profile_name}")
         boto3_session = boto3.Session(
             profile_name=profile_name,
             region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2"),
         )
+    # Option 4: Default - use instance profile or standard AWS credential chain
     else:
-        # Option 3: Default - use instance profile or standard AWS credential chain
-        # This will check ~/.aws/credentials, EC2 instance profile, etc.
         logger.info(
             "Initializing Bedrock client from default credential chain (instance profile or AWS CLI)"
         )
-        region = os.environ.get("BEDROCK_AWS_REGION") or os.environ.get("AWS_REGION")
         if region:
             logger.info(f"Using explicit region from environment: {region}")
             boto3_session = boto3.Session(region_name=region)
@@ -124,6 +239,34 @@ def get_bedrock_client(
             boto3_session = boto3.Session()
 
     return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
+
+
+@serialized
+@functools.cache
+def get_bedrock_client(
+    read_timeout: int = 60, connect_timeout: int = 60
+) -> "BedrockRuntimeClient":
+    """Get a singleton Bedrock client with appropriate authentication.
+
+    This is a cached wrapper around _create_bedrock_client(). The cache ensures
+    that only one client is created per (read_timeout, connect_timeout) combination,
+    and the @serialized decorator ensures thread-safe initialization.
+
+    For cross-account access:
+    - Set: BEDROCK_CROSS_ACCOUNT_ROLE_ARN=arn:aws:iam::123456789012:role/BedrockRole
+    - The role will be assumed using STS with automatic credential refresh
+
+    For local development with SSO:
+    - Run: aws sso login --profile your-profile-name
+    - Set: AWS_PROFILE=your-profile-name
+    - Optionally set: BEDROCK_AWS_REGION=us-west-2 (or your preferred region)
+    """
+    cross_account_role_arn = os.environ.get("BEDROCK_CROSS_ACCOUNT_ROLE_ARN")
+    return _create_bedrock_client(
+        read_timeout=read_timeout,
+        connect_timeout=connect_timeout,
+        cross_account_role_arn=cross_account_role_arn,
+    )
 
 
 def call_bedrock_llm(

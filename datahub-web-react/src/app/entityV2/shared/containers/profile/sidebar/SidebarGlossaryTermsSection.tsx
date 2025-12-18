@@ -7,6 +7,7 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
 import { getProposedItemsByType } from '@app/entityV2/shared/utils';
 import { ENTITY_PROFILE_GLOSSARY_TERMS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import ConstraintGroup from '@app/shared/constraints/ConstraintGroup';
@@ -26,9 +27,10 @@ const Content = styled.div`
 
 interface Props {
     readOnly?: boolean;
+    properties?: any;
 }
 
-export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
+export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => {
     const { entityType, entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const refetch = useRefetch();
@@ -37,11 +39,19 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
+    // Extract glossary terms using custom hook (for Business Attributes support)
+    const { data: glossaryTerms, isEmpty: areTermsEmpty } = useEntityDataExtractor({
+        customPath: properties?.customTermPath,
+        defaultPath: 'glossaryTerms',
+        arrayProperty: 'terms',
+    });
+
+    // Preserve Acryl proposals functionality
     const proposedTerms = findTopLevelProposals(
         getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TermAssociation) || [],
     );
 
-    const areTermsEmpty = !entityData?.glossaryTerms?.terms?.length && !proposedTerms?.length;
+    const areTermsEmptyWithProposals = areTermsEmpty && !proposedTerms?.length;
 
     const canEditGlossaryTerms = !!entityData?.privileges?.canEditGlossaryTerms;
     const canProposeGlossaryTerms = !!entityData?.privileges?.canProposeGlossaryTerms;
@@ -53,9 +63,9 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                 content={
                     <Content>
                         <ConstraintGroup constraints={baseEntity?.dataset?.constraints || []} />
-                        {!areTermsEmpty ? (
+                        {!areTermsEmptyWithProposals ? (
                             <TagTermGroup
-                                editableGlossaryTerms={entityData?.glossaryTerms}
+                                editableGlossaryTerms={glossaryTerms}
                                 canAddTerm
                                 canRemove
                                 entityUrn={mutationUrn}

@@ -1,10 +1,20 @@
 """OpenAI LLM wrapper implementation."""
 
 import os
+import sys
+import threading
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import httpx
 import openai
+
+# inotify is Linux-only, conditionally import it
+if sys.platform == "linux":
+    import inotify  # type: ignore[import-untyped]
+    import inotify.adapters  # type: ignore[import-untyped]
+else:
+    inotify = None  # type: ignore[assignment]
 from datahub.utilities.perf_timer import PerfTimer
 from langchain_openai import ChatOpenAI
 from loguru import logger
@@ -34,6 +44,7 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
 
         openai_api_key = None
         custom_client = None
+        custom_async_client = None
         custom_base_url = None
         if not self.custom_model_provider:
             raise ValueError(
@@ -42,7 +53,31 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
 
         # create a custom http client if cert file and key file exist
         if self.custom_model_provider.cert_file and self.custom_model_provider.key_file:
+            # Only set watches once (use instance variable to avoid cross-test pollution)
+            if not hasattr(self, "cert_file_watches"):
+                self.cert_file_watches: List[str] = []
+
+            if len(self.cert_file_watches) == 0:
+                cert_file_watch_path = str(
+                    Path(self.custom_model_provider.cert_file).parent
+                )
+                self.cert_file_watches.append(cert_file_watch_path)
+                self._start_background_watch(cert_file_watch_path)
+
+                key_file_watch_path = str(
+                    Path(self.custom_model_provider.key_file).parent
+                )
+                if cert_file_watch_path != key_file_watch_path:
+                    self.cert_file_watches.append(key_file_watch_path)
+                    self._start_background_watch(key_file_watch_path)
+
             custom_client = httpx.Client(
+                cert=(
+                    self.custom_model_provider.cert_file,
+                    self.custom_model_provider.key_file,
+                )
+            )
+            custom_async_client = httpx.AsyncClient(
                 cert=(
                     self.custom_model_provider.cert_file,
                     self.custom_model_provider.key_file,
@@ -80,7 +115,7 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             model=self.model_name,
             api_key=SecretStr(openai_api_key),  # Wrap in SecretStr for type safety
             http_client=custom_client,
-            http_async_client=custom_client,  # Langchain requires a separate custom http client for async calls
+            http_async_client=custom_async_client,  # Langchain requires a separate custom http client for async calls
             base_url=custom_base_url,
             temperature=0.5,  # Default, can be overridden per-request via invoke kwargs
             timeout=self.read_timeout,
@@ -98,6 +133,54 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             return openai
         except ImportError:
             return Exception
+
+    def _start_background_watch(self, watch_path: str) -> None:
+        """Start watching a directory for certificate changes in a background thread."""
+        thread = threading.Thread(
+            target=self._watch_cert_directory_sync,
+            args=(watch_path,),
+            daemon=True,  # Daemon thread won't prevent program exit
+            name=f"cert-watch-{watch_path}",
+        )
+        thread.start()
+        logger.info(f"Started background certificate watch thread for: {watch_path}")
+
+    def _watch_cert_directory_sync(self, watch_path: str) -> None:
+        """Watch a directory for certificate file changes (synchronous, runs in thread).
+
+        Only works on Linux systems. On other platforms, this is a no-op.
+        Nobody should be running outside of Linux.
+        Most users should not be using watches to reset certs with live updates.
+        Ideally they would restart containers.
+        """
+        if inotify is None:
+            logger.warning(
+                f"Certificate file watching is not supported on {sys.platform}. "
+                "Cert file changes will not trigger automatic client reinitialization."
+            )
+            return
+
+        if not os.path.exists(watch_path):
+            os.makedirs(watch_path)
+            logger.info(f"Created directory: {watch_path}")
+
+        watch_inotify_tree = inotify.adapters.InotifyTree(watch_path)
+        logger.info(f"Watching directory tree for cert changes: {watch_path}.")
+
+        try:
+            for event in watch_inotify_tree.event_gen(yield_nones=False):
+                (_, type_names, path, filename) = event
+                # Only look at events for write close after a write is completed.
+                if "IN_CLOSE_WRITE" in type_names:
+                    # re initialize the client to fully ensure we have the correct certs
+                    logger.info(
+                        f"Certs updated for path:, {path}, file_name: {filename}. Updating Client.",
+                    )
+                    self._client = self._initialize_client()
+        except Exception as e:
+            logger.exception(
+                f"Got exception in watch loop when trying to re-initialize certs: {e}"
+            )
 
     def converse(
         self,

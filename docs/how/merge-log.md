@@ -2214,3 +2214,291 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **ab2348dcddc** - feat(ui/ingestion): build new source selection screen (#15471)
   *by Purnima Garg on 2025-12-03*
 
+
+## Upstream Merge Session - 2025-12-09 03:21:40
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-09-032139`
+- **Merge Base**: `ab2348dcddc35504fe9b8ec5f9573ced1cb9b96a`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 19
+- **Strategy**: stacked
+- **Started**: Tue Dec  9 03:21:40 UTC 2025
+
+### Commits Included in This Merge
+- **fe5209113e** - fix(search): fix suggestion conversion for ES8 (#15426)
+  *by Deepak Garg on 2025-12-04*
+
+- **39bbe14615** - feat(kafka): add lightweight Kafka connectivity validation function (#15472)
+  *by Max Margalith on 2025-12-04*
+
+- **4074d1ff0e** - chore(deps): update org.ow2.asm dependency in datahub-client (#15478)
+  *by Deepak Garg on 2025-12-04*
+
+- **dc914b30d2** - feat(ingest): add convert to lowercase for s3 (#15475)
+  *by Kevin Karch on 2025-12-04*
+
+- **ddd93212bb** - feat(events): improve events kafka pool & client retry (#15429)
+  *by david-leifker on 2025-12-04*
+
+- **599585b78d** - ES clear: delete indices themselves, not all the docs (#15449)
+  *by jmacryl on 2025-12-04*
+
+- **0dfa9151ac** - fix(changeEvent): fix reinstate lifecycle event condition (#15476)
+  *by RyanHolstien on 2025-12-04*
+
+- **f3f2e3b84b** - docs(release): Revise known issues in release notes for v0.3.15 (#15465)
+  *by Jay on 2025-12-04*
+
+- **a69cadfc6a** - fix(ui): Limit the number of entities per page in search (#5198) (#14871)
+  *by Chris Collins on 2025-12-04*
+
+- **2b30460506** - feat(python): make MCE Topic in Kafka sink as optional (#14150)
+  *by P Anshul Jain on 2025-12-05*
+
+- **90546d5253** - feat(structured-properties): add version field to StructuredProperties (#15255)
+  *by Pedro Silva on 2025-12-04*
+
+- **f303fd6e1c** - docs(mcp): mcp server setup instructions (#15484)
+  *by jamesmayfield-star on 2025-12-04*
+
+- **697be4162e** - docs: reference field-path-spec-v2 in SchemaFieldPath (#15477)
+  *by varun patil on 2025-12-05*
+
+- **0ef44191df** - test: make flaky neo4j integration test less flaky (#15492)
+  *by David Haglund on 2025-12-08*
+
+- **b238dcdfcc** - docs: Update GraqhQL query in external OAuth authentication docs (#15493)
+  *by David Haglund on 2025-12-08*
+
+- **ef46ed1d7a** - feat(ui/ingestion): add search by name on source selection screen (#15488)
+  *by Purnima Garg on 2025-12-08*
+
+- **0a14181fea** - docs: revert versioned docs (#15486)
+  *by Hyejin Yoon on 2025-12-08*
+
+- **6da6e6c99d** - feat(context): Support Viewing and Adding Related Context to All Asset Types (#15453)
+  *by John Joyce on 2025-12-08*
+
+- **ed72cf42f0** - fix(es8): fix role creation issues (#15485)
+  *by RyanHolstien on 2025-12-08*
+
+
+## Upstream Merge Session - 2025-12-11 04:59:47
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-11-045946`
+- **Merge Base**: `ed72cf42f0b375a19cc6542cb3dd97ef7e0ff451`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: Thu Dec 11 04:59:47 UTC 2025
+
+### Commits Included in This Merge
+- **0ebb76c59d** - docs: Update announcement bar content for Dec Town Hall (#15501)
+  *by Gray Ayer on 2025-12-09*
+
+- **7e7f4a4849** - fix: make published GMS and frontend ports configurable with quickstart (#15494)
+  *by David Haglund on 2025-12-09*
+
+- **d9f305b7b0** - fix(platformsModule): do not show add sources button when an user doesn't have permissions to manage ingestions (#15507)
+  *by v-tarasevich-blitz-brain on 2025-12-09*
+
+- **a1c1d757fe** - feat(ingestion): add the new details form (step 2) (#15474)
+  *by v-tarasevich-blitz-brain on 2025-12-09*
+
+- **a488040ed4** - fix(ingest/snowflake/sqlparser): Ensure table-column lineage consistency across Snowflake source and SQL aggregator (#15377)
+  *by Tamas Nemeth on 2025-12-09*
+
+- **53b4f6355e** - feat(ingestion): add advanced settings section (#15506)
+  *by v-tarasevich-blitz-brain on 2025-12-09*
+
+- **22e968c288** - feat(ui/ingestion): build step 3 of create/edit ingestion source (#15508)
+  *by Purnima Garg on 2025-12-09*
+
+- **b2e0d37898** - fix(security): disable server version disclosure in HTTP headers (#15500)
+  *by Esteban Gutierrez on 2025-12-09*
+
+- **79fef0cbfd** - chore(gradle): bump multiple 3rd party dependencies versions (#15431)
+  *by Esteban Gutierrez on 2025-12-09*
+
+- **47f2653f0e** - feat(assertion): enforce strict urns for assertions (#15512)
+  *by david-leifker on 2025-12-09*
+
+- **5417747d04** - feat(ui/backend): business attributes support for new ui (#15452)
+  *by kartikey-visa on 2025-12-10*
+
+- **35cfbce369** - Added username to pr labeler for Patrick Druley (pdruley) (#15509)
+  *by Patrick Druley on 2025-12-10*
+
+- **a0dded22c1** - feat(ingestion/grafana) add option to pass grafana user email as dashboard owner (#15489)
+  *by David Haglund on 2025-12-10*
+
+- **57a407fb9e** - perf(ingestion): compile regex patterns for ingestion filtering hot path (#15463)
+  *by rob-1019 on 2025-12-10*
+
+- **50ebf0a7fe** - Datahub as a microfrontend host (react) (#15358)
+  *by philip-nikolov-jpmc on 2025-12-10*
+
+- **7cce6da575** - Datahub as a microfrontend host (frontend) (#15359)
+  *by philip-nikolov-jpmc on 2025-12-10*
+
+- **856b6133b2** - feat(ingestion): Restores "Extending file sink to support writing to S3 (#14160) (#14248)" (#15504)
+  *by Esteban Gutierrez on 2025-12-10*
+
+- **3eff4e47e3** - chore(deps): bump actions/checkout from 5 to 6 (#15385)
+  *by dependabot[bot] on 2025-12-11*
+
+
+## Upstream Merge Session - 2025-12-13 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-13-000006`
+- **Merge Base**: `3eff4e47e3ee7a1983747d9c706169df68f9534c`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: Sat Dec 13 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **1d57e367b1** - docs: improve docs for cdc mode configuration (#15496)
+  *by Shirshanka Das on 2025-12-10*
+
+- **4b02142ff2** - docs(search): datahub cloud search access controls (#15513)
+  *by david-leifker on 2025-12-11*
+
+- **94fb9bb39f** - fix(java-sdk): Ensure full aspect writes complete before patches (#15522)
+  *by Shirshanka Das on 2025-12-11*
+
+- **a8dd7ea0e8** - feat(ingestion): add filters section (#15516)
+  *by v-tarasevich-blitz-brain on 2025-12-11*
+
+- **4e308da542** - fix(ingestion): fix updated secret field (#15528)
+  *by v-tarasevich-blitz-brain on 2025-12-11*
+
+- **b887751016** - feat(ingestion): update test connection button (#15527)
+  *by v-tarasevich-blitz-brain on 2025-12-11*
+
+- **9b7b67c669** - chore(): bump lz4 & jdbc wrapper (#15531)
+  *by david-leifker on 2025-12-11*
+
+- **990f130519** - docs(v0.3.15.5): update docs (#15510)
+  *by david-leifker on 2025-12-12*
+
+- **dd61af8be0** - ci(pr tracking): pr to linear automation (#15503)
+  *by Gabe Lyons on 2025-12-12*
+
+- **1904e40406** - feat(ingest/kafka-connect): Kafka connect infer lineage from DataHub (#15234)
+  *by Tamas Nemeth on 2025-12-12*
+
+- **aeb2172ea5** - chore(ci): use cache mount for apt install to speed up docker build (#15441)
+  *by Santosh Kewat on 2025-12-12*
+
+- **993b2a28bc** - feat(ingestion/hive-metastore): add upstream lineage to hive-metastore (#15435)
+  *by Jonny Dixon on 2025-12-12*
+
+- **b4dd19224b** - fix(ui) Fix two spots that need resolveRuntimePath (#15535)
+  *by Chris Collins on 2025-12-12*
+
+- **cf02c2262b** - fix(ui) Fix unsafe destructuring of assertion in UI (#15519)
+  *by Chris Collins on 2025-12-12*
+
+- **06092327a3** - feat(ingestion): add analytics events (#15547)
+  *by v-tarasevich-blitz-brain on 2025-12-12*
+
+- **5ea900ca71** - feat(ui/ingestion): update breadcrumb in create/edit source to have option to go to Manage Data Sources (#15540)
+  *by Purnima Garg on 2025-12-12*
+
+- **ede5096dec** - feat(ui/ingestion): bring ingestion page redirection changes back to OSS (#15544)
+  *by Purnima Garg on 2025-12-12*
+
+- **fb00472da5** - feat(files) Add basic file cleanup after related entity is deleted (#15271)
+  *by Chris Collins on 2025-12-12*
+
+
+## Upstream Merge Session - 2025-12-15 22:26:29
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Merge Base**: `fb00472da5a0daf22dc6ef3a827a02c1ce410a0b`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 8
+- **Strategy**: stacked
+- **Started**: Mon Dec 15 22:26:29 UTC 2025
+
+### Commits Included in This Merge
+- **92de222f8f** - feat(dataplex): New connector for Google Dataplex (#15379)
+  *by Patrick Druley on 2025-12-13*
+
+- **f2d17c83a9** - docs(logical): Add note on separate logical platform (#15551)
+  *by Andrew Sikowitz on 2025-12-13*
+
+- **595cd7a340** - fix(system-update): fix system-update entity-client (#15555)
+  *by david-leifker on 2025-12-13*
+
+- **0fd9b54192** - fix(ingestion/dremio): fix schema_resolver for non-standard uri length for dremio by implementing custom schema resolver (#15514)
+  *by Jonny Dixon on 2025-12-15*
+
+- **d6db04d2ea** - fix(actions): Prepare doc propagation action for prefixed pipeline names (#15672)
+  *by skrydal on 2025-12-15*
+
+- **4e6825134e** - fix(ingestion): fix ingestion onboarding redesign feature flag not being set (#15608)
+  *by Purnima Garg on 2025-12-15*
+
+- **8a4fc36a54** - feat(ui): show 404 if user manually navigates browser url to non-existent mfe (#15548)
+  *by philip-nikolov-jpmc on 2025-12-15*
+
+- **f8818da881** - feat(context): Context Base V1 Fix Ups (#15532)
+  *by John Joyce on 2025-12-15*
+
+
+## Upstream Merge Session - 2025-12-15 22:27:10
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-15-222709`
+- **Merge Base**: `fb00472da5a0daf22dc6ef3a827a02c1ce410a0b`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 8
+- **Strategy**: stacked
+- **Started**: Mon Dec 15 22:27:10 UTC 2025
+
+### Commits Included in This Merge
+- **92de222f8f** - feat(dataplex): New connector for Google Dataplex (#15379)
+  *by Patrick Druley on 2025-12-13*
+
+- **f2d17c83a9** - docs(logical): Add note on separate logical platform (#15551)
+  *by Andrew Sikowitz on 2025-12-13*
+
+- **595cd7a340** - fix(system-update): fix system-update entity-client (#15555)
+  *by david-leifker on 2025-12-13*
+
+- **0fd9b54192** - fix(ingestion/dremio): fix schema_resolver for non-standard uri length for dremio by implementing custom schema resolver (#15514)
+  *by Jonny Dixon on 2025-12-15*
+
+- **d6db04d2ea** - fix(actions): Prepare doc propagation action for prefixed pipeline names (#15672)
+  *by skrydal on 2025-12-15*
+
+- **4e6825134e** - fix(ingestion): fix ingestion onboarding redesign feature flag not being set (#15608)
+  *by Purnima Garg on 2025-12-15*
+
+- **8a4fc36a54** - feat(ui): show 404 if user manually navigates browser url to non-existent mfe (#15548)
+  *by philip-nikolov-jpmc on 2025-12-15*
+
+- **f8818da881** - feat(context): Context Base V1 Fix Ups (#15532)
+  *by John Joyce on 2025-12-15*
+

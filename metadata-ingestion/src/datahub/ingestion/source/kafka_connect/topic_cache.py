@@ -207,6 +207,8 @@ class ConfluentCloudTopicRetriever:
         """
         Fetch topics directly from Confluent Cloud Kafka REST API v3.
 
+        Handles pagination by following the metadata.next URL until all topics are retrieved.
+
         Args:
             kafka_rest_endpoint: Kafka REST API v3 endpoint
             cluster_id: Kafka cluster identifier
@@ -215,7 +217,7 @@ class ConfluentCloudTopicRetriever:
         Returns:
             List of topic names
         """
-        # Build API URL
+        # Build initial API URL
         if kafka_rest_endpoint.endswith("/"):
             kafka_rest_endpoint = kafka_rest_endpoint.rstrip("/")
         topics_url = f"{kafka_rest_endpoint}/kafka/v3/clusters/{cluster_id}/topics"
@@ -225,27 +227,43 @@ class ConfluentCloudTopicRetriever:
         if auth_headers:
             headers.update(auth_headers)
 
-        # Make API call
-        response = self.session.get(topics_url, headers=headers)
-        response.raise_for_status()
+        all_topics = []
+        current_url = topics_url
+        page_count = 0
 
-        # Parse v3 API response format
-        topics_data = response.json()
-        if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
-            all_topics = [
-                topic["topic_name"]
-                for topic in topics_data["data"]
-                if not topic.get("is_internal", False)
-            ]
-            logger.info(
-                f"Retrieved {len(all_topics)} topics from Confluent Cloud Kafka REST API v3 for cluster {cluster_id}"
-            )
-            return all_topics
-        else:
-            logger.warning(
-                f"Unexpected response format from Kafka REST API for cluster {cluster_id}"
-            )
-            return []
+        # Paginate through all results
+        while current_url:
+            page_count += 1
+            response = self.session.get(current_url, headers=headers)
+            response.raise_for_status()
+
+            # Parse v3 API response format
+            topics_data = response.json()
+            if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
+                # Extract non-internal topics from current page
+                page_topics = [
+                    topic["topic_name"]
+                    for topic in topics_data["data"]
+                    if not topic.get("is_internal", False)
+                ]
+                all_topics.extend(page_topics)
+                logger.debug(
+                    f"Retrieved {len(page_topics)} topics from page {page_count} for cluster {cluster_id}"
+                )
+
+                # Check for next page
+                metadata = topics_data.get("metadata", {})
+                current_url = metadata.get("next")
+            else:
+                logger.warning(
+                    f"Unexpected response format from Kafka REST API for cluster {cluster_id}"
+                )
+                break
+
+        logger.info(
+            f"Retrieved {len(all_topics)} topics across {page_count} page(s) from Confluent Cloud Kafka REST API v3 for cluster {cluster_id}"
+        )
+        return all_topics
 
     def get_consumer_group_assignments_cached(
         self,
@@ -298,6 +316,8 @@ class ConfluentCloudTopicRetriever:
         """
         Fetch consumer group assignments from Confluent Cloud Kafka REST API v3.
 
+        Handles pagination by following the metadata.next URL until all consumer groups are retrieved.
+
         Args:
             kafka_rest_endpoint: Kafka REST API v3 endpoint
             cluster_id: Kafka cluster identifier
@@ -306,7 +326,7 @@ class ConfluentCloudTopicRetriever:
         Returns:
             Dict mapping consumer group names to their assigned topics
         """
-        # Build API URL for consumer groups
+        # Build initial API URL for consumer groups
         if kafka_rest_endpoint.endswith("/"):
             kafka_rest_endpoint = kafka_rest_endpoint.rstrip("/")
         consumer_groups_url = (
@@ -319,50 +339,65 @@ class ConfluentCloudTopicRetriever:
             headers.update(auth_headers)
 
         assignments = {}
+        current_url = consumer_groups_url
+        page_count = 0
 
         try:
-            # Get all consumer groups
-            response = self.session.get(consumer_groups_url, headers=headers)
-            response.raise_for_status()
+            # Paginate through all consumer groups
+            while current_url:
+                page_count += 1
+                response = self.session.get(current_url, headers=headers)
+                response.raise_for_status()
 
-            groups_data = response.json()
-            if (
-                groups_data.get("kind") == "KafkaConsumerGroupList"
-                and "data" in groups_data
-            ):
-                for group in groups_data["data"]:
-                    group_id = group["consumer_group_id"]
+                groups_data = response.json()
+                if (
+                    groups_data.get("kind") == "KafkaConsumerGroupList"
+                    and "data" in groups_data
+                ):
+                    for group in groups_data["data"]:
+                        group_id = group["consumer_group_id"]
 
-                    # Get assignments for each group
-                    assignments_url = f"{consumer_groups_url}/{group_id}/consumers"
-                    try:
-                        assignments_response = self.session.get(
-                            assignments_url, headers=headers
-                        )
-                        assignments_response.raise_for_status()
+                        # Get assignments for each group
+                        assignments_url = f"{consumer_groups_url}/{group_id}/consumers"
+                        try:
+                            assignments_response = self.session.get(
+                                assignments_url, headers=headers
+                            )
+                            assignments_response.raise_for_status()
 
-                        assignments_data = assignments_response.json()
-                        if (
-                            assignments_data.get("kind") == "KafkaConsumerList"
-                            and "data" in assignments_data
-                        ):
-                            group_topics = set()
-                            for consumer in assignments_data["data"]:
-                                for assignment in consumer.get("assignments", []):
-                                    group_topics.add(assignment.get("topic_name", ""))
+                            assignments_data = assignments_response.json()
+                            if (
+                                assignments_data.get("kind") == "KafkaConsumerList"
+                                and "data" in assignments_data
+                            ):
+                                group_topics = set()
+                                for consumer in assignments_data["data"]:
+                                    for assignment in consumer.get("assignments", []):
+                                        group_topics.add(
+                                            assignment.get("topic_name", "")
+                                        )
 
-                            if group_topics:
-                                assignments[group_id] = list(group_topics)
+                                if group_topics:
+                                    assignments[group_id] = list(group_topics)
 
-                    except Exception as e:
-                        logger.debug(
-                            f"Failed to get assignments for consumer group {group_id}: {e}"
-                        )
-                        continue
+                        except Exception as e:
+                            logger.debug(
+                                f"Failed to get assignments for consumer group {group_id}: {e}"
+                            )
+                            continue
 
-                logger.info(
-                    f"Retrieved assignments for {len(assignments)} consumer groups in cluster {cluster_id}"
-                )
+                    # Check for next page
+                    metadata = groups_data.get("metadata", {})
+                    current_url = metadata.get("next")
+                else:
+                    logger.warning(
+                        f"Unexpected response format from Kafka REST API for consumer groups in cluster {cluster_id}"
+                    )
+                    break
+
+            logger.info(
+                f"Retrieved assignments for {len(assignments)} consumer groups across {page_count} page(s) in cluster {cluster_id}"
+            )
 
         except Exception as e:
             logger.warning(

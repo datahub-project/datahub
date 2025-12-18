@@ -1,0 +1,105 @@
+---
+title: Main Client
+---
+<div className="sphinx-api-docs">
+<a id="main-client"></a>
+
+
+The DataHub Main Client provides a client for interacting with DataHub.
+
+
+
+### <span className="visually-hidden">DataHubClient</span> {#datahub.sdk.main_client.DataHubClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.main_client.</span><span class="class-name">DataHubClient</span>(*, <span class="arg-name">server</span>: <span class="arg-type">str</span>, <span class="arg-name">token</span>: <span class="arg-type">str | None </span> = <span class="arg-default">None</span>)<a href="#datahub.sdk.main_client.DataHubClient" class="hash-link"></a></div>
+
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DataHubClient</span> {#datahub.sdk.main_client.DataHubClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.main_client.</span><span class="class-name">DataHubClient</span>(*, <span class="arg-name">config</span>: <span class="arg-type">DatahubClientConfig</span>)<a href="#datahub.sdk.main_client.DataHubClient" class="hash-link"></a></div>
+
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DataHubClient</span> {#datahub.sdk.main_client.DataHubClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.main_client.</span><span class="class-name">DataHubClient</span>(*, <span class="arg-name">graph</span>: <span class="arg-type"><code>DataHubGraph</code></span>)<a href="#datahub.sdk.main_client.DataHubClient" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+Main client for interacting with DataHub.
+
+This class provides the primary interface for interacting with DataHub,
+including entity management, search, and resolution capabilities.
+
+The client can be initialized in three ways:
+1. With a server URL and optional token
+2. With a DatahubClientConfig object
+3. With an existing (legacy) `DataHubGraph` instance
+
+* **Parameters:**
+  * **server** (`Optional`[`str`])
+  * **token** (`Optional`[`str`])
+  * **graph** (`Optional`[[`DataHubGraph`](../clients/graph-client.mdx#datahub.ingestion.graph.client.DataHubGraph)]) – 
+  * **config** (`Optional`[`DatahubClientConfig`])
+#### *property* assertions
+
+#### *property* entities *: [EntityClient](entity-client.mdx#datahub.sdk.entity_client.EntityClient)*
+
+#### *classmethod* from_env(\*, client_mode=ClientMode.SDK, datahub_component=None)
+
+Initialize a DataHubClient from the environment variables or ~/.datahubenv file.
+
+This will first check DATAHUB_GMS_URL and DATAHUB_GMS_TOKEN. If not present,
+it will read credentials from ~/.datahubenv. That file can be created using
+the datahub init command.
+
+If you’re looking to specify the server/token in code, use the
+DataHubClient(server=…, token=…) constructor instead.
+
+* **Parameters:**
+  * **client_mode** (`ClientMode`) – [internal] The client mode to use. Defaults to “SDK”.
+  * **datahub_component** (`Optional`[`str`]) – [internal] The DataHub component name to include in the user agent.
+* **Return type:**
+  [`DataHubClient`](#datahub.sdk.main_client.DataHubClient)
+* **Returns:**
+  A DataHubClient instance.
+
+#### *property* lineage *: [LineageClient](lineage-client.mdx#datahub.sdk.lineage_client.LineageClient)*
+
+#### *property* resolve *: [ResolverClient](resolver-client.mdx#datahub.sdk.resolver_client.ResolverClient)*
+
+#### *property* search *: [SearchClient](search-client.mdx#datahub.sdk.search_client.SearchClient)*
+
+#### *property* subscriptions
+
+#### test_connection()
+
+* **Return type:**
+  `None`
+
+
+</div>
+</div>

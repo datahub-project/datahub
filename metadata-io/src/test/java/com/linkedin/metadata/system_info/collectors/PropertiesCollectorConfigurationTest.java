@@ -126,6 +126,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          "systemUpdate.*.historicalDays",
+          "systemUpdate.*.futureDays",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
@@ -287,6 +289,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumer.stopOnDeserializationError",
           "kafka.consumerPool.initialSize",
           "kafka.consumerPool.maxSize",
+          "kafka.consumerPool.validationTimeoutSeconds",
+          "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.compressionType",
@@ -476,7 +480,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedUploadUrlExpirationSeconds",
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
-          "datahub.isFreeTrialInstance",
+          "datahub.freeTrialInstance",
           "datahub.readOnly",
 
           // Feature flags

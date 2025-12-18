@@ -12,6 +12,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from locust import HttpUser, constant, task
 
+from test_utils.datahub_sessions import DataHubSessions
+
+
+datahub_instances = DataHubSessions()
+
 
 class IngestUser(HttpUser):
     """
@@ -27,8 +32,9 @@ class IngestUser(HttpUser):
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{proposed_snapshot.RECORD_SCHEMA.name}"
         )
+        session = datahub_instances.get_session(self.host)
         self.client.post(
-            "/entities?action=ingest",
+            "/api/gms/entities?action=ingest",
             json.dumps(
                 {
                     "entity": {
@@ -38,6 +44,7 @@ class IngestUser(HttpUser):
                     }
                 }
             ),
+            cookies=session.get_cookies()
         )
 
     def _build_snapshot(self, id: int):

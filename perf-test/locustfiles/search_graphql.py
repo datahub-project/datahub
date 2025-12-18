@@ -4,6 +4,10 @@ from locust import HttpUser, constant, task
 from threading import Lock, Thread
 from random import randint
 
+from test_utils.datahub_sessions import DataHubSessions
+
+
+datahub_instances = DataHubSessions()
 lock = Lock()
 
 
@@ -13,12 +17,12 @@ class SearchUser(HttpUser):
     @task
     def search(self):
         query = "breadth" + str(randint(0, 100))
-        headers = {"Authorization": "Bearer YOUR_TOKEN_HERE"}
+        session = datahub_instances.get_session(self.host)
         self.client.request(
             method="POST",
             name=query,
             url="/api/graphql",
-            headers=headers,
+            cookies=session.get_cookies(),
             data=json.dumps({
                 "operationName": "getSearchResultsForMultiple",
                 "variables": {

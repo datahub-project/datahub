@@ -268,6 +268,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

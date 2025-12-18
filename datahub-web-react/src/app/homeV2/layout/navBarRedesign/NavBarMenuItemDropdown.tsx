@@ -44,6 +44,7 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
     const history = useHistory();
 
     const dropdownItems = item.items?.filter((subItem) => !subItem.isHidden);
+    const shouldScroll = item.key === 'mfe-dropdown' && dropdownItems && dropdownItems.length > 5; // 5 can be changed depending on requirement
 
     const onItemClick = (key) => {
         analytics.event({ type: EventType.NavBarItemClick, label: item.title });
@@ -51,6 +52,10 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
         if (!clickedItem) return null;
 
         if (clickedItem.disabled) return null;
+
+        if (item.key === 'mfe-dropdown' && clickedItem.link) {
+            return history.push(clickedItem.link);
+        }
 
         if (clickedItem.onClick) return clickedItem.onClick();
 
@@ -65,7 +70,7 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
         <Dropdown
             dropdownRender={() => {
                 return (
-                    <StyledDropdownContentWrapper>
+                    <StyledDropdownContentWrapper style={shouldScroll ? { maxHeight: 200, overflowY: 'auto' } : {}}>
                         {dropdownItems?.map((dropdownItem) => {
                             return (
                                 <StyledDropDownOption
@@ -76,7 +81,20 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
                                     aria-disabled={dropdownItem.disabled}
                                     onClick={() => onItemClick(dropdownItem.key)}
                                 >
-                                    <Text>{dropdownItem.title}</Text>
+                                    {item.key === 'mfe-dropdown' ? (
+                                        // Flex container for icon and title only for key "mfe"
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            {dropdownItem.icon && (
+                                                <span style={{ marginRight: 8, display: 'flex', alignItems: 'center' }}>
+                                                    {dropdownItem.icon}
+                                                </span>
+                                            )}
+                                            <Text>{dropdownItem.title}</Text>
+                                        </div>
+                                    ) : (
+                                        // Default rendering for other items
+                                        <Text>{dropdownItem.title}</Text>
+                                    )}
                                     <Text size="sm" color="gray">
                                         {dropdownItem.description}
                                     </Text>

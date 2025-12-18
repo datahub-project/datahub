@@ -1,0 +1,96 @@
+---
+title: Entity Client
+---
+<div className="sphinx-api-docs">
+<a id="entity-client"></a>
+
+
+The DataHub Entity Client provides a client for interacting with DataHub entities.
+
+
+
+### <span className="visually-hidden">EntityClient</span> {#datahub.sdk.entity_client.EntityClient}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.sdk.entity_client.</span><span class="class-name">EntityClient</span>(<span class="arg-name">client</span>)<a href="#datahub.sdk.entity_client.EntityClient" class="hash-link"></a></div>
+
+
+Bases: `object`
+
+Client for managing DataHub entities.
+
+This class provides methods for retrieving and managing DataHub entities
+such as datasets, containers, and other metadata objects.
+
+* **Parameters:**
+  **client** ([`DataHubClient`](main-client.mdx#datahub.sdk.main_client.DataHubClient)) – 
+
+#### create(entity, \*, emit_mode=None)
+
+* **Parameters:**
+  * **entity** (`Entity`)
+  * **emit_mode** (`Optional`[[`EmitMode`](../clients/rest-emitter.mdx#datahub.emitter.rest_emitter.EmitMode)]) – 
+* **Return type:**
+  `None`
+
+#### delete(urn, check_exists=True, cascade=False, hard=False)
+
+Delete an entity by its urn.
+
+* **Parameters:**
+  * **urn** (`Union`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn), `str`]) – The urn of the entity to delete. Can be a string or `Urn` object.
+  * **check_exists** (`bool`) – Whether to check if the entity exists before deletion. Defaults to True.
+  * **cascade** (`bool`) – Whether to cascade delete related entities. When True, deletes child entities
+    like datajobs within dataflows, datasets within containers, etc. Not yet supported.
+  * **hard** (`bool`) – Whether to perform a hard delete (permanent) or soft delete. Defaults to False.
+* **Raises:**
+  **SdkUsageError** – If the entity does not exist and check_exists is True, or if cascade is True (not supported).
+* **Return type:**
+  `None`
+
+#### NOTE
+When hard is True, the operation is irreversible and the entity will be permanently removed.
+
+Impact of cascade deletion (still to be done) depends on the input entity type:
+- Container: Recursively deletes all containers and data assets within the container.
+- Dataflow: Recursively deletes all data jobs within the dataflow.
+- Dashboard: TBD
+- DataPlatformInstance: TBD
+- …
+
+#### get(urn)
+
+Retrieve an entity by its urn.
+
+* **Parameters:**
+  **urn** (`Union`[[`Urn`](../urns.mdx#datahub.metadata.urns.Urn), `str`]) – The urn of the entity to retrieve. Can be a string or `Urn` object.
+* **Return type:**
+  `Entity`
+* **Returns:**
+  The retrieved entity instance.
+* **Raises:**
+  * **ItemNotFoundError** – If the entity does not exist.
+  * **SdkUsageError** – If the entity type is not yet supported.
+  * **InvalidUrnError** – If the URN is invalid.
+
+#### update(entity, \*, emit_mode=None)
+
+* **Parameters:**
+  * **entity** (`Union`[`Entity`, `MetadataPatchProposal`])
+  * **emit_mode** (`Optional`[[`EmitMode`](../clients/rest-emitter.mdx#datahub.emitter.rest_emitter.EmitMode)]) – 
+* **Return type:**
+  `None`
+
+#### upsert(entity, \*, emit_mode=None)
+
+* **Parameters:**
+  * **entity** (`Entity`)
+  * **emit_mode** (`Optional`[[`EmitMode`](../clients/rest-emitter.mdx#datahub.emitter.rest_emitter.EmitMode)]) – 
+* **Return type:**
+  `None`
+
+
+</div>
+</div>

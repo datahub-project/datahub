@@ -4,8 +4,8 @@ import { IconProps } from '@components/components/Icon/types';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     value?: string | number | readonly string[] | undefined;
-    setValue?: React.Dispatch<React.SetStateAction<string>>;
-    label: string;
+    setValue?: (newValue: string) => void;
+    label?: string;
     placeholder?: string;
     icon?: IconProps;
     error?: string;

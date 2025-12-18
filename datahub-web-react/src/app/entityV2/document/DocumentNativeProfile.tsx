@@ -1,13 +1,17 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { BookOpen, ListBullets } from '@phosphor-icons/react';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import CompactContext from '@app/shared/CompactContext';
@@ -82,6 +86,30 @@ const sidebarSections = [
     {
         component: SidebarOwnerSection,
     },
+    {
+        component: SidebarTagsSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: SidebarGlossaryTermsSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: SidebarDomainSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: DataProductSection,
+        display: {
+            visible: () => true,
+        },
+    },
 ];
 
 /**
@@ -90,7 +118,7 @@ const sidebarSections = [
  */
 export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading = false, refetch }) => {
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
-    const isCompact = React.useContext(CompactContext);
+    const isCompact = useContext(CompactContext);
 
     if (!document) {
         return null;

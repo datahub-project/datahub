@@ -77,6 +77,7 @@ source:
     topics: ["PlatformEvent_v1"] # Add MetadataChangeLog_Versioned_v1 and / or MetadataChangeLog_Timeseries_v1 to generate raw MCL events.
     lookback_days: 7 # Look back 7 days for events
     reset_offsets: true # Ignore stored offsets and start fresh
+    infinite_retry: true # Enable infinite retry for connection failures (default: false)
     kill_after_idle_timeout: true # Enable shutdown after idle period
     idle_timeout_duration_seconds: 60 # Idle timeout set to 60 seconds
     event_processing_time_max_duration_seconds: 45 # Max processing time of 45 seconds per batch
@@ -94,6 +95,7 @@ Note that the `datahub` configuration block is **required** to connect to your D
 | `topics`                                     |    ❌    | `PlatformEvent_v1` | The name of the topic from which events will be consumed. By default only produces `EntityChangeEvent_v1` events. To include `MetadataChangeLog_v1` events, set this value to include ["MetadataChangeLog_Versioned_v1", "MetadataChangeLog_Timeseries_v1"] |
 | `lookback_days`                              |    ❌    |        None        | Optional number of days to look back when polling for events.                                                                                                                                                                                               |
 | `reset_offsets`                              |    ❌    |      `False`       | When set to `True`, the consumer will ignore any stored offsets and start fresh.                                                                                                                                                                            |
+| `infinite_retry`                             |    ❌    |      `False`       | When set to `True`, the consumer will retry indefinitely on connection failures (HTTPError, ConnectionError, ChunkedEncodingError, Timeout) with exponential backoff (2s to 60s). When `False` (default), it retries up to 15 times before failing.         |
 | `kill_after_idle_timeout`                    |    ❌    |      `False`       | If `True`, stops the consumer after being idle for the specified timeout duration.                                                                                                                                                                          |
 | `idle_timeout_duration_seconds`              |    ❌    |        `30`        | Duration in seconds after which, if no events are received, the consumer is considered idle.                                                                                                                                                                |
 | `event_processing_time_max_duration_seconds` |    ❌    |        `30`        | Maximum allowed time in seconds for processing events before timing out.                                                                                                                                                                                    |
@@ -110,3 +112,7 @@ Yes, simply set `reset_offsets` to True for a single run of the action. Remember
 
 Today, there is undefined behavior deploying multiple actions with the same name using the DataHub Cloud Events Source.
 All events must be processed by a single running action
+
+3. How do I handle transient connection failures?
+
+By default, the consumer will retry up to 15 times on connection failures (HTTPError, ConnectionError, ChunkedEncodingError, Timeout) with exponential backoff (2s to 60s). If you expect longer outages or want to ensure the consumer continues retrying indefinitely, set `infinite_retry: true` in the source configuration. When enabled, the consumer will retry indefinitely with exponential backoff (starting at 2 seconds, increasing up to 60 seconds, then continuing at 60 seconds) until the connection is restored.

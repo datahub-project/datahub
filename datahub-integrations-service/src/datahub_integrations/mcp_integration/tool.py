@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import dataclasses
 import functools
 import inspect
@@ -75,6 +73,11 @@ class ToolWrapper:
         else:
             return self._tool.name
 
+    @property
+    def description(self) -> str:
+        """Get the tool description."""
+        return self._tool.description or ""
+
     def to_bedrock_spec(self) -> dict:
         schema = self._tool.parameters
         return {
@@ -138,7 +141,7 @@ class ToolWrapper:
     @classmethod
     def from_function(
         cls, fn: Callable[..., Any], name: str, description: str
-    ) -> ToolWrapper:
+    ) -> "ToolWrapper":
         """Create a ToolWrapper from a function.
 
         Note: For sync functions that do blocking I/O (like API calls), wrap them

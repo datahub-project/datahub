@@ -133,6 +133,7 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
   public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
   public static final String DOCUMENT_ENTITY_NAME = "document";
+  public static final String DATA_HUB_AI_CONVERSATION_ENTITY_NAME = "dataHubAiConversation";
 
   /** Aspects */
   // Common
@@ -225,6 +226,11 @@ public class Constants {
   public static final String EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME =
       "editableDashboardProperties";
   public static final String DASHBOARD_USAGE_STATISTICS_ASPECT_NAME = "dashboardUsageStatistics";
+
+  // DataHub AI Conversation
+  public static final String DATA_HUB_AI_CONVERSATION_KEY_ASPECT_NAME = "dataHubAiConversationKey";
+  public static final String DATA_HUB_AI_CONVERSATION_INFO_ASPECT_NAME =
+      "dataHubAiConversationInfo";
 
   // Notebook
   public static final String NOTEBOOK_KEY_ASPECT_NAME = "notebookKey";

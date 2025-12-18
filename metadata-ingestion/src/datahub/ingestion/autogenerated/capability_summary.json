@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-12-12T22:09:52.396845+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -631,6 +631,44 @@
       "classname": "acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter.DataHubUsageFeatureReportingSource",
       "platform_id": "datahub",
       "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "dataplex": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default when stateful ingestion is configured. Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
+      "platform_id": "dataplex",
+      "platform_name": "Dataplex",
       "support_status": "INCUBATING"
     },
     "dbt": {
@@ -1309,8 +1347,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1347,8 +1386,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1360,7 +1400,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive.HiveSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_source.HiveSource",
       "platform_id": "hive",
       "platform_name": "Hive",
       "support_status": "CERTIFIED"
@@ -1384,8 +1424,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -1422,9 +1463,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "subtype_modifier": null,
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -1433,7 +1477,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"
@@ -2608,8 +2652,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2646,9 +2691,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "View lineage is not supported",
-          "subtype_modifier": null,
-          "supported": false
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream/downstream storage via `emit_storage_lineage`",
+          "subtype_modifier": [
+            "Table",
+            "View"
+          ],
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
@@ -2657,7 +2705,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hive_metastore.HiveMetastoreSource",
+      "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
       "support_status": "CERTIFIED"

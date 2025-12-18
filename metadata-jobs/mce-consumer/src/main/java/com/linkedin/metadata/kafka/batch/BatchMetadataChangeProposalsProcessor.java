@@ -109,7 +109,7 @@ public class BatchMetadataChangeProposalsProcessor {
         topicName = consumerRecord.topic();
       }
 
-      log.info(
+      log.debug(
           "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
           consumerRecord.key(),
           consumerRecord.topic(),

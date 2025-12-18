@@ -14,7 +14,7 @@ public class DataHubConfiguration {
   public String serverEnv;
 
   /** Indicates if this is a free trial instance */
-  public boolean isFreeTrialInstance;
+  public boolean freeTrialInstance;
 
   /** The base path for the URL where DataHub will be deployed */
   private String basePath;

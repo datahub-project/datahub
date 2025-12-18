@@ -55,45 +55,6 @@ class SmartFreshnessAssertionClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
     ) -> SmartFreshnessAssertion:
-        """Upsert and merge a smart freshness assertion.
-
-        Note:
-            Keyword arguments are required.
-
-        Upsert and merge is a combination of create and update. If the assertion does not exist,
-        it will be created. If it does exist, it will be updated. Existing assertion fields will
-        be updated if the input value is not None. If the input value is None, the existing value
-        will be preserved. If the input value can be un-set (e.g. by passing an empty list or
-        empty string), it will be unset.
-
-        Schedule behavior:
-            - Create case: Uses default hourly schedule ("0 * * * *")
-            - Update case: Preserves existing schedule from backend (not modifiable)
-
-        Args:
-            dataset_urn (Union[str, DatasetUrn]): The urn of the dataset to be monitored.
-            urn (Optional[Union[str, AssertionUrn]]): The urn of the assertion. If not provided, a urn will be generated and the assertion will be created in the DataHub instance.
-            display_name (Optional[str]): The display name of the assertion. If not provided, a random display name will be generated.
-            enabled (Optional[bool]): Whether the assertion is enabled. If not provided, the existing value will be preserved.
-            detection_mechanism (DetectionMechanismInputTypes): The detection mechanism to be used for the assertion. Information schema is recommended. Valid values are:
-                - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
-                - "audit_log" or DetectionMechanism.AUDIT_LOG
-                - {"type": "last_modified_column", "column_name": "last_modified", "additional_filter": "last_modified > '2021-01-01'"} or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')
-                - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
-            sensitivity (Optional[Union[str, InferenceSensitivity]]): The sensitivity to be applied to the assertion. Valid values are: "low", "medium", "high".
-            exclusion_windows (Optional[ExclusionWindowInputTypes]): The exclusion windows to be applied to the assertion. Only fixed range exclusion windows are supported. Valid values are:
-                - {"start": "2025-01-01T00:00:00", "end": "2025-01-02T00:00:00"} (using ISO strings)
-                - {"start": datetime(2025, 1, 1, 0, 0, 0), "end": datetime(2025, 1, 2, 0, 0, 0)} (using datetime objects)
-                - FixedRangeExclusionWindow(start=datetime(2025, 1, 1, 0, 0, 0), end=datetime(2025, 1, 2, 0, 0, 0)) (using typed object)
-                - A list of any of the above formats
-            training_data_lookback_days (Optional[int]): The training data lookback days to be applied to the assertion as an integer.
-            incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass" or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
-            tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
-            updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
-
-        Returns:
-            SmartFreshnessAssertion: The created or updated assertion.
-        """
         _print_experimental_warning()
         now_utc = datetime.now(timezone.utc)
 

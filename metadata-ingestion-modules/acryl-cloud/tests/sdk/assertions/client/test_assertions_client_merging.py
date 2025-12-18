@@ -1605,18 +1605,16 @@ def test_sync_sql_assertion_valid_simple_input(
     )
 
 
-def test_sync_sql_assertion_calls_create_if_urn_is_not_set(
+def test_sync_sql_assertion_upserts_entities(
     sql_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test that sync_sql_assertion calls create when urn is None."""
+    """Test that sync_sql_assertion upserts entities when urn is None."""
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     mock_upsert = MagicMock()
     sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
-    mock_create_assertion = MagicMock()
-    client._sql_client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign]
 
-    client.sync_sql_assertion(
+    assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
         criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
@@ -1624,17 +1622,14 @@ def test_sync_sql_assertion_calls_create_if_urn_is_not_set(
         statement="SELECT COUNT(*) FROM users",
     )
 
-    assert mock_create_assertion.call_count == 1
-    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
-    assert (
-        mock_create_assertion.call_args[1]["criteria_condition"]
-        == SqlAssertionCondition.IS_EQUAL_TO
-    )
-    assert mock_create_assertion.call_args[1]["criteria_parameters"] == 42
-    assert (
-        mock_create_assertion.call_args[1]["statement"] == "SELECT COUNT(*) FROM users"
-    )
-    assert mock_upsert.call_count == 0
+    # Should call upsert twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
+    # Verify the assertion was created correctly
+    assert assertion is not None
+    assert str(assertion.dataset_urn) == str(any_dataset_urn)
+    assert assertion._criteria.condition == SqlAssertionCondition.IS_EQUAL_TO
+    assert assertion._criteria.parameters == 42
+    assert assertion.statement == "SELECT COUNT(*) FROM users"
 
 
 @pytest.mark.parametrize(
@@ -1673,12 +1668,12 @@ def test_sync_sql_assertion_uses_default_if_updated_by_is_not_set(
     assert assertion_entity_upserted.last_updated.actor == str(expected_updated_by)
 
 
-def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_not_exist(
+def test_sync_sql_assertion_upserts_if_assertion_and_monitor_entities_do_not_exist(
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     any_monitor_urn: MonitorUrn,
 ) -> None:
-    """Test that sync_sql_assertion calls create when entities don't exist."""
+    """Test that sync_sql_assertion upserts entities when they don't exist."""
     sql_stub_datahub_client = StubDataHubClient()  # Empty client
     assert sql_stub_datahub_client.entities.get(any_assertion_urn) is None
     assert sql_stub_datahub_client.entities.get(any_monitor_urn) is None
@@ -1686,25 +1681,8 @@ def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_no
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
     mock_upsert = MagicMock()
     sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
-    mock_create_assertion = MagicMock(
-        return_value=SqlAssertion(
-            dataset_urn=any_dataset_urn,
-            urn=any_assertion_urn,
-            display_name="Mock SQL assertion",
-            mode=AssertionMode.ACTIVE,
-            criteria=SqlAssertionCriteria(
-                condition=SqlAssertionCondition.IS_GREATER_THAN,
-                parameters=50,
-            ),
-            statement="SELECT COUNT(*) FROM table",
-            schedule=models.CronScheduleClass(cron="0 0 * * *", timezone="UTC"),
-            incident_behavior=[],
-            tags=[],
-        )
-    )
-    client._sql_client._create_sql_assertion = mock_create_assertion  # type: ignore[method-assign]
 
-    client.sync_sql_assertion(
+    assertion = client.sync_sql_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         criteria_condition=SqlAssertionCondition.IS_GREATER_THAN,
@@ -1712,9 +1690,12 @@ def test_sync_sql_assertion_calls_create_if_assertion_and_monitor_entities_do_no
         statement="SELECT COUNT(*) FROM table",
     )
 
-    assert mock_upsert.call_count == 0
-    assert mock_create_assertion.call_count == 1
-    assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
+    # Should call upsert twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
+    # Verify the assertion was created correctly
+    assert assertion is not None
+    assert assertion.urn == any_assertion_urn
+    assert str(assertion.dataset_urn) == str(any_dataset_urn)
 
 
 @freeze_time(FROZEN_TIME)
@@ -2065,26 +2046,25 @@ def test_sync_sql_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
     sql_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    """Test that sync passes enabled parameter to create when urn is None."""
+    """Test that sync passes enabled parameter when urn is None."""
     client = AssertionsClient(sql_stub_datahub_client)  # type: ignore[arg-type]
+    mock_upsert = MagicMock()
+    sql_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign]
 
-    # Mock the create method to verify it's called with enabled parameter
-    with patch.object(client._sql_client, "_create_sql_assertion") as mock_create:
-        mock_create.return_value = MagicMock()  # Return a mock assertion
+    assertion = client.sync_sql_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=None,  # This should trigger create via upsert
+        criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
+        criteria_parameters=1,
+        statement="SELECT 1",
+        enabled=False,
+    )
 
-        client.sync_sql_assertion(
-            dataset_urn=any_dataset_urn,
-            urn=None,  # This should trigger create
-            criteria_condition=SqlAssertionCondition.IS_EQUAL_TO,
-            criteria_parameters=1,
-            statement="SELECT 1",
-            enabled=False,
-        )
-
-        # Verify create was called with enabled=False
-        mock_create.assert_called_once()
-        call_kwargs = mock_create.call_args[1]
-        assert call_kwargs["enabled"] is False
+    # Verify upsert was called twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
+    # Verify the assertion was created with enabled=False (mode=INACTIVE)
+    assert assertion is not None
+    assert assertion.mode == AssertionMode.INACTIVE
 
 
 @freeze_time(FROZEN_TIME)

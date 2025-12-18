@@ -372,6 +372,8 @@ interface DisplayContext {
     fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
     shownUrns: string[];
     refetchUrn: (urn: string) => void;
+    tourExpandColumnsUrn: Urn | null;
+    setTourExpandColumnsUrn: Dispatch<SetStateAction<Urn | null>>;
 }
 
 export const LineageDisplayContext = React.createContext<DisplayContext>({
@@ -394,6 +396,8 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     fineGrainedOperations: new Map(),
     shownUrns: [],
     refetchUrn: () => {},
+    tourExpandColumnsUrn: null,
+    setTourExpandColumnsUrn: () => {},
 });
 
 export function setDefault<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {

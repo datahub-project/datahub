@@ -2,7 +2,7 @@ import { Image, Typography } from 'antd';
 import React from 'react';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 

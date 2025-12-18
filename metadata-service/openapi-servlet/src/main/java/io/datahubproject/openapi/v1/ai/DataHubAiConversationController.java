@@ -10,20 +10,21 @@ import com.linkedin.metadata.integration.StreamingChatClient;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
@@ -67,6 +68,13 @@ public class DataHubAiConversationController {
     private String conversationUrn;
     private String text;
     private String agentName;
+    private ChatContext context;
+  }
+
+  @Data
+  public static class ChatContext {
+    private String text;
+    private List<String> entityUrns;
   }
 
   /**
@@ -122,8 +130,7 @@ public class DataHubAiConversationController {
           "User {} attempted to send message to conversation {} but is not authorized",
           authenticatedUserUrn,
           request.getConversationUrn());
-      throw new ResponseStatusException(
-          HttpStatus.FORBIDDEN,
+      throw new UnauthorizedException(
           "You are not authorized to send messages to this conversation. Only the conversation creator can send messages.");
     }
 
@@ -142,11 +149,23 @@ public class DataHubAiConversationController {
                 // Stream response from Python integrations service
                 // Python handles both message persistence and AI response generation
                 StreamingChatClient streamingClient = integrationsService.getStreamingChatClient();
+
+                // Convert ChatContext to Map for Python service
+                Map<String, Object> contextMap = null;
+                if (request.getContext() != null) {
+                  contextMap = new HashMap<>();
+                  contextMap.put("text", request.getContext().getText());
+                  if (request.getContext().getEntityUrns() != null) {
+                    contextMap.put("entity_urns", request.getContext().getEntityUrns());
+                  }
+                }
+
                 streamingClient
                     .sendStreamingMessage(
                         request.getConversationUrn(),
                         request.getText(),
                         request.getAgentName(),
+                        contextMap,
                         authentication, // Forward user's authentication to integrations service
                         (sseEvent) -> {
                           try {

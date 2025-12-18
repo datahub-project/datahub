@@ -46,7 +46,10 @@ def check_neo4j_setup_completed() -> bool:
             count = record["count"]
 
             driver.close()
-            return count > 0  # Data is loaded if there are any nodes
+            # Waiting for count > 0 is not enough, the test is very flaky with that
+            # check. count > 9 typically take one extra pause (2s) to satisfy and makes
+            # the test a lot less flaky.
+            return count > 9
     except Exception:
         return False
 

@@ -74,6 +74,7 @@ class StructuredProperties(ConfigModel):
     urn: Optional[str] = Field(None, validate_default=True)
     qualified_name: Optional[str] = None
     type: str
+    version: Optional[str] = None
     value_entity_types: Optional[List[str]] = None
     description: Optional[str] = None
     display_name: Optional[str] = None
@@ -175,6 +176,7 @@ class StructuredProperties(ConfigModel):
                     if self.type_qualifier
                     else None
                 ),
+                version=self.version,
             ),
         )
         return [mcp]
@@ -203,6 +205,7 @@ class StructuredProperties(ConfigModel):
             qualified_name=structured_property.qualifiedName,
             display_name=structured_property.displayName,
             type=structured_property.valueType,
+            version=structured_property.version,
             description=structured_property.description,
             entity_types=structured_property.entityTypes,
             cardinality=structured_property.cardinality,

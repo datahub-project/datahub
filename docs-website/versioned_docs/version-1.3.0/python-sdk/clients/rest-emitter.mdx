@@ -1,0 +1,282 @@
+---
+title: Rest Emitter
+---
+<div className="sphinx-api-docs">
+<a id="rest-emitter"></a>
+
+
+The Rest emitter can be used to push metadata to DataHub.
+
+
+
+### <span className="visually-hidden">DataHubRestEmitter</span> {#datahub.emitter.rest_emitter.DataHubRestEmitter}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.rest_emitter.</span><span class="class-name">DataHubRestEmitter</span>(<span class="arg-name">gms_server</span>, <span class="arg-name">token</span> = <span class="arg-default">None</span>, <span class="arg-name">timeout_sec</span> = <span class="arg-default">None</span>, <span class="arg-name">connect_timeout_sec</span> = <span class="arg-default">None</span>, <span class="arg-name">read_timeout_sec</span> = <span class="arg-default">None</span>, <span class="arg-name">retry_status_codes</span> = <span class="arg-default">None</span>, <span class="arg-name">retry_methods</span> = <span class="arg-default">None</span>, <span class="arg-name">retry_max_times</span> = <span class="arg-default">None</span>, <span class="arg-name">extra_headers</span> = <span class="arg-default">None</span>, <span class="arg-name">ca_certificate_path</span> = <span class="arg-default">None</span>, <span class="arg-name">client_certificate_path</span> = <span class="arg-default">None</span>, <span class="arg-name">disable_ssl_verification</span> = <span class="arg-default">False</span>, <span class="arg-name">openapi_ingestion</span> = <span class="arg-default">None</span>, <span class="arg-name">client_mode</span> = <span class="arg-default">None</span>, <span class="arg-name">datahub_component</span> = <span class="arg-default">None</span>, <span class="arg-name">server_config_refresh_interval</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.rest_emitter.DataHubRestEmitter" class="hash-link"></a></div>
+
+
+Bases: `Closeable`, `Emitter`
+
+* **Parameters:**
+  * **gms_server** (`str`)
+  * **token** (`Optional`[`str`])
+  * **timeout_sec** (`Optional`[`float`])
+  * **connect_timeout_sec** (`Optional`[`float`])
+  * **read_timeout_sec** (`Optional`[`float`])
+  * **retry_status_codes** (`Optional`[`List`[`int`]])
+  * **retry_methods** (`Optional`[`List`[`str`]])
+  * **retry_max_times** (`Optional`[`int`])
+  * **extra_headers** (`Optional`[`Dict`[`str`, `str`]])
+  * **ca_certificate_path** (`Optional`[`str`])
+  * **client_certificate_path** (`Optional`[`str`])
+  * **disable_ssl_verification** (`bool`)
+  * **openapi_ingestion** (`Optional`[`bool`])
+  * **client_mode** (`Optional`[`ClientMode`])
+  * **datahub_component** (`Optional`[`str`])
+  * **server_config_refresh_interval** (`Optional`[`int`])
+#### close()
+
+* **Return type:**
+  `None`
+
+#### emit(item, callback=None, emit_mode=EmitMode.SYNC_PRIMARY)
+
+* **Parameters:**
+  * **item** (`Union`[[`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass), [`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass), [`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper), [`UsageAggregationClass`](../models.mdx#datahub.metadata.schema_classes.UsageAggregationClass)]) – 
+  * **callback** (`Optional`[`Callable`[[`Exception`, `str`], `None`]])
+  * **emit_mode** ([`EmitMode`](#datahub.emitter.rest_emitter.EmitMode)) – 
+* **Return type:**
+  `None`
+
+#### emit_mce(mce)
+
+* **Parameters:**
+  **mce** ([`MetadataChangeEventClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeEventClass)) – 
+* **Return type:**
+  `None`
+
+#### emit_mcp(mcp, async_flag=None, emit_mode=EmitMode.SYNC_PRIMARY, wait_timeout=datetime.timedelta(seconds=3600))
+
+* **Parameters:**
+  * **mcp** (`Union`[[`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass), [`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper)]) – 
+  * **async_flag** (`Optional`[`bool`])
+  * **emit_mode** ([`EmitMode`](#datahub.emitter.rest_emitter.EmitMode)) – 
+  * **wait_timeout** (`Optional`[`timedelta`])
+* **Return type:**
+  `None`
+
+#### emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY, wait_timeout=datetime.timedelta(seconds=3600))
+
+* **Parameters:**
+  * **mcps** (`Sequence`[`Union`[[`MetadataChangeProposalClass`](../models.mdx#datahub.metadata.schema_classes.MetadataChangeProposalClass), [`MetadataChangeProposalWrapper`](../builder/mcp-builder.mdx#datahub.emitter.mcp.MetadataChangeProposalWrapper)]]) – 
+  * **emit_mode** ([`EmitMode`](#datahub.emitter.rest_emitter.EmitMode)) – 
+  * **wait_timeout** (`Optional`[`timedelta`])
+* **Return type:**
+  `int`
+
+#### emit_usage(usageStats)
+
+* **Parameters:**
+  **usageStats** ([`UsageAggregationClass`](../models.mdx#datahub.metadata.schema_classes.UsageAggregationClass)) – 
+* **Return type:**
+  `None`
+
+#### fetch_server_config()
+
+Fetch configuration from the server if not already loaded.
+
+* **Return type:**
+  `RestServiceConfig`
+* **Returns:**
+  The configuration dictionary
+* **Raises:**
+  **ConfigurationError** – If there’s an error fetching or validating the configuration
+
+#### flush()
+
+* **Return type:**
+  `None`
+
+#### get_server_config()
+
+* **Return type:**
+  `dict`
+
+#### invalidate_config_cache()
+
+Manually invalidate the configuration cache.
+
+* **Return type:**
+  `None`
+
+#### *property* server_config *: RestServiceConfig*
+
+#### test_connection()
+
+* **Return type:**
+  `None`
+
+#### to_graph()
+
+* **Return type:**
+  [`DataHubGraph`](graph-client.mdx#datahub.ingestion.graph.client.DataHubGraph)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">DatahubRestEmitter</span> {#datahub.emitter.rest_emitter.DatahubRestEmitter}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.rest_emitter.</span><span class="class-name">DatahubRestEmitter</span>()<a href="#datahub.emitter.rest_emitter.DatahubRestEmitter" class="hash-link"></a></div>
+
+
+alias of [`DataHubRestEmitter`](#datahub.emitter.rest_emitter.DataHubRestEmitter)
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">EmitMode</span> {#datahub.emitter.rest_emitter.EmitMode}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.rest_emitter.</span><span class="class-name">EmitMode</span>(<span class="arg-name">value</span>, <span class="arg-name">names</span> = <span class="arg-default">None</span>, *, <span class="arg-name">module</span> = <span class="arg-default">None</span>, <span class="arg-name">qualname</span> = <span class="arg-default">None</span>, <span class="arg-name">type</span> = <span class="arg-default">None</span>, <span class="arg-name">start</span> = <span class="arg-default">1</span>, <span class="arg-name">boundary</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.rest_emitter.EmitMode" class="hash-link"></a></div>
+
+
+Bases: `ConfigEnum`
+
+#### ASYNC *= 'ASYNC'*
+
+#### ASYNC_WAIT *= 'ASYNC_WAIT'*
+
+#### SYNC_PRIMARY *= 'SYNC_PRIMARY'*
+
+#### SYNC_WAIT *= 'SYNC_WAIT'*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">RequestsSessionConfig</span> {#datahub.emitter.rest_emitter.RequestsSessionConfig}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.rest_emitter.</span><span class="class-name">RequestsSessionConfig</span>(<span class="arg-name">**data</span>)<a href="#datahub.emitter.rest_emitter.RequestsSessionConfig" class="hash-link"></a></div>
+
+
+Bases: `ConfigModel`
+
+* **Parameters:**
+  * **data** (`Any`)
+  * **timeout** (*float* *|* *Tuple* *[**float**,**float**]*  *|* *None*)
+  * **retry_status_codes** (*List* *[**int**]*)
+  * **retry_methods** (*List* *[**str**]*)
+  * **retry_max_times** (*int*)
+  * **extra_headers** (*Dict* *[**str**,**str**]*)
+  * **ca_certificate_path** (*str* *|* *None*)
+  * **client_certificate_path** (*str* *|* *None*)
+  * **disable_ssl_verification** (*bool*)
+  * **client_mode** (*ClientMode* *|* *None*)
+  * **datahub_component** (*str* *|* *None*)
+#### build_session()
+
+* **Return type:**
+  `Session`
+
+#### ca_certificate_path *: Optional[str]*
+
+#### client_certificate_path *: Optional[str]*
+
+#### client_mode *: Optional[ClientMode]*
+
+#### datahub_component *: Optional[str]*
+
+#### disable_ssl_verification *: bool*
+
+#### extra_headers *: Dict[str, str]*
+
+#### *classmethod* get_client_mode_from_session(session)
+
+Extract the ClientMode enum from a requests Session by checking the headers.
+
+* **Parameters:**
+  **session** (`Session`) – The requests.Session object to check
+* **Return type:**
+  `Optional`[`ClientMode`]
+* **Returns:**
+  The corresponding ClientMode enum value if found, None otherwise
+
+#### model_config *: ClassVar[ConfigDict]* *= {'_schema_extra': &lt;function ConfigModel.Config._schema_extra>, 'extra': 'forbid', 'ignored_types': (<class 'cached_property.cached_property'>,), 'json_schema_extra': &lt;function ConfigModel.Config._schema_extra>}*
+
+Configuration for the model, should be a dictionary conforming to [ConfigDict][pydantic.config.ConfigDict].
+
+#### retry_max_times *: int*
+
+#### retry_methods *: List[str]*
+
+#### retry_status_codes *: List[int]*
+
+#### timeout *: Union[float, Tuple[float, float], None]*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">RestSinkEndpoint</span> {#datahub.emitter.rest_emitter.RestSinkEndpoint}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-text">class</span> <span class="class-owner">datahub.emitter.rest_emitter.</span><span class="class-name">RestSinkEndpoint</span>(<span class="arg-name">value</span>, <span class="arg-name">names</span> = <span class="arg-default">None</span>, *, <span class="arg-name">module</span> = <span class="arg-default">None</span>, <span class="arg-name">qualname</span> = <span class="arg-default">None</span>, <span class="arg-name">type</span> = <span class="arg-default">None</span>, <span class="arg-name">start</span> = <span class="arg-default">1</span>, <span class="arg-name">boundary</span> = <span class="arg-default">None</span>)<a href="#datahub.emitter.rest_emitter.RestSinkEndpoint" class="hash-link"></a></div>
+
+
+Bases: `ConfigEnum`
+
+#### OPENAPI *= 'OPENAPI'*
+
+#### RESTLI *= 'RESTLI'*
+
+
+
+</div>
+
+
+
+
+### <span className="visually-hidden">preserve_unicode_escapes</span> {#datahub.emitter.rest_emitter.preserve_unicode_escapes}
+
+
+<div className="h3-block">
+
+<div className="section-heading"><span class="class-owner">datahub.emitter.rest_emitter.</span><span class="class-name">preserve_unicode_escapes</span>(<span class="arg-name">obj</span>)<a href="#datahub.emitter.rest_emitter.preserve_unicode_escapes" class="hash-link"></a></div>
+
+
+Recursively convert unicode characters back to escape sequences
+
+* **Parameters:**
+  **obj** (`Any`)
+* **Return type:**
+  `Any`
+
+
+</div>
+</div>

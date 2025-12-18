@@ -3,10 +3,17 @@ Utilities for working with embeddings using Bedrock.
 
 This module provides LiteLLM-based embeddings for Bedrock models.
 Uses standard AWS credential chain (AWS_PROFILE).
+
+NOTE: Cross-account role assumption (BEDROCK_CROSS_ACCOUNT_ROLE_ARN) is NOT supported
+for embeddings. LiteLLM creates its own internal Bedrock client using the standard AWS
+credential chain. If you need cross-account access for embeddings, you must configure
+the default credential chain to have access to the target account.
 """
 
 import os
 from typing import Any, Dict, List, Optional
+
+from loguru import logger
 
 from .litellm_wrapper import LiteLLMEmbeddings
 
@@ -145,9 +152,21 @@ def create_embeddings(
         Uses standard AWS credential chain. Set AWS_PROFILE environment variable
         to use a specific AWS profile.
 
+        NOTE: Cross-account role assumption (BEDROCK_CROSS_ACCOUNT_ROLE_ARN) is NOT
+        supported for embeddings - only for LLM calls via get_bedrock_client().
+
     Raises:
         ValueError: If provider is not "bedrock"
     """
+    # Warn if cross-account role is configured but won't be used for embeddings
+    cross_account_role = os.environ.get("BEDROCK_CROSS_ACCOUNT_ROLE_ARN")
+    if cross_account_role:
+        logger.warning(
+            "BEDROCK_CROSS_ACCOUNT_ROLE_ARN is set but embeddings do NOT use cross-account "
+            "role assumption. Embeddings will use the default AWS credential chain. "
+            "Only LLM calls via get_bedrock_client() support cross-account access."
+        )
+
     provider = provider or os.environ.get("EMBED_PROVIDER", "bedrock")
 
     if provider != "bedrock":

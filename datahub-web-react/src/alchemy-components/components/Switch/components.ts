@@ -20,16 +20,29 @@ export const Label = styled.div({
     alignItems: 'flex-start',
 });
 
-export const SwitchContainer = styled.label<{ labelPosition: SwitchLabelPosition; isDisabled?: boolean }>(
-    ({ labelPosition, isDisabled }) => ({
+export const SwitchContainer = styled.label<{
+    labelPosition: SwitchLabelPosition;
+    isDisabled?: boolean;
+}>(({ labelPosition, isDisabled }) => {
+    const styles: any = {
         display: 'flex',
-        flexDirection: labelPosition === 'top' ? 'column' : 'row',
-        alignItems: labelPosition === 'top' ? 'flex-start' : 'center',
+        alignItems: 'center',
         gap: spacing.sm,
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         width: 'max-content',
-    }),
-);
+    };
+
+    if (labelPosition === 'top') {
+        styles.flexDirection = 'column';
+        styles.alignItems = 'flex-start';
+    } else if (labelPosition === 'right') {
+        styles.flexDirection = 'row-reverse';
+    } else {
+        styles.flexDirection = 'row';
+    }
+
+    return styles;
+});
 
 export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDisabled?: boolean }>(
     ({ size, isSquare, isDisabled }) => ({

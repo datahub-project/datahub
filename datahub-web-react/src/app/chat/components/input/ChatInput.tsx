@@ -192,7 +192,7 @@ export const ChatInput: React.FC<Props> = ({
             <SendButtonWrapper>
                 <Button
                     onClick={handleButtonClick}
-                    isDisabled={isSubmitDisabled}
+                    disabled={isSubmitDisabled}
                     isCircle
                     icon={{
                         icon: isStreaming ? 'Stop' : 'PaperPlaneRight',

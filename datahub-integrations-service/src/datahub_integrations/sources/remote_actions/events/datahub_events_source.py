@@ -64,7 +64,13 @@ class DataHubEventSource(EventSource):
     ctx: PipelineContext
 
     @staticmethod
-    def _get_pipeline_urn(pipeline_name: str) -> str:
+    def _get_consumer_id(pipeline_name: str) -> str:
+        """
+        This is not a proper way to extract actual action urn. Since we are not using it as urn, but rather to refer
+        to a consumer group, I am keeping it as it is, but proper code should expect that it might be in the form:
+        some_prefix_urn:li:dataHubAction:abcdf
+        Such cases need to be tested with using `in` rather than `startswith`
+        """
         if pipeline_name.startswith("urn:li:dataHubAction:"):
             return pipeline_name
         else:
@@ -73,7 +79,7 @@ class DataHubEventSource(EventSource):
     def __init__(self, config: DataHubEventsSourceConfig, ctx: PipelineContext):
         self.ctx = ctx
         self.source_config = config
-        self.my_urn = DataHubEventSource._get_pipeline_urn(self.ctx.pipeline_name)
+        self.consumer_id = DataHubEventSource._get_consumer_id(self.ctx.pipeline_name)
 
         # Ensure a Graph Instance was provided.
         assert self.ctx.graph is not None
@@ -81,7 +87,7 @@ class DataHubEventSource(EventSource):
         self.datahub_events_consumer: DataHubEventsConsumer = DataHubEventsConsumer(
             # TODO: This PipelineContext provides an Acryl Graph Instance
             graph=self.ctx.graph.graph,
-            consumer_id=self.my_urn,
+            consumer_id=self.consumer_id,
             lookback_days=self.source_config.lookback_days,
             force_full_refresh=self.source_config.force_full_refresh,
         )

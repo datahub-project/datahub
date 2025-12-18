@@ -358,7 +358,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setSupportTicketsEnabled(_featureFlags.isSupportTicketsEnabled())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
+            .setFreshnessAssertionTuningEnabled(_featureFlags.isFreshnessAssertionTuningEnabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
+            .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

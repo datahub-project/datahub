@@ -1,6 +1,6 @@
 import { ApolloQueryResult } from '@apollo/client';
 import { message } from 'antd';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { GetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
 
@@ -17,17 +17,28 @@ export const usePollForNewPredictions = (
 ) => {
     const [isPolling, setIsPolling] = useState(false);
     const [initialGeneratedAt, setInitialGeneratedAt] = useState<string | number | null | undefined>(null);
+    const onPollingCompleteRef = useRef<(() => void) | null>(null);
 
     // Start polling and capture the current generatedAt as baseline
-    const startPolling = useCallback(() => {
-        setIsPolling(true);
-        setInitialGeneratedAt(currentGeneratedAt);
-    }, [currentGeneratedAt]);
+    const startPolling = useCallback(
+        (onPollingComplete?: () => void) => {
+            setIsPolling(true);
+            setInitialGeneratedAt(currentGeneratedAt);
+            onPollingCompleteRef.current = onPollingComplete || null;
+        },
+        [currentGeneratedAt],
+    );
 
     // Stop polling and reset state
     const stopPolling = useCallback(() => {
         setIsPolling(false);
         setInitialGeneratedAt(null);
+        // Invoke callback when polling completes
+        const callback = onPollingCompleteRef.current;
+        onPollingCompleteRef.current = null;
+        if (callback) {
+            callback();
+        }
     }, []);
 
     // Polling interval effect - refetch monitor data periodically

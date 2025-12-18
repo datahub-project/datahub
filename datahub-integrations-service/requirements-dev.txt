@@ -8,18 +8,22 @@
     # via
     #   -r requirements-local.in
     #   -r requirements.txt
-acryl-datahub==1.3.1.2
+acryl-datahub==1.3.1.5rc3
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-cloud
     #   acryl-datahub-integrations
-acryl-datahub-actions==1.3.1.2
+acryl-datahub-actions==1.3.1.5rc3
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+acryl-datahub-classify==0.0.11
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 aiohappyeyeballs==2.6.1
     # via
     #   -r requirements.txt
@@ -133,6 +137,10 @@ blinker==1.9.0
     #   -r requirements.txt
     #   flask
     #   streamlit
+blis==0.7.11
+    # via
+    #   -r requirements.txt
+    #   thinc
 botbuilder-core==4.17.0
     # via
     #   -r requirements.txt
@@ -185,6 +193,7 @@ build==1.2.2
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   inotify
 cached-property==1.5.2
     # via
     #   -r requirements.txt
@@ -199,6 +208,12 @@ cachetools==5.3.3
     #   mlflow-skinny
     #   mlflow-tracing
     #   streamlit
+catalogue==2.0.10
+    # via
+    #   -r requirements.txt
+    #   spacy
+    #   srsly
+    #   thinc
 certifi==2024.2.2
     # via
     #   -r requirements.txt
@@ -233,6 +248,7 @@ click==8.1.7
     #   papermill
     #   streamlit
     #   typer
+    #   typer-slim
     #   uvicorn
 click-default-group==1.2.4
     # via
@@ -243,6 +259,10 @@ click-spinner==0.1.10
     # via
     #   -r requirements.txt
     #   acryl-datahub
+cloudpathlib==0.23.0
+    # via
+    #   -r requirements.txt
+    #   weasel
 cloudpickle==3.1.1
     # via
     #   -r requirements.txt
@@ -258,12 +278,18 @@ colorama==0.4.6 ; os_name == 'nt' or sys_platform == 'win32'
     #   pytest
     #   tqdm
     #   uvicorn
+    #   wasabi
 colorlog==6.8.2
     # via
     #   -r requirements.txt
     #   reactpy
 comm==0.2.2
     # via ipykernel
+confection==0.1.5
+    # via
+    #   -r requirements.txt
+    #   thinc
+    #   weasel
 confluent-kafka==2.3.0
     # via
     #   -r requirements.txt
@@ -300,6 +326,12 @@ cyclopts==3.22.2
     # via
     #   -r requirements.txt
     #   fastmcp
+cymem==2.0.13
+    # via
+    #   -r requirements.txt
+    #   preshed
+    #   spacy
+    #   thinc
 databricks-sdk==0.50.0
     # via
     #   -r requirements.txt
@@ -648,6 +680,10 @@ importlib-metadata==7.1.0
     #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
+importlib-resources==6.5.2 ; python_full_version < '3.12'
+    # via
+    #   -r requirements.txt
+    #   schwifty
 inflect==7.2.1
     # via
     #   -r requirements.txt
@@ -655,6 +691,15 @@ inflect==7.2.1
     #   acryl-datahub-integrations
 iniconfig==2.0.0
     # via pytest
+inotify==0.2.12
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+ipaddress==1.0.23
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-classify
 ipykernel==6.29.5
     # via acryl-datahub-integrations (pyproject.toml)
 ipython==9.2.0
@@ -681,6 +726,7 @@ jinja2==3.1.3
     #   litellm
     #   nbconvert
     #   pydeck
+    #   spacy
 jiter==0.10.0
     # via
     #   -r requirements.txt
@@ -770,6 +816,10 @@ langchain-openai==1.0.2
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+langcodes==3.5.1
+    # via
+    #   -r requirements.txt
+    #   spacy
 langgraph==1.0.3
     # via
     #   -r requirements.txt
@@ -898,6 +948,12 @@ multidict==6.0.5
     #   -r requirements.txt
     #   aiohttp
     #   yarl
+murmurhash==1.0.15
+    # via
+    #   -r requirements.txt
+    #   preshed
+    #   spacy
+    #   thinc
 mypy==1.15.0
     # via
     #   acryl-datahub-integrations (pyproject.toml)
@@ -933,7 +989,9 @@ numexpr==2.14.1
 numpy==1.26.4
     # via
     #   -r requirements.txt
+    #   acryl-datahub
     #   altair
+    #   blis
     #   bottleneck
     #   contourpy
     #   databricks-sql-connector
@@ -947,7 +1005,9 @@ numpy==1.26.4
     #   scipy
     #   seaborn
     #   shapely
+    #   spacy
     #   streamlit
+    #   thinc
 oauthlib==3.2.2
     # via
     #   -r requirements.txt
@@ -1019,8 +1079,11 @@ packaging==24.2
     #   nbconvert
     #   pytest
     #   snowflake-connector-python
+    #   spacy
     #   sqlalchemy-bigquery
     #   streamlit
+    #   thinc
+    #   weasel
 pandas==2.2.3
     # via
     #   -r requirements.txt
@@ -1051,17 +1114,30 @@ patchy==2.8.0
     #   acryl-datahub
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
+phonenumbers==8.13.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-classify
 pillow==11.3.0
     # via
     #   -r requirements.txt
     #   matplotlib
     #   streamlit
+pip==25.3
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 platformdirs==4.2.1
     # via
     #   -r requirements.txt
     #   snowflake-connector-python
 pluggy==1.5.0
     # via pytest
+preshed==3.0.12
+    # via
+    #   -r requirements.txt
+    #   spacy
+    #   thinc
 progressbar2==4.4.2
     # via
     #   -r requirements.txt
@@ -1139,6 +1215,10 @@ pyasn1-modules==0.4.1
     # via
     #   -r requirements.txt
     #   google-auth
+pycountry==24.6.1
+    # via
+    #   -r requirements.txt
+    #   schwifty
 pycparser==2.22
     # via
     #   -r requirements.txt
@@ -1150,6 +1230,7 @@ pydantic==2.11.7
     #   acryl-datahub
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+    #   confection
     #   fastapi
     #   fastmcp
     #   google-cloud-aiplatform
@@ -1166,6 +1247,9 @@ pydantic==2.11.7
     #   openai
     #   openapi-pydantic
     #   pydantic-settings
+    #   spacy
+    #   thinc
+    #   weasel
 pydantic-core==2.33.2
     # via
     #   -r requirements.txt
@@ -1275,6 +1359,10 @@ python-multipart==0.0.20
     # via
     #   -r requirements.txt
     #   mcp
+python-stdnum==2.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-classify
 python-utils==3.8.2
     # via
     #   -r requirements.txt
@@ -1357,8 +1445,10 @@ requests==2.31.0
     #   requests-oauthlib
     #   requests-toolbelt
     #   snowflake-connector-python
+    #   spacy
     #   streamlit
     #   tiktoken
+    #   weasel
 requests-auth-aws-sigv4==0.7
     # via
     #   -r requirements.txt
@@ -1382,6 +1472,7 @@ rich==14.0.0
     #   cyclopts
     #   fastmcp
     #   rich-rst
+    #   typer
 rich-rst==1.3.1
     # via
     #   -r requirements.txt
@@ -1395,6 +1486,10 @@ rsa==4.9
     # via
     #   -r requirements.txt
     #   google-auth
+rstr==3.2.2
+    # via
+    #   -r requirements.txt
+    #   schwifty
 ruamel-yaml==0.17.17
     # via
     #   -r requirements.txt
@@ -1410,6 +1505,11 @@ sagemaker-mlflow==0.1.1
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+schwifty==2025.9.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
+    #   acryl-datahub-classify
 scikit-learn==1.7.2
     # via
     #   -r requirements.txt
@@ -1432,12 +1532,20 @@ sentry-sdk==2.33.0
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
     #   acryl-datahub-integrations
-setuptools==69.5.1
-    # via acryl-datahub-integrations (pyproject.toml)
+setuptools==80.9.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   spacy
+    #   thinc
 shapely==2.1.2
     # via
     #   -r requirements.txt
     #   google-cloud-aiplatform
+shellingham==1.5.4
+    # via
+    #   -r requirements.txt
+    #   typer
 six==1.16.0
     # via
     #   -r requirements.txt
@@ -1455,6 +1563,10 @@ slack-sdk==3.35.0
     # via
     #   -r requirements.txt
     #   slack-bolt
+smart-open==7.5.0
+    # via
+    #   -r requirements.txt
+    #   weasel
 smmap==5.0.1
     # via
     #   -r requirements.txt
@@ -1482,6 +1594,18 @@ soupsieve==2.8
     # via
     #   -r requirements.txt
     #   beautifulsoup4
+spacy==3.7.5
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-classify
+spacy-legacy==3.0.12
+    # via
+    #   -r requirements.txt
+    #   spacy
+spacy-loggers==1.0.5
+    # via
+    #   -r requirements.txt
+    #   spacy
 sqlalchemy==1.4.52
     # via
     #   -r requirements.txt
@@ -1508,6 +1632,13 @@ sqlparse==0.5.0
     # via
     #   -r requirements.txt
     #   mlflow-skinny
+srsly==2.5.2
+    # via
+    #   -r requirements.txt
+    #   confection
+    #   spacy
+    #   thinc
+    #   weasel
 sse-starlette==2.3.6
     # via
     #   -r requirements.txt
@@ -1547,6 +1678,10 @@ tenacity==9.0.0
     #   langchain-core
     #   papermill
     #   streamlit
+thinc==8.2.5
+    # via
+    #   -r requirements.txt
+    #   spacy
 threadpoolctl==3.6.0
     # via
     #   -r requirements.txt
@@ -1592,6 +1727,7 @@ tqdm==4.67.1
     #   huggingface-hub
     #   openai
     #   papermill
+    #   spacy
 traitlets==5.14.3
     # via
     #   comm
@@ -1607,8 +1743,15 @@ typeguard==4.2.1
     # via
     #   -r requirements.txt
     #   inflect
-typer==0.7.0
-    # via acryl-datahub-integrations (pyproject.toml)
+typer==0.20.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   spacy
+typer-slim==0.20.0
+    # via
+    #   -r requirements.txt
+    #   weasel
 types-cachetools==5.3.0.7
     # via acryl-datahub-integrations (pyproject.toml)
 types-croniter==6.0.0.20250809
@@ -1666,6 +1809,8 @@ typing-extensions==4.15.0
     #   sqlalchemy-stubs
     #   streamlit
     #   typeguard
+    #   typer
+    #   typer-slim
     #   typing-inspect
     #   typing-inspection
 typing-inspect==0.9.0
@@ -1713,10 +1858,20 @@ validators==0.35.0
     # via
     #   -r requirements.txt
     #   langchain-google-vertexai
+vininfo==1.9.2
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-classify
 waitress==3.0.2 ; sys_platform == 'win32'
     # via
     #   -r requirements.txt
     #   mlflow
+wasabi==1.1.3
+    # via
+    #   -r requirements.txt
+    #   spacy
+    #   thinc
+    #   weasel
 watchdog==6.0.0 ; sys_platform != 'darwin'
     # via streamlit
 watchfiles==0.21.0
@@ -1729,6 +1884,10 @@ wcmatch==10.1
     #   acryl-datahub
 wcwidth==0.2.13
     # via prompt-toolkit
+weasel==0.4.3
+    # via
+    #   -r requirements.txt
+    #   spacy
 webencodings==0.5.1
     # via
     #   bleach
@@ -1751,6 +1910,7 @@ wrapt==1.16.0
     # via
     #   -r requirements.txt
     #   deprecated
+    #   smart-open
 xxhash==3.6.0
     # via
     #   -r requirements.txt

@@ -819,3 +819,104 @@ def test_kafka_source_oauth_cb_configuration():
                 }
             }
         )
+
+
+@patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer")
+def test_validate_kafka_connectivity_success(mock_get_kafka_consumer):
+    """Test that validate_kafka_connectivity succeeds when Kafka is reachable."""
+    from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+    from datahub.ingestion.source.kafka.kafka import validate_kafka_connectivity
+
+    # Setup mock consumer with brokers in metadata
+    mock_consumer = MagicMock()
+    mock_cluster_metadata = MagicMock()
+    mock_broker = MagicMock()
+    mock_broker.id = 1
+    mock_cluster_metadata.brokers = {1: mock_broker}
+    mock_consumer.list_topics.return_value = mock_cluster_metadata
+    mock_get_kafka_consumer.return_value = mock_consumer
+
+    # Create connection config
+    connection = KafkaConsumerConnectionConfig(
+        bootstrap="localhost:9092", client_timeout_seconds=30
+    )
+
+    # Should not raise any exception
+    validate_kafka_connectivity(connection)
+
+    # Verify the consumer was used correctly
+    # The function uses max(10, client_timeout_seconds) so should use 30 here
+    mock_get_kafka_consumer.assert_called_once_with(connection)
+    mock_consumer.list_topics.assert_called_once_with(topic="", timeout=30)
+    mock_consumer.close.assert_called_once()
+
+
+@patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer")
+def test_validate_kafka_connectivity_failure(mock_get_kafka_consumer):
+    """Test that validate_kafka_connectivity raises KafkaConnectivityError when Kafka is unreachable."""
+    from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+    from datahub.ingestion.source.kafka.kafka import (
+        KafkaConnectivityError,
+        validate_kafka_connectivity,
+    )
+
+    # Setup mock consumer to raise an exception
+    mock_consumer = MagicMock()
+    mock_consumer.list_topics.side_effect = Exception(
+        "Failed to connect to broker at localhost:9092"
+    )
+    mock_get_kafka_consumer.return_value = mock_consumer
+
+    # Create connection config with 60 second timeout
+    connection = KafkaConsumerConnectionConfig(
+        bootstrap="localhost:9092", client_timeout_seconds=60
+    )
+
+    # Should raise KafkaConnectivityError
+    with pytest.raises(KafkaConnectivityError) as exc_info:
+        validate_kafka_connectivity(connection)
+
+    # Verify the error message contains expected information
+    error_message = str(exc_info.value)
+    assert "[FATAL] Failed to connect to Kafka" in error_message
+    assert "localhost:9092" in error_message
+    assert "Failed to connect to broker" in error_message
+
+    # Verify the consumer was used correctly
+    # The function uses max(10, client_timeout_seconds) so should use 60 here
+    mock_get_kafka_consumer.assert_called_once_with(connection)
+    mock_consumer.list_topics.assert_called_once_with(topic="", timeout=60)
+
+
+@patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer")
+def test_validate_kafka_connectivity_no_brokers(mock_get_kafka_consumer):
+    """Test that validate_kafka_connectivity raises KafkaConnectivityError when no brokers are found."""
+    from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+    from datahub.ingestion.source.kafka.kafka import (
+        KafkaConnectivityError,
+        validate_kafka_connectivity,
+    )
+
+    # Setup mock consumer with empty brokers
+    mock_consumer = MagicMock()
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.brokers = {}  # No brokers
+    mock_consumer.list_topics.return_value = mock_cluster_metadata
+    mock_get_kafka_consumer.return_value = mock_consumer
+
+    # Create connection config
+    connection = KafkaConsumerConnectionConfig(
+        bootstrap="localhost:9092", client_timeout_seconds=30
+    )
+
+    # Should raise KafkaConnectivityError
+    with pytest.raises(KafkaConnectivityError) as exc_info:
+        validate_kafka_connectivity(connection)
+
+    # Verify the error message
+    assert "No brokers found in cluster metadata" in str(exc_info.value)
+
+    # Verify the consumer was used correctly
+    # The function uses max(10, client_timeout_seconds) so should use 30 here
+    mock_get_kafka_consumer.assert_called_once_with(connection)
+    mock_consumer.list_topics.assert_called_once_with(topic="", timeout=30)

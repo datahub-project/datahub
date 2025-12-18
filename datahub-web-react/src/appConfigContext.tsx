@@ -148,6 +148,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         teamsNotificationsEnabled: false,
         datasetSummaryPageV1: false,
         documentationFileUploadV1: false,
+        freshnessAssertionTuningEnabled: false,
         contextDocumentsEnabled: false,
     },
     chromeExtensionConfig: {

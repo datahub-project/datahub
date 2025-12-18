@@ -40,14 +40,15 @@ export const NameSourceStep = ({
     const [searchPoolQuery, setSearchPoolQuery] = useState('');
     const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
     const defaultActors = useMemo(() => {
-        if (!isEditing && me.user) {
+        if (!isEditing && me.user && me.loaded) {
             return [me.user];
         }
         return existingOwners.map((owner) => owner.owner);
-    }, [existingOwners, isEditing, me.user]);
+    }, [existingOwners, isEditing, me.user, me.loaded]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(defaultActors.map((actor) => actor.urn));
     const canEditSource = !selectedSource || selectedSource.privileges?.canEdit;
     const canExecuteSource = !selectedSource || selectedSource.privileges?.canExecute;
+    const [areOwnersInitialized, setAreOwnersInitialized] = useState<boolean>(false);
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -71,6 +72,14 @@ export const NameSourceStep = ({
         },
         [updateState, state],
     );
+
+    // Initialize state with default owners while source creation
+    useEffect(() => {
+        if (me.loaded && !isEditing && !areOwnersInitialized) {
+            setOwners(defaultActors);
+            setAreOwnersInitialized(true);
+        }
+    }, [defaultActors, isEditing, me.loaded, areOwnersInitialized, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {

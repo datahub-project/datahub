@@ -31,17 +31,24 @@ import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import NavSkeleton from '@app/homeV2/layout/navBarRedesign/NavBarSkeleton';
 import {
+    NavBarMenuDropdownItem,
     NavBarMenuDropdownItemElement,
+    NavBarMenuGroup,
     NavBarMenuItemTypes,
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useContextMenuItems } from '@app/homeV2/layout/sidebar/documents/useContextMenuItems';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
+import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
 import { SidebarWidthProvider } from '@app/shared/hooks/useSidebarWidth';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
+import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag, useIsAiChatEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -51,7 +58,6 @@ import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboa
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
 import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@src/app/shared/constants';
-import { useIsHomePage } from '@src/app/shared/useIsHomePage';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { generateReleaseNotesLink } from '@src/conf/utils';
@@ -114,7 +120,7 @@ const ScrollableContent = styled.div`
 `;
 
 const Footer = styled.div`
-    padding: 8px 8px 17px 8px;
+    padding: 8px 8px 17px 16px;
     border-top: 1px solid ${colors.gray[100]};
 `;
 
@@ -154,6 +160,8 @@ export const NavSidebar = () => {
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
+    const { hasIngestionSources } = useHasIngestionSources();
+    const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showStructuredProperties =
@@ -211,6 +219,33 @@ export const NavSidebar = () => {
 
     const versionLink = generateReleaseNotesLink(config?.appVersion);
 
+    // --- MFE YAML CONFIG ---
+    const mfeConfig: any = useMFEConfigFromBackend();
+
+    // MFE section (dropdown or spread)
+    let mfeSection: any[] = [];
+    if (mfeConfig) {
+        if (mfeConfig.subNavigationMode) {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Dropdown,
+                    title: 'MFE Apps',
+                    icon: <AppWindow />,
+                    key: 'mfe-dropdown',
+                    items: getMfeMenuDropdownItems(mfeConfig),
+                } as NavBarMenuDropdownItem,
+            ];
+        } else {
+            mfeSection = [
+                {
+                    type: NavBarMenuItemTypes.Group,
+                    key: 'mfe-group',
+                    title: 'MFE Apps',
+                    items: getMfeMenuItems(mfeConfig),
+                } as NavBarMenuGroup,
+            ];
+        }
+    }
     function handleHomeclick() {
         if (isHomePage && showHomepageRedesign) {
             toggle();
@@ -234,6 +269,7 @@ export const NavSidebar = () => {
 
     const mainContentMenu: NavBarMenuItems = {
         items: [
+            ...mfeSection,
             {
                 type: NavBarMenuItemTypes.Item,
                 title: 'Tasks',
@@ -375,7 +411,7 @@ export const NavSidebar = () => {
                         isHidden: !showDataSources,
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
-                        link: PageRoutes.INGESTION,
+                        link: ingestionLink,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

@@ -11,6 +11,7 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 
 DATABRICKS = "databricks"
+DATABRICKS_USER_AGENT_ENTRY = "datahub"
 
 
 class UnityCatalogConnectionConfig(ConfigModel):

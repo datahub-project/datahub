@@ -14,3 +14,10 @@ CHAT_MAX_MESSAGE_LENGTH = int(os.environ.get("CHAT_MAX_MESSAGE_LENGTH", "10000")
 CHAT_MAX_CONVERSATION_MESSAGES = int(
     os.environ.get("CHAT_MAX_CONVERSATION_MESSAGES", "1000")
 )
+
+# Keep-alive interval for SSE streaming (in seconds)
+# Prevents load balancer timeouts during long-running agent operations
+# Set to 20s to stay well under typical 30s load balancer timeouts
+CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS = int(
+    os.environ.get("CHAT_SSE_KEEPALIVE_INTERVAL_SECONDS", "20")
+)

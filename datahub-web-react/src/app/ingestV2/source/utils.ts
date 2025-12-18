@@ -671,6 +671,7 @@ export const getNewIngestionSourcePlaceholder = (
         platform: null,
         executions: null,
         source: null,
+        privileges: null,
         ownership: {
             owners: buildOwnerEntities(urn, data.owners, defaultOwnershipType),
             lastModified: {
@@ -706,4 +707,9 @@ export const getIngestionSourceMutationInput = (data: SourceBuilderState, source
               }
             : undefined,
     };
+};
+
+export const getSourceDisplayName = (sourceType: string, ingestionSources: SourceConfig[]) => {
+    const sourceConfigs = getSourceConfigs(ingestionSources, sourceType as string);
+    return sourceConfigs?.displayName;
 };
