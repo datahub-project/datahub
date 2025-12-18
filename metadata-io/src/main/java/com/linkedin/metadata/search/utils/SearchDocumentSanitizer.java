@@ -30,12 +30,29 @@ public class SearchDocumentSanitizer {
           "<img[^>]+src=[\"']data:image/[^;]+;base64,[A-Za-z0-9+/=\\s]*[\"'][^>]*>",
           Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
+  private static final int MIN_LENGTH_FOR_SANITIZATION = 1000;
+
+  private static final String BASE64_IMAGE_MARKER = "data:image";
+
+  private static final String DESCRIPTION_FIELD_NAME = "description";
+
   @Nullable
-  public static String sanitizeForIndexing(@Nullable String value) {
+  public static String sanitizeForIndexing(@Nullable String value, String fieldName) {
     if (value == null || value.isEmpty()) {
       return value;
     }
 
+    if (fieldName != null && !fieldName.equals(DESCRIPTION_FIELD_NAME)) {
+      return value;
+    }
+
+    if (value.length() < MIN_LENGTH_FOR_SANITIZATION) {
+      return value;
+    }
+
+    if (!value.contains(BASE64_IMAGE_MARKER)) {
+      return value;
+    }
     // Remove markdown base64 images, preserving alt text
     String sanitized =
         BASE64_IMAGE_PATTERN
@@ -56,6 +73,9 @@ public class SearchDocumentSanitizer {
 
   public static boolean containsBase64Images(@Nullable String value) {
     if (value == null || value.isEmpty()) {
+      return false;
+    }
+    if (!value.contains(BASE64_IMAGE_MARKER)) {
       return false;
     }
     return BASE64_IMAGE_PATTERN.matcher(value).find()

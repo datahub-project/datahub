@@ -317,7 +317,9 @@ public class SearchDocumentTransformer {
         fieldValues
             .subList(0, Math.min(fieldValues.size(), maxArrayLength))
             .forEach(
-                value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
+                value ->
+                    getNodeForValue(valueType, value, fieldType, fieldName)
+                        .ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
     } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
@@ -385,7 +387,7 @@ public class SearchDocumentTransformer {
               });
       searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
-      getNodeForValue(valueType, fieldValues.get(0), fieldType)
+      getNodeForValue(valueType, fieldValues.get(0), fieldType, fieldName)
           .ifPresent(node -> searchDocument.set(fieldName, node));
     }
   }
@@ -432,7 +434,10 @@ public class SearchDocumentTransformer {
   }
 
   private Optional<JsonNode> getNodeForValue(
-      final DataSchema.Type schemaFieldType, final Object fieldValue, final FieldType fieldType) {
+      final DataSchema.Type schemaFieldType,
+      final Object fieldValue,
+      final FieldType fieldType,
+      final String fieldName) {
     switch (schemaFieldType) {
       case BOOLEAN:
         return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
@@ -450,7 +455,7 @@ public class SearchDocumentTransformer {
         // Sanitize text fields to remove base64 images before indexing
         // This prevents OpenSearch indexing failures due to the 32KB term limit
         if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
-          value = SearchDocumentSanitizer.sanitizeForIndexing(value);
+          value = SearchDocumentSanitizer.sanitizeForIndexing(value, fieldName);
         }
         return value.isEmpty()
             ? Optional.of(JsonNodeFactory.instance.nullNode())

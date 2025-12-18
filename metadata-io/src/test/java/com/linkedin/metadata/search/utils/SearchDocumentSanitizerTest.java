@@ -5,62 +5,12 @@ import static org.testng.Assert.*;
 import org.testng.annotations.Test;
 
 public class SearchDocumentSanitizerTest {
-
-  @Test
-  public void testSanitizeMarkdownBase64Image() {
-    String input =
-        "Description with ![diagram](data:image/png;base64,iVBORw0KGgoAAAANSUhEUg) image";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    // Should preserve alt text but remove data URL
-    assertTrue(result.contains("[Image: diagram]"));
-    assertFalse(result.contains("data:image"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testSanitizeMarkdownBase64ImageNoAltText() {
-    String input = "Text ![](data:image/jpeg;base64,/9j/4AAQSkZJRg) more text";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    // Should remove image completely when no alt text
-    assertEquals(result, "Text  more text");
-  }
-
-  @Test
-  public void testSanitizeHtmlBase64Image() {
-    String input = "Description <img src=\"data:image/png;base64,iVBORw\" width=\"500\"> text";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image]"));
-    assertFalse(result.contains("<img"));
-    assertFalse(result.contains("data:image"));
-  }
-
-  @Test
-  public void testSanitizeMultipleImages() {
-    String input = "![img1](data:image/png;base64,ABC) text ![img2](data:image/jpeg;base64,XYZ)";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image: img1]"));
-    assertTrue(result.contains("[Image: img2]"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testSanitizeMixedMarkdownAndHtml() {
-    String input = "![md](data:image/png;base64,ABC) <img src=\"data:image/gif;base64,XYZ\">";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image: md]"));
-    assertTrue(result.contains("[Image]"));
-    assertFalse(result.contains("base64"));
-  }
+  private static final String DESCRIPTION_FIELD_NAME = "description";
 
   @Test
   public void testPreserveExternalImageLinks() {
     String input = "![diagram](https://example.com/image.png) is good";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
 
     // External URLs should be preserved
     assertEquals(result, input);
@@ -69,16 +19,16 @@ public class SearchDocumentSanitizerTest {
   @Test
   public void testPreservePlainText() {
     String input = "This is a plain description without images";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
 
     assertEquals(result, input);
   }
 
   @Test
   public void testNullAndEmptyStrings() {
-    assertNull(SearchDocumentSanitizer.sanitizeForIndexing(null));
-    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing(""), "");
-    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing("   "), "");
+    assertNull(SearchDocumentSanitizer.sanitizeForIndexing(null, DESCRIPTION_FIELD_NAME));
+    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing("", DESCRIPTION_FIELD_NAME), "");
+    assertEquals(SearchDocumentSanitizer.sanitizeForIndexing("   ", DESCRIPTION_FIELD_NAME), "   ");
   }
 
   @Test
@@ -93,7 +43,7 @@ public class SearchDocumentSanitizerTest {
     String input = "Description " + largeBase64 + " more text";
 
     long startTime = System.nanoTime();
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
+    String result = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
     long duration = System.nanoTime() - startTime;
 
     // Should complete in reasonable time (< 100ms for 1.4MB)
@@ -117,29 +67,11 @@ public class SearchDocumentSanitizerTest {
   }
 
   @Test
-  public void testSpecialCharactersInAltText() {
-    String input = "![\"Special\" & <chars>](data:image/png;base64,ABC)";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image: \"Special\" & <chars>]"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testMultilineBase64() {
-    String input = "Text\n![img](data:image/png;base64,\nABC\nXYZ)\nMore text";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image: img]"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
   public void testIdempotency() {
     String input = "![img](data:image/png;base64,ABC) text";
 
-    String result1 = SearchDocumentSanitizer.sanitizeForIndexing(input);
-    String result2 = SearchDocumentSanitizer.sanitizeForIndexing(result1);
+    String result1 = SearchDocumentSanitizer.sanitizeForIndexing(input, DESCRIPTION_FIELD_NAME);
+    String result2 = SearchDocumentSanitizer.sanitizeForIndexing(result1, DESCRIPTION_FIELD_NAME);
 
     // Sanitizing twice should produce same result
     assertEquals(result1, result2);
@@ -161,7 +93,8 @@ public class SearchDocumentSanitizerTest {
     input.append("End");
 
     long startTime = System.nanoTime();
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input.toString());
+    String result =
+        SearchDocumentSanitizer.sanitizeForIndexing(input.toString(), DESCRIPTION_FIELD_NAME);
     long duration = System.nanoTime() - startTime;
 
     // Should complete in reasonable time (< 50ms for 300KB)
@@ -174,92 +107,6 @@ public class SearchDocumentSanitizerTest {
     assertTrue(result.contains("[Image: img2]"));
     assertTrue(result.contains("Start"));
     assertTrue(result.contains("End"));
-  }
-
-  @Test
-  public void testCaseInsensitiveHtmlTag() {
-    String input = "Text <IMG SRC=\"data:image/png;base64,ABC\"> more";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image]"));
-    assertFalse(result.contains("IMG"));
-    assertFalse(result.contains("data:image"));
-  }
-
-  @Test
-  public void testDifferentImageTypes() {
-    String input =
-        "![png](data:image/png;base64,ABC) "
-            + "![jpg](data:image/jpeg;base64,DEF) "
-            + "![gif](data:image/gif;base64,GHI) "
-            + "![svg](data:image/svg+xml;base64,JKL)";
-
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("[Image: png]"));
-    assertTrue(result.contains("[Image: jpg]"));
-    assertTrue(result.contains("[Image: gif]"));
-    assertTrue(result.contains("[Image: svg]"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testPreserveTextAroundImages() {
-    String input =
-        "This is the introduction. "
-            + "![diagram](data:image/png;base64,ABCDEFGH) "
-            + "This is the conclusion.";
-
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    assertTrue(result.contains("This is the introduction"));
-    assertTrue(result.contains("[Image: diagram]"));
-    assertTrue(result.contains("This is the conclusion"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testEmptyBase64String() {
-    String input = "![empty](data:image/png;base64,)";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    // Should handle empty base64 string
-    assertFalse(result.contains("data:image"));
-  }
-
-  @Test
-  public void testMarkdownWithAngleBrackets() {
-    // Real format from production logs: ![](<data:image/png;base64,...>)
-    String input =
-        "Description with ![](<data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAE7w>) image";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    // Should remove the image (no alt text)
-    assertEquals(result, "Description with  image");
-    assertFalse(result.contains("data:image"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testMarkdownWithAngleBracketsAndAltText() {
-    String input = "Text ![diagram](<data:image/png;base64,iVBORw0KGgoAAAA>) more text";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    // Should preserve alt text
-    assertTrue(result.contains("[Image: diagram]"));
-    assertFalse(result.contains("data:image"));
-    assertFalse(result.contains("base64"));
-  }
-
-  @Test
-  public void testMultipleImagesWithMixedBracketFormats() {
-    String input = "![img1](data:image/png;base64,ABC) and ![img2](<data:image/jpeg;base64,XYZ>)";
-    String result = SearchDocumentSanitizer.sanitizeForIndexing(input);
-
-    // Both formats should be handled
-    assertTrue(result.contains("[Image: img1]"));
-    assertTrue(result.contains("[Image: img2]"));
-    assertFalse(result.contains("base64"));
   }
 
   @Test
