@@ -109,7 +109,7 @@ in
   sales_table
 ```
 
-This will create lineage to the Athena table `awsdatacatalog.analytics.sales_data` in the `us-east-1` region.
+This will create lineage to the Athena table `analytics.sales_data` in the `us-east-1` region.
 
 ## M-Query Pattern Supported For Lineage Extraction
 

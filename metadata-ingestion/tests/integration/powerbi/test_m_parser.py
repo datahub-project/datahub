@@ -1428,7 +1428,7 @@ def test_athena_regular_case():
     assert len(data_platform_tables) == 1
     assert (
         data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:athena,awsdatacatalog.analytics.sales_data,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,analytics.sales_data,PROD)"
     )
     assert (
         data_platform_tables[0].data_platform_pair.datahub_data_platform_name
@@ -1472,5 +1472,5 @@ def test_athena_with_platform_instance():
     assert len(data_platform_tables) == 1
     assert (
         data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.awsdatacatalog.analytics.sales_data,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
     )

@@ -1,5 +1,5 @@
 import pytest
-from lark import Tree
+from lark import Token, Tree
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
@@ -133,7 +133,7 @@ def test_athena_lineage_valid_three_level_hierarchy(athena_lineage):
     )
 
     # Mock argument list (Tree) with region
-    arg_list = Tree("arg_list", [Tree("string", ["us-east-1"])])
+    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])])
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -147,8 +147,10 @@ def test_athena_lineage_valid_three_level_hierarchy(athena_lineage):
     assert (
         lineage.upstreams[0].data_platform_pair.datahub_data_platform_name == "athena"
     )
-    assert "awsdatacatalog.analytics.sales_data" in lineage.upstreams[0].urn
+    assert "analytics.sales_data" in lineage.upstreams[0].urn
     assert "athena" in lineage.upstreams[0].urn
+    # Catalog name should not be in the URN
+    assert "awsdatacatalog.analytics" not in lineage.upstreams[0].urn
 
 
 def test_athena_lineage_missing_server(athena_lineage):
@@ -174,7 +176,7 @@ def test_athena_lineage_missing_server(athena_lineage):
 
 def test_athena_lineage_missing_identifier_accessor(athena_lineage):
     """Test Athena lineage returns empty when identifier accessor is None."""
-    arg_list = Tree("arg_list", [Tree("string", ["us-east-1"])])
+    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])])
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -194,7 +196,7 @@ def test_athena_lineage_incomplete_hierarchy_missing_database(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=None
     )
 
-    arg_list = Tree("arg_list", [Tree("string", ["us-west-2"])])
+    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-west-2"')])])
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -216,7 +218,7 @@ def test_athena_lineage_incomplete_hierarchy_missing_table(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list = Tree("arg_list", [Tree("string", ["eu-west-1"])])
+    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"eu-west-1"')])])
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -241,7 +243,7 @@ def test_athena_lineage_malformed_items_missing_name_key(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list = Tree("arg_list", [Tree("string", ["us-east-1"])])
+    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])])
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -270,7 +272,7 @@ def test_athena_lineage_different_regions(athena_lineage):
             identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
         )
 
-        arg_list = Tree("arg_list", [Tree("string", [region])])
+        arg_list = Tree("arg_list", [Tree("string", [Token("STRING", f'"{region}"')])])
 
         data_access_func_detail = DataAccessFunctionDetail(
             arg_list=arg_list,
@@ -281,8 +283,9 @@ def test_athena_lineage_different_regions(athena_lineage):
         lineage = athena_lineage.create_lineage(data_access_func_detail)
 
         assert len(lineage.upstreams) == 1
-        # URN should contain the qualified table name
-        assert "awsdatacatalog.test_db.test_table" in lineage.upstreams[0].urn
+        # URN should contain the qualified table name (without catalog)
+        assert "test_db.test_table" in lineage.upstreams[0].urn
+        assert "awsdatacatalog.test_db" not in lineage.upstreams[0].urn
 
 
 def test_athena_platform_pair(athena_lineage):

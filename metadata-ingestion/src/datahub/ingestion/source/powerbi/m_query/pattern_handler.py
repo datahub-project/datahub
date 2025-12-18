@@ -364,7 +364,6 @@ class AmazonAthenaLineage(AbstractLineage):
         # Extract catalog, database, and table names with error handling
         try:
             catalog_accessor = data_access_func_detail.identifier_accessor
-            catalog_name: str = catalog_accessor.items["Name"]
 
             if catalog_accessor.next is None:
                 logger.warning(
@@ -390,7 +389,7 @@ class AmazonAthenaLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        qualified_table_name: str = f"{catalog_name}.{db_name}.{table_name}"
+        qualified_table_name: str = f"{db_name}.{table_name}"
         logger.debug(
             f"Extracted Athena qualified table name: {qualified_table_name} from server: {server}"
         )
