@@ -48,6 +48,11 @@ from json_repair import repair_json
 from loguru import logger
 from pydantic import BaseModel
 
+from datahub_integrations.mcp.tools.terms import (
+    add_glossary_terms,
+    remove_glossary_terms,
+)
+
 # IMPORTANT: Use relative import to maintain compatibility across repositories
 from ._token_estimator import TokenCountEstimator
 from .tools.tags import add_tags, remove_tags
@@ -2520,6 +2525,16 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
     # Register remove_tags tool
     mcp_instance.tool(name="remove_tags", description=remove_tags.__doc__)(
         async_background(remove_tags)
+    )
+
+    # Register add_terms tool
+    mcp_instance.tool(name="add_terms", description=add_glossary_terms.__doc__)(
+        async_background(add_glossary_terms)
+    )
+
+    # Register remove_terms tool
+    mcp_instance.tool(name="remove_terms", description=remove_glossary_terms.__doc__)(
+        async_background(remove_glossary_terms)
     )
 
 
