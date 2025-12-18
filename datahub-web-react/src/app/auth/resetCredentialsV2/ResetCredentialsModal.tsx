@@ -77,6 +77,7 @@ export default function ResetCredentialsModal() {
                     text: 'Reset Credentials',
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
+                    buttonDataTestId: 'reset-password',
                 },
             ]}
             onCancel={() => {}}
@@ -85,7 +86,12 @@ export default function ResetCredentialsModal() {
             width="533px"
         >
             {loading && <Message type="loading" content="Resetting credentials..." />}
-            <ResetCredentialsForm form={form} handleSubmit={handleResetCredentials} onFormChange={onFormChange} />
+            <ResetCredentialsForm
+                form={form}
+                handleSubmit={handleResetCredentials}
+                onFormChange={onFormChange}
+                isSubmitDisabled={isSubmitDisabled}
+            />
         </Modal>
     );
 }
