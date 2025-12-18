@@ -903,13 +903,14 @@ def test_validate_kafka_connectivity_no_brokers(mock_get_kafka_consumer):
     mock_consumer.list_topics.assert_called_once_with(topic="", timeout=30)
 
 
+@patch("datahub.ingestion.source.kafka.kafka.logger")
 @patch(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_handles_non_iterable_schema_tags(
-    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+    mock_kafka_consumer, mock_schema_registry_client, mock_logger, mock_admin_client
 ):
     """Test that a TypeError from non-iterable schema_tags_field is handled gracefully.
 
@@ -992,7 +993,32 @@ def test_kafka_source_handles_non_iterable_schema_tags(
     for wu in workunits:
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
 
-    # Verify a warning was reported for the bad tags field
+    # Verify each expected MCP aspect was yielded (coverage for yield MetadataChangeProposalWrapper lines)
+    aspect_names = [wu.metadata.aspectName for wu in workunits]
+    expected_aspects = [
+        "status",
+        "schemaMetadata",
+        "browsePaths",
+        "datasetProperties",
+        "subTypes",
+    ]
+    for expected_aspect in expected_aspects:
+        assert expected_aspect in aspect_names, (
+            f"Expected aspect '{expected_aspect}' to be yielded, got: {aspect_names}"
+        )
+
+    # Verify logger.warning was called for the TypeError
+    warning_calls = [
+        call
+        for call in mock_logger.warning.call_args_list
+        if "Failed to extract tags from schema for topic" in str(call)
+    ]
+    assert len(warning_calls) >= 1, (
+        f"Expected logger.warning call for tag extraction failure, "
+        f"got calls: {mock_logger.warning.call_args_list}"
+    )
+
+    # Verify a warning was reported to the source report
     report = kafka_source.get_report()
     warnings_list = list(report.warnings)
     assert len(warnings_list) > 0
