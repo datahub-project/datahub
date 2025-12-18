@@ -64,7 +64,7 @@ interface Props {
 
 function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, selectedSource, setIsRecipeValid }: Props) {
     const [form] = Form.useForm();
-    const isFieldsInitializedRef = useRef<boolean>(false);
+    const areFormValuesChangedRef = useRef<boolean>(false);
 
     const formValues = Form.useWatch([], form);
 
@@ -91,32 +91,14 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
             });
     }, [form, setIsRecipeValid]);
 
-    // Consistent key to track changes in configuration of fields (excluded dynamic fields and another functions)
-    const fieldsChangedConsistentKey = useMemo(() => {
-        const dynamicFields = {
-            dynamicHidden: undefined,
-            dynamicDisabled: undefined,
-            dynamicLabel: undefined,
-            setFieldValueOnRecipe: undefined,
-            getValueFromRecipeOverride: undefined,
-        };
-        return JSON.stringify([
-            { ...fields, ...dynamicFields },
-            { ...advancedFields, ...dynamicFields },
-            { ...filterFields, ...dynamicFields },
-        ]);
-    }, [fields, advancedFields, filterFields]);
-
-    // Run validation when fields changed. Required to validate hidden/shown fields
+    // Run validation when fields changed. Required to revalidate hidden/shown fields
     useEffect(() => {
-        // Do not run validation on the first render of fields
-        if (isFieldsInitializedRef.current) {
-            // Run validation on the next tick when fields are already hidden/shown
+        // Run validation when form values were changed
+        if (areFormValuesChangedRef.current) {
+            // Run validation on the next tick when the new state of fields is already rendered
             setTimeout(() => runFormValidation(), 0);
-        } else {
-            isFieldsInitializedRef.current = true;
         }
-    }, [fieldsChangedConsistentKey, runFormValidation]);
+    }, [runFormValidation]);
 
     const allFields = useMemo(
         () => [...fields, ...advancedFields, ...filterFields],
@@ -158,6 +140,7 @@ function RecipeForm({ state, displayRecipe, sourceConfigs, setStagedRecipe, sele
 
     const updateFormValues = useCallback(
         (changedValues: any, allValues: any) => {
+            areFormValuesChangedRef.current = true;
             updateRecipe(changedValues, allValues);
             runFormValidation();
         },
