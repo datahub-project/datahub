@@ -27,6 +27,7 @@ import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.testng.annotations.BeforeTest;
@@ -380,5 +381,105 @@ public class AssertionInfoMutatorTest {
             .collect(Collectors.toList());
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 0);
+  }
+
+  @Test
+  public void testNullNestedAssertionDoesNotThrow() {
+    AssertionInfo assertionInfo = new AssertionInfo().setType(AssertionType.DATASET);
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(testAssertionUrn)
+                        .entitySpec(entityRegistry.getEntitySpec(testAssertionUrn.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(testAssertionUrn.getEntityType())
+                                .getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
+                        .recordTemplate(assertionInfo)
+                        .build()),
+                mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(result.stream().filter(Pair::getSecond).count(), 0);
+    AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
+    assertNotNull(mutatedInfo);
+    assertNull(mutatedInfo.getEntityUrn());
+  }
+
+  @Test
+  public void testBatchWithOneInvalidAssertionMutatesOthers() throws Exception {
+    Urn assertionUrn1 = UrnUtils.getUrn("urn:li:assertion:test-assertion-1");
+    Urn assertionUrn2 = UrnUtils.getUrn("urn:li:assertion:test-assertion-2");
+    Urn assertionUrn3 = UrnUtils.getUrn("urn:li:assertion:test-assertion-3");
+
+    AssertionInfo validDataset =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(new DatasetAssertionInfo().setDataset(testDatasetUrn));
+
+    // Invalid: type says DATASET, but the nested payload is missing.
+    AssertionInfo invalidDatasetMissingPayload = new AssertionInfo().setType(AssertionType.DATASET);
+
+    AssertionInfo validFreshness =
+        new AssertionInfo()
+            .setType(AssertionType.FRESHNESS)
+            .setFreshnessAssertion(new FreshnessAssertionInfo().setEntity(testEntityUrn));
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(assertionUrn1)
+                        .entitySpec(entityRegistry.getEntitySpec(assertionUrn1.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(assertionUrn1.getEntityType())
+                                .getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
+                        .recordTemplate(validDataset)
+                        .build(),
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(assertionUrn2)
+                        .entitySpec(entityRegistry.getEntitySpec(assertionUrn2.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(assertionUrn2.getEntityType())
+                                .getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
+                        .recordTemplate(invalidDatasetMissingPayload)
+                        .build(),
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(assertionUrn3)
+                        .entitySpec(entityRegistry.getEntitySpec(assertionUrn3.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(assertionUrn3.getEntityType())
+                                .getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
+                        .recordTemplate(validFreshness)
+                        .build()),
+                mockRetrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(result.size(), 3);
+
+    Map<Urn, Pair<ChangeMCP, Boolean>> byUrn =
+        result.stream().collect(Collectors.toMap(p -> p.getFirst().getUrn(), p -> p));
+
+    assertTrue(byUrn.get(assertionUrn1).getSecond());
+    assertEquals(
+        byUrn.get(assertionUrn1).getFirst().getAspect(AssertionInfo.class).getEntityUrn(),
+        testDatasetUrn);
+
+    assertFalse(byUrn.get(assertionUrn2).getSecond());
+    assertNull(byUrn.get(assertionUrn2).getFirst().getAspect(AssertionInfo.class).getEntityUrn());
+
+    assertTrue(byUrn.get(assertionUrn3).getSecond());
+    assertEquals(
+        byUrn.get(assertionUrn3).getFirst().getAspect(AssertionInfo.class).getEntityUrn(),
+        testEntityUrn);
   }
 }

@@ -3,6 +3,13 @@ package com.linkedin.metadata.aspect.hooks;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.CustomAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -56,37 +63,102 @@ public class AssertionInfoMutator extends MutationHook {
   }
 
   private static boolean aspectFilter(ReadItem item) {
-    return item.getAspectName().equals(ASSERTION_INFO_ASPECT_NAME);
+    return ASSERTION_INFO_ASPECT_NAME.equals(item.getAspectName());
   }
 
   private static boolean processAssertionInfoAspect(ChangeMCP item) {
     boolean mutated = false;
     final AssertionInfo next = item.getAspect(AssertionInfo.class);
-    if (next != null && next.getEntityUrn() == null) {
-      next.setEntityUrn(getEntityFromAssertionInfo(next));
-      mutated = true;
+    if (next != null && !next.hasEntityUrn()) {
+      final Urn entityUrn = getEntityFromAssertionInfo(next);
+      if (entityUrn != null) {
+        next.setEntityUrn(entityUrn);
+        mutated = true;
+      }
     }
     return mutated;
   }
 
   public static Urn getEntityFromAssertionInfo(AssertionInfo assertionInfo) {
+    if (assertionInfo == null) {
+      return null;
+    }
+    if (!assertionInfo.hasType()) {
+      log.warn(
+          "AssertionInfo missing type; cannot derive entityUrn. assertionInfo={}", assertionInfo);
+      return null;
+    }
+
     switch (assertionInfo.getType()) {
       case DATASET:
-        return assertionInfo.getDatasetAssertion().getDataset();
+        final DatasetAssertionInfo datasetAssertionInfo = assertionInfo.getDatasetAssertion();
+        if (datasetAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=DATASET but datasetAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return datasetAssertionInfo.getDataset();
       case FRESHNESS:
-        return assertionInfo.getFreshnessAssertion().getEntity();
+        final FreshnessAssertionInfo freshnessAssertionInfo = assertionInfo.getFreshnessAssertion();
+        if (freshnessAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=FRESHNESS but freshnessAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return freshnessAssertionInfo.getEntity();
       case VOLUME:
-        return assertionInfo.getVolumeAssertion().getEntity();
+        final VolumeAssertionInfo volumeAssertionInfo = assertionInfo.getVolumeAssertion();
+        if (volumeAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=VOLUME but volumeAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return volumeAssertionInfo.getEntity();
       case SQL:
-        return assertionInfo.getSqlAssertion().getEntity();
+        final SqlAssertionInfo sqlAssertionInfo = assertionInfo.getSqlAssertion();
+        if (sqlAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=SQL but sqlAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return sqlAssertionInfo.getEntity();
       case FIELD:
-        return assertionInfo.getFieldAssertion().getEntity();
+        final FieldAssertionInfo fieldAssertionInfo = assertionInfo.getFieldAssertion();
+        if (fieldAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=FIELD but fieldAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return fieldAssertionInfo.getEntity();
       case DATA_SCHEMA:
-        return assertionInfo.getSchemaAssertion().getEntity();
+        final SchemaAssertionInfo schemaAssertionInfo = assertionInfo.getSchemaAssertion();
+        if (schemaAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=DATA_SCHEMA but schemaAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return schemaAssertionInfo.getEntity();
       case CUSTOM:
-        return assertionInfo.getCustomAssertion().getEntity();
+        final CustomAssertionInfo customAssertionInfo = assertionInfo.getCustomAssertion();
+        if (customAssertionInfo == null) {
+          log.warn(
+              "AssertionInfo type=CUSTOM but customAssertion is null; cannot derive entityUrn. assertionInfo={}",
+              assertionInfo);
+          return null;
+        }
+        return customAssertionInfo.getEntity();
       default:
-        throw new RuntimeException("Unsupported Assertion Type " + assertionInfo.getType());
+        log.warn(
+            "Unsupported AssertionInfo type {}; cannot derive entityUrn. assertionInfo={}",
+            assertionInfo.getType(),
+            assertionInfo);
+        return null;
     }
   }
 }
