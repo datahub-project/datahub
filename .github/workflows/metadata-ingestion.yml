@@ -145,3 +145,94 @@ jobs:
         with:
           name: Event File
           path: ${{ github.event_path }}
+
+  prepare-validate-plugin-deps:
+    runs-on: ubuntu-latest
+    outputs:
+      plugins: ${{ steps.get-plugins.outputs.plugins }}
+      should_run: ${{ steps.check-changes.outputs.should_run }}
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - uses: acryldata/sane-checkout-action@v4
+      - name: Check if setup.py was modified
+        id: check-changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Running due to manual workflow dispatch"
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Check if setup.py is in the changed files
+            git fetch origin ${{ github.base_ref }}
+            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^metadata-ingestion/setup.py$'; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "setup.py was modified in this PR"
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "setup.py was not modified, skipping plugin validation"
+            fi
+          else
+            # For push events, check the commit
+            if git diff --name-only HEAD~1 HEAD | grep -q '^metadata-ingestion/setup.py$'; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "setup.py was modified in this commit"
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "setup.py was not modified, skipping plugin validation"
+            fi
+          fi
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Install package
+        run: ./gradlew :metadata-ingestion:installPackageOnly
+      - name: Get plugin list
+        id: get-plugins
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: |
+          cd metadata-ingestion
+          # Use datahub CLI to get list of source plugins
+          PLUGINS=$(datahub check plugins 2>&1 | awk '/^Sinks:/ { exit } /^Sources:/ { next } /./ { print $1}' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "plugins=$PLUGINS" >> $GITHUB_OUTPUT
+          echo "Found plugins: $PLUGINS"
+
+  validate-plugin-deps:
+    needs: prepare-validate-plugin-deps
+    if: needs.prepare-validate-plugin-deps.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJson(needs.prepare-validate-plugin-deps.outputs.plugins) }}
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: acryldata/sane-checkout-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: pip install uv
+      - name: Validate plugin '${{ matrix.plugin }}' dependencies
+        run: |
+          cd metadata-ingestion
+          echo "::group::Installing plugin: ${{ matrix.plugin }}"
+          uv pip install --system -e ".[${{ matrix.plugin }}]"
+          echo "::endgroup::"
+          echo "✅ Plugin '${{ matrix.plugin }}' installed successfully with all dependencies"
