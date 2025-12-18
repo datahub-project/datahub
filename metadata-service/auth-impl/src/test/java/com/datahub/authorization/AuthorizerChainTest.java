@@ -87,7 +87,7 @@ public class AuthorizerChainTest {
   }
 
   @Test
-  public void testAuthorizerDelegatesToTheAuthorizeBatch() {
+  public void testAuthorizeDelegatesToTheAuthorizeBatch() {
     AuthorizerChain chain = Mockito.spy(new AuthorizerChain(List.of(), null));
     BatchAuthorizationResult batchAuthorizationResult =
         new BatchAuthorizationResult(
