@@ -10,6 +10,7 @@ const Wrapper = styled.div`
 const TopRow = styled.div`
     display: flex;
     flex-direction: row;
+    margin-top: 12px;
 `;
 
 const Spacer = styled.div`
