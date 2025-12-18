@@ -7,10 +7,7 @@ const tryToSignUp = () => {
   cy.enterTextInTestId("password", "Example password");
   cy.enterTextInTestId("confirmPassword", "Example password");
 
-  cy.mouseover("#title").click();
-  cy.waitTextVisible("Other").click();
-
-  cy.get("[type=submit]").click();
+  cy.get('[data-testid="sign-up"]').click();
   return { name, email };
 };
 
