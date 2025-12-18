@@ -26,7 +26,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DataPlatformInstanceClass,
     KafkaSchemaClass,
+    SchemaMetadataClass,
 )
 
 
@@ -156,7 +159,9 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
         and wu.metadata.aspectName == "dataPlatformInstance"
     ]
     assert len(data_platform_mcps) == 1
-    assert data_platform_mcps[0].aspect.instance == make_dataplatform_instance_urn(
+    data_platform_aspect = data_platform_mcps[0].aspect
+    assert isinstance(data_platform_aspect, DataPlatformInstanceClass)
+    assert data_platform_aspect.instance == make_dataplatform_instance_urn(
         PLATFORM, PLATFORM_INSTANCE
     )
 
@@ -168,7 +173,9 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
         and wu.metadata.aspectName == "browsePaths"
     ]
     assert len(browse_path_mcps) == 1
-    assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_path_mcps[0].aspect.paths
+    browse_paths_aspect = browse_path_mcps[0].aspect
+    assert isinstance(browse_paths_aspect, BrowsePathsClass)
+    assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_paths_aspect.paths
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -221,7 +228,9 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
         and wu.metadata.aspectName == "browsePaths"
     ]
     assert len(browse_path_mcps) == 1
-    assert f"/prod/{PLATFORM}" in browse_path_mcps[0].aspect.paths
+    browse_paths_aspect = browse_path_mcps[0].aspect
+    assert isinstance(browse_paths_aspect, BrowsePathsClass)
+    assert f"/prod/{PLATFORM}" in browse_paths_aspect.paths
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -384,6 +393,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     # Check that topics with schema have correct schema metadata
     for mcp in schema_metadata_mcps:
         schema_metadata = mcp.aspect
+        assert isinstance(schema_metadata, SchemaMetadataClass)
         assert isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
         # Verify schema name exists in our test data if it's a topic (not a subject)
         if schema_metadata.schemaName in topic_subject_schema_map:
@@ -994,7 +1004,11 @@ def test_kafka_source_handles_non_iterable_schema_tags(
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
 
     # Verify each expected MCP aspect was yielded (coverage for yield MetadataChangeProposalWrapper lines)
-    aspect_names = [wu.metadata.aspectName for wu in workunits]
+    aspect_names = [
+        wu.metadata.aspectName
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
     expected_aspects = [
         "status",
         "schemaMetadata",
