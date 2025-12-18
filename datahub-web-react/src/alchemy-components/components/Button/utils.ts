@@ -132,6 +132,8 @@ const getButtonVariantStyles = (
     theme?: Theme,
 ): CSSObject => {
     const isPrimary = color === 'violet' || color === 'primary';
+    // Adding a hack here for login/signup pages where v1 styles are still loaded by default
+    // Once we move to remove v1 styles we can revert this hack and always use styles from theme only
     const resolvedPrimaryColor =
         theme?.styles?.['primary-color'] === themeV1PrimaryColor
             ? themeV2PrimaryColor
