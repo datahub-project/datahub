@@ -23,6 +23,7 @@ export interface ButtonPropsDefaults {
     isLoading: boolean;
     isDisabled: boolean;
     isActive: boolean;
+    accessibilityMode: boolean;
 }
 
 export interface ButtonProps

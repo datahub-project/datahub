@@ -16,10 +16,10 @@ export const DiscardDescriptionModal = ({ cancelModalVisible, onDiscard, onCance
                 destroyOnClose
                 onCancel={onCancel}
                 footer={[
-                    <Button type="text" onClick={onCancel}>
+                    <Button type="text" onClick={onCancel} color="blue">
                         Cancel
                     </Button>,
-                    <Button onClick={onDiscard}>Yes</Button>,
+                    <Button onClick={onDiscard} color="blue">Yes</Button>,
                 ]}
             >
                 <p>Are you sure you want to close the documentation editor? Any unsaved changes will be lost.</p>

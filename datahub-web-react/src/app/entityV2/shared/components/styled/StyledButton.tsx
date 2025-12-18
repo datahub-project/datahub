@@ -1,15 +1,15 @@
 import { Button } from 'antd';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
-export default styled(Button)`
+export default styled(Button)<{ $hasBorder?: boolean; $hasHover?: boolean }>`
     padding-top: 5px;
     padding-bottom: 5px;
     padding-right: 16px;
     padding-left: 16px;
+    margin: 0px 10px 0px 10px;
     box-shadow: 0px 0px 4px 0px #0000001a;
-    border: 1px solid #d9d9d9;
-    ${(props) =>
-        props.$hasBorder && `border: 1px solid #d9d9d9;`
+    border: ${(props) =>
+        props.$hasBorder === false ? 'none' : `1px solid ${props.theme.styles['primary-color-lightest']};`
     }
 
     font-size: 12px;
@@ -21,10 +21,11 @@ export default styled(Button)`
 
     ${(props) =>
         props.$hasHover &&
+        css`
+            &:hover {
+                color: ${(props) => props.theme.styles['primary-color-darkest']};
+                background-color: ${(props) => props.theme.styles['primary-color-lightest']};
+            }
         `
-        :hover {
-            color: ${(props) => props.theme.styles['primary-color-darkest']};
-            background-color: ${(props) => props.theme.styles['primary-color-lightest']};
-        }
-    `}
+    }
 `;

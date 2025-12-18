@@ -1,5 +1,5 @@
 import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination } from 'antd';
+import { Empty, Pagination } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
 import { useLocation } from 'react-router';

@@ -55,7 +55,7 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 title={undefined}
                 visible
                 footer={null}
-                closable={false}
+                closable={true}
                 onCancel={onConfirmClose}
                 className="description-editor-wrapper"
             >

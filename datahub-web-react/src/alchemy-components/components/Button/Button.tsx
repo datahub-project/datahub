@@ -4,6 +4,7 @@ import React from 'react';
 
 import { ButtonBase } from '@components/components/Button/components';
 import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/types';
+import { useAppConfig } from '@app/useAppConfig';
 
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
@@ -29,6 +30,17 @@ export const Button = ({
     children,
     ...props
 }: ButtonProps) => {
+    const appConfig = useAppConfig();
+    
+    // Debug: Check backend connection
+    if (!appConfig.loaded) {
+        console.warn('AppConfig not loaded - backend may not be running');
+    } else {
+        console.log('AccessibilityMode from backend:', appConfig.config.visualConfig.accessibilityMode);
+    }
+    
+    const accessibilityMode = appConfig.config.visualConfig.accessibilityMode ?? false;
+
     const styleProps = {
         variant,
         color,
@@ -38,6 +50,7 @@ export const Button = ({
         isActive,
         isDisabled,
         hasChildren: !!children,
+        accessibilityMode,
     };
 
     if (isLoading) {

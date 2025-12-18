@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
+import { access } from 'fs';
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -31,6 +32,7 @@ export const DEFAULT_APP_CONFIG = {
         searchResult: {
             enableNameHighlight: false,
         },
+        accessibilityMode: false,
     },
     authConfig: {
         tokenAuthEnabled: false,

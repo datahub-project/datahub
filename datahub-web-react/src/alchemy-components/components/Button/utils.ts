@@ -9,6 +9,7 @@ import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
 import { Theme } from '@conf/theme/types';
+import { useAppConfig } from '@app/useAppConfig';
 
 interface ColorStyles {
     bgColor: string;
@@ -30,7 +31,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     const base = {
         // Backgrounds
         bgColor: color500,
-        hoverBgColor: color500,
+        hoverBgColor: getColor(color, 900, theme),
         activeBgColor: getColor(color, 700, theme),
         disabledBgColor: getColor('gray', 100, theme),
 
@@ -83,7 +84,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
 
             bgColor: colors.transparent,
             borderColor: colors.transparent,
-            hoverBgColor: colors.gray[1500],
+            hoverBgColor: getColor(color, 100, theme),
             activeBgColor: colors.transparent,
             disabledBgColor: colors.transparent,
             disabledBorderColor: colors.transparent,
@@ -126,18 +127,20 @@ const getButtonVariantStyles = (
     variant: ButtonVariant,
     colorStyles: ColorStyles,
     color: ColorOptions,
+    accessibilityMode: boolean,
     theme?: Theme,
 ): CSSObject => {
     const isPrimary = color === 'violet' || color === 'primary';
-    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-gradient'] || '#705EE4'} 38.97%, ${theme?.styles?.['primary-color'] || '#533FD1'} 100%)`;
+    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-lighter'] || '#705EE4'} 38.97%, ${theme?.styles?.['primary-color'] || '#533FD1'} 100%)`;
+    const useGradient = isPrimary && !accessibilityMode;
 
     const variantStyles = {
         filled: {
-            background: isPrimary ? primaryGradient : colorStyles.bgColor,
+            background: useGradient ? primaryGradient : colorStyles.bgColor,
             border: `1px solid ${colorStyles.borderColor}`,
             color: colorStyles.textColor,
             '&:hover': {
-                background: isPrimary ? primaryGradient : colorStyles.hoverBgColor,
+                background: colorStyles.bgColor, // useGradient ? primaryGradient : colorStyles.hoverBgColor,
                 border: `1px solid ${colorStyles.hoverBgColor}`,
                 boxShadow: shadows.sm,
             },
@@ -170,6 +173,7 @@ const getButtonVariantStyles = (
             color: colorStyles.textColor,
             '&:hover': {
                 backgroundColor: colorStyles.hoverBgColor,
+                color: getColor(color,900, theme)
             },
             '&:disabled': {
                 backgroundColor: colorStyles.disabledBgColor,
@@ -275,13 +279,13 @@ const getButtonLoadingStyles = (): CSSObject => ({
  * Main function to generate styles for button
  */
 export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren, theme } = props;
+    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren, theme, accessibilityMode } = props;
 
     // Get map of colors
     const colorStyles = getButtonColorStyles(variant, color, theme);
 
     // Define styles for button
-    const variantStyles = getButtonVariantStyles(variant, colorStyles, color, theme);
+    const variantStyles = getButtonVariantStyles(variant, colorStyles, color, accessibilityMode, theme);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
     const paddingStyles = getButtonPadding(size, hasChildren, isCircle, variant);

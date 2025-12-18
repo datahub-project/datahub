@@ -1,5 +1,5 @@
 import { EditOutlined, ExpandAltOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button as AntButton, Divider, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
 import queryString from 'query-string';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/Ent
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import StyledButton from '@app/entityV2/shared/components/styled/StyledButton';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
@@ -75,17 +75,19 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 <>
                     <StyledTabToolbar>
                         <div>
-                            <AntButton
+                            <StyledButton
                                 data-testid="edit-documentation-button"
                                 type="text"
                                 onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                                $hasBorder={false}
+                                $hasHover={true}
                             >
                                 <EditOutlined /> Edit
-                            </AntButton>
+                            </StyledButton>
                             {!hideLinksButton && <AddLinkModal buttonType="text" refetch={refetch} />}
                         </div>
                         <div>
-                            <AntButton
+                            <StyledButton
                                 type="text"
                                 onClick={() =>
                                     routeToTab({
@@ -93,9 +95,10 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                         tabParams: { modal: true },
                                     })
                                 }
+                                $hasHover={true}
                             >
                                 <ExpandAltOutlined />
-                            </AntButton>
+                            </StyledButton>
                         </div>
                     </StyledTabToolbar>
                     <div>

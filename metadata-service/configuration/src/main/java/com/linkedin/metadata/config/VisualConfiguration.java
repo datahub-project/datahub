@@ -32,6 +32,9 @@ public class VisualConfiguration {
   /** Boolean flag enabled shows the full title of an entity in lineage view by default */
   public boolean showFullTitleInLineage;
 
+  /** Boolean flag enables accessibility mode for better screen reader support */
+  public boolean accessibilityMode;
+
   /** DEPRECATED: This is now controlled via the UI settings. */
   public ApplicationConfig application;
 }

@@ -1,4 +1,4 @@
-import { Editor } from '@components';
+import { colors, Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -176,6 +176,12 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 okText: 'Yes',
                 maskClosable: true,
                 closable: true,
+                okButtonProps: { 
+                    style: {
+                        backgroundColor: colors.primary[500], 
+                        borderColor: colors.primary[500],
+                    }
+                },
             });
         }
     }

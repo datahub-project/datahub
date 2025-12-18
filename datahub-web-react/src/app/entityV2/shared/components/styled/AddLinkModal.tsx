@@ -1,11 +1,12 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button as AntButton, message } from 'antd';
+import { message } from 'antd';
 import React, { useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import { FormData, LinkFormModal } from '@app/entityV2/shared/components/styled/LinkFormModal';
+import StyledButton from '@app/entityV2/shared/components/styled/StyledButton';
 import { Button } from '@src/alchemy-components';
 
 import { useAddLinkMutation } from '@graphql/mutations.generated';
@@ -75,10 +76,16 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: Props) => {
         }
         if (bType === 'text') {
             return (
-                <AntButton data-testid="add-link-button" onClick={showModal} type="text">
+                <StyledButton 
+                    data-testid="add-link-button" 
+                    onClick={showModal} 
+                    type="text" 
+                    $hasBorder={false} 
+                    $hasHover={true}
+                >
                     <PlusOutlined />
                     Add Link
-                </AntButton>
+                </StyledButton>
             );
         }
         return (

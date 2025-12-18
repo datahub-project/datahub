@@ -146,7 +146,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             onCancel={onClose}
             footer={
                 <ModalButtonContainer>
-                    <Button color="gray" onClick={onClose} variant="text">
+                    <Button onClick={onClose} variant="text" isActive={true}>
                         Cancel
                     </Button>
                     <Button

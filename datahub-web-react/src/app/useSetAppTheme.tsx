@@ -30,24 +30,19 @@ export function useSetAppTheme() {
 
     useEffect(() => {
         if (customThemeId && customThemeId.endsWith('.json')) {
-            if (import.meta.env.DEV) {
-                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
-                    .then((theme) => {
-                        updateTheme(theme);
-                    })
-                    .catch((error) => {
-                        console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
-                    });
-            } else {
-                fetch(`assets/conf/theme/${customThemeId}`)
-                    .then((response) => response.json())
-                    .then((theme) => {
-                        updateTheme(theme);
-                    })
-                    .catch((error) => {
-                        console.error(`Failed to load theme from 'assets/conf/theme/${customThemeId}':`, error);
-                    });
-            }
+            // Always use fetch for JSON files, even in dev mode
+            const themeUrl = import.meta.env.DEV 
+                ? `/src/conf/theme/${customThemeId}` 
+                : `assets/conf/theme/${customThemeId}`;
+            
+            fetch(themeUrl)
+                .then((response) => response.json())
+                .then((theme) => {
+                    updateTheme(theme);
+                })
+                .catch((error) => {
+                    console.error(`Failed to load theme from '${themeUrl}':`, error);
+                });
         } else if (customThemeId && themes[customThemeId]) {
             updateTheme(themes[customThemeId]);
         } else {
