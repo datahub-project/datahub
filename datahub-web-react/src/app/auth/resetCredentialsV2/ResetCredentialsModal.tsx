@@ -1,42 +1,43 @@
 import { useReactiveVar } from '@apollo/client';
 import { Modal } from '@components';
 import { Form, message } from 'antd';
-import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
-import { Redirect, useLocation } from 'react-router';
+import { Redirect } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
-import LoginForm from '@app/auth/loginV2/LoginForm';
+import ResetCredentialsForm from '@app/auth/resetCredentialsV2/ResetCredentialsForm';
 import ModalHeader from '@app/auth/shared/ModalHeader';
-import { LoginFormValues } from '@app/auth/shared/types';
+import { ResetCredentialsFormValues } from '@app/auth/shared/types';
+import useGetResetTokenFromUrlParams from '@app/auth/useGetResetTokenFromUrlParams';
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
+import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-export default function LoginModal() {
+export default function ResetCredentialsModal() {
+    const [form] = Form.useForm();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
-    const location = useLocation();
-    const params = QueryString.parse(location.search, { decode: true });
-    const maybeRedirectError = params.error_msg;
+    const resetToken = useGetResetTokenFromUrlParams();
+
+    const [loading, setLoading] = useState(false);
+    const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
 
     const { refreshContext } = useAppConfig();
 
-    const [form] = Form.useForm();
-    const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
-
-    const [loading, setLoading] = useState(false);
-
-    const handleLogin = useCallback(
-        (values: LoginFormValues) => {
+    const handleResetCredentials = useCallback(
+        (values: ResetCredentialsFormValues) => {
             setLoading(true);
             const requestOptions = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: values.username, password: values.password }),
+                body: JSON.stringify({
+                    email: values.email,
+                    password: values.password,
+                    resetToken,
+                }),
             };
-
-            fetch(resolveRuntimePath('/logIn'), requestOptions)
+            fetch(resolveRuntimePath('/resetNativeUserCredentials'), requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();
@@ -45,22 +46,16 @@ export default function LoginModal() {
                     }
                     isLoggedInVar(true);
                     refreshContext();
-                    analytics.event({ type: EventType.LogInEvent });
+                    analytics.event({ type: EventType.ResetCredentialsEvent });
                     return Promise.resolve();
                 })
-                .catch((e) => {
-                    message.error(`Failed to log in! ${e}`);
+                .catch((_) => {
+                    message.error(`Failed to log in!`);
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext],
+        [refreshContext, resetToken],
     );
-
-    if (isLoggedIn) {
-        const maybeRedirectUri = params.redirect_uri;
-        // NOTE we do not decode the redirect_uri because it is already decoded by QueryString.parse
-        return <Redirect to={maybeRedirectUri || '/'} />;
-    }
 
     const onFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length > 0);
@@ -70,22 +65,16 @@ export default function LoginModal() {
         setIsSubmitDisabled(hasErrors || !isTouched);
     };
 
-    const handleSSOLogin = () => {
-        window.location.href = resolveRuntimePath('/sso');
-    };
+    if (isLoggedIn && !loading) {
+        return <Redirect to={`${PageRoutes.ROOT}`} />;
+    }
 
     return (
         <Modal
             title={<ModalHeader />}
             buttons={[
                 {
-                    text: 'Sign in with SSO',
-                    onClick: handleSSOLogin,
-                    variant: 'text',
-                    color: 'gray',
-                },
-                {
-                    text: 'Login',
+                    text: 'Reset Credentials',
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
                 },
@@ -95,11 +84,8 @@ export default function LoginModal() {
             closable={false}
             width="533px"
         >
-            {maybeRedirectError && maybeRedirectError.length > 0 && (
-                <Message type="error" content={maybeRedirectError} />
-            )}
-            {loading && <Message type="loading" content="Logging in..." />}
-            <LoginForm form={form} handleSubmit={handleLogin} onFormChange={onFormChange} />
+            {loading && <Message type="loading" content="Resetting credentials..." />}
+            <ResetCredentialsForm form={form} handleSubmit={handleResetCredentials} onFormChange={onFormChange} />
         </Modal>
     );
 }
