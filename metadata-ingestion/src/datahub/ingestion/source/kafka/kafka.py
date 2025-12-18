@@ -468,8 +468,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 for tag in schema_tags:
                     all_tags.append(self.source_config.tag_prefix + tag)
-            except TypeError:
-                pass
+            except TypeError as e:
+                logger.warning(
+                    f"Failed to extract tags from schema for topic {topic}: {e}"
+                )
+                self.report.report_warning(
+                    topic,
+                    f"Unable to extract tags from schema field '{self.source_config.schema_tags_field}': {e}",
+                )
 
             if self.source_config.enable_meta_mapping:
                 meta_aspects = self.meta_processor.process(avro_schema.other_props)
