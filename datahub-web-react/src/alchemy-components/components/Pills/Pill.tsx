@@ -68,6 +68,7 @@ export function Pill({
             onClick={onPillClick}
             style={{
                 backgroundColor: customStyle?.backgroundColor,
+                fontWeight: "bold",
             }}
             title={showLabel ? label : undefined}
             className={className}
