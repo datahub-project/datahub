@@ -2,9 +2,8 @@ import { Button, Input, SimpleSelect, spacing } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { FilterRecipeField, FilterRule } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { FilterRecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { SectionName } from '@app/ingestV2/source/multiStepBuilder/components/SectionName';
-import { FieldLabel } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FieldLabel';
 import { RemoveIcon } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/shared/RemoveIcon';
 import { Filter } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/types';
 import {
@@ -15,6 +14,7 @@ import {
     getOptionsForTypeSelect,
     getSubtypeOptions,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/filtersSection/utils';
+import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FilterRow = styled.div`
     display: flex;
@@ -58,11 +58,8 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
     // FYI: assuming that each filter has both allow and deny version
     const subtypeSelectOptions = useMemo(() => getSubtypeOptions(supportedFields), [supportedFields]);
     const defaultRule = useMemo(() => {
-        if (ruleSelectOptions.length > 0) {
-            return ruleSelectOptions[0].value;
-        }
-        return undefined;
-    }, [ruleSelectOptions]);
+        return 'exclude';
+    }, []);
 
     const defaultSubtype = useMemo(() => {
         if (subtypeSelectOptions.length > 0) {
@@ -70,6 +67,13 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
         }
         return undefined;
     }, [subtypeSelectOptions]);
+
+    const defaultSubtypeSelectValues = useMemo(() => {
+        if (defaultSubtype) {
+            return [defaultSubtype];
+        }
+        return [];
+    }, [defaultSubtype]);
 
     const defaultsForEmptyFilter = useMemo(
         () => ({
@@ -153,6 +157,8 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
         [updateFilters],
     );
 
+    if (fields.length === 0) return null;
+
     return (
         <>
             <SectionName
@@ -181,7 +187,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                         <SelectWrapper>
                             <SimpleSelect
                                 options={ruleSelectOptions}
-                                values={filter.rule ? [filter.rule] : [FilterRule.INCLUDE]}
+                                values={filter.rule ? [filter.rule] : [defaultRule]}
                                 onUpdate={(values) => updateFilterRule(filter.key, values?.[0])}
                                 showClear={false}
                                 width="full"
@@ -192,7 +198,7 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                         <SelectWrapper>
                             <SimpleSelect
                                 options={subtypeSelectOptions}
-                                values={filter.subtype ? [filter.subtype] : [subtypeSelectOptions?.[0].value]}
+                                values={filter.subtype ? [filter.subtype] : defaultSubtypeSelectValues}
                                 onUpdate={(values) => updateFilterSubtype(filter.key, values?.[0])}
                                 showClear={false}
                                 width="full"
