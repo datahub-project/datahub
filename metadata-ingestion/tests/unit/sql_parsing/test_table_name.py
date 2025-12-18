@@ -8,7 +8,62 @@ local temporary tables (prefixed with #).
 
 import sqlglot
 
-from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing._models import _restore_temp_table_prefix, _TableName
+
+
+class TestRestoreTempTablePrefix:
+    """Tests for the _restore_temp_table_prefix helper function."""
+
+    def test_no_flags_returns_unchanged(self):
+        """Table name without temp flags should be returned unchanged."""
+        identifier = sqlglot.exp.Identifier(this="regular_table")
+        result = _restore_temp_table_prefix("regular_table", identifier)
+        assert result == "regular_table"
+
+    def test_local_temp_adds_hash_prefix(self):
+        """Identifier with temporary=True should add # prefix."""
+        identifier = sqlglot.exp.Identifier(this="temptable", temporary=True)
+        result = _restore_temp_table_prefix("temptable", identifier)
+        assert result == "#temptable"
+
+    def test_global_temp_adds_double_hash_prefix(self):
+        """Identifier with global=True should add ## prefix."""
+        identifier = sqlglot.exp.Identifier(this="globaltemp", **{"global": True})
+        result = _restore_temp_table_prefix("globaltemp", identifier)
+        assert result == "##globaltemp"
+
+    def test_no_double_prefix_local(self):
+        """Should not add # if already present."""
+        identifier = sqlglot.exp.Identifier(this="#already_prefixed", temporary=True)
+        result = _restore_temp_table_prefix("#already_prefixed", identifier)
+        assert result == "#already_prefixed"
+
+    def test_no_double_prefix_global(self):
+        """Should not add ## if already present."""
+        identifier = sqlglot.exp.Identifier(
+            this="##already_prefixed", **{"global": True}
+        )
+        result = _restore_temp_table_prefix("##already_prefixed", identifier)
+        assert result == "##already_prefixed"
+
+    def test_identifier_without_args_attr(self):
+        """Non-identifier expression without args should return unchanged."""
+
+        # Create a mock expression without args attribute
+        class MockExprNoArgs:
+            pass
+
+        mock_expr = MockExprNoArgs()
+        result = _restore_temp_table_prefix("table_name", mock_expr)  # type: ignore
+        assert result == "table_name"
+
+    def test_global_takes_precedence_over_local(self):
+        """If both global and temporary are set, global (##) takes precedence."""
+        identifier = sqlglot.exp.Identifier(
+            this="temptable", temporary=True, **{"global": True}
+        )
+        result = _restore_temp_table_prefix("temptable", identifier)
+        assert result == "##temptable"
 
 
 class TestTableNameFromSqlglotTable:
