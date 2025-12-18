@@ -1,0 +1,208 @@
+name: Create Linear Ticket for Ingestion PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
+      - "smoke-test/**"
+
+jobs:
+  create-linear-ticket:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Close Linear ticket if PR closed
+        if: github.event.action == 'closed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Find the Linear ticket ID from PR comments
+          COMMENTS=$(gh pr view $PR_NUMBER --json comments --jq '.comments[].body')
+
+          # Extract Linear ticket ID (format: Linear: ING-1234)
+          TICKET_ID=$(echo "$COMMENTS" | grep -oP 'Linear: \K(ING-\d+)' | head -n1)
+
+          if [ -z "$TICKET_ID" ]; then
+            echo "⚠️  No Linear ticket found for PR #$PR_NUMBER"
+            exit 0
+          fi
+
+          echo "Found Linear ticket: $TICKET_ID"
+
+          # Query Linear to get the ticket's internal ID
+          TICKET_QUERY=$(cat <<EOF
+          {
+            "query": "query { issue(id: \"$TICKET_ID\") { id state { name } } }"
+          }
+          EOF
+          )
+
+          TICKET_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$TICKET_QUERY")
+
+          TICKET_UUID=$(echo "$TICKET_RESPONSE" | jq -r '.data.issue.id')
+          CURRENT_STATE=$(echo "$TICKET_RESPONSE" | jq -r '.data.issue.state.name')
+
+          if [ -z "$TICKET_UUID" ] || [ "$TICKET_UUID" = "null" ]; then
+            echo "❌ Could not find Linear ticket $TICKET_ID"
+            exit 0
+          fi
+
+          echo "Current ticket state: $CURRENT_STATE"
+
+          # Get the "Canceled" state ID for the ING team
+          STATE_QUERY=$(cat <<'EOF'
+          {
+            "query": "query { workflowStates(filter: { team: { key: { eq: \"ING\" } }, name: { eq: \"Canceled\" } }) { nodes { id name } } }"
+          }
+          EOF
+          )
+
+          STATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$STATE_QUERY")
+
+          CANCELED_STATE_ID=$(echo "$STATE_RESPONSE" | jq -r '.data.workflowStates.nodes[0].id')
+
+          if [ -z "$CANCELED_STATE_ID" ] || [ "$CANCELED_STATE_ID" = "null" ]; then
+            echo "❌ Could not find 'Canceled' state for ING team"
+            exit 1
+          fi
+
+          # Update the ticket to Canceled state
+          UPDATE_MUTATION=$(cat <<EOF
+          {
+            "query": "mutation { issueUpdate(id: \"$TICKET_UUID\", input: { stateId: \"$CANCELED_STATE_ID\" }) { success issue { identifier state { name } } } }"
+          }
+          EOF
+          )
+
+          UPDATE_RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$UPDATE_MUTATION")
+
+          SUCCESS=$(echo "$UPDATE_RESPONSE" | jq -r '.data.issueUpdate.success')
+
+          if [ "$SUCCESS" = "true" ]; then
+            echo "✅ Closed Linear ticket $TICKET_ID"
+          else
+            echo "❌ Failed to close Linear ticket"
+            echo "$UPDATE_RESPONSE" | jq .
+          fi
+
+      - name: Check author status
+        if: github.event.action != 'closed'
+        id: check-author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          # Skip draft PRs
+          if [ "$PR_DRAFT" = "true" ]; then
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️  Skipping - PR is in draft"
+            exit 0
+          fi
+
+          AUTHOR="$PR_AUTHOR"
+          echo "should_skip=false" >> $GITHUB_OUTPUT
+
+          # Check if author is DataHub org member (for info only)
+          ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External")
+          echo "contributor_type=$ORG_CHECK" >> $GITHUB_OUTPUT
+          echo "✅ Author: $AUTHOR ($ORG_CHECK)"
+
+      - name: Create Linear Ticket
+        if: steps.check-author.outputs.should_skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          FILES_CHANGED: ${{ github.event.pull_request.changed_files }}
+          ADDITIONS: ${{ github.event.pull_request.additions }}
+          DELETIONS: ${{ github.event.pull_request.deletions }}
+          CONTRIBUTOR_TYPE: ${{ steps.check-author.outputs.contributor_type }}
+        run: |
+          # Use PR body from context
+          if [ -z "$PR_BODY" ]; then
+            PR_BODY="No description provided"
+          fi
+
+          # For file list, we still need gh to get the actual paths
+          # (changed_files only gives count, not the list)
+          FILES_LIST=$(gh pr view $PR_NUMBER --json files --jq '.files[:20] | map("- `" + .path + "`") | join("\n")')
+          if [ $FILES_CHANGED -gt 20 ]; then
+            FILES_LIST="${FILES_LIST}\n- ... and $((FILES_CHANGED - 20)) more files"
+          fi
+
+          # Get requested reviewers from gh
+          REVIEWERS=$(gh pr view $PR_NUMBER --json reviewRequests --jq '.reviewRequests | map("@" + .login) | join(", ")')
+          if [ -z "$REVIEWERS" ] || [ "$REVIEWERS" = "" ]; then
+            REVIEWERS="None"
+          fi
+
+          # Hardcoded IDs
+          TEAM_ID="b1c9a278-522e-47cb-81af-8b860ead0c76"  # ING team
+          USER_ID="bb4daa2b-1748-4830-af1f-60198ebd9a63"  # gabe
+
+          # Build detailed description using printf
+          DESCRIPTION=$(printf "Review PR #%s from @%s (%s)\n\n%s\n\n## Description\n%s\n\n## Changes\n- **Files changed**: %s\n- **Lines**: +%s / -%s\n- **Requested reviewers**: %s\n\n## Files Changed\n%s" \
+            "$PR_NUMBER" "$PR_AUTHOR" "$CONTRIBUTOR_TYPE" "$PR_URL" "$PR_BODY" "$FILES_CHANGED" "$ADDITIONS" "$DELETIONS" "$REVIEWERS" "$FILES_LIST")
+
+          TITLE="[PR Review] $PR_TITLE"
+
+          MUTATION=$(cat <<EOF
+          {
+            "query": "mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }",
+            "variables": {
+              "input": {
+                "teamId": "$TEAM_ID",
+                "title": $(echo "$TITLE" | jq -Rs .),
+                "description": $(echo "$DESCRIPTION" | jq -Rs .),
+                "assigneeId": "$USER_ID"
+              }
+            }
+          }
+          EOF
+          )
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$MUTATION")
+
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.data.issueCreate.success')
+          if [ "$SUCCESS" = "true" ]; then
+            ISSUE_ID=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.identifier')
+            ISSUE_URL=$(echo "$RESPONSE" | jq -r '.data.issueCreate.issue.url')
+            echo "✅ Created Linear ticket: $ISSUE_ID"
+            echo "📎 $ISSUE_URL"
+
+            # Comment on the PR with minimal format
+            gh pr comment $PR_NUMBER --body "Linear: $ISSUE_ID"
+          else
+            echo "❌ Failed to create Linear ticket"
+            echo "$RESPONSE" | jq .
+            exit 1
+          fi
+
+      - name: Log skip reason
+        if: steps.check-author.outputs.should_skip == 'true'
+        run: |
+          echo "⏭️  Skipping Linear ticket creation - PR is in draft"

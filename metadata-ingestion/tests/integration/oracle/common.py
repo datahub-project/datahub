@@ -105,6 +105,10 @@ class OracleSourceMockDataBase:
         "SELECT ac.constraint_name": MockConstraints(),
         "SELECT col.column_name": MockColumns().execute(),
         "SELECT text": MockViewDefinition(),
+        "SELECT mview_name FROM dba_mviews WHERE owner = :owner": [],  # No materialized views in mock data
+        "SELECT query FROM dba_mviews WHERE mview_name=:mview_name": None,  # No materialized view definition
+        "SELECT mview_name FROM ALL_MVIEWS WHERE owner = :owner": [],  # No materialized views in mock data (ALL mode)
+        "SELECT query FROM ALL_MVIEWS WHERE mview_name=:mview_name": None,  # No materialized view definition (ALL mode)
         "schema1": (["test1"], ["test2"]),
         "schema2": (["test3"], ["test4"]),
     }

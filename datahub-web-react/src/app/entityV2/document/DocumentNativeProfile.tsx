@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { BookOpen, ListBullets } from '@phosphor-icons/react';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
@@ -81,21 +81,34 @@ interface Props {
 }
 
 // Define sidebar sections - these will be wrapped in a Summary tab
+// For context documents, we only show Owners to keep the sidebar simple
 const sidebarSections = [
     {
         component: SidebarOwnerSection,
     },
     {
         component: SidebarTagsSection,
+        display: {
+            visible: () => true,
+        },
     },
     {
         component: SidebarGlossaryTermsSection,
+        display: {
+            visible: () => true,
+        },
     },
     {
         component: SidebarDomainSection,
+        display: {
+            visible: () => true,
+        },
     },
     {
         component: DataProductSection,
+        display: {
+            visible: () => true,
+        },
     },
 ];
 
@@ -105,7 +118,7 @@ const sidebarSections = [
  */
 export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading = false, refetch }) => {
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
-    const isCompact = React.useContext(CompactContext);
+    const isCompact = useContext(CompactContext);
 
     if (!document) {
         return null;
