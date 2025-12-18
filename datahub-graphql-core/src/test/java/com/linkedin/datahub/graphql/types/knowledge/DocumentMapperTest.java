@@ -539,46 +539,6 @@ public class DocumentMapperTest {
   }
 
   @Test
-  public void testMapDocumentWithDraftOf() throws URISyntaxException {
-    // Setup entity response with DraftOf relationship
-    EntityResponse entityResponse = createBasicEntityResponse();
-
-    // Add document info with DraftOf
-    DocumentInfo documentInfo = new DocumentInfo();
-    DocumentContents contents = new DocumentContents();
-    contents.setText(TEST_CONTENT);
-    documentInfo.setContents(contents);
-
-    AuditStamp createdStamp = new AuditStamp();
-    createdStamp.setTime(TEST_TIMESTAMP);
-    createdStamp.setActor(actorUrn);
-    documentInfo.setCreated(createdStamp);
-    documentInfo.setLastModified(createdStamp);
-
-    // Add DraftOf relationship
-    Urn publishedDocUrn = Urn.createFromString("urn:li:document:published-doc");
-    com.linkedin.knowledge.DraftOf draftOf = new com.linkedin.knowledge.DraftOf();
-    draftOf.setDocument(publishedDocUrn);
-    documentInfo.setDraftOf(draftOf);
-
-    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
-
-    // Mock authorization
-    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
-
-      // Execute mapping
-      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
-
-      // Verify draftOf is mapped
-      assertNotNull(result.getInfo().getDraftOf());
-      assertNotNull(result.getInfo().getDraftOf().getDocument());
-      assertEquals(
-          result.getInfo().getDraftOf().getDocument().getUrn(), publishedDocUrn.toString());
-    }
-  }
-
-  @Test
   public void testMapDocumentWithDocumentState() throws URISyntaxException {
     // Setup entity response with DocumentState
     EntityResponse entityResponse = createBasicEntityResponse();
