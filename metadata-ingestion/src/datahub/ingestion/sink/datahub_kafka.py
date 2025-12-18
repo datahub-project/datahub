@@ -23,28 +23,12 @@ class KafkaSinkConfig(KafkaEmitterConfig):
 
 
 def _enhance_schema_registry_error(error_str: str) -> str:
-    """
-    Enhance schema registry error messages with actionable guidance.
-
-    When the schema registry returns 404, it usually means the topic name
-    doesn't match what's registered in the schema registry.
-    """
+    """Enhance schema registry 404 errors with actionable guidance."""
     if "Schema Registry" in error_str and "404" in error_str:
         return (
-            f"{error_str}\n\n"
-            "HINT: This error typically occurs when the Kafka topic names in your "
-            "sink configuration don't match the topics registered in your schema registry.\n"
-            "To fix this:\n"
-            "  1. Check available subjects: curl '<schema_registry_url>/subjects'\n"
-            "  2. Add 'topic_routes' to your sink config with the correct topic names:\n"
-            "     sink:\n"
-            "       type: datahub-kafka\n"
-            "       config:\n"
-            "         topic_routes:\n"
-            "           MetadataChangeEvent: '<your_mce_topic_name>'\n"
-            "           MetadataChangeProposal: '<your_mcp_topic_name>'\n"
-            "         connection:\n"
-            "           ..."
+            f"{error_str}\n"
+            "HINT: Topic names may not match schema registry. "
+            "Use 'topic_routes' in sink config to set correct topic names."
         )
     return error_str
 

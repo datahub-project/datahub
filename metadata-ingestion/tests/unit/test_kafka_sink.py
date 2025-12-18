@@ -211,8 +211,6 @@ def test_enhance_schema_registry_error_with_404():
     # Should contain the hint
     assert "HINT:" in enhanced
     assert "topic_routes" in enhanced
-    assert "MetadataChangeProposal" in enhanced
-    assert "MetadataChangeEvent" in enhanced
 
 
 def test_enhance_schema_registry_error_non_404():
