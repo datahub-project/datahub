@@ -148,6 +148,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                                         htmlType="submit"
                                         className={styles.login_button}
                                         disabled={!formIsComplete}
+                                        data-testid="sign-in"
                                     >
                                         Sign In
                                     </Button>

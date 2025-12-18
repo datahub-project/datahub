@@ -338,13 +338,6 @@ public class AuthServiceClientTest {
         NullPointerException.class,
         () -> {
           authServiceClient.signUp(
-              "urn:li:corpuser:test", "Test User", "test@example.com", null, "password", "token");
-        });
-
-    assertThrows(
-        NullPointerException.class,
-        () -> {
-          authServiceClient.signUp(
               "urn:li:corpuser:test", "Test User", "test@example.com", "Engineer", null, "token");
         });
 
