@@ -147,6 +147,7 @@ class RunLLMTroubleshootingProvider(BaseTroubleshootingProvider):
                         error_msg=str(e),
                     )
                 )
+                logger.error(f"Error calling RunLLM API: {str(e)}", exc_info=True)
                 raise
 
     async def _call_runllm_api(self, question: str) -> TroubleshootingResponse:
