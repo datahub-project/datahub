@@ -605,9 +605,6 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: gradle/actions/setup-gradle@v4
-        if: ${{ env.DEPOT_PROJECT_ID == '' }}
-
       - name: Detect workflow retry
         id: retry-detection
         run: |
@@ -759,6 +756,9 @@ jobs:
           echo "✓ All tests passed in previous attempt for ${{ matrix.test_strategy }} batch ${{ matrix.batch }}"
           echo "Skipping this batch to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
 
       - name: Disk Space Analysis
         run: |
