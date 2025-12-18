@@ -47,6 +47,8 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 5.  Google BigQuery
 6.  Databricks
 7.  MySQL
+8.  Amazon Redshift
+9.  Amazon Athena
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
 
@@ -80,6 +82,34 @@ in
 ```
 
 Use full-table-name in `from` clause. For example dev.public.category
+
+### Amazon Athena Lineage
+
+For Amazon Athena data sources, the source extracts lineage using the catalog.database.table hierarchy. Configure the `server_to_platform_instance` mapping with your AWS region:
+
+```yaml
+server_to_platform_instance:
+  us-east-1:
+    platform_instance: production_athena
+    env: PROD
+  eu-west-1:
+    platform_instance: analytics_athena
+    env: DEV
+```
+
+Example M-Query for Athena:
+
+```shell
+let
+  Source = AmazonAthena.Databases("us-east-1"),
+  awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],
+  analytics_db = awsdatacatalog{[Name="analytics"]}[Data],
+  sales_table = analytics_db{[Name="sales_data"]}[Data]
+in
+  sales_table
+```
+
+This will create lineage to the Athena table `awsdatacatalog.analytics.sales_data` in the `us-east-1` region.
 
 ## M-Query Pattern Supported For Lineage Extraction
 

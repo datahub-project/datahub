@@ -328,6 +328,17 @@ class AbstractLineage(ABC):
 
 
 class AmazonAthenaLineage(AbstractLineage):
+    """
+    Handles lineage extraction for Amazon Athena data sources in PowerBI.
+
+    Athena uses a three-level hierarchy: catalog.database.table
+    Example M-Query:
+        Source = AmazonAthena.Databases("us-east-1")
+        catalog = Source{[Name="awsdatacatalog"]}[Data]
+        database = catalog{[Name="my_database"]}[Data]
+        table = database{[Name="my_table"]}[Data]
+    """
+
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.AMAZON_ATHENA.value
 
@@ -340,28 +351,49 @@ class AmazonAthenaLineage(AbstractLineage):
 
         server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
         if server is None:
-            return Lineage.empty()  # Return an empty list
+            logger.debug("Server/region not found in Athena data access function")
+            return Lineage.empty()
 
-        catalog_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Name"]
+        # Validate identifier accessor exists
+        if data_access_func_detail.identifier_accessor is None:
+            logger.warning(
+                f"Missing identifier accessor for Athena table {self.table.full_name}"
+            )
+            return Lineage.empty()
 
-        db_name: str = cast(
-            IdentifierAccessor,
-            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
-        ).items["Name"]
+        # Extract catalog, database, and table names with error handling
+        try:
+            catalog_accessor = data_access_func_detail.identifier_accessor
+            catalog_name: str = catalog_accessor.items["Name"]
 
-        table_name: str = cast(
-            IdentifierAccessor,
-            cast(
-                IdentifierAccessor,
-                cast(
-                    IdentifierAccessor, data_access_func_detail.identifier_accessor
-                ).next,
-            ).next,
-        ).items["Name"]
+            if catalog_accessor.next is None:
+                logger.warning(
+                    f"Incomplete Athena hierarchy for {self.table.full_name}: missing database level"
+                )
+                return Lineage.empty()
+
+            db_accessor = catalog_accessor.next
+            db_name: str = db_accessor.items["Name"]
+
+            if db_accessor.next is None:
+                logger.warning(
+                    f"Incomplete Athena hierarchy for {self.table.full_name}: missing table level"
+                )
+                return Lineage.empty()
+
+            table_accessor = db_accessor.next
+            table_name: str = table_accessor.items["Name"]
+
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.warning(
+                f"Failed to extract Athena table details for {self.table.full_name}: {e}"
+            )
+            return Lineage.empty()
 
         qualified_table_name: str = f"{catalog_name}.{db_name}.{table_name}"
+        logger.debug(
+            f"Extracted Athena qualified table name: {qualified_table_name} from server: {server}"
+        )
 
         urn = make_urn(
             config=self.config,
