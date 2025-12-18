@@ -141,17 +141,24 @@ class HiveMetastore(
     # SQL-specific settings (only used when connection_type="sql")
     # -------------------------------------------------------------------------
 
+    # -------------------------------------------------------------------------
+    # DEPRECATED SQL-specific settings - will be removed in a future release
+    # -------------------------------------------------------------------------
+
     views_where_clause_suffix: str = Field(
         default="",
-        description="WHERE clause suffix for Presto views query. Only for connection_type='sql'.",
+        description="DEPRECATED: This option has been deprecated for security reasons "
+        "and will be removed in a future release. Use 'database_pattern' instead.",
     )
     tables_where_clause_suffix: str = Field(
         default="",
-        description="WHERE clause suffix for tables query. Only for connection_type='sql'.",
+        description="DEPRECATED: This option has been deprecated for security reasons "
+        "and will be removed in a future release. Use 'database_pattern' instead.",
     )
     schemas_where_clause_suffix: str = Field(
         default="",
-        description="WHERE clause suffix for schemas query. Only for connection_type='sql'.",
+        description="DEPRECATED: This option has been deprecated for security reasons "
+        "and will be removed in a future release. Use 'database_pattern' instead.",
     )
 
     metastore_db_name: Optional[str] = Field(
@@ -240,6 +247,29 @@ class HiveMetastore(
     )
 
     @model_validator(mode="after")
+    def validate_deprecated_where_clause_options(self) -> "HiveMetastore":
+        """
+        Check for deprecated WHERE clause suffix options and fail with error.
+
+        These options have been deprecated for security reasons (SQL injection risk)
+        and will be removed in a future release.
+        """
+        deprecated_fields = []
+        if self.tables_where_clause_suffix:
+            deprecated_fields.append("tables_where_clause_suffix")
+        if self.views_where_clause_suffix:
+            deprecated_fields.append("views_where_clause_suffix")
+        if self.schemas_where_clause_suffix:
+            deprecated_fields.append("schemas_where_clause_suffix")
+
+        if deprecated_fields:
+            raise ValueError(
+                f"DEPRECATED: {', '.join(deprecated_fields)} - removed for security reasons. "
+                f"Use 'database_pattern' instead."
+            )
+        return self
+
+    @model_validator(mode="after")
     def validate_thrift_settings(self) -> "HiveMetastore":
         """Validate settings compatibility with Thrift connection."""
         if self.connection_type == HiveMetastoreConnectionType.thrift:
@@ -250,27 +280,6 @@ class HiveMetastore(
                     "Thrift mode only supports 'mode: hive' because presto/trino modes require "
                     "direct database queries to extract view definitions.\n\n"
                     "Use 'connection_type: sql' for presto/trino view extraction."
-                )
-
-            # Validate WHERE clauses - not supported in Thrift mode
-            where_clause_error = (
-                "SQL WHERE clause filtering is not supported in Thrift mode.\n\n"
-                "Use pattern-based filtering instead:\n"
-                "  - database_pattern: Filter databases by regex\n"
-                "  - table_pattern: Filter tables by regex\n"
-                "  - view_pattern: Filter views by regex"
-            )
-            if self.schemas_where_clause_suffix:
-                raise ValueError(
-                    f"'schemas_where_clause_suffix' cannot be used with 'connection_type: thrift'.\n\n{where_clause_error}"
-                )
-            if self.tables_where_clause_suffix:
-                raise ValueError(
-                    f"'tables_where_clause_suffix' cannot be used with 'connection_type: thrift'.\n\n{where_clause_error}"
-                )
-            if self.views_where_clause_suffix:
-                raise ValueError(
-                    f"'views_where_clause_suffix' cannot be used with 'connection_type: thrift'.\n\n{where_clause_error}"
                 )
         return self
 

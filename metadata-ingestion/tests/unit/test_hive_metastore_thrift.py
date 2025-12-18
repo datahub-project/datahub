@@ -65,24 +65,6 @@ class TestHiveMetastoreThriftConfig:
         assert config_krb.kerberos_service_name == "custom_hive"
         assert config_krb.kerberos_hostname_override == "hms-int.company.com"
 
-    def test_where_clauses_not_supported(self):
-        """Test that WHERE clause options raise helpful errors."""
-        for option, pattern_hint in [
-            ("schemas_where_clause_suffix", "database_pattern"),
-            ("tables_where_clause_suffix", "table_pattern"),
-            ("views_where_clause_suffix", "view_pattern"),
-        ]:
-            with pytest.raises(ValueError) as exc_info:
-                HiveMetastore.model_validate(
-                    {
-                        "host_port": "hms:9083",
-                        "connection_type": "thrift",
-                        option: "AND x = 'y'",
-                    }
-                )
-            assert "not supported" in str(exc_info.value)
-            assert pattern_hint in str(exc_info.value)
-
     def test_presto_trino_modes_not_supported_with_thrift(self):
         """Test that presto/trino modes raise error with Thrift connection."""
         for mode in ["presto", "presto-on-hive", "trino"]:

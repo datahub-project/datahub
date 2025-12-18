@@ -20,9 +20,12 @@ source:
     #scheme: 'postgresql+psycopg2' # set this if metastore db is using postgres
     #scheme: 'mysql+pymysql' # set this if metastore db is using mysql, default if unset
 
-    # set this to have advanced filters on what to ingest
-    #views_where_clause_suffix: AND d."name" in ('db1')
-    #tables_where_clause_suffix: AND d."name" in ('db1')
+    # Filter databases using pattern-based filtering
+    #database_pattern:
+    #  allow:
+    #    - "^db1$"
+    #  deny:
+    #    - "^test_.*"
 
     # Storage Lineage Configuration (Optional)
     # Enables lineage between Hive tables and their underlying storage locations

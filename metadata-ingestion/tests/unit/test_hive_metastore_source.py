@@ -677,8 +677,10 @@ def test_thrift_connection_rejects_presto_mode():
     assert "not supported with 'connection_type: thrift'" in str(exc_info.value)
 
 
-def test_thrift_connection_rejects_where_clause():
-    """Test that Thrift connection type rejects SQL WHERE clause filtering"""
+def test_thrift_connection_where_clause_also_deprecated():
+    """Test that WHERE clause suffix is deprecated regardless of connection type"""
+    # Note: where_clause_suffix options are now deprecated for ALL connection types,
+    # so the deprecation error is raised before any thrift-specific validation
     config_dict = {
         "connection_type": "thrift",
         "host_port": "localhost:9083",
@@ -688,8 +690,8 @@ def test_thrift_connection_rejects_where_clause():
     with pytest.raises(ValueError) as exc_info:
         HiveMetastore.model_validate(config_dict)
 
-    assert "cannot be used with 'connection_type: thrift'" in str(exc_info.value)
-    assert "pattern-based filtering" in str(exc_info.value).lower()
+    # Deprecation error is raised first (before thrift validation)
+    assert "DEPRECATED" in str(exc_info.value)
 
 
 def test_thrift_connection_allows_database_pattern():
@@ -752,3 +754,198 @@ def test_get_db_schema_none_raises_error(mock_client):
         source.get_db_schema(None)  # type: ignore
 
     assert "cannot be None" in str(exc_info.value)
+
+
+# =============================================================================
+# Security: WHERE Clause Suffix Deprecation Tests
+# =============================================================================
+
+
+def test_where_clause_suffix_empty_string_accepted():
+    """Test that empty WHERE clause suffix (default) is accepted"""
+    config_dict = {
+        "host_port": "localhost:3306",
+        "tables_where_clause_suffix": "",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    assert config.tables_where_clause_suffix == ""
+
+
+def test_where_clause_suffix_tables_deprecated():
+    """Test that tables_where_clause_suffix raises deprecation error"""
+    config_dict = {
+        "host_port": "localhost:3306",
+        "tables_where_clause_suffix": "AND d.NAME = 'test_db'",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    error_msg = str(exc_info.value)
+    assert "DEPRECATED" in error_msg
+    assert "tables_where_clause_suffix" in error_msg
+    assert "database_pattern" in error_msg
+
+
+def test_where_clause_suffix_views_deprecated():
+    """Test that views_where_clause_suffix raises deprecation error"""
+    config_dict = {
+        "host_port": "localhost:3306",
+        "views_where_clause_suffix": "AND d.NAME = 'test_db'",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    assert "DEPRECATED" in str(exc_info.value)
+    assert "views_where_clause_suffix" in str(exc_info.value)
+
+
+def test_where_clause_suffix_schemas_deprecated():
+    """Test that schemas_where_clause_suffix raises deprecation error"""
+    config_dict = {
+        "host_port": "localhost:3306",
+        "schemas_where_clause_suffix": "AND d.NAME LIKE 'prod_%'",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    assert "DEPRECATED" in str(exc_info.value)
+    assert "schemas_where_clause_suffix" in str(exc_info.value)
+
+
+def test_where_clause_suffix_multiple_deprecated():
+    """Test that multiple deprecated options are reported together"""
+    config_dict = {
+        "host_port": "localhost:3306",
+        "tables_where_clause_suffix": "AND 1=1",
+        "views_where_clause_suffix": "AND 2=2",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    error_msg = str(exc_info.value)
+    assert "tables_where_clause_suffix" in error_msg
+    assert "views_where_clause_suffix" in error_msg
+
+
+def test_where_clause_suffix_deprecation_suggests_database_pattern():
+    """Test that deprecation error suggests using database_pattern"""
+    config_dict = {
+        "host_port": "localhost:3306",
+        "tables_where_clause_suffix": "AND d.NAME = 'mydb'",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    error_msg = str(exc_info.value)
+    assert "database_pattern" in error_msg
+
+
+# =============================================================================
+# Security: Parameterized Database Filter Tests
+# =============================================================================
+
+
+def test_sql_fetcher_db_filter_enabled_when_configured():
+    """Test that database filter is enabled when both metastore_db_name and database are set"""
+    from datahub.ingestion.source.sql.hive.hive_sql_fetcher import SQLAlchemyDataFetcher
+
+    config_dict = {
+        "host_port": "localhost:3306",
+        "metastore_db_name": "metastore",
+        "database": "test_db",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    fetcher = SQLAlchemyDataFetcher(config)
+
+    # Should enable filtering
+    assert fetcher._should_filter_by_database() is True
+    # Should return bind params with db_name
+    assert fetcher._get_db_filter_params() == {"db_name": "test_db"}
+
+
+def test_sql_fetcher_db_filter_disabled_when_database_not_set():
+    """Test that no database filter is applied when database is not set"""
+    from datahub.ingestion.source.sql.hive.hive_sql_fetcher import SQLAlchemyDataFetcher
+
+    config_dict = {
+        "host_port": "localhost:3306",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    fetcher = SQLAlchemyDataFetcher(config)
+
+    assert fetcher._should_filter_by_database() is False
+    assert fetcher._get_db_filter_params() is None
+
+
+def test_sql_fetcher_db_filter_disabled_without_metastore_db_name():
+    """Test that database filter requires metastore_db_name to be set"""
+    from datahub.ingestion.source.sql.hive.hive_sql_fetcher import SQLAlchemyDataFetcher
+
+    config_dict = {
+        "host_port": "localhost:3306",
+        "database": "test_db",
+        # metastore_db_name is not set
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    fetcher = SQLAlchemyDataFetcher(config)
+
+    # Without metastore_db_name, no filter is applied
+    assert fetcher._should_filter_by_database() is False
+    assert fetcher._get_db_filter_params() is None
+
+
+def test_sql_fetcher_special_chars_in_database_name_are_safe():
+    """Test that special characters in database name are safely parameterized"""
+    from datahub.ingestion.source.sql.hive.hive_sql_fetcher import (
+        SQLAlchemyDataFetcher,
+        _get_tables_query,
+    )
+
+    # Database name with characters that would be dangerous if not parameterized
+    config_dict = {
+        "host_port": "localhost:3306",
+        "metastore_db_name": "metastore",
+        "database": "test'; DROP TABLE users; --",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    fetcher = SQLAlchemyDataFetcher(config)
+
+    # The dangerous string should be in bind_params only
+    bind_params = fetcher._get_db_filter_params()
+    assert bind_params is not None
+    assert bind_params["db_name"] == "test'; DROP TABLE users; --"
+
+    # The SQL statement should use :db_name placeholder, not the actual value
+    query_with_filter = _get_tables_query(with_db_filter=True, is_postgresql=False)
+    assert ":db_name" in query_with_filter
+    assert "DROP" not in query_with_filter
+
+
+def test_sql_fetcher_uses_correct_query_variant():
+    """Test that fetcher selects correct query based on filtering"""
+    from datahub.ingestion.source.sql.hive.hive_sql_fetcher import SQLAlchemyDataFetcher
+
+    # With filtering
+    config_with_filter = HiveMetastore.model_validate(
+        {
+            "host_port": "localhost:3306",
+            "metastore_db_name": "metastore",
+            "database": "prod_db",
+        }
+    )
+    fetcher_with_filter = SQLAlchemyDataFetcher(config_with_filter)
+    assert fetcher_with_filter._should_filter_by_database() is True
+
+    # Without filtering
+    config_no_filter = HiveMetastore.model_validate(
+        {
+            "host_port": "localhost:3306",
+        }
+    )
+    fetcher_no_filter = SQLAlchemyDataFetcher(config_no_filter)
+    assert fetcher_no_filter._should_filter_by_database() is False

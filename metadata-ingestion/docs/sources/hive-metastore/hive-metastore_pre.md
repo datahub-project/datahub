@@ -239,7 +239,7 @@ pip install thrift-sasl pyhive[hive-pure-sasl]
 | `database_pattern`            | AllowDeny | -       | No               | Filter databases by regex pattern                             |
 | `table_pattern`               | AllowDeny | -       | No               | Filter tables by regex pattern                                |
 
-**Note**: SQL `WHERE` clause options (`tables_where_clause_suffix`, `views_where_clause_suffix`) are **not supported** in Thrift mode. Use `database_pattern` and `table_pattern` instead.
+**Note**: SQL `WHERE` clause options (`tables_where_clause_suffix`, `views_where_clause_suffix`, `schemas_where_clause_suffix`) have been **deprecated** for security reasons (SQL injection risk) and are no longer supported. Use `database_pattern` and `table_pattern` instead.
 
 #### Basic Thrift Configuration
 
@@ -403,7 +403,7 @@ source:
 
 #### Table Filtering with SQL
 
-For more complex filtering, use SQL WHERE clauses:
+For filtering by database name, use pattern-based filtering:
 
 ```yaml
 source:
@@ -411,14 +411,17 @@ source:
   config:
     # ... connection config ...
 
-    # Custom SQL filter for tables
-    tables_where_clause_suffix: 'AND d."name" in (''production_db'', ''analytics_db'')'
-
-    # Custom SQL filter for views
-    views_where_clause_suffix: 'AND d."name" in (''production_db'', ''analytics_db'')'
+    # Filter to specific databases using regex patterns
+    database_pattern:
+      allow:
+        - "^production_db$"
+        - "^analytics_db$"
+      deny:
+        - "^test_.*"
+        - ".*_staging$"
 ```
 
-**Note**: The WHERE clause suffix is appended to the internal query. Use proper SQL syntax for your database type (e.g., quoted identifiers for PostgreSQL).
+**Note**: The deprecated `*_where_clause_suffix` options have been removed for security reasons. Use `database_pattern` and `table_pattern` for filtering.
 
 ### Performance Considerations
 
