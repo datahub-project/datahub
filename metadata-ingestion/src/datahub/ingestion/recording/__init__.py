@@ -31,9 +31,24 @@ Limitations:
     - Database replay mocks connections entirely
 """
 
-from datahub.ingestion.recording.config import RecordingConfig
-from datahub.ingestion.recording.recorder import IngestionRecorder
-from datahub.ingestion.recording.replay import IngestionReplayer
+
+# Lazy imports to avoid requiring dependencies (like sqlalchemy) when recording is not used
+def __getattr__(name: str) -> object:
+    """Lazy import of recording classes to avoid requiring dependencies when not used."""
+    if name == "RecordingConfig":
+        from datahub.ingestion.recording.config import RecordingConfig
+
+        return RecordingConfig
+    elif name == "IngestionRecorder":
+        from datahub.ingestion.recording.recorder import IngestionRecorder
+
+        return IngestionRecorder
+    elif name == "IngestionReplayer":
+        from datahub.ingestion.recording.replay import IngestionReplayer
+
+        return IngestionReplayer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "RecordingConfig",

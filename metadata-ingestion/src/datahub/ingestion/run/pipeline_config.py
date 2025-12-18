@@ -1,15 +1,24 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import random
 import string
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.ingestion.graph.config import DatahubClientConfig
-from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
+
+if TYPE_CHECKING:
+    # Only import for type checking to avoid requiring sqlalchemy at runtime
+    from datahub.ingestion.recording.config import RecordingConfig
+else:
+    # Don't import at runtime - use string annotation in type hints
+    # Pydantic will resolve "RecordingConfig" at validation time when needed
+    RecordingConfig = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
