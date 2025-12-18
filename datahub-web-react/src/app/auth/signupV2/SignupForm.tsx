@@ -1,4 +1,4 @@
-import { Checkbox, Input, Text } from '@components';
+import { Input } from '@components';
 import { Form, FormInstance } from 'antd';
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
@@ -18,12 +18,6 @@ const ItemContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
-`;
-
-const CheckboxContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 8px;
 `;
 
 interface Props {
@@ -116,11 +110,6 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
                         <Input placeholder="********" type="password" inputTestId="confirmPassword" />
                     </Form.Item>
                 </ItemContainer>
-                <CheckboxContainer>
-                    {/* TODO: Handle when checkbox is clicked */}
-                    <Checkbox size="sm" />
-                    <Text color="gray">Receive updates from Datahub</Text>
-                </CheckboxContainer>
             </Form>
         </FormContainer>
     );
