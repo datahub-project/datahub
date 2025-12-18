@@ -1,0 +1,41 @@
+source:
+  type: metabase
+  config:
+    # Coordinates
+    connect_uri: https://metabase.company.com
+    
+    # Credentials (API key recommended)
+    api_key: "${METABASE_API_KEY}"
+    
+    # Alternative: Username/Password authentication
+    # username: "${METABASE_USERNAME}"
+    # password: "${METABASE_PASSWORD}"
+    
+    # Optional: Custom display URI (if connect_uri is only for ingestion)
+    # display_uri: https://metabase.company.com
+    
+    # Feature flags
+    extract_collections_as_tags: true
+    extract_models: true
+    exclude_other_user_collections: false
+    
+    # Optional: Custom platform mappings
+    # engine_platform_map:
+    #   athena: glue
+    #   sparksql: spark
+    
+    # Optional: Database name overrides
+    # database_alias_map:
+    #   postgres: my_postgres_db
+    
+    # Optional: Platform instance mappings
+    # database_id_to_instance_map:
+    #   "42": my_platform_instance
+    # platform_instance_map:
+    #   clickhouse: my_clickhouse_cluster
+    
+    # Default schema for SQL parsing
+    default_schema: public
+
+sink:
+  # sink configs
