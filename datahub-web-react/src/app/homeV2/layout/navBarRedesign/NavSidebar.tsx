@@ -309,10 +309,12 @@ export const NavSidebar = () => {
                         selectedIcon: <Plugs weight="fill" />,
                         link: ingestionLink,
                         onClick: () => {
-                            analytics.event({
-                                type: EventType.EnterIngestionFlowEvent,
-                                entryPoint: 'nav_menu',
-                            });
+                            if (ingestionLink === PageRoutes.INGESTION_CREATE) {
+                                analytics.event({
+                                    type: EventType.EnterIngestionFlowEvent,
+                                    entryPoint: 'nav_menu',
+                                });
+                            }
                         },
                     },
                     {

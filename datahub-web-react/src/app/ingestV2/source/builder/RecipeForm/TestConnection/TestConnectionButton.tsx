@@ -77,7 +77,7 @@ function TestConnectionButton({
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
     const [testConnectionResult, setTestConnectionResult] = useState<null | TestConnectionResult>(null);
-    const [duration, setDuration] = useState<number>(0);
+    const [duration, setDuration] = useState<number | undefined>(undefined);
     const [hasEmittedAnalytics, setHasEmittedAnalytics] = useState(false);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
     const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
@@ -200,7 +200,7 @@ function TestConnectionButton({
             ingestionOnboardingRedesignV1,
             durationMs: duration,
         });
-
+        setDuration(undefined);
         setIsModalVisible(false);
     }
 
