@@ -901,3 +901,226 @@ def test_validate_kafka_connectivity_no_brokers(mock_get_kafka_consumer):
     # The function uses max(10, client_timeout_seconds) so should use 30 here
     mock_get_kafka_consumer.assert_called_once_with(connection)
     mock_consumer.list_topics.assert_called_once_with(topic="", timeout=30)
+
+
+@patch(
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
+    autospec=True,
+)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_handles_non_iterable_schema_tags(
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+):
+    """Test that a TypeError from non-iterable schema_tags_field is handled gracefully.
+
+    When the schema's tags field contains a non-iterable value (e.g., an integer),
+    the source should log a warning and continue processing without crashing.
+    """
+    # Schema with non-iterable value in the tags field (integer instead of array)
+    topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
+        "topic_with_bad_tags": (
+            RegisteredSchema(
+                guid=None,
+                schema_id="schema_id_key",
+                schema=Schema(
+                    schema_str='{"type":"record", "name":"TopicKey", "namespace": "test.acryl", "fields": [{"name":"key", "type": "string"}]}',
+                    schema_type="AVRO",
+                ),
+                subject="topic_with_bad_tags-key",
+                version=1,
+            ),
+            RegisteredSchema(
+                guid=None,
+                schema_id="schema_id_value",
+                schema=Schema(
+                    # tags field is an integer (non-iterable) instead of an array
+                    schema_str=json.dumps(
+                        {
+                            "type": "record",
+                            "name": "TopicValue",
+                            "namespace": "test.acryl",
+                            "fields": [{"name": "value", "type": "string"}],
+                            "tags": 12345,  # Invalid: should be an array of strings
+                        }
+                    ),
+                    schema_type="AVRO",
+                ),
+                subject="topic_with_bad_tags-value",
+                version=1,
+            ),
+        )
+    }
+
+    # Mock the kafka consumer
+    mock_kafka_instance = mock_kafka_consumer.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    # Mock the schema registry client
+    mock_schema_registry_client.return_value.get_subjects.return_value = [
+        v.subject for v in chain(*topic_subject_schema_map.values())
+    ]
+
+    def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+        for registered_schema in chain(*topic_subject_schema_map.values()):
+            if registered_schema.subject == subject_name:
+                return registered_schema
+        return None
+
+    mock_schema_registry_client.return_value.get_latest_version = (
+        mock_get_latest_version
+    )
+
+    ctx = PipelineContext(run_id="test_bad_tags")
+    kafka_source = KafkaSource.create(
+        {
+            "connection": {"bootstrap": "localhost:9092"},
+        },
+        ctx,
+    )
+
+    # Should not raise an exception - the source should handle the TypeError gracefully
+    workunits = list(kafka_source.get_workunits())
+
+    # Verify workunits were still produced (source didn't crash)
+    # Should have: status, schemaMetadata, browsePaths, datasetProperties, subTypes, browsePathsV2
+    # The exact count may vary due to auto-generated aspects
+    assert len(workunits) >= 5
+
+    # Verify all workunits are MetadataChangeProposalWrapper
+    for wu in workunits:
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+
+    # Verify a warning was reported for the bad tags field
+    report = kafka_source.get_report()
+    warnings_list = list(report.warnings)
+    assert len(warnings_list) > 0
+    # Check that at least one warning mentions the tags extraction failure
+    # The warning's message is the topic name, and context contains the actual error details
+    warning_found = any(
+        w.message == "topic_with_bad_tags"
+        and any("Unable to extract tags from schema field" in ctx for ctx in w.context)
+        for w in warnings_list
+    )
+    assert warning_found, (
+        f"Expected warning about tags extraction, got: {[(w.message, list(w.context)) for w in warnings_list]}"
+    )
+
+    # Verify no GlobalTags aspect was emitted (since tag extraction failed)
+    tags_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "globalTags"
+    ]
+    assert len(tags_mcps) == 0
+
+
+@patch(
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
+    autospec=True,
+)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_handles_valid_schema_tags(
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+):
+    """Test that valid schema tags are extracted correctly.
+
+    This is a positive test to ensure the tag extraction works when
+    the schema_tags_field contains a valid array of strings.
+    """
+    # Schema with valid tags field (array of strings)
+    topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
+        "topic_with_good_tags": (
+            RegisteredSchema(
+                guid=None,
+                schema_id="schema_id_key",
+                schema=Schema(
+                    schema_str='{"type":"record", "name":"TopicKey", "namespace": "test.acryl", "fields": [{"name":"key", "type": "string"}]}',
+                    schema_type="AVRO",
+                ),
+                subject="topic_with_good_tags-key",
+                version=1,
+            ),
+            RegisteredSchema(
+                guid=None,
+                schema_id="schema_id_value",
+                schema=Schema(
+                    schema_str=json.dumps(
+                        {
+                            "type": "record",
+                            "name": "TopicValue",
+                            "namespace": "test.acryl",
+                            "fields": [{"name": "value", "type": "string"}],
+                            "tags": ["pii", "sensitive", "internal"],
+                        }
+                    ),
+                    schema_type="AVRO",
+                ),
+                subject="topic_with_good_tags-value",
+                version=1,
+            ),
+        )
+    }
+
+    # Mock the kafka consumer
+    mock_kafka_instance = mock_kafka_consumer.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {k: None for k in topic_subject_schema_map}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    # Mock the schema registry client
+    mock_schema_registry_client.return_value.get_subjects.return_value = [
+        v.subject for v in chain(*topic_subject_schema_map.values())
+    ]
+
+    def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+        for registered_schema in chain(*topic_subject_schema_map.values()):
+            if registered_schema.subject == subject_name:
+                return registered_schema
+        return None
+
+    mock_schema_registry_client.return_value.get_latest_version = (
+        mock_get_latest_version
+    )
+
+    ctx = PipelineContext(run_id="test_good_tags")
+    kafka_source = KafkaSource.create(
+        {
+            "connection": {"bootstrap": "localhost:9092"},
+        },
+        ctx,
+    )
+
+    workunits = list(kafka_source.get_workunits())
+
+    # Verify workunits were produced
+    # Should have: status, schemaMetadata, browsePaths, globalTags, datasetProperties, subTypes, browsePathsV2
+    # Plus potentially additional auto-generated tag creation workunits
+    assert len(workunits) >= 7
+
+    # Verify GlobalTags aspect was emitted with the correct tags
+    tags_mcps = [
+        wu.metadata
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.aspectName == "globalTags"
+    ]
+    assert len(tags_mcps) == 1
+
+    # Check that the tags match (with default empty prefix)
+    expected_tags = make_global_tag_aspect_with_tag_list(
+        ["pii", "sensitive", "internal"]
+    )
+    assert tags_mcps[0].aspect == expected_tags
+
+    # Verify no warnings about tag extraction failure were reported
+    report = kafka_source.get_report()
+    warnings_list = list(report.warnings)
+    tag_extraction_warnings = [
+        w
+        for w in warnings_list
+        if any("Unable to extract tags from schema field" in ctx for ctx in w.context)
+    ]
+    assert len(tag_extraction_warnings) == 0
