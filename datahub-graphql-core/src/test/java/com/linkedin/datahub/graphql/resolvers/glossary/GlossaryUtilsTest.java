@@ -12,7 +12,7 @@ import static org.testng.Assert.*;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.BatchAuthorizationResult;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.authorization.PredefinedAuthorizationResultMap;
+import com.datahub.test.authorization.PredefinedAuthorizationResultMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;

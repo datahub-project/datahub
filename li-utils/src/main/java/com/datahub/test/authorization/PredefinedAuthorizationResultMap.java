@@ -1,5 +1,7 @@
-package com.datahub.authorization;
+package com.datahub.test.authorization;
 
+import com.datahub.authorization.AuthorizationResult;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
@@ -10,6 +12,7 @@ import lombok.RequiredArgsConstructor;
  * Custom implementation of the {@link Map} for authorization results, that allows only {@link
  * #allowedPrivileges specified} privileges and denies all others
  */
+@VisibleForTesting
 @RequiredArgsConstructor
 public class PredefinedAuthorizationResultMap extends AbstractMap<String, AuthorizationResult> {
   private final Set<String> allowedPrivileges;

@@ -1,5 +1,7 @@
-package com.datahub.authorization;
+package com.datahub.test.authorization;
 
+import com.datahub.authorization.AuthorizationResult;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
@@ -9,6 +11,7 @@ import javax.annotation.Nonnull;
  * Custom implementation of the {@link Map} for authorization results, that always returns constant
  * decision
  */
+@VisibleForTesting
 public class ConstantAuthorizationResultMap extends AbstractMap<String, AuthorizationResult> {
   private final AuthorizationResult result;
 

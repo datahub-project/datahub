@@ -2,6 +2,7 @@ package com.datahub.authorization;
 
 import static org.testng.Assert.*;
 
+import com.datahub.test.authorization.PredefinedAuthorizationResultMap;
 import java.util.Set;
 import org.testng.annotations.Test;
 

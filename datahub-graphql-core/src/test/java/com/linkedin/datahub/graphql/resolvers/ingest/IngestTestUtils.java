@@ -9,8 +9,8 @@ import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.BatchAuthorizationResult;
-import com.datahub.authorization.ConstantAuthorizationResultMap;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Secret;
