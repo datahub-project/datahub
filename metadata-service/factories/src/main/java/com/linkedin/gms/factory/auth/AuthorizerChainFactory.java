@@ -34,7 +34,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 
 @Slf4j
@@ -47,7 +46,6 @@ public class AuthorizerChainFactory {
 
   @Bean(name = "authorizerChain")
   @Scope("singleton")
-  @Primary
   @Nonnull
   protected AuthorizerChain getInstance(
       final DataHubAuthorizer dataHubAuthorizer, final SystemEntityClient systemEntityClient) {

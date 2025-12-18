@@ -3,10 +3,10 @@ package io.datahubproject.openapi.v1.timeline;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -47,7 +47,7 @@ public class TimelineControllerV1 {
 
   private final OperationContext systemOperationContext;
   private final TimelineService _timelineService;
-  private final Authorizer _authorizer;
+  private final AuthorizerChain _authorizerChain;
 
   @Value("${authorization.restApiAuthorization:false}")
   private Boolean restApiAuthorizationEnabled;
@@ -83,7 +83,7 @@ public class TimelineControllerV1 {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getTimeline", urn.getEntityType()),
-            _authorizer,
+            _authorizerChain,
             authentication,
             true);
 

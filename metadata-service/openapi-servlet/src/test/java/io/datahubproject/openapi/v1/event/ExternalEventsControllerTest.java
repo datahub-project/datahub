@@ -1,16 +1,22 @@
 package io.datahubproject.openapi.v1.event;
 
-import static io.datahubproject.event.ExternalEventsService.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.testng.Assert.*;
+import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME;
+import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME;
+import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.testng.Assert.assertNotNull;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.datahubusage.DataHubUsageService;
@@ -63,7 +69,7 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   @Autowired private ExternalEventsController externalEventsController;
   @Autowired private MockMvc mockMvc;
   @Autowired private ExternalEventsService mockEventsService;
-  @Autowired private Authorizer mockAuthorizer;
+  @Autowired private AuthorizerChain mockAuthorizerChain;
   @Autowired private OperationContext opContext;
   @Autowired private DataHubUsageService mockDataHubUsageService;
   @MockBean private ConfigurationProvider configurationProvider;
@@ -550,14 +556,14 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
 
     @Bean
     @Primary
-    public Authorizer authorizer() {
-      Authorizer authorizer = mock(Authorizer.class);
+    public AuthorizerChain authorizerChain() {
+      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "testuser"));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizer;
+      return authorizerChain;
     }
   }
 }

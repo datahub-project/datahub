@@ -6,7 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -54,7 +54,7 @@ public class ExternalEventsController {
   static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
 
   private ExternalEventsService eventsService;
-  private Authorizer authorizer;
+  private AuthorizerChain authorizationChain;
   private OperationContext systemOperationContext;
   private final DataHubUsageService dataHubUsageService;
 
@@ -62,11 +62,11 @@ public class ExternalEventsController {
 
   public ExternalEventsController(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      Authorizer authorizer,
+      AuthorizerChain authorizerChain,
       DataHubUsageService dataHubUsageService,
       ExternalEventsService eventsService) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizer = authorizer;
+    this.authorizationChain = authorizerChain;
     this.dataHubUsageService = dataHubUsageService;
     this.eventsService = eventsService;
   }
@@ -111,7 +111,7 @@ public class ExternalEventsController {
               systemOperationContext,
               RequestContext.builder()
                   .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
-              authorizer,
+              authorizationChain,
               authentication,
               true);
 
@@ -223,7 +223,7 @@ public class ExternalEventsController {
                     request,
                     "search",
                     DATAHUB_USAGE_EVENT_INDEX),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 

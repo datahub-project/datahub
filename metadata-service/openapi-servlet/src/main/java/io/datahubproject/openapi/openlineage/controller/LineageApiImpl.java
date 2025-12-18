@@ -2,7 +2,7 @@ package io.datahubproject.openapi.openlineage.controller;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
@@ -40,7 +40,7 @@ public class LineageApiImpl implements LineageApi {
 
   @Autowired private EntityServiceImpl _entityService;
 
-  @Autowired private Authorizer _authorizer;
+  @Autowired private AuthorizerChain _authorizerChain;
 
   @Autowired
   @Qualifier("systemOperationContext")
@@ -74,7 +74,7 @@ public class LineageApiImpl implements LineageApi {
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "postRunEventRaw", List.of()),
-            _authorizer,
+            _authorizerChain,
             authentication,
             true);
 

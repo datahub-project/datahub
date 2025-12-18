@@ -6,7 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -33,14 +33,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
 public abstract class GenericRelationshipController {
 
   @Autowired private GraphService graphService;
-  @Autowired private Authorizer authorizer;
+  @Autowired private AuthorizerChain authorizationChain;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -78,7 +76,7 @@ public abstract class GenericRelationshipController {
                         request,
                         "getRelationshipsByType",
                         List.of()),
-                authorizer,
+                authorizationChain,
                 authentication,
                 true)
             .withSearchFlags(
@@ -181,7 +179,7 @@ public abstract class GenericRelationshipController {
                         request,
                         "getRelationshipsByEntity",
                         List.of()),
-                authorizer,
+                authorizationChain,
                 authentication,
                 true)
             .withSearchFlags(

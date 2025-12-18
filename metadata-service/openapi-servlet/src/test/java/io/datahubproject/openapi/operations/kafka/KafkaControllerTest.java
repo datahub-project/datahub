@@ -11,7 +11,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.trace.MCLTraceReader;
@@ -71,6 +71,8 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired
   @Qualifier("mclTimeseriesTraceReader")
   private MCLTraceReader mockMclTimeseriesTraceReader;
+
+  @Autowired private AuthorizerChain authorizerChain;
 
   private Map<TopicPartition, OffsetAndMetadata> createOffsetMap(String topic) {
     Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
@@ -415,14 +417,14 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public Authorizer authorizer() {
-      Authorizer authorizer = mock(Authorizer.class);
+    public AuthorizerChain authorizerChain() {
+      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizer;
+      return authorizerChain;
     }
   }
 }

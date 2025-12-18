@@ -14,8 +14,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.BatchAuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -70,7 +70,7 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
 
   @Autowired private GraphService mockGraphService;
 
-  @Autowired private Authorizer authorizer;
+  @Autowired private AuthorizerChain authorizerChain;
 
   @BeforeMethod
   public void setupMocks() {
@@ -83,7 +83,7 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
     doReturn(
             new BatchAuthorizationResult(
                 null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
-        .when(authorizer)
+        .when(authorizerChain)
         .authorizeBatch(any());
   }
 
@@ -154,7 +154,7 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
   @Test
   public void testGetEntityRawUnauthorized() throws Exception {
     // Setup AuthorizerChain to deny access
-    when(authorizer.authorizeBatch(any()))
+    when(authorizerChain.authorizeBatch(any()))
         .thenReturn(
             new BatchAuthorizationResult(
                 null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.DENY)));

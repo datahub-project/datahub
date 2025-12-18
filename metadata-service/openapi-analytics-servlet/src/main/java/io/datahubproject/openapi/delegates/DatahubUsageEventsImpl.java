@@ -6,7 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -23,7 +23,7 @@ import org.springframework.http.ResponseEntity;
 public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
 
   @Autowired private ElasticSearchService _searchService;
-  @Autowired private Authorizer _authorizer;
+  @Autowired private AuthorizerChain _authorizationChain;
 
   @Autowired
   @Qualifier("systemOperationContext")
@@ -41,7 +41,7 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of()),
-            _authorizer,
+            _authorizationChain,
             authentication,
             true);
     checkAnalyticsAuthorized(opContext);

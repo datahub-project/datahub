@@ -16,8 +16,8 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.BatchAuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -108,7 +108,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
   @Autowired private EntityService<?> mockEntityService;
 
-  @Autowired private Authorizer authorizer;
+  @Autowired private AuthorizerChain authorizerChain;
 
   @Autowired private ESSearchDAO mockESSearchDAO;
 
@@ -123,7 +123,7 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     doReturn(
             new BatchAuthorizationResult(
                 null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
-        .when(authorizer)
+        .when(authorizerChain)
         .authorizeBatch(any());
   }
 
@@ -817,14 +817,14 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
     @Bean
     @Primary
-    public Authorizer authorizer() {
-      Authorizer authorizer = mock(Authorizer.class, CALLS_REAL_METHODS);
+    public AuthorizerChain authorizerChain() {
+      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
       AuthenticationContext.setAuthentication(authentication);
 
-      return authorizer;
+      return authorizerChain;
     }
 
     @Bean

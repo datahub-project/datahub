@@ -6,7 +6,7 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_UR
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -48,7 +48,7 @@ public class GraphQLController {
 
   @Inject GraphQLEngine _engine;
 
-  @Inject Authorizer _authorizer;
+  @Inject AuthorizerChain _authorizerChain;
 
   @Inject ConfigurationProvider configurationProvider;
 
@@ -123,7 +123,7 @@ public class GraphQLController {
         new SpringQueryContext(
             true,
             authentication,
-            _authorizer,
+            _authorizerChain,
             systemOperationContext,
             configurationProvider,
             request,

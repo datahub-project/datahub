@@ -9,7 +9,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
@@ -35,7 +35,7 @@ public class RelationshipsControllerTest {
 
   @Mock private GraphService graphService;
 
-  @Mock private Authorizer authorizer;
+  @Mock private AuthorizerChain authorizerChain;
 
   @Mock private HttpServletRequest httpServletRequest;
 
@@ -73,7 +73,7 @@ public class RelationshipsControllerTest {
                 OperationContext.asSession(
                     any(OperationContext.class),
                     any(),
-                    any(Authorizer.class),
+                    any(AuthorizerChain.class),
                     any(Authentication.class),
                     anyBoolean()))
         .thenReturn(mockOperationContext);

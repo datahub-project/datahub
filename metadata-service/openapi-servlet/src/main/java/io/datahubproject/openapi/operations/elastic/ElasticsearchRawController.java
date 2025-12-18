@@ -3,7 +3,7 @@ package io.datahubproject.openapi.operations.elastic;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @Tag(name = "ElasticSearch Raw Operations", description = "An API debugging raw ES documents")
 public class ElasticsearchRawController {
-  private final Authorizer authorizer;
+  private final AuthorizerChain authorizerChain;
   private final OperationContext systemOperationContext;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
@@ -51,10 +51,10 @@ public class ElasticsearchRawController {
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
       EntitySearchService searchService,
-      Authorizer authorizer,
+      AuthorizerChain authorizerChain,
       GraphService graphService) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizer = authorizer;
+    this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.searchService = searchService;
@@ -96,7 +96,7 @@ public class ElasticsearchRawController {
                     request,
                     "getRawEntity",
                     urns.stream().map(Urn::getEntityType).distinct().toList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -144,7 +144,7 @@ public class ElasticsearchRawController {
                     request,
                     "getRawSystemMetadata",
                     urns.stream().map(Urn::getEntityType).distinct().toList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -192,7 +192,7 @@ public class ElasticsearchRawController {
                     request,
                     "getRawTimeseries",
                     urns.stream().map(Urn::getEntityType).distinct().toList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -245,7 +245,7 @@ public class ElasticsearchRawController {
                     request,
                     "getRawGraph",
                     urns.stream().map(Urn::getEntityType).distinct().toList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(

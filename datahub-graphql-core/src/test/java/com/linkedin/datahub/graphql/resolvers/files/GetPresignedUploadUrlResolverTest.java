@@ -22,7 +22,6 @@ import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.aws.S3Util;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
-import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -44,10 +43,7 @@ public class GetPresignedUploadUrlResolverTest {
   @Mock private S3Util mockS3Util;
   @Mock private QueryContext mockQueryContext;
   @Mock private DataFetchingEnvironment mockEnv;
-
-  @Mock(answer = Answers.CALLS_REAL_METHODS)
-  private Authorizer mockAuthorizer;
-
+  @Mock private Authorizer mockAuthorizer;
   @Mock private S3Configuration mockS3Configuration;
   @Mock private EntityClient mockEntityClient;
 

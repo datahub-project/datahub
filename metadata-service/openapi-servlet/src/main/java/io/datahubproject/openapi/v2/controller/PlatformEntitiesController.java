@@ -5,7 +5,7 @@ import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -48,7 +48,7 @@ public class PlatformEntitiesController {
   private final OperationContext systemOperationContext;
   private final EntityService<ChangeItemImpl> _entityService;
   private final ObjectMapper _objectMapper;
-  private final Authorizer _authorizer;
+  private final AuthorizerChain _authorizerChain;
 
   @InitBinder
   public void initBinder(WebDataBinder binder) {
@@ -76,7 +76,7 @@ public class PlatformEntitiesController {
                         .map(MetadataChangeProposal::getEntityType)
                         .distinct()
                         .collect(Collectors.toList())),
-            _authorizer,
+            _authorizerChain,
             authentication,
             true);
 

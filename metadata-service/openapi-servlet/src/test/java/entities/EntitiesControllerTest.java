@@ -9,8 +9,8 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.BatchAuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.authorization.ConstantAuthorizationResultMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -95,15 +95,15 @@ public class EntitiesControllerTest {
     preProcessHooks.setUiEnabled(true);
     MockEntityService mockEntityService =
         new MockEntityService(aspectDao, mockEntityEventProducer, preProcessHooks);
-    Authorizer authorizer = Mockito.mock(Authorizer.class);
+    AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
     _entitiesController =
-        new EntitiesController(opContext, mockEntityService, new ObjectMapper(), authorizer);
+        new EntitiesController(opContext, mockEntityService, new ObjectMapper(), authorizerChain);
     Authentication authentication = Mockito.mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     doReturn(
             new BatchAuthorizationResult(
                 null, new ConstantAuthorizationResultMap(AuthorizationResult.Type.ALLOW)))
-        .when(authorizer)
+        .when(authorizerChain)
         .authorizeBatch(any());
     AuthenticationContext.setAuthentication(authentication);
   }

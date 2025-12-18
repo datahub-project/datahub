@@ -9,10 +9,8 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistryException;
+import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -46,14 +44,14 @@ public class OpenAPIAnalyticsTestConfiguration {
   }
 
   @Bean
-  public Authorizer authorizer() {
-    Authorizer authorizer = Mockito.mock(Authorizer.class);
+  public AuthorizerChain authorizerChain() {
+    AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
 
     Authentication authentication = Mockito.mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
 
-    return authorizer;
+    return authorizerChain;
   }
 
   @Bean("entityRegistry")

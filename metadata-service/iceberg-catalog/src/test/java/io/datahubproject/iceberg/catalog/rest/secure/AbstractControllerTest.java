@@ -43,9 +43,7 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
 
   @Mock protected EntityService entityService;
   @Mock protected CredentialProvider credentialProvider;
-
   @Mock protected Authorizer authorizer;
-
   @Mock protected HttpServletRequest request;
   @Mock protected SecretService secretService;
   @Mock protected EntitySearchService entitySearchService;

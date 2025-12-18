@@ -2,7 +2,7 @@ package io.datahubproject.openapi.operations.test;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,12 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @Tag(name = "Identity", description = "An API for checking identity")
 public class IdController {
-  private final Authorizer authorizer;
+  private final AuthorizerChain authorizerChain;
   private final OperationContext systemOperationContext;
 
-  public IdController(OperationContext systemOperationContext, Authorizer authorizer) {
+  public IdController(OperationContext systemOperationContext, AuthorizerChain authorizerChain) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizer = authorizer;
+    this.authorizerChain = authorizerChain;
   }
 
   @Tag(name = "User")
@@ -44,7 +44,7 @@ public class IdController {
     OperationContext.asSession(
         systemOperationContext,
         RequestContext.builder().buildOpenapi(actorUrnStr, request, "getUserIdentity", List.of()),
-        authorizer,
+        authorizerChain,
         authentication,
         true,
         skipCache);

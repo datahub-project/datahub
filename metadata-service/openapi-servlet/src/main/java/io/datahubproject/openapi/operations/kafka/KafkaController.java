@@ -3,7 +3,7 @@ package io.datahubproject.openapi.operations.kafka;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
@@ -44,19 +44,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class KafkaController {
 
   private final OperationContext systemOperationContext;
-  private final Authorizer authorizer;
+  private final AuthorizerChain authorizerChain;
   private final MCPTraceReader mcpTraceReader;
   private final MCLTraceReader mclTraceReader;
   private final MCLTraceReader mclTimeseriesTraceReader;
 
   public KafkaController(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      Authorizer authorizer,
+      AuthorizerChain authorizerChain,
       MCPTraceReader mcpTraceReader,
       @Qualifier("mclVersionedTraceReader") MCLTraceReader mclTraceReader,
       @Qualifier("mclTimeseriesTraceReader") MCLTraceReader mclTimeseriesTraceReader) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizer = authorizer;
+    this.authorizerChain = authorizerChain;
     this.mcpTraceReader = mcpTraceReader;
     this.mclTraceReader = mclTraceReader;
     this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
@@ -108,7 +108,7 @@ public class KafkaController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, httpServletRequest, "getMCPOffsets", List.of()),
-            authorizer,
+            authorizerChain,
             authentication,
             true);
 
@@ -180,7 +180,7 @@ public class KafkaController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
-            authorizer,
+            authorizerChain,
             authentication,
             true);
 
@@ -253,9 +253,8 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(
-                    actorUrnStr, httpServletRequest, "getMCLTimeseriesOffsets", List.of()),
-            authorizer,
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
+            authorizerChain,
             authentication,
             true);
 

@@ -5,7 +5,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
@@ -57,7 +57,9 @@ public class FilesController {
   @Autowired
   protected OperationContext systemOperationContext;
 
-  @Autowired protected Authorizer authorizer;
+  @Qualifier("authorizerChain")
+  @Autowired
+  protected AuthorizerChain authorizationChain;
 
   private static final int MAX_EXPIRATION_SECONDS = 604800; // 7 days
 
@@ -140,7 +142,7 @@ public class FilesController {
         systemOperationContext,
         RequestContext.builder()
             .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames),
-        authorizer,
+        authorizationChain,
         authentication,
         true);
   }

@@ -3,7 +3,7 @@ package io.datahubproject.openapi.v1.registry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 @AllArgsConstructor
 @NoArgsConstructor
 public class LineageRegistryController {
-  @Autowired private Authorizer authorizer;
+  @Autowired private AuthorizerChain authorizerChain;
   @Autowired private OperationContext systemOperationContext;
 
   @GetMapping(path = "/specifications", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -61,7 +61,7 @@ public class LineageRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getLineageSpecs", Collections.emptyList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -95,7 +95,7 @@ public class LineageRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getLineageSpec", Collections.emptyList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -130,7 +130,7 @@ public class LineageRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(actorUrnStr, request, "getLineageEdges", Collections.emptyList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(
@@ -178,7 +178,7 @@ public class LineageRegistryController {
             RequestContext.builder()
                 .buildOpenapi(
                     actorUrnStr, request, "getLineageDirectedEdges", Collections.emptyList()),
-            authorizer,
+            authorizerChain,
             authentication);
 
     if (!AuthUtil.isAPIOperationsAuthorized(

@@ -11,7 +11,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,14 +65,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -104,7 +97,7 @@ public abstract class GenericEntitiesController<
   @Autowired protected SearchService searchService;
   @Autowired protected EntityService<?> entityService;
   @Autowired protected TimeseriesAspectService timeseriesAspectService;
-  @Autowired protected Authorizer authorizer;
+  @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
 
   @Qualifier("systemOperationContext")
@@ -245,7 +238,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "getEntities", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -333,7 +326,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "getEntity", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -374,7 +367,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "headEntity", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -411,7 +404,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "getAspect", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -471,7 +464,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "headAspect", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -505,7 +498,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "deleteEntity", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -555,7 +548,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "createEntity", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -593,7 +586,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "deleteAspect", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -659,7 +652,7 @@ public abstract class GenericEntitiesController<
             RequestContext.builder()
                 .buildOpenapi(
                     authentication.getActor().toUrnStr(), request, "createAspect", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 
@@ -735,7 +728,7 @@ public abstract class GenericEntitiesController<
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actor.toUrnStr(), request, "patchAspect", entityName),
-            authorizer,
+            authorizationChain,
             authentication,
             true);
 

@@ -15,7 +15,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -83,6 +83,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private EntityService mockEntityService;
 
   @Autowired private OperationContext mockSystemOperationContext;
+
+  @Autowired private AuthorizerChain mockAuthorizerChain;
 
   private MockedStatic<AuthenticationContext> authenticationContextMock;
   private MockedStatic<AuthUtil> authUtilMock;
@@ -595,8 +597,9 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public Authorizer authorizer() {
-      return mock(Authorizer.class);
+    @Qualifier("authorizerChain")
+    public AuthorizerChain authorizerChain() {
+      return mock(AuthorizerChain.class);
     }
   }
 }

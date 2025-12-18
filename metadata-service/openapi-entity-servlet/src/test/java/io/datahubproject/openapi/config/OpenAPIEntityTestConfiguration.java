@@ -11,7 +11,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.metadata.entity.EntityService;
@@ -74,14 +74,14 @@ public class OpenAPIEntityTestConfiguration {
   }
 
   @Bean
-  public Authorizer authorizer() {
-    Authorizer authorizer = Mockito.mock(Authorizer.class);
+  public AuthorizerChain authorizerChain() {
+    AuthorizerChain authorizerChain = Mockito.mock(AuthorizerChain.class);
 
     Authentication authentication = Mockito.mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
 
-    return authorizer;
+    return authorizerChain;
   }
 
   @MockBean(name = "elasticSearchSystemMetadataService")
