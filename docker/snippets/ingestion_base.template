@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     ldap-utils \
     unixodbc \
     libodbc2 \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 USER datahub
 

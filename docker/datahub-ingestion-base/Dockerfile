@@ -34,7 +34,7 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
         echo "Creating new user datahub with UID 1000"; \
         adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
     fi && \
-    # Create and set proper permissions for datahub directories
+    # Create and set proper permissions for datahub directories \
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
@@ -110,7 +110,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     librdkafka-dev \
     ldap-utils \
     unixodbc \
-    libodbc2
+    libodbc2 \
+    build-essential
 USER datahub
 
 FROM ingestion-base-slim AS ingestion-base-full
