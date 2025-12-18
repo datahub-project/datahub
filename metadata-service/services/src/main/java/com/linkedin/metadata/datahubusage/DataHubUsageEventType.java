@@ -257,6 +257,8 @@ public enum DataHubUsageEventType {
   CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedback"),
   INFER_DOCS_API_REQUEST_EVENT("InferDocsApiRequest"),
   INFER_DOCS_API_RESPONSE_EVENT("InferDocsApiResponse"),
+  TROUBLESHOOTING_API_REQUEST_EVENT("TroubleshootingApiRequest"),
+  TROUBLESHOOTING_API_RESPONSE_EVENT("TroubleshootingApiResponse"),
 
   // OSS Document events
   CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),

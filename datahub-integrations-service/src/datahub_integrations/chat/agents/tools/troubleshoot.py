@@ -4,9 +4,16 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 import httpx
+from datahub.utilities.perf_timer import PerfTimer
 from httpx_sse import aconnect_sse
 from loguru import logger
 from pydantic import BaseModel, Field
+
+from datahub_integrations.telemetry.telemetry import track_saas_event
+from datahub_integrations.telemetry.troubleshooting_events import (
+    TroubleshootingApiRequestEvent,
+    TroubleshootingApiResponseEvent,
+)
 
 
 class TroubleshootingResponse(BaseModel):
@@ -84,19 +91,63 @@ class RunLLMTroubleshootingProvider(BaseTroubleshootingProvider):
         Raises:
             Exception: If API call fails (caller should handle gracefully)
         """
+        # Track request
+        track_saas_event(
+            TroubleshootingApiRequestEvent(
+                question=question,
+                context=context,
+                provider="runllm",
+            )
+        )
+
         # Append context to question if provided
         full_question = question
         if context:
             full_question = f"{question} (Context: {context})"
 
         logger.info("Querying RunLLM for troubleshooting: %s", full_question)
-        response = await self._call_runllm_api(full_question)
-        logger.info(
-            "RunLLM response received: %d chars, %d sources",
-            len(response.answer),
-            len(response.sources),
-        )
-        return response
+
+        # Track response time
+        with PerfTimer() as timer:
+            try:
+                response = await self._call_runllm_api(full_question)
+
+                # Track successful response
+                track_saas_event(
+                    TroubleshootingApiResponseEvent(
+                        question=question,
+                        context=context,
+                        provider="runllm",
+                        response_time_ms=timer.elapsed_seconds() * 1000,
+                        response_length_chars=len(response.answer),
+                        num_sources=len(response.sources),
+                        answer_preview=response.answer[:500]
+                        if response.answer
+                        else None,
+                    )
+                )
+
+                logger.info(
+                    "RunLLM response received: %d chars, %d sources",
+                    len(response.answer),
+                    len(response.sources),
+                )
+                return response
+
+            except Exception as e:
+                # Track error
+                track_saas_event(
+                    TroubleshootingApiResponseEvent(
+                        question=question,
+                        context=context,
+                        provider="runllm",
+                        response_time_ms=timer.elapsed_seconds() * 1000,
+                        response_length_chars=0,
+                        num_sources=0,
+                        error_msg=str(e),
+                    )
+                )
+                raise
 
     async def _call_runllm_api(self, question: str) -> TroubleshootingResponse:
         """
