@@ -100,6 +100,11 @@ public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
   }
 
   @Override
+  public void cleanupPointInTime(String pitId) {
+    delegate.cleanupPointInTime(pitId);
+  }
+
+  @Override
   public void destroy() throws Exception {
     // Shutdown the delegate if it's a GraphQueryPITDAO
     if (delegate instanceof GraphQueryPITDAO) {

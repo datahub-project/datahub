@@ -1,7 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal } from 'antd';
 import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -14,6 +13,7 @@ import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/compo
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { COLORS } from '@app/sharedV2/colors';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useDeletePostMutation } from '@graphql/post.generated';
 import { Post } from '@types';
@@ -166,6 +166,8 @@ interface NoteProps {
 function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
     const [deletePost] = useDeletePostMutation();
 
     const time = moment(note.lastModified.time);
@@ -201,9 +203,7 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
                         <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
                         <SectionActionButton
                             button={<DeleteOutlineOutlinedIcon />}
-                            onClick={() =>
-                                onDeleteNote(() => deletePost({ variables: { urn: note.urn } }).then(refetch))
-                            }
+                            onClick={() => setShowDeleteModal(true)}
                         />
                     </NoteEditIcons>
                 </NoteEditWrapper>
@@ -217,18 +217,18 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
                     onEdit={refetch}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                handleClose={() => setShowDeleteModal(false)}
+                handleConfirm={() =>
+                    deletePost({ variables: { urn: note.urn } }).then(() => {
+                        setShowDeleteModal(false);
+                        refetch?.();
+                    })
+                }
+                modalTitle="Delete Note"
+                modalText="Are you sure you want to remove this note?"
+            />
         </NoteWrapper>
     );
-}
-
-function onDeleteNote(onDelete: () => void) {
-    Modal.confirm({
-        title: 'Delete Note',
-        content: `Are you sure you want to remove this note?`,
-        onOk: onDelete,
-        onCancel() {},
-        okText: 'Yes',
-        maskClosable: true,
-        closable: true,
-    });
 }
