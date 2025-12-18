@@ -10,14 +10,12 @@ import static com.linkedin.metadata.service.SettingsService.DEFAULT_CORP_USER_SE
 
 import com.datahub.notification.NotificationScenarioType;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
-import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.events.metadata.ChangeType;
@@ -30,6 +28,7 @@ import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.service.NotificationSettingsUtils;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -69,46 +68,7 @@ import org.springframework.stereotype.Component;
 public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
 
   private static final NotificationSettingMap DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS =
-      new NotificationSettingMap(
-          ImmutableMap.<String, NotificationSetting>builder()
-              // Enable being notified when I'm assigned to a proposal
-              .put(
-                  NotificationScenarioType.NEW_PROPOSAL.toString(),
-                  new NotificationSetting()
-                      .setValue(NotificationSettingValue.ENABLED)
-                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
-              // Enable being notified when a proposed I'm assigned to is approved or rejected
-              .put(
-                  NotificationScenarioType.PROPOSAL_STATUS_CHANGE.toString(),
-                  new NotificationSetting()
-                      .setValue(NotificationSettingValue.ENABLED)
-                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
-              // Enable being notified when a proposal I've created is approved or rejected
-              .put(
-                  NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString(),
-                  new NotificationSetting()
-                      .setValue(NotificationSettingValue.ENABLED)
-                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
-              // Enable being notified when assigned a new action workflow request.
-              .put(
-                  NotificationScenarioType.NEW_ACTION_WORKFLOW_FORM_REQUEST.toString(),
-                  new NotificationSetting()
-                      .setValue(NotificationSettingValue.ENABLED)
-                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
-              // Enable being notified when an action workflow request step is completed
-              .put(
-                  NotificationScenarioType.REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE
-                      .toString(),
-                  new NotificationSetting()
-                      .setValue(NotificationSettingValue.ENABLED)
-                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
-              // Enable DataHub community updates by default
-              .put(
-                  NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES.toString(),
-                  new NotificationSetting()
-                      .setValue(NotificationSettingValue.ENABLED)
-                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
-              .build());
+      NotificationSettingsUtils.createDefaultEmailNotificationScenarioSettings(true);
 
   private static final NotificationSettingMap DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS =
       new NotificationSettingMap(
@@ -365,14 +325,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
   }
 
   private NotificationSettings createDefaultNotificationSettingsWithEmail(@Nonnull String email) {
-    NotificationSettings notificationSettings = new NotificationSettings();
-    notificationSettings.setSinkTypes(
-        new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
-    notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(email));
-    if (!notificationSettings.hasSettings()) {
-      notificationSettings.setSettings(DEFAULT_EMAIL_NOTIFICATION_SCENARIO_SETTINGS);
-    }
-    return notificationSettings;
+    return NotificationSettingsUtils.createDefaultNotificationSettingsWithEmail(email, true);
   }
 
   private void applyDefaultNotificationSettingsWithSlack(

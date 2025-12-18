@@ -67,23 +67,31 @@ public class NativeUserServiceTest {
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
-                mock(OperationContext.class), null, FULL_NAME, EMAIL, TITLE, PASSWORD));
-    // fullName is required
+                mock(OperationContext.class), null, FULL_NAME, EMAIL, TITLE, PASSWORD, null));
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
-                mock(OperationContext.class), USER_URN_STRING, null, EMAIL, TITLE, PASSWORD));
-    // email is required
+                mock(OperationContext.class), USER_URN_STRING, null, EMAIL, TITLE, PASSWORD, null));
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
-                mock(OperationContext.class), USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD));
-    // password is required
+                mock(OperationContext.class),
+                USER_URN_STRING,
+                FULL_NAME,
+                null,
+                TITLE,
+                PASSWORD,
+                null));
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
-                mock(OperationContext.class), USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null));
-    // Note: title is optional, so null title should NOT throw
+                mock(OperationContext.class),
+                USER_URN_STRING,
+                FULL_NAME,
+                EMAIL,
+                TITLE,
+                null,
+                null));
   }
 
   @Test(
@@ -103,7 +111,7 @@ public class NativeUserServiceTest {
         .thenReturn(existingCredentials);
 
     _nativeUserService.createNativeUser(
-        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD);
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, null);
   }
 
   @Test
@@ -124,7 +132,7 @@ public class NativeUserServiceTest {
 
     // Should not throw exception - allow user to complete signup
     _nativeUserService.createNativeUser(
-        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD);
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, null);
 
     // Just verify that the user creation succeeded without throwing an exception
     // The entity service interactions are internal implementation details
@@ -135,14 +143,15 @@ public class NativeUserServiceTest {
       expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserDatahub() throws Exception {
     _nativeUserService.createNativeUser(
-        opContext, DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD);
+        opContext, DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, null);
   }
 
   @Test(
       expectedExceptions = RuntimeException.class,
       expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserSystemUser() throws Exception {
-    _nativeUserService.createNativeUser(opContext, SYSTEM_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD);
+    _nativeUserService.createNativeUser(
+        opContext, SYSTEM_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD, null);
   }
 
   @Test
@@ -154,7 +163,7 @@ public class NativeUserServiceTest {
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
 
     _nativeUserService.createNativeUser(
-        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD);
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, null);
   }
 
   @Test
@@ -348,12 +357,59 @@ public class NativeUserServiceTest {
     when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
-
     // Should succeed with null title
     _nativeUserService.createNativeUser(
-        opContext, USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD);
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD, null);
 
     // Verify ingestProposal was called 3 times (corpUserInfo, corpUserStatus, corpUserCredentials)
+    verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testCreateNativeUserWithGetDataHubUpdatesTrue() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
+        .thenReturn(false);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
+    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
+
+    _nativeUserService.createNativeUser(
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, true);
+
+    // Should call ingestProposal 4 times: corpUserInfo, corpUserStatus, corpUserCredentials,
+    // corpUserSettings
+    verify(_entityClient, times(4)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testCreateNativeUserWithGetDataHubUpdatesFalse() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
+        .thenReturn(false);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
+    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
+
+    _nativeUserService.createNativeUser(
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, false);
+
+    // Should call ingestProposal 4 times: corpUserInfo, corpUserStatus, corpUserCredentials,
+    // corpUserSettings
+    verify(_entityClient, times(4)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testCreateNativeUserWithGetDataHubUpdatesNull() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
+        .thenReturn(false);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
+    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
+
+    _nativeUserService.createNativeUser(
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, null);
+
+    // Should call ingestProposal 3 times: corpUserInfo, corpUserStatus, corpUserCredentials
+    // Should NOT call updateCorpUserSettings when getDataHubUpdates is null
     verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), any());
   }
 
@@ -361,6 +417,12 @@ public class NativeUserServiceTest {
   public void testUpdateCorpUserInfoWithNullTitle() throws Exception {
     // Should succeed with null title - title field will not be set on CorpUserInfo
     _nativeUserService.updateCorpUserInfo(opContext, USER_URN, FULL_NAME, EMAIL, null);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testUpdateCorpUserSettingsPasses() throws Exception {
+    _nativeUserService.updateCorpUserSettings(opContext, USER_URN, EMAIL, true);
     verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 }

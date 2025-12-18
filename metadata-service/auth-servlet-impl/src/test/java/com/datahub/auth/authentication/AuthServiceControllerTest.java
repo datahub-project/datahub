@@ -267,7 +267,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertTrue(responseJson.has("isNativeUserCreated"));
     assertTrue(responseJson.get("isNativeUserCreated").asBoolean());
 
-    // Verify native user service was called with correct parameters
+    // Verify native user service was called with correct parameters (null for getDataHubUpdates)
     verify(mockNativeUserService)
         .createNativeUser(
             eq(systemOperationContext),
@@ -275,7 +275,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
             eq(fullName),
             eq(email),
             eq(title),
-            eq(password));
+            eq(password),
+            isNull());
   }
 
   @Test
@@ -361,7 +362,106 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
             eq(fullName),
             eq(email),
             isNull(),
-            eq(password));
+            eq(password),
+            isNull());
+  }
+
+  @Test
+  public void testSignUpWithGetDataHubUpdatesTrue() throws Exception {
+    // Setup
+    String userUrn = "urn:li:corpuser:testUser";
+    String fullName = "Test User";
+    String email = "test@example.com";
+    String title = "Software Engineer";
+    String password = "securePassword123";
+    String inviteToken = "valid-invite-token";
+    Urn inviteTokenUrn = mock(Urn.class);
+
+    // Mock invite token service
+    when(mockInviteTokenService.getInviteTokenUrn(inviteToken)).thenReturn(inviteTokenUrn);
+    when(mockInviteTokenService.isInviteTokenValid(eq(systemOperationContext), eq(inviteTokenUrn)))
+        .thenReturn(true);
+
+    // Create request body with getDataHubUpdates = true
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("fullName", fullName);
+    requestBody.put("email", email);
+    requestBody.put("title", title);
+    requestBody.put("password", password);
+    requestBody.put("inviteToken", inviteToken);
+    requestBody.put("getDataHubUpdates", true);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
+    authenticationConfiguration.setSystemClientId(SYSTEM_CLIENT_ID);
+    when(mockConfigProvider.getAuthentication()).thenReturn(authenticationConfiguration);
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.signUp(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+
+    // Verify native user service was called with getDataHubUpdates = true
+    verify(mockNativeUserService)
+        .createNativeUser(
+            eq(systemOperationContext),
+            eq(userUrn),
+            eq(fullName),
+            eq(email),
+            eq(title),
+            eq(password),
+            eq(true));
+  }
+
+  @Test
+  public void testSignUpWithGetDataHubUpdatesFalse() throws Exception {
+    // Setup
+    String userUrn = "urn:li:corpuser:testUser";
+    String fullName = "Test User";
+    String email = "test@example.com";
+    String title = "Software Engineer";
+    String password = "securePassword123";
+    String inviteToken = "valid-invite-token";
+    Urn inviteTokenUrn = mock(Urn.class);
+
+    // Mock invite token service
+    when(mockInviteTokenService.getInviteTokenUrn(inviteToken)).thenReturn(inviteTokenUrn);
+    when(mockInviteTokenService.isInviteTokenValid(eq(systemOperationContext), eq(inviteTokenUrn)))
+        .thenReturn(true);
+
+    // Create request body with getDataHubUpdates = false
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", userUrn);
+    requestBody.put("fullName", fullName);
+    requestBody.put("email", email);
+    requestBody.put("title", title);
+    requestBody.put("password", password);
+    requestBody.put("inviteToken", inviteToken);
+    requestBody.put("getDataHubUpdates", false);
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    AuthenticationConfiguration authenticationConfiguration = new AuthenticationConfiguration();
+    authenticationConfiguration.setSystemClientId(SYSTEM_CLIENT_ID);
+    when(mockConfigProvider.getAuthentication()).thenReturn(authenticationConfiguration);
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.signUp(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+
+    // Verify native user service was called with getDataHubUpdates = false
+    verify(mockNativeUserService)
+        .createNativeUser(
+            eq(systemOperationContext),
+            eq(userUrn),
+            eq(fullName),
+            eq(email),
+            eq(title),
+            eq(password),
+            eq(false));
   }
 
   @Test

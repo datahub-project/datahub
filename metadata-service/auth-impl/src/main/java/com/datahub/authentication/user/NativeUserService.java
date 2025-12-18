@@ -7,11 +7,14 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.service.NotificationSettingsUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -41,7 +44,8 @@ public class NativeUserService {
       @Nonnull String fullName,
       @Nonnull String email,
       String title,
-      @Nonnull String password)
+      @Nonnull String password,
+      Boolean getDataHubUpdates)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
@@ -79,6 +83,9 @@ public class NativeUserService {
     updateCorpUserInfo(opContext, userUrn, fullName, email, title);
     updateCorpUserStatus(opContext, userUrn);
     updateCorpUserCredentials(opContext, userUrn, password);
+    if (getDataHubUpdates != null) {
+      updateCorpUserSettings(opContext, userUrn, email, getDataHubUpdates);
+    }
   }
 
   void updateCorpUserInfo(
@@ -259,5 +266,31 @@ public class NativeUserService {
     String storedHashedPassword = corpUserCredentials.getHashedPassword();
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     return storedHashedPassword.equals(hashedPassword);
+  }
+
+  void updateCorpUserSettings(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn userUrn,
+      @Nonnull String email,
+      @Nonnull Boolean getDataHubUpdates)
+      throws Exception {
+    // Start with default corp user settings to ensure all defaults are applied
+    CorpUserSettings corpUserSettings =
+        com.linkedin.metadata.service.SettingsService.DEFAULT_CORP_USER_SETTINGS;
+
+    NotificationSettings notificationSettings =
+        NotificationSettingsUtils.createDefaultNotificationSettingsWithEmail(
+            email, getDataHubUpdates);
+
+    corpUserSettings.setNotificationSettings(notificationSettings);
+
+    // Ingest corpUserSettings MCP
+    final MetadataChangeProposal corpUserSettingsProposal = new MetadataChangeProposal();
+    corpUserSettingsProposal.setEntityType(CORP_USER_ENTITY_NAME);
+    corpUserSettingsProposal.setEntityUrn(userUrn);
+    corpUserSettingsProposal.setAspectName(CORP_USER_SETTINGS_ASPECT_NAME);
+    corpUserSettingsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserSettings));
+    corpUserSettingsProposal.setChangeType(ChangeType.UPSERT);
+    _entityClient.ingestProposal(opContext, corpUserSettingsProposal);
   }
 }

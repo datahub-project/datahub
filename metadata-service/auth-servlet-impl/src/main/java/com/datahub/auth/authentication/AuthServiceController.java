@@ -68,6 +68,7 @@ public class AuthServiceController {
   private static final String TITLE_FIELD_NAME = "title";
   private static final String PASSWORD_FIELD_NAME = "password";
   private static final String INVITE_TOKEN_FIELD_NAME = "inviteToken";
+  private static final String GET_DATAHUB_UPDATES_FIELD_NAME = "getDataHubUpdates";
   private static final String RESET_TOKEN_FIELD_NAME = "resetToken";
   private static final String IS_NATIVE_USER_CREATED_FIELD_NAME = "isNativeUserCreated";
   private static final String ARE_NATIVE_USER_CREDENTIALS_RESET_FIELD_NAME =
@@ -274,7 +275,10 @@ public class AuthServiceController {
    *
    * <p>POST /signUp -H "Authorization: Basic <system-client-id>:<system-client-secret>" {
    * "fullName": "Full Name" "userUrn": "urn:li:corpuser:test" "email": "email@test.com" "title":
-   * "Data Scientist" "password": "password123" "inviteToken": "abcd" }
+   * "Data Scientist" "password": "password123" "inviteToken": "abcd" "getDataHubUpdates": true }
+   *
+   * <p>Note: "getDataHubUpdates" is optional. If not provided, user notification settings will not
+   * be updated.
    *
    * <p>Note: "title" is optional. If not provided, user title will not be set.
    *
@@ -305,6 +309,7 @@ public class AuthServiceController {
     JsonNode title = bodyJson.get(TITLE_FIELD_NAME);
     JsonNode password = bodyJson.get(PASSWORD_FIELD_NAME);
     JsonNode inviteToken = bodyJson.get(INVITE_TOKEN_FIELD_NAME);
+    JsonNode getDataHubUpdates = bodyJson.get(GET_DATAHUB_UPDATES_FIELD_NAME);
     if (fullName == null
         || userUrn == null
         || email == null
@@ -328,6 +333,9 @@ public class AuthServiceController {
     String titleString = title == null ? null : title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
+    // Optional - null if not provided, only update settings when explicitly set
+    Boolean getDataHubUpdatesValue =
+        getDataHubUpdates == null ? null : getDataHubUpdates.asBoolean();
     Authentication auth = AuthenticationContext.getAuthentication();
     log.info("Attempting to create native user {}", userUrnString);
     return CompletableFuture.supplyAsync(
@@ -345,7 +353,8 @@ public class AuthServiceController {
                 fullNameString,
                 emailString,
                 titleString,
-                passwordString);
+                passwordString,
+                getDataHubUpdatesValue);
             String response = buildSignUpResponse();
             log.info("Created native user {}", userUrnString);
             return new ResponseEntity<>(response, HttpStatus.OK);

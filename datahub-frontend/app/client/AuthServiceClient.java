@@ -39,6 +39,7 @@ public class AuthServiceClient {
   private static final String TITLE_FIELD = "title";
   private static final String PASSWORD_FIELD = "password";
   private static final String INVITE_TOKEN_FIELD = "inviteToken";
+  private static final String GET_DATAHUB_UPDATES_FIELD = "getDataHubUpdates";
   private static final String RESET_TOKEN_FIELD = "resetToken";
   private static final String IS_NATIVE_USER_CREATED_FIELD = "isNativeUserCreated";
   private static final String ARE_NATIVE_USER_CREDENTIALS_RESET_FIELD =
@@ -142,7 +143,13 @@ public class AuthServiceClient {
     }
   }
 
-  /** Call the Auth Service to create a native Datahub user. */
+  /**
+   * Call the Auth Service to create a native Datahub user.
+   *
+   * @deprecated Use {@link #signUp(String, String, String, String, String, String, Boolean)}
+   *     instead.
+   */
+  @Deprecated
   public boolean signUp(
       @Nonnull final String userUrn,
       @Nonnull final String fullName,
@@ -150,6 +157,23 @@ public class AuthServiceClient {
       final String title,
       @Nonnull final String password,
       @Nonnull final String inviteToken) {
+    return signUp(userUrn, fullName, email, title, password, inviteToken, null);
+  }
+
+  /**
+   * Call the Auth Service to create a native Datahub user.
+   *
+   * @param getDataHubUpdates Optional. If provided, sets the user's preference for receiving
+   *     DataHub updates. If null, user notification settings will not be updated.
+   */
+  public boolean signUp(
+      @Nonnull final String userUrn,
+      @Nonnull final String fullName,
+      @Nonnull final String email,
+      final String title,
+      @Nonnull final String password,
+      @Nonnull final String inviteToken,
+      final Boolean getDataHubUpdates) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(fullName, "fullName must not be null");
     Objects.requireNonNull(email, "email must not be null");
@@ -181,6 +205,9 @@ public class AuthServiceClient {
       }
       objectNode.put(PASSWORD_FIELD, password);
       objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
+      if (getDataHubUpdates != null) {
+        objectNode.put(GET_DATAHUB_UPDATES_FIELD, getDataHubUpdates);
+      }
       final String json =
           objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
       request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));

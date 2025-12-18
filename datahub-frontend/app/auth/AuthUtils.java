@@ -87,6 +87,7 @@ public class AuthUtils {
   public static final String EMAIL = "email";
   public static final String TITLE = "title";
   public static final String INVITE_TOKEN = "inviteToken";
+  public static final String GET_DATAHUB_UPDATES = "getDataHubUpdates";
   public static final String RESET_TOKEN = "resetToken";
   public static final String BASE_URL = "baseUrl";
   public static final String OIDC_ENABLED = "oidcEnabled";

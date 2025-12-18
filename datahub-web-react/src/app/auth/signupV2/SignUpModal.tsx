@@ -66,7 +66,9 @@ export default function SignUpModal() {
     const onFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length > 0);
 
-        const isTouched = form.isFieldsTouched(true);
+        // Only check required fields, not optional ones like getDataHubUpdates
+        const requiredFields = ['email', 'fullName', 'password', 'confirmPassword'];
+        const isTouched = form.isFieldsTouched(requiredFields, true);
 
         setIsSubmitDisabled(hasErrors || !isTouched);
     };
@@ -82,6 +84,7 @@ export default function SignUpModal() {
                     email: values.email,
                     password: values.password,
                     inviteToken,
+                    getDataHubUpdates: values.getDataHubUpdates,
                 }),
             };
             fetch(resolveRuntimePath('/signUp'), requestOptions)

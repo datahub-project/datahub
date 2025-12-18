@@ -13,7 +13,7 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to Datahub <strong>Groups</strong>!
+                    Welcome to DataHub <strong>Groups</strong>!
                 </p>
                 <p>
                     <strong>Groups</strong> are collections of users which can be used to assign ownership to assets and

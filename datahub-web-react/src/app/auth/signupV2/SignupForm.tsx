@@ -26,6 +26,11 @@ const CheckboxContainer = styled.div`
     gap: 8px;
 `;
 
+// Wrapper to make Checkbox compatible with Ant Design Form
+const FormCheckbox = ({ checked, onChange }: { checked?: boolean; onChange?: (value: boolean) => void }) => (
+    <Checkbox size="sm" isChecked={checked} onCheckboxChange={onChange} />
+);
+
 interface Props {
     form: FormInstance;
     handleSubmit: (values: SignupFormValues) => void;
@@ -62,7 +67,13 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
 
     return (
         <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
+            <Form
+                form={form}
+                onFinish={handleSubmit}
+                onFieldsChange={onFormChange}
+                onKeyDown={handleKeyDown}
+                initialValues={{ getDataHubUpdates: true }}
+            >
                 <ItemContainer>
                     <FieldLabel label="Email" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
@@ -116,10 +127,12 @@ export default function SignupForm({ form, handleSubmit, onFormChange, isSubmitD
                         <Input placeholder="********" type="password" inputTestId="confirmPassword" />
                     </Form.Item>
                 </ItemContainer>
+                {/* Following checkbox container and contents are SaaS only */}
                 <CheckboxContainer>
-                    {/* TODO: Handle when checkbox is clicked */}
-                    <Checkbox size="sm" />
-                    <Text color="gray">Receive updates from Datahub</Text>
+                    <Form.Item name="getDataHubUpdates" valuePropName="checked" noStyle>
+                        <FormCheckbox />
+                    </Form.Item>
+                    <Text color="gray">Receive updates from DataHub</Text>
                 </CheckboxContainer>
             </Form>
         </FormContainer>

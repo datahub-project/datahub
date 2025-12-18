@@ -283,6 +283,10 @@ public class AuthenticationController extends Controller {
             : json.findPath(TITLE).textValue();
     final String password = json.findPath(PASSWORD).textValue();
     final String inviteToken = json.findPath(INVITE_TOKEN).textValue();
+    // Optional field - null if not provided, backend defaults to true
+    final JsonNode getDataHubUpdatesNode = json.findPath(GET_DATAHUB_UPDATES);
+    final Boolean getDataHubUpdates =
+        getDataHubUpdatesNode.isMissingNode() ? null : getDataHubUpdatesNode.asBoolean();
 
     if (StringUtils.isBlank(fullName)) {
       JsonNode invalidCredsJson = Json.newObject().put("message", "Full name must not be empty.");
@@ -314,7 +318,8 @@ public class AuthenticationController extends Controller {
 
     final Urn userUrn = new CorpuserUrn(email.trim());
     final String userUrnString = userUrn.toString();
-    authClient.signUp(userUrnString, fullName, email.trim(), title, password, inviteToken);
+    authClient.signUp(
+        userUrnString, fullName, email.trim(), title, password, inviteToken, getDataHubUpdates);
     logger.info("Signed up user {} using invite tokens", userUrnString);
     final String accessToken =
         authClient.generateSessionTokenForUser(userUrn.getId(), SIGN_UP_LINK_LOGIN);
