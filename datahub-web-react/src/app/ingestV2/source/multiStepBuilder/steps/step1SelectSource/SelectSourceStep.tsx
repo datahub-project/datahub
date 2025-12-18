@@ -2,6 +2,7 @@ import { Badge, Icon, SearchBar, colors } from '@components';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
@@ -89,6 +90,10 @@ export function SelectSourceStep() {
     const [showAllByCategory, setShowAllByCategory] = useState<Record<string, boolean>>({});
 
     const onSelectCard = (platformSource: SourceConfig) => {
+        analytics.event({
+            type: EventType.IngestionSelectSourceEvent,
+            sourceType: platformSource.name,
+        });
         if (platformSource.isExternal) {
             window.open(platformSource.docsUrl ?? EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
             return;
