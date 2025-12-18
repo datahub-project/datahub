@@ -34,6 +34,58 @@ def slack_message_id(channel_id: str, message_ts: str) -> MessageId:
     return f"slack_v1_message_{channel_id}_{message_ts}"
 
 
+def teams_chat_id(conversation_id: str, activity_id: str) -> ChatId:
+    """Generate a standardized chat ID for Teams telemetry events.
+
+    Args:
+        conversation_id: The conversation ID from Teams
+        activity_id: The activity ID from Teams Bot Framework
+
+    Returns:
+        A standardized chat ID.
+    """
+    return f"teams_v1_chat_{conversation_id}_{activity_id}"
+
+
+def teams_message_id(conversation_id: str, activity_id: str) -> MessageId:
+    """Generate a standardized message ID for Teams telemetry events.
+
+    Args:
+        conversation_id: The conversation ID from Teams
+        activity_id: The activity ID from Teams Bot Framework
+
+    Returns:
+        A standardized message ID.
+    """
+    return f"teams_v1_message_{conversation_id}_{activity_id}"
+
+
+def ui_chat_id(conversation_urn: str, timestamp: str) -> ChatId:
+    """Generate a standardized chat ID for DataHub UI telemetry events.
+
+    Args:
+        conversation_urn: The conversation URN from DataHub
+        timestamp: The timestamp of the message
+
+    Returns:
+        A standardized chat ID.
+    """
+    return f"ui_v1_chat_{conversation_urn}_{timestamp}"
+
+
+def ui_message_id(conversation_urn: str, timestamp: str) -> MessageId:
+    """Generate a standardized message ID for DataHub UI telemetry events.
+
+    Args:
+        conversation_urn: The conversation URN from DataHub
+        timestamp: The timestamp of the message
+
+    Returns:
+        A standardized message ID.
+    """
+    return f"ui_v1_message_{conversation_urn}_{timestamp}"
+
+
 class ChatbotInteractionEvent(BaseEvent):
     """Event representing a chatbot interaction."""
 
@@ -41,10 +93,10 @@ class ChatbotInteractionEvent(BaseEvent):
     chat_id: ChatId
     message_id: MessageId
     chatbot: str = "slack"
-    slack_thread_id: str
-    slack_message_id: str
-    slack_user_id: str
-    slack_user_name: str
+    slack_thread_id: Optional[str] = None
+    slack_message_id: Optional[str] = None
+    slack_user_id: Optional[str] = None
+    slack_user_name: Optional[str] = None
     # TODO: Add slack_email: Optional[str] = None
     message_contents: str
     response_contents: Optional[str] = None
@@ -66,6 +118,16 @@ class ChatbotInteractionEvent(BaseEvent):
     num_reducers_applied: Optional[int] = None
     reduction_sequence: Optional[str] = None
 
+    # Teams-specific fields
+    teams_user_id: Optional[str] = None
+    teams_user_name: Optional[str] = None
+    teams_conversation_id: Optional[str] = None
+    teams_activity_id: Optional[str] = None
+
+    # DataHub UI-specific fields
+    ui_user_urn: Optional[str] = None
+    ui_conversation_urn: Optional[str] = None
+
 
 class ChatbotInteractionFeedbackEvent(BaseEvent):
     """Event representing feedback on a chatbot interaction."""
@@ -74,14 +136,24 @@ class ChatbotInteractionFeedbackEvent(BaseEvent):
     chat_id: ChatId
     message_id: MessageId
     chatbot: str = "slack"
-    slack_thread_id: str
-    slack_message_id: str
-    slack_user_id: str
-    slack_user_name: str
+    slack_thread_id: Optional[str] = None
+    slack_message_id: Optional[str] = None
+    slack_user_id: Optional[str] = None
+    slack_user_name: Optional[str] = None
     # TODO: Add email + resolved actor URN
 
     feedback: str  # "positive" or "negative"
     message_contents: Optional[str] = None
+
+    # Teams-specific fields
+    teams_user_id: Optional[str] = None
+    teams_user_name: Optional[str] = None
+    teams_conversation_id: Optional[str] = None
+    teams_activity_id: Optional[str] = None
+
+    # DataHub UI-specific fields
+    ui_user_urn: Optional[str] = None
+    ui_conversation_urn: Optional[str] = None
 
 
 class ChatbotToolCallEvent(BaseEvent):

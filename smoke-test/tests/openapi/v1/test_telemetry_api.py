@@ -124,6 +124,7 @@ def test_telemetry_api_via_tracking(graph_client: DataHubGraph) -> None:
             timestamp=datetime.now(timezone.utc),
             chat_id="test-chat-id-2",
             message_id=test_message_id,
+            chatbot="slack",
             slack_thread_id="test-thread-id-2",
             slack_message_id="test-message-id-2",
             slack_user_id="test-user-id-2",

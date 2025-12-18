@@ -20,6 +20,8 @@ from typing import (
     Sequence,
 )
 
+from datahub_integrations.chat.agent.agent_runner import enrich_event_with_agent_data
+
 if TYPE_CHECKING:
     from datahub_integrations.chat.chat_api import ChatContext
 
@@ -28,6 +30,7 @@ from datahub.metadata.schema_classes import (
     DataHubAiConversationMessageTypeClass,
 )
 from datahub.sdk.main_client import DataHubClient
+from datahub.utilities.perf_timer import PerfTimer
 from fastmcp import FastMCP
 from loguru import logger
 
@@ -46,6 +49,12 @@ from datahub_integrations.chat.types import ChatType, NextMessage
 from datahub_integrations.chat.utils import combine_contexts
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.telemetry.chat_events import (
+    ChatbotInteractionEvent,
+    ui_chat_id,
+    ui_message_id,
+)
+from datahub_integrations.telemetry.telemetry import track_saas_event
 
 
 @dataclass
@@ -252,6 +261,11 @@ class ChatSessionManager:
             agent_name: Optional agent name/type to use
             message_context: Optional message-level context that will be combined with conversation context
         """
+        timer = PerfTimer()
+        timer.start()
+        agent = None
+        message_text = text
+
         # Load existing session
         # Use agent_name as agent_type if provided, otherwise default to DataCatalogExplorer
         agent_type = agent_name if agent_name else "DataCatalogExplorer"
@@ -363,13 +377,32 @@ class ChatSessionManager:
 
         # Check for errors
         if error_container[0]:
+            error = error_container[0]
+            error_timestamp = str(int(time.time() * 1000))
             yield ChatMessageEvent(
                 message_type="TEXT",
                 text="",
                 conversation_urn=conversation_urn,
-                timestamp=int(time.time() * 1000),
-                error=str(error_container[0]),
+                timestamp=int(error_timestamp),
+                error=str(error),
             )
+
+            # EMIT ERROR EVENT
+            event_data = ChatbotInteractionEvent(
+                chat_id=ui_chat_id(conversation_urn, error_timestamp),
+                message_id=ui_message_id(conversation_urn, error_timestamp),
+                chatbot="datahub_ui",
+                ui_user_urn=user_urn,
+                ui_conversation_urn=conversation_urn,
+                message_contents=message_text,
+                response_error=f"{type(error).__name__}: {str(error)}",
+                response_generation_duration_sec=timer.elapsed_seconds(),
+                chat_session_id=None,
+            )
+
+            # Update with agent data if available
+            enrich_event_with_agent_data(event_data, agent)
+            track_saas_event(event_data)
             return
 
         # Save and yield final assistant message
@@ -395,3 +428,29 @@ class ChatSessionManager:
                 conversation_urn=conversation_urn,
                 timestamp=ai_message_timestamp,
             )
+
+            # Determine if this is a follow-up question
+            is_followup_question = (
+                agent.history.is_followup_datahub_ask_question
+                if agent and agent.history
+                else False
+            )
+            timestamp = str(ai_message_timestamp)
+
+            # EMIT SUCCESS EVENT
+            event_data = ChatbotInteractionEvent(
+                chat_id=ui_chat_id(conversation_urn, timestamp),
+                message_id=ui_message_id(conversation_urn, timestamp),
+                chatbot="datahub_ui",
+                ui_user_urn=user_urn,
+                ui_conversation_urn=conversation_urn,
+                message_contents=message_text,
+                response_contents=next_message.text,
+                response_length=len(next_message.text),
+                response_generation_duration_sec=timer.elapsed_seconds(),
+                is_followup_question=is_followup_question,
+            )
+
+            # Update with agent data if available
+            enrich_event_with_agent_data(event_data, agent)
+            track_saas_event(event_data)

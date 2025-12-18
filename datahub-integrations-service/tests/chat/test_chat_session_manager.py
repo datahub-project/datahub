@@ -37,6 +37,12 @@ def mock_conversation_manager(mock_datahub_client: Mock) -> Mock:
     return manager
 
 
+@pytest.fixture(autouse=True)
+def mock_track_saas_event():
+    with patch("datahub_integrations.chat.chat_session_manager.track_saas_event"):
+        yield
+
+
 def test_create_manager_instance(mock_datahub_client: Mock) -> None:
     manager = ChatSessionManager(
         system_client=mock_datahub_client, tools_client=mock_datahub_client

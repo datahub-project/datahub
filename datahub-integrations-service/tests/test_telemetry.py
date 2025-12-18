@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
+from datahub_integrations.chat.agent.agent_runner import enrich_event_with_agent_data
 from datahub_integrations.telemetry.chat_events import ChatbotInteractionEvent
 from datahub_integrations.telemetry.telemetry import (
     BaseEvent,
@@ -185,3 +186,89 @@ def test_full_history_not_sent_to_mixpanel() -> None:
         # Verify DataHub API gets the full data including heavy fields
         assert api_payload["full_history"] == event.full_history
         assert api_payload["reduction_sequence"] == event.reduction_sequence
+
+
+def test_platform_specific_fields() -> None:
+    """Test that Teams/UI events don't populate Slack-specific fields."""
+    # Teams event
+    teams_event = ChatbotInteractionEvent(
+        chat_id="teams_v1_chat_test_123",
+        message_id="teams_v1_message_test_123",
+        chatbot="teams",
+        message_contents="Test question",
+        response_generation_duration_sec=1.5,
+        teams_user_id="29:1abc123",
+        teams_user_name="John Doe",
+        teams_conversation_id="19:conversation@thread.skype",
+        teams_activity_id="1234567890",
+    )
+    assert teams_event.slack_thread_id is None
+    assert teams_event.slack_message_id is None
+    assert teams_event.slack_user_id is None
+    assert teams_event.slack_user_name is None
+
+    # UI event
+    ui_event = ChatbotInteractionEvent(
+        chat_id="ui_v1_chat_test_123",
+        message_id="ui_v1_message_test_123",
+        chatbot="datahub_ui",
+        message_contents="Test question",
+        response_generation_duration_sec=1.5,
+        ui_user_urn="urn:li:corpuser:testuser",
+        ui_conversation_urn="urn:li:dataHubAiConversation:123",
+    )
+    assert ui_event.slack_thread_id is None
+    assert ui_event.slack_message_id is None
+    assert ui_event.slack_user_id is None
+    assert ui_event.slack_user_name is None
+
+
+def test_agent_data_update_pattern() -> None:
+    """Test the agent data update pattern used in production code."""
+    # Create event with defaults (matching the pattern in bot.py and chat_session_manager.py)
+    event_data = ChatbotInteractionEvent(
+        chat_id="test_chat",
+        message_id="test_message",
+        chatbot="teams",
+        message_contents="Test question",
+        response_contents="Test response",
+        response_generation_duration_sec=1.5,
+        chat_session_id=None,
+    )
+
+    # Simulate agent with history
+    mock_agent = Mock()
+    mock_agent.session_id = "session_123"
+    mock_agent.history = Mock()
+    mock_agent.history.num_tool_calls = 5
+    mock_agent.history.num_tool_call_errors = 1
+    mock_agent.history.messages = [Mock(), Mock(), Mock()]
+    mock_agent.history.json = Mock(return_value='{"messages": []}')
+    mock_agent.history.reduction_sequence_json = '{"reductions": []}'
+    mock_agent.history.num_reducers_applied = 2
+
+    # Update with agent data using the actual function
+    enrich_event_with_agent_data(event_data, mock_agent)
+
+    assert event_data.chat_session_id == "session_123"
+    assert event_data.num_tool_calls == 5
+    assert event_data.num_tool_call_errors == 1
+    assert event_data.num_history_messages == 3
+
+    # Test agent without history
+    event_data_no_history = ChatbotInteractionEvent(
+        chat_id="test_chat",
+        message_id="test_message",
+        chatbot="teams",
+        message_contents="Test question",
+        response_generation_duration_sec=1.5,
+        chat_session_id=None,
+    )
+    mock_agent_no_history = Mock()
+    mock_agent_no_history.session_id = "session_456"
+    mock_agent_no_history.history = None
+
+    enrich_event_with_agent_data(event_data_no_history, mock_agent_no_history)
+
+    assert event_data_no_history.chat_session_id == "session_456"
+    assert event_data_no_history.num_tool_calls is None

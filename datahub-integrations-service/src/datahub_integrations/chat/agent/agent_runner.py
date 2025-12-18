@@ -43,7 +43,10 @@ from datahub_integrations.gen_ai.llm.factory import get_llm_client
 from datahub_integrations.mcp.mcp_server import with_datahub_client
 from datahub_integrations.mcp_integration.tool import ToolWrapper
 from datahub_integrations.slack.utils.string import truncate
-from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
+from datahub_integrations.telemetry.chat_events import (
+    ChatbotInteractionEvent,
+    ChatbotToolCallEvent,
+)
 from datahub_integrations.telemetry.telemetry import track_saas_event
 
 if TYPE_CHECKING:
@@ -109,6 +112,20 @@ def log_tokens_usage(response: "TokenUsageTypeDef") -> None:
     logger.info(
         f"Tokens usage: total input tokens: {total_input_tokens}, total output tokens: {output_tokens}"
     )
+
+
+def enrich_event_with_agent_data(
+    event_data: ChatbotInteractionEvent, agent: Optional["AgentRunner"]
+) -> None:
+    if agent:
+        event_data.chat_session_id = agent.session_id
+        if agent.history:
+            event_data.num_tool_calls = agent.history.num_tool_calls
+            event_data.num_tool_call_errors = agent.history.num_tool_call_errors
+            event_data.num_history_messages = len(agent.history.messages)
+            event_data.full_history = agent.history.json(indent=None)
+            event_data.reduction_sequence = agent.history.reduction_sequence_json
+            event_data.num_reducers_applied = agent.history.num_reducers_applied
 
 
 class AgentRunner:

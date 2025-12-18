@@ -17,6 +17,7 @@ from datahub_integrations.chat.agent import (
     AgentOutputMaxTokensExceededError,
     AgentRunner,
 )
+from datahub_integrations.chat.agent.agent_runner import enrich_event_with_agent_data
 from datahub_integrations.chat.agent.progress_tracker import ProgressUpdate
 from datahub_integrations.chat.agents import create_data_catalog_explorer_agent
 from datahub_integrations.chat.chat_history import (
@@ -280,15 +281,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
             is_followup_question=is_followup_question,
         )
 
-        # Update with agent data if available
-        if agent:
-            event_data.chat_session_id = agent.session_id
-            event_data.num_tool_calls = agent.history.num_tool_calls
-            event_data.num_tool_call_errors = agent.history.num_tool_call_errors
-            event_data.num_history_messages = len(agent.history.messages)
-            event_data.full_history = agent.history.json(indent=None)
-            event_data.reduction_sequence = agent.history.reduction_sequence_json
-            event_data.num_reducers_applied = agent.history.num_reducers_applied
+        enrich_event_with_agent_data(event_data, agent)
 
         track_saas_event(event_data)
 
