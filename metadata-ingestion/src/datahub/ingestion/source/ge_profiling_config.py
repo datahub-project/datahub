@@ -111,6 +111,12 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Upper limit for number of sample values to collect for all columns.",
     )
 
+    profiling_use_custom_profiler: bool = Field(
+        default=False,
+        description="Whether to use the custom SQLAlchemy-based profiler instead of Great Expectations. "
+        "This is an experimental feature flag for gradual rollout.",
+    )
+
     _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),
     )

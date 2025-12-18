@@ -2,9 +2,14 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union, cast
 
 from sqlalchemy import create_engine, inspect
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
+        DatahubSQLProfiler,
+    )
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import (
@@ -203,7 +208,11 @@ class GenericProfiler:
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    ) -> Union["DatahubGEProfiler", "DatahubSQLProfiler"]:
+        from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
+            DatahubSQLProfiler,
+        )
+
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
 
@@ -213,13 +222,22 @@ class GenericProfiler:
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-            env=self.config.env,
-        )
+        if self.config.profiling.profiling_use_custom_profiler:
+            return DatahubSQLProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            return DatahubGEProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     def is_dataset_eligible_for_profiling(
         self,

@@ -1,7 +1,12 @@
 import logging
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union
 
 from snowflake.sqlalchemy import snowdialect
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
+        DatahubSQLProfiler,
+    )
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
@@ -132,7 +137,11 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    ) -> Union["DatahubGEProfiler", "DatahubSQLProfiler"]:
+        from datahub.ingestion.source.sql_profiler.datahub_sql_profiler import (
+            DatahubSQLProfiler,
+        )
+
         assert db_name
 
         url = self.config.get_sql_alchemy_url(database=db_name)
@@ -147,12 +156,21 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         conn = engine.connect()
         inspector = inspect(conn)
 
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-        )
+        if self.config.profiling.profiling_use_custom_profiler:
+            return DatahubSQLProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            return DatahubGEProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+            )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
         schema_name = self.database_default_schema.get(db_name)
