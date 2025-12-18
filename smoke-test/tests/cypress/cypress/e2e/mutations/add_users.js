@@ -87,7 +87,7 @@ describe("add_user", () => {
         cy.enterTextInTestId("email", registeredEmail);
         cy.enterTextInTestId("password", "Example Reset Password");
         cy.enterTextInTestId("confirmPassword", "Example Reset Password");
-        cy.get("[type=submit]").click();
+        cy.get('[data-testid="reset-password"]').click();
         cy.waitTextVisible("Welcome back");
         cy.hideOnboardingTour();
       })
@@ -97,7 +97,7 @@ describe("add_user", () => {
         cy.enterTextInTestId("email", registeredEmail);
         cy.enterTextInTestId("password", "Example Reset Password");
         cy.enterTextInTestId("confirmPassword", "Example Reset Password");
-        cy.get("[type=submit]").click();
+        cy.get('[data-testid="reset-password"]').click();
         cy.waitTextVisible("Failed to log in!");
       });
   });
