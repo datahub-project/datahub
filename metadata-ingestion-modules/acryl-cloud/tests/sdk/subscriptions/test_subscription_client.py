@@ -161,7 +161,11 @@ def assert_entity_change_details_equal(
 @pytest.fixture
 def mock_client() -> MagicMock:
     """Mock DataHubClient for testing."""
-    return MagicMock(spec=DataHubClient)
+    mock = MagicMock(spec=DataHubClient)
+    # Configure _graph mock (private attribute not in spec, so configure separately)
+    mock._graph = MagicMock()
+    mock._graph.exists.return_value = True  # Default: subscriber entity exists
+    return mock
 
 
 @pytest.fixture
@@ -736,6 +740,143 @@ def test_subscribe_with_string_subscriber_urn(
     upserted_subscription = subscription_client.client.entities.upsert.call_args[0][0]  # type: ignore[attr-defined]
     assert upserted_subscription.info.actorUrn == user_urn_str
     assert upserted_subscription.info.actorType == CorpUserUrn.ENTITY_TYPE
+
+
+def test_subscribe_raises_error_when_subscriber_not_found(
+    subscription_client: SubscriptionClient,
+    any_dataset_urn: DatasetUrn,
+    any_user_urn: CorpUserUrn,
+) -> None:
+    """Test subscribe raises SdkUsageError when subscriber entity does not exist."""
+    # Mock: Subscriber entity does not exist
+    subscription_client.client._graph.exists.return_value = False  # type: ignore[attr-defined]
+
+    # Execute and verify error is raised
+    with pytest.raises(SdkUsageError) as exc_info:
+        subscription_client.subscribe(
+            urn=any_dataset_urn,
+            subscriber_urn=any_user_urn,
+            entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+        )
+
+    assert "Subscriber not found" in str(exc_info.value)
+    assert any_user_urn.urn() in str(exc_info.value)
+
+    # Verify: _graph.exists was called with subscriber URN
+    subscription_client.client._graph.exists.assert_called_once_with(  # type: ignore[attr-defined]
+        any_user_urn.urn()
+    )
+
+    # Verify: No subscription was created
+    subscription_client.client.entities.upsert.assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_subscribe_raises_error_when_group_subscriber_not_found(
+    subscription_client: SubscriptionClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test subscribe raises SdkUsageError when group subscriber does not exist."""
+    group_urn = CorpGroupUrn.from_string("urn:li:corpGroup:test_group")
+
+    # Mock: Group entity does not exist
+    subscription_client.client._graph.exists.return_value = False  # type: ignore[attr-defined]
+
+    # Execute and verify error is raised
+    with pytest.raises(SdkUsageError) as exc_info:
+        subscription_client.subscribe(
+            urn=any_dataset_urn,
+            subscriber_urn=group_urn,
+            entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+        )
+
+    assert "Subscriber not found" in str(exc_info.value)
+    assert group_urn.urn() in str(exc_info.value)
+
+    # Verify: _graph.exists was called with subscriber URN
+    subscription_client.client._graph.exists.assert_called_once_with(  # type: ignore[attr-defined]
+        group_urn.urn()
+    )
+
+    # Verify: No subscription was created
+    subscription_client.client.entities.upsert.assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_subscribe_with_skip_actor_exists_check_true_allows_nonexistent_user(
+    subscription_client: SubscriptionClient,
+    any_dataset_urn: DatasetUrn,
+    any_user_urn: CorpUserUrn,
+) -> None:
+    """Test subscribe with skip_actor_exists_check=True bypasses check for user."""
+    # Mock: Subscriber entity does not exist, no existing subscription
+    subscription_client.client._graph.exists.return_value = False  # type: ignore[attr-defined]
+    subscription_client.client.resolve.subscription.return_value = []  # type: ignore[attr-defined]
+
+    # Execute: should NOT raise error because skip_actor_exists_check=True
+    subscription_client.subscribe(
+        urn=any_dataset_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+        skip_actor_exists_check=True,
+    )
+
+    # Verify: _graph.exists was NOT called (check was skipped)
+    subscription_client.client._graph.exists.assert_not_called()  # type: ignore[attr-defined]
+
+    # Verify: Subscription was created despite non-existent subscriber
+    subscription_client.client.entities.upsert.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_subscribe_with_skip_actor_exists_check_true_allows_nonexistent_group(
+    subscription_client: SubscriptionClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test subscribe with skip_actor_exists_check=True bypasses check for group."""
+    group_urn = CorpGroupUrn.from_string("urn:li:corpGroup:test_group")
+
+    # Mock: Group entity does not exist, no existing subscription
+    subscription_client.client._graph.exists.return_value = False  # type: ignore[attr-defined]
+    subscription_client.client.resolve.subscription.return_value = []  # type: ignore[attr-defined]
+
+    # Execute: should NOT raise error because skip_actor_exists_check=True
+    subscription_client.subscribe(
+        urn=any_dataset_urn,
+        subscriber_urn=group_urn,
+        entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+        skip_actor_exists_check=True,
+    )
+
+    # Verify: _graph.exists was NOT called (check was skipped)
+    subscription_client.client._graph.exists.assert_not_called()  # type: ignore[attr-defined]
+
+    # Verify: Subscription was created despite non-existent subscriber
+    subscription_client.client.entities.upsert.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_subscribe_with_skip_actor_exists_check_false_checks_existence(
+    subscription_client: SubscriptionClient,
+    any_dataset_urn: DatasetUrn,
+    any_user_urn: CorpUserUrn,
+) -> None:
+    """Test subscribe with skip_actor_exists_check=False checks existence."""
+    # Mock: Subscriber entity exists, no existing subscription
+    subscription_client.client._graph.exists.return_value = True  # type: ignore[attr-defined]
+    subscription_client.client.resolve.subscription.return_value = []  # type: ignore[attr-defined]
+
+    # Execute
+    subscription_client.subscribe(
+        urn=any_dataset_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],
+        skip_actor_exists_check=False,
+    )
+
+    # Verify: _graph.exists was called (check was performed)
+    subscription_client.client._graph.exists.assert_called_once_with(  # type: ignore[attr-defined]
+        any_user_urn.urn()
+    )
+
+    # Verify: Subscription was created
+    subscription_client.client.entities.upsert.assert_called_once()  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(

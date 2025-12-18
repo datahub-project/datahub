@@ -65,6 +65,7 @@ class SubscriptionClient:
         entity_change_types: Optional[
             Sequence[Union[str, models.EntityChangeTypeClass]]
         ] = None,
+        skip_actor_exists_check: bool = False,
     ) -> None:
         """
         Create a subscription to receive notifications for entity changes.
@@ -79,6 +80,10 @@ class SubscriptionClient:
                                 - Dataset: all existing change types
                                 - Assertion: assertion-related types (ASSERTION_PASSED,
                                   ASSERTION_FAILED, ASSERTION_ERROR)
+            skip_actor_exists_check: If True, skip validation that the subscriber entity exists.
+                                    This can be useful in cases where eventual consistency may
+                                    cause the subscriber to not be immediately available.
+                                    Defaults to False.
 
         Returns:
             None
@@ -87,6 +92,7 @@ class SubscriptionClient:
             SdkUsageError: If URN format is invalid, entity not found, or empty change types list.
             SdkUsageError: For assertion subscription - if non-assertion-related change types
                           are provided (only ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR allowed).
+            SdkUsageError: If skip_actor_exists_check is False and the subscriber does not exist.
         """
         _print_experimental_warning()
 
@@ -95,6 +101,12 @@ class SubscriptionClient:
 
         # Parse subscriber URN string if needed
         parsed_subscriber_urn = self._maybe_parse_subscriber_urn(subscriber_urn)
+
+        # Verify that the subscriber (user or group) exists (unless skipped)
+        if not skip_actor_exists_check and not self.client._graph.exists(
+            parsed_subscriber_urn.urn()
+        ):
+            raise SdkUsageError(f"Subscriber not found: {parsed_subscriber_urn.urn()}")
 
         dataset_urn: DatasetUrn
         assertion_urn: Optional[AssertionUrn]
