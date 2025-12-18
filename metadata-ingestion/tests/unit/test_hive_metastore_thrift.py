@@ -257,10 +257,10 @@ class TestConnectionTypeRouting:
         assert isinstance(source._fetcher, ThriftDataFetcher)
         assert source.config.connection_type == HiveMetastoreConnectionType.thrift
 
-    @patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+    @patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
     def test_connection_type_sql_uses_sql_fetcher(self, mock_client):
         """Verify that connection_type='sql' creates SQLAlchemyDataFetcher."""
-        from datahub.ingestion.source.sql.hive.hive_data_fetcher import (
+        from datahub.ingestion.source.sql.hive.hive_sql_fetcher import (
             SQLAlchemyDataFetcher,
         )
 
@@ -278,10 +278,10 @@ class TestConnectionTypeRouting:
         assert isinstance(source._fetcher, SQLAlchemyDataFetcher)
         assert source.config.connection_type == HiveMetastoreConnectionType.sql
 
-    @patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+    @patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
     def test_default_connection_type_is_sql(self, mock_client):
         """Verify that default connection_type is 'sql' (backward compatibility)."""
-        from datahub.ingestion.source.sql.hive.hive_data_fetcher import (
+        from datahub.ingestion.source.sql.hive.hive_sql_fetcher import (
             SQLAlchemyDataFetcher,
         )
 
@@ -515,13 +515,17 @@ class TestHMS3CatalogSupport:
 
         This tests the internal cache structure without triggering HMS API calls.
         """
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import TableKey
+
         # Manually populate the cache with entries from different catalogs
-        mock_client._table_cache[("catalog1", "my_db", "my_table")] = {
+        key1 = TableKey(catalog_name="catalog1", db_name="my_db", table_name="my_table")
+        key2 = TableKey(catalog_name="catalog2", db_name="my_db", table_name="my_table")
+        mock_client._table_cache[key1] = {
             "table_name": "my_table",
             "table_type": "EXTERNAL_TABLE",
             "location": "s3://bucket1/path",
         }
-        mock_client._table_cache[("catalog2", "my_db", "my_table")] = {
+        mock_client._table_cache[key2] = {
             "table_name": "my_table",
             "table_type": "EXTERNAL_TABLE",
             "location": "s3://bucket2/path",  # Different location!
@@ -529,39 +533,44 @@ class TestHMS3CatalogSupport:
 
         # Verify both entries exist and are distinct
         assert len(mock_client._table_cache) == 2
-        assert (
-            mock_client._table_cache[("catalog1", "my_db", "my_table")]["location"]
-            == "s3://bucket1/path"
-        )
-        assert (
-            mock_client._table_cache[("catalog2", "my_db", "my_table")]["location"]
-            == "s3://bucket2/path"
-        )
+        assert mock_client._table_cache[key1]["location"] == "s3://bucket1/path"
+        assert mock_client._table_cache[key2]["location"] == "s3://bucket2/path"
 
     def test_database_failure_key_structure_includes_catalog(self, mock_client):
         """Test that database failure keys include catalog."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import DatabaseKey
+
         # Set failures with different catalogs
-        mock_client._database_failures[("catalog1", "my_db")] = "Error 1"
-        mock_client._database_failures[("catalog2", "my_db")] = "Error 2"
+        key1 = DatabaseKey(catalog_name="catalog1", db_name="my_db")
+        key2 = DatabaseKey(catalog_name="catalog2", db_name="my_db")
+        mock_client._database_failures[key1] = "Error 1"
+        mock_client._database_failures[key2] = "Error 2"
 
         # Verify both are tracked separately
         assert len(mock_client._database_failures) == 2
-        assert mock_client._database_failures[("catalog1", "my_db")] == "Error 1"
-        assert mock_client._database_failures[("catalog2", "my_db")] == "Error 2"
+        assert mock_client._database_failures[key1] == "Error 1"
+        assert mock_client._database_failures[key2] == "Error 2"
 
     def test_table_failure_key_structure_includes_catalog(self, mock_client):
         """Test that table failure keys include catalog."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import TableKey
+
         # Set failures with different catalogs
-        mock_client._table_failures[("catalog1", "my_db", "my_table")] = "Error 1"
-        mock_client._table_failures[("catalog2", "my_db", "my_table")] = "Error 2"
+        key1 = TableKey(catalog_name="catalog1", db_name="my_db", table_name="my_table")
+        key2 = TableKey(catalog_name="catalog2", db_name="my_db", table_name="my_table")
+        mock_client._table_failures[key1] = "Error 1"
+        mock_client._table_failures[key2] = "Error 2"
 
         # Verify both are tracked separately
         assert len(mock_client._table_failures) == 2
 
     def test_database_failures_include_catalog_in_display(self, mock_client):
         """Test that failure reporting includes catalog context."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import DatabaseKey
+
         # Manually set a database failure with catalog
-        mock_client._database_failures[("spark_catalog", "my_db")] = "Connection error"
+        key = DatabaseKey(catalog_name="spark_catalog", db_name="my_db")
+        mock_client._database_failures[key] = "Connection error"
 
         failures = mock_client.get_database_failures()
 
@@ -572,10 +581,13 @@ class TestHMS3CatalogSupport:
 
     def test_table_failures_include_catalog_in_display(self, mock_client):
         """Test that table failure reporting includes catalog context."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import TableKey
+
         # Manually set a table failure with catalog
-        mock_client._table_failures[("spark_catalog", "my_db", "my_table")] = (
-            "Table not found"
+        key = TableKey(
+            catalog_name="spark_catalog", db_name="my_db", table_name="my_table"
         )
+        mock_client._table_failures[key] = "Table not found"
 
         failures = mock_client.get_table_failures()
 
@@ -587,9 +599,16 @@ class TestHMS3CatalogSupport:
 
     def test_failures_without_catalog_display_correctly(self, mock_client):
         """Test that failures without catalog display without prefix."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            DatabaseKey,
+            TableKey,
+        )
+
         # Set failures without catalog (None)
-        mock_client._database_failures[(None, "my_db")] = "Error"
-        mock_client._table_failures[(None, "my_db", "my_table")] = "Error"
+        db_key = DatabaseKey(catalog_name=None, db_name="my_db")
+        table_key = TableKey(catalog_name=None, db_name="my_db", table_name="my_table")
+        mock_client._database_failures[db_key] = "Error"
+        mock_client._table_failures[table_key] = "Error"
 
         db_failures = mock_client.get_database_failures()
         table_failures = mock_client.get_table_failures()
@@ -600,10 +619,19 @@ class TestHMS3CatalogSupport:
 
     def test_clear_failures_clears_catalog_keyed_data(self, mock_client):
         """Test that clear_failures clears catalog-keyed failure data."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            DatabaseKey,
+            TableKey,
+        )
+
         # Populate some data
-        mock_client._database_failures[("catalog1", "db1")] = "Error"
-        mock_client._table_failures[("catalog1", "db1", "table1")] = "Error"
-        mock_client._table_cache[("catalog1", "db1", "table1")] = {"data": "value"}
+        db_key = DatabaseKey(catalog_name="catalog1", db_name="db1")
+        table_key = TableKey(
+            catalog_name="catalog1", db_name="db1", table_name="table1"
+        )
+        mock_client._database_failures[db_key] = "Error"
+        mock_client._table_failures[table_key] = "Error"
+        mock_client._table_cache[table_key] = {"data": "value"}
 
         # Clear
         mock_client.clear_failures()
@@ -646,3 +674,373 @@ class TestCatalogConfigIntegration:
 
         assert source.config.include_catalog_name_in_ids is True
         assert source.config.catalog_name == "spark_catalog"
+
+
+# =============================================================================
+# Error Handling and Wrapping Tests
+# =============================================================================
+
+
+class TestErrorWrapping:
+    """Tests for error wrapping logic that provides helpful messages."""
+
+    def test_broken_pipe_without_kerberos_suggests_enabling_kerberos(self):
+        """BrokenPipeError without Kerberos should suggest enabling it."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HMSConnectionError,
+            _wrap_thrift_error,
+        )
+
+        original_error = BrokenPipeError("Connection closed")
+        wrapped = _wrap_thrift_error(original_error, use_kerberos=False)
+
+        assert isinstance(wrapped, HMSConnectionError)
+        assert "use_kerberos" in str(wrapped).lower()
+        assert "sasl" in str(wrapped).lower() or "kerberos" in str(wrapped).lower()
+
+    def test_broken_pipe_with_kerberos_suggests_checking_ticket(self):
+        """BrokenPipeError with Kerberos should suggest checking ticket."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HMSConnectionError,
+            _wrap_thrift_error,
+        )
+
+        original_error = BrokenPipeError("Connection closed")
+        wrapped = _wrap_thrift_error(original_error, use_kerberos=True)
+
+        assert isinstance(wrapped, HMSConnectionError)
+        assert "klist" in str(wrapped) or "ticket" in str(wrapped).lower()
+
+    def test_read_zero_bytes_detected_as_auth_error(self):
+        """'read 0 bytes' error should be detected as auth-related."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HMSConnectionError,
+            _wrap_thrift_error,
+        )
+
+        original_error = Exception("TTransportException: read 0 bytes")
+        wrapped = _wrap_thrift_error(original_error, use_kerberos=False)
+
+        assert isinstance(wrapped, HMSConnectionError)
+
+    def test_connection_reset_detected_as_auth_error(self):
+        """'connection reset' error should be detected as auth-related."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HMSConnectionError,
+            _wrap_thrift_error,
+        )
+
+        original_error = Exception("Connection reset by peer")
+        wrapped = _wrap_thrift_error(original_error, use_kerberos=False)
+
+        assert isinstance(wrapped, HMSConnectionError)
+
+    def test_non_auth_error_passes_through(self):
+        """Non-auth errors should pass through unchanged."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            _wrap_thrift_error,
+        )
+
+        original_error = ValueError("Some other error")
+        wrapped = _wrap_thrift_error(original_error, use_kerberos=False)
+
+        # Should return the original error, not wrapped
+        assert wrapped is original_error
+
+
+class TestRetryLogic:
+    """Tests for retry decision logic."""
+
+    def test_retry_decorator_is_callable(self):
+        """Retry decorator should be created successfully."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HiveMetastoreThriftClient,
+            ThriftConnectionConfig,
+        )
+
+        config = ThriftConnectionConfig(host="localhost", port=9083)
+        client = HiveMetastoreThriftClient(config)
+
+        # Get the retry decorator - verify it can be created
+        decorator = client._get_retry_decorator()
+        assert callable(decorator)
+
+    def test_transport_exception_type(self):
+        """Verify TTransportException can be instantiated for retry testing."""
+        from thrift.transport import TTransport
+
+        # TTransportException should be a proper exception class
+        error = TTransport.TTransportException(message="Connection failed")
+        assert isinstance(error, TTransport.TTransportException)
+        assert isinstance(error, Exception)
+
+
+class TestDateFormatting:
+    """Tests for date formatting utility."""
+
+    def test_format_create_date_with_valid_timestamp(self):
+        """Valid timestamp should be formatted as YYYY-MM-DD."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HiveMetastoreThriftClient,
+        )
+
+        # Unix timestamp for 2024-01-15
+        timestamp = 1705276800
+        result = HiveMetastoreThriftClient._format_create_date(timestamp)
+
+        assert result == "2024-01-15"
+
+    def test_format_create_date_with_none(self):
+        """None should return empty string."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HiveMetastoreThriftClient,
+        )
+
+        result = HiveMetastoreThriftClient._format_create_date(None)
+        assert result == ""
+
+    def test_format_create_date_with_zero(self):
+        """Zero should return empty string (falsy)."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import (
+            HiveMetastoreThriftClient,
+        )
+
+        result = HiveMetastoreThriftClient._format_create_date(0)
+        assert result == ""
+
+
+class TestTestConnectionErrorHandling:
+    """Tests for test_connection error detection and mitigation messages."""
+
+    def test_kerberos_error_provides_mitigation(self):
+        """Kerberos errors should provide helpful mitigation message."""
+        from datahub.ingestion.source.sql.hive.hive_metastore_source import (
+            HiveMetastoreSource,
+        )
+
+        config_dict = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+            "use_kerberos": True,
+        }
+
+        # Mock the client to raise a Kerberos error
+        with patch(
+            "datahub.ingestion.source.sql.hive.hive_thrift_client.HiveMetastoreThriftClient.connect"
+        ) as mock_connect:
+            mock_connect.side_effect = Exception("GSSAPI Error: No credentials")
+
+            report = HiveMetastoreSource.test_connection(config_dict)
+
+            assert report.basic_connectivity is not None
+            assert report.basic_connectivity.capable is False
+            assert report.basic_connectivity.mitigation_message is not None
+            assert "kinit" in report.basic_connectivity.mitigation_message
+
+    def test_connection_refused_provides_mitigation(self):
+        """Connection refused errors should provide helpful mitigation."""
+        from datahub.ingestion.source.sql.hive.hive_metastore_source import (
+            HiveMetastoreSource,
+        )
+
+        config_dict = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+        }
+
+        with patch(
+            "datahub.ingestion.source.sql.hive.hive_thrift_client.HiveMetastoreThriftClient.connect"
+        ) as mock_connect:
+            mock_connect.side_effect = Exception("Connection refused")
+
+            report = HiveMetastoreSource.test_connection(config_dict)
+
+            assert report.basic_connectivity is not None
+            assert report.basic_connectivity.capable is False
+            assert report.basic_connectivity.mitigation_message is not None
+            assert "host_port" in report.basic_connectivity.mitigation_message
+
+    def test_timeout_error_provides_mitigation(self):
+        """Timeout errors should provide helpful mitigation."""
+        from datahub.ingestion.source.sql.hive.hive_metastore_source import (
+            HiveMetastoreSource,
+        )
+
+        config_dict = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+        }
+
+        with patch(
+            "datahub.ingestion.source.sql.hive.hive_thrift_client.HiveMetastoreThriftClient.connect"
+        ) as mock_connect:
+            mock_connect.side_effect = Exception("Connection timed out")
+
+            report = HiveMetastoreSource.test_connection(config_dict)
+
+            assert report.basic_connectivity is not None
+            assert report.basic_connectivity.capable is False
+            assert report.basic_connectivity.mitigation_message is not None
+            assert "firewall" in report.basic_connectivity.mitigation_message.lower()
+
+
+class TestSourceCloseFailureReporting:
+    """Tests for failure reporting during source close()."""
+
+    def test_close_reports_database_failures(self):
+        """Database failures from ThriftDataFetcher should be reported."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import DatabaseKey
+
+        ctx = PipelineContext(run_id="test")
+        config_dict = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+        }
+
+        source = HiveMetastoreSource.create(config_dict, ctx)
+
+        # Manually inject a failure into the client
+        mock_client = MagicMock()
+        db_key = DatabaseKey(catalog_name=None, db_name="failed_db")
+        mock_client._database_failures = {db_key: "Connection error"}
+        mock_client._table_failures = {}
+        mock_client.get_database_failures.return_value = [
+            ("failed_db", "Connection error")
+        ]
+        mock_client.get_table_failures.return_value = []
+        mock_client.close = MagicMock()
+
+        source._fetcher._client = mock_client  # type: ignore[attr-defined]
+
+        source.close()
+
+        # Check that warning was reported
+        assert len(source.report.warnings) > 0
+
+    def test_close_reports_table_failures(self):
+        """Table failures from ThriftDataFetcher should be reported."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_client import TableKey
+
+        ctx = PipelineContext(run_id="test")
+        config_dict = {
+            "connection_type": "thrift",
+            "host_port": "localhost:9083",
+        }
+
+        source = HiveMetastoreSource.create(config_dict, ctx)
+
+        # Manually inject a failure into the client
+        mock_client = MagicMock()
+        table_key = TableKey(
+            catalog_name=None, db_name="my_db", table_name="failed_table"
+        )
+        mock_client._database_failures = {}
+        mock_client._table_failures = {table_key: "Table not found"}
+        mock_client.get_database_failures.return_value = []
+        mock_client.get_table_failures.return_value = [
+            ("my_db", "failed_table", "Table not found")
+        ]
+        mock_client.close = MagicMock()
+
+        source._fetcher._client = mock_client  # type: ignore[attr-defined]
+
+        source.close()
+
+        # Check that warning was reported
+        assert len(source.report.warnings) > 0
+
+
+class TestThriftDataFetcherMethods:
+    """Tests for ThriftDataFetcher fetch methods."""
+
+    def test_get_database_failures_returns_empty_when_not_connected(self):
+        """get_database_failures should return empty list when client is None."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_fetcher import (
+            ThriftDataFetcher,
+        )
+
+        mock_config = MagicMock()
+        mock_config.host_port = "localhost:9083"
+        mock_config.use_kerberos = False
+        mock_config.kerberos_service_name = "hive"
+        mock_config.kerberos_hostname_override = None
+        mock_config.timeout_seconds = 60
+
+        fetcher = ThriftDataFetcher(mock_config)
+        # Client is None by default
+
+        failures = fetcher.get_database_failures()
+        assert failures == []
+
+    def test_get_table_failures_returns_empty_when_not_connected(self):
+        """get_table_failures should return empty list when client is None."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_fetcher import (
+            ThriftDataFetcher,
+        )
+
+        mock_config = MagicMock()
+        mock_config.host_port = "localhost:9083"
+        mock_config.use_kerberos = False
+        mock_config.kerberos_service_name = "hive"
+        mock_config.kerberos_hostname_override = None
+        mock_config.timeout_seconds = 60
+
+        fetcher = ThriftDataFetcher(mock_config)
+
+        failures = fetcher.get_table_failures()
+        assert failures == []
+
+    def test_close_when_not_connected(self):
+        """close() should handle case when client is None."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_fetcher import (
+            ThriftDataFetcher,
+        )
+
+        mock_config = MagicMock()
+        mock_config.host_port = "localhost:9083"
+        mock_config.use_kerberos = False
+        mock_config.kerberos_service_name = "hive"
+        mock_config.kerberos_hostname_override = None
+        mock_config.timeout_seconds = 60
+
+        fetcher = ThriftDataFetcher(mock_config)
+
+        # Should not raise
+        fetcher.close()
+        assert fetcher._client is None
+
+    def test_get_catalog_name_returns_config_value(self):
+        """_get_catalog_name should return catalog from config."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_fetcher import (
+            ThriftDataFetcher,
+        )
+
+        mock_config = MagicMock()
+        mock_config.host_port = "localhost:9083"
+        mock_config.use_kerberos = False
+        mock_config.kerberos_service_name = "hive"
+        mock_config.kerberos_hostname_override = None
+        mock_config.timeout_seconds = 60
+        mock_config.catalog_name = "spark_catalog"
+
+        fetcher = ThriftDataFetcher(mock_config)
+
+        assert fetcher._get_catalog_name() == "spark_catalog"
+
+    def test_get_catalog_name_returns_none_when_not_set(self):
+        """_get_catalog_name should return None when catalog not configured."""
+        from datahub.ingestion.source.sql.hive.hive_thrift_fetcher import (
+            ThriftDataFetcher,
+        )
+
+        mock_config = MagicMock()
+        mock_config.host_port = "localhost:9083"
+        mock_config.use_kerberos = False
+        mock_config.kerberos_service_name = "hive"
+        mock_config.kerberos_hostname_override = None
+        mock_config.timeout_seconds = 60
+        mock_config.catalog_name = None
+
+        fetcher = ThriftDataFetcher(mock_config)
+
+        assert fetcher._get_catalog_name() is None

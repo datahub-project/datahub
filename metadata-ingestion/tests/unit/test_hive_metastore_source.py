@@ -85,7 +85,7 @@ def test_hive_metastore_source_initialization():
     config = HiveMetastore.model_validate(config_dict)
     ctx = PipelineContext(run_id="test-run")
 
-    with patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient"):
+    with patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient"):
         source = HiveMetastoreSource(config, ctx)
 
         assert source.config == config
@@ -93,7 +93,7 @@ def test_hive_metastore_source_initialization():
         assert source.config.emit_storage_lineage is True
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_source_with_storage_lineage_disabled(mock_client):
     """Test that storage lineage is not emitted when disabled"""
     from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
@@ -164,143 +164,7 @@ def test_storage_lineage_config_invalid_direction():
     assert "upstream" in str(exc_info.value) and "downstream" in str(exc_info.value)
 
 
-def test_storage_lineage_config_enum_values():
-    """Test that direction uses enum values"""
-    config1 = HiveStorageLineageConfigMixin(
-        emit_storage_lineage=True,
-        hive_storage_lineage_direction=LineageDirection.UPSTREAM,
-        include_column_lineage=True,
-        storage_platform_instance=None,
-    )
-
-    config2 = HiveStorageLineageConfigMixin(
-        emit_storage_lineage=True,
-        hive_storage_lineage_direction=LineageDirection.DOWNSTREAM,
-        include_column_lineage=True,
-        storage_platform_instance=None,
-    )
-
-    assert config1.hive_storage_lineage_direction == LineageDirection.UPSTREAM
-    assert config2.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM
-    assert config1.hive_storage_lineage_direction == "upstream"
-    assert config2.hive_storage_lineage_direction == "downstream"
-
-
-def test_hive_metastore_mode_configuration():
-    """Test different mode configurations"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:3306",
-        "database": "test_db",
-        "mode": "presto-on-hive",
-    }
-    config = HiveMetastore.model_validate(config_dict)
-
-    assert config.mode.value == "presto-on-hive"
-
-
-def test_hive_metastore_with_catalog_name_in_ids():
-    """Test include_catalog_name_in_ids configuration"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:3306",
-        "database": "test_db",
-        "include_catalog_name_in_ids": True,
-    }
-    config = HiveMetastore.model_validate(config_dict)
-
-    assert config.include_catalog_name_in_ids is True
-
-
-def test_hive_metastore_simplify_nested_field_paths():
-    """Test simplify_nested_field_paths configuration"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:3306",
-        "database": "test_db",
-        "simplify_nested_field_paths": True,
-    }
-    config = HiveMetastore.model_validate(config_dict)
-
-    assert config.simplify_nested_field_paths is True
-
-
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
-def test_hive_metastore_source_storage_lineage_integration(mock_client):
-    """Test that storage lineage config is properly set on source"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:3306",
-        "database": "test_db",
-        "emit_storage_lineage": True,
-        "hive_storage_lineage_direction": "upstream",
-        "include_column_lineage": True,
-        "storage_platform_instance": "prod",
-        "env": "PROD",
-        "convert_urns_to_lowercase": True,
-    }
-    config = HiveMetastore.model_validate(config_dict)
-    ctx = PipelineContext(run_id="test-run")
-
-    source = HiveMetastoreSource(config, ctx)
-
-    # Storage lineage config is on the source config
-    assert source.config.emit_storage_lineage is True
-    assert source.config.hive_storage_lineage_direction == "upstream"
-    assert source.config.include_column_lineage is True
-
-
-def test_hive_metastore_all_storage_platforms():
-    """Test configuration with all storage platform types"""
-    platforms = ["s3", "adls", "gcs", "dbfs", "hdfs"]
-
-    for platform in platforms:
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:3306",
-            "database": "test_db",
-            "emit_storage_lineage": True,
-            "storage_platform_instance": f"{platform}-prod",
-        }
-        config = HiveMetastore.model_validate(config_dict)
-
-        # Config inherits from HiveStorageLineageConfigMixin
-        assert config.storage_platform_instance == f"{platform}-prod"
-
-
-def test_hive_metastore_view_lineage_config_default():
-    """Test that include_view_lineage is enabled by default"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:3306",
-        "database": "test_db",
-    }
-    config = HiveMetastore.model_validate(config_dict)
-
-    assert config.include_view_lineage is True
-
-
-def test_hive_metastore_view_lineage_config_disabled():
-    """Test that include_view_lineage can be disabled"""
-    config_dict = {
-        "username": "test_user",
-        "password": "test_password",
-        "host_port": "localhost:3306",
-        "database": "test_db",
-        "include_view_lineage": False,
-    }
-    config = HiveMetastore.model_validate(config_dict)
-
-    assert config.include_view_lineage is False
-
-
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_get_db_schema_without_catalog(mock_client):
     """Test get_db_schema parsing for schema.table format"""
     config_dict = {
@@ -321,7 +185,7 @@ def test_hive_metastore_get_db_schema_without_catalog(mock_client):
     assert default_schema == "my_schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_get_db_schema_with_catalog(mock_client):
     """Test get_db_schema parsing for catalog.schema.table format"""
     config_dict = {
@@ -342,7 +206,7 @@ def test_hive_metastore_get_db_schema_with_catalog(mock_client):
     assert default_schema == "my_schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_get_db_schema_single_part(mock_client):
     """Test get_db_schema parsing for single-part identifiers"""
     config_dict = {
@@ -362,7 +226,7 @@ def test_hive_metastore_get_db_schema_single_part(mock_client):
     assert default_schema == "my_view"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_aggregator_initialization(mock_client):
     """Test that SQL aggregator is initialized for view lineage"""
     config_dict = {
@@ -383,7 +247,7 @@ def test_hive_metastore_aggregator_initialization(mock_client):
     assert source.config.include_view_lineage is True
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_get_db_schema_empty_identifier_raises_error(mock_client):
     """Test that get_db_schema raises ValueError for empty identifier"""
     config_dict = {
@@ -403,7 +267,7 @@ def test_get_db_schema_empty_identifier_raises_error(mock_client):
     assert "cannot be empty" in str(exc_info.value)
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_get_db_schema_whitespace_only_raises_error(mock_client):
     """Test that get_db_schema raises ValueError for whitespace-only identifier"""
     config_dict = {
@@ -423,7 +287,7 @@ def test_get_db_schema_whitespace_only_raises_error(mock_client):
     assert "cannot be empty" in str(exc_info.value)
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_get_db_schema_double_dots_raises_error(mock_client):
     """Test that get_db_schema raises ValueError for malformed identifiers with double dots"""
     config_dict = {
@@ -443,7 +307,7 @@ def test_get_db_schema_double_dots_raises_error(mock_client):
     assert "Invalid dataset identifier" in str(exc_info.value)
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_get_db_schema_catalog_with_two_parts(mock_client):
     """Test get_db_schema with catalog mode and two-part identifier"""
     config_dict = {
@@ -464,7 +328,7 @@ def test_get_db_schema_catalog_with_two_parts(mock_client):
     assert default_schema == "schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_get_db_schema_four_parts_with_catalog(mock_client):
     """Test get_db_schema handles identifiers with more than 3 parts"""
     config_dict = {
@@ -485,7 +349,7 @@ def test_get_db_schema_four_parts_with_catalog(mock_client):
     assert default_schema == "schema"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_presto_view_column_metadata_parsing(mock_client):
     """Test HiveMetadataProcessor._get_presto_view_column_metadata parses encoded view correctly"""
     import base64
@@ -537,7 +401,7 @@ def test_presto_view_column_metadata_parsing(mock_client):
     assert columns[1]["col_type"] == "varchar"
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_presto_view_complex_sql(mock_client):
     """Test HiveMetadataProcessor._get_presto_view_column_metadata handles complex SQL definitions"""
     import base64
@@ -598,7 +462,7 @@ def test_presto_view_complex_sql(mock_client):
     assert len(columns) == 3
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_view_lineage_adds_to_aggregator(mock_client):
     """Test that view definitions are added to the aggregator when view lineage is enabled"""
     config_dict = {
@@ -642,7 +506,7 @@ def test_hive_metastore_storage_lineage_config_from_mixin():
     assert config.hive_storage_lineage_direction == LineageDirection.DOWNSTREAM
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_subtype_config(mock_client):
     """Test that HiveMetastoreSource correctly initializes table and view subtypes"""
     config_dict = {
@@ -660,7 +524,7 @@ def test_hive_metastore_subtype_config(mock_client):
     assert source.view_subtype == DatasetSubTypes.VIEW
 
 
-@patch("datahub.ingestion.source.sql.hive.hive_data_fetcher.SQLAlchemyClient")
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
 def test_hive_metastore_subtype_config_pascalcase(mock_client):
     """Test that HiveMetastoreSource correctly handles PascalCase subtype config"""
     config_dict = {
@@ -677,3 +541,214 @@ def test_hive_metastore_subtype_config_pascalcase(mock_client):
     # When PascalCase is enabled, verify the title() transformation
     assert source.table_subtype == DatasetSubTypes.TABLE.title()
     assert source.view_subtype == DatasetSubTypes.VIEW.title()
+
+
+# =============================================================================
+# Storage Lineage Business Logic Tests
+# =============================================================================
+
+
+def test_storage_lineage_s3_location_generates_upstream_lineage():
+    """Test that S3 storage locations generate correct upstream lineage MCPs"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
+
+    config = HiveStorageLineageConfigMixin(
+        emit_storage_lineage=True,
+        hive_storage_lineage_direction="upstream",
+        include_column_lineage=True,
+        storage_platform_instance=None,
+    )
+
+    storage_lineage = HiveStorageLineage(config=config, env="PROD")
+
+    table_dict = {
+        "StorageDescriptor": {"Location": "s3://my-bucket/warehouse/db/table"}
+    }
+
+    lineage_mcps = list(
+        storage_lineage.get_lineage_mcp(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hive,db.my_table,PROD)",
+            table=table_dict,
+        )
+    )
+
+    # Should generate upstream lineage for S3 location
+    assert len(lineage_mcps) > 0
+    # The upstream should be an S3 dataset
+    mcp = lineage_mcps[0]
+    assert "s3" in str(mcp)
+
+
+def test_storage_lineage_downstream_direction_reverses_lineage():
+    """Test that downstream direction generates lineage from storage TO hive"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
+
+    config = HiveStorageLineageConfigMixin(
+        emit_storage_lineage=True,
+        hive_storage_lineage_direction="downstream",
+        include_column_lineage=False,
+        storage_platform_instance=None,
+    )
+
+    storage_lineage = HiveStorageLineage(config=config, env="PROD")
+
+    table_dict = {"StorageDescriptor": {"Location": "s3://bucket/path"}}
+
+    lineage_mcps = list(
+        storage_lineage.get_lineage_mcp(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)",
+            table=table_dict,
+        )
+    )
+
+    # Should generate downstream lineage (storage -> hive)
+    assert len(lineage_mcps) > 0
+
+
+def test_storage_lineage_missing_location_skips_gracefully():
+    """Test that missing storage location doesn't crash - just skips lineage"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
+
+    config = HiveStorageLineageConfigMixin(
+        emit_storage_lineage=True,
+        hive_storage_lineage_direction="upstream",
+        include_column_lineage=True,
+        storage_platform_instance=None,
+    )
+
+    storage_lineage = HiveStorageLineage(config=config, env="PROD")
+
+    # Table with no StorageDescriptor
+    table_dict: dict = {}
+
+    lineage_mcps = list(
+        storage_lineage.get_lineage_mcp(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)",
+            table=table_dict,
+        )
+    )
+
+    # Should not crash, just return no lineage
+    assert len(lineage_mcps) == 0
+
+
+def test_storage_lineage_empty_location_skips_gracefully():
+    """Test that empty storage location doesn't crash"""
+    from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
+
+    config = HiveStorageLineageConfigMixin(
+        emit_storage_lineage=True,
+        hive_storage_lineage_direction="upstream",
+        include_column_lineage=True,
+        storage_platform_instance=None,
+    )
+
+    storage_lineage = HiveStorageLineage(config=config, env="PROD")
+
+    table_dict = {"StorageDescriptor": {"Location": ""}}
+
+    lineage_mcps = list(
+        storage_lineage.get_lineage_mcp(
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)",
+            table=table_dict,
+        )
+    )
+
+    # Should not crash, just return no lineage
+    assert len(lineage_mcps) == 0
+
+
+# =============================================================================
+# Thrift Connection Type Validation Tests
+# =============================================================================
+
+
+def test_thrift_connection_rejects_presto_mode():
+    """Test that Thrift connection type rejects presto/trino modes"""
+    config_dict = {
+        "connection_type": "thrift",
+        "host_port": "localhost:9083",
+        "mode": "presto-on-hive",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    assert "not supported with 'connection_type: thrift'" in str(exc_info.value)
+
+
+def test_thrift_connection_rejects_where_clause():
+    """Test that Thrift connection type rejects SQL WHERE clause filtering"""
+    config_dict = {
+        "connection_type": "thrift",
+        "host_port": "localhost:9083",
+        "tables_where_clause_suffix": "AND d.NAME = 'mydb'",
+    }
+
+    with pytest.raises(ValueError) as exc_info:
+        HiveMetastore.model_validate(config_dict)
+
+    assert "cannot be used with 'connection_type: thrift'" in str(exc_info.value)
+    assert "pattern-based filtering" in str(exc_info.value).lower()
+
+
+def test_thrift_connection_allows_database_pattern():
+    """Test that Thrift connection type allows pattern-based filtering"""
+
+    config_dict = {
+        "connection_type": "thrift",
+        "host_port": "localhost:9083",
+        "database_pattern": {"allow": ["^prod_.*"], "deny": ["^test_.*"]},
+    }
+
+    config = HiveMetastore.model_validate(config_dict)
+
+    # Pattern-based filtering should work
+    assert config.database_pattern.allowed("prod_warehouse")
+    assert not config.database_pattern.allowed("test_db")
+
+
+# =============================================================================
+# Edge Cases in Dataset Identifier Parsing
+# =============================================================================
+
+
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
+def test_get_db_schema_handles_leading_dots(mock_client):
+    """Test that get_db_schema handles identifiers with leading dots"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveMetastoreSource(config, ctx)
+
+    # Leading dot should be filtered out during split
+    default_db, default_schema = source.get_db_schema(".schema.table")
+
+    assert default_db is None
+    assert default_schema == "schema"
+
+
+@patch("datahub.ingestion.source.sql.hive.hive_sql_fetcher.SQLAlchemyClient")
+def test_get_db_schema_none_raises_error(mock_client):
+    """Test that get_db_schema raises error for None input"""
+    config_dict = {
+        "username": "test_user",
+        "password": "test_password",
+        "host_port": "localhost:3306",
+        "database": "test_db",
+    }
+    config = HiveMetastore.model_validate(config_dict)
+    ctx = PipelineContext(run_id="test-run")
+
+    source = HiveMetastoreSource(config, ctx)
+
+    with pytest.raises(InvalidDatasetIdentifierError) as exc_info:
+        source.get_db_schema(None)  # type: ignore
+
+    assert "cannot be None" in str(exc_info.value)

@@ -29,6 +29,8 @@ from typing import (
     Type,
 )
 
+from pymetastore.hive_metastore import ThriftHiveMetastore
+from pymetastore.hive_metastore.ttypes import GetTableRequest
 from tenacity import (
     retry,
     retry_if_exception,
@@ -40,10 +42,39 @@ from thrift.Thrift import TException
 from thrift.transport import TSocket, TTransport
 
 if TYPE_CHECKING:
-    from pymetastore.hive_metastore import ThriftHiveMetastore
     from thrift_sasl import TSaslClientTransport
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+# Hive table type for views
+VIRTUAL_VIEW_TYPE = "VIRTUAL_VIEW"
+
+
+# =============================================================================
+# Dataclasses for failure tracking keys
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class DatabaseKey:
+    """Key for tracking database-level failures."""
+
+    catalog_name: Optional[str]
+    db_name: str
+
+
+@dataclass(frozen=True)
+class TableKey:
+    """Key for tracking table-level failures and caching."""
+
+    catalog_name: Optional[str]
+    db_name: str
+    table_name: str
+
 
 # Exceptions that indicate a catalog API is not supported (HMS 2.x)
 # These should trigger fallback to non-catalog APIs.
@@ -162,44 +193,40 @@ class HiveMetastoreThriftClient:
     def __init__(self, config: ThriftConnectionConfig):
         self.config = config
         self._transport: Optional[TTransport.TBufferedTransport] = None
-        self._client: Optional["ThriftHiveMetastore.Client"] = None
+        self._client: Optional[ThriftHiveMetastore.Client] = None
         # Track failures for reporting - use dicts to avoid duplicates
         # (both iter_table_rows and iter_table_properties_rows call _iter_tables_and_views)
-        # Keys include catalog to handle multi-catalog scenarios
-        self._database_failures: Dict[
-            Tuple[Optional[str], str], str
-        ] = {}  # (catalog_name, db_name) -> error_message
-        self._table_failures: Dict[
-            Tuple[Optional[str], str, str], str
-        ] = {}  # (catalog_name, db_name, table_name) -> error_message
+        self._database_failures: Dict[DatabaseKey, str] = {}
+        self._table_failures: Dict[TableKey, str] = {}
         # Cache table info to avoid duplicate API calls
-        # Keys include catalog to handle multi-catalog scenarios
-        self._table_cache: Dict[
-            Tuple[Optional[str], str, str], Dict[str, Any]
-        ] = {}  # (catalog_name, db_name, table_name) -> table_info
+        self._table_cache: Dict[TableKey, Dict[str, Any]] = {}
 
-    def get_database_failures(self) -> List[Tuple[str, str]]:
+    def get_database_failures(self) -> List[tuple[str, str]]:
         """Get list of database failures as (db_name, error_message) tuples.
 
         Note: For multi-catalog scenarios, the db_name may be prefixed with catalog.
         """
-        result = []
-        for (catalog, db_name), err in self._database_failures.items():
+        result: List[tuple[str, str]] = []
+        for key, err in self._database_failures.items():
             # Include catalog in db_name for clarity if present
-            display_name = f"{catalog}.{db_name}" if catalog else db_name
+            display_name = (
+                f"{key.catalog_name}.{key.db_name}" if key.catalog_name else key.db_name
+            )
             result.append((display_name, err))
         return result
 
-    def get_table_failures(self) -> List[Tuple[str, str, str]]:
+    def get_table_failures(self) -> List[tuple[str, str, str]]:
         """Get list of table failures as (db_name, table_name, error_message) tuples.
 
         Note: For multi-catalog scenarios, the db_name may be prefixed with catalog.
         """
-        result = []
-        for (catalog, db_name, table_name), err in self._table_failures.items():
+        result: List[tuple[str, str, str]] = []
+        for key, err in self._table_failures.items():
             # Include catalog in db_name for clarity if present
-            display_name = f"{catalog}.{db_name}" if catalog else db_name
-            result.append((display_name, table_name, err))
+            display_name = (
+                f"{key.catalog_name}.{key.db_name}" if key.catalog_name else key.db_name
+            )
+            result.append((display_name, key.table_name, err))
         return result
 
     def clear_failures(self) -> None:
@@ -240,8 +267,6 @@ class HiveMetastoreThriftClient:
 
     def connect(self) -> None:
         """Establish connection to HMS."""
-        from pymetastore.hive_metastore import ThriftHiveMetastore
-
         logger.info(f"Connecting to HMS at {self.config.host}:{self.config.port}")
 
         socket = TSocket.TSocket(self.config.host, self.config.port)
@@ -514,8 +539,6 @@ class HiveMetastoreThriftClient:
             if catalog_name:
                 try:
                     # HMS 3.x API - get_table_req with catalog
-                    from pymetastore.hive_metastore.ttypes import GetTableRequest
-
                     req = GetTableRequest(
                         catName=catalog_name, dbName=db_name, tblName=table_name
                     )
@@ -581,8 +604,6 @@ class HiveMetastoreThriftClient:
                 # For HMS 3.x with catalog: get columns from table's StorageDescriptor
                 # This ensures we get columns from the correct catalog context
                 try:
-                    from pymetastore.hive_metastore.ttypes import GetTableRequest
-
                     req = GetTableRequest(
                         catName=catalog_name, dbName=db_name, tblName=table_name
                     )
@@ -757,10 +778,10 @@ class HiveMetastoreThriftClient:
         """
         for db_name in databases:
             # Cache key includes catalog for multi-catalog support
-            db_cache_key = (catalog_name, db_name)
+            db_key = DatabaseKey(catalog_name=catalog_name, db_name=db_name)
 
             # Skip databases that already failed
-            if db_cache_key in self._database_failures:
+            if db_key in self._database_failures:
                 continue
 
             try:
@@ -768,28 +789,30 @@ class HiveMetastoreThriftClient:
             except Exception as e:
                 error_msg = f"Failed to get tables for database {db_name}: {e}"
                 logger.warning(error_msg)
-                self._database_failures[db_cache_key] = str(e)
+                self._database_failures[db_key] = str(e)
                 continue
 
             for table_name in table_names:
                 # Cache key includes catalog for multi-catalog support
-                table_cache_key = (catalog_name, db_name, table_name)
+                table_key = TableKey(
+                    catalog_name=catalog_name, db_name=db_name, table_name=table_name
+                )
 
                 # Skip tables that already failed
-                if table_cache_key in self._table_failures:
+                if table_key in self._table_failures:
                     continue
 
                 # Use cached table info if available
-                if table_cache_key in self._table_cache:
-                    table_info = self._table_cache[table_cache_key]
+                if table_key in self._table_cache:
+                    table_info = self._table_cache[table_key]
                 else:
                     try:
                         table_info = self.get_table(db_name, table_name, catalog_name)
-                        self._table_cache[table_cache_key] = table_info
+                        self._table_cache[table_key] = table_info
                     except Exception as e:
                         error_msg = f"Failed to get table {db_name}.{table_name}: {e}"
                         logger.warning(error_msg)
-                        self._table_failures[table_cache_key] = str(e)
+                        self._table_failures[table_key] = str(e)
                         continue
 
                 # Apply table type filter
@@ -837,7 +860,7 @@ class HiveMetastoreThriftClient:
         """
         for db_name, table_name, table_info in self._iter_tables_and_views(
             databases,
-            table_type_filter=lambda t: t != "VIRTUAL_VIEW",  # Exclude views
+            table_type_filter=lambda t: t != VIRTUAL_VIEW_TYPE,  # Exclude views
             catalog_name=catalog_name,
         ):
             create_date = self._format_create_date(table_info.get("create_time"))
@@ -847,9 +870,10 @@ class HiveMetastoreThriftClient:
                 fields = self.get_fields(db_name, table_name, catalog_name)
             except Exception as e:
                 logger.warning(f"Failed to get fields for {db_name}.{table_name}: {e}")
-                self._table_failures[(catalog_name, db_name, table_name)] = (
-                    f"Failed to get fields: {e}"
+                table_key = TableKey(
+                    catalog_name=catalog_name, db_name=db_name, table_name=table_name
                 )
+                self._table_failures[table_key] = f"Failed to get fields: {e}"
                 fields = []
 
             # Yield regular columns
@@ -908,7 +932,7 @@ class HiveMetastoreThriftClient:
         """
         for db_name, table_name, table_info in self._iter_tables_and_views(
             databases,
-            table_type_filter=lambda t: t == "VIRTUAL_VIEW",  # Only views
+            table_type_filter=lambda t: t == VIRTUAL_VIEW_TYPE,  # Only views
             catalog_name=catalog_name,
         ):
             create_date = self._format_create_date(table_info.get("create_time"))
@@ -921,9 +945,10 @@ class HiveMetastoreThriftClient:
                 logger.warning(
                     f"Failed to get fields for view {db_name}.{table_name}: {e}"
                 )
-                self._table_failures[(catalog_name, db_name, table_name)] = (
-                    f"Failed to get view fields: {e}"
+                table_key = TableKey(
+                    catalog_name=catalog_name, db_name=db_name, table_name=table_name
                 )
+                self._table_failures[table_key] = f"Failed to get view fields: {e}"
                 fields = []
 
             for idx, col_field in enumerate(fields):
@@ -978,15 +1003,15 @@ class HiveMetastoreThriftClient:
         """
         for db_name, table_name, table_info in self._iter_tables_and_views(
             databases,
-            table_type_filter=lambda t: t != "VIRTUAL_VIEW",  # Exclude views
+            table_type_filter=lambda t: t != VIRTUAL_VIEW_TYPE,  # Exclude views
             catalog_name=catalog_name,
         ):
             # Yield each parameter as a row
-            for key, value in table_info.get("parameters", {}).items():
+            for param_key, value in table_info.get("parameters", {}).items():
                 if value is not None:
                     yield {
                         "schema_name": db_name,
                         "table_name": table_name,
-                        "PARAM_KEY": key,
+                        "PARAM_KEY": param_key,
                         "PARAM_VALUE": str(value),
                     }

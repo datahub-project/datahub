@@ -602,7 +602,7 @@ class HiveMetadataProcessor:
         Note: This requires SQL fetcher as it needs to query VIEW_ORIGINAL_TEXT
         which contains base64-encoded view metadata.
         """
-        from datahub.ingestion.source.sql.hive.hive_data_fetcher import (
+        from datahub.ingestion.source.sql.hive.hive_sql_fetcher import (
             SQLAlchemyDataFetcher,
         )
 
@@ -644,7 +644,7 @@ class HiveMetadataProcessor:
         Args:
             db_name: Database/catalog name for URN generation
         """
-        from datahub.ingestion.source.sql.hive.hive_metastore_source import (
+        from datahub.ingestion.source.sql.hive.hive_metastore_config import (
             HiveMetastoreConfigMode,
         )
 

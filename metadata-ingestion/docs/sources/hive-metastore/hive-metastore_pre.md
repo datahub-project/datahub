@@ -195,6 +195,52 @@ Use `connection_type: thrift` when you cannot access the metastore database dire
 - Cloud-managed Hive services that only expose the Thrift API
 - Environments with strict network segmentation
 
+#### Thrift Mode Prerequisites
+
+Before using Thrift mode, ensure:
+
+1. **Network Access**: The machine running DataHub ingestion can reach HMS on port 9083
+2. **HMS Service Running**: The Hive Metastore service is running and accepting Thrift connections
+3. **For Kerberos**: A valid Kerberos ticket is available (see Kerberos section below)
+
+**Verify connectivity**:
+
+```bash
+# Test network connectivity to HMS
+telnet hms.company.com 9083
+
+# For Kerberos environments, verify ticket
+klist
+```
+
+#### Thrift Mode Dependencies
+
+```bash
+# Install with Thrift support
+pip install 'acryl-datahub[hive-metastore]'
+
+# For Kerberos authentication, also install:
+pip install thrift-sasl pyhive[hive-pure-sasl]
+```
+
+#### Thrift Configuration Options
+
+| Option                        | Type      | Default | Required         | Description                                                   |
+| ----------------------------- | --------- | ------- | ---------------- | ------------------------------------------------------------- |
+| `connection_type`             | string    | `sql`   | Yes (for Thrift) | Set to `thrift` to enable Thrift mode                         |
+| `host_port`                   | string    | -       | Yes              | HMS host and port (e.g., `hms.company.com:9083`)              |
+| `use_kerberos`                | boolean   | `false` | No               | Enable Kerberos/SASL authentication                           |
+| `kerberos_service_name`       | string    | `hive`  | No               | Kerberos service principal name                               |
+| `kerberos_hostname_override`  | string    | -       | No               | Override hostname for Kerberos principal (for load balancers) |
+| `timeout_seconds`             | int       | `60`    | No               | Connection timeout in seconds                                 |
+| `max_retries`                 | int       | `3`     | No               | Maximum retry attempts for transient failures                 |
+| `catalog_name`                | string    | -       | No               | HMS 3.x catalog name (e.g., `spark_catalog`)                  |
+| `include_catalog_name_in_ids` | boolean   | `false` | No               | Include catalog in dataset URNs                               |
+| `database_pattern`            | AllowDeny | -       | No               | Filter databases by regex pattern                             |
+| `table_pattern`               | AllowDeny | -       | No               | Filter tables by regex pattern                                |
+
+**Note**: SQL `WHERE` clause options (`tables_where_clause_suffix`, `views_where_clause_suffix`) are **not supported** in Thrift mode. Use `database_pattern` and `table_pattern` instead.
+
 #### Basic Thrift Configuration
 
 ```yaml
@@ -229,6 +275,13 @@ source:
 ```bash
 pip install 'acryl-datahub[hive-metastore]'  # Add thrift-sasl for Kerberos
 ```
+
+#### Thrift Mode Limitations
+
+- **No Presto/Trino view lineage**: View SQL parsing requires SQL mode
+- **No WHERE clause filtering**: Use `database_pattern`/`table_pattern` instead
+- **Kerberos ticket required**: Must have valid ticket before running (not embedded in config)
+- **HMS version compatibility**: Tested with HMS 2.x and 3.x
 
 ### Storage Lineage
 
