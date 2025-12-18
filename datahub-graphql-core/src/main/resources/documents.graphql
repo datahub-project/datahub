@@ -44,13 +44,6 @@ extend type Mutation {
   updateDocumentSubType(input: UpdateDocumentSubTypeInput!): Boolean!
 
   """
-  Merge a draft document into its parent (the document it is a draft of).
-  This copies the draft's content to the published document and optionally deletes the draft.
-  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for both documents, or MANAGE_DOCUMENTS platform privilege.
-  """
-  mergeDraft(input: MergeDraftInput!): Boolean!
-
-  """
   Update the settings of a Document (e.g., visibility in sidebar).
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
@@ -74,6 +67,9 @@ extend type Query {
 
   This ensures that unpublished documents remain private to their owners while published
   documents are discoverable by everyone.
+
+  Additionally, this API does NOT return documents that have should not be shown in "global" context via
+  their document settings.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
 }
@@ -111,6 +107,12 @@ type Document implements Entity {
   Data Platform Instance associated with the Document
   """
   dataPlatformInstance: DataPlatformInstance
+
+  """
+  The platform that this Document originates in. For example, "Notion" for representing docs ingested from Notion.
+  For documents natively authored on DataHub, the platform will be "DataHub".
+  """
+  platform: DataPlatform!
 
   """
   Ownership metadata of the Document
@@ -162,13 +164,6 @@ type Document implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
-
-  """
-  All draft documents that have this document as their draftOf target.
-  These are UNPUBLISHED documents being worked on as potential new versions.
-  Note: This field requires a separate query/batch loader to fetch.
-  """
-  drafts: [Document!]
 
   """
   Change history for this document.
@@ -253,12 +248,6 @@ type DocumentInfo {
   parentDocument: DocumentParentDocument
 
   """
-  If this document is a draft, the document it is a draft of.
-  When set, this document should be hidden from normal knowledge base browsing.
-  """
-  draftOf: DocumentDraftOf
-
-  """
   Custom properties of the Document
   """
   customProperties: [CustomPropertiesEntry!]
@@ -335,16 +324,6 @@ The parent document of the document
 type DocumentParentDocument {
   """
   The hierarchical parent document for this document
-  """
-  document: Document!
-}
-
-"""
-Indicates this document is a draft of another document
-"""
-type DocumentDraftOf {
-  """
-  The document that this document is a draft of
   """
   document: Document!
 }
@@ -436,12 +415,6 @@ input CreateDocumentInput {
   Optional URNs of related documents
   """
   relatedDocuments: [String!]
-
-  """
-  If provided, the new document will be created as a draft of the specified published document URN.
-  Draft documents should have UNPUBLISHED state and will be hidden from normal knowledge base browsing.
-  """
-  draftFor: String
 
   """
   Optional settings for the document. If not provided, defaults will be used.
@@ -669,6 +642,7 @@ type SearchDocumentsResult {
 """
 Input for querying context documents related to an entity.
 The relatedAssets filter is automatically set to the parent entity's URN.
+This returns all documents related to the asset, including those hidden from global context.
 """
 input RelatedDocumentsInput {
   """
@@ -737,21 +711,6 @@ type RelatedDocumentsResult {
   Facets for filtering search results
   """
   facets: [FacetMetadata!]
-}
-
-"""
-Input required to merge a draft into its parent document
-"""
-input MergeDraftInput {
-  """
-  The URN of the draft document to merge
-  """
-  draftUrn: String!
-
-  """
-  Whether to delete the draft document after merging. Defaults to true.
-  """
-  deleteDraft: Boolean
 }
 
 """

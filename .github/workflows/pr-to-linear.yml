@@ -11,11 +11,13 @@ on:
 jobs:
   create-linear-ticket:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Close Linear ticket if PR closed
         if: github.event.action == 'closed'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -102,6 +104,7 @@ jobs:
         id: check-author
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PR_DRAFT: ${{ github.event.pull_request.draft }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
@@ -116,7 +119,7 @@ jobs:
           echo "should_skip=false" >> $GITHUB_OUTPUT
 
           # Check if author is DataHub org member (for info only)
-          ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External Contribution")
+          ORG_CHECK=$(gh api orgs/datahub-project/members/$AUTHOR --silent 2>&1 && echo "Internal" || echo "External")
           echo "contributor_type=$ORG_CHECK" >> $GITHUB_OUTPUT
           echo "✅ Author: $AUTHOR ($ORG_CHECK)"
 
@@ -124,30 +127,32 @@ jobs:
         if: steps.check-author.outputs.should_skip == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          FILES_CHANGED: ${{ github.event.pull_request.changed_files }}
+          ADDITIONS: ${{ github.event.pull_request.additions }}
+          DELETIONS: ${{ github.event.pull_request.deletions }}
           CONTRIBUTOR_TYPE: ${{ steps.check-author.outputs.contributor_type }}
         run: |
-
-          # Fetch detailed PR information
-          PR_DATA=$(gh pr view $PR_NUMBER --json body,files,additions,deletions,reviewRequests)
-
-          PR_BODY=$(echo "$PR_DATA" | jq -r '.body // "No description provided"')
-          FILES_CHANGED=$(echo "$PR_DATA" | jq -r '.files | length')
-          ADDITIONS=$(echo "$PR_DATA" | jq -r '.additions')
-          DELETIONS=$(echo "$PR_DATA" | jq -r '.deletions')
-
-          # Get list of changed files (limit to first 20 to avoid huge descriptions)
-          FILES_LIST=$(echo "$PR_DATA" | jq -r '.files[:20] | map("- `" + .path + "`") | join("\n")')
-          if [ $(echo "$PR_DATA" | jq -r '.files | length') -gt 20 ]; then
-            FILES_LIST="${FILES_LIST}\n- ... and $(echo "$PR_DATA" | jq -r '.files | length - 20') more files"
+          # Use PR body from context
+          if [ -z "$PR_BODY" ]; then
+            PR_BODY="No description provided"
           fi
 
-          # Get requested reviewers
-          REVIEWERS=$(echo "$PR_DATA" | jq -r '.reviewRequests | map("@" + .login) | join(", ")')
+          # For file list, we still need gh to get the actual paths
+          # (changed_files only gives count, not the list)
+          FILES_LIST=$(gh pr view $PR_NUMBER --json files --jq '.files[:20] | map("- `" + .path + "`") | join("\n")')
+          if [ $FILES_CHANGED -gt 20 ]; then
+            FILES_LIST="${FILES_LIST}\n- ... and $((FILES_CHANGED - 20)) more files"
+          fi
+
+          # Get requested reviewers from gh
+          REVIEWERS=$(gh pr view $PR_NUMBER --json reviewRequests --jq '.reviewRequests | map("@" + .login) | join(", ")')
           if [ -z "$REVIEWERS" ] || [ "$REVIEWERS" = "" ]; then
             REVIEWERS="None"
           fi
