@@ -164,6 +164,9 @@ class TestColumnLineageExtraction:
         # Mock _get_warehouse_table_urn
         source._get_warehouse_table_urn = lambda: "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
 
+        # Set _parsed_events_urn (required for column lineage to be emitted)
+        source.state.parsed_events_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)"
+
         # Get lineage work units
         dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.test.event,PROD)"
         work_units = list(

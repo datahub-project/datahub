@@ -21,7 +21,7 @@ class TestFieldTagger:
 
     def test_generate_all_tags(self):
         """Test generating all tag types for an incremental field."""
-        config = FieldTaggingConfig()
+        config = FieldTaggingConfig(use_structured_properties=False)
         tagger = FieldTagger(config)
 
         # Incremental field (skip_version_tag=False, which is default)
@@ -33,6 +33,7 @@ class TestFieldTagger:
             field_type="string",
             field_description="User identifier",
             deployment_initiator="ryan@company.com",
+            deployment_timestamp=None,
             pii_fields={"user_id"},
             skip_version_tag=False,  # Explicit: this is an incremental field
         )
@@ -61,6 +62,7 @@ class TestFieldTagger:
             field_type="string",
             field_description=None,
             deployment_initiator="ryan@company.com",
+            deployment_timestamp=None,
             pii_fields=set(),
         )
 
@@ -70,6 +72,8 @@ class TestFieldTagger:
     def test_selective_tag_types(self):
         """Test enabling only specific tag types."""
         config = FieldTaggingConfig(
+            use_structured_properties=False,  # Test tags only
+            
             tag_schema_version=True,
             tag_event_type=False,
             tag_data_class=False,
@@ -85,6 +89,7 @@ class TestFieldTagger:
             field_type="string",
             field_description=None,
             deployment_initiator="ryan@company.com",
+            deployment_timestamp=None,
             pii_fields={"user_id"},
         )
 
@@ -216,7 +221,7 @@ class TestFieldTagger:
 
     def test_no_authorship_tag_when_initiator_missing(self):
         """Test that authorship tag is not added when initiator is None."""
-        config = FieldTaggingConfig()
+        config = FieldTaggingConfig(use_structured_properties=False)
         tagger = FieldTagger(config)
 
         context = FieldTagContext(
@@ -227,6 +232,7 @@ class TestFieldTagger:
             field_type="string",
             field_description=None,
             deployment_initiator=None,  # No initiator
+            deployment_timestamp=None,
             pii_fields=set(),
         )
 
@@ -240,7 +246,7 @@ class TestFieldTagger:
 
     def test_tags_are_sorted(self):
         """Test that tags are returned in sorted order."""
-        config = FieldTaggingConfig()
+        config = FieldTaggingConfig(use_structured_properties=False)
         tagger = FieldTagger(config)
 
         context = FieldTagContext(
@@ -251,6 +257,7 @@ class TestFieldTagger:
             field_type="string",
             field_description=None,
             deployment_initiator="ryan@company.com",
+            deployment_timestamp=None,
             pii_fields={"user_id"},
         )
 
@@ -281,6 +288,7 @@ class TestFieldTagger:
             field_type="array",
             field_description="Items in cart",
             deployment_initiator=None,
+            deployment_timestamp=None,
             pii_fields=set(),
             skip_version_tag=True,  # Skip version tag for initial version
         )
@@ -309,6 +317,7 @@ class TestFieldTagger:
             field_type="array",
             field_description="Items in cart",
             deployment_initiator="ryan@company.com",  # Has initiator
+            deployment_timestamp=None,
             pii_fields=set(),
             skip_version_tag=True,  # Skip version/authorship tags for initial version
         )
@@ -321,6 +330,8 @@ class TestFieldTagger:
     def test_include_version_tag_for_incremental_fields(self):
         """Test that incrementally added fields get version tags."""
         config = FieldTaggingConfig(
+            use_structured_properties=False,  # Test tags only
+            
             tag_schema_version=True,
             tag_event_type=True,
             tag_data_class=False,
@@ -337,6 +348,7 @@ class TestFieldTagger:
             field_type="string",
             field_description="Discount code applied (Added in version 1-1-0)",
             deployment_initiator="ryan@company.com",
+            deployment_timestamp=None,
             pii_fields=set(),
             skip_version_tag=False,  # Include version tag for incremental field
         )
@@ -361,6 +373,7 @@ class TestFieldTagger:
             field_type="number",
             field_description=None,
             deployment_initiator=None,
+            deployment_timestamp=None,
             pii_fields=set(),
             # skip_version_tag not specified - should default to False
         )
@@ -370,6 +383,8 @@ class TestFieldTagger:
     def test_version_tag_with_skip_flag_false(self):
         """Test that version tag is included when skip_version_tag is explicitly False."""
         config = FieldTaggingConfig(
+            use_structured_properties=False,  # Test tags only
+            
             tag_schema_version=True,
             tag_event_type=False,
             tag_data_class=False,
@@ -385,6 +400,7 @@ class TestFieldTagger:
             field_type="string",
             field_description=None,
             deployment_initiator=None,
+            deployment_timestamp=None,
             pii_fields=set(),
             skip_version_tag=False,
         )
@@ -412,6 +428,7 @@ class TestFieldTagContext:
             field_type="string",
             field_description="User identifier",
             deployment_initiator="ryan@company.com",
+            deployment_timestamp=None,
             pii_fields={"user_id"},
         )
 

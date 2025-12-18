@@ -14,8 +14,6 @@ from typing import Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
-logger = logging.getLogger(__name__)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.snowplow_config import FieldTaggingConfig
 from datahub.metadata.schema_classes import (
@@ -25,6 +23,8 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

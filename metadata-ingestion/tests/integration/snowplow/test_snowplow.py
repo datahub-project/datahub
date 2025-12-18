@@ -78,6 +78,7 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
                         },
                         "extract_event_specifications": False,
                         "extract_tracking_scenarios": False,
+                        "extract_pipelines": False,  # Disable pipelines for this basic test
                     },
                 },
                 "sink": {

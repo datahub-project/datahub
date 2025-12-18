@@ -250,10 +250,10 @@ def test_caching_reduces_api_calls(pytestconfig):
 @pytest.mark.integration
 def test_event_schema_urn_caching(pytestconfig):
     """
-    Test that event schema URN extraction is cached.
+    Test that data structure fetching is cached within a single ingestion run.
 
-    This method is called multiple times during enrichment processing,
-    so caching should eliminate redundant processing.
+    After schemas are processed, the extracted URNs are stored in state
+    and subsequent processors can access them without reprocessing.
     """
     mock_data_structures = generate_mock_data_structures(50)
 
@@ -265,56 +265,72 @@ def test_event_schema_urn_caching(pytestconfig):
         },
     }
 
+    # Mock API call with artificial delay to make timing measurable
+    def slow_get_data_structures(*args, **kwargs):
+        """Simulate slow API call (1.5 seconds)."""
+        time.sleep(1.5)
+        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+
+        return [DataStructure.model_validate(ds) for ds in mock_data_structures]
+
     with patch(
         "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
     ) as mock_client_class:
         mock_client = mock_client_class.return_value
         mock_client._authenticate = lambda: None
         mock_client._jwt_token = "mock_token"
-
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
-
-        mock_client.get_data_structures.return_value = [
-            DataStructure.model_validate(ds) for ds in mock_data_structures
-        ]
+        mock_client.get_data_structures.side_effect = slow_get_data_structures
 
         config_obj = SnowplowSourceConfig.model_validate(config)
         source = SnowplowSource(config_obj, create_mock_context())
         source.bdp_client = mock_client
 
-        # First call - should process
+        # First call - should fetch from API (slow)
         start_time = time.time()
-        urns1 = source._get_event_schema_urns()
+        structures1 = source._get_data_structures_filtered()
         first_call_time = time.time() - start_time
 
-        # Second call - should use cache (much faster)
+        # Second call - should use cache (fast)
         start_time = time.time()
-        urns2 = source._get_event_schema_urns()
+        structures2 = source._get_data_structures_filtered()
         second_call_time = time.time() - start_time
 
-        # Third call - should still use cache
+        # Third call - should still use cache (fast)
         start_time = time.time()
-        urns3 = source._get_event_schema_urns()
+        structures3 = source._get_data_structures_filtered()
         third_call_time = time.time() - start_time
 
         # Assertions
-        assert len(urns1) == 25, "Should return 25 event schemas (50% of total)"
-        assert urns1 == urns2, "Cached results should be identical"
-        assert urns2 == urns3, "Cached results should be identical"
+        assert len(structures1) == 50, "Should return all 50 schemas"
+        assert len(structures2) == 50, "Cached results should have same count"
+        assert len(structures3) == 50, "Cached results should have same count"
 
-        # Cached calls should be significantly faster
+        # Verify only one API call was made (caching worked)
+        assert mock_client.get_data_structures.call_count == 1, (
+            "API should only be called once, subsequent calls use cache"
+        )
+
+        # First call should be slow (>1 second due to API delay)
+        assert first_call_time > 1.0, (
+            f"First call should hit slow API (got {first_call_time:.2f}s)"
+        )
+
+        # Cached calls should be much faster (at least 10x faster)
         assert second_call_time < first_call_time / 10, (
-            "Cached call should be at least 10x faster"
+            f"Cached call should be at least 10x faster "
+            f"(first: {first_call_time:.2f}s, second: {second_call_time:.4f}s)"
         )
         assert third_call_time < first_call_time / 10, (
-            "Cached call should be at least 10x faster"
+            f"Cached call should be at least 10x faster "
+            f"(first: {first_call_time:.2f}s, third: {third_call_time:.4f}s)"
         )
 
-        print("\nEvent Schema URN Caching Results:")
-        print(f"  First call time: {first_call_time * 1000:.2f}ms")
+        print("\nData Structure Caching Results:")
+        print(f"  First call time: {first_call_time:.2f}s")
         print(f"  Second call time: {second_call_time * 1000:.2f}ms")
         print(f"  Third call time: {third_call_time * 1000:.2f}ms")
-        print(f"  Speedup: {first_call_time / second_call_time:.1f}x")
+        print(f"  Speedup: {first_call_time / second_call_time:.0f}x")
+        print(f"  API calls: {mock_client.get_data_structures.call_count}")
 
 
 @pytest.mark.integration
@@ -343,6 +359,14 @@ def test_large_dataset_performance(pytestconfig):
         },
     }
 
+    # Mock API call with artificial delay to make timing measurable
+    def slow_get_data_structures(*args, **kwargs):
+        """Simulate slow API call (2 seconds for large dataset)."""
+        time.sleep(2.0)
+        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
+
+        return [DataStructure.model_validate(ds) for ds in mock_data_structures]
+
     # Mock deployment fetching with minimal delay
     def mock_get_deployments(schema_hash: str):
         time.sleep(0.001)  # 1ms delay
@@ -361,50 +385,56 @@ def test_large_dataset_performance(pytestconfig):
         mock_client = mock_client_class.return_value
         mock_client._authenticate = lambda: None
         mock_client._jwt_token = "mock_token"
-
-        from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
-
-        mock_client.get_data_structures.return_value = [
-            DataStructure.model_validate(ds) for ds in mock_data_structures
-        ]
+        mock_client.get_data_structures.side_effect = slow_get_data_structures
         mock_client.get_data_structure_deployments.side_effect = mock_get_deployments
 
         config_obj = SnowplowSourceConfig.model_validate(config)
         source = SnowplowSource(config_obj, create_mock_context())
         source.bdp_client = mock_client
 
-        # Measure performance
+        # Measure performance for initial fetch (slow)
         start_time = time.time()
         structures = source._get_data_structures_filtered()
         fetch_time = time.time() - start_time
 
-        # Get event URNs (should use cache from above)
+        # Second fetch should use cache (fast)
         start_time = time.time()
-        event_urns = source._get_event_schema_urns()
-        urn_time = time.time() - start_time
+        structures_cached = source._get_data_structures_filtered()
+        cache_time = time.time() - start_time
 
         # Assertions
         assert len(structures) == 1000, "Should fetch all 1000 structures"
-        assert len(event_urns) == 500, "Should extract 500 event schemas"
+        assert len(structures_cached) == 1000, "Cached fetch should return same count"
 
-        # Performance expectations for large dataset:
-        # With 20 workers and 1ms delay: ~50 batches * 1ms = ~50ms minimum
-        # Allow 10x overhead for Python execution: 500ms max
-        assert fetch_time < 5.0, (
-            f"Large dataset fetch should complete in <5s (got {fetch_time:.2f}s)"
+        # Count event schemas (50% should be events based on mock generation)
+        event_count = sum(
+            1 for ds in structures if ds.meta and ds.meta.schema_type == "event"
+        )
+        assert event_count == 500, "Should have 500 event schemas"
+
+        # First call should be slow (>2 seconds due to API delay + processing)
+        assert fetch_time > 2.0, (
+            f"First call should hit slow API (got {fetch_time:.2f}s)"
         )
 
-        # URN extraction should be fast (using cache)
-        assert urn_time < 0.5, (
-            f"URN extraction should be fast (got {urn_time * 1000:.2f}ms)"
+        # Cached fetch should be much faster (at least 20x faster)
+        assert cache_time < fetch_time / 20, (
+            f"Cached fetch should be at least 20x faster "
+            f"(first: {fetch_time:.2f}s, cached: {cache_time:.4f}s)"
+        )
+
+        # Verify caching worked (only one API call)
+        assert mock_client.get_data_structures.call_count == 1, (
+            "Should only call API once with caching enabled"
         )
 
         print("\nLarge Dataset Performance Results:")
         print("  Dataset size: 1000 schemas")
-        print(f"  Fetch time: {fetch_time:.2f}s")
-        print(f"  URN extraction time: {urn_time * 1000:.2f}ms")
-        print(f"  Event schemas extracted: {len(event_urns)}")
+        print(f"  Initial fetch time: {fetch_time:.2f}s")
+        print(f"  Cached fetch time: {cache_time * 1000:.2f}ms")
+        print(f"  Event schemas: {event_count}")
         print(f"  Throughput: {len(structures) / fetch_time:.0f} schemas/second")
+        print(f"  Cache speedup: {fetch_time / cache_time:.0f}x")
 
 
 @pytest.mark.integration

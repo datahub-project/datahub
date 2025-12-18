@@ -45,15 +45,17 @@ class TestEnrichmentLineageUtils:
         dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started.1-0-0,PROD)"
         field_name = "user_ipaddress"
 
-        expected = "urn:li:schemaField:((urn:li:dataPlatform:snowplow,com.acme.checkout_started.1-0-0,PROD),user_ipaddress)"
+        expected = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started.1-0-0,PROD),user_ipaddress)"
         assert make_field_urn(dataset_urn, field_name) == expected
 
-    def test_make_field_urn_fallback(self):
-        """Test field URN construction with non-standard URN."""
-        dataset_urn = "custom_urn"
+    def test_make_field_urn_validation(self):
+        """Test field URN construction requires valid dataset URN."""
+        dataset_urn = "custom_urn"  # Invalid URN format
         field_name = "geo_country"
 
-        assert make_field_urn(dataset_urn, field_name) == "custom_urn.geo_country"
+        # Should raise AssertionError for invalid URN format
+        with pytest.raises(AssertionError, match="Schema field's parent must be an urn"):
+            make_field_urn(dataset_urn, field_name)
 
 
 class TestEnrichmentLineageRegistry:
