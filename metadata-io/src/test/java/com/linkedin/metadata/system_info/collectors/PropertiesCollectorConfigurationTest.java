@@ -118,6 +118,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
+          "systemUpdate.*.limit",
+          "systemUpdate.*.delayMs",
 
           // Kafka topic Configs
           "kafka.topics.*.name",
@@ -272,6 +274,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumer.stopOnDeserializationError",
           "kafka.consumerPool.initialSize",
           "kafka.consumerPool.maxSize",
+          "kafka.consumerPool.validationTimeoutSeconds",
+          "kafka.consumerPool.validationCacheIntervalMinutes",
           "kafka.listener.concurrency",
           "kafka.producer.backoffTimeout",
           "kafka.producer.compressionType",
@@ -500,6 +504,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
           "featureFlags.showIngestionPageRedesign",
+          "featureFlags.ingestionOnboardingRedesignV1",
           "featureFlags.showIntroducePage",
           "featureFlags.showLineageExpandMore",
           "featureFlags.showManageStructuredProperties",
@@ -629,6 +634,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.threadCount",
           "elasticsearch.useSSL",
           "elasticsearch.username",
+          "elasticsearch.search.validation.maxQueryLength",
+          "elasticsearch.search.validation.regex",
+          "elasticsearch.search.validation.maxLengthEnabled",
+          "elasticsearch.search.validation.enabled",
 
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",

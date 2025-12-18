@@ -837,3 +837,22 @@
     displayName: Streamlit
     type: OTHERS
     logoUrl: "assets/platforms/streamlitlogo.png"
+- entityUrn: urn:li:dataPlatform:notion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: notion
+    displayName: Notion
+    type: OTHERS
+    logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:datahub
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: datahub
+    displayName: DataHub
+    type: OTHERS
