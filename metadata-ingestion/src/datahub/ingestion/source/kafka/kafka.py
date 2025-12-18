@@ -55,15 +55,13 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
+    StatusClass,
     SubTypesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
@@ -383,7 +381,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         platform_urn = make_data_platform_urn(self.platform)
 
-        # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
+        # 1. Get schemaMetadata aspect (pass control to SchemaRegistry)
         schema_metadata = self.schema_registry_client.get_schema_metadata(
             topic, platform_urn, is_subject
         )
@@ -397,29 +395,37 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         else:
             dataset_name = topic
 
-        # 2. Create the default dataset snapshot for the topic.
+        # 2. Create the dataset URN
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
         )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],  # we append to this list later on
-        )
 
+        # 3. Emit Status aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        # 4. Emit SchemaMetadata aspect (if available)
         if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=schema_metadata,
+            ).as_workunit()
 
-        # 3. Attach browsePaths aspect
+        # 5. Emit BrowsePaths aspect
         browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
         if self.source_config.platform_instance:
             browse_path_str += f"/{self.source_config.platform_instance}"
-        browse_path = BrowsePathsClass([browse_path_str])
-        dataset_snapshot.aspects.append(browse_path)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsClass([browse_path_str]),
+        ).as_workunit()
 
-        # build custom properties for topic, schema properties may be added as needed
+        # Build custom properties for topic, schema properties may be added as needed
         custom_props: Dict[str, str] = {}
         if not is_subject:
             custom_props = self.build_custom_properties(
@@ -433,9 +439,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if schema_name is not None:
                 custom_props["Schema Name"] = schema_name
 
-        # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
+        # 6. Set dataset's description, tags, ownership, etc, if topic schema type is avro
         description: Optional[str] = None
         external_url: Optional[str] = None
+        all_tags: List[str] = []
+
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -449,8 +457,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 schema_metadata.platformSchema.documentSchema
             )
             description = getattr(avro_schema, "doc", None)
-            # set the tags
-            all_tags: List[str] = []
+
+            # Extract tags from schema
             try:
                 schema_tags = cast(
                     Iterable[str],
@@ -466,15 +474,23 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if self.source_config.enable_meta_mapping:
                 meta_aspects = self.meta_processor.process(avro_schema.other_props)
 
-                meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
-                if meta_owners_aspects:
-                    dataset_snapshot.aspects.append(meta_owners_aspects)
+                # Emit Ownership aspect
+                meta_owners_aspect = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+                if meta_owners_aspect:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=meta_owners_aspect,
+                    ).as_workunit()
 
+                # Emit GlossaryTerms aspect
                 meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
                 if meta_terms_aspect:
-                    dataset_snapshot.aspects.append(meta_terms_aspect)
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=meta_terms_aspect,
+                    ).as_workunit()
 
-                # Create the tags aspect
+                # Add meta tags to all_tags
                 meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
                 if meta_tags_aspect:
                     all_tags += [
@@ -482,49 +498,51 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
-            if all_tags:
-                dataset_snapshot.aspects.append(
-                    mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
-                )
+        # 7. Emit GlobalTags aspect (if any tags)
+        if all_tags:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=mce_builder.make_global_tag_aspect_with_tag_list(all_tags),
+            ).as_workunit()
 
+        # Build external URL
         if self.source_config.external_url_base:
             # Remove trailing slash from base URL if present
             base_url = self.source_config.external_url_base.rstrip("/")
             external_url = f"{base_url}/{dataset_name}"
 
-        dataset_properties = DatasetPropertiesClass(
-            name=dataset_name,
-            customProperties=custom_props,
-            description=description,
-            externalUrl=external_url,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
+        # 8. Emit DatasetProperties aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetPropertiesClass(
+                name=dataset_name,
+                customProperties=custom_props,
+                description=description,
+                externalUrl=external_url,
+            ),
+        ).as_workunit()
 
-        # 5. Attach dataPlatformInstance aspect.
+        # 9. Emit DataPlatformInstance aspect (if configured)
         if self.source_config.platform_instance:
-            dataset_snapshot.aspects.append(
-                DataPlatformInstanceClass(
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DataPlatformInstanceClass(
                     platform=platform_urn,
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.source_config.platform_instance
                     ),
-                )
-            )
+                ),
+            ).as_workunit()
 
-        # 6. Emit the datasetSnapshot MCE
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield MetadataWorkUnit(id=f"kafka-{kafka_entity}", mce=mce)
-
-        # 7. Add the subtype aspect marking this as a "topic" or "schema"
+        # 10. Emit SubTypes aspect marking this as a "topic" or "schema"
         typeName = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[typeName]),
         ).as_workunit()
 
+        # 11. Emit Domains aspect
         domain_urn: Optional[str] = None
-
-        # 8. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
