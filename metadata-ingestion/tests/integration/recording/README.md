@@ -90,9 +90,25 @@ pytest tests/integration/recording/test_postgres_recording.py -v -s
 - Uses docker-compose for isolation
 - No external credentials required
 - Automatic cleanup on test completion or failure
+- **Test isolation:** Uses `integration_batch_recording` marker to run in a separate pytest batch, preventing module patching interference from other tests
 
 **Manual tests:**
 
 - Use `test_recording_workflow.sh` for sources requiring credentials
 - Can be run in CI with environment variables configured
 - Validates complete record → replay → MCP validation workflow
+
+### Test Isolation
+
+Recording tests use the `integration_batch_recording` marker to ensure they run in isolation:
+
+- **Why:** Some test files (e.g., `test_postgres_source.py`) use `@patch` decorators that patch SQLAlchemy's `create_engine` at import time. These patches interfere with the recording system's own patching mechanism.
+- **How:** The `pytest_ignore_collect` hook in `tests/conftest.py` prevents pytest from collecting (and thus importing) test files outside the `tests/integration/recording/` directory when the `integration_batch_recording` marker is used.
+- **Result:** Recording tests run in a clean environment without interference from other tests.
+
+**Running isolated tests:**
+
+```bash
+# Run only recording tests (isolated from other tests)
+pytest -m integration_batch_recording -v
+```

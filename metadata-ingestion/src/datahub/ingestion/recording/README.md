@@ -48,6 +48,8 @@ pip install 'acryl-datahub[looker,debug-recording]'
 - `pyzipper>=0.3.6` - AES-256 encrypted archives
 - `urllib3>=2.0.0` - HTTP client compatibility
 
+**Note:** The recording module uses lazy imports to avoid requiring optional dependencies (like `sqlalchemy`) when recording is not used. This means you can install the recording plugin without pulling in database connector dependencies unless you actually use them.
+
 ## Quick Start
 
 ### Recording an Ingestion Run
@@ -126,6 +128,7 @@ recording:
 datahub ingest run -c recipe.yaml \
     --record                    # Enable recording
     --record-password <pwd>     # Encryption password
+    --record-output-path <path> # Override output path (for debugging)
     --no-s3-upload              # Disable S3 upload
     --no-secret-redaction       # Keep real credentials (for local debugging)
 
@@ -392,6 +395,17 @@ Large recordings are loaded into memory during replay:
 datahub recording extract recording.zip --password mysecret --output-dir ./extracted
 # Manually inspect http/cassette.yaml
 ```
+
+### 11. Lazy Imports
+
+The recording module uses lazy imports to avoid requiring optional dependencies when recording is not used:
+
+- `sqlalchemy` is only imported when actually recording/replaying SQLAlchemy-based sources
+- `RecordingConfig`, `IngestionRecorder`, and `IngestionReplayer` are imported on-demand via `__getattr__`
+- This allows installing the recording plugin without pulling in database connector dependencies
+- This also allows other sources not depending on SQLAlchemy (e.g., HTTP-based sources like Looker, PowerBI) to be safely installed when no recording is used
+
+**Impact:** This is transparent to users - the recording system works exactly the same, but with better dependency isolation. The `debug-recording` plugin is designed to be installed alongside source connectors, not as a standalone package. Dependencies like `sqlalchemy` are expected to be provided by the source connector itself when needed.
 
 ## Supported Sources
 

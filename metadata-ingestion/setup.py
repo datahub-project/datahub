@@ -636,6 +636,10 @@ plugins: Dict[str, Set[str]] = {
         "vcrpy>=7.0.0",
         # AES-256 encrypted zip files
         "pyzipper>=0.3.6",
+        # Note: This plugin uses lazy imports to avoid requiring optional dependencies
+        # (e.g., sqlalchemy) when recording is not used. Dependencies like sqlalchemy
+        # are expected to be provided by the source connector itself when needed.
+        # The plugin is designed to be installed alongside source connectors, not standalone.
     },
 }
 
