@@ -44,22 +44,32 @@ class FilterBuilder:
 
     def _clean_filter_string(self) -> str:
         # Remove "where" keyword if included in filter
-        cleaned_str, num_prefix_subs = re.subn(
-            pattern="^\s*(WHERE)+\s+",
+        cleaned_str, num_where_subs = re.subn(
+            pattern=r"^\s*(WHERE)+\s+",
             string=self._raw_filter_string,
+            repl="",
+            flags=re.IGNORECASE,
+        )
+
+        # Remove "and" keyword(s) if included at the start of the filter
+        # Pattern matches one or more "AND " sequences (handles "AND AND x = value")
+        cleaned_str, num_and_subs = re.subn(
+            pattern=r"^\s*(AND\s+)+",
+            string=cleaned_str,
             repl="",
             flags=re.IGNORECASE,
         )
 
         # Remove any trailing semicolons included in filter
         cleaned_str, num_suffix_subs = re.subn(
-            pattern=";+\s*$", string=cleaned_str, repl=""
+            pattern=r";+\s*$", string=cleaned_str, repl=""
         )
 
         # Remove any leading or trailing whitespace
         result = cleaned_str.strip()
 
-        if num_prefix_subs + num_suffix_subs > 0:
+        num_total_subs = num_where_subs + num_and_subs + num_suffix_subs
+        if num_total_subs > 0:
             logger.info(
                 f"Formatted SQL filter. Replaced {self._raw_filter_string} with {result}"
             )
