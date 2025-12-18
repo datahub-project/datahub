@@ -460,6 +460,9 @@ services:
 networks:
   default:
     name: acryl_network
+  control_plane:
+    name: control_plane
+    external: true
 
 volumes:
   neo4jdata:

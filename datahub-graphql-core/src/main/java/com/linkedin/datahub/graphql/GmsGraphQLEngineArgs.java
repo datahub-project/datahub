@@ -30,6 +30,7 @@ import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.ControlPlaneService;
 import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.DataHubFileService;
@@ -123,6 +124,7 @@ public class GmsGraphQLEngineArgs {
   S3Util s3Util;
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;
+  ControlPlaneService controlPlaneService;
   ActionRequestService actionRequestService;
   ActionWorkflowService actionWorkflowService;
   ClassificationConfiguration classificationConfiguration;

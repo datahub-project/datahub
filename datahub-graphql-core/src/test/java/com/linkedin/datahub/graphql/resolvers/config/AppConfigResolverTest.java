@@ -17,11 +17,14 @@ import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.telemetry.GoogleAnalyticsConfiguration;
 import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.service.ControlPlaneService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.settings.global.ApplicationsSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetchingEnvironment;
+import java.time.Instant;
+import java.util.Optional;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -54,6 +57,7 @@ public class AppConfigResolverTest {
   @Mock private ClassificationConfiguration mockClassificationConfiguration;
   @Mock private DataFetchingEnvironment mockDataFetchingEnvironment;
   @Mock private GlobalSettingsInfo mockGlobalSettingsInfo;
+  @Mock private ControlPlaneService mockControlPlaneService;
 
   private AppConfigResolver resolver;
   private QueryContext mockContext;
@@ -94,6 +98,9 @@ public class AppConfigResolverTest {
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
     when(mockClassificationConfiguration.isEnabled()).thenReturn(false);
+    when(mockControlPlaneService.isConfigured()).thenReturn(true);
+    when(mockControlPlaneService.getTrialExpirationTimestamp())
+        .thenReturn(Optional.of(Instant.now().getEpochSecond() + 5L * 24 * 60 * 60));
 
     // Setup classification automations mock
     com.linkedin.metadata.config.ClassificationAutomations mockAutomations =
@@ -133,6 +140,7 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             mockClassificationConfiguration,
+            mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
             false); // isS3Enabled
   }
@@ -240,6 +248,7 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             mockClassificationConfiguration,
+            mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
             false); // isS3Enabled
 
@@ -411,6 +420,7 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             null, // null settings service
             mockClassificationConfiguration,
+            mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
             false); // isS3Enabled
 
@@ -444,6 +454,7 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             mockClassificationConfiguration,
+            mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
             false); // isS3Enabled
 
@@ -492,6 +503,7 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             mockClassificationConfiguration,
+            mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
             true); // isS3Enabled
 
@@ -527,6 +539,7 @@ public class AppConfigResolverTest {
             mockChromeExtensionConfiguration,
             mockSettingsService,
             mockClassificationConfiguration,
+            mockControlPlaneService,
             null, // defaultLineageLastDaysFilter
             true); // isS3Enabled
 

@@ -19,7 +19,10 @@ import org.springframework.context.annotation.Configuration;
       "com.linkedin.gms.factory.businessattribute",
       "com.linkedin.gms.factory.connection",
       "com.linkedin.gms.factory.user",
-      "com.linkedin.gms.factory.actionrequest"
+      "com.linkedin.gms.factory.actionrequest",
+      "com.linkedin.gms.factory.controlplane",
+      "com.linkedin.gms.factory.conversation",
+      "com.linkedin.gms.factory.knowledge",
     })
 @Configuration
 public class GraphQLServletConfig {}

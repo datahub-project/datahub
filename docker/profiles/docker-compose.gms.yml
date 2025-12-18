@@ -102,6 +102,9 @@ x-datahub-system-update-service: &datahub-system-update-service
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   labels:
     datahub_setup_job: true
+  networks:
+    - default
+    - control_plane
 
 x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   <<: *datahub-system-update-service
@@ -155,6 +158,9 @@ x-datahub-gms-service: &datahub-gms-service
     - ${HOME}/.datahub/search:/etc/datahub/search
   labels:
     io.datahubproject.datahub.component: "gms"
+  networks:
+    - default
+    - control_plane
 
 x-datahub-gms-service-dev: &datahub-gms-service-dev
   <<: *datahub-gms-service

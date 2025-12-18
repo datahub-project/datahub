@@ -14,23 +14,8 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.gms.factory.actionrequest.ActionRequestFactory;
-import com.linkedin.gms.factory.actionrequest.ActionWorkflowServiceFactory;
-import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
-import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
-import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.conversation.DataHubAiConversationServiceFactory;
-import com.linkedin.gms.factory.datacontract.DataContractServiceFactory;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
-import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
-import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
-import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
-import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
-import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -49,6 +34,7 @@ import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.ControlPlaneService;
 import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.DataHubFileService;
@@ -90,28 +76,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import software.amazon.awssdk.services.sts.StsClient;
 
 @Configuration
-@Import({
-  IndexConventionFactory.class,
-  RecommendationServiceFactory.class,
-  EntityRegistryFactory.class,
-  DataHubTokenServiceFactory.class,
-  GitVersionFactory.class,
-  SiblingGraphServiceFactory.class,
-  TestEngineFactory.class,
-  EntitySearchServiceFactory.class,
-  SemanticSearchServiceFactory.class,
-  AssertionServiceFactory.class,
-  ActionRequestFactory.class,
-  ActionWorkflowServiceFactory.class,
-  DataContractServiceFactory.class,
-  IntegrationsServiceFactory.class,
-  DataHubAiConversationServiceFactory.class,
-  DocumentServiceFactory.class
-})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("searchClientShim")
@@ -247,6 +214,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("dataContractService")
   private DataContractService _dataContractService;
+
+  @Autowired
+  @Qualifier("controlPlaneService")
+  private ControlPlaneService _controlPlaneService;
 
   @Autowired
   @Qualifier("integrationsService")
@@ -401,6 +372,7 @@ public class GraphQLEngineFactory {
     args.setConnectionService(_connectionService);
     args.setSubscriptionService(_subscriptionService);
     args.setShareService(_shareService);
+    args.setControlPlaneService(_controlPlaneService);
     args.setExecutorConfiguration(configProvider.getExecutors());
     args.setAssertionMonitorsConfiguration(configProvider.getAssertionMonitors());
     args.setDataContractService(_dataContractService);

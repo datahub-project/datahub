@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -42,6 +44,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -63,6 +66,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Scope;
 
 @Slf4j
 @Configuration
@@ -303,5 +307,18 @@ public class SystemUpdateConfig {
         entityClientCacheConfig,
         entityClientConfig,
         metricUtils);
+  }
+
+  /**
+   * Override InviteTokenService bean in the datahub-upgrade context to use system entity client.
+   */
+  @Primary
+  @Bean(name = "inviteTokenService")
+  @Scope("singleton")
+  protected InviteTokenService inviteTokenService(
+      @Qualifier("systemEntityClient") final EntityClient entityClient,
+      @Qualifier("dataHubSecretService") final SecretService secretService)
+      throws Exception {
+    return new InviteTokenService(entityClient, secretService);
   }
 }

@@ -822,7 +822,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "destination",
                     new LoadableTypeResolver<>(
-                        baseEngine.connectionType,
+                        baseEngine.getConnectionType(),
                         (env) -> {
                           final ShareResult shareResult = env.getSource();
                           return shareResult.getDestination().getUrn();

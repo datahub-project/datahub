@@ -348,6 +348,37 @@ quickstart_configs.each { taskName, config ->
 
 }
 
+// Task to create shared network control_plane
+tasks.register('createControlPlaneNetwork') {
+    description = "Creates the shared control_plane docker network if it does not already exist"
+    group = "docker"
+
+    doLast {
+        def checkCmd = ['docker', 'network', 'ls', '--filter', 'name=^control_plane$', '--format', '{{.Name}}']
+        def process = checkCmd.execute()
+        process.waitFor()
+
+        if (process.exitValue() != 0) {
+            throw new GradleException("Failed to check for control_plane network: ${process.err.text}")
+        }
+
+        def output = process.text.trim()
+        if (output == 'control_plane') {
+            logger.lifecycle("Docker network 'control_plane' already exists, skipping creation")
+        } else {
+            def createCmd = ['docker', 'network', 'create', 'control_plane']
+            def createProcess = createCmd.execute()
+            createProcess.waitFor()
+
+            if (createProcess.exitValue() != 0) {
+                throw new GradleException("Failed to create control_plane network: ${createProcess.err.text}")
+            }
+
+            logger.lifecycle("Docker network 'control_plane' created successfully")
+        }
+    }
+}
+
 // Dynamically create all quickstart tasks and configurations
 dockerCompose {
     // Configure default settings that apply to all configurations
@@ -536,13 +567,13 @@ quickstart_configs.each { taskName, config ->
 
 // Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
-    if (config.modules) {
-        tasks.getByName("${taskName}ComposeUp").dependsOn(
-                tasks.getByName("buildImages${taskName}")
-        )
-    }
+  if (config.modules) {
+    tasks.getByName("${taskName}ComposeUp").dependsOn(
+        tasks.getByName("buildImages${taskName}"),
+        tasks.getByName("createControlPlaneNetwork")
+    )
+  }
 }
-
 
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'

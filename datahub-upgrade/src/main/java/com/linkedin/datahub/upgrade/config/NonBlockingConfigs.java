@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
@@ -8,6 +9,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePath
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.freetrial.IngestFreeTrialData;
+import com.linkedin.datahub.upgrade.system.freetrial.SendAdminInviteToken;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.service.ControlPlaneService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -228,5 +231,28 @@ public class NonBlockingConfigs {
         batchSize,
         historicalDays,
         futureDays);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade sendAdminInviteToken(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      @Qualifier("inviteTokenService") final InviteTokenService inviteTokenService,
+      @Qualifier("controlPlaneService") final ControlPlaneService controlPlaneService,
+      @Value("${systemUpdate.sendAdminInviteToken.enabled}") final boolean enabled,
+      @Value("${systemUpdate.sendAdminInviteToken.retryCount}") final int retryCount,
+      @Value("${systemUpdate.sendAdminInviteToken.retryIntervalSeconds}")
+          final int retryIntervalSeconds,
+      @Value("${systemUpdate.sendAdminInviteToken.reprocess.enabled}")
+          final boolean reprocessEnabled) {
+    return new SendAdminInviteToken(
+        opContext,
+        entityService,
+        inviteTokenService,
+        controlPlaneService,
+        enabled,
+        retryCount,
+        retryIntervalSeconds,
+        reprocessEnabled);
   }
 }

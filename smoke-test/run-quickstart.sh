@@ -27,6 +27,8 @@ export COMPOSE_FILE="../docker/profiles/docker-compose.acryl-smoke.yml"
 # Set the path to the smoke.gms.env file
 export DATAHUB_LOCAL_GMS_ENV="$(pwd)/smoke.gms.env"
 
+docker network create control_plane || true
+
 THEME_V2_DEFAULT=false \
 SHOW_HAS_SIBLINGS_FILTER=false \
 SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN=false \

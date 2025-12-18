@@ -351,6 +351,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.ControlPlaneService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.DocumentService;
@@ -411,7 +412,6 @@ public class GmsGraphQLEngine {
   private final SystemEntityClient systemEntityClient;
   private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
-  private final MetadataTestClient metadataTestClient;
 
   private final EntityService entityService;
   private final AnalyticsService analyticsService;
@@ -421,7 +421,6 @@ public class GmsGraphQLEngine {
   private final SecretService secretService;
   private final GitVersion gitVersion;
   private final boolean supportsImpactAnalysis;
-  private final Integer defaultLineageLastDaysFilter;
   private final TimeseriesAspectService timeseriesAspectService;
   private final TimelineService timelineService;
   private final NativeUserService nativeUserService;
@@ -443,7 +442,6 @@ public class GmsGraphQLEngine {
   private AssertionService assertionService;
   private final DocumentService documentService;
   private final EntityVersioningService entityVersioningService;
-  private final IntegrationsService integrationsService;
   private final ApplicationService applicationService;
   private final PageTemplateService pageTemplateService;
   private final PageModuleService pageModuleService;
@@ -465,8 +463,6 @@ public class GmsGraphQLEngine {
   private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
-  private final ClassificationConfiguration classificationConfiguration;
-  private final AssertionMonitorsConfiguration assertionMonitorsConfiguration;
 
   private final DatasetType datasetType;
 
@@ -488,12 +484,11 @@ public class GmsGraphQLEngine {
   private final GlossaryTermType glossaryTermType;
   private final GlossaryNodeType glossaryNodeType;
   private final AspectType aspectType;
-  public final DataHubConnectionType connectionType;
+  private final DataHubConnectionType connectionType;
   private final ContainerType containerType;
   private final DomainType domainType;
   private final DocumentType documentType;
   private final NotebookType notebookType;
-
   @Getter private final AssertionType assertionType;
   private final VersionedDatasetType versionedDatasetType;
   @Getter private final DataPlatformInstanceType dataPlatformInstanceType;
@@ -530,6 +525,16 @@ public class GmsGraphQLEngine {
 
   private final BusinessAttributeType businessAttributeType;
 
+  /* Begin SaaS Only */
+  private final MetadataTestClient metadataTestClient;
+  private final Integer defaultLineageLastDaysFilter;
+  private final IntegrationsService integrationsService;
+  private final ControlPlaneService controlPlaneService;
+  private final ClassificationConfiguration classificationConfiguration;
+  private final AssertionMonitorsConfiguration assertionMonitorsConfiguration;
+
+  /* End SaaS Only */
+
   /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
 
@@ -550,12 +555,26 @@ public class GmsGraphQLEngine {
 
   public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
 
+    /* Start SaaS Only */
+    this.graphQLPlugins =
+        List.of(
+            // Add new plugins here
+            new AcrylGraphQLPlugin());
+    this.graphQLPlugins.forEach(plugin -> plugin.init(args));
+
+    this.metadataTestClient = args.metadataTestClient;
+    this.defaultLineageLastDaysFilter = args.defaultLineageLastDaysFilter;
+    this.controlPlaneService = args.controlPlaneService;
+    this.integrationsService = args.integrationsService;
+    this.classificationConfiguration = args.classificationConfiguration;
+    this.assertionMonitorsConfiguration = args.assertionMonitorsConfiguration;
+    /* End SaaS Only */
+
     this.entityClient = args.entityClient;
     this.systemEntityClient = args.systemEntityClient;
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
     this.siblingGraphService = args.siblingGraphService;
-    this.metadataTestClient = args.metadataTestClient;
 
     this.analyticsService = args.analyticsService;
     this.entityService = args.entityService;
@@ -565,7 +584,6 @@ public class GmsGraphQLEngine {
     this.entityRegistry = args.entityRegistry;
     this.gitVersion = args.gitVersion;
     this.supportsImpactAnalysis = args.supportsImpactAnalysis;
-    this.defaultLineageLastDaysFilter = args.defaultLineageLastDaysFilter;
     this.timeseriesAspectService = args.timeseriesAspectService;
     this.timelineService = args.timelineService;
     this.nativeUserService = args.nativeUserService;
@@ -594,7 +612,6 @@ public class GmsGraphQLEngine {
     this.assertionService = args.assertionService;
     this.documentService = args.documentService;
     this.entityVersioningService = args.entityVersioningService;
-    this.integrationsService = args.integrationsService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -611,8 +628,6 @@ public class GmsGraphQLEngine {
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
-    this.classificationConfiguration = args.classificationConfiguration;
-    this.assertionMonitorsConfiguration = args.assertionMonitorsConfiguration;
 
     this.datasetType = new DatasetType(entityClient);
     this.roleType = new RoleType(entityClient);
@@ -725,13 +740,6 @@ public class GmsGraphQLEngine {
                 dataHubPageModuleType,
                 dataHubFileType));
     this.loadableTypes = new ArrayList<>(entityTypes);
-
-    this.graphQLPlugins =
-        ImmutableList.of(
-            // Add new plugins here
-            new AcrylGraphQLPlugin());
-    this.graphQLPlugins.forEach(plugin -> plugin.init(args));
-
     this.loadableTypes.add(ingestionSourceType);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for
@@ -832,17 +840,20 @@ public class GmsGraphQLEngine {
     configureRoleResolvers(builder);
     configureBusinessAttributeResolver(builder);
     configureBusinessAttributeAssociationResolver(builder);
-    configureMetadataAttributionResolver(builder);
     configureConnectionResolvers(builder);
     configureDeprecationResolvers(builder);
     configureMetadataAttributionResolver(builder);
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
-    configureSourceDetailsResolvers(builder);
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
+
+    /* Start SaaS Only */
+    configureMetadataAttributionResolver(builder);
+    configureSourceDetailsResolvers(builder);
+    /* End SaaS Only */
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -1047,8 +1058,11 @@ public class GmsGraphQLEngine {
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
                         this.settingsService,
+                        /* Start SaaS Only */
                         this.classificationConfiguration,
+                        this.controlPlaneService,
                         this.defaultLineageLastDaysFilter,
+                        /* End SaaS Only */
                         this.s3Util != null))
                 .dataFetcher(
                     "latestProductUpdate",
@@ -1110,9 +1124,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("mlModel", getResolver(mlModelType))
                 .dataFetcher("mlModelGroup", getResolver(mlModelGroupType))
                 .dataFetcher("assertion", getResolver(assertionType))
-                .dataFetcher(
-                    "listAssertions",
-                    new ListAssertionsResolver(this.entityClient, this.graphClient))
                 .dataFetcher("form", getResolver(formType))
                 .dataFetcher("view", getResolver(dataHubViewType))
                 .dataFetcher("structuredProperty", getResolver(structuredPropertyType))
@@ -1189,12 +1200,17 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "globalHomePageSettings",
                     new GlobalHomePageSettingsResolver(this.settingsService))
+                /* Start SaaS Only */
+                .dataFetcher(
+                    "listAssertions",
+                    new ListAssertionsResolver(this.entityClient, this.graphClient))
                 .dataFetcher(
                     "listSignalRequests", new ListSignalRequestsResolver(this.entityClient))
                 .dataFetcher(
                     "ingestionSourceForEntity",
                     new IngestionSourceForEntityResolver(
                         this.entityClient, this.assertionMonitorsConfiguration))
+                /* End SaaS Only */
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
@@ -1217,10 +1233,11 @@ public class GmsGraphQLEngine {
               .map(
                   (urn) -> {
                     try {
-                      // Saas Only
+                      /* Start SaaS Only */
                       if (!canView(context.getOperationContext(), urn)) {
                         throw new AuthorizationException("Unauthorized to view entity.");
                       }
+                      /* End SaaS Only */
                       return UrnToEntityMapper.map(context, urn);
                     } catch (Exception e) {
                       throw new RuntimeException("Failed to get entity", e);
@@ -1237,9 +1254,11 @@ public class GmsGraphQLEngine {
           try {
             final QueryContext context = env.getContext();
             Urn urn = Urn.createFromString(env.getArgument(URN_FIELD_NAME));
+            /* Start SaaS Only */
             if (!canView(context.getOperationContext(), urn)) {
               throw new AuthorizationException("Unauthorized to view entity.");
             }
+            /* End SaaS Only */
             return UrnToEntityMapper.map(context, urn);
           } catch (Exception e) {
             throw new RuntimeException("Failed to get entity", e);
@@ -1403,6 +1422,7 @@ public class GmsGraphQLEngine {
                   "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
+              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
@@ -1410,7 +1430,6 @@ public class GmsGraphQLEngine {
                   new AcceptRoleResolver(
                       this.roleService, this.inviteTokenService, this.entityService))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
-              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
               .dataFetcher("deletePost", new DeletePostResolver(this.postService))
               .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
               .dataFetcher(
@@ -1427,9 +1446,6 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateUserHomePageSettings",
                   new UpdateUserHomePageSettingsResolver(this.settingsService))
-              .dataFetcher(
-                  "updateCorpUserAiAssistantSettings",
-                  new UpdateCorpUserAiAssistantSettingsResolver(this.settingsService))
               .dataFetcher(
                   "updateLineage",
                   new UpdateLineageResolver(this.entityService, this.lineageService))
@@ -1502,8 +1518,6 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateForm", new UpdateFormResolver(this.entityClient, this.formService))
               .dataFetcher(
-                  "refreshFormAssignment", new RefreshFormAssignmentResolver(this.formService))
-              .dataFetcher(
                   "upsertPageTemplate", new UpsertPageTemplateResolver(this.pageTemplateService))
               .dataFetcher(
                   "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
@@ -1514,6 +1528,13 @@ public class GmsGraphQLEngine {
                   new CreateDataHubFileResolver(
                       this.dataHubFileService, this.datahubConfiguration.getS3()))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
+              /* Start SaaS Only */
+              .dataFetcher(
+                  "updateCorpUserAiAssistantSettings",
+                  new UpdateCorpUserAiAssistantSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "refreshFormAssignment", new RefreshFormAssignmentResolver(this.formService))
+              /* End SaaS Only */
               .dataFetcher(
                   "updateDocPropagationSettings",
                   new UpdateDocPropagationSettingsResolver(this.settingsService))

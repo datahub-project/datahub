@@ -114,7 +114,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private SearchClientShim<?> elasticClient;
 
   @MockitoBean
-  @Qualifier("indexConvention")
+  @Qualifier("searchIndexConvention")
   private IndexConvention indexConvention;
 
   @MockitoBean
@@ -293,7 +293,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @MockitoBean private MetricUtils metricUtils;
 
-  @MockitoBean private EntityRegistry entityRegistry;
+  @MockitoBean
+  @Qualifier("entityRegistry")
+  private EntityRegistry entityRegistry;
 
   @MockitoBean private QueryFilterRewriteChain queryFilterRewriteChain;
 
@@ -325,11 +327,34 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
 
+  @MockitoBean
+  @Qualifier("controlPlaneService")
+  private ControlPlaneService controlPlaneService;
+
+  @MockitoBean
+  @Qualifier("dataHubAiConversationService")
+  private DataHubAiConversationService dataHubAiConversationService;
+
+  @MockitoBean
+  @Qualifier("documentService")
+  private DocumentService documentService;
+
+  @MockitoBean
+  @Qualifier("actionWorkflowService")
+  private ActionWorkflowService actionWorkflowService;
+
+  @MockitoBean
+  @Qualifier("userService")
+  private UserService userService;
+
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
 
   @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
   private Integer defaultLineageLastDaysFilter;
+
+  @Value("${baseUrl:http://localhost:8080}")
+  private String baseUrl;
 
   @BeforeMethod
   public void setUp() {
@@ -444,9 +469,16 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "pageTemplateService", pageTemplateService);
     setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
     setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
+    setField(factoryWithAnalytics, "_controlPlaneService", controlPlaneService);
+    setField(factoryWithAnalytics, "dataHubAiConversationService", dataHubAiConversationService);
+    setField(factoryWithAnalytics, "documentService", documentService);
+    setField(factoryWithAnalytics, "actionWorkflowService", actionWorkflowService);
+    setField(factoryWithAnalytics, "userService", userService);
+    setField(factoryWithAnalytics, "_semanticSearchService", semanticSearchService);
     setField(factoryWithAnalytics, "s3Util", s3Util);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
     setField(factoryWithAnalytics, "defaultLineageLastDaysFilter", 30);
+    setField(factoryWithAnalytics, "baseUrl", "http://localhost:8080");
 
     // When
     GraphQLEngine engineWithAnalytics =
@@ -514,6 +546,11 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(s3Util);
     assertNotNull(entityVersioningService);
     assertNotNull(metricUtils);
+    assertNotNull(controlPlaneService);
+    assertNotNull(dataHubAiConversationService);
+    assertNotNull(documentService);
+    assertNotNull(actionWorkflowService);
+    assertNotNull(userService);
   }
 
   @Test

@@ -132,4 +132,7 @@ public class DataHubAppConfiguration {
 
   /** AWS Integration Configuration */
   private AWSConfiguration aws;
+
+  /** Control Plane Configuration */
+  private ControlPlaneConfiguration controlPlane;
 }

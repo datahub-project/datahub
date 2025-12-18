@@ -155,6 +155,14 @@ public class InviteTokenService {
     return _secretService.decrypt(inviteToken.getToken());
   }
 
+  @Nonnull
+  public String getEncryptedInviteToken(
+      @Nonnull OperationContext opContext, @Nullable final String roleUrnStr, boolean regenerate)
+      throws Exception {
+    // Inefficient, but simpler code. If performance becomes an issue, we can optimize later.
+    return _secretService.encrypt(getInviteToken(opContext, roleUrnStr, regenerate));
+  }
+
   private com.linkedin.identity.InviteToken getInviteTokenEntity(
       @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
       throws RemoteInvocationException, URISyntaxException {

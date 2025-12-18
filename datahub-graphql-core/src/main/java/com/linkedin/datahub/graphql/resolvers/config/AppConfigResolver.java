@@ -17,11 +17,14 @@ import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.service.ControlPlaneService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +55,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   // private final ClassificationAutomations _automations;
   private final Integer _defaultLineageLastDaysFilter;
   private final boolean _isS3Enabled;
+  private final ControlPlaneService _controlPlaneService;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -73,6 +77,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final SettingsService settingsService,
       final ClassificationConfiguration classificationConfiguration,
+      final ControlPlaneService controlPlaneService,
       final Integer defaultLineageLastDaysFilter,
       final boolean isS3Enabled) {
     _gitVersion = gitVersion;
@@ -94,6 +99,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
     _settingsService = settingsService;
     _classificationConfiguration = classificationConfiguration;
+    _controlPlaneService = controlPlaneService;
     _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
     _isS3Enabled = isS3Enabled;
   }
@@ -383,9 +389,18 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     // Trial Configuration
     final TrialConfig trialConfig = new TrialConfig();
     trialConfig.setTrialEnabled(_datahubConfiguration.isFreeTrialInstance());
-    // TODO: Get the number of days left from the /expiration_timestamp API from Free Trial service
-    trialConfig.setDaysLeft(5);
-    // TODO: Get the sample data enabled from the new API
+
+    // Fetch expiration timestamp from control plane API and calculate days left
+    trialConfig.setDaysLeft(0); // Default to 0 days left
+    if (_controlPlaneService.isConfigured()) {
+      Optional<Long> expirationTimestamp = _controlPlaneService.getTrialExpirationTimestamp();
+      if (expirationTimestamp.isPresent()) {
+        int daysLeft = calculateDaysLeft(expirationTimestamp.get());
+        trialConfig.setDaysLeft(daysLeft);
+      }
+    }
+
+    // TODO: Store whether sample data is enabled
     trialConfig.setSampleDataEnabled(true);
     appConfig.setTrialConfig(trialConfig);
 
@@ -530,5 +545,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private boolean isDocumentationFileUploadV1Enabled() {
     boolean isEnabledInConfig = _featureFlags.isDocumentationFileUploadV1();
     return isEnabledInConfig && _isS3Enabled;
+  }
+
+  private int calculateDaysLeft(long expirationTimestamp) {
+    // TODO: Remove in favor of passing timestamp directly to frontend
+    long nowSeconds = Instant.now().getEpochSecond();
+    long secondsLeft = expirationTimestamp - nowSeconds;
+    return (int) Math.ceil(secondsLeft / 86400.0);
   }
 }

@@ -82,7 +82,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "telemetry.mixpanel.token",
 
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
+
+          // Control plane
+          "controlPlane.apiKey");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -1025,9 +1028,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.migrateProcessInstanceEdges.parentPlatforms",
           "systemUpdate.postInfo.delayMs",
           "systemUpdate.postInfo.limit",
+          "systemUpdate.sendAdminInviteToken.retryCount",
+          "systemUpdate.sendAdminInviteToken.retryIntervalSeconds",
           "telemetry.googleAnalytics.measurementId",
           "telemetry.mixpanel.disableObfuscation",
-          "telemetry.mixpanel.useStandardEndpoints"
+          "telemetry.mixpanel.useStandardEndpoints",
+
+          // Control plane
+          "controlPlane.url",
+          "controlPlane.cacheTtlMinutes"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

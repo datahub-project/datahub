@@ -183,6 +183,11 @@ datahub:
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
+controlPlane:
+  url: ${DATAHUB_CONTROL_PLANE_URL:https://app.datahub.com}
+  apiKey: ${DATAHUB_CONTROL_PLANE_API_KEY:}
+  cacheTtlMinutes: ${DATAHUB_CONTROL_PLANE_CACHE_TTL_MINUTES:15}
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
@@ -1029,6 +1034,12 @@ systemUpdate:
     customerId: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_CUSTOMER_ID:unset}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_REPROCESS:false}
+  sendAdminInviteToken:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_ENABLED:true}
+    retryCount: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_RETRY_COUNT:7}
+    retryIntervalSeconds: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_RETRY_INTERVAL:2}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_SEND_ADMIN_INVITE_TOKEN_REPROCESS:false}
   purgeLegacyExecutors:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}
