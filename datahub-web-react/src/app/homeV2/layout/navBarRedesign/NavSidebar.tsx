@@ -308,6 +308,12 @@ export const NavSidebar = () => {
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
                         link: ingestionLink,
+                        onClick: () => {
+                            analytics.event({
+                                type: EventType.EnterIngestionFlowEvent,
+                                entryPoint: 'nav_menu',
+                            });
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
