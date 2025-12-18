@@ -78,7 +78,7 @@ class ParsedEventsBuilder:
         Yields:
             MetadataWorkUnit: Work units for parsed events dataset metadata
         """
-        # Create URN for parsed events dataset using same pattern as Event Core
+        # Create URN for parsed events dataset using same pattern as Atomic Event
         # Use direct dataset name without vendor prefix (synthetic Snowplow concept, not an Iglu schema)
         # Name after the event specification ID to link it to the event spec
         # URN format: {event_spec_id}_event (e.g., "650986b2-ad4a-453f-a0f1-4a2df337c31d_event")
@@ -127,7 +127,7 @@ class ParsedEventsBuilder:
                 "**But BEFORE** enrichments (IP Lookup, UA Parser, YAUAA, Campaign Attribution, etc.) add computed fields.\n\n"
                 "## Fields Included\n"
                 "This dataset contains ALL fields from:\n"
-                "- **Event Core**: ~50 standard Snowplow atomic fields (user_ipaddress, page_url, useragent, etc.)\n"
+                "- **Atomic Event**: ~50 standard Snowplow atomic fields (user_ipaddress, page_url, useragent, etc.)\n"
                 "- **Event Data Structures**: Application-specific event data\n"
                 "- **Entity Data Structures**: Contextual data attached to events\n\n"
                 "**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, event_fingerprint, etc. "
@@ -154,11 +154,11 @@ class ParsedEventsBuilder:
         ).as_workunit()
 
         # Emit schema metadata
-        # The Event dataset contains ALL fields from ALL schemas (Event Core + Event Data Structures + Entity Data Structures)
+        # The Event dataset contains ALL fields from ALL schemas (Atomic Event + Event Data Structures + Entity Data Structures)
         # Combine all cached fields
         all_event_fields = []
 
-        # Add atomic event fields (Event Core)
+        # Add atomic event fields (Atomic Event)
         if self.state.atomic_event_fields:
             all_event_fields.extend(self.state.atomic_event_fields)
 
@@ -186,7 +186,7 @@ class ParsedEventsBuilder:
 
             logger.info(
                 f"Event dataset schema contains {len(all_event_fields)} fields from all schemas "
-                f"(Event Core: {len(self.state.atomic_event_fields)}, "
+                f"(Atomic Event: {len(self.state.atomic_event_fields)}, "
                 f"Event/Entity Data Structures: {len(self.state.extracted_schema_fields)})"
             )
         else:

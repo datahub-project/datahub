@@ -76,22 +76,23 @@ class AtomicEventBuilder:
         model what fields enrichments CAN read/write based on schema, not runtime data presence.
 
         Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/
-        Schema definition: https://github.com/snowplow/snowplow/blob/master/4-storage/redshift-storage/sql/atomic-def.sql
+        Schema definition (Iglu Central): https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0
 
         Yields:
             MetadataWorkUnit: Work units for atomic event dataset metadata
         """
-        # Create URN for atomic event dataset (Event Core)
+        # Create URN for atomic event dataset (Atomic Event)
         # Use direct dataset name without vendor prefix (synthetic Snowplow concept, not an Iglu schema)
+        # Schema source: https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0
         self.state.atomic_event_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            name="event_core",
+            name="atomic_event",
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
 
         # Define standard Snowplow atomic event fields that enrichments commonly read/write
-        # Based on: https://github.com/snowplow/snowplow/blob/master/4-storage/redshift-storage/sql/atomic-def.sql
+        # Based on: https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0
         atomic_fields = [
             # App & Platform (REQUIRED fields)
             ("app_id", "Application ID (REQUIRED)"),
@@ -208,28 +209,30 @@ class AtomicEventBuilder:
 
         # Emit dataset properties
         dataset_properties = DatasetPropertiesClass(
-            name="Event Core",
+            name="Atomic Event",
             description=(
-                "**Event Core** represents the standard Snowplow atomic event schema as it exists BEFORE enrichments run. "
+                "**Atomic Event** represents the standard Snowplow atomic event schema as it exists BEFORE enrichments run. "
                 "Contains ~50 core fields including:\n"
                 "- **Required fields** (~12): app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version\n"
                 "- **Input fields for enrichments**: user_ipaddress, useragent, page_urlquery, page_referrer\n"
                 "- **Other atomic fields**: timestamps, user IDs, page URLs, referrer URLs, browser/device properties\n\n"
                 "**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, etc. "
                 "Those fields are created by enrichments and only exist in the warehouse table.\n\n"
-                "Enrichments read from Event Core fields and write new enriched fields to the warehouse table. "
+                "Enrichments read from Atomic Event fields and write new enriched fields to the warehouse table. "
                 "\n\n"
                 "This dataset represents the SCHEMA (available fields), not a guarantee that all fields are "
                 "populated on every event. This is correct for field-level lineage - we model what fields "
                 "enrichments CAN read/write based on schema definition."
                 "\n\n"
+                "Schema source: https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0\n"
                 "Reference: https://docs.snowplow.io/docs/fundamentals/canonical-event/"
             ),
             customProperties={
-                "schema_type": "event_core",
+                "schema_type": "atomic_event",
                 "platform": "snowplow",
                 "field_count": str(len(atomic_fields)),
                 "required_fields": "app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version",
+                "schema_source": "https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0",
             },
         )
 
@@ -247,7 +250,7 @@ class AtomicEventBuilder:
         # Emit subTypes
         yield MetadataChangeProposalWrapper(
             entityUrn=self.state.atomic_event_urn,
-            aspect=SubTypesClass(typeNames=["event_core"]),
+            aspect=SubTypesClass(typeNames=["atomic_event"]),
         ).as_workunit()
 
         # Emit container (organization)
@@ -261,5 +264,5 @@ class AtomicEventBuilder:
             ).as_workunit()
 
         logger.info(
-            f"Created Event Core dataset with {len(atomic_fields)} atomic fields (excluding enriched output fields)"
+            f"Created Atomic Event dataset with {len(atomic_fields)} atomic fields (excluding enriched output fields)"
         )

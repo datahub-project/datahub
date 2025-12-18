@@ -9,7 +9,7 @@ Handles extraction of event and entity schemas from:
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
@@ -115,6 +115,9 @@ class SchemaProcessor(EntityProcessor):
         # Fetch deployment history if needed
         if self.config.field_tagging.track_field_versions:
             self._fetch_deployments(data_structures)
+            # Build field version mappings for description updates
+            if self.config.field_tagging.tag_schema_version:
+                self._build_field_version_mappings(data_structures)
 
         # Apply filters
         data_structures = self._filter_by_deployed_since(data_structures)
@@ -571,3 +574,129 @@ class SchemaProcessor(EntityProcessor):
         """
         # Delegate to DataStructureBuilder
         yield from self.data_structure_builder.process_data_structure(data_structure)
+
+    def _build_field_version_mappings(self, data_structures: List[DataStructure]) -> None:
+        """
+        Build field version mappings for all schemas.
+
+        Loops through data structures and builds a mapping of field paths to their
+        introduction version for each schema. Stores results in state cache.
+
+        Args:
+            data_structures: List of data structures with deployment history
+        """
+        logger.info("Building field version mappings for description updates")
+        for data_structure in data_structures:
+            schema_key = f"{data_structure.vendor}/{data_structure.name}"
+            field_version_map = self._build_field_version_mapping(data_structure)
+            if field_version_map:
+                self.state.field_version_cache[schema_key] = field_version_map
+                logger.debug(
+                    f"Mapped {len(field_version_map)} fields for {schema_key}"
+                )
+
+    def _build_field_version_mapping(
+        self, data_structure: DataStructure
+    ) -> Dict[str, str]:
+        """
+        Build mapping of field paths to the version they were first added in.
+
+        Compares all versions of a schema to determine when each field was introduced.
+
+        Args:
+            data_structure: Data structure with deployments containing version history
+
+        Returns:
+            Dict mapping field_path -> version_added (e.g., {"email": "1-0-0", "phone": "1-1-0"})
+        """
+        schema_key = f"{data_structure.vendor}/{data_structure.name}"
+        field_version_map: Dict[str, str] = {}
+
+        # Need BDP client and deployments for version history
+        if (
+            not self.deps.bdp_client
+            or not data_structure.deployments
+            or not data_structure.hash
+        ):
+            logger.debug(
+                f"Cannot track field versions for {schema_key}: missing BDP client, deployments, or hash"
+            )
+            return {}
+
+        # Extract all unique versions from deployments and sort
+        versions = sorted(
+            set(d.version for d in data_structure.deployments if d.version),
+            key=lambda v: self._parse_schemaver(v),
+        )
+
+        if not versions:
+            logger.debug(f"No versions found in deployments for {schema_key}")
+            return {}
+
+        logger.info(
+            f"Tracking field versions for {schema_key}: {len(versions)} versions to compare"
+        )
+
+        # Track fields seen in each version
+        previous_fields: set = set()
+
+        for version in versions:
+            try:
+                # Fetch this version's schema
+                version_ds = self.deps.bdp_client.get_data_structure_version(
+                    data_structure.hash, version
+                )
+
+                if not version_ds or not version_ds.data:
+                    logger.warning(
+                        f"Could not fetch schema for {schema_key} version {version}"
+                    )
+                    continue
+
+                # Extract field paths from this version
+                current_fields = set(version_ds.data.properties.keys())
+
+                # Fields that are new in this version
+                new_fields = current_fields - previous_fields
+
+                # Record when each new field was added
+                for field_path in new_fields:
+                    if field_path not in field_version_map:
+                        field_version_map[field_path] = version
+                        logger.debug(
+                            f"Field '{field_path}' added in version {version} of {schema_key}"
+                        )
+
+                # Update for next iteration
+                previous_fields = current_fields
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to process version {version} of {schema_key}: {e}"
+                )
+                continue
+
+        logger.info(
+            f"Completed field version tracking for {schema_key}: "
+            f"{len(field_version_map)} fields mapped"
+        )
+
+        return field_version_map
+
+    @staticmethod
+    def _parse_schemaver(version: str) -> Tuple[int, int, int]:
+        """
+        Parse SchemaVer version string into tuple for sorting.
+
+        Args:
+            version: Version string like "1-0-0" or "2-1-3"
+
+        Returns:
+            Tuple of (model, revision, addition) for comparison
+        """
+        try:
+            parts = version.split("-")
+            return (int(parts[0]), int(parts[1]), int(parts[2]))
+        except (ValueError, IndexError):
+            logger.warning(f"Invalid SchemaVer format: {version}, using (0,0,0)")
+            return (0, 0, 0)

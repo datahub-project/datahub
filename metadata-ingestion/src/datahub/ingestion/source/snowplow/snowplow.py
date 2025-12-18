@@ -80,6 +80,9 @@ from datahub.ingestion.source.snowplow.processors.pipeline_processor import (
 from datahub.ingestion.source.snowplow.processors.schema_processor import (
     SchemaProcessor,
 )
+from datahub.ingestion.source.snowplow.processors.standard_schema_processor import (
+    StandardSchemaProcessor,
+)
 from datahub.ingestion.source.snowplow.processors.tracking_scenario_processor import (
     TrackingScenarioProcessor,
 )
@@ -97,9 +100,6 @@ from datahub.ingestion.source.snowplow.services.data_structure_builder import (
     DataStructureBuilder,
 )
 from datahub.ingestion.source.snowplow.services.error_handler import ErrorHandler
-from datahub.ingestion.source.snowplow.services.parsed_events_builder import (
-    ParsedEventsBuilder,
-)
 from datahub.ingestion.source.snowplow.snowplow_client import SnowplowBDPClient
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.ingestion.source.snowplow.snowplow_models import (
@@ -423,14 +423,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
         )
 
-        # Initialize parsed events builder
-        self.parsed_events_builder = ParsedEventsBuilder(
-            config=self.config,
-            urn_factory=self.urn_factory,
-            state=self.state,
-            platform=self.platform,
-        )
-
         # Create processor dependencies (dependency injection)
         # Immutable dependencies only - state is managed separately
         self.deps = ProcessorDependencies(
@@ -469,6 +461,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             deps=self.deps, state=self.state
         )
         self.data_product_processor = DataProductProcessor(
+            deps=self.deps, state=self.state
+        )
+        self.standard_schema_processor = StandardSchemaProcessor(
             deps=self.deps, state=self.state
         )
         self.warehouse_lineage_processor = WarehouseLineageProcessor(
@@ -514,6 +509,22 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Create atomic event dataset (for enrichment lineage)
         yield from self.atomic_event_builder.create_atomic_event_dataset()
 
+        # Extract PII fields from enrichments BEFORE processing schemas
+        # This ensures PII tags are available during schema field tagging
+        if (
+            self.config.field_tagging.enabled
+            and self.config.field_tagging.use_pii_enrichment
+        ):
+            logger.info("Extracting PII fields from enrichment configuration")
+            pii_fields = self._extract_pii_fields()
+            if pii_fields:
+                logger.info(f"Found {len(pii_fields)} PII fields from enrichments")
+            else:
+                logger.warning(
+                    "No PII fields found in enrichment configuration. "
+                    "Field tagging will fall back to pattern matching."
+                )
+
         # Extract schemas (via processor)
         if self.schema_processor.is_enabled():
             yield from self.schema_processor.extract()
@@ -523,8 +534,18 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         if self.event_spec_processor.is_enabled():
             yield from self.event_spec_processor.extract()
 
-        # Create parsed events dataset (intermediate output of collector/parser, input to enrichments)
-        yield from self.parsed_events_builder.create_parsed_events_dataset()
+        # Extract Snowplow standard schemas (via processor) - MUST be after event specs
+        # so we have collected all referenced Iglu URIs from event specifications
+        if self.standard_schema_processor.is_enabled():
+            yield from self.standard_schema_processor.extract()
+
+        # Emit schema metadata for event specs now that ALL schemas (custom + standard) are extracted
+        # This is a second pass that adds complete field information to event specs
+        if self.event_spec_processor.is_enabled():
+            yield from self.event_spec_processor.emit_event_spec_schema_metadata()
+
+        # Event Specs now serve as the datasets that enrichments read from (Option A architecture)
+        # No need for separate Parsed Events dataset - Event Spec IS the parsed events
 
         # Extract tracking scenarios (via processor)
         if self.tracking_scenario_processor.is_enabled():
@@ -697,6 +718,22 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Apply filters
         data_structures = self._filter_by_deployed_since_main(data_structures)
         data_structures = self._filter_by_schema_pattern_main(data_structures)
+
+        # Build field version mappings if field tagging enabled
+        if (
+            self.config.field_tagging.enabled
+            and self.config.field_tagging.track_field_versions
+            and self.config.field_tagging.tag_schema_version
+        ):
+            logger.info("Building field version mappings for description updates")
+            for data_structure in data_structures:
+                schema_key = f"{data_structure.vendor}/{data_structure.name}"
+                field_version_map = self._build_field_version_mapping(data_structure)
+                if field_version_map:
+                    self.state.field_version_cache[schema_key] = field_version_map
+                    logger.debug(
+                        f"Mapped {len(field_version_map)} fields for {schema_key}"
+                    )
 
         # Cache the result (Phase 1 optimization)
         self.cache.set("data_structures", data_structures)
@@ -1417,12 +1454,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             # Emit the structured property definition
-            # Using If-None-Match: * header ensures we only create if it doesn't exist
+            # Use CREATE without If-None-Match to allow aspect upsert
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=aspect,
                 changeType=ChangeTypeClass.CREATE,
-                headers={"If-None-Match": "*"},
             ).as_workunit()
 
         logger.info("Registered 5 Snowplow field structured property definitions")

@@ -52,6 +52,12 @@ class IngestionState:
     # Event spec state
     event_spec_dataflow_urns: Dict[str, str] = field(default_factory=dict)
     emitted_event_spec_ids: Set[str] = field(default_factory=set)
+    emitted_event_spec_urns: List[str] = field(
+        default_factory=list
+    )  # Track event spec dataset URNs
+    event_spec_to_schema_urns: Dict[str, List[str]] = field(
+        default_factory=dict
+    )  # Map event spec URN -> list of schema URNs it references
     event_spec_id: Optional[str] = None  # First event spec ID for naming
     event_spec_name: Optional[str] = None  # First event spec name for naming
 
@@ -69,6 +75,10 @@ class IngestionState:
         None  # First event schema for parsed events naming
     )
     pii_fields_cache: Optional[set] = None  # Cache for PII fields from data structures
+    # Field version tracking: schema_key -> (field_path -> version_added)
+    field_version_cache: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    # Track referenced Iglu URIs from event specs (for standard schema extraction)
+    referenced_iglu_uris: Set[str] = field(default_factory=set)
 
 
 @dataclass

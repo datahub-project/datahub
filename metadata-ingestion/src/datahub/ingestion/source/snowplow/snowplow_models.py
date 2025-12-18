@@ -169,6 +169,11 @@ class EntitySchemaReference(BaseModel):
         alias="minCardinality",
         description="Minimum number of times this entity must be attached (0 = optional)",
     )
+    max_cardinality: Optional[int] = Field(
+        default=None,
+        alias="maxCardinality",
+        description="Maximum number of times this entity can be attached (None = unlimited)",
+    )
     json_schema: Optional[Dict[str, Any]] = Field(
         default=None,
         alias="schema",
@@ -229,6 +234,8 @@ class EventSpecification(BaseModel):
     """
 
     id: str = Field(description="Event specification ID")
+    version: Optional[int] = Field(None, description="Event specification version number")
+    revision: Optional[int] = Field(None, description="Event specification revision number")
     name: str = Field(description="Event specification name")
     description: Optional[str] = Field(
         None, description="Event specification description"
@@ -242,9 +249,9 @@ class EventSpecification(BaseModel):
     )
 
     # New detail format (used by individual event spec endpoint)
-    event: Optional[Dict[str, str]] = Field(
+    event: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Event schema reference with Iglu URI (detail format: {source: 'iglu:...'})",
+        description="Event schema reference with Iglu URI and optional schema (detail format: {source: 'iglu:...', schema: {...}})",
     )
 
     entities: Optional[EntitiesSection] = Field(
@@ -256,6 +263,20 @@ class EventSpecification(BaseModel):
     created_at: Optional[str] = Field(None, alias="createdAt")
     updated_at: Optional[str] = Field(None, alias="updatedAt")
     data_product_id: Optional[str] = Field(None, alias="dataProductId")
+
+    # Additional fields from BDP API
+    triggers: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Trigger definitions for when this event should be sent",
+    )
+    source_applications: List[str] = Field(
+        default_factory=list,
+        alias="sourceApplications",
+        description="Application IDs that use this event specification",
+    )
+    author: Optional[str] = Field(None, description="Author UUID")
+    message: Optional[str] = Field(None, description="Commit/change message")
+    date: Optional[str] = Field(None, description="Last modification date (ISO 8601)")
 
     model_config = ConfigDict(populate_by_name=True)
 

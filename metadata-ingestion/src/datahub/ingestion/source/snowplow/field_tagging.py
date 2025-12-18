@@ -69,15 +69,27 @@ class FieldTagger:
 
         tags: Set[str] = set()
 
+        # If pii_tags_only is enabled, skip version and authorship tags
+        # but still emit data classification tags
+        skip_non_pii_tags = (
+            self.config.pii_tags_only
+            and self.config.use_structured_properties
+            and self.config.emit_tags_and_structured_properties
+        )
+
         # Schema version tag (skip for initial version fields)
-        if self.config.tag_schema_version and not context.skip_version_tag:
+        if (
+            self.config.tag_schema_version
+            and not context.skip_version_tag
+            and not skip_non_pii_tags
+        ):
             version_tag = self._make_version_tag(context.schema_version)
             tags.add(version_tag)
 
         # Note: Event type tag is applied at dataset level, not field level
         # See _process_schema() where dataset-level tags are added
 
-        # Data classification tags
+        # Data classification tags (always emitted when enabled, even with pii_tags_only)
         if self.config.tag_data_class:
             class_tags = self._classify_field(context.field_name, context.pii_fields)
             tags.update(class_tags)
@@ -87,6 +99,7 @@ class FieldTagger:
             self.config.tag_authorship
             and context.deployment_initiator
             and not context.skip_version_tag
+            and not skip_non_pii_tags
         ):
             author_tag = self._make_authorship_tag(context.deployment_initiator)
             tags.add(author_tag)
@@ -177,10 +190,6 @@ class FieldTagger:
             MetadataWorkUnit containing structured properties for the field
         """
         if not self.config.use_structured_properties:
-            return
-
-        # Skip initial version fields if configured
-        if context.skip_version_tag:
             return
 
         # Only emit structured properties if we have deployment metadata
@@ -307,17 +316,24 @@ class FieldTagger:
 
         # Check PII from enrichment config first (most accurate)
         if self.config.use_pii_enrichment and field_name in pii_fields:
+            logger.info(f"✅ Field '{field_name}' classified as PII from enrichment config")
             return "pii"
 
         # Fall back to pattern matching if enrichment not available
         # Check PII patterns
         for pattern in self.config.pii_field_patterns:
             if pattern in field_lower:
+                logger.info(
+                    f"✅ Field '{field_name}' classified as PII by pattern match: '{pattern}'"
+                )
                 return "pii"
 
         # Check Sensitive patterns
         for pattern in self.config.sensitive_field_patterns:
             if pattern in field_lower:
+                logger.info(
+                    f"✅ Field '{field_name}' classified as sensitive by pattern match: '{pattern}'"
+                )
                 return "sensitive"
 
         # Default to internal for most fields

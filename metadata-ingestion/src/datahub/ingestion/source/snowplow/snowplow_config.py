@@ -223,6 +223,13 @@ class FieldTaggingConfig(ConfigModel):
         "Useful during migration from tags to structured properties.",
     )
 
+    pii_tags_only: bool = Field(
+        default=False,
+        description="When emit_tags_and_structured_properties is true, only emit tags for PII/sensitive data classification. "
+        "Version, authorship, and event type will only be in structured properties, not as tags. "
+        "Useful when you want detailed structured properties but only highlight PII fields with tags.",
+    )
+
     # Custom tag patterns
     schema_version_pattern: str = Field(
         default="snowplow_schema_v{version}",
@@ -417,6 +424,20 @@ class SnowplowSourceConfig(
         default=100,
         description="Number of schemas to fetch per API page (default: 100). "
         "Adjust based on organization size and API performance.",
+    )
+
+    extract_standard_schemas: bool = Field(
+        default=True,
+        description="Extract Snowplow standard schemas from Iglu Central that are referenced by event specifications. "
+        "Standard schemas (vendor: com.snowplowanalytics.*) are not in the Data Structures API but are publicly available. "
+        "When enabled, creates dataset entities for standard schemas and completes lineage from event specs. "
+        "Only fetches schemas that are actually referenced, not all standard schemas. "
+        "Disable if you don't want to fetch from Iglu Central.",
+    )
+
+    iglu_central_url: str = Field(
+        default="http://iglucentral.com",
+        description="Iglu Central base URL for fetching Snowplow standard schemas",
     )
 
     # ============================================

@@ -438,17 +438,17 @@ class PipelineProcessor(EntityProcessor):
 
     def _extract_enrichments(self) -> Iterable[MetadataWorkUnit]:
         """
-        Extract enrichments as DataJob entities in the Pipeline DataFlow.
+        Extract enrichments as DataJob entities in per-Event-Spec DataFlows.
 
-        NEW ARCHITECTURE:
-        - Creates one DataJob per enrichment (not per event specification)
-        - Enrichments are tasks within the Snowplow Pipeline DataFlow
-        - Input: Parsed Events dataset (all fields from all schemas)
+        NEW ARCHITECTURE (per Event Spec):
+        - Creates one set of enrichments PER Event Spec
+        - Each enrichment is a DataJob within the Event Spec's DataFlow
+        - Input: Single Event Spec dataset (with its fields)
         - Output: Warehouse table (with enriched fields added)
 
-        Flow: Schemas → Collector/Parser → Parsed Events → Enrichments → Warehouse
+        Flow: Atomic Event + Schemas → Event Spec → Enrichments → Warehouse
 
-        Example: [Parsed Events] → [IP Lookup DataJob] → [Warehouse]
+        Example: [Event Spec: Add to Cart] → [IP Lookup DataJob] → [Warehouse]
         """
         if not self.deps.bdp_client:
             return
@@ -469,10 +469,6 @@ class PipelineProcessor(EntityProcessor):
                     "⚠️  To enable column-level lineage, ensure your Snowplow pipeline has a destination configured"
                 )
 
-            # Emit Pipeline/Collector job that processes all schemas and outputs to parsed events
-            # This must be called before enrichments so enrichments can use the Pipeline DataFlow
-            yield from self._emit_pipeline_collector_job()
-
             # Get enrichments from physical pipeline (enrichments configured once, apply to all events)
             if not self.state.physical_pipeline:
                 logger.warning(
@@ -481,16 +477,17 @@ class PipelineProcessor(EntityProcessor):
                 )
                 return
 
-            if not self.state.pipeline_dataflow_urn:
+            if not self.state.emitted_event_spec_ids:
                 logger.warning(
-                    "Pipeline DataFlow URN not available - cannot extract enrichments. "
-                    "Make sure _emit_pipeline_collector_job() ran first."
+                    "No event spec IDs available - cannot extract enrichments. "
+                    "Make sure event specs were extracted first."
                 )
                 return
 
-            if not self.state.parsed_events_urn:
+            if not self.state.event_spec_dataflow_urns:
                 logger.warning(
-                    "Parsed events URN not available - cannot extract enrichments."
+                    "No event spec DataFlow URNs available - cannot extract enrichments. "
+                    "Make sure _extract_pipelines() ran first."
                 )
                 return
 
@@ -502,34 +499,72 @@ class PipelineProcessor(EntityProcessor):
                 f"Found {total_enrichments} enrichments in pipeline {self.state.physical_pipeline.name}"
             )
 
-            # Enrichments apply to ALL events, so we emit them once (not per-event-spec)
-            # They read from the Parsed Events dataset and write to warehouse
-            for enrichment in enrichments:
-                self.report.report_enrichment_found()
-
-                if not enrichment.enabled:
-                    self.report.report_enrichment_filtered(enrichment.filename)
-                    logger.debug(f"Skipping disabled enrichment: {enrichment.filename}")
+            # Create enrichments PER Event Spec (instead of once for all Event Specs)
+            # Each Event Spec gets its own set of enrichments in its own DataFlow
+            for event_spec_id in self.state.emitted_event_spec_ids:
+                # Get the DataFlow URN for this Event Spec
+                event_spec_dataflow_urn = self.state.event_spec_dataflow_urns.get(
+                    event_spec_id
+                )
+                if not event_spec_dataflow_urn:
+                    logger.warning(
+                        f"No DataFlow URN found for event spec {event_spec_id} - skipping enrichments"
+                    )
                     continue
 
-                # Emit enrichment DataJob with all aspects
-                # Enrichments read from Event and write enriched fields to warehouse
-                yield from self._emit_enrichment_datajob(
-                    enrichment=enrichment,
-                    dataflow_urn=self.state.pipeline_dataflow_urn,
-                    input_dataset_urn=self.state.parsed_events_urn,
-                    warehouse_table_urn=warehouse_table_urn,
+                # Generate Event Spec dataset URN (same as in event_spec_processor.py)
+                event_spec_urn = self.urn_factory.make_event_spec_dataset_urn(
+                    event_spec_id
                 )
+
+                logger.debug(
+                    f"Creating enrichments for Event Spec {event_spec_id} with DataFlow {event_spec_dataflow_urn}"
+                )
+
+                # Emit all enrichments for this Event Spec
+                for enrichment in enrichments:
+                    self.report.report_enrichment_found()
+
+                    if not enrichment.enabled:
+                        self.report.report_enrichment_filtered(enrichment.filename)
+                        logger.debug(
+                            f"Skipping disabled enrichment: {enrichment.filename}"
+                        )
+                        continue
+
+                    # Emit enrichment DataJob with all aspects
+                    # This enrichment reads from THIS Event Spec and writes to warehouse
+                    yield from self._emit_enrichment_datajob(
+                        enrichment=enrichment,
+                        dataflow_urn=event_spec_dataflow_urn,  # Use Event Spec's DataFlow
+                        input_dataset_urns=[
+                            event_spec_urn
+                        ],  # Read from THIS Event Spec only
+                        warehouse_table_urn=warehouse_table_urn,
+                    )
 
             self.report.num_enrichments_found = total_enrichments
 
-            # Emit Loader job (Event → Snowflake warehouse)
+            # Emit Loader jobs (one per Event Spec → warehouse)
             if warehouse_table_urn:
-                yield from self._emit_loader_datajob(
-                    dataflow_urn=self.state.pipeline_dataflow_urn,
-                    input_dataset_urn=self.state.parsed_events_urn,
-                    warehouse_table_urn=warehouse_table_urn,
-                )
+                for event_spec_id in self.state.emitted_event_spec_ids:
+                    event_spec_dataflow_urn = self.state.event_spec_dataflow_urns.get(
+                        event_spec_id
+                    )
+                    if not event_spec_dataflow_urn:
+                        continue
+
+                    event_spec_urn = self.urn_factory.make_event_spec_dataset_urn(
+                        event_spec_id
+                    )
+
+                    yield from self._emit_loader_datajob(
+                        dataflow_urn=event_spec_dataflow_urn,  # Use Event Spec's DataFlow
+                        input_dataset_urns=[
+                            event_spec_urn
+                        ],  # Load from THIS Event Spec only
+                        warehouse_table_urn=warehouse_table_urn,
+                    )
 
         except Exception as e:
             self.deps.error_handler.handle_api_error(
@@ -538,44 +573,28 @@ class PipelineProcessor(EntityProcessor):
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
             )
 
-    def _emit_pipeline_collector_job(self) -> Iterable[MetadataWorkUnit]:
+    def _setup_pipeline_and_lineage(self) -> Iterable[MetadataWorkUnit]:
         """
-        Emit a Collector/Parser DataJob that processes schemas and outputs parsed events.
+        DEPRECATED: No longer used with per-Event-Spec pipeline architecture.
 
-        This job models the Collector → Parser stage of the Snowplow pipeline:
-        1. Collector receives events from trackers
-        2. Parser validates against schemas and extracts all fields
+        Previously created a single global Pipeline DataFlow for all enrichments.
+        Now each Event Spec has its own DataFlow (created in _extract_pipelines).
 
-        Inputs: All schemas (atomic event, custom events, entities)
-        Output: Parsed Events dataset (all fields from all schemas)
+        This method remains for reference but is not called.
 
-        The parsed events then flow to enrichment jobs (IP Lookup, UA Parser, etc.)
-        which add computed fields and write to the warehouse.
+        Setup pipeline DataFlow for organizing enrichments and loader jobs.
+
+        With Option A architecture, Event Specs already have lineage from schemas,
+        so we only need to create the Pipeline DataFlow container for enrichments.
+
+        Flow: Atomic Event + Schemas → Event Specs → Enrichments → Warehouse
         """
         if not self.state.physical_pipeline:
-            logger.debug("No physical pipeline - skipping pipeline collector job")
+            logger.debug("No physical pipeline - skipping pipeline setup")
             return
 
-        if not self.state.parsed_events_urn:
-            logger.debug(
-                "Parsed events dataset not available - skipping pipeline collector job"
-            )
-            return
-
-        # Collect all schema URNs as inputs
-        input_schema_urns = []
-
-        # Add atomic event schema
-        if self.state.atomic_event_urn:
-            input_schema_urns.append(self.state.atomic_event_urn)
-
-        # Add all extracted custom event and entity schemas
-        # Get schemas from our state
-        if self.state.extracted_schema_urns:
-            input_schema_urns.extend(self.state.extracted_schema_urns)
-
-        if not input_schema_urns:
-            logger.debug("No schema URNs available - skipping pipeline collector job")
+        if not self.state.emitted_event_spec_urns:
+            logger.debug("No event spec URNs available - skipping pipeline setup")
             return
 
         # Create DataFlow for the pipeline
@@ -594,18 +613,18 @@ class PipelineProcessor(EntityProcessor):
             description=(
                 f"Snowplow event processing pipeline for {self.state.physical_pipeline.name}.\n\n"
                 "This pipeline processes events through:\n"
-                "1. **Collector/Parser**: Receives events from trackers, validates against Iglu schemas, "
-                "parses all fields (atomic + custom events + entities)\n"
-                "2. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n"
-                "3. **Loader**: Writes enriched data to warehouse\n\n"
-                "The pipeline contains multiple tasks:\n"
-                "- Collector/Parser task: Schemas → Parsed Events\n"
-                "- Enrichment tasks: Parsed Events → Warehouse (with enriched fields)"
+                "1. **Atomic Event**: Standard Snowplow atomic event fields\n"
+                "2. **Schemas**: Event and entity schemas define custom fields\n"
+                "3. **Event Specs**: Combine Atomic Event + Schemas (superset of all fields)\n"
+                "4. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n"
+                "5. **Loader**: Writes enriched data to warehouse\n\n"
+                "Flow: Atomic Event + Schemas → Event Specs → Enrichments → Warehouse"
             ),
             customProperties={
                 "pipelineId": self.state.physical_pipeline.id,
                 "pipelineName": self.state.physical_pipeline.name,
                 "platform": "snowplow",
+                "eventSpecCount": str(len(self.state.emitted_event_spec_urns)),
             },
         )
 
@@ -624,113 +643,15 @@ class PipelineProcessor(EntityProcessor):
                 aspect=ContainerClass(container=org_container_urn),
             ).as_workunit()
 
-        # Create DataJob for the collector/parser
-        pipeline_job_urn = make_data_job_urn_with_flow(
-            flow_urn=pipeline_dataflow_urn,
-            job_id="collector_parser",
-        )
-
-        # Emit DataJob info
-        datajob_info = DataJobInfoClass(
-            name="Collector/Parser",
-            type="BATCH_SCHEDULED",
-            description=(
-                "Snowplow Collector and Parser stage that receives, validates, and parses events.\n\n"
-                "**Inputs**: Event and entity schemas from Iglu registry\n"
-                "**Process**:\n"
-                "- Collector receives tracker events (HTTP requests)\n"
-                "- Parser validates against schemas\n"
-                "- Extracts all fields: atomic event fields + custom event data + entity data\n\n"
-                "**Output**: Parsed Events dataset containing all fields from all schemas\n\n"
-                "The parsed events then flow to enrichment jobs (IP Lookup, Campaign Attribution, etc.) "
-                "which add computed fields before writing to the warehouse."
-            ),
-            customProperties={
-                "pipelineId": self.state.physical_pipeline.id,
-                "pipelineName": self.state.physical_pipeline.name,
-                "stage": "collector_parser",
-            },
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=pipeline_job_urn,
-            aspect=datajob_info,
-        ).as_workunit()
-
-        # Build fine-grained lineages (field-level)
-        # The Collector/Parser passes through all fields from input schemas to the Event dataset
-        fine_grained_lineages = []
-
-        # Map fields from Event Core to Event
-        if self.state.atomic_event_urn and self.state.atomic_event_fields:
-            for field in self.state.atomic_event_fields:
-                fine_grained_lineages.append(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=[
-                            make_schema_field_urn(
-                                self.state.atomic_event_urn, field.fieldPath
-                            )
-                        ],
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[
-                            make_schema_field_urn(
-                                self.state.parsed_events_urn, field.fieldPath
-                            )
-                        ],
-                    )
-                )
-
-        # Map fields from Event/Entity Data Structures to Event
-        if self.state.extracted_schema_fields:
-            # Each tuple is (source_urn, field) - we now properly track which field came from which schema
-            for source_urn, field in self.state.extracted_schema_fields:
-                fine_grained_lineages.append(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=[make_schema_field_urn(source_urn, field.fieldPath)],
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[
-                            make_schema_field_urn(
-                                self.state.parsed_events_urn, field.fieldPath
-                            )
-                        ],
-                    )
-                )
-
         logger.info(
-            f"Created {len(fine_grained_lineages)} field-level lineages for Collector/Parser job"
-        )
-
-        # Emit input/output lineage
-        datajob_input_output = DataJobInputOutputClass(
-            inputDatasets=input_schema_urns,
-            outputDatasets=[self.state.parsed_events_urn],
-            fineGrainedLineages=fine_grained_lineages
-            if fine_grained_lineages
-            else None,
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=pipeline_job_urn,
-            aspect=datajob_input_output,
-        ).as_workunit()
-
-        # Emit status
-        yield MetadataChangeProposalWrapper(
-            entityUrn=pipeline_job_urn,
-            aspect=StatusClass(removed=False),
-        ).as_workunit()
-
-        logger.info(
-            f"✅ Created Collector/Parser job: {len(input_schema_urns)} schemas → Event"
+            f"✅ Created Pipeline DataFlow for {len(self.state.emitted_event_spec_urns)} event spec(s)"
         )
 
     def _emit_enrichment_datajob(
         self,
         enrichment: Enrichment,
         dataflow_urn: str,
-        input_dataset_urn: str,
+        input_dataset_urns: List[str],
         warehouse_table_urn: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit all aspects for a single enrichment DataJob."""
@@ -741,14 +662,14 @@ class PipelineProcessor(EntityProcessor):
         )
 
         # Extract field-level lineage
-        # Enrichments read from Event dataset and write enriched fields to warehouse
+        # Enrichments read from Event Spec datasets and write enriched fields to warehouse
         logger.debug(
             f"Extracting field lineage for {enrichment.filename}: "
-            f"warehouse_urn={'SET' if warehouse_table_urn else 'NONE'}"
+            f"inputs={len(input_dataset_urns)}, warehouse_urn={'SET' if warehouse_table_urn else 'NONE'}"
         )
         fine_grained_lineages = self._extract_enrichment_field_lineage(
             enrichment=enrichment,
-            event_schema_urns=[input_dataset_urn],  # Event dataset as input
+            event_schema_urns=input_dataset_urns,  # Event Spec datasets as inputs
             warehouse_table_urn=warehouse_table_urn,  # Warehouse table as output
         )
         if fine_grained_lineages:
@@ -831,11 +752,11 @@ class PipelineProcessor(EntityProcessor):
         ).as_workunit()
 
         # Emit input/output lineage
-        # Input: Event dataset (contains all fields from all schemas)
+        # Input: Event Spec datasets (each contains all fields from its referenced schemas)
         # Output: Warehouse table (with enriched fields added)
         output_datasets = [warehouse_table_urn] if warehouse_table_urn else []
         datajob_input_output = DataJobInputOutputClass(
-            inputDatasets=[input_dataset_urn],
+            inputDatasets=input_dataset_urns,
             outputDatasets=output_datasets,
             fineGrainedLineages=fine_grained_lineages
             if fine_grained_lineages
@@ -861,16 +782,16 @@ class PipelineProcessor(EntityProcessor):
     def _emit_loader_datajob(
         self,
         dataflow_urn: str,
-        input_dataset_urn: str,
+        input_dataset_urns: List[str],
         warehouse_table_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Emit Loader DataJob that loads enriched events from Event dataset to warehouse table.
+        Emit Loader DataJob that loads enriched events from Event Spec datasets to warehouse table.
 
         This job models the Loader stage of the Snowplow pipeline which writes the fully
         processed and enriched events to the data warehouse (Snowflake, BigQuery, etc.).
 
-        Inputs: Event dataset (all fields including enriched fields)
+        Inputs: Event Spec datasets (all fields including enriched fields)
         Output: Warehouse table
         """
         # Create DataJob URN
@@ -885,7 +806,7 @@ class PipelineProcessor(EntityProcessor):
             type="BATCH_SCHEDULED",
             description=(
                 "Snowplow Loader that writes enriched events to the data warehouse.\n\n"
-                "**Input**: Parsed Events dataset (all fields from schemas + enriched fields)\n"
+                "**Input**: Event Spec datasets (all fields from schemas + enriched fields)\n"
                 "**Output**: Data warehouse table (e.g., Snowflake atomic.events)\n\n"
                 "The Loader stage runs periodically and writes all processed events to the warehouse "
                 "where they can be queried by analytics tools."
@@ -907,9 +828,9 @@ class PipelineProcessor(EntityProcessor):
         ).as_workunit()
 
         # Emit input/output lineage
-        # The Loader passes all fields from Event dataset to warehouse table
+        # The Loader passes all fields from Event Spec datasets to warehouse table
         datajob_input_output = DataJobInputOutputClass(
-            inputDatasets=[input_dataset_urn],
+            inputDatasets=input_dataset_urns,
             outputDatasets=[warehouse_table_urn],
             fineGrainedLineages=None,  # Could add field-level lineage here in future
         )
@@ -938,8 +859,8 @@ class PipelineProcessor(EntityProcessor):
 
         Args:
             enrichment: The enrichment to extract lineage for
-            event_schema_urns: Event schema URNs (inputs to enrichment) - NOT USED for atomic field enrichments
-            warehouse_table_urn: Warehouse table URN (used as both input and output for atomic field enrichments)
+            event_schema_urns: Event Spec dataset URNs (all event specs have the same atomic fields)
+            warehouse_table_urn: Warehouse table URN (output for enriched fields)
 
         Returns:
             List of FineGrainedLineageClass objects representing field transformations
@@ -954,19 +875,21 @@ class PipelineProcessor(EntityProcessor):
             )
             return fine_grained_lineages
 
-        # IMPORTANT: Enrichments read from Event dataset fields (user_ipaddress, page_urlquery, etc.),
-        # which are standard Snowplow fields present on every event, and write enriched fields
-        # to the Snowflake warehouse table.
+        # IMPORTANT: Enrichments read from Event Spec fields (user_ipaddress, page_urlquery, etc.),
+        # which are standard Snowplow atomic fields present on every event spec, and write enriched
+        # fields to the warehouse table.
         #
-        # The Event dataset contains all fields from:
-        # - Event Core: Standard atomic fields (user_ipaddress, page_urlquery, etc.)
-        # - Event/Entity Data Structures: Custom fields
+        # Each Event Spec contains all fields from:
+        # - Atomic Event: Standard atomic fields (user_ipaddress, page_urlquery, etc.)
+        # - Referenced Schemas: Custom event and entity fields
         #
         # Enrichments transform:
-        # - Input: Event dataset fields (e.g., user_ipaddress from Event)
-        # - Output: Enriched fields in warehouse table (e.g., geo_country in Snowflake)
-        if not self.state.parsed_events_urn:
-            logger.debug("Event URN not available - skipping field lineage extraction")
+        # - Input: Event Spec fields (e.g., user_ipaddress from Event Spec)
+        # - Output: Enriched fields in warehouse table (e.g., geo_country in warehouse)
+        if not event_schema_urns:
+            logger.debug(
+                "No event spec URNs available - skipping field lineage extraction"
+            )
             return fine_grained_lineages
 
         if not warehouse_table_urn:
@@ -975,12 +898,16 @@ class PipelineProcessor(EntityProcessor):
             )
             return fine_grained_lineages
 
+        # Use the first event spec URN for field lineage extraction
+        # All event specs have the same atomic fields (Atomic Event), so we can use any one
+        event_spec_urn = event_schema_urns[0]
+
         # Extract field lineages using the registered extractor
-        # Pass parsed_events_urn as input and warehouse_table_urn as output
+        # Pass event_spec_urn as input and warehouse_table_urn as output
         try:
             field_lineages = extractor.extract_lineage(
                 enrichment=enrichment,
-                event_schema_urn=self.state.parsed_events_urn,  # Use Event as source for fields
+                event_schema_urn=event_spec_urn,  # Use Event Spec as source for fields
                 warehouse_table_urn=warehouse_table_urn,  # Use warehouse table as output for enriched fields
             )
 

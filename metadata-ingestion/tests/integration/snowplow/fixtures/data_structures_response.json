@@ -81,5 +81,189 @@
       "required": ["user_id"],
       "additionalProperties": false
     }
+  },
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "event",
+      "customData": {
+        "owner": "data-team",
+        "category": "checkout"
+      }
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.acme",
+        "name": "checkout_started",
+        "format": "jsonschema",
+        "version": "1-1-0"
+      },
+      "type": "object",
+      "description": "Event fired when user starts checkout process",
+      "properties": {
+        "cart_id": {
+          "type": "string",
+          "description": "Shopping cart identifier"
+        },
+        "total_amount": {
+          "type": "number",
+          "description": "Total cart amount"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code"
+        }
+      },
+      "required": ["cart_id", "total_amount"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "event",
+      "customData": {
+        "owner": "data-team",
+        "category": "checkout"
+      }
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.acme",
+        "name": "checkout_completed",
+        "format": "jsonschema",
+        "version": "1-0-0"
+      },
+      "type": "object",
+      "description": "Event fired when user completes checkout",
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "description": "Order identifier"
+        },
+        "total_amount": {
+          "type": "number",
+          "description": "Order total amount"
+        },
+        "payment_method": {
+          "type": "string",
+          "description": "Payment method used"
+        }
+      },
+      "required": ["order_id", "total_amount"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "event",
+      "customData": {
+        "owner": "data-team",
+        "category": "product"
+      }
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.acme",
+        "name": "product_viewed",
+        "format": "jsonschema",
+        "version": "1-0-0"
+      },
+      "type": "object",
+      "description": "Event fired when user views a product",
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "description": "Product identifier"
+        },
+        "product_name": {
+          "type": "string",
+          "description": "Product name"
+        },
+        "price": {
+          "type": "number",
+          "description": "Product price"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category"
+        }
+      },
+      "required": ["product_id", "product_name"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "entity",
+      "customData": {}
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.acme",
+        "name": "user_context",
+        "format": "jsonschema",
+        "version": "1-0-0"
+      },
+      "type": "object",
+      "description": "User context entity (com.acme version)",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "description": "User identifier"
+        },
+        "user_email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "subscription_tier": {
+          "type": "string",
+          "description": "User subscription tier"
+        }
+      },
+      "required": ["user_id"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "meta": {
+      "hidden": false,
+      "schemaType": "entity",
+      "customData": {}
+    },
+    "data": {
+      "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+      "self": {
+        "vendor": "com.acme",
+        "name": "session_context",
+        "format": "jsonschema",
+        "version": "1-0-0"
+      },
+      "type": "object",
+      "description": "Session context entity",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "Session identifier"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session start time"
+        },
+        "device_type": {
+          "type": "string",
+          "description": "Device type"
+        }
+      },
+      "required": ["session_id"],
+      "additionalProperties": false
+    }
   }
 ]
