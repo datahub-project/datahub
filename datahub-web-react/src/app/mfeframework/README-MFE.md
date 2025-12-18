@@ -8,7 +8,7 @@ DataHub now supports hosting micro-frontends (MFEs), which can be easily configu
 
 ## Getting Started Locally
 
-To get started, refer to the [Module Federation documentation](https://webpack.js.org/concepts/module-federation/), online tutorials (such as [this example](https://medium.com/paloit/a-beginners-guide-to-micro-frontends-with-webpack-module-federation-712f3855f813)), or use your preferred AI tool to help you write and expose your app's `mount()` function via a remote entry.
+To get started, refer to the [Module Federation documentation](https://webpack.js.org/concepts/module-federation/), online tutorials (such as [this example](https://medium.com/paloit/a-beginners-guide-to-micro-frontends-with-webpack-module-federation-712f3855f813)), or use your preferred AI tool to write and expose your app's `mount()` function via a remote entry.
 
 A variety of Module Federation examples are available [here](https://github.com/module-federation/module-federation-examples/).  
 Most examples include both a "host app" and a "remote app." For DataHub, you only need to implement the "remote app," as DataHub acts as the host.
@@ -31,10 +31,10 @@ microFrontends:
       navIcon: HandWaving
 ```
 
-To ensure compatibility between the DataHub MFE config above, and your actual MFE, verify the following:
+To ensure compatibility between the DataHub MFE configuration above and your actual MFE, verify the following:
 
 - The HelloWorld app is running on `localhost:3002`.
-- The HelloWorld webpack configuration includes:
+- The HelloWorld Webpack configuration includes:
 
 ```
   plugins: [
@@ -86,36 +86,31 @@ You should see a waving hand menu item in the left navigation bar.
 
 ## Deploying to Kubernetes
 
-Suppose HelloWorld is deployed at  
-`https://mydomain-dev.com/helloworld/remoteEntry.js`.
+Suppose HelloWorld is deployed at `https://mydomain-dev.com/helloworld/remoteEntry.js`.
 
-Edit [`mfe.config.dev.yaml`](/datahub-frontend/conf/mfe.config.dev.yaml).  
-This file will be similar to your local config, but update the `remoteEntry` field:
+Edit [`mfe.config.dev.yaml`](/datahub-frontend/conf/mfe.config.dev.yaml). This file will be similar to your local configuration, but update the `remoteEntry` field:
 
 ```
 remoteEntry: https://mydomain-dev.com/helloworld/remoteEntry.js
 ```
 
-Next, build your own Docker image for `datahub-frontend`:
+**Note:** The above file name and location is just an example. You may create any file and place it in a separate configuration repository, depending on your organization's practices.
 
-```shell
-cd datahub-frontend
-../gradlew docker
-```
-
-Push the image to your container registry and reference it in your Kubernetes deployment files.  
-In your Kubernetes YAML, ensure the environment variable `MFE_CONFIG_FILE_PATH` points to your _dev_ config:
+In your Kubernetes YAML, ensure the environment variable `MFE_CONFIG_FILE_PATH` points to your configuration via volumes and volume mounts:
 
 ```yaml
-env:
+  env:
     - name: MFE_CONFIG_FILE_PATH
-      value: /datahub-frontend/conf/mfe.config.dev.yaml
+      value: /mfeconfig/mfe.config.dev.yaml
+  volumeMounts:
+    - name: mfe-config
+      mountPath: /mfeconfig
+      readOnly: true
+
+volumes:
+  - name: mfe-config
+    configMap:
+      name: datahub-mfe-config
 ```
 
-If your organization uses multiple environments (e.g., _dev_, _uat_, _prod_), you can use a single Docker image for all environments:
-
-- Create separate config files for each environment and place them in the [`conf`](/datahub-frontend/conf) directory, following the filename pattern `mfe.*.yaml`.
-- Build the Docker image after adding the config files.
-- Set the `DATAHUB_MFE_CONFIG_FILE` environment variable appropriately for each environment.
-
-> **Note:** Work is in progress to enable injecting MFE config files without rebuilding the Docker image. Stay tuned!
+Then include the file in the ConfigMap following Kubernetes best practices.
