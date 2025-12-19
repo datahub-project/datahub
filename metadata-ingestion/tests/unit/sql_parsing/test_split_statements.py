@@ -267,3 +267,20 @@ def test_split_select_ending_with_parenthesis():
     assert len(statements) == 2
     assert statements[0] == select_stmt
     assert statements[1] == create_stmt
+
+
+def test_cte_with_select_not_split():
+    """
+    Verify CTEs (WITH ... AS) followed by SELECT are kept together as one statement.
+    This ensures the fix for parenthesis splitting doesn't break CTE handling.
+    """
+    test_sql = """\
+    WITH temp_cte AS (
+        SELECT * FROM source WHERE date > GETDATE()
+    )
+    SELECT * FROM temp_cte"""
+
+    statements = [s.strip() for s in split_statements(test_sql)]
+
+    assert len(statements) == 1
+    assert statements[0] == test_sql
