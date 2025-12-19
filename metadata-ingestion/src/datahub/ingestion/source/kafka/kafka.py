@@ -16,7 +16,7 @@ from confluent_kafka.admin import (
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
+from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -74,6 +74,12 @@ from datahub.utilities.str_enum import StrEnum
 logger = logging.getLogger(__name__)
 
 
+class KafkaConnectivityError(Exception):
+    """Exception raised when Kafka connectivity validation fails."""
+
+    pass
+
+
 class KafkaTopicConfigKeys(StrEnum):
     MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
     RETENTION_SIZE_CONFIG = "retention.bytes"
@@ -94,7 +100,7 @@ def get_kafka_consumer(
         }
     )
 
-    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+    if KafkaOAuthCallbackResolver.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
         logger.debug("Initiating polling for kafka consumer")
@@ -114,13 +120,61 @@ def get_kafka_admin_client(
             **connection.consumer_config,
         }
     )
-    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+    if KafkaOAuthCallbackResolver.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
         logger.debug("Initiating polling for kafka admin client")
         client.poll(timeout=30)
         logger.debug("Initiated polling for kafka admin client")
     return client
+
+
+def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> None:
+    """
+    Validate connectivity to Kafka by creating a consumer and checking broker availability.
+
+    This uses a lightweight check that retrieves cluster metadata without listing all topics,
+    making it suitable for clusters with thousands of topics.
+
+    Args:
+        connection: Kafka consumer connection configuration
+
+    Raises:
+        KafkaConnectivityError: If unable to connect to Kafka
+    """
+    logger.info(f"Validating connectivity to Kafka at {connection.bootstrap}")
+    try:
+        consumer = get_kafka_consumer(connection)
+        # Get cluster metadata with a short timeout.
+        # By passing an empty string as the topic parameter, we get cluster metadata
+        # without enumerating all topics, which is much faster for large clusters.
+        metadata = consumer.list_topics(
+            topic="", timeout=max(10, connection.client_timeout_seconds)
+        )
+
+        # Verify we got valid metadata with at least one broker
+        if not metadata or not metadata.brokers:
+            raise KafkaConnectivityError("No brokers found in cluster metadata")
+
+        broker_count = len(metadata.brokers)
+        logger.info(
+            f"Successfully connected to Kafka cluster with {broker_count} broker(s)"
+        )
+        consumer.close()
+    except KafkaConnectivityError:
+        # Re-raise our own exceptions
+        raise
+    except Exception as e:
+        separator = "=" * 80
+        error_msg = (
+            f"\n{separator}\n"
+            f"[FATAL] Failed to connect to Kafka\n"
+            f"  Bootstrap servers: {connection.bootstrap}\n"
+            f"  Error: {str(e)}\n"
+            f"{separator}\n"
+        )
+        logger.error(error_msg)
+        raise KafkaConnectivityError(error_msg) from e
 
 
 @dataclass

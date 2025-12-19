@@ -7,7 +7,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
     labelTooltip?: string;
     error?: string;
     isChecked?: boolean;
-    setIsChecked?: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsChecked?: (isChecked: boolean) => void;
     isDisabled?: boolean;
     isIntermediate?: boolean;
     isRequired?: boolean;

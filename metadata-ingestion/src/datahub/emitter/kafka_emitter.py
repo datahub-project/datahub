@@ -10,6 +10,7 @@ from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -53,8 +54,12 @@ class KafkaEmitterConfig(ConfigModel):
     @field_validator("topic_routes", mode="after")
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
-        assert MCE_KEY in v, f"topic_routes must contain a route for {MCE_KEY}"
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
+        if MCE_KEY not in v:
+            logger.warning(
+                f"MCE topic not configured in topic_routes. MCE emissions will fail. "
+                f"To enable MCE emission, add '{MCE_KEY}' to topic_routes."
+            )
         return v
 
 
@@ -107,8 +112,24 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
 
         self.producers = {
-            key: SerializingProducer(value) for (key, value) in producers_config.items()
+            key: SerializingProducer(value)
+            for (key, value) in producers_config.items()
+            if key in self.config.topic_routes
         }
+
+        # If OAuth callback is configured, call poll() to trigger OAuth callback execution
+        # This is required for OAuth authentication mechanisms like AWS MSK IAM
+        # Note: poll(0) is non-blocking - just triggers the OAuth callback without waiting
+        # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        if KafkaOAuthCallbackResolver.is_callable_config(
+            self.config.connection.producer_config
+        ):
+            logger.debug(
+                "OAuth callback detected, triggering OAuth callbacks for Kafka producers"
+            )
+            for producer in self.producers.values():
+                producer.poll(0)  # Non-blocking - just triggers OAuth callback
+            logger.debug("OAuth callbacks triggered for Kafka producers")
 
     def emit(
         self,
@@ -129,6 +150,13 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
     ) -> None:
+        # Report error via callback if MCE_KEY is not configured
+        if MCE_KEY not in self.config.topic_routes:
+            error = Exception(
+                f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
+            )
+            callback(error, "MCE emission failed - topic not configured")
+            return
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
         producer.poll(0)
