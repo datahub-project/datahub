@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
@@ -185,6 +186,10 @@ export const ManageIngestionPage = () => {
 
     const handleCreateSource = useCallback(() => {
         if (showIngestionOnboardingRedesignV1) {
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'sources_page_cta',
+            });
             history.push(PageRoutes.INGESTION_CREATE);
         } else {
             setShowCreateSourceModal(true);
