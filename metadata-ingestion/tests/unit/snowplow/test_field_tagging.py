@@ -7,8 +7,6 @@ Tests the field tagging infrastructure including:
 - Tag pattern customization
 """
 
-import pytest
-
 from datahub.ingestion.source.snowplow.field_tagging import (
     FieldTagContext,
     FieldTagger,
@@ -73,7 +71,6 @@ class TestFieldTagger:
         """Test enabling only specific tag types."""
         config = FieldTaggingConfig(
             use_structured_properties=False,  # Test tags only
-            
             tag_schema_version=True,
             tag_event_type=False,
             tag_data_class=False,
@@ -331,7 +328,6 @@ class TestFieldTagger:
         """Test that incrementally added fields get version tags."""
         config = FieldTaggingConfig(
             use_structured_properties=False,  # Test tags only
-            
             tag_schema_version=True,
             tag_event_type=True,
             tag_data_class=False,
@@ -384,7 +380,6 @@ class TestFieldTagger:
         """Test that version tag is included when skip_version_tag is explicitly False."""
         config = FieldTaggingConfig(
             use_structured_properties=False,  # Test tags only
-            
             tag_schema_version=True,
             tag_event_type=False,
             tag_data_class=False,

@@ -11,7 +11,6 @@ import pytest
 
 from datahub.ingestion.source.snowplow.enrichment_lineage import (
     CurrencyConversionLineageExtractor,
-    EnrichmentLineageExtractor,
     EnrichmentLineageRegistry,
     FieldLineage,
     IpLookupLineageExtractor,
@@ -54,7 +53,9 @@ class TestEnrichmentLineageUtils:
         field_name = "geo_country"
 
         # Should raise AssertionError for invalid URN format
-        with pytest.raises(AssertionError, match="Schema field's parent must be an urn"):
+        with pytest.raises(
+            AssertionError, match="Schema field's parent must be an urn"
+        ):
             make_field_urn(dataset_urn, field_name)
 
 
@@ -171,8 +172,12 @@ class TestIpLookupLineageExtractor:
             ),
         )
 
-        event_schema_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
-        warehouse_table_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        event_schema_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
+        )
+        warehouse_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        )
 
         lineages = extractor.extract_lineage(
             enrichment, event_schema_urn, warehouse_table_urn
@@ -210,7 +215,9 @@ class TestIpLookupLineageExtractor:
             ),
         )
 
-        event_schema_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
+        event_schema_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
+        )
 
         lineages = extractor.extract_lineage(enrichment, event_schema_urn, None)
 
@@ -251,8 +258,12 @@ class TestRefererParserLineageExtractor:
             ),
         )
 
-        event_schema_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
-        warehouse_table_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        event_schema_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
+        )
+        warehouse_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        )
 
         lineages = extractor.extract_lineage(
             enrichment, event_schema_urn, warehouse_table_urn
@@ -269,9 +280,7 @@ class TestRefererParserLineageExtractor:
             assert lineage.transformation_type == "DERIVED"
 
         # Check output fields
-        output_fields = [
-            lineage.downstream_fields[0] for lineage in lineages
-        ]
+        output_fields = [lineage.downstream_fields[0] for lineage in lineages]
         assert make_field_urn(warehouse_table_urn, "refr_medium") in output_fields
         assert make_field_urn(warehouse_table_urn, "refr_source") in output_fields
         assert make_field_urn(warehouse_table_urn, "refr_term") in output_fields
@@ -311,8 +320,12 @@ class TestCurrencyConversionLineageExtractor:
             ),
         )
 
-        event_schema_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
-        warehouse_table_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        event_schema_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
+        )
+        warehouse_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        )
 
         lineages = extractor.extract_lineage(
             enrichment, event_schema_urn, warehouse_table_urn
@@ -371,8 +384,12 @@ class TestUaParserLineageExtractor:
             ),
         )
 
-        event_schema_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
-        warehouse_table_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        event_schema_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.event.1-0-0,PROD)"
+        )
+        warehouse_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.events,PROD)"
+        )
 
         lineages = extractor.extract_lineage(
             enrichment, event_schema_urn, warehouse_table_urn

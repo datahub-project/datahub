@@ -5,7 +5,10 @@ from unittest.mock import Mock, patch
 import pytest
 
 from datahub.ingestion.source.snowplow.snowplow import SnowplowSource
-from datahub.ingestion.source.snowplow.snowplow_models import DataStructure, SchemaMetadata
+from datahub.ingestion.source.snowplow.snowplow_models import (
+    DataStructure,
+    SchemaMetadata,
+)
 
 
 class TestSchemaFiltering:
@@ -33,9 +36,7 @@ class TestSchemaFiltering:
         mock_ctx.graph = None
         mock_ctx.pipeline_name = None
 
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
             return source
 
@@ -61,9 +62,7 @@ class TestSchemaFiltering:
         mock_ctx.graph = None
         mock_ctx.pipeline_name = None
 
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
             return source
 
@@ -101,12 +100,16 @@ class TestSchemaFiltering:
             ),
         ]
 
-    def test_filter_by_allow_pattern(self, source_with_allow_pattern, mock_data_structures):
+    def test_filter_by_allow_pattern(
+        self, source_with_allow_pattern, mock_data_structures
+    ):
         """Test filtering with allow pattern - only matching schemas included."""
         source = source_with_allow_pattern
 
         # Mock get_data_structures to return our test data
-        with patch.object(source.bdp_client, "get_data_structures", return_value=mock_data_structures):
+        with patch.object(
+            source.bdp_client, "get_data_structures", return_value=mock_data_structures
+        ):
             filtered = source._get_data_structures_filtered()
 
         # Should only include com.acme schemas (3 out of 4)
@@ -117,12 +120,16 @@ class TestSchemaFiltering:
         vendors = {ds.vendor for ds in filtered}
         assert "com.other" not in vendors
 
-    def test_filter_by_deny_pattern(self, source_with_deny_pattern, mock_data_structures):
+    def test_filter_by_deny_pattern(
+        self, source_with_deny_pattern, mock_data_structures
+    ):
         """Test filtering with deny pattern - matching schemas excluded."""
         source = source_with_deny_pattern
 
         # Mock get_data_structures to return our test data
-        with patch.object(source.bdp_client, "get_data_structures", return_value=mock_data_structures):
+        with patch.object(
+            source.bdp_client, "get_data_structures", return_value=mock_data_structures
+        ):
             filtered = source._get_data_structures_filtered()
 
         # Should exclude test_event (3 remaining)
@@ -151,25 +158,29 @@ class TestSchemaFiltering:
         mock_ctx.graph = None
         mock_ctx.pipeline_name = None
 
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
 
         # Mock get_data_structures
-        with patch.object(source.bdp_client, "get_data_structures", return_value=mock_data_structures):
+        with patch.object(
+            source.bdp_client, "get_data_structures", return_value=mock_data_structures
+        ):
             filtered = source._get_data_structures_filtered()
 
         # Should include all schemas
         assert len(filtered) == len(mock_data_structures)
 
-    def test_filter_reports_correctly(self, source_with_allow_pattern, mock_data_structures):
+    def test_filter_reports_correctly(
+        self, source_with_allow_pattern, mock_data_structures
+    ):
         """Test that filtered schemas are reported correctly."""
         source = source_with_allow_pattern
 
         # Mock get_data_structures
-        with patch.object(source.bdp_client, "get_data_structures", return_value=mock_data_structures):
-            filtered = source._get_data_structures_filtered()
+        with patch.object(
+            source.bdp_client, "get_data_structures", return_value=mock_data_structures
+        ):
+            source._get_data_structures_filtered()
 
         # One schema should be filtered (com.other/user_action)
         assert source.report.num_event_schemas_filtered == 1
@@ -190,22 +201,19 @@ class TestSchemaFiltering:
                 api_key_id="test-key",
                 api_key="test-secret",
             ),
-            schema_pattern=AllowDenyPattern(
-                allow=["com.acme/.*"],
-                deny=[".*test_.*"]
-            ),
+            schema_pattern=AllowDenyPattern(allow=["com.acme/.*"], deny=[".*test_.*"]),
         )
 
         mock_ctx = Mock()
         mock_ctx.graph = None
         mock_ctx.pipeline_name = None
 
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
 
-        with patch.object(source.bdp_client, "get_data_structures", return_value=mock_data_structures):
+        with patch.object(
+            source.bdp_client, "get_data_structures", return_value=mock_data_structures
+        ):
             filtered = source._get_data_structures_filtered()
 
         # Should include only com.acme schemas excluding test_event (2 schemas)
@@ -235,9 +243,7 @@ class TestSchemaFiltering:
         mock_ctx.graph = None
         mock_ctx.pipeline_name = None
 
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
 
         test_structures = [
@@ -257,7 +263,9 @@ class TestSchemaFiltering:
             ),
         ]
 
-        with patch.object(source.bdp_client, "get_data_structures", return_value=test_structures):
+        with patch.object(
+            source.bdp_client, "get_data_structures", return_value=test_structures
+        ):
             filtered = source._get_data_structures_filtered()
 
         # Only com.acme should match (escaped dot)

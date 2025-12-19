@@ -101,7 +101,9 @@ class TestStandardSchemaProcessor:
         state = IngestionState()
         return state
 
-    def test_is_enabled_when_config_true_and_bdp_client_exists(self, mock_deps, mock_state):
+    def test_is_enabled_when_config_true_and_bdp_client_exists(
+        self, mock_deps, mock_state
+    ):
         """Test processor is enabled when config is true and BDP client exists."""
         processor = StandardSchemaProcessor(deps=mock_deps, state=mock_state)
 
@@ -136,8 +138,14 @@ class TestStandardSchemaProcessor:
 
         # Should only collect Snowplow standard schemas (com.snowplowanalytics.*)
         assert len(standard_uris) == 2
-        assert "iglu:com.snowplowanalytics.snowplow/page_view/jsonschema/1-0-0" in standard_uris
-        assert "iglu:com.snowplowanalytics.snowplow.ecommerce/product/jsonschema/1-0-0" in standard_uris
+        assert (
+            "iglu:com.snowplowanalytics.snowplow/page_view/jsonschema/1-0-0"
+            in standard_uris
+        )
+        assert (
+            "iglu:com.snowplowanalytics.snowplow.ecommerce/product/jsonschema/1-0-0"
+            in standard_uris
+        )
         assert "iglu:com.acme/checkout_started/jsonschema/1-0-0" not in standard_uris
         assert "iglu:com.datahub/user/jsonschema/1-0-0" not in standard_uris
 
@@ -146,30 +154,42 @@ class TestStandardSchemaProcessor:
         processor = StandardSchemaProcessor(deps=mock_deps, state=mock_state)
 
         # Various Snowplow standard schema URIs
-        assert processor._is_standard_schema(
-            "iglu:com.snowplowanalytics.snowplow/page_view/jsonschema/1-0-0"
-        ) is True
-        assert processor._is_standard_schema(
-            "iglu:com.snowplowanalytics.snowplow.ecommerce/product/jsonschema/1-0-0"
-        ) is True
-        assert processor._is_standard_schema(
-            "iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0"
-        ) is True
+        assert (
+            processor._is_standard_schema(
+                "iglu:com.snowplowanalytics.snowplow/page_view/jsonschema/1-0-0"
+            )
+            is True
+        )
+        assert (
+            processor._is_standard_schema(
+                "iglu:com.snowplowanalytics.snowplow.ecommerce/product/jsonschema/1-0-0"
+            )
+            is True
+        )
+        assert (
+            processor._is_standard_schema(
+                "iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0"
+            )
+            is True
+        )
 
     def test_is_standard_schema_negative_cases(self, mock_deps, mock_state):
         """Test identifying standard schemas (negative cases)."""
         processor = StandardSchemaProcessor(deps=mock_deps, state=mock_state)
 
         # Non-standard schemas
-        assert processor._is_standard_schema(
-            "iglu:com.acme/checkout/jsonschema/1-0-0"
-        ) is False
-        assert processor._is_standard_schema(
-            "iglu:com.datahub/user/jsonschema/1-0-0"
-        ) is False
-        assert processor._is_standard_schema(
-            "iglu:org.other/event/jsonschema/1-0-0"
-        ) is False
+        assert (
+            processor._is_standard_schema("iglu:com.acme/checkout/jsonschema/1-0-0")
+            is False
+        )
+        assert (
+            processor._is_standard_schema("iglu:com.datahub/user/jsonschema/1-0-0")
+            is False
+        )
+        assert (
+            processor._is_standard_schema("iglu:org.other/event/jsonschema/1-0-0")
+            is False
+        )
 
     def test_is_standard_schema_handles_invalid_uri(self, mock_deps, mock_state):
         """Test handling of invalid Iglu URIs."""
@@ -216,7 +236,9 @@ class TestStandardSchemaProcessor:
         assert processor._parse_iglu_uri("iglu:vendor/name") is None
 
         # Too many parts
-        assert processor._parse_iglu_uri("iglu:vendor/name/format/version/extra") is None
+        assert (
+            processor._parse_iglu_uri("iglu:vendor/name/format/version/extra") is None
+        )
 
         # Completely invalid
         assert processor._parse_iglu_uri("not-a-uri") is None
@@ -280,6 +302,7 @@ class TestStandardSchemaProcessor:
 
         # Mock request exception using requests.exceptions.RequestException
         import requests.exceptions
+
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
 
         result = processor._fetch_from_iglu_central(
@@ -291,7 +314,9 @@ class TestStandardSchemaProcessor:
 
         assert result is None
 
-    def test_extract_returns_empty_when_no_standard_schemas(self, mock_deps, mock_state):
+    def test_extract_returns_empty_when_no_standard_schemas(
+        self, mock_deps, mock_state
+    ):
         """Test extract returns empty when no standard schemas referenced."""
         # State has no referenced URIs
         mock_state.referenced_iglu_uris = set()
@@ -353,7 +378,9 @@ class TestStandardSchemaProcessor:
         assert "page_view" in call_args
 
     @patch("requests.get")
-    def test_extract_handles_fetch_failure_gracefully(self, mock_get, mock_deps, mock_state):
+    def test_extract_handles_fetch_failure_gracefully(
+        self, mock_get, mock_deps, mock_state
+    ):
         """Test extract handles fetch failure and continues."""
         # Setup state with standard schema URI
         mock_state.referenced_iglu_uris = {
@@ -386,7 +413,9 @@ class TestStandardSchemaProcessor:
         mock_response.json.return_value = {"description": "Schema", "properties": {}}
         mock_get.return_value = mock_response
 
-        mock_deps.urn_factory.make_schema_dataset_urn.return_value = "urn:li:dataset:test"
+        mock_deps.urn_factory.make_schema_dataset_urn.return_value = (
+            "urn:li:dataset:test"
+        )
 
         processor = StandardSchemaProcessor(deps=mock_deps, state=mock_state)
 
@@ -403,8 +432,6 @@ class TestStandardSchemaProcessor:
 
     def test_determine_schema_type_event(self, mock_deps, mock_state):
         """Test schema type determination for event schemas."""
-        processor = StandardSchemaProcessor(deps=mock_deps, state=mock_state)
-
         # Event schemas don't contain "context" in name
         # This is tested implicitly through _process_standard_schema
         # but we can verify the logic by checking the code behavior
@@ -415,8 +442,6 @@ class TestStandardSchemaProcessor:
 
     def test_determine_schema_type_entity(self, mock_deps, mock_state):
         """Test schema type determination for entity/context schemas."""
-        processor = StandardSchemaProcessor(deps=mock_deps, state=mock_state)
-
         # Entity schemas contain "context" in name
         assert "context" in "user_context".lower()
         assert "context" in "web_context".lower()

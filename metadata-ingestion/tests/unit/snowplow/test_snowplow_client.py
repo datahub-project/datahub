@@ -1,6 +1,6 @@
 """Unit tests for Snowplow BDP API client."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

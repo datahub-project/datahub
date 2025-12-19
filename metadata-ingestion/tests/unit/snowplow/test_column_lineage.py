@@ -6,9 +6,9 @@ import pytest
 
 from datahub.ingestion.source.snowplow.snowplow import SnowplowSource
 from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass,
-    SchemaFieldDataTypeClass,
+    OtherSchemaClass,
     SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
 )
@@ -39,9 +39,7 @@ class TestColumnLineageMapping:
         mock_ctx.pipeline_name = None
 
         # Mock the BDP client creation to avoid authentication
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
             return source
 
@@ -130,13 +128,13 @@ class TestColumnLineageExtraction:
         mock_ctx.pipeline_name = None
 
         # Mock the BDP client creation to avoid authentication
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
             return source
 
-    def test_emit_column_lineage_creates_fine_grained_lineage(self, source_with_warehouse):
+    def test_emit_column_lineage_creates_fine_grained_lineage(
+        self, source_with_warehouse
+    ):
         """Test that _emit_column_lineage creates FineGrainedLineage with correct structure."""
         source = source_with_warehouse
 
@@ -146,7 +144,7 @@ class TestColumnLineageExtraction:
             platform="urn:li:dataPlatform:snowplow",
             version=0,
             hash="",
-            platformSchema=None,
+            platformSchema=OtherSchemaClass(rawSchema=""),
             fields=[
                 SchemaFieldClass(
                     fieldPath="field1",
@@ -162,13 +160,19 @@ class TestColumnLineageExtraction:
         )
 
         # Mock _get_warehouse_table_urn
-        source._get_warehouse_table_urn = lambda: "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
+        source._get_warehouse_table_urn = (
+            lambda: "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
+        )
 
         # Set _parsed_events_urn (required for column lineage to be emitted)
-        source.state.parsed_events_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)"
+        source.state.parsed_events_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)"
+        )
 
         # Get lineage work units
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.test.event,PROD)"
+        dataset_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.test.event,PROD)"
+        )
         work_units = list(
             source._emit_column_lineage(
                 dataset_urn=dataset_urn,
@@ -184,7 +188,10 @@ class TestColumnLineageExtraction:
 
         # Verify it's an upstream lineage aspect
         wu = work_units[0]
-        assert wu.metadata.entityUrn == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
+        assert (
+            wu.metadata.entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
+        )
         assert wu.metadata.aspectName == "upstreamLineage"
 
         # Verify fine-grained lineage structure
@@ -219,13 +226,13 @@ class TestColumnLineageExtraction:
         mock_ctx.pipeline_name = None
 
         # Mock the BDP client creation to avoid authentication
-        with patch(
-            "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-        ):
+        with patch("datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"):
             source = SnowplowSource(config=config, ctx=mock_ctx)
             return source
 
-    def test_emit_column_lineage_no_warehouse_returns_empty(self, source_without_warehouse):
+    def test_emit_column_lineage_no_warehouse_returns_empty(
+        self, source_without_warehouse
+    ):
         """Test that _emit_column_lineage returns empty when no warehouse configured."""
         source = source_without_warehouse
 
@@ -234,7 +241,7 @@ class TestColumnLineageExtraction:
             platform="urn:li:dataPlatform:snowplow",
             version=0,
             hash="",
-            platformSchema=None,
+            platformSchema=OtherSchemaClass(rawSchema=""),
             fields=[],
         )
 
@@ -254,7 +261,9 @@ class TestColumnLineageExtraction:
     def test_emit_column_lineage_no_fields_returns_empty(self, source_with_warehouse):
         """Test that _emit_column_lineage returns empty when schema has no fields."""
         source = source_with_warehouse
-        source._get_warehouse_table_urn = lambda: "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
+        source._get_warehouse_table_urn = (
+            lambda: "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.events,PROD)"
+        )
 
         # Schema with no fields
         schema_metadata = SchemaMetadataClass(
@@ -262,7 +271,7 @@ class TestColumnLineageExtraction:
             platform="urn:li:dataPlatform:snowplow",
             version=0,
             hash="",
-            platformSchema=None,
+            platformSchema=OtherSchemaClass(rawSchema=""),
             fields=[],
         )
 

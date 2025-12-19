@@ -83,7 +83,7 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
     mock_data_structures = generate_mock_data_structures(100)
 
     # Simulate API delay (10ms per call to make difference measurable)
-    def mock_get_deployments(schema_hash: str):
+    def mock_get_deployments(schema_hash: str) -> List[DataStructureDeployment]:
         """Simulate API delay."""
         time.sleep(0.01)  # 10ms delay
         return [
@@ -369,7 +369,7 @@ def test_large_dataset_performance(pytestconfig):
         return [DataStructure.model_validate(ds) for ds in mock_data_structures]
 
     # Mock deployment fetching with minimal delay
-    def mock_get_deployments(schema_hash: str):
+    def mock_get_deployments(schema_hash: str) -> List[DataStructureDeployment]:
         time.sleep(0.001)  # 1ms delay
         return [
             DataStructureDeployment(

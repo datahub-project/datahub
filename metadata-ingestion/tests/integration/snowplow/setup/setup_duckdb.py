@@ -228,7 +228,8 @@ def generate_sample_events(
 
     # Verify
     result = conn.execute("SELECT COUNT(*) FROM snowplow.events").fetchone()
-    print(f"✅ Inserted {result[0]} events into snowplow.events")
+    if result:
+        print(f"✅ Inserted {result[0]} events into snowplow.events")
 
     conn.close()
 
