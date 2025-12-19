@@ -16,7 +16,7 @@ from confluent_kafka.admin import (
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
+from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -100,7 +100,7 @@ def get_kafka_consumer(
         }
     )
 
-    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+    if KafkaOAuthCallbackResolver.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
         logger.debug("Initiating polling for kafka consumer")
@@ -120,7 +120,7 @@ def get_kafka_admin_client(
             **connection.consumer_config,
         }
     )
-    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+    if KafkaOAuthCallbackResolver.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
         logger.debug("Initiating polling for kafka admin client")
