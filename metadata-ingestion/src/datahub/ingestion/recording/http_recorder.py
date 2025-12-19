@@ -1,5 +1,6 @@
 """HTTP recording and replay using VCR.py."""
 
+import json
 import logging
 import threading
 from contextlib import contextmanager
@@ -7,6 +8,49 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_json_body(body: Any) -> Any:
+    """Normalize JSON body for comparison.
+
+    Handles:
+    - Comma-separated ID lists in filters (order-independent)
+    - Sort keys for consistent comparison
+    - Binary bodies (returns as-is for byte comparison)
+
+    Args:
+        body: Request body (bytes, str, or None)
+
+    Returns:
+        Normalized body for comparison
+    """
+    if not body:
+        return body
+
+    try:
+        if isinstance(body, bytes):
+            # Try to decode as UTF-8, but handle binary data gracefully
+            try:
+                body = body.decode("utf-8")
+            except UnicodeDecodeError:
+                # Binary body (protobuf, gRPC, etc.) - return as-is for byte comparison
+                return body
+        data = json.loads(body)
+
+        # Normalize filters with comma-separated IDs
+        if isinstance(data, dict) and "filters" in data:
+            filters = data["filters"]
+            for key, value in filters.items():
+                if isinstance(value, str) and "," in value:
+                    # Sort comma-separated values for consistent comparison
+                    values = sorted(value.split(","))
+                    filters[key] = ",".join(values)
+
+        return json.dumps(data, sort_keys=True)
+    except (json.JSONDecodeError, TypeError, AttributeError, UnicodeDecodeError):
+        # Not JSON or binary data - return as-is
+        return body
+
 
 # Global lock for serializing HTTP requests during recording
 # This is necessary because VCR has a race condition when recording
@@ -222,48 +266,6 @@ class HTTPRecorder:
             uri = request.uri.lower()
             return any(endpoint in uri for endpoint in AUTH_ENDPOINTS)
 
-        def normalize_json_body(body: Any) -> Any:
-            """Normalize JSON body for comparison.
-
-            Handles:
-            - Comma-separated ID lists in filters (order-independent)
-            - Sort keys for consistent comparison
-            - Binary bodies (returns as-is for byte comparison)
-            """
-            import json
-
-            if not body:
-                return body
-
-            try:
-                if isinstance(body, bytes):
-                    # Try to decode as UTF-8, but handle binary data gracefully
-                    try:
-                        body = body.decode("utf-8")
-                    except UnicodeDecodeError:
-                        # Binary body (protobuf, gRPC, etc.) - return as-is for byte comparison
-                        return body
-                data = json.loads(body)
-
-                # Normalize filters with comma-separated IDs
-                if isinstance(data, dict) and "filters" in data:
-                    filters = data["filters"]
-                    for key, value in filters.items():
-                        if isinstance(value, str) and "," in value:
-                            # Sort comma-separated values for consistent comparison
-                            values = sorted(value.split(","))
-                            filters[key] = ",".join(values)
-
-                return json.dumps(data, sort_keys=True)
-            except (
-                json.JSONDecodeError,
-                TypeError,
-                AttributeError,
-                UnicodeDecodeError,
-            ):
-                # Not JSON or binary data - return as-is
-                return body
-
         def custom_body_matcher(r1: Any, r2: Any) -> bool:
             """Custom body matcher with special handling for auth and JSON bodies."""
             # For auth requests, don't compare body (credentials differ)
@@ -271,8 +273,8 @@ class HTTPRecorder:
                 return True
 
             # Normalize and compare JSON bodies
-            body1 = normalize_json_body(r1.body)
-            body2 = normalize_json_body(r2.body)
+            body1 = _normalize_json_body(r1.body)
+            body2 = _normalize_json_body(r2.body)
             return body1 == body2
 
         # Create VCR with custom matchers
@@ -355,47 +357,6 @@ class HTTPReplayerForLiveSink:
             uri = request.uri.lower()
             return any(endpoint in uri for endpoint in AUTH_ENDPOINTS)
 
-        def normalize_json_body(body: Any) -> Any:
-            """Normalize JSON body for comparison.
-
-            Handles:
-            - Comma-separated ID lists in filters (order-independent)
-            - Sort keys for consistent comparison
-            - Binary bodies (returns as-is for byte comparison)
-            """
-            import json
-
-            if not body:
-                return body
-
-            try:
-                if isinstance(body, bytes):
-                    # Try to decode as UTF-8, but handle binary data gracefully
-                    try:
-                        body = body.decode("utf-8")
-                    except UnicodeDecodeError:
-                        # Binary body (protobuf, gRPC, etc.) - return as-is for byte comparison
-                        return body
-                data = json.loads(body)
-
-                # Normalize filters with comma-separated IDs
-                if isinstance(data, dict) and "filters" in data:
-                    filters = data["filters"]
-                    for key, value in filters.items():
-                        if isinstance(value, str) and "," in value:
-                            values = sorted(value.split(","))
-                            filters[key] = ",".join(values)
-
-                return json.dumps(data, sort_keys=True)
-            except (
-                json.JSONDecodeError,
-                TypeError,
-                AttributeError,
-                UnicodeDecodeError,
-            ):
-                # Not JSON or binary data - return as-is
-                return body
-
         # Custom matcher that allows live hosts to bypass recording
         # and handles auth vs data request body matching
         def custom_matcher(r1: Any, r2: Any) -> bool:
@@ -419,8 +380,8 @@ class HTTPReplayerForLiveSink:
                 return True
 
             # Normalize and compare JSON bodies
-            body1 = normalize_json_body(r1.body)
-            body2 = normalize_json_body(r2.body)
+            body1 = _normalize_json_body(r1.body)
+            body2 = _normalize_json_body(r2.body)
             return body1 == body2
 
         self.vcr = vcr.VCR(
