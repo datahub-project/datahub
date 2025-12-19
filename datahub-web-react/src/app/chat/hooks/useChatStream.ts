@@ -263,8 +263,11 @@ export const useChatStream = ({
     });
 
     const abortControllerRef = useRef<AbortController | null>(null);
-    const messageQueueRef = useRef<{ text: string; convoUrn?: string; messageContext?: MessageContext }[]>([]);
+    const messageQueueRef = useRef<{ text: string; targetConversationUrn?: string; messageContext?: MessageContext }[]>(
+        [],
+    );
     const isProcessingRef = useRef(false);
+    const messageStartTimeRef = useRef<number | null>(null);
 
     const cleanup = useCallback(() => {
         if (abortControllerRef.current) {
@@ -279,8 +282,26 @@ export const useChatStream = ({
         cleanup();
     }, [cleanup]);
 
+    const emitResponseCompletionEvent = useCallback(
+        (targetConversationUrn?: string) => {
+            if (messageStartTimeRef.current !== null) {
+                const responseTimeSeconds = (Date.now() - messageStartTimeRef.current) / 1000;
+                analytics.event({
+                    type: AnalyticsEventType.DataHubChatResponseCompleteEvent,
+                    conversationUrn: targetConversationUrn || conversationUrn,
+                    responseTimeSeconds,
+                });
+                messageStartTimeRef.current = null;
+            }
+        },
+        [conversationUrn],
+    );
+
     const processNextMessage = useCallback(
-        async (messageText: string, convoUrn?: string, messageContext?: MessageContext) => {
+        async (messageText: string, targetConversationUrn?: string, messageContext?: MessageContext) => {
+            // Track start time when message is sent
+            messageStartTimeRef.current = Date.now();
+
             setState({
                 isStreaming: true,
                 currentMessage: null,
@@ -296,7 +317,7 @@ export const useChatStream = ({
                     agentName?: string;
                     context?: MessageContext;
                 } = {
-                    conversationUrn: convoUrn || conversationUrn,
+                    conversationUrn: targetConversationUrn || conversationUrn,
                     text: messageText,
                 };
 
@@ -341,6 +362,9 @@ export const useChatStream = ({
                     onMessageReceived(finalMessage);
                 }
 
+                // Emit analytics event with response time
+                emitResponseCompletionEvent(targetConversationUrn);
+
                 if (onStreamComplete) {
                     onStreamComplete();
                 }
@@ -357,6 +381,8 @@ export const useChatStream = ({
                     error.name === 'AbortError' || (error.message && error.message.includes('Connection interrupted'));
 
                 if (isExpectedDisconnect) {
+                    // Reset start time on expected disconnect (user stopped streaming)
+                    messageStartTimeRef.current = null;
                     setState({
                         isStreaming: false,
                         currentMessage: null,
@@ -404,14 +430,17 @@ export const useChatStream = ({
                         error: error.message || 'Failed to send message',
                     });
                 }
+
+                // Reset start time on error
+                messageStartTimeRef.current = null;
             }
         },
-        [conversationUrn, onMessageReceived, onStreamComplete, agentName],
+        [conversationUrn, onMessageReceived, onStreamComplete, agentName, emitResponseCompletionEvent, setState],
     );
 
     const sendMessage = useCallback(
-        async (text: string, convoUrn?: string, messageContext?: MessageContext) => {
-            messageQueueRef.current.push({ text, convoUrn, messageContext });
+        async (text: string, targetConversationUrn?: string, messageContext?: MessageContext) => {
+            messageQueueRef.current.push({ text, targetConversationUrn, messageContext });
 
             if (isProcessingRef.current) {
                 return;
@@ -426,7 +455,7 @@ export const useChatStream = ({
                     return;
                 }
 
-                await processNextMessage(nextItem.text, nextItem.convoUrn, nextItem.messageContext);
+                await processNextMessage(nextItem.text, nextItem.targetConversationUrn, nextItem.messageContext);
                 await processQueue();
             };
 

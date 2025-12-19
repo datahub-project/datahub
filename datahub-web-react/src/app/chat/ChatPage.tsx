@@ -1,5 +1,4 @@
 import { colors } from '@components';
-import { message as antMessage } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -8,6 +7,11 @@ import analytics, { EventType } from '@app/analytics';
 import { ChatArea } from '@app/chat/components/ChatArea';
 import { ConversationList } from '@app/chat/components/ConversationList';
 import { ChatFeatureFlags } from '@app/chat/types';
+import {
+    ConversationListItem,
+    mapToConversationListItem,
+    sortConversationsByMostRecent,
+} from '@app/chat/utils/conversationUtils';
 import CompactContext from '@app/shared/CompactContext';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
@@ -102,9 +106,11 @@ export const ChatPage = () => {
     });
 
     const [hasAutoCreated, setHasAutoCreated] = useState(false);
-    const [optimisticConversation, setOptimisticConversation] = useState<any>(null);
+    // Allow multiple optimistic conversations so parallel creates don't overwrite each other
+    const [optimisticConversations, setOptimisticConversations] = useState<ConversationListItem[]>([]);
     const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    const [draftsByUrn, setDraftsByUrn] = useState<Record<string, string>>({});
 
     // Fetch conversations list - TODO: Add pagination / infinite scroll
     // Filter to only show conversations created in the main DataHub UI
@@ -123,20 +129,47 @@ export const ChatPage = () => {
 
     const [createConversation, { loading: creatingConversation }] = useCreateDataHubAiConversationMutation();
 
-    const conversations = useMemo(() => {
-        const baseConversations = conversationsData?.listDataHubAiConversations?.conversations || [];
+    const conversations = useMemo((): ConversationListItem[] => {
+        const serverConversations =
+            conversationsData?.listDataHubAiConversations?.conversations.map(mapToConversationListItem) || [];
+        if (!optimisticConversations.length) return serverConversations;
 
-        // If we have an optimistic conversation and it's not in the list yet, add it
-        if (optimisticConversation && !baseConversations.some((c) => c.urn === optimisticConversation.urn)) {
-            return [optimisticConversation, ...baseConversations];
-        }
+        // Add optimistic conversations not yet in server data
+        const missing = optimisticConversations.filter(
+            (opt) => !serverConversations.some((srv) => srv.urn === opt.urn),
+        );
+        let merged = [...missing, ...serverConversations];
 
-        return baseConversations;
-    }, [conversationsData, optimisticConversation]);
+        // Apply optimistic titles if present
+        merged = merged.map((c) => {
+            const override = optimisticConversations.find((opt) => opt.urn === c.urn && opt.title);
+            return override ? { ...c, title: override.title } : c;
+        });
+
+        return merged;
+    }, [conversationsData, optimisticConversations]);
+
+    // Update conversation title via React state (optimistic update)
+    const handleTitleUpdate = useCallback(
+        (title: string) => {
+            if (!selectedConversationUrn) return;
+
+            setOptimisticConversations((prev) => {
+                const existing =
+                    prev.find((c) => c.urn === selectedConversationUrn) ||
+                    conversations.find((c) => c.urn === selectedConversationUrn);
+                const updated = existing
+                    ? { ...existing, title }
+                    : mapToConversationListItem({ urn: selectedConversationUrn, title });
+                return [updated, ...prev.filter((c) => c.urn !== selectedConversationUrn)];
+            });
+        },
+        [selectedConversationUrn, conversations],
+    );
 
     // Handle creating a new conversation
     const handleCreateConversation = useCallback(
-        async (silent = false) => {
+        async (_silent = false) => {
             try {
                 const result = await createConversation({
                     variables: {
@@ -150,8 +183,11 @@ export const ChatPage = () => {
                 if (result.data?.createDataHubAiConversation) {
                     const newConversation = result.data.createDataHubAiConversation;
 
-                    // Add optimistic conversation immediately
-                    setOptimisticConversation(newConversation);
+                    // Add to list immediately via React state (same shape as server data)
+                    setOptimisticConversations((prev) => [
+                        mapToConversationListItem(newConversation),
+                        ...prev.filter((c) => c.urn !== newConversation.urn),
+                    ]);
 
                     // Emit analytics event for chat creation
                     // Origin is 'search_bar' if there's an initialMessage, otherwise 'manual'
@@ -161,27 +197,14 @@ export const ChatPage = () => {
                         conversationUrn: newConversation.urn,
                     });
 
-                    if (!silent) {
-                        antMessage.success('New conversation created!');
-                    }
-
                     // Navigate to the new conversation
                     history.push(`${PageRoutes.AI_CHAT}?conversation=${newConversation.urn}`);
-
-                    // Refetch in background to ensure consistency (wait for eventual consistency)
-                    setTimeout(() => {
-                        refetchConversations();
-                        setOptimisticConversation(null); // Clear optimistic state after refetch
-                    }, 10000);
                 }
             } catch (error) {
                 console.error('Failed to create conversation:', error);
-                if (!silent) {
-                    antMessage.error('Failed to create new conversation');
-                }
             }
         },
-        [createConversation, history, refetchConversations],
+        [createConversation, history],
     );
 
     // Auto-create or select conversation on mount
@@ -234,14 +257,30 @@ export const ChatPage = () => {
     };
 
     // Handle deleting a conversation
-    const handleDeleteConversation = async () => {
-        // Refetch conversations after deletion
-        await refetchConversations();
+    const handleDeleteConversation = async (deletedUrn: string) => {
+        // Filter out the deleted conversation from existing conversations
+        const updatedConversations = conversations.filter((c) => c.urn !== deletedUrn);
 
-        // If the deleted conversation was selected, navigate away
-        if (selectedConversationUrn) {
-            history.push(PageRoutes.AI_CHAT);
+        // If the deleted conversation was selected, navigate to the most recent conversation
+        if (selectedConversationUrn === deletedUrn) {
+            if (updatedConversations.length > 0) {
+                // Sort by most recent and navigate to the first one
+                const sorted = sortConversationsByMostRecent(updatedConversations);
+                history.push(`${PageRoutes.AI_CHAT}?conversation=${sorted[0].urn}`);
+            } else {
+                // No conversations left, navigate to base chat page (will auto-create)
+                history.push(PageRoutes.AI_CHAT);
+            }
         }
+
+        // Remove any optimistic conversation if it's the one being deleted
+        setOptimisticConversations((prev) => prev.filter((c) => c.urn !== deletedUrn));
+        // Clear any draft tied to the deleted conversation
+        setDraftsByUrn((prev) => {
+            const next = { ...prev };
+            delete next[deletedUrn];
+            return next;
+        });
     };
 
     // Handle entity selection from references
@@ -300,9 +339,22 @@ export const ChatPage = () => {
                     {selectedConversationUrn && (
                         <ChatArea
                             conversationUrn={selectedConversationUrn}
+                            draft={draftsByUrn[selectedConversationUrn]}
+                            onDraftChange={(urn, draft) =>
+                                setDraftsByUrn((prev) => {
+                                    if (!draft) {
+                                        const next = { ...prev };
+                                        delete next[urn];
+                                        return next;
+                                    }
+                                    return { ...prev, [urn]: draft };
+                                })
+                            }
                             userUrn={userUrn}
                             featureFlags={featureFlags}
                             onConversationUpdate={refetchConversations}
+                            setTitle={handleTitleUpdate}
+                            title={conversations.find((c) => c.urn === selectedConversationUrn)?.title || undefined}
                             selectedEntityUrn={selectedEntity?.urn}
                             onEntitySelect={handleEntitySelect}
                             initialMessage={initialMessageRef.current}

@@ -74,6 +74,7 @@ export default function AskDataHubTab(_props: EntityTabProps) {
                 userUrn={userUrn}
                 featureFlags={featureFlags}
                 initialMessage={initialMessage ?? undefined}
+                onConversationNotFound={() => setConversationUrn(null)}
                 variant={ChatVariant.Compact}
                 messageActions={compactActions}
                 showReferences={false}

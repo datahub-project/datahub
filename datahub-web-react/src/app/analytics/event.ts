@@ -268,6 +268,7 @@ export enum EventType {
     CreateDataHubChatMessageEvent,
     DeleteDataHubChatEvent,
     DataHubChatResponseErrorEvent,
+    DataHubChatResponseCompleteEvent,
     StopDataHubChatResponseEvent,
     FileUploadAttemptEvent,
     FileUploadFailedEvent,
@@ -1982,6 +1983,12 @@ export interface DataHubChatResponseErrorEvent extends BaseEvent {
     messagePreview?: string; // first 200 characters of the message that caused the error
 }
 
+export interface DataHubChatResponseCompleteEvent extends BaseEvent {
+    type: EventType.DataHubChatResponseCompleteEvent;
+    conversationUrn: string;
+    responseTimeSeconds: number; // Time in seconds from message sent to response complete
+}
+
 export interface StopDataHubChatResponseEvent extends BaseEvent {
     type: EventType.StopDataHubChatResponseEvent;
     conversationUrn: string;
@@ -2348,6 +2355,7 @@ export type Event =
     | CreateDataHubChatMessageEvent
     | DeleteDataHubChatEvent
     | DataHubChatResponseErrorEvent
+    | DataHubChatResponseCompleteEvent
     | StopDataHubChatResponseEvent
     | FileUploadAttemptEvent
     | FileUploadFailedEvent

@@ -62,10 +62,7 @@ const MessageContent = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
 const MessageBubble = styled.div<{ isUser: boolean; $variant?: ChatVariant }>`
     background-color: ${(props) => (props.isUser ? colors.gray[1600] : 'transparent')};
     color: ${(props) => (props.isUser ? colors.gray[600] : '#2d333a')};
-    padding: ${(props) => {
-        if (!props.isUser) return '0';
-        return props.$variant === ChatVariant.Compact ? '8px 12px' : '8px 8px';
-    }};
+    padding: ${(props) => (props.isUser ? '8px 8px' : '0')};
     border-radius: ${(props) => (props.isUser ? '12px' : '0')};
     word-wrap: break-word;
     overflow-wrap: break-word;

@@ -242,6 +242,7 @@ public enum DataHubUsageEventType {
   CREATE_DATAHUB_CHAT_MESSAGE_EVENT("CreateDataHubChatMessageEvent"),
   DELETE_DATAHUB_CHAT_EVENT("DeleteDataHubChatEvent"),
   DATAHUB_CHAT_RESPONSE_ERROR_EVENT("DataHubChatResponseErrorEvent"),
+  DATAHUB_CHAT_RESPONSE_COMPLETE_EVENT("DataHubChatResponseCompleteEvent"),
   STOP_DATAHUB_CHAT_RESPONSE_EVENT("StopDataHubChatResponseEvent"),
   SUBSCRIPTION_OWNER_CLICK_EVENT("SubscriptionOwnerClickEvent"),
   SUBSCRIPTION_ENTITY_CLICK_EVENT("SubscriptionEntityClickEvent"),

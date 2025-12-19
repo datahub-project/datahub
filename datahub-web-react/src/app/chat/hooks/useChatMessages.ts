@@ -99,7 +99,7 @@ export const useChatMessages = ({
         hasInitialScrolledRef.current = false;
     }, [conversationUrn]);
 
-    // Cleanup: Stop streaming when conversation changes or component unmounts
+    // Cleanup: stop streaming when conversation changes or component unmounts
     useEffect(() => {
         return () => {
             stopStreaming();

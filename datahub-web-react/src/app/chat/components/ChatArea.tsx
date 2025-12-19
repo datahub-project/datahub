@@ -1,6 +1,6 @@
 import { Loader, Text, colors } from '@components';
 import { ChatCircle } from '@phosphor-icons/react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import FreeTrialAIChatPopover from '@app/chat/FreeTrialAIChatPopover';
@@ -217,6 +217,14 @@ interface ChatAreaProps {
     userUrn: string;
     featureFlags: ChatFeatureFlags;
     onConversationUpdate?: () => void;
+    onConversationNotFound?: () => void;
+    setTitle?: (title: string) => void;
+    /** Title from parent (for optimistic updates) */
+    title?: string;
+    /** Draft text for the current conversation (managed by parent) */
+    draft?: string;
+    /** Persist draft text for the given conversation URN */
+    onDraftChange?: (conversationUrn: string, draft: string) => void;
     selectedEntityUrn?: string;
     onEntitySelect?: (entity: Entity | null) => void;
     initialMessage?: string;
@@ -244,6 +252,9 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     userUrn,
     featureFlags,
     onConversationUpdate,
+    onConversationNotFound,
+    setTitle,
+    title: titleFromParent,
     selectedEntityUrn,
     onEntitySelect,
     initialMessage,
@@ -252,11 +263,31 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     showReferences = true,
     suggestedQuestions,
     welcomePlaceholder = 'Ask anything about your data...',
+    draft,
+    onDraftChange,
 }) => {
     const [inputValue, setInputValue] = useState('');
     const hasAutoSentInitialMessage = useRef(false);
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
+
+    const updateInputValue = useCallback(
+        (value: string) => {
+            setInputValue(value);
+            if (onDraftChange) {
+                onDraftChange(conversationUrn, value);
+            }
+        },
+        [conversationUrn, onDraftChange],
+    );
+
+    // Clear input when switching conversations to avoid leaking previous text
+    useEffect(() => {
+        const nextValue = draft ?? '';
+        if (inputValue !== nextValue) {
+            updateInputValue(nextValue);
+        }
+    }, [conversationUrn, draft, inputValue, updateInputValue]);
 
     // Fetch conversation data
     const { data, loading, refetch } = useGetDataHubAiConversationQuery({
@@ -280,6 +311,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         userUrn,
         onStreamComplete: () => {
             refetch();
+            // Refetch conversation list to get updated title from server
             if (onConversationUpdate) {
                 onConversationUpdate();
             }
@@ -293,28 +325,51 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
         }
     }, [conversation, setMessages]);
 
+    // Notify parent after fetch completes if conversation is missing
+    useEffect(() => {
+        if (!loading && !conversation && onConversationNotFound) {
+            onConversationNotFound();
+        }
+    }, [loading, conversation, onConversationNotFound]);
+
     // Auto-send initial message if provided (from SearchBar "Ask DataHub")
     useEffect(() => {
         if (initialMessage && !hasAutoSentInitialMessage.current && !loading && conversation) {
             hasAutoSentInitialMessage.current = true;
-            setInputValue(initialMessage);
+            updateInputValue(initialMessage);
             setTimeout(() => {
+                // Update title optimistically for auto-sent messages (same as handleSend)
+                if (messages.length === 0 && setTitle) {
+                    const title =
+                        initialMessage.length > 100 ? `${initialMessage.substring(0, 100)}...` : initialMessage;
+                    setTitle(title);
+                }
                 handleSendMessage(initialMessage);
-                setInputValue('');
+                updateInputValue('');
             }, 100);
         }
-    }, [initialMessage, loading, conversation, handleSendMessage]);
+    }, [initialMessage, loading, conversation, handleSendMessage, messages.length, setTitle, updateInputValue]);
 
     const handleSend = () => {
         if (!inputValue.trim()) {
             return;
         }
+        // Update title optimistically on first message
+        if (messages.length === 0 && setTitle) {
+            const title = inputValue.length > 100 ? `${inputValue.substring(0, 100)}...` : inputValue;
+            setTitle(title);
+        }
         handleSendMessage(inputValue);
-        setInputValue('');
+        updateInputValue('');
     };
 
     const handleQuestionSelect = (question: string) => {
         if (isStreaming) return;
+        // Update title optimistically on first message
+        if (messages.length === 0 && setTitle) {
+            const title = question.length > 100 ? `${question.substring(0, 100)}...` : question;
+            setTitle(title);
+        }
         handleSendMessage(question);
     };
 
@@ -346,7 +401,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                 <Header>
                     <HeaderTitle>
                         <Text size="md" weight="bold" style={{ color: colors.gray[600] }}>
-                            {removeMarkdown(conversation.title || 'New Chat')}
+                            {removeMarkdown(titleFromParent || conversation.title || 'New Chat')}
                         </Text>
                     </HeaderTitle>
                 </Header>
@@ -371,12 +426,13 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                                 <EmptyStateInputWrapper $variant={variant}>
                                     <ChatInput
                                         value={inputValue}
-                                        onChange={setInputValue}
+                                        onChange={updateInputValue}
                                         onSubmit={handleSend}
                                         onStop={handleStopStreaming}
                                         placeholder={welcomePlaceholder}
                                         isStreaming={isStreaming}
                                         isWelcomeState
+                                        autoFocus
                                     />
                                     <SuggestedQuestions
                                         onQuestionSelect={handleQuestionSelect}
@@ -408,11 +464,12 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                         <InputContent $variant={variant}>
                             <ChatInput
                                 value={inputValue}
-                                onChange={setInputValue}
+                                onChange={updateInputValue}
                                 onSubmit={handleSend}
                                 onStop={handleStopStreaming}
                                 placeholder="Ask about your data... (use @ to mention assets)"
                                 isStreaming={isStreaming}
+                                autoFocus
                             />
                         </InputContent>
                     </InputContainer>
@@ -449,6 +506,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 variant={variant}
                 suggestedQuestions={suggestedQuestions}
                 welcomePlaceholder={welcomePlaceholder}
+                onConversationNotFound={rest.onConversationNotFound}
                 {...rest}
             />
         );
