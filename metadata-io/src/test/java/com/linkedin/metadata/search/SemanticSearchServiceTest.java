@@ -17,6 +17,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
@@ -283,5 +291,369 @@ public class SemanticSearchServiceTest {
         .setPageSize(0)
         .setNumEntities(0)
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+  }
+
+  @Test
+  public void testSemanticSearchWithFilters() {
+    // Given: Search with filters
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "customer data";
+    int from = 0;
+    Integer size = 10;
+
+    Filter mockFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("platform")
+                                    .setValue("snowflake")
+                                    .setCondition(Condition.EQUAL)))));
+
+    SearchResult mockResult = createMockSearchResult(from, size, 3);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearch(
+            opContext, entityNames, query, mockFilter, null, from, size);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getNumEntities().intValue(), 3);
+
+    // Verify filter was passed to semantic service
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(
+            eq(opContext),
+            eq(entityNames),
+            eq(query),
+            eq(mockFilter),
+            eq(null),
+            eq(from),
+            eq(size));
+  }
+
+  @Test
+  public void testSemanticSearchWithSortCriteria() {
+    // Given: Search with sort criteria
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "analytics";
+    int from = 0;
+    Integer size = 20;
+
+    List<SortCriterion> sortCriteria =
+        Collections.singletonList(
+            new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
+
+    SearchResult mockResult = createMockSearchResult(from, size, 5);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearch(
+            opContext, entityNames, query, null, sortCriteria, from, size);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getNumEntities().intValue(), 5);
+
+    // Verify first sort criterion was passed to semantic service
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(
+            eq(opContext),
+            eq(entityNames),
+            eq(query),
+            eq(null),
+            eq(sortCriteria.get(0)),
+            eq(from),
+            eq(size));
+  }
+
+  @Test
+  public void testSemanticSearchWithNullSizeUsesConfigDefault() {
+    // Given: Search with null size (should apply config default)
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "test";
+    int from = 0;
+    Integer size = null;
+
+    SearchResult mockResult = createMockSearchResult(from, 100, 2); // Config default is 100
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearch(opContext, entityNames, query, null, null, from, size);
+
+    // Then
+    assertNotNull(result);
+
+    // Verify size was passed as config default (100)
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(eq(opContext), eq(entityNames), eq(query), eq(null), eq(null), eq(from), eq(100));
+  }
+
+  @Test
+  public void testSemanticSearchEntityNamesConvertedToLowercase() {
+    // Given: Entity names with mixed case
+    List<String> entityNames = Arrays.asList("DATASET", "Chart", "DashBoard");
+    String query = "test";
+    int from = 0;
+    Integer size = 10;
+
+    SearchResult mockResult = createMockSearchResult(from, size, 3);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Arrays.asList("dataset", "chart", "dashboard"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearch(opContext, entityNames, query, null, null, from, size);
+
+    // Then
+    assertNotNull(result);
+
+    // Verify entity names were converted to lowercase
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(
+            eq(opContext),
+            eq(Arrays.asList("dataset", "chart", "dashboard")),
+            eq(query),
+            eq(null),
+            eq(null),
+            eq(from),
+            eq(size));
+  }
+
+  @Test
+  public void testSemanticSearchNullSemanticServiceThrows() {
+    // Given: Semantic service is null
+    SemanticSearchService serviceWithNullSemantic =
+        new SemanticSearchService(
+            mockEntityDocCountCache,
+            mockCachingEntitySearchService,
+            null, // null semantic service
+            mockSearchServiceConfig);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When/Then: Should throw NullPointerException
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            serviceWithNullSemantic.semanticSearch(
+                opContext, Collections.singletonList("dataset"), "query", null, null, 0, 10));
+  }
+
+  @Test
+  public void testSemanticSearchAcrossEntitiesWithFiltersAndFacets() {
+    // Given: Search with both filters and facets
+    List<String> entityNames = Arrays.asList("dataset", "chart");
+    String query = "revenue dashboard";
+    int from = 0;
+    Integer size = 10;
+
+    Filter mockFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("origin")
+                                    .setValue("PROD")
+                                    .setCondition(Condition.EQUAL)))));
+
+    List<String> facets = Arrays.asList("platform", "origin");
+
+    SearchResult mockSemanticResult = createMockSearchResult(from, size, 5);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockSemanticResult);
+
+    SearchResult mockFacetResult = createMockFacetResult();
+    when(mockCachingEntitySearchService.search(
+            any(), anyList(), anyString(), any(), anyList(), eq(0), eq(0), anyList()))
+        .thenReturn(mockFacetResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Arrays.asList("dataset", "chart"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearchAcrossEntities(
+            opContext, entityNames, query, mockFilter, null, from, size, facets);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getNumEntities().intValue(), 5);
+
+    // Verify semantic service was called with filter
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(
+            eq(opContext),
+            eq(entityNames),
+            eq(query),
+            eq(mockFilter),
+            eq(null),
+            eq(from),
+            eq(size));
+
+    // Verify facet service was called with filter
+    verify(mockCachingEntitySearchService, times(1))
+        .search(
+            any(), eq(entityNames), eq("*"), eq(mockFilter), anyList(), eq(0), eq(0), eq(facets));
+  }
+
+  @Test
+  public void testSemanticSearchAcrossEntitiesWithMultipleSortCriteria() {
+    // Given: Search with multiple sort criteria (only first should be used)
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "test";
+    int from = 0;
+    Integer size = 10;
+
+    List<SortCriterion> sortCriteria =
+        Arrays.asList(
+            new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING),
+            new SortCriterion().setField("created").setOrder(SortOrder.DESCENDING));
+
+    SearchResult mockSemanticResult = createMockSearchResult(from, size, 3);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockSemanticResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearchAcrossEntities(
+            opContext, entityNames, query, null, sortCriteria, from, size, List.of());
+
+    // Then
+    assertNotNull(result);
+
+    // Verify only first sort criterion was passed
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(
+            eq(opContext),
+            eq(entityNames),
+            eq(query),
+            eq(null),
+            eq(sortCriteria.get(0)),
+            eq(from),
+            eq(size));
+  }
+
+  @Test
+  public void testSemanticSearchAcrossEntitiesWithEmptySortCriteria() {
+    // Given: Search with empty sort criteria list
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "test";
+    int from = 0;
+    Integer size = 10;
+
+    List<SortCriterion> sortCriteria = Collections.emptyList();
+
+    SearchResult mockSemanticResult = createMockSearchResult(from, size, 3);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockSemanticResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearchAcrossEntities(
+            opContext, entityNames, query, null, sortCriteria, from, size, List.of());
+
+    // Then
+    assertNotNull(result);
+
+    // Verify null sort criterion was passed when list is empty
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(eq(opContext), eq(entityNames), eq(query), eq(null), eq(null), eq(from), eq(size));
+  }
+
+  @Test
+  public void testSemanticSearchCallsDelegateMethod() {
+    // Given: Single entity semantic search
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "test";
+    int from = 0;
+    Integer size = 10;
+
+    SearchResult mockResult = createMockSearchResult(from, size, 2);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When: Call semanticSearch (which should delegate to semanticSearchAcrossEntities)
+    SearchResult result =
+        semanticSearchService.semanticSearch(opContext, entityNames, query, null, null, from, size);
+
+    // Then
+    assertNotNull(result);
+
+    // Verify the underlying semantic search was called with empty facets list
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(any(), anyList(), anyString(), any(), any(), anyInt(), any());
+  }
+
+  @Test
+  public void testSizeLimitApplied() {
+    // Given: Search with size exceeding max limit
+    List<String> entityNames = Collections.singletonList("dataset");
+    String query = "test";
+    int from = 0;
+    Integer size = 5000; // Exceeds max of 1000
+
+    // When size exceeds max, ConfigUtils applies the default limit (100), not the max
+    SearchResult mockResult = createMockSearchResult(from, 100, 50);
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(mockResult);
+
+    when(mockEntityDocCountCache.getNonEmptyEntities(any()))
+        .thenReturn(Collections.singletonList("dataset"));
+
+    // When
+    SearchResult result =
+        semanticSearchService.semanticSearch(opContext, entityNames, query, null, null, from, size);
+
+    // Then
+    assertNotNull(result);
+
+    // Verify size was capped to default limit (100) when exceeding max
+    verify(mockSemanticEntitySearchService, times(1))
+        .search(eq(opContext), eq(entityNames), eq(query), eq(null), eq(null), eq(from), eq(100));
   }
 }

@@ -433,4 +433,3 @@ Check current pricing: https://aws.amazon.com/bedrock/pricing/
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Cohere Embed Models](https://docs.cohere.com/docs/embed-2)
 - [OpenSearch k-NN Plugin](https://opensearch.org/docs/latest/search-plugins/knn/index/)
-- [DataHub Semantic Search Technical Spec](../tech-spec-semantic-search.md)
