@@ -247,7 +247,11 @@ def list_contents(archive_path: str, password: Optional[str]) -> None:
 
 
 def _ensure_local_archive(archive_path: str) -> Path:
-    """Ensure archive is available locally, downloading from S3 if needed."""
+    """Ensure archive is available locally, downloading from S3 if needed.
+
+    Note: For S3 downloads, creates a temp file that persists until manually deleted
+    or system cleanup. The caller is responsible for cleanup after use.
+    """
     if archive_path.startswith("s3://"):
         import tempfile
         from urllib.parse import urlparse
@@ -263,10 +267,17 @@ def _ensure_local_archive(archive_path: str) -> Path:
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmpfile:
             local_path = Path(tmpfile.name)
 
-        s3_client = boto3.client("s3")
-        s3_client.download_file(bucket, key, str(local_path))
+        try:
+            s3_client = boto3.client("s3")
+            s3_client.download_file(bucket, key, str(local_path))
+        except Exception as e:
+            # Clean up temp file on download failure
+            if local_path.exists():
+                local_path.unlink()
+            raise click.ClickException(f"Failed to download from S3: {e}") from e
 
         logger.info(f"Downloaded to: {local_path}")
+        logger.debug(f"Note: Temp file at {local_path} should be cleaned up after use")
         return local_path
 
     return Path(archive_path)
