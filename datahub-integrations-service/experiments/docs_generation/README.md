@@ -93,21 +93,30 @@ Focus on the business value and use cases of the data."
 ## Prerequisites for Full Experimentation
 
 1. Build and activate datahub-integrations-service python venv
-2. Create `.env` file in `datahub-integrations-service` folder containing bedrock credentials
-   ```.env
+2. Create a `.env` file in the `datahub-integrations-service` folder containing bedrock credentials + MLflow configuration:
+
+   ```bash
    AWS_PROFILE=<profile corresponding to your Acryl_Developer_Engineer role>
+   DATAHUB_TELEMETRY_ENABLED=false
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
+
+   # MLflow (shared)
+   MLFLOW_TRACKING_URI=arn:aws:sagemaker:us-west-2:795586375822:mlflow-app/app-M6WOXLBRELLV
+   MLFLOW_TRACKING_AWS_SIGV4=true
+   MLFLOW_S3_UPLOAD_EXTRA_ARGS={"ServerSideEncryption": "AES256"}
    ```
-3. Start local mlflow server
-   `python3 -m mlflow server --host 127.0.0.1 --port 9090`
-4. Configure mlflow tracking uri in above .env file
-   ```.env
-   MLFLOW_TRACKING_URI="http://localhost:9090"
-   ```
-   Also export MLFLOW_TRACKING_URI="http://localhost:9090" in terminal where python commands will be run.
-5. Download `eval_set.json` and `eval_set_guidelines.yaml` and `deployment_details.json` from [here](https://www.notion.so/acryldata/Scale-Documentation-Generation-to-More-Than-100-Columns-1cafc6a642778077ad9cde096a5d6362?pvs=4#1e4fc6a6427780ca9839e58416f3df8f) to `docs_generation/eval_config` folder
-6. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/bulk-graph-creds/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
-7. Run `python3 generate_eval_data.py` to download eval data locally.
+
+   > **Note:** If you would like to use a local MLflow server instead:
+   > Start local MLflow server using `python3 -m mlflow server --host 127.0.0.1 --port 9090`
+   > Use the following `.env` config:
+   >
+   > ```bash
+   > MLFLOW_TRACKING_URI="http://localhost:9090"
+   > ```
+
+3. Download `eval_set.json` and `eval_set_guidelines.yaml` and `deployment_details.json` from [here](https://www.notion.so/acryldata/Scale-Documentation-Generation-to-More-Than-100-Columns-1cafc6a642778077ad9cde096a5d6362?pvs=4#1e4fc6a6427780ca9839e58416f3df8f) to `docs_generation/eval_config` folder
+4. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/bulk-graph-creds/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
+5. Run `python3 generate_eval_data.py` to download eval data locally.
 
 ### Setup to use google Vertex AI models instead of AWS Bedrock
 
