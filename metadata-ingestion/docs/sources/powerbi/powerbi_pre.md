@@ -83,34 +83,6 @@ in
 
 Use full-table-name in `from` clause. For example dev.public.category
 
-### Amazon Athena Lineage
-
-For Amazon Athena data sources, the source extracts lineage using the catalog.database.table hierarchy. Configure the `server_to_platform_instance` mapping with your AWS region:
-
-```yaml
-server_to_platform_instance:
-  us-east-1:
-    platform_instance: production_athena
-    env: PROD
-  eu-west-1:
-    platform_instance: analytics_athena
-    env: DEV
-```
-
-Example M-Query for Athena:
-
-```shell
-let
-  Source = AmazonAthena.Databases("us-east-1"),
-  AwsDataCatalog_Database = Source{[Name="AwsDataCatalog",Kind="Database"]}[Data],
-  analytics_Schema = AwsDataCatalog_Database{[Name="analytics",Kind="Schema"]}[Data],
-  sales_data_Table = analytics_Schema{[Name="sales_data",Kind="Table"]}[Data]
-in
-  sales_data_Table
-```
-
-This will create lineage to the Athena table `analytics.sales_data` in the `us-east-1` region.
-
 ## M-Query Pattern Supported For Lineage Extraction
 
 Lets consider a M-Query which combine two PostgreSQL tables. Such M-Query can be written as per below patterns.
