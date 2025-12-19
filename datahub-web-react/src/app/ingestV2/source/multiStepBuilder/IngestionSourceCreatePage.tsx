@@ -1,7 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';

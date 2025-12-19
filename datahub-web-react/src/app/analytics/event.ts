@@ -2187,17 +2187,6 @@ export interface CompleteOnboardingChecklistActionEvent extends BaseEvent {
     type: EventType.CompleteOnboardingChecklistActionEvent;
 }
 
-export interface EnterIngestionFlowEvent extends BaseEvent {
-    type: EventType.EnterIngestionFlowEvent;
-    entryPoint:
-        | 'demo_data_banner'
-        | 'get_started_checklist'
-        | 'sources_page_cta'
-        | 'intercept_toast'
-        | 'nav_menu'
-        | 'direct_url';
-}
-
 /**
  * Event consisting of a union of specific event types.
  */
@@ -2423,10 +2412,6 @@ export type Event =
     | SubscriptionEditClickEvent
     | SubscriptionDeleteClickEvent
     | SubscriptionOwnerClickEvent
-    | BulkSubscriptionDeleteEvent
-    | BulkSubscriptionDeleteCompletedEvent
-    | BulkSubscriptionUpdateEvent
-    | BulkSubscriptionUpdateCompletedEvent
     | CreateDataHubChatEvent
     | CreateDataHubChatMessageEvent
     | DeleteDataHubChatEvent
