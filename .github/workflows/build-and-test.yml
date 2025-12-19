@@ -139,13 +139,6 @@ jobs:
             -x :metadata-integration:java:datahub-schematron:cli:test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
