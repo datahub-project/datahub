@@ -7,9 +7,9 @@ import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
 import { useTrackPageView } from '@app/analytics';
 import { ImplicitLogIn } from '@app/auth/ImplicitLogIn';
-import { ResetCredentials } from '@app/auth/ResetCredentials';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import LoginV2 from '@app/auth/loginV2/LoginV2';
+import ResetCredentialsV2 from '@app/auth/resetCredentialsV2/ResetCredentialsV2';
 import SignUpV2 from '@app/auth/signupV2/SignUpV2';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
@@ -49,7 +49,7 @@ export const Routes = (): JSX.Element => {
                 <Route path={PageRoutes.LOG_IN} component={LoginV2} />
                 <Route path={PageRoutes.IMPLICIT_LOG_IN} component={ImplicitLogIn} />
                 <Route path={PageRoutes.SIGN_UP} component={SignUpV2} />
-                <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
+                <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentialsV2} />
                 <ProtectedRoute
                     isLoggedIn={isLoggedIn}
                     render={() => (

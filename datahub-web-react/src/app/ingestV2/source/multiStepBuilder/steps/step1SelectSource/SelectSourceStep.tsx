@@ -2,8 +2,8 @@ import { Badge, Icon, SearchBar, colors } from '@components';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
@@ -74,7 +74,8 @@ export function SelectSourceStep() {
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');
 
-    const ingestionSources: SourceConfig[] = JSON.parse(JSON.stringify(sourcesJson));
+    const { ingestionSources } = useIngestionSources();
+
     const filteredSources = ingestionSources.filter((src) =>
         src.displayName.toLowerCase().includes(searchQuery.toLowerCase()),
     );
