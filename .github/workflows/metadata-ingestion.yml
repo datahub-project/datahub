@@ -199,8 +199,9 @@ jobs:
         if: steps.check-changes.outputs.should_run == 'true'
         run: |
           cd metadata-ingestion
-          # Use datahub CLI to get list of source plugins
+          # Activate venv and use datahub CLI to get list of source plugins
           # Only capture stdout, filter for valid plugin names (alphanumeric, hyphens, underscores)
+          source venv/bin/activate
           PLUGINS=$(datahub check plugins 2>/dev/null | awk '/^Sinks:/ { exit } /^Sources:/ { next } /^[a-zA-Z0-9_-]+$/ { print $1 }' | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "plugins=$PLUGINS" >> $GITHUB_OUTPUT
           PLUGIN_COUNT=$(echo "$PLUGINS" | jq 'length')
