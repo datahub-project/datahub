@@ -1,14 +1,24 @@
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
 import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
 import { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+
+const EditorWrapper = styled.div`
+    // overriding of datahub font with the default one for the editor
+    && .view-line > span > span {
+        font-family: 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback' !important;
+    }
+
+    padding-bottom: 8px;
+`;
 
 interface Props {
     state: MultiStepSourceBuilderState;
@@ -68,7 +78,11 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
             {
                 key: 'yaml',
                 name: 'YAML',
-                component: <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />,
+                component: (
+                    <EditorWrapper>
+                        <YamlEditor initialText={displayRecipe} onChange={setStagedRecipe} />
+                    </EditorWrapper>
+                ),
             },
         ],
         [displayRecipe, state, sourceConfigs, setStagedRecipe, setIsRecipeValid],
@@ -79,5 +93,9 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
         return <Tabs tabs={tabs} selectedTab={selectedTabKey} onTabClick={onTabClick} destroyInactiveTabPane />;
     }
 
-    return <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />;
+    return (
+        <EditorWrapper>
+            <YamlEditor initialText={displayRecipe} onChange={setStagedRecipe} />
+        </EditorWrapper>
+    );
 }
