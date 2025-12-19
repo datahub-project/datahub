@@ -13,7 +13,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentContent;
-import com.linkedin.datahub.graphql.generated.DocumentDraftOf;
 import com.linkedin.datahub.graphql.generated.DocumentInfo;
 import com.linkedin.datahub.graphql.generated.DocumentParentDocument;
 import com.linkedin.datahub.graphql.generated.DocumentRelatedAsset;
@@ -239,16 +238,6 @@ public class DocumentMapper {
       stubParent.setType(EntityType.DOCUMENT);
       parentInfo.setDocument(stubParent);
       result.setParentDocument(parentInfo);
-    }
-
-    // Map draftOf - create stub that will be resolved by GraphQL batch loaders
-    if (info.hasDraftOf()) {
-      final DocumentDraftOf draftOfInfo = new DocumentDraftOf();
-      final Document stubDraftOf = new Document();
-      stubDraftOf.setUrn(info.getDraftOf().getDocument().toString());
-      stubDraftOf.setType(EntityType.DOCUMENT);
-      draftOfInfo.setDocument(stubDraftOf);
-      result.setDraftOf(draftOfInfo);
     }
 
     // Map custom properties (included via CustomProperties mixin in PDL)

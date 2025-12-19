@@ -186,7 +186,6 @@ const createMockDocument = (overrides: Partial<Document> = {}): Document =>
             relatedAssets: null,
             relatedDocuments: null,
             parentDocument: null,
-            draftOf: null,
             customProperties: [],
         },
         ownership: null,
