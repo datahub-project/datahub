@@ -264,6 +264,11 @@ module.exports = {
           id: "docs/ui-ingestion",
         },
         {
+          label: "Ingestion Security",
+          type: "doc",
+          id: "docs/metadata-ingestion-security",
+        },
+        {
           label: "Lineage",
           type: "category",
           link: {
