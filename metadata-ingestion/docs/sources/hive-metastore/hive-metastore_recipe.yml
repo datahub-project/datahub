@@ -1,3 +1,6 @@
+# =============================================================================
+# SQL Mode (Default) - Direct database connection
+# =============================================================================
 source:
   type: hive-metastore
   config:
@@ -17,9 +20,12 @@ source:
     #scheme: 'postgresql+psycopg2' # set this if metastore db is using postgres
     #scheme: 'mysql+pymysql' # set this if metastore db is using mysql, default if unset
 
-    # set this to have advanced filters on what to ingest
-    #views_where_clause_suffix: AND d."name" in ('db1')
-    #tables_where_clause_suffix: AND d."name" in ('db1')
+    # Filter databases using pattern-based filtering
+    #database_pattern:
+    #  allow:
+    #    - "^db1$"
+    #  deny:
+    #    - "^test_.*"
 
     # Storage Lineage Configuration (Optional)
     # Enables lineage between Hive tables and their underlying storage locations
@@ -30,3 +36,127 @@ source:
 
 sink:
   # sink configs
+
+# =============================================================================
+# Thrift Mode - HMS Thrift API connection (use when database access unavailable)
+# =============================================================================
+# Use this mode when:
+# - You cannot access the metastore database directly
+# - Only the HMS Thrift API (port 9083) is accessible
+# - Your environment requires Kerberos authentication
+#
+# Prerequisites:
+# - pip install 'acryl-datahub[hive-metastore]'
+# - For Kerberos: pip install thrift-sasl pyhive[hive-pure-sasl]
+# - For Kerberos: Run 'kinit' before ingestion to obtain ticket
+#
+# source:
+#   type: hive-metastore
+#   config:
+#     # =========================================================================
+#     # Connection Settings (Required)
+#     # =========================================================================
+#     connection_type: thrift  # Enable Thrift mode (default is 'sql')
+#     host_port: hms.company.com:9083  # HMS Thrift API endpoint
+#
+#     # =========================================================================
+#     # Authentication - Kerberos/SASL (Optional)
+#     # =========================================================================
+#     # Enable if HMS requires Kerberos authentication
+#     # Prerequisite: Run 'kinit -kt /path/to/keytab user@REALM' before ingestion
+#     use_kerberos: true
+#
+#     # Kerberos service principal name (typically 'hive')
+#     # Check your HMS principal: klist -k /etc/hive/hive.keytab
+#     kerberos_service_name: hive
+#
+#     # Override hostname for Kerberos principal (use with load balancers)
+#     # Set this if connecting via LB but Kerberos principal uses actual hostname
+#     # kerberos_hostname_override: hms-master.company.com
+#
+#     # =========================================================================
+#     # Connection Tuning (Optional)
+#     # =========================================================================
+#     # timeout_seconds: 60     # Connection timeout (default: 60)
+#     # max_retries: 3          # Retry attempts for transient failures (default: 3)
+#
+#     # =========================================================================
+#     # HMS 3.x Catalog Support (Optional)
+#     # =========================================================================
+#     # For HMS 3.x with multi-catalog support (e.g., Spark catalog)
+#     # catalog_name: spark_catalog
+#     # include_catalog_name_in_ids: true  # Include catalog in dataset URNs
+#
+#     # =========================================================================
+#     # Filtering (Pattern-based only - WHERE clauses NOT supported)
+#     # =========================================================================
+#     database_pattern:
+#       allow:
+#         - "^prod_.*"      # Allow databases starting with 'prod_'
+#         - "^analytics$"   # Allow exact match 'analytics'
+#       deny:
+#         - "^test_.*"      # Deny databases starting with 'test_'
+#         - ".*_staging$"   # Deny databases ending with '_staging'
+#
+#     table_pattern:
+#       allow:
+#         - ".*"            # Allow all tables by default
+#       deny:
+#         - "^tmp_.*"       # Deny temporary tables
+#
+#     # =========================================================================
+#     # Storage Lineage (Optional - works same as SQL mode)
+#     # =========================================================================
+#     emit_storage_lineage: true
+#     hive_storage_lineage_direction: upstream  # or 'downstream'
+#     include_column_lineage: true
+#     # storage_platform_instance: "prod-hdfs"
+#
+#     # =========================================================================
+#     # Platform Instance (Optional - for multi-cluster environments)
+#     # =========================================================================
+#     # platform_instance: "prod-hive"
+#
+#     # =========================================================================
+#     # Stateful Ingestion (Optional - for incremental updates)
+#     # =========================================================================
+#     # stateful_ingestion:
+#     #   enabled: true
+#     #   remove_stale_metadata: true
+#
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: http://localhost:8080
+
+# =============================================================================
+# Thrift Mode - Minimal Example (No Kerberos)
+# =============================================================================
+# source:
+#   type: hive-metastore
+#   config:
+#     connection_type: thrift
+#     host_port: hms.company.com:9083
+#     use_kerberos: false
+#
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: http://localhost:8080
+
+# =============================================================================
+# Thrift Mode - Kerberos with Load Balancer
+# =============================================================================
+# source:
+#   type: hive-metastore
+#   config:
+#     connection_type: thrift
+#     host_port: hms-lb.company.com:9083           # Load balancer address
+#     use_kerberos: true
+#     kerberos_service_name: hive
+#     kerberos_hostname_override: hms-master.company.com  # Actual HMS hostname
+#
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: http://localhost:8080

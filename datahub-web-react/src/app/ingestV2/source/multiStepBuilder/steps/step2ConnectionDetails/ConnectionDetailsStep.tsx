@@ -2,6 +2,7 @@ import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
@@ -93,6 +94,17 @@ export function ConnectionDetailsStep() {
             updateState({ isConnectionDetailsValid: false });
         }
     }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
+
+    useEffect(() => {
+        if (state) {
+            analytics.event({
+                type: EventType.IngestionEnterConfigurationEvent,
+                sourceType: state.type || '',
+                sourceUrn: state.ingestionSource?.urn,
+                configurationType: state.isEditing ? 'edit_existing' : 'create_new',
+            });
+        }
+    }, [state]);
 
     const sourceName = useMemo(() => state.name || '', [state.name]);
     const updateSourceName = useCallback(

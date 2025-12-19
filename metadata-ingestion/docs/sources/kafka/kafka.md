@@ -132,63 +132,7 @@ pip install acryl-datahub-actions>=1.3.1.2
 
 **For Custom OAuth Callbacks:**
 
-If you need to implement a custom OAuth callback, you must ensure your Python module is accessible to the DataHub process:
-
-1. **Docker Deployments (datahub-gms, datahub-actions containers):**
-
-   ```bash
-   # Option A: Mount your module as a volume in docker-compose.yml
-   volumes:
-     - ./my_oauth_module:/etc/datahub/my_oauth_module
-   environment:
-     - PYTHONPATH=/etc/datahub/my_oauth_module:$PYTHONPATH
-   ```
-
-   ```bash
-   # Option B: Build a custom Docker image with your module
-   FROM acryldata/datahub-gms:latest
-   COPY my_oauth_module/ /etc/datahub/my_oauth_module/
-   ENV PYTHONPATH=/etc/datahub/my_oauth_module:$PYTHONPATH
-   ```
-
-2. **Kubernetes Deployments:**
-
-   ```yaml
-   # Use a ConfigMap or Secret to mount your module
-   apiVersion: v1
-   kind: ConfigMap
-   metadata:
-     name: oauth-callback
-   data:
-     oauth.py: |
-       def create_token(oauth_config):
-           # Your implementation
-           return (token, expiry_time)
-   ---
-   # In your deployment spec:
-   volumeMounts:
-     - name: oauth-callback
-       mountPath: /etc/datahub/oauth
-   env:
-     - name: PYTHONPATH
-       value: "/etc/datahub/oauth:$PYTHONPATH"
-   ```
-
-3. **Local Development / CLI Ingestion:**
-
-   ```bash
-   # Ensure your module is in PYTHONPATH
-   export PYTHONPATH=/path/to/your/module:$PYTHONPATH
-   datahub ingest -c your_recipe.yml
-   ```
-
-4. **Python Package Installation:**
-
-   ```bash
-   # Install your module as a package
-   pip install my-oauth-package
-   # Then reference it: oauth_cb: "my_oauth_package.auth:create_token"
-   ```
+If you need to implement a custom OAuth callback, you must ensure your Python module is accessible to the DataHub process, e.g. adding it via `PYTHONPATH=/path/to/your/module:$PYTHONPATH` or `pip install my-oauth-package`.
 
 **Example for Kafka Source:**
 

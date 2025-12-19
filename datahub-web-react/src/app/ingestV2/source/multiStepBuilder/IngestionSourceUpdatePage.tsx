@@ -104,6 +104,12 @@ export function IngestionSourceUpdatePage() {
                     ingestionOnboardingRedesignV1: true,
                 });
 
+                analytics.event({
+                    type: EventType.IngestionExitConfigurationEvent,
+                    sourceType: input.type,
+                    exitType: shouldRun ? 'save_and_run' : 'save_draft',
+                });
+
                 message.success({
                     content: `Successfully updated ingestion source!`,
                     duration: 3,
@@ -139,8 +145,13 @@ export function IngestionSourceUpdatePage() {
     );
 
     const onCancel = useCallback(() => {
+        analytics.event({
+            type: EventType.IngestionExitConfigurationEvent,
+            sourceType: ingestionSourceData?.ingestionSource?.type,
+            exitType: 'cancel',
+        });
         history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
-    }, [history, ingestionSourcesListBackUrl]);
+    }, [history, ingestionSourceData?.ingestionSource?.type, ingestionSourcesListBackUrl]);
 
     const isDirtyChecker = useCallback(
         (
