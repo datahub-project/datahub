@@ -334,9 +334,21 @@ class AmazonAthenaLineage(AbstractLineage):
     Athena uses a three-level hierarchy: catalog.database.table
     Example M-Query:
         Source = AmazonAthena.Databases("us-east-1")
-        catalog = Source{[Name="awsdatacatalog"]}[Data]
-        database = catalog{[Name="my_database"]}[Data]
-        table = database{[Name="my_table"]}[Data]
+        catalog = Source{[Name="AwsDataCatalog",Kind="Database"]}[Data]
+        database = catalog{[Name="my_database",Kind="Schema"]}[Data]
+        table = database{[Name="my_table",Kind="Table"]}[Data]
+
+    URN Format:
+        Generated URNs use database.table format (catalog is omitted) to match the
+        standalone Athena connector behavior. This ensures URN consistency across
+        different ingestion sources.
+        Example: urn:li:dataset:(urn:li:dataPlatform:athena,my_database.my_table,PROD)
+
+        Note: Athena's default catalog is "AwsDataCatalog", but users can have multiple
+        catalogs (Glue, Hive, federated). The catalog is intentionally omitted from URNs
+        because the standalone Athena connector also omits it, treating the database as
+        the top-level namespace. This matches Athena's typical usage where most users
+        work within a single catalog context.
     """
 
     def get_platform_pair(self) -> DataPlatformPair:
@@ -361,31 +373,60 @@ class AmazonAthenaLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        # Extract catalog, database, and table names with error handling
+        # Extract database and table names from Athena's 3-level hierarchy (catalog.database.table)
+        # Note: Catalog is extracted but NOT included in URN to match the standalone Athena connector
+        # which uses database.table format. This avoids URN mismatches between PowerBI and Athena sources.
         try:
             catalog_accessor = data_access_func_detail.identifier_accessor
 
             if catalog_accessor.next is None:
                 logger.warning(
-                    f"Incomplete Athena hierarchy for {self.table.full_name}: missing database level"
+                    f"Incomplete Athena hierarchy for table {self.table.full_name}: "
+                    f"missing database level after catalog. Expected format: catalog.database.table"
                 )
                 return Lineage.empty()
 
             db_accessor = catalog_accessor.next
-            db_name: str = db_accessor.items["Name"]
+
+            # Extract database name with specific error handling
+            try:
+                db_name: str = db_accessor.items["Name"]
+            except KeyError:
+                logger.warning(
+                    f"Missing 'Name' key in database accessor for table {self.table.full_name}. "
+                    f"Available keys: {list(db_accessor.items.keys())}"
+                )
+                return Lineage.empty()
 
             if db_accessor.next is None:
                 logger.warning(
-                    f"Incomplete Athena hierarchy for {self.table.full_name}: missing table level"
+                    f"Incomplete Athena hierarchy for table {self.table.full_name}: "
+                    f"missing table level after database '{db_name}'. Expected format: catalog.database.table"
                 )
                 return Lineage.empty()
 
             table_accessor = db_accessor.next
-            table_name: str = table_accessor.items["Name"]
 
-        except (AttributeError, KeyError, TypeError) as e:
+            # Extract table name with specific error handling
+            try:
+                table_name: str = table_accessor.items["Name"]
+            except KeyError:
+                logger.warning(
+                    f"Missing 'Name' key in table accessor for table {self.table.full_name}. "
+                    f"Available keys: {list(table_accessor.items.keys())}"
+                )
+                return Lineage.empty()
+
+        except AttributeError as e:
             logger.warning(
-                f"Failed to extract Athena table details for {self.table.full_name}: {e}"
+                f"AttributeError while accessing Athena hierarchy for table {self.table.full_name}: {e}. "
+                f"This usually indicates a malformed M-Query structure."
+            )
+            return Lineage.empty()
+        except TypeError as e:
+            logger.warning(
+                f"TypeError while processing Athena hierarchy for table {self.table.full_name}: {e}. "
+                f"This usually indicates unexpected data types in the M-Query structure."
             )
             return Lineage.empty()
 
