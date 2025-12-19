@@ -651,7 +651,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         *,
         async_flag: Optional[bool] = None,
-    ) -> None: ...
+    ) -> Optional[TraceData]: ...
 
     @overload
     def emit_mcp(
@@ -660,7 +660,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         *,
         emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
-    ) -> None: ...
+    ) -> Optional[TraceData]: ...
 
     def emit_mcp(
         self,
@@ -668,13 +668,13 @@ class DataHubRestEmitter(Closeable, Emitter):
         async_flag: Optional[bool] = None,
         emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
-    ) -> None:
+    ) -> Optional[TraceData]:
         if async_flag is True:
             emit_mode = EmitMode.ASYNC
 
         ensure_has_system_metadata(mcp)
 
-        trace_data = None
+        trace_data: Optional[TraceData] = None
 
         if self._openapi_ingestion:
             request = self._to_openapi_request(mcp, emit_mode)
@@ -682,9 +682,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 response = self._emit_generic(
                     request.url, payload=request.payload, method=request.method
                 )
-
-                if self._should_trace(emit_mode):
-                    trace_data = extract_trace_data(response) if response else None
+                trace_data = extract_trace_data(response) if response else None
 
         else:
             if mcp.changeType == ChangeTypeClass.DELETE:
@@ -712,24 +710,24 @@ class DataHubRestEmitter(Closeable, Emitter):
             payload = json.dumps(payload_dict)
 
             response = self._emit_generic(url, payload)
+            trace_data = (
+                extract_trace_data_from_mcps(response, [mcp]) if response else None
+            )
 
-            if self._should_trace(emit_mode):
-                trace_data = (
-                    extract_trace_data_from_mcps(response, [mcp]) if response else None
-                )
-
-        if trace_data:
+        if trace_data and self._should_trace(emit_mode):
             self._await_status(
                 [trace_data],
                 wait_timeout,
             )
+
+        return trace_data
 
     def emit_mcps(
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         emit_mode: EmitMode = _DEFAULT_EMIT_MODE,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
-    ) -> int:
+    ) -> List[TraceData]:
         if _DATAHUB_EMITTER_TRACE:
             logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
 
@@ -746,7 +744,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         emit_mode: EmitMode,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
-    ) -> int:
+    ) -> List[TraceData]:
         """
         1. Grouping MCPs by their HTTP method and entity URL and HTTP method
         2. Breaking down large batches into smaller chunks based on both:
@@ -761,7 +759,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         :param mcps: metadata change proposals to transmit
         :param emit_mode: the mode to emit the MCPs
         :param wait_timeout: timeout for blocking queue
-        :return: number of requests
+        :return: list of TraceData objects for each request
         """
         # Group by entity URL and HTTP method
         batches: Dict[Tuple[str, str], List[_Chunk]] = defaultdict(
@@ -791,42 +789,44 @@ class DataHubRestEmitter(Closeable, Emitter):
 
                 current_chunk.add_item(serialized_item)
 
-        responses = []
+        trace_data: List[TraceData] = []
         for (method, url), chunks in batches.items():
             for chunk in chunks:
                 response = self._emit_generic(
                     url, payload=_Chunk.join(chunk), method=method
                 )
-                responses.append(response)
-
-        if self._should_trace(emit_mode):
-            trace_data = []
-            for response in responses:
                 data = extract_trace_data(response) if response else None
                 if data is not None:
                     trace_data.append(data)
 
-            if trace_data:
-                self._await_status(trace_data, wait_timeout)
+        if trace_data and self._should_trace(emit_mode):
+            self._await_status(trace_data, wait_timeout)
 
-        return len(responses)
+        return trace_data
 
     def _emit_restli_mcps(
         self,
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         emit_mode: EmitMode,
-    ) -> int:
+    ) -> List[TraceData]:
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
 
-        mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
-        if len(mcp_objs) == 0:
-            return 0
+        if len(mcps) == 0:
+            return []
 
         # As a safety mechanism, we need to make sure we don't exceed the max payload size for GMS.
         # If we will exceed the limit, we need to break it up into chunks.
-        mcp_obj_chunks: List[List[str]] = [[]]
+        # Track both the serialized objects and original MCPs for each chunk.
+        chunks: List[
+            Tuple[
+                List[Any],
+                List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+            ]
+        ] = [([], [])]
         current_chunk_size = 0
-        for mcp_obj in mcp_objs:
+
+        for mcp in mcps:
+            mcp_obj = pre_json_transform(mcp.to_obj())
             mcp_identifier = f"{mcp_obj.get('entityUrn')}-{mcp_obj.get('aspectName')}"
             mcp_obj_size = len(json.dumps(mcp_obj))
             if _DATAHUB_EMITTER_TRACE:
@@ -841,20 +841,23 @@ class DataHubRestEmitter(Closeable, Emitter):
 
             if (
                 mcp_obj_size + current_chunk_size > INGEST_MAX_PAYLOAD_BYTES
-                or len(mcp_obj_chunks[-1]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
+                or len(chunks[-1][0]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
             ):
                 if _DATAHUB_EMITTER_TRACE:
                     logger.debug("Decided to create new chunk")
-                mcp_obj_chunks.append([])
+                chunks.append(([], []))
                 current_chunk_size = 0
-            mcp_obj_chunks[-1].append(mcp_obj)
+            chunks[-1][0].append(mcp_obj)
+            chunks[-1][1].append(mcp)
             current_chunk_size += mcp_obj_size
-        if len(mcp_obj_chunks) > 1 or _DATAHUB_EMITTER_TRACE:
+
+        if len(chunks) > 1 or _DATAHUB_EMITTER_TRACE:
             logger.debug(
-                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
+                f"Decided to send {len(mcps)} MCP batch in {len(chunks)} chunks"
             )
 
-        for mcp_obj_chunk in mcp_obj_chunks:
+        trace_data: List[TraceData] = []
+        for mcp_obj_chunk, mcp_chunk in chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
@@ -865,9 +868,14 @@ class DataHubRestEmitter(Closeable, Emitter):
             }
 
             payload = json.dumps(payload_dict)
-            self._emit_generic(url, payload)
+            response = self._emit_generic(url, payload)
+            data = (
+                extract_trace_data_from_mcps(response, mcp_chunk) if response else None
+            )
+            if data is not None:
+                trace_data.append(data)
 
-        return len(mcp_obj_chunks)
+        return trace_data
 
     @deprecated("Use emit with a datasetUsageStatistics aspect instead")
     def emit_usage(self, usageStats: UsageAggregation) -> None:
@@ -1013,6 +1021,40 @@ class DataHubRestEmitter(Closeable, Emitter):
         except Exception as e:
             logger.error(f"Error during status verification: {str(e)}")
             raise
+
+    def get_trace_status(
+        self,
+        trace: TraceData,
+        only_include_errors: bool = False,
+        detailed: bool = True,
+    ) -> Optional[Dict[str, Any]]:
+        """Query the status of a traced write operation.
+
+        Args:
+            trace: TraceData object returned from emit_mcp() or emit_mcps()
+            only_include_errors: Only return aspects with errors (default: False)
+            detailed: Include detailed status information (default: True)
+
+        Returns:
+            Dict with URN -> aspect -> status structure, or None if server doesn't support tracing
+        """
+        if (
+            not hasattr(self, "_server_config")
+            or self._server_config is None
+            or not self._server_config.supports_feature(ServiceFeature.API_TRACING)
+        ):
+            logger.warning(
+                "get_trace_status() is only available with a newer GMS version that supports API tracing."
+            )
+            return None
+
+        base_url = f"{self._gms_server}/openapi/v1/trace/write"
+        only_errors_param = "true" if only_include_errors else "false"
+        detailed_param = "true" if detailed else "false"
+        url = f"{base_url}/{trace.trace_id}?onlyIncludeErrors={only_errors_param}&detailed={detailed_param}"
+
+        response = self._emit_generic(url, payload=trace.data)
+        return response.json()
 
     def _should_trace(self, emit_mode: EmitMode, warn: bool = True) -> bool:
         if emit_mode == EmitMode.ASYNC_WAIT:
