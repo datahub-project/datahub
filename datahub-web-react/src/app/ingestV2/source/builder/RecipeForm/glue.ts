@@ -23,15 +23,49 @@ export const GLUE_AWS_REGION: RecipeField = {
 };
 
 // Constants for AWS Authorization
-const awsAuthMethodFieldName = 'aws_auth_method';
-const awsAuthAccessKeys = 'access_keys';
-const awsAuthIamRole = 'iam_role';
-const awsAuthDefaultCredentials = 'default_credentials';
-const awsAuthTypeFieldPath = 'source.config.aws_auth_method';
-const awsAccessKeyIdFieldPath = 'source.config.aws_access_key_id';
-const awsSecretAccessKeyFieldPath = 'source.config.aws_secret_access_key';
-const awsSessionTokenFieldPath = 'source.config.aws_session_token';
-const awsRoleFieldPath = 'source.config.aws_role';
+export const awsAuthMethodFieldName = 'aws_auth_method';
+export const awsAuthAccessKeys = 'access_keys';
+export const awsAuthIamRole = 'iam_role';
+export const awsAuthDefaultCredentials = 'default_credentials';
+export const awsAuthTypeFieldPath = 'source.config.aws_auth_method';
+export const awsAccessKeyIdFieldPath = 'source.config.aws_access_key_id';
+export const awsSecretAccessKeyFieldPath = 'source.config.aws_secret_access_key';
+export const awsSessionTokenFieldPath = 'source.config.aws_session_token';
+export const awsRoleFieldPath = 'source.config.aws_role';
+
+export function setGlueAwsAuthMethodOnRecipe(recipe: any): any {
+    let updatedRecipe = { ...recipe };
+    const authType = get(updatedRecipe, awsAuthTypeFieldPath);
+
+    const accessKeyFields = [awsAccessKeyIdFieldPath, awsSecretAccessKeyFieldPath, awsSessionTokenFieldPath];
+
+    const roleFields = [awsRoleFieldPath];
+
+    if (authType === awsAuthAccessKeys) {
+        updatedRecipe = omit(updatedRecipe, accessKeyFields);
+    } else if (authType === awsAuthIamRole) {
+        updatedRecipe = omit(updatedRecipe, roleFields);
+    } else {
+        updatedRecipe = omit(updatedRecipe, [...accessKeyFields, ...roleFields]);
+    }
+
+    return updatedRecipe;
+}
+
+export function getGlueAwsAuthMethodFromRecipe(recipe: any): string {
+    const isAwsAccessKeyIdFilled = !!get(recipe, awsAccessKeyIdFieldPath);
+    const isAwsSecretAccessKeyFilled = !!get(recipe, awsSecretAccessKeyFieldPath);
+    const isAwsRoleFilled = !!get(recipe, awsRoleFieldPath);
+
+    if (isAwsAccessKeyIdFilled || isAwsSecretAccessKeyFilled) {
+        return awsAuthAccessKeys;
+    }
+    if (isAwsRoleFilled) {
+        return awsAuthIamRole;
+    }
+    return awsAuthDefaultCredentials;
+}
+
 export const GLUE_AWS_AUTHORIZATION_METHOD: RecipeField = {
     name: awsAuthMethodFieldName,
     label: 'AWS Authorization Method',
@@ -45,37 +79,8 @@ export const GLUE_AWS_AUTHORIZATION_METHOD: RecipeField = {
     fieldPath: awsAuthTypeFieldPath,
     required: true,
     rules: null,
-    setValueOnRecipeOverride: (recipe) => {
-        let updatedRecipe = { ...recipe };
-        const authType = get(updatedRecipe, awsAuthTypeFieldPath);
-
-        const accessKeyFields = [awsAccessKeyIdFieldPath, awsSecretAccessKeyFieldPath, awsSessionTokenFieldPath];
-
-        const roleFields = [awsRoleFieldPath];
-
-        if (authType === awsAuthAccessKeys) {
-            updatedRecipe = omit(updatedRecipe, accessKeyFields);
-        } else if (authType === awsAuthIamRole) {
-            updatedRecipe = omit(updatedRecipe, roleFields);
-        } else {
-            updatedRecipe = omit(updatedRecipe, [...accessKeyFields, ...roleFields]);
-        }
-
-        return updatedRecipe;
-    },
-    getValueFromRecipeOverride: (recipe) => {
-        const isAwsAccessKeyIdFilled = !!get(recipe, awsAccessKeyIdFieldPath);
-        const isAwsSecretAccessKeyFilled = !!get(recipe, awsSecretAccessKeyFieldPath);
-        const isAwsRoleFilled = !!get(recipe, awsRoleFieldPath);
-
-        if (isAwsAccessKeyIdFilled || isAwsSecretAccessKeyFilled) {
-            return awsAuthAccessKeys;
-        }
-        if (isAwsRoleFilled) {
-            return awsAuthIamRole;
-        }
-        return awsAuthDefaultCredentials;
-    },
+    setValueOnRecipeOverride: setGlueAwsAuthMethodOnRecipe,
+    getValueFromRecipeOverride: getGlueAwsAuthMethodFromRecipe,
 };
 
 export const GLUE_AWS_ACCESS_KEY_ID: RecipeField = {

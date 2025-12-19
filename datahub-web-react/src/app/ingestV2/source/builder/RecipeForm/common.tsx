@@ -544,10 +544,14 @@ export const ENV: RecipeField = {
     rules: null,
 };
 
-const profilingEnabledFieldPath = 'source.config.profiling.enabled';
-const profilingTableLevelOnlyFieldPath = 'source.config.profiling.profile_table_level_only';
+export const profilingEnabledFieldPath = 'source.config.profiling.enabled';
+export const profilingTableLevelOnlyFieldPath = 'source.config.profiling.profile_table_level_only';
 
-function updateProfilingFields(recipe: any, isTableProfilingEnabled: boolean, isColumnProfilingEnabled: boolean): any {
+export function updateProfilingFields(
+    recipe: any,
+    isTableProfilingEnabled: boolean,
+    isColumnProfilingEnabled: boolean,
+): any {
     let updatedRecipe = { ...recipe };
 
     if (isTableProfilingEnabled && !isColumnProfilingEnabled) {
@@ -567,7 +571,7 @@ function updateProfilingFields(recipe: any, isTableProfilingEnabled: boolean, is
     return updatedRecipe;
 }
 
-function getColumnProfilingCheckboxValue(recipe: any) {
+export function getColumnProfilingCheckboxValue(recipe: any) {
     // FYI: we need the value of checkbox so the value from recipe is reverted
     const columnProfilingRecipeValue = get(recipe, profilingTableLevelOnlyFieldPath);
     const isColumnProfilingEnabled = columnProfilingRecipeValue === undefined ? false : !columnProfilingRecipeValue;
@@ -606,8 +610,21 @@ export const PROFILING_TABLE_LEVEL_ONLY: RecipeField = {
     rules: null,
 };
 
-const removeStaleMetadataEnabledFieldPath = 'source.config.stateful_ingestion.remove_stale_metadata';
-const statefulIngestionEnabledFieldPath = 'source.config.stateful_ingestion.enabled';
+export const removeStaleMetadataEnabledFieldPath = 'source.config.stateful_ingestion.remove_stale_metadata';
+export const statefulIngestionEnabledFieldPath = 'source.config.stateful_ingestion.enabled';
+
+export function setRemoveStaleMetadataOnRecipe(recipe: any, value: boolean): any {
+    let updatedRecipe = { ...recipe };
+    if (value) {
+        updatedRecipe = set(updatedRecipe, statefulIngestionEnabledFieldPath, value);
+        updatedRecipe = set(updatedRecipe, removeStaleMetadataEnabledFieldPath, value);
+    } else {
+        updatedRecipe = set(updatedRecipe, statefulIngestionEnabledFieldPath, value);
+        updatedRecipe = omit(updatedRecipe, removeStaleMetadataEnabledFieldPath);
+    }
+    return updatedRecipe;
+}
+
 export const REMOVE_STALE_METADATA_ENABLED: RecipeField = {
     name: 'remove_stale_metadata',
     label: 'Remove Stale Metadata',
@@ -616,15 +633,5 @@ export const REMOVE_STALE_METADATA_ENABLED: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: statefulIngestionEnabledFieldPath,
     rules: null,
-    setValueOnRecipeOverride: (recipe, value) => {
-        let updatedRecipe = { ...recipe };
-        if (value) {
-            updatedRecipe = set(updatedRecipe, statefulIngestionEnabledFieldPath, value);
-            updatedRecipe = set(updatedRecipe, removeStaleMetadataEnabledFieldPath, value);
-        } else {
-            updatedRecipe = set(updatedRecipe, statefulIngestionEnabledFieldPath, value);
-            updatedRecipe = omit(updatedRecipe, removeStaleMetadataEnabledFieldPath);
-        }
-        return updatedRecipe;
-    },
+    setValueOnRecipeOverride: setRemoveStaleMetadataOnRecipe,
 };

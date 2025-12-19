@@ -748,6 +748,6 @@ export const RECIPE_FIELDS: RecipeFields = {
 
 const ALL_CONNECTORS_WITH_FORM = Object.keys(RECIPE_FIELDS);
 export const CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS = new Set(ALL_CONNECTORS_WITH_FORM);
-export const CONNECTORS_WITH_FORM = new Set(
+export const CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS = new Set(
     ALL_CONNECTORS_WITH_FORM.filter((sourceType) => !RECIPE_FIELDS[sourceType].hasDynamicFields),
 );
