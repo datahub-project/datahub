@@ -21,16 +21,36 @@ Usage:
 import json
 import logging
 from datetime import datetime, timedelta
+from functools import wraps
 from pathlib import Path
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Tuple, TypeVar, Union, cast
 
 from flask import Flask, Response, jsonify, request
+
+# Type variable for route handler functions
+F = TypeVar("F", bound=Callable[..., Any])
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+
+def typed_route(rule: str, **options: Any) -> Callable[[F], F]:
+    """
+    Typed wrapper for Flask's app.route decorator.
+
+    This wrapper preserves function type annotations for mypy compatibility
+    with disallow_untyped_decorators enabled.
+    """
+
+    def decorator(func: F) -> F:
+        app.add_url_rule(rule, view_func=func, **options)
+        return func
+
+    return decorator
+
 
 # Load fixtures
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
@@ -46,7 +66,7 @@ def load_fixture(filename: str) -> Any:
 MOCK_TOKENS: Dict[str, str] = {"test-key-id:test-secret": "mock_jwt_token_12345"}
 
 
-@app.route("/organizations/<org_id>/credentials/v3/token", methods=["GET"])
+@typed_route("/organizations/<org_id>/credentials/v3/token", methods=["GET"])
 def get_token(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for JWT token generation.
@@ -74,7 +94,7 @@ def get_token(org_id: str) -> Union[Response, Tuple[Response, int]]:
     return jsonify({"accessToken": token, "expiresAt": expires_at})
 
 
-@app.route("/organizations/<org_id>/data-structures/v1", methods=["GET"])
+@typed_route("/organizations/<org_id>/data-structures/v1", methods=["GET"])
 def get_data_structures(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for listing data structures (schemas).
@@ -128,7 +148,9 @@ def get_data_structures(org_id: str) -> Union[Response, Tuple[Response, int]]:
     return jsonify(paginated_data)
 
 
-@app.route("/organizations/<org_id>/data-structures/v1/<schema_hash>", methods=["GET"])
+@typed_route(
+    "/organizations/<org_id>/data-structures/v1/<schema_hash>", methods=["GET"]
+)
 def get_data_structure_by_hash(
     org_id: str, schema_hash: str
 ) -> Union[Response, Tuple[Response, int]]:
@@ -153,7 +175,7 @@ def get_data_structure_by_hash(
     return jsonify({"error": "Data structure not found"}), 404
 
 
-@app.route("/organizations/<org_id>/data-products/v2", methods=["GET"])
+@typed_route("/organizations/<org_id>/data-products/v2", methods=["GET"])
 def get_data_products(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for listing data products.
@@ -183,7 +205,7 @@ def get_data_products(org_id: str) -> Union[Response, Tuple[Response, int]]:
     return jsonify(response_data)
 
 
-@app.route("/organizations/<org_id>/users", methods=["GET"])
+@typed_route("/organizations/<org_id>/users", methods=["GET"])
 def get_users(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for listing users in organization.
@@ -229,7 +251,7 @@ def get_users(org_id: str) -> Union[Response, Tuple[Response, int]]:
     return jsonify(users)
 
 
-@app.route("/organizations/<org_id>/event-specs/v1", methods=["GET"])
+@typed_route("/organizations/<org_id>/event-specs/v1", methods=["GET"])
 def get_event_specifications(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for listing event specifications.
@@ -259,7 +281,7 @@ def get_event_specifications(org_id: str) -> Union[Response, Tuple[Response, int
     return jsonify(response_data)
 
 
-@app.route("/organizations/<org_id>/tracking-scenarios/v1", methods=["GET"])
+@typed_route("/organizations/<org_id>/tracking-scenarios/v1", methods=["GET"])
 def get_tracking_scenarios(org_id: str) -> Union[Response, Tuple[Response, int]]:
     """
     Mock endpoint for listing tracking scenarios.
@@ -289,7 +311,7 @@ def get_tracking_scenarios(org_id: str) -> Union[Response, Tuple[Response, int]]
     return jsonify(response_data)
 
 
-@app.route("/health", methods=["GET"])
+@typed_route("/health", methods=["GET"])
 def health() -> Response:
     """Health check endpoint."""
     return jsonify(
@@ -301,7 +323,7 @@ def health() -> Response:
     )
 
 
-@app.route("/", methods=["GET"])
+@typed_route("/", methods=["GET"])
 def index() -> Response:
     """Root endpoint with API documentation."""
     return jsonify(
