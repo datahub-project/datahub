@@ -232,6 +232,7 @@ dataplex_common = {
     # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
     # which breaks existing code using the old import path
     "google-cloud-datacatalog-lineage==0.2.2",
+    "tenacity>=8.0.1",
 }
 
 redshift_common = {

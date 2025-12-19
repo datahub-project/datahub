@@ -175,6 +175,23 @@ class TestSecretRegistryInvalidInputs:
         assert "secret" in secrets
         assert "SECRET" in secrets
 
+    def test_register_secret_with_special_chars_registers_url_encoded(self):
+        """Secrets with special characters should also register SQLAlchemy-style URL-encoded version."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        # Password with special characters that SQLAlchemy encodes (only : @ /)
+        registry.register_secret("password", "P#!ss@word")
+
+        secrets = registry.get_all_secrets()
+
+        # Should have both raw and SQLAlchemy-style encoded versions
+        # SQLAlchemy only encodes : @ / (not # or !)
+        assert "P#!ss@word" in secrets
+        assert "P#!ss%40word" in secrets  # Only @ encoded to %40
+        assert secrets["P#!ss@word"] == "password"
+        assert secrets["P#!ss%40word"] == "password"
+
 
 class TestSecretRegistryMaxSecrets:
     """Test max secrets limit."""
@@ -247,6 +264,28 @@ class TestRegisterSecretsBatch:
         # Only valid should be registered
         assert "valid_value" in all_secrets
         assert len(all_secrets) == 1
+
+    def test_register_secrets_batch_with_special_chars_registers_url_encoded(self):
+        """Batch registration should also register SQLAlchemy-style URL-encoded versions."""
+        registry = SecretRegistry()
+        registry.clear()
+
+        secrets = {
+            "password1": "P#!ss@word",  # Has @ which SQLAlchemy encodes
+            "password2": "simplepass",  # No special chars
+        }
+
+        registry.register_secrets_batch(secrets)
+
+        all_secrets = registry.get_all_secrets()
+
+        # First password should have SQLAlchemy-style encoded version
+        # SQLAlchemy only encodes : @ / (not # or !)
+        assert "P#!ss@word" in all_secrets
+        assert "P#!ss%40word" in all_secrets  # Only @ encoded
+
+        # Second password should not have duplicate
+        assert "simplepass" in all_secrets
 
 
 class TestClearRegistry:
