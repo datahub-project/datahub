@@ -1,5 +1,5 @@
 import functools
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import sqlglot
 from pydantic import BaseModel
@@ -37,21 +37,20 @@ class _TableName(_FrozenModel):
     database: Optional[str] = None
     db_schema: Optional[str] = None
     table: str
-    parts: Optional[tuple] = None
+    parts: Optional[Tuple[str, ...]] = None
+
+    @property
+    def identity(self) -> Tuple[Optional[str], Optional[str], str]:
+        """Table identity for hashing and equality."""
+        return (self.database, self.db_schema, self.table)
 
     def __hash__(self) -> int:
-        # Parts field is excluded - table identity is database.schema.table only
-        return hash((self.database, self.db_schema, self.table))
+        return hash(self.identity)
 
     def __eq__(self, other: object) -> bool:
-        # Parts field is excluded - table identity is database.schema.table only
         if not isinstance(other, _TableName):
             return False
-        return (
-            self.database == other.database
-            and self.db_schema == other.db_schema
-            and self.table == other.table
-        )
+        return self.identity == other.identity
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
         return sqlglot.exp.Table(
@@ -75,6 +74,7 @@ class _TableName(_FrozenModel):
             database=database,
             db_schema=db_schema,
             table=self.table,
+            parts=self.parts,
         )
 
     @classmethod
@@ -96,13 +96,7 @@ class _TableName(_FrozenModel):
         else:
             table_name = table.this.name
 
-        # Store parts as string tuple for connector-specific handling
-        parts_tuple = None
-        if hasattr(table, "parts") and table.parts:
-            try:
-                parts_tuple = tuple(getattr(p, "name", str(p)) for p in table.parts)
-            except (AttributeError, TypeError):
-                pass
+        parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
 
         return cls(
             database=table.catalog or default_db,
