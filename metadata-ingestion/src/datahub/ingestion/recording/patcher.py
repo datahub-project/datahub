@@ -12,7 +12,7 @@ All patches are restored on exit, even if an exception occurs.
 import importlib
 import logging
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, KeysView, List, Optional, Tuple
 
 from datahub.ingestion.recording.db_proxy import (
     ConnectionProxy,
@@ -43,6 +43,137 @@ PATCHABLE_CONNECTORS: Dict[str, List[Tuple[str, str]]] = {
 PATCHABLE_CLIENTS: Dict[str, List[Tuple[str, str]]] = {
     "google.cloud.bigquery": [("Client", "client")],
 }
+
+
+def _convert_expiration_ms(value: Any, table_id: str = "unknown") -> Optional[int]:
+    """Convert expiration_ms from JSON to int, with validation.
+
+    Args:
+        value: The expiration_ms value (may be str, float, int, or None)
+        table_id: Table ID for error logging
+
+    Returns:
+        Integer value or None if conversion fails
+    """
+    if value is None:
+        return None
+
+    try:
+        if isinstance(value, int):
+            return value
+        if isinstance(value, (str, float)):
+            return int(value)
+        return int(value)
+    except (ValueError, TypeError) as e:
+        logger.warning(
+            f"Failed to convert expiration_ms to int for table {table_id}: "
+            f"{value} ({type(value)}): {e}. Setting to None."
+        )
+        return None
+
+
+def _create_time_partitioning(
+    tp_dict: Dict[str, Any], table_id: str = "unknown"
+) -> Any:
+    """Create TimePartitioning object from recorded dictionary.
+
+    Args:
+        tp_dict: Dictionary with time partitioning fields
+        table_id: Table ID for error logging
+
+    Returns:
+        TimePartitioning object or None if creation fails
+    """
+    try:
+        from google.cloud.bigquery.table import TimePartitioning
+
+        expiration_ms = _convert_expiration_ms(tp_dict.get("expiration_ms"), table_id)
+
+        require_partition_filter = tp_dict.get("require_partition_filter")
+        if require_partition_filter is not None:
+            require_partition_filter = bool(require_partition_filter)
+
+        return TimePartitioning(
+            field=tp_dict.get("field"),
+            type_=tp_dict.get("type"),
+            expiration_ms=expiration_ms,
+            require_partition_filter=require_partition_filter,
+        )
+    except (TypeError, ValueError) as e:
+        logger.error(f"Failed to create TimePartitioning from {tp_dict}: {e}")
+        return None
+
+
+class MockTableListItem:
+    """Mock TableListItem that mimics google.cloud.bigquery.table.TableListItem.
+
+    Used during replay mode since TableListItem is not directly constructible.
+    """
+
+    def __init__(self, table_id: str, dataset_id: str, project: str) -> None:
+        from datetime import datetime
+
+        self._table_id = table_id
+        self._dataset_id = dataset_id
+        self._project = project
+        self._table_type: Optional[str] = None
+        self._labels: Optional[Dict[str, str]] = None
+        self._expires: Optional[datetime] = None
+        self._clustering_fields: Optional[List[str]] = None
+        self._time_partitioning: Any = None
+        self._properties: Dict[str, Any] = {}
+
+    @property
+    def table_id(self) -> str:
+        return self._table_id
+
+    @property
+    def dataset_id(self) -> str:
+        return self._dataset_id
+
+    @property
+    def project(self) -> str:
+        return self._project
+
+    @property
+    def table_type(self) -> Optional[str]:
+        return self._table_type
+
+    @table_type.setter
+    def table_type(self, value: str) -> None:
+        self._table_type = value
+
+    @property
+    def labels(self) -> Optional[Dict[str, str]]:
+        return self._labels
+
+    @labels.setter
+    def labels(self, value: Dict[str, str]) -> None:
+        self._labels = value
+
+    @property
+    def expires(self) -> Any:
+        return self._expires
+
+    @expires.setter
+    def expires(self, value: Any) -> None:
+        self._expires = value
+
+    @property
+    def clustering_fields(self) -> Optional[List[str]]:
+        return self._clustering_fields
+
+    @clustering_fields.setter
+    def clustering_fields(self, value: Optional[List[str]]) -> None:
+        self._clustering_fields = value
+
+    @property
+    def time_partitioning(self) -> Any:
+        return self._time_partitioning
+
+    @time_partitioning.setter
+    def time_partitioning(self, value: Any) -> None:
+        self._time_partitioning = value
 
 
 def _is_vcr_interference_error(exc: Exception) -> bool:
@@ -498,91 +629,15 @@ class ModulePatcher:
                             f"Recorded list_tables error: {recording.error}"
                         )
 
-                    # TableListItem is not directly constructible, so we create a mock class
                     from datetime import datetime
-
-                    from google.cloud.bigquery.table import (
-                        TimePartitioning,  # type: ignore[attr-defined]
-                    )
-
-                    class MockTableListItem:
-                        """Mock TableListItem that mimics the interface of google.cloud.bigquery.table.TableListItem."""
-
-                        def __init__(
-                            self, table_id: str, dataset_id: str, project: str
-                        ):
-                            self._table_id = table_id
-                            self._dataset_id = dataset_id
-                            self._project = project
-                            self._table_type: Optional[str] = None
-                            self._labels: Optional[Dict[str, str]] = None
-                            self._expires: Optional[datetime] = None
-                            self._clustering_fields: Optional[List[str]] = None
-                            self._time_partitioning: Optional[TimePartitioning] = None
-                            self._properties: Dict[str, Any] = {}
-
-                        @property
-                        def table_id(self) -> str:
-                            return self._table_id
-
-                        @property
-                        def dataset_id(self) -> str:
-                            return self._dataset_id
-
-                        @property
-                        def project(self) -> str:
-                            return self._project
-
-                        @property
-                        def table_type(self) -> Optional[str]:
-                            return self._table_type
-
-                        @table_type.setter
-                        def table_type(self, value: str) -> None:
-                            self._table_type = value
-
-                        @property
-                        def labels(self) -> Optional[Dict[str, str]]:
-                            return self._labels
-
-                        @labels.setter
-                        def labels(self, value: Dict[str, str]) -> None:
-                            self._labels = value
-
-                        @property
-                        def expires(self) -> Optional[datetime]:
-                            return self._expires
-
-                        @expires.setter
-                        def expires(self, value: Optional[datetime]) -> None:
-                            self._expires = value
-
-                        @property
-                        def clustering_fields(self) -> Optional[List[str]]:
-                            return self._clustering_fields
-
-                        @clustering_fields.setter
-                        def clustering_fields(self, value: Optional[List[str]]) -> None:
-                            self._clustering_fields = value
-
-                        @property
-                        def time_partitioning(self) -> Optional[TimePartitioning]:
-                            return self._time_partitioning
-
-                        @time_partitioning.setter
-                        def time_partitioning(
-                            self, value: Optional[TimePartitioning]
-                        ) -> None:
-                            self._time_partitioning = value
-
-                        # _properties is accessed directly (not via property)
-                        # We'll set it as an instance attribute
 
                     tables = []
                     for result_dict in recording.results:
+                        table_id = result_dict.get("table_id", "")
                         try:
+                            # Use module-level MockTableListItem
                             table_item = MockTableListItem(
-                                table_id=result_dict.get("table_id", ""),
+                                table_id=table_id,
                                 dataset_id=result_dict.get("dataset_id", ""),
                                 project=result_dict.get("project", ""),
                             )
@@ -604,126 +659,33 @@ class ModulePatcher:
                                     )
                                 else:
                                     logger.warning(
-                                        f"Unexpected type for expires: {type(expires_value)} for table {result_dict.get('table_id')}. Skipping."
+                                        f"Unexpected type for expires: {type(expires_value)} for table {table_id}. Skipping."
                                     )
                             if "clustering_fields" in result_dict:
                                 table_item.clustering_fields = result_dict[
                                     "clustering_fields"
                                 ]
+                            # Use helper function for time partitioning
+                            if (
+                                "time_partitioning" in result_dict
+                                and result_dict["time_partitioning"]
+                            ):
+                                table_item.time_partitioning = (
+                                    _create_time_partitioning(
+                                        result_dict["time_partitioning"], table_id
+                                    )
+                                )
+                            if "_properties" in result_dict:
+                                table_item._properties = result_dict["_properties"]
+
+                            tables.append(table_item)
                         except Exception as e:
                             logger.error(
-                                f"Error creating MockTableListItem from {result_dict.get('table_id', 'unknown')}: {e}",
+                                f"Error creating MockTableListItem from {table_id}: {e}",
                                 exc_info=True,
                             )
                             # Skip this table if we can't create it
                             continue
-
-                        if (
-                            "time_partitioning" in result_dict
-                            and result_dict["time_partitioning"]
-                        ):
-                            tp_dict = result_dict["time_partitioning"]
-                            # JSON may store expiration_ms as string/float, convert to int
-                            expiration_ms = tp_dict.get("expiration_ms")
-                            if expiration_ms is not None:
-                                try:
-                                    if isinstance(expiration_ms, (str, float)):
-                                        expiration_ms = int(expiration_ms)
-                                    elif isinstance(expiration_ms, int):
-                                        pass
-                                    else:
-                                        expiration_ms = int(expiration_ms)
-                                    if not isinstance(expiration_ms, int):
-                                        logger.warning(
-                                            f"expiration_ms is still not an int after conversion: {expiration_ms} ({type(expiration_ms)}). Setting to None."
-                                        )
-                                        expiration_ms = None
-                                except (ValueError, TypeError) as e:
-                                    logger.warning(
-                                        f"Failed to convert expiration_ms to int: {expiration_ms} ({type(expiration_ms)}): {e}. Setting to None."
-                                    )
-                                    expiration_ms = None
-                            try:
-                                if expiration_ms is not None and not isinstance(
-                                    expiration_ms, int
-                                ):
-                                    logger.error(
-                                        f"expiration_ms is not int or None: {expiration_ms} ({type(expiration_ms)}). Setting to None."
-                                    )
-                                    expiration_ms = None
-                                # Preserve None if not set, otherwise convert to bool
-                                require_partition_filter = tp_dict.get(
-                                    "require_partition_filter"
-                                )
-                                if require_partition_filter is None:
-                                    require_partition_filter = None
-                                else:
-                                    require_partition_filter = bool(
-                                        require_partition_filter
-                                    )
-
-                                table_item.time_partitioning = TimePartitioning(
-                                    field=tp_dict.get("field"),
-                                    type_=tp_dict.get("type"),
-                                    expiration_ms=expiration_ms,
-                                    require_partition_filter=require_partition_filter,
-                                )
-                                if (
-                                    table_item.time_partitioning
-                                    and table_item.time_partitioning.expiration_ms
-                                    is not None
-                                    and not isinstance(
-                                        table_item.time_partitioning.expiration_ms, int
-                                    )
-                                ):
-                                    logger.error(
-                                        f"TimePartitioning.expiration_ms is not int: {table_item.time_partitioning.expiration_ms} ({type(table_item.time_partitioning.expiration_ms)}). This will cause errors."
-                                    )
-                            except (TypeError, ValueError) as e:
-                                logger.error(
-                                    f"Failed to create TimePartitioning from {tp_dict}: {e}",
-                                    exc_info=True,
-                                )
-                                # Set to None if we can't create it
-                                table_item.time_partitioning = None
-
-                        if "_properties" in result_dict:
-                            table_item._properties = result_dict["_properties"]
-                        # Validate expiration_ms type to catch errors early
-                        if table_item.time_partitioning:
-                            try:
-                                expiration_ms_val = (
-                                    table_item.time_partitioning.expiration_ms
-                                )
-                                if expiration_ms_val is not None and not isinstance(
-                                    expiration_ms_val, int
-                                ):
-                                    logger.error(
-                                        f"time_partitioning.expiration_ms is not int for table {result_dict.get('table_id')}: {expiration_ms_val} (type: {type(expiration_ms_val)}). This will cause 'str' object cannot be interpreted as an integer error. Setting to None.",
-                                        exc_info=True,
-                                    )
-                                    try:
-                                        fixed_expiration_ms = int(expiration_ms_val)
-                                        # TimePartitioning is immutable, recreate it
-                                        tp = table_item.time_partitioning
-                                        table_item.time_partitioning = TimePartitioning(
-                                            field=tp.field,
-                                            type_=tp.type_,
-                                            expiration_ms=fixed_expiration_ms,
-                                            require_partition_filter=tp.require_partition_filter,
-                                        )
-                                    except (ValueError, TypeError):
-                                        logger.error(
-                                            f"Could not convert expiration_ms to int for table {result_dict.get('table_id')}. Setting time_partitioning to None."
-                                        )
-                                        table_item.time_partitioning = None
-                            except Exception as e:
-                                logger.error(
-                                    f"Unexpected error validating expiration_ms for table {result_dict.get('table_id')}: {e}",
-                                    exc_info=True,
-                                )
-                                table_item.time_partitioning = None
-                        tables.append(table_item)
 
                     logger.debug(
                         f"Replaying list_tables() - returning {len(tables)} tables"
@@ -734,8 +696,6 @@ class ModulePatcher:
                 try:
                     tables_iter = super().list_tables(*args, **kwargs)
                     tables_list = list(tables_iter)
-
-                    from datetime import datetime
 
                     results = []
                     for table in tables_list:
@@ -968,11 +928,11 @@ class MockRow:
         """Support dict.get() method"""
         return self._data.get(key, default)
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         """Support dict.keys() method"""
         return self._data.keys()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         """Support iteration over values"""
         return iter(self._data.values())
 
