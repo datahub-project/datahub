@@ -19,12 +19,14 @@ The connector has been updated to handle the **actual BDP API response formats**
 **Endpoint**: `POST /organizations/{orgId}/credentials/v3/token`
 
 **Request Headers**:
+
 ```
 X-Api-Key-Id: {api_key_id}
 X-Api-Key: {api_key_secret}
 ```
 
 **Response Format**: ✅ **Verified Working**
+
 ```json
 {
   "accessToken": "eyJhbGc..."
@@ -40,15 +42,15 @@ X-Api-Key: {api_key_secret}
 **Endpoint**: `GET /organizations/{orgId}/users`
 
 **Expected Format** (based on typical REST patterns):
+
 ```json
 {
-  "data": [
-    {"id": "...", "email": "...", "name": "..."}
-  ]
+  "data": [{ "id": "...", "email": "...", "name": "..." }]
 }
 ```
 
 **Actual Format** ⚠️ (from real API):
+
 ```json
 [
   {
@@ -65,6 +67,7 @@ X-Api-Key: {api_key_secret}
 **Key Difference**: Returns **array directly**, not wrapped in `{"data": [...]}`
 
 **Connector Fix**: ✅ Added fallback parsing in `get_users()`:
+
 ```python
 # Try wrapped format first
 response = UsersResponse.model_validate(response_data)
@@ -83,6 +86,7 @@ if isinstance(response_data, list):
 **Endpoint**: `GET /organizations/{orgId}/data-structures/v1`
 
 **Expected Format**:
+
 ```json
 {
   "data": [
@@ -96,6 +100,7 @@ if isinstance(response_data, list):
 ```
 
 **Actual Format** ⚠️ (from real API):
+
 ```json
 [
   {
@@ -113,11 +118,13 @@ if isinstance(response_data, list):
 ```
 
 **Key Differences**:
+
 1. Returns **array directly**, not wrapped
 2. **Missing `data` field** (JSON schema definition)
 3. Includes minimal metadata only
 
 **Connector Fix**: ✅ Added:
+
 1. Fallback array parsing
 2. Automatic fetching of full details by hash when `data` missing
 
@@ -130,6 +137,7 @@ if isinstance(response_data, list):
 **Endpoint**: `GET /organizations/{orgId}/data-structures/v1/{hash}`
 
 **Expected Format**:
+
 ```json
 {
   "hash": "...",
@@ -144,6 +152,7 @@ if isinstance(response_data, list):
 ```
 
 **Actual Format** ⚠️ (from real API):
+
 ```json
 {
   "hash": "5242ff4ca845492f...",
@@ -167,12 +176,14 @@ if isinstance(response_data, list):
 ```
 
 **Key Differences**:
+
 1. **Still missing `data` field** (even in detail endpoint!)
 2. ✅ Has `meta` field
 3. ✅ Has `deployments` array (critical for ownership)
 4. ✅ Has `vendor` and `name` fields
 
 **Connector Fix**: ✅ Updated to:
+
 1. Extract version from deployments when `data` missing
 2. Skip detailed schema parsing when `data` unavailable
 3. Still emit ownership from deployments
@@ -184,6 +195,7 @@ if isinstance(response_data, list):
 ### 5. Deployments in Data Structures
 
 **Format**:
+
 ```json
 {
   "deployments": [
@@ -202,12 +214,14 @@ if isinstance(response_data, list):
 ```
 
 **Critical Fields for Ownership**:
+
 - ✅ `initiator`: Full name (fallback)
 - ✅ `initiatorId`: UUID for reliable user lookup
 - ✅ `ts`: Timestamp for sorting
 - ✅ `version`: Schema version
 
 **Connector Handling**: ✅ Correctly implemented:
+
 1. Sorts by `ts` to find oldest (creator) and newest (modifier)
 2. Resolves `initiatorId` to email via Users API
 3. Falls back to `initiator` name if ID resolution fails
@@ -221,6 +235,7 @@ if isinstance(response_data, list):
 ### Updated Pydantic Models
 
 #### DataStructure Model
+
 ```python
 class DataStructure(BaseModel):
     hash: Optional[str] = None
@@ -234,6 +249,7 @@ class DataStructure(BaseModel):
 **Rationale**: Real API doesn't always return `data` field, even in detail endpoint
 
 #### Response Wrapper Models
+
 ```python
 # These models exist but API returns arrays directly
 class DataStructuresResponse(BaseModel):
@@ -250,11 +266,13 @@ class UsersResponse(BaseModel):
 ## Testing Results
 
 ### Mock Server (Original Behavior)
+
 - ✅ Returns wrapped responses: `{"data": [...]}`
 - ✅ Includes full `data` field with schema definition
 - ✅ All tests passing
 
 ### Real BDP API (Updated Behavior)
+
 - ✅ Returns unwrapped arrays: `[...]`
 - ⚠️ Missing `data` field (schema definition)
 - ✅ Has `deployments` with ownership info
@@ -265,15 +283,15 @@ class UsersResponse(BaseModel):
 
 ## Compatibility Matrix
 
-| Feature | Mock Server | Real BDP API | Connector Support |
-|---------|-------------|--------------|-------------------|
-| Wrapped responses (`{"data": [...]}`) | ✅ | ❌ | ✅ Both |
-| Direct array responses (`[...]`) | ❌ | ✅ | ✅ Both |
-| Full schema definition (`data` field) | ✅ | ❌ | ✅ Optional |
-| Schema metadata (`meta`) | ✅ | ✅ | ✅ Required |
-| Deployments array | ✅ | ✅ | ✅ Required |
-| User resolution | ✅ | ✅ | ✅ Working |
-| Ownership extraction | ✅ | ✅ | ✅ Working |
+| Feature                               | Mock Server | Real BDP API | Connector Support |
+| ------------------------------------- | ----------- | ------------ | ----------------- |
+| Wrapped responses (`{"data": [...]}`) | ✅          | ❌           | ✅ Both           |
+| Direct array responses (`[...]`)      | ❌          | ✅           | ✅ Both           |
+| Full schema definition (`data` field) | ✅          | ❌           | ✅ Optional       |
+| Schema metadata (`meta`)              | ✅          | ✅           | ✅ Required       |
+| Deployments array                     | ✅          | ✅           | ✅ Required       |
+| User resolution                       | ✅          | ✅           | ✅ Working        |
+| Ownership extraction                  | ✅          | ✅           | ✅ Working        |
 
 ---
 
@@ -282,12 +300,14 @@ class UsersResponse(BaseModel):
 ### For Production Use
 
 1. **Schema Definition Missing**:
+
    - The real BDP API doesn't return the JSON schema definition (`data` field)
    - Ownership tracking works fine without it
    - Detailed schema field extraction not possible without this data
    - **Recommendation**: This is acceptable for ownership use case
 
 2. **API Version Differences**:
+
    - Mock server behavior suggests older/different API version
    - Real API has evolved to different response format
    - Connector now handles both formats
@@ -300,6 +320,7 @@ class UsersResponse(BaseModel):
 ### For Testing
 
 1. **Update Mock Server** (optional):
+
    - Could update to match real API format
    - Current approach (supporting both) is more robust
    - Tests validate both historical and current formats
@@ -316,10 +337,12 @@ class UsersResponse(BaseModel):
 Based on testing, the following should be clarified in BDP API docs:
 
 1. **Response Format**:
+
    - List endpoints return arrays directly (not wrapped)
    - No `{"data": [...]}` envelope
 
 2. **Schema Definition Availability**:
+
    - `data` field may not be included in responses
    - Even detail endpoint doesn't always return full schema
    - Deployments array is always present
@@ -336,16 +359,19 @@ Based on testing, the following should be clarified in BDP API docs:
 The connector now handles:
 
 ✅ **Response Format Variations**:
+
 - Wrapped (`{"data": [...]}`) vs unwrapped (`[...]`)
 - Missing optional fields (`data`, `description`)
 - Different API versions
 
 ✅ **Graceful Degradation**:
+
 - Works without full schema definition
 - Falls back to deployment versions
 - Logs what's missing for debugging
 
 ✅ **Ownership Extraction**:
+
 - Primary use case works with available data
 - Doesn't require full schema definition
 - Uses deployments array reliably
@@ -354,12 +380,12 @@ The connector now handles:
 
 ## Validation Status
 
-| Endpoint | Format Validated | Model Updated | Tested | Status |
-|----------|-----------------|---------------|--------|--------|
-| POST /credentials/v3/token | ✅ | ✅ | ✅ | Working |
-| GET /users | ✅ | ✅ | ✅ | Working |
-| GET /data-structures/v1 | ✅ | ✅ | ✅ | Working |
-| GET /data-structures/v1/{hash} | ✅ | ✅ | ✅ | Working |
+| Endpoint                       | Format Validated | Model Updated | Tested | Status  |
+| ------------------------------ | ---------------- | ------------- | ------ | ------- |
+| POST /credentials/v3/token     | ✅               | ✅            | ✅     | Working |
+| GET /users                     | ✅               | ✅            | ✅     | Working |
+| GET /data-structures/v1        | ✅               | ✅            | ✅     | Working |
+| GET /data-structures/v1/{hash} | ✅               | ✅            | ✅     | Working |
 
 **Overall Status**: ✅ **Connector validated against real BDP API**
 

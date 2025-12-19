@@ -11,6 +11,7 @@
 ✅ **Overall Status**: Connector implementation is **MOSTLY CORRECT** with minor discrepancies
 
 **Key Findings**:
+
 1. ✅ Response format (direct arrays) confirmed by spec
 2. ⚠️ `data` field (JSON schema definition) **NOT in spec** - explains why it's missing
 3. ✅ Deployments array structure matches
@@ -24,6 +25,7 @@
 ### 1. Authentication: POST /credentials/v3/token
 
 #### Swagger Spec
+
 ```yaml
 /organizations/{organizationId}/credentials/v3/token:
   post:
@@ -44,6 +46,7 @@
 ```
 
 #### Connector Implementation
+
 ```python
 # Request headers
 headers = {
@@ -57,6 +60,7 @@ self._jwt_token = response.access_token
 ```
 
 #### Validation: ✅ **CORRECT**
+
 - Headers match spec
 - Response parsing correct
 - Token usage correct (Bearer authentication)
@@ -66,6 +70,7 @@ self._jwt_token = response.access_token
 ### 2. Users: GET /organizations/{organizationId}/users
 
 #### Swagger Spec
+
 ```yaml
 /organizations/{organizationId}/users:
   get:
@@ -76,7 +81,7 @@ self._jwt_token = response.access_token
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/UserResource'
+                $ref: "#/components/schemas/UserResource"
 
 components:
   schemas:
@@ -92,6 +97,7 @@ components:
 ```
 
 #### Connector Implementation
+
 ```python
 # Expected: UsersResponse with data wrapper (WRONG)
 response = UsersResponse.model_validate(response_data)
@@ -102,6 +108,7 @@ if isinstance(response_data, list):
 ```
 
 #### Validation: ✅ **FIXED**
+
 - ✅ Spec confirms: Returns **direct array** (not wrapped)
 - ✅ Connector now handles direct array correctly (fallback)
 - ✅ User fields match: id, email, name, displayName
@@ -112,6 +119,7 @@ if isinstance(response_data, list):
 ### 3. Data Structures List: GET /organizations/{organizationId}/data-structures/v1
 
 #### Swagger Spec
+
 ```yaml
 /organizations/{organizationId}/data-structures/v1:
   get:
@@ -128,7 +136,7 @@ if isinstance(response_data, list):
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/DataStructureResource'
+                $ref: "#/components/schemas/DataStructureResource"
 
 components:
   schemas:
@@ -151,10 +159,11 @@ components:
         deployments:
           type: array
           items:
-            $ref: '#/components/schemas/DeploymentResource'
+            $ref: "#/components/schemas/DeploymentResource"
 ```
 
 #### Connector Implementation
+
 ```python
 # Model (BEFORE fixes)
 class DataStructure(BaseModel):
@@ -178,12 +187,14 @@ class DataStructure(BaseModel):
 #### Validation: ✅ **FIXED**
 
 **Matches Spec**:
+
 - ✅ hash, organizationId, vendor, name, format, description
 - ✅ meta (hidden, schemaType, customData)
 - ✅ deployments array
 - ✅ Returns direct array (not wrapped)
 
 **Not in Spec**:
+
 - ⚠️ `data: SchemaData` field - **This field doesn't exist in the API!**
   - Explains why real API doesn't return it
   - Our model included it based on Iglu expectations
@@ -196,6 +207,7 @@ class DataStructure(BaseModel):
 ### 4. Data Structure Detail: GET /organizations/{organizationId}/data-structures/v1/{schemaHash}
 
 #### Swagger Spec
+
 ```yaml
 /organizations/{organizationId}/data-structures/v1/{schemaHash}:
   get:
@@ -206,16 +218,18 @@ class DataStructure(BaseModel):
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DataStructureResource'
+              $ref: "#/components/schemas/DataStructureResource"
 ```
 
 #### Connector Implementation
+
 ```python
 response_data = self._request("GET", endpoint)
 return DataStructure.model_validate(response_data)
 ```
 
 #### Validation: ✅ **CORRECT**
+
 - ✅ Returns single `DataStructureResource` object (not wrapped)
 - ✅ Same schema as list endpoint
 - ✅ Includes deployments array
@@ -226,6 +240,7 @@ return DataStructure.model_validate(response_data)
 ### 5. Deployments: GET /organizations/{organizationId}/data-structures/v1/{schemaHash}/deployments
 
 #### Swagger Spec
+
 ```yaml
 /organizations/{organizationId}/data-structures/v1/{schemaHash}/deployments:
   get:
@@ -241,7 +256,7 @@ return DataStructure.model_validate(response_data)
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/DeploymentResource'
+                $ref: "#/components/schemas/DeploymentResource"
 
 components:
   schemas:
@@ -259,6 +274,7 @@ components:
 ```
 
 #### Connector Model
+
 ```python
 class DataStructureDeployment(BaseModel):
     version: str
@@ -274,9 +290,11 @@ class DataStructureDeployment(BaseModel):
 #### Validation: ⚠️ **MOSTLY CORRECT**
 
 **Matches Spec**:
+
 - ✅ version, patchLevel, contentHash, env, ts, message, initiator
 
 **Not in Spec**:
+
 - ⚠️ `initiatorId` field - **NOT documented but present in real API responses**
   - We observed this field in actual API responses
   - Extremely valuable for reliable user resolution
@@ -293,16 +311,19 @@ class DataStructureDeployment(BaseModel):
 **Issue**: Our model included `data: SchemaData` field (full JSON schema definition), but **this field doesn't exist in the BDP API spec**.
 
 **Why We Added It**:
+
 - Based on Iglu schema registry patterns
 - Assumption that BDP API would return full schema
 - Needed for detailed schema field extraction
 
 **Reality per Spec**:
+
 - BDP API only returns **metadata about schemas** (hash, vendor, name, format)
 - Full JSON schema definition **not provided** by BDP API
 - Must fetch from Iglu registry if needed
 
 **Connector Fix**: ✅ Made `data` field optional
+
 - Extracts version from deployments when `data` missing
 - Skips detailed schema parsing
 - **Ownership still works perfectly** (uses deployments array)
@@ -316,6 +337,7 @@ class DataStructureDeployment(BaseModel):
 **Connector Fix**: ✅ Added fallback parsing for direct arrays
 
 **Examples from Spec**:
+
 ```yaml
 # List endpoints return arrays directly
 GET /users -> [UserResource, ...]
@@ -336,6 +358,7 @@ GET /users/{userId} -> UserResource
 **Real API Returns**: Both `initiator` AND `initiatorId`
 
 **Why This Matters**:
+
 - `initiatorId` is UUID - reliable for user lookup
 - `initiator` is full name string - ambiguous (multiple users could have same name)
 
@@ -347,34 +370,34 @@ GET /users/{userId} -> UserResource
 
 ## Model Compatibility Matrix
 
-| Field | Swagger Spec | Connector Model | Status |
-|-------|--------------|-----------------|--------|
-| **DataStructure** |
-| hash | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| organizationId | ✅ string | ❌ Not in model | ⚠️ Missing (not needed) |
-| vendor | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| name | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| format | ✅ string | ❌ Not in model | ⚠️ Missing (low priority) |
-| description | ✅ string | ❌ Not in model | ⚠️ Missing (low priority) |
-| meta | ✅ object | ✅ Optional[SchemaMetadata] | ✅ Compatible |
-| deployments | ✅ array | ✅ List[...] | ✅ Compatible |
-| data | ❌ Not in spec | ✅ Optional[SchemaData] | ✅ No conflict (optional) |
+| Field                  | Swagger Spec   | Connector Model             | Status                    |
+| ---------------------- | -------------- | --------------------------- | ------------------------- |
+| **DataStructure**      |
+| hash                   | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| organizationId         | ✅ string      | ❌ Not in model             | ⚠️ Missing (not needed)   |
+| vendor                 | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| name                   | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| format                 | ✅ string      | ❌ Not in model             | ⚠️ Missing (low priority) |
+| description            | ✅ string      | ❌ Not in model             | ⚠️ Missing (low priority) |
+| meta                   | ✅ object      | ✅ Optional[SchemaMetadata] | ✅ Compatible             |
+| deployments            | ✅ array       | ✅ List[...]                | ✅ Compatible             |
+| data                   | ❌ Not in spec | ✅ Optional[SchemaData]     | ✅ No conflict (optional) |
 | **DeploymentResource** |
-| version | ✅ string | ✅ str | ✅ Compatible |
-| patchLevel | ✅ integer | ✅ Optional[int] | ✅ Compatible |
-| contentHash | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| env | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| ts | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| message | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| initiator | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| initiatorId | ❌ Not in spec | ✅ Optional[str] | ✅ Bonus field |
-| **UserResource** |
-| id | ✅ string | ✅ str | ✅ Compatible |
-| email | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| name | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| displayName | ✅ string | ✅ Optional[str] | ✅ Compatible |
-| role | ✅ string | ❌ Not in model | ⚠️ Missing (not needed) |
-| filters | ✅ array | ❌ Not in model | ⚠️ Missing (not needed) |
+| version                | ✅ string      | ✅ str                      | ✅ Compatible             |
+| patchLevel             | ✅ integer     | ✅ Optional[int]            | ✅ Compatible             |
+| contentHash            | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| env                    | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| ts                     | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| message                | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| initiator              | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| initiatorId            | ❌ Not in spec | ✅ Optional[str]            | ✅ Bonus field            |
+| **UserResource**       |
+| id                     | ✅ string      | ✅ str                      | ✅ Compatible             |
+| email                  | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| name                   | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| displayName            | ✅ string      | ✅ Optional[str]            | ✅ Compatible             |
+| role                   | ✅ string      | ❌ Not in model             | ⚠️ Missing (not needed)   |
+| filters                | ✅ array       | ❌ Not in model             | ⚠️ Missing (not needed)   |
 
 ---
 
@@ -390,6 +413,7 @@ GET /users/{userId} -> UserResource
 ### Nice to Have
 
 1. **Add Missing Fields** (low priority):
+
    ```python
    class DataStructure(BaseModel):
        # Existing fields...
@@ -399,6 +423,7 @@ GET /users/{userId} -> UserResource
    ```
 
 2. **Separate BDP and Iglu Models** (future):
+
    - BDP API returns metadata only (no full schema)
    - Iglu registry returns full schema definition
    - Consider separate models for clarity
@@ -413,13 +438,13 @@ GET /users/{userId} -> UserResource
 
 ### Mock Server vs Real API
 
-| Aspect | Mock Server | Real BDP API | Swagger Spec |
-|--------|-------------|--------------|--------------|
+| Aspect          | Mock Server               | Real BDP API   | Swagger Spec      |
+| --------------- | ------------------------- | -------------- | ----------------- |
 | Response format | Wrapped `{"data": [...]}` | Direct `[...]` | ✅ Direct `[...]` |
-| data field | ✅ Included | ❌ Missing | ❌ Not in spec |
-| deployments | ✅ Included | ✅ Included | ✅ In spec |
-| initiatorId | ✅ Included | ✅ Included | ❌ Not in spec |
-| Users array | Wrapped | Direct | ✅ Direct |
+| data field      | ✅ Included               | ❌ Missing     | ❌ Not in spec    |
+| deployments     | ✅ Included               | ✅ Included    | ✅ In spec        |
+| initiatorId     | ✅ Included               | ✅ Included    | ❌ Not in spec    |
+| Users array     | Wrapped                   | Direct         | ✅ Direct         |
 
 **Conclusion**: Mock server behavior doesn't match spec or real API
 
@@ -431,13 +456,13 @@ GET /users/{userId} -> UserResource
 
 ### Critical Fields for Ownership
 
-| Field | Swagger Spec | Real API | Connector | Status |
-|-------|--------------|----------|-----------|--------|
-| deployments array | ✅ Documented | ✅ Present | ✅ Uses | ✅ Working |
-| initiator | ✅ Documented | ✅ Present | ✅ Fallback | ✅ Working |
-| initiatorId | ❌ Not documented | ✅ Present | ✅ Preferred | ✅ Working |
-| ts (timestamp) | ✅ Documented | ✅ Present | ✅ Sorts | ✅ Working |
-| version | ✅ Documented | ✅ Present | ✅ Uses | ✅ Working |
+| Field             | Swagger Spec      | Real API   | Connector    | Status     |
+| ----------------- | ----------------- | ---------- | ------------ | ---------- |
+| deployments array | ✅ Documented     | ✅ Present | ✅ Uses      | ✅ Working |
+| initiator         | ✅ Documented     | ✅ Present | ✅ Fallback  | ✅ Working |
+| initiatorId       | ❌ Not documented | ✅ Present | ✅ Preferred | ✅ Working |
+| ts (timestamp)    | ✅ Documented     | ✅ Present | ✅ Sorts     | ✅ Working |
+| version           | ✅ Documented     | ✅ Present | ✅ Uses      | ✅ Working |
 
 **Conclusion**: ✅ **All required fields for ownership tracking are available and working**
 
@@ -446,25 +471,31 @@ GET /users/{userId} -> UserResource
 ## Final Validation Status
 
 ### Authentication
+
 - ✅ **CORRECT** - Matches spec exactly
 
 ### Users Endpoint
+
 - ✅ **FIXED** - Now handles direct array response
 - ✅ All required fields present
 
 ### Data Structures List
+
 - ✅ **FIXED** - Handles direct array response
 - ✅ Works without `data` field (not in spec anyway)
 
 ### Data Structure Detail
+
 - ✅ **FIXED** - Parses direct object response
 - ✅ Processes with or without `data` field
 
 ### Deployments
+
 - ✅ **CORRECT** - Matches spec
 - ✅ **BONUS**: Uses undocumented `initiatorId` field
 
 ### Ownership Extraction
+
 - ✅ **WORKING** - All required fields available
 - ✅ Resilient to spec changes
 - ✅ Tested with real API
@@ -476,12 +507,14 @@ GET /users/{userId} -> UserResource
 ✅ **Connector is validated against official Swagger specification**
 
 **Key Learnings**:
+
 1. BDP API doesn't return full JSON schema definitions (not in spec)
 2. All responses are direct arrays/objects (not wrapped)
 3. Real API has bonus `initiatorId` field (not in spec, but very useful)
 4. Our ownership extraction works perfectly with spec-defined fields
 
 **Production Readiness**: ✅ **READY**
+
 - Matches spec where it matters
 - Handles real API behavior correctly
 - Ownership tracking fully functional

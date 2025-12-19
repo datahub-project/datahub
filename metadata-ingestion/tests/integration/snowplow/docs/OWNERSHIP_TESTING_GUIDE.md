@@ -22,6 +22,7 @@ python -m pytest tests/integration/snowplow/test_snowplow.py::test_snowplow_inge
 **Expected Result**: Test passes and creates golden file with 3 ownership aspects.
 
 **Verify Ownership Output**:
+
 ```bash
 cd /Users/treff7es/shadow/datahub/metadata-ingestion
 python3 -c "
@@ -41,6 +42,7 @@ with open('tests/integration/snowplow/snowplow_mces_golden.json') as f:
 ```
 
 **Expected Output**:
+
 ```
 ✅ Found 3 ownership aspects in golden file
 
@@ -69,6 +71,7 @@ python mock_bdp_server.py --port 8081
 ```
 
 **Expected Output**:
+
 ```
 Mock Snowplow BDP API Server
 ============================
@@ -89,7 +92,7 @@ source:
       organization_id: "test-org-uuid"
       api_key_id: "test-key-id"
       api_key: "test-secret"
-      base_url: "http://localhost:8081"  # Point to mock server
+      base_url: "http://localhost:8081" # Point to mock server
 
     extract_event_specifications: false
     extract_tracking_scenarios: false
@@ -155,12 +158,14 @@ curl http://localhost:8080/health
 ### Step 2: Get Access Token
 
 **Option A - Via UI**:
+
 1. Open http://localhost:9002
 2. Login (default: datahub / datahub)
 3. Go to Settings → Access Tokens → Generate New Token
 4. Copy the token
 
 **Option B - Via CLI** (only for localhost):
+
 ```bash
 datahub user get-access-token --user datahub
 ```
@@ -176,13 +181,13 @@ source:
     bdp_connection:
       organization_id: "YOUR_ORG_ID"
       api_key_id: "YOUR_KEY_ID"
-      api_key: "${SNOWPLOW_API_KEY}"  # Use env var for security
+      api_key: "${SNOWPLOW_API_KEY}" # Use env var for security
 
 sink:
   type: datahub-rest
   config:
     server: "http://localhost:8080"
-    token: "${DATAHUB_TOKEN}"  # Use env var
+    token: "${DATAHUB_TOKEN}" # Use env var
 ```
 
 ### Step 4: Set Environment Variables
@@ -207,6 +212,7 @@ datahub ingest -c tests/integration/snowplow/test_ownership_recipe.yml
 4. Look for **"Owners"** section in the right sidebar or schema details
 
 **Expected to See**:
+
 - **Data Owner**: Creator's email (e.g., ryan@company.com)
 - **Producer**: Last modifier's email (e.g., jane@company.com)
 - **Source**: Link to BDP Console
@@ -225,6 +231,7 @@ curl -X POST http://localhost:8080/api/graphql \
 ```
 
 **Expected Response**:
+
 ```json
 {
   "data": {
@@ -258,11 +265,13 @@ curl -X POST http://localhost:8080/api/graphql \
 ### No Ownership Aspects Found
 
 **Possible Causes**:
+
 1. **No deployments in API response** - BDP API must return deployments array
 2. **No initiator information** - Deployments must have initiator or initiatorId
 3. **Users API not accessible** - Falls back to using names directly
 
 **Debug Steps**:
+
 ```bash
 # Check if deployments are in the fixture
 cat tests/integration/snowplow/fixtures/data_structures_with_ownership.json | grep -A 5 deployments
@@ -278,6 +287,7 @@ datahub ingest -c recipe.yml --debug
 **Cause**: Users API not returning data or initiatorId missing
 
 **Solution**: Verify mock users are configured in tests:
+
 ```python
 # In test_snowplow.py
 mock_users = [
@@ -290,12 +300,14 @@ mock_client.get_users.return_value = mock_users
 ### DataHub Not Starting
 
 **Check Ports**:
+
 ```bash
 lsof -i :8080  # GMS port
 lsof -i :9002  # Frontend port
 ```
 
 **Check Docker**:
+
 ```bash
 docker ps
 docker-compose logs -f
@@ -308,17 +320,20 @@ docker-compose logs -f
 When testing, verify these aspects:
 
 ### ✅ Ownership Extraction
+
 - [ ] Schemas with multiple deployments show both DATAOWNER and PRODUCER
 - [ ] Schemas with single deployment show only DATAOWNER
 - [ ] Creator is oldest deployment initiator
 - [ ] Modifier is newest deployment initiator
 
 ### ✅ User Resolution
+
 - [ ] Users resolved to emails when initiatorId available
 - [ ] Falls back to names when ID not available
 - [ ] Logs warnings for ambiguous name matches
 
 ### ✅ DataHub Integration
+
 - [ ] Ownership aspects emitted with correct structure
 - [ ] SOURCE_CONTROL source type set
 - [ ] BDP Console URLs included

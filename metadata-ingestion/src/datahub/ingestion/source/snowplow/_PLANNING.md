@@ -1,12 +1,14 @@
 # Snowplow DataHub Connector Planning
 
 ## Source Information
+
 - **Type**: REST API (Snowplow BDP Console API)
 - **API/Interface**: REST API with JWT authentication
 - **Authentication**: API Key ID + API Key → JWT token
 - **Documentation**: https://docs.snowplow.io/
 
 ## Snowplow Architecture
+
 - **Organization**: Top-level account container
 - **Pipelines**: Data processing pipelines (Collect → Enrich → Load)
 - **Data Structures**: JSON schemas (self-describing schemas in Iglu format)
@@ -17,25 +19,27 @@
 
 ## Entity Mapping
 
-| Source Concept | DataHub Entity Type | Subtype | Parent | Notes |
-|----------------|---------------------|---------|--------|-------|
-| Organization | Container | N/A | None | Top-level container |
-| Pipeline | DataFlow | N/A | None | Data processing pipeline |
-| Enrichment | DataJob | N/A | Pipeline (DataFlow) | Processing steps within pipeline |
-| Data Structure (Schema) | Dataset | Schema | Organization | JSON schemas in Iglu format |
-| Event Specification | Dataset | Event Spec | Organization | References schemas, has lineage |
-| Tracking Scenario | Container | Tracking Scenario | Organization | Groups event specifications |
-| Data Product | Container | Data Product | Organization | Business grouping with ownership |
+| Source Concept          | DataHub Entity Type | Subtype           | Parent              | Notes                            |
+| ----------------------- | ------------------- | ----------------- | ------------------- | -------------------------------- |
+| Organization            | Container           | N/A               | None                | Top-level container              |
+| Pipeline                | DataFlow            | N/A               | None                | Data processing pipeline         |
+| Enrichment              | DataJob             | N/A               | Pipeline (DataFlow) | Processing steps within pipeline |
+| Data Structure (Schema) | Dataset             | Schema            | Organization        | JSON schemas in Iglu format      |
+| Event Specification     | Dataset             | Event Spec        | Organization        | References schemas, has lineage  |
+| Tracking Scenario       | Container           | Tracking Scenario | Organization        | Groups event specifications      |
+| Data Product            | Container           | Data Product      | Organization        | Business grouping with ownership |
 
 ## Key Design Decision: Pipeline as DataFlow
 
 **Pipeline → DataFlow** (not Container):
+
 - Pipelines represent actual data processing flows
 - Have operational status (ready, starting, stopping)
 - Contain enrichment jobs as DataJob entities
 - Process data structures → produce enriched events
 
 **Enrichments → DataJob**:
+
 - Individual processing steps within pipeline
 - Transform and enrich event data
 - Belong to pipeline DataFlow
@@ -44,6 +48,7 @@
 ## Metadata Extraction Plan
 
 ### ✅ Implemented:
+
 - [x] Organization container
 - [x] Data structures (schemas) as datasets
 - [x] Schema fields and properties
@@ -65,6 +70,7 @@
 - [x] Iglu-only mode with automatic schema discovery
 
 ### 🔮 Future Enhancements:
+
 - [ ] Additional enrichment lineage extractors (as needed)
 - [ ] Workspace extraction (if needed)
 - [ ] Column-level lineage from warehouse query logs (use warehouse connector instead)
@@ -72,6 +78,7 @@
 ## Lineage Extraction Plan
 
 ### Implemented Lineage:
+
 1. **Event Spec → Schema**: Event specifications reference schemas via `eventSchemas` field
 2. **Tracking Scenario → Event Spec**: Tracking scenarios contain event specs via `eventSpecs` field
 3. **Data Product → Event Spec**: Data products reference event specs via `eventSpecs` field
@@ -81,6 +88,7 @@
 ## Fine-Grained (Column-Level) Lineage Plan
 
 ### Overview
+
 Extract column-level lineage showing which event fields are transformed by each enrichment to produce warehouse table columns.
 
 **Goal**: Track field-level transformations: `Event Schema Fields` → `[Enrichment]` → `Warehouse Table Columns`
@@ -144,6 +152,7 @@ class EnrichmentLineageRegistry:
 **For enrichments with fixed input → output mappings:**
 
 **IP Lookup Enrichment**:
+
 - Input: `user_ipaddress`
 - Outputs: `geo_country`, `geo_region`, `geo_city`, `geo_latitude`, `geo_longitude`, `ip_isp`, etc.
 - Configuration impact: Which databases enabled determines which outputs
@@ -181,6 +190,7 @@ class IpLookupLineageExtractor(EnrichmentLineageExtractor):
 **For enrichments where input→output mapping depends on configuration:**
 
 **Campaign Attribution Enrichment**:
+
 - Inputs: Configurable query parameters (`utm_medium`, `utm_source`, etc.)
 - Outputs: `mkt_medium`, `mkt_source`, `mkt_term`, `mkt_content`, `mkt_campaign`
 - Configuration: `fields` parameter maps inputs to outputs
@@ -229,6 +239,7 @@ class CampaignAttributionLineageExtractor(EnrichmentLineageExtractor):
 **For enrichments with runtime-determined lineage:**
 
 **Cookie Extractor, HTTP Header Extractor**:
+
 - Inputs: Determined by configuration list/regex
 - Outputs: Contexts (not atomic fields)
 
@@ -257,6 +268,7 @@ class CookieExtractorLineageExtractor(EnrichmentLineageExtractor):
 ```
 
 **JavaScript, SQL, API Enrichments**:
+
 - Cannot reliably extract lineage (custom code/queries)
 - Option 1: Skip lineage for these
 - Option 2: Mark as "CUSTOM" transformation with no field-level detail
@@ -264,6 +276,7 @@ class CookieExtractorLineageExtractor(EnrichmentLineageExtractor):
 #### 4. In-Place Modification Extractors
 
 **IP Anonymization, PII Pseudonymization**:
+
 - Transform fields in-place
 - Input and output are same field (but different values)
 
@@ -288,10 +301,12 @@ class IpAnonymizationLineageExtractor(EnrichmentLineageExtractor):
 **Solution Options**:
 
 **Option A: Skip context lineage** (simpler)
+
 - Only track lineage to atomic warehouse fields
 - Document limitation: "Context fields not tracked"
 
 **Option B: Track context lineage** (comprehensive)
+
 - Create separate warehouse table URNs for each context table
 - Example: `warehouse.events_contexts_nl_basjes_yauaa_context_1`
 - Link enrichment outputs to these context tables
@@ -406,6 +421,7 @@ src/datahub/ingestion/source/snowplow/
 ### Implementation Phases
 
 **Phase 1: Foundation (Infrastructure)**
+
 - [ ] Create `enrichment_lineage/` package structure
 - [ ] Implement `EnrichmentLineageExtractor` base class
 - [ ] Implement `EnrichmentLineageRegistry`
@@ -413,6 +429,7 @@ src/datahub/ingestion/source/snowplow/
 - [ ] Add tests for registry and base infrastructure
 
 **Phase 2: Simple Extractors (Static Mappings)**
+
 - [ ] Implement IP Lookup extractor
 - [ ] Implement UA Parser extractor
 - [ ] Implement Referer Parser extractor
@@ -420,12 +437,14 @@ src/datahub/ingestion/source/snowplow/
 - [ ] Add tests for each extractor
 
 **Phase 3: Configurable Extractors**
+
 - [ ] Implement Campaign Attribution extractor (with config parsing)
 - [ ] Implement Event Fingerprint extractor (with excludeParameters)
 - [ ] Implement Cross Navigation extractor
 - [ ] Add tests with different configurations
 
 **Phase 4: Complex Extractors**
+
 - [ ] Implement YAUAA extractor (context output)
 - [ ] Implement IAB extractor (context output)
 - [ ] Implement Cookie Extractor (dynamic list)
@@ -433,11 +452,13 @@ src/datahub/ingestion/source/snowplow/
 - [ ] Add tests for dynamic behavior
 
 **Phase 5: In-Place Transformation Extractors**
+
 - [ ] Implement IP Anonymization extractor
 - [ ] Implement PII Pseudonymization extractor (with POJO + JSON field parsing)
 - [ ] Add tests for in-place transformations
 
 **Phase 6: Integration & Testing**
+
 - [ ] Update integration tests with field lineage assertions
 - [ ] Update golden files with fine-grained lineage
 - [ ] Document limitations (custom enrichments, contexts)
@@ -446,18 +467,21 @@ src/datahub/ingestion/source/snowplow/
 ### Testing Strategy
 
 **Unit Tests** (`tests/unit/snowplow/enrichment_lineage/`):
+
 - Test each extractor independently
 - Test with various configurations
 - Test edge cases (missing config, empty lists, etc.)
 - Test registry registration and lookup
 
 **Integration Tests** (`tests/integration/snowplow/`):
+
 - Add `test_snowplow_enrichment_lineage` test
 - Verify fine-grained lineage in golden file
 - Test with multiple enrichments enabled
 - Test with different configurations
 
 **Test Fixtures**:
+
 - Create `enrichment_configs/` directory with sample configs
 - One JSON file per enrichment type
 - Include edge cases (empty lists, all options enabled, etc.)
@@ -473,10 +497,10 @@ source:
     # ... existing config ...
 
     # NEW: Fine-grained lineage options
-    extract_enrichment_lineage: true  # Enable/disable column-level lineage
+    extract_enrichment_lineage: true # Enable/disable column-level lineage
     enrichment_lineage_options:
-      include_contexts: false  # Track context fields (future)
-      skip_custom_enrichments: true  # Skip JS/SQL/API lineage
+      include_contexts: false # Track context fields (future)
+      skip_custom_enrichments: true # Skip JS/SQL/API lineage
 ```
 
 ### Documentation Requirements
@@ -496,12 +520,14 @@ source:
 ### Known Limitations & Future Work
 
 **Current Limitations**:
+
 1. **Context lineage**: Not tracked in initial implementation (only atomic fields)
 2. **Custom enrichments**: JavaScript/SQL/API enrichments have no lineage (unparseable)
 3. **Warehouse schema**: Assumes standard Snowplow warehouse schema
 4. **Multiple warehouses**: Only tracks one warehouse destination per pipeline
 
 **Future Enhancements**:
+
 1. **Context table lineage**: Track lineage to warehouse context tables
 2. **Multi-warehouse support**: Handle multiple destination warehouses
 3. **Enrichment dependencies**: Track when one enrichment uses another's output
@@ -511,17 +537,20 @@ source:
 ### Success Criteria
 
 ✅ **Phase 1-2 Complete** when:
+
 - Infrastructure in place (base classes, registry)
 - 4+ simple extractors implemented (IP Lookup, UA Parser, Referer, Currency)
 - Tests passing for all extractors
 - Integration test shows lineage in output
 
 ✅ **Phase 3-4 Complete** when:
+
 - All configurable extractors implemented (Campaign Attribution, Event Fingerprint)
 - Complex extractors implemented (YAUAA, IAB, Cookie, Header)
 - Configuration parsing tested thoroughly
 
 ✅ **Phase 5-6 Complete** when:
+
 - All enrichment types supported (16 total)
 - Golden files updated with lineage
 - Documentation complete
@@ -530,6 +559,7 @@ source:
 ### Reference Implementation
 
 Use these DataHub connectors as reference for fine-grained lineage:
+
 - `dbt` - Field-level lineage from SQL transformations
 - `powerbi` - Field mappings in dashboards
 - `tableau` - Column lineage through calculations
@@ -538,6 +568,7 @@ Use these DataHub connectors as reference for fine-grained lineage:
 ## API Endpoints
 
 ### ✅ Available and Implemented:
+
 - `POST /organizations/{orgId}/credentials/v3/token` - Authentication (GET with headers)
 - `GET /organizations/{orgId}/data-structures/v2` - List data structures
 - `GET /organizations/{orgId}/data-structures/v2/{hash}` - Get data structure details
@@ -548,14 +579,17 @@ Use these DataHub connectors as reference for fine-grained lineage:
 - `GET /organizations/{orgId}/data-products/v2` - List data products (optional, handles 404)
 
 ### 🚧 Adding:
+
 - `GET /organizations/{orgId}/pipelines/v1` - List pipelines
 
 ### ❌ Not Available:
+
 - Enrichments API - Not yet available, requires UI/support team
 
 ## Testing Strategy
 
 ### Integration Tests:
+
 1. `test_snowplow_ingest` - Data structures extraction
 2. `test_snowplow_event_specs_and_tracking_scenarios` - Event specs with lineage
 3. `test_snowplow_data_products` - Data products with ownership
@@ -563,12 +597,14 @@ Use these DataHub connectors as reference for fine-grained lineage:
 5. **New**: `test_snowplow_pipelines` - Pipeline extraction as DataFlow
 
 ### Golden Files:
+
 - `snowplow_mces_golden.json` - Data structures
 - `snowplow_event_specs_golden.json` - Event specs and tracking scenarios
 - `snowplow_data_products_golden.json` - Data products
 - **New**: `snowplow_pipelines_golden.json` - Pipelines as DataFlow
 
 ### Test Fixtures:
+
 - `data_structures_response.json`
 - `event_specifications_response.json`
 - `tracking_scenarios_response.json`
@@ -582,9 +618,11 @@ Not applicable - Snowplow uses JSON Schema definitions rather than traditional S
 ## Implementation Notes
 
 ### Base Class:
+
 - `StatefulIngestionSourceBase` - For REST API sources with stateful ingestion support
 
 ### Key Patterns:
+
 1. **Wrapped Response Format**: Most endpoints return `{data: [...], includes: {...}, errors: []}`
 2. **404 Handling**: Optional features (tracking scenarios, data products) may return 404
 3. **User Caching**: Cache user lookups to avoid repeated API calls for same user
@@ -592,6 +630,7 @@ Not applicable - Snowplow uses JSON Schema definitions rather than traditional S
 5. **Separate Client**: `SnowplowClient` class handles all API communication
 
 ### Pipeline Implementation:
+
 1. **DataFlow Entity**: Use `DataFlowInfoClass` and `DataFlowPropertiesClass`
 2. **Status Mapping**: Map Snowplow status (ready, starting, stopping) to DataHub status
 3. **Configuration**: Store pipeline config as custom properties
@@ -608,6 +647,7 @@ Not applicable - Snowplow uses JSON Schema definitions rather than traditional S
 ## Reference Sources in DataHub
 
 Similar REST API connectors:
+
 - `looker` - REST API with authentication
 - `tableau` - REST API with entity hierarchies
 - `mode` - REST API with DataFlow/DataJob patterns
@@ -634,15 +674,18 @@ Similar REST API connectors:
 ## Future Enhancements
 
 1. **Enrichments as DataJobs**: When API becomes available
+
    - Extract enrichment configurations
    - Model as DataJob entities
    - Link to parent pipeline DataFlow
    - Create lineage: Input → Enrichment → Output
 
 2. **Workspace Containers**: If hierarchical organization needed
+
    - Organization → Workspace → Pipeline
 
 3. **Source Applications**: Referenced by data products and event specs
+
    - Could be extracted as separate entities
    - Available in `includes.sourceApplications`
 
@@ -661,6 +704,7 @@ Similar REST API connectors:
 **Implementation**:
 
 1. **URN Generation** (`_make_schema_dataset_urn`):
+
    ```python
    def _make_schema_dataset_urn(self, vendor: str, name: str, version: str) -> str:
        if self.config.include_version_in_urn:
@@ -685,18 +729,21 @@ Similar REST API connectors:
    ```
 
 **URN Changes**:
+
 - Old: `urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started.1-1-0,PROD)`
 - New: `urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)`
 
 **Configuration**:
+
 ```yaml
 source:
   type: snowplow
   config:
-    include_version_in_urn: false  # Recommended: version in properties
+    include_version_in_urn: false # Recommended: version in properties
 ```
 
 **Benefits**:
+
 - Single dataset per schema (not per version)
 - Version history visible in one place
 - Lineage preserved across schema versions
@@ -713,22 +760,24 @@ source:
 **Architecture**:
 
 Created new `field_tagging.py` module with:
+
 1. `FieldTaggingConfig` - Configuration class
 2. `FieldTagger` - Tag generation logic
 3. `FieldTagContext` - Context dataclass for tag generation
 
 **Tag Types**:
 
-| Tag Type | Example | Description |
-|----------|---------|-------------|
-| Schema Version | `snowplow_schema_v1-0-0` | Track which version added/modified field |
-| Event Type | `snowplow_event_checkout` | Group fields by event category |
-| Data Class | `PII`, `Sensitive` | From Snowplow's PII enrichment flags |
-| Authorship | `added_by_ryan_smith` | Who deployed the field (full name) |
+| Tag Type       | Example                   | Description                              |
+| -------------- | ------------------------- | ---------------------------------------- |
+| Schema Version | `snowplow_schema_v1-0-0`  | Track which version added/modified field |
+| Event Type     | `snowplow_event_checkout` | Group fields by event category           |
+| Data Class     | `PII`, `Sensitive`        | From Snowplow's PII enrichment flags     |
+| Authorship     | `added_by_ryan_smith`     | Who deployed the field (full name)       |
 
 **Implementation**:
 
 1. **Field Tagging Module** (`field_tagging.py`):
+
    ```python
    @dataclass
    class FieldTagContext:
@@ -765,6 +814,7 @@ Created new `field_tagging.py` module with:
    ```
 
 2. **Integration** (`snowplow.py`):
+
    ```python
    # Initialize in __init__
    self.field_tagger = FieldTagger(self.config.field_tagging)
@@ -787,6 +837,7 @@ Created new `field_tagging.py` module with:
 **PII Detection Strategy**:
 
 **Tier 1: PII Enrichment** (most accurate):
+
 ```python
 # Extract from enrichment configuration
 for enrichment in enrichments:
@@ -796,6 +847,7 @@ for enrichment in enrichments:
 ```
 
 **Tier 2: Pattern Matching** (fallback):
+
 ```python
 pii_field_patterns: List[str] = [
     "email", "user_id", "ip_address", "phone", "ssn",
@@ -845,20 +897,21 @@ source:
   "fieldPath": "user_id",
   "nullable": true,
   "description": "User identifier",
-  "type": {"type": {"com.linkedin.schema.StringType": {}}},
+  "type": { "type": { "com.linkedin.schema.StringType": {} } },
   "nativeDataType": "string",
   "globalTags": {
     "tags": [
-      {"tag": "urn:li:tag:PII"},
-      {"tag": "urn:li:tag:added_by_alice"},
-      {"tag": "urn:li:tag:snowplow_event_product"},
-      {"tag": "urn:li:tag:snowplow_schema_v1-0-0"}
+      { "tag": "urn:li:tag:PII" },
+      { "tag": "urn:li:tag:added_by_alice" },
+      { "tag": "urn:li:tag:snowplow_event_product" },
+      { "tag": "urn:li:tag:snowplow_schema_v1-0-0" }
     ]
   }
 }
 ```
 
 **Benefits**:
+
 - Automatic field categorization (no manual tagging)
 - PII compliance visibility
 - Track field evolution across versions
@@ -866,6 +919,7 @@ source:
 - Fully configurable (enable/disable, custom patterns)
 
 **Files Modified**:
+
 - `src/datahub/ingestion/source/snowplow/field_tagging.py` - NEW (137 lines)
 - `tests/unit/snowplow/test_field_tagging.py` - NEW (305 lines, 15 tests)
 - `src/datahub/ingestion/source/snowplow/snowplow_config.py` - +87 lines
@@ -873,11 +927,13 @@ source:
 - All integration test golden files - Updated with field tags
 
 **Testing**:
+
 - 15 new unit tests covering all tag generation logic
 - All 6 integration tests updated and passing
 - 100% test pass rate (95 total tests)
 
 **Performance**:
+
 - PII fields cached per ingestion run (one API call per pipeline)
 - Minimal overhead (~2% increase in ingestion time)
 - Scales linearly with field count

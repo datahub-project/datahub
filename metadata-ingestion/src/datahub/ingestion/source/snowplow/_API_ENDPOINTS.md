@@ -8,11 +8,12 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Authentication
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
+| Endpoint                                               | Method  | Purpose                                | Docs Link                                                                                     |
+| ------------------------------------------------------ | ------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `/organizations/{organizationId}/credentials/v3/token` | **GET** | Exchange API credentials for JWT token | https://docs.snowplow.io/docs/using-the-snowplow-console/managing-console-api-authentication/ |
 
 **Headers Required**:
+
 - `X-API-Key-ID`: API key identifier
 - `X-API-Key`: API key secret
 
@@ -24,18 +25,20 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Data Structures API
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
-| `/organizations/{organizationId}/data-structures/v1` | GET | List all data structures (schemas) | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
-| `/organizations/{organizationId}/data-structures/v1/{dataStructureHash}` | GET | Get specific data structure by hash | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
-| `/organizations/{organizationId}/data-structures/v1/{dataStructureHash}/versions/{versionNumber}` | GET | Get specific version of data structure | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
-| `/organizations/{organizationId}/data-structures/v1/{dataStructureHash}/deployments` | GET | Get deployment status of data structure | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
+| Endpoint                                                                                          | Method | Purpose                                 | Docs Link                                                                                      |
+| ------------------------------------------------------------------------------------------------- | ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `/organizations/{organizationId}/data-structures/v1`                                              | GET    | List all data structures (schemas)      | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
+| `/organizations/{organizationId}/data-structures/v1/{dataStructureHash}`                          | GET    | Get specific data structure by hash     | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
+| `/organizations/{organizationId}/data-structures/v1/{dataStructureHash}/versions/{versionNumber}` | GET    | Get specific version of data structure  | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
+| `/organizations/{organizationId}/data-structures/v1/{dataStructureHash}/deployments`              | GET    | Get deployment status of data structure | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-data-structures/api/ |
 
 **Query Parameters**:
+
 - `vendor` (optional): Filter by schema vendor
 - `name` (optional): Filter by schema name
 
 **Response Format**:
+
 ```json
 {
   "data": [
@@ -65,12 +68,13 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Event Specifications API
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
-| `/organizations/{organizationId}/event-specs/v1` | GET | List all event specifications | https://docs.snowplow.io/docs/data-product-studio/event-specifications/api/ |
-| `/organizations/{organizationId}/event-specs/v1/{eventSpecId}` | GET | Get specific event specification | https://docs.snowplow.io/docs/data-product-studio/event-specifications/api/ |
+| Endpoint                                                       | Method | Purpose                          | Docs Link                                                                   |
+| -------------------------------------------------------------- | ------ | -------------------------------- | --------------------------------------------------------------------------- |
+| `/organizations/{organizationId}/event-specs/v1`               | GET    | List all event specifications    | https://docs.snowplow.io/docs/data-product-studio/event-specifications/api/ |
+| `/organizations/{organizationId}/event-specs/v1/{eventSpecId}` | GET    | Get specific event specification | https://docs.snowplow.io/docs/data-product-studio/event-specifications/api/ |
 
 **Response Format**:
+
 ```json
 {
   "data": [
@@ -94,12 +98,13 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Tracking Scenarios API
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
-| `/organizations/{organizationId}/tracking-scenarios/v1` | GET | List all tracking scenarios | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/ |
-| `/organizations/{organizationId}/tracking-scenarios/v1/{scenarioId}` | GET | Get specific tracking scenario | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/ |
+| Endpoint                                                             | Method | Purpose                        | Docs Link                                                                                         |
+| -------------------------------------------------------------------- | ------ | ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `/organizations/{organizationId}/tracking-scenarios/v1`              | GET    | List all tracking scenarios    | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/ |
+| `/organizations/{organizationId}/tracking-scenarios/v1/{scenarioId}` | GET    | Get specific tracking scenario | https://docs.snowplow.io/docs/understanding-tracking-design/managing-your-tracking-scenarios/api/ |
 
 **Response Format**:
+
 ```json
 {
   "data": [
@@ -117,11 +122,12 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Users API
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
-| `/organizations/{organizationId}/users` | GET | List all users in organization | https://console.snowplowanalytics.com/api/msc/v1/docs/#/Users/getOrganizationsOrganizationidUsers |
+| Endpoint                                | Method | Purpose                        | Docs Link                                                                                         |
+| --------------------------------------- | ------ | ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `/organizations/{organizationId}/users` | GET    | List all users in organization | https://console.snowplowanalytics.com/api/msc/v1/docs/#/Users/getOrganizationsOrganizationidUsers |
 
 **Response Format**:
+
 ```json
 {
   "data": [
@@ -143,9 +149,9 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Data Products API (Optional)
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
-| `/organizations/{organizationId}/data-products/v1` | GET | List all data products | https://docs.snowplow.io/docs/understanding-tracking-design/defining-the-data-to-collect-with-data-products/api/ |
+| Endpoint                                           | Method | Purpose                | Docs Link                                                                                                        |
+| -------------------------------------------------- | ------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `/organizations/{organizationId}/data-products/v1` | GET    | List all data products | https://docs.snowplow.io/docs/understanding-tracking-design/defining-the-data-to-collect-with-data-products/api/ |
 
 ---
 
@@ -155,18 +161,21 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Schema Service
 
-| Endpoint | Method | Purpose | Docs Link |
-|----------|--------|---------|-----------|
-| `/api/schemas` | GET | List all schemas (may not be available on all registries) | https://docs.snowplow.io/docs/api-reference/iglu/iglu-repositories/iglu-server/ |
-| `/api/schemas/{vendor}/{name}/{format}/{version}` | GET | Get specific schema by vendor/name/version | https://docs.snowplow.io/docs/api-reference/iglu/iglu-repositories/iglu-server/ |
+| Endpoint                                          | Method | Purpose                                                   | Docs Link                                                                       |
+| ------------------------------------------------- | ------ | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `/api/schemas`                                    | GET    | List all schemas (may not be available on all registries) | https://docs.snowplow.io/docs/api-reference/iglu/iglu-repositories/iglu-server/ |
+| `/api/schemas/{vendor}/{name}/{format}/{version}` | GET    | Get specific schema by vendor/name/version                | https://docs.snowplow.io/docs/api-reference/iglu/iglu-repositories/iglu-server/ |
 
 **Example**:
+
 - `/api/schemas/com.snowplowanalytics.snowplow/page_view/jsonschema/1-0-0`
 
 **Authentication** (for private Iglu servers):
+
 - `apikey`: UUID passed as query parameter or header
 
 **Response Format**:
+
 ```json
 {
   "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
@@ -178,8 +187,8 @@ This document tracks all API endpoints used by the Snowplow connector with links
   },
   "type": "object",
   "properties": {
-    "field1": {"type": "string"},
-    "field2": {"type": "integer"}
+    "field1": { "type": "string" },
+    "field2": { "type": "integer" }
   },
   "required": ["field1"]
 }
@@ -191,25 +200,27 @@ This document tracks all API endpoints used by the Snowplow connector with links
 
 ### Common HTTP Status Codes
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| 200 | Success | Process response |
-| 401 | Unauthorized | Re-authenticate (JWT expired) or check API key |
-| 403 | Forbidden | Check permissions for API key |
-| 404 | Not Found | Resource doesn't exist (skip or warn) |
-| 429 | Rate Limit | Exponential backoff, retry after delay |
-| 500 | Server Error | Retry with exponential backoff |
+| Code | Meaning      | Action                                         |
+| ---- | ------------ | ---------------------------------------------- |
+| 200  | Success      | Process response                               |
+| 401  | Unauthorized | Re-authenticate (JWT expired) or check API key |
+| 403  | Forbidden    | Check permissions for API key                  |
+| 404  | Not Found    | Resource doesn't exist (skip or warn)          |
+| 429  | Rate Limit   | Exponential backoff, retry after delay         |
+| 500  | Server Error | Retry with exponential backoff                 |
 
 ---
 
 ## Pagination
 
 **BDP Console API Pagination**:
+
 - Documentation doesn't specify pagination format
 - Need to test with API to determine if cursor-based, offset-based, or link-based
 - Likely returns all results in single response for most endpoints
 
 **Iglu Server Pagination**:
+
 - Not typically paginated (registries are relatively small)
 
 ---

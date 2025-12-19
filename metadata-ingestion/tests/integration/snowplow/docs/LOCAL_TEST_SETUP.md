@@ -5,6 +5,7 @@ This directory contains everything needed to run Snowplow integration tests loca
 ## Overview
 
 **Option B** provides a lightweight local development environment using:
+
 - **Mock API responses** from JSON fixtures
 - **DuckDB database** for warehouse event data
 - **Optional mock BDP server** for comprehensive testing
@@ -37,6 +38,7 @@ duckdb snowplow_test.duckdb "SELECT COUNT(*) FROM snowplow.events"
 ```
 
 This creates `snowplow_test.duckdb` with:
+
 - `snowplow.events` table (atomic events)
 - 100 sample events (checkout_started, product_viewed)
 - User context entities
@@ -79,16 +81,19 @@ tests/integration/snowplow/
 **Purpose**: Create a local warehouse with Snowplow event data for testing lineage.
 
 **Create Database:**
+
 ```bash
 python setup_duckdb.py --db-path snowplow_test.duckdb --event-count 100
 ```
 
 **Options:**
+
 - `--db-path`: Database file path (default: `snowplow_test.duckdb`)
 - `--event-count`: Number of sample events (default: 100)
 - `--recreate`: Delete and recreate database
 
 **Database Schema:**
+
 ```sql
 snowplow.events (
     -- Base Snowplow columns
@@ -119,6 +124,7 @@ snowplow.events (
 ```
 
 **Query Examples:**
+
 ```bash
 # Count events by type
 duckdb snowplow_test.duckdb "SELECT event, COUNT(*) FROM snowplow.events GROUP BY event"
@@ -135,11 +141,13 @@ duckdb snowplow_test.duckdb "SELECT user_id, contexts_com_acme_user_context_1 FR
 **Purpose**: Run a local HTTP server that mimics Snowplow BDP Console API.
 
 **Start Server:**
+
 ```bash
 python mock_bdp_server.py --port 8081 --debug
 ```
 
 **Endpoints:**
+
 - `GET /` - API documentation
 - `GET /health` - Health check
 - `GET /organizations/{orgId}/credentials/v3/token` - JWT token generation
@@ -148,6 +156,7 @@ python mock_bdp_server.py --port 8081 --debug
 - `GET /organizations/{orgId}/data-products/v1` - List data products
 
 **Authentication:**
+
 ```bash
 # These credentials work with the mock server
 X-Api-Key-Id: test-key-id
@@ -155,6 +164,7 @@ X-Api-Key: test-secret
 ```
 
 **Test Server:**
+
 ```bash
 # Health check
 curl http://localhost:8081/health
@@ -215,6 +225,7 @@ datahub ingest -c tests/integration/snowplow/snowplow_full_local.yml
 ### data_structures_response.json
 
 Simple fixture for basic testing:
+
 - 2 schemas: `page_view` (event), `user_context` (entity)
 - No ownership data
 - Basic field definitions
@@ -222,12 +233,14 @@ Simple fixture for basic testing:
 ### data_structures_with_ownership.json
 
 Enhanced fixture with ownership:
+
 - 3 schemas: `checkout_started`, `product_viewed`, `user_context`
 - Includes `deployments` array with `initiator` (for ownership)
 - Multiple schema versions (1-0-0, 1-1-0) for evolution testing
 - Custom metadata in `meta.customData`
 
 **Ownership Extraction:**
+
 - `createdBy`: Oldest deployment's `initiator`
 - `modifiedBy`: Newest deployment's `initiator`
 - Field authorship: Derived from version history
@@ -251,7 +264,7 @@ Edit `fixtures/data_structures_with_ownership.json`:
       "meta": {
         "hidden": false,
         "schemaType": "event",
-        "customData": {"team": "new-team"}
+        "customData": { "team": "new-team" }
       },
       "deployments": [
         {
@@ -267,7 +280,7 @@ Edit `fixtures/data_structures_with_ownership.json`:
           "version": "1-0-0"
         },
         "properties": {
-          "field1": {"type": "string"}
+          "field1": { "type": "string" }
         }
       }
     }
@@ -278,6 +291,7 @@ Edit `fixtures/data_structures_with_ownership.json`:
 ### Modify DuckDB Event Data
 
 Edit `setup_duckdb.py`:
+
 - Change `generate_sample_events()` function
 - Add new event types
 - Modify field distributions
@@ -286,6 +300,7 @@ Edit `setup_duckdb.py`:
 ### Add Mock API Endpoints
 
 Edit `mock_bdp_server.py`:
+
 - Add new Flask routes
 - Create new fixture files
 - Implement new API behaviors
@@ -352,18 +367,19 @@ pytest tests/integration/snowplow/test_snowplow.py -vv
 
 ## Comparison: Option A vs Option B
 
-| Feature | Option A (BDP Cloud) | Option B (Local) |
-|---------|----------------------|------------------|
-| Setup Time | 1-2 hours | 5 minutes |
-| External Dependencies | BDP account, Warehouse | None |
-| Cost | Requires paid/trial account | Free |
-| Realism | Production-like API | Mocked responses |
-| Offline Testing | ❌ No | ✅ Yes |
-| Best For | Final validation | Development & CI |
+| Feature               | Option A (BDP Cloud)        | Option B (Local) |
+| --------------------- | --------------------------- | ---------------- |
+| Setup Time            | 1-2 hours                   | 5 minutes        |
+| External Dependencies | BDP account, Warehouse      | None             |
+| Cost                  | Requires paid/trial account | Free             |
+| Realism               | Production-like API         | Mocked responses |
+| Offline Testing       | ❌ No                       | ✅ Yes           |
+| Best For              | Final validation            | Development & CI |
 
 ## Summary
 
 Option B provides a fast, self-contained testing environment ideal for:
+
 - ✅ Rapid development iterations
 - ✅ CI/CD pipelines
 - ✅ Offline development

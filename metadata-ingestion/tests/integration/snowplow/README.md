@@ -56,18 +56,21 @@ tests/integration/snowplow/
 ## Running Tests
 
 ### Run all integration tests:
+
 ```bash
 cd /path/to/datahub/metadata-ingestion
 python -m pytest tests/integration/snowplow/ -v
 ```
 
 ### Run specific test file:
+
 ```bash
 python -m pytest tests/integration/snowplow/test_snowplow.py -v
 python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 ```
 
 ### Run performance tests only:
+
 ```bash
 python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 ```
@@ -75,6 +78,7 @@ python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 ## Test Categories
 
 ### Main Integration Tests (`test_snowplow.py`)
+
 - **test_snowplow_ingest**: Basic data structure ingestion with mocked API
 - **test_snowplow_event_specs_and_tracking_scenarios**: Event specifications and tracking scenarios
 - **test_snowplow_data_products**: Data products extraction
@@ -84,6 +88,7 @@ python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 - **test_snowplow_config_validation**: Configuration validation
 
 ### Performance Tests (`test_snowplow_performance.py`)
+
 - **test_parallel_fetching_performance**: Parallel vs sequential deployment fetching
 - **test_caching_reduces_api_calls**: Instance-level caching effectiveness
 - **test_event_schema_urn_caching**: URN extraction caching
@@ -93,15 +98,18 @@ python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 ## Test Dependencies
 
 ### Required for all tests:
+
 - pytest
 - freezegun (for time mocking)
 - datahub ingestion framework
 
 ### Required for Iglu tests only:
+
 - Docker and Docker Compose
 - Iglu Server (started via `setup/docker-compose.iglu.yml`)
 
 ### Setup Iglu Server for Iglu tests:
+
 ```bash
 cd tests/integration/snowplow/setup
 docker compose -f docker-compose.iglu.yml up -d
@@ -109,6 +117,7 @@ python setup_iglu.py
 ```
 
 ### Teardown Iglu Server:
+
 ```bash
 cd tests/integration/snowplow/setup
 docker compose -f docker-compose.iglu.yml down -v

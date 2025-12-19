@@ -50,6 +50,7 @@ echo "API Key: ${SNOWPLOW_API_KEY:0:10}..." # Show first 10 chars only
 ```
 
 **Security Notes**:
+
 - ❌ Never commit credentials to git
 - ❌ Never hardcode credentials in config files
 - ✅ Always use environment variables
@@ -69,6 +70,7 @@ datahub ingest -c tests/integration/snowplow/test_real_bdp.yml --dry-run --previ
 ```
 
 **Expected Output**:
+
 ```
 ✅ Successfully authenticated with Snowplow BDP Console API
 ✅ Fetching users from Snowplow BDP
@@ -77,6 +79,7 @@ datahub ingest -c tests/integration/snowplow/test_real_bdp.yml --dry-run --previ
 ```
 
 **If you see errors**:
+
 - `401 Unauthorized` → Check API credentials
 - `404 Not Found` → Verify organization ID
 - `Connection refused` → Check network/firewall
@@ -95,6 +98,7 @@ datahub ingest -c tests/integration/snowplow/test_real_bdp.yml --dry-run
 ```
 
 Review the output:
+
 - How many schemas found?
 - Are ownership aspects included?
 - Any warnings or errors?
@@ -112,6 +116,7 @@ datahub ingest -c tests/integration/snowplow/test_real_bdp.yml
 ```
 
 **What to Watch For**:
+
 - ✅ Authentication successful
 - ✅ Users cached (should see count > 0)
 - ✅ Data structures fetched
@@ -181,13 +186,16 @@ EOF
 ### Issue: No ownership data appears
 
 **Check**:
+
 1. Does your BDP deployment have deployment history?
+
    - Log into BDP Console
    - Go to Data Structures
    - Click on a schema → Version History
    - Verify deployments exist with initiator information
 
 2. Are users being fetched?
+
    - Look for log line: `Cached N users for ownership resolution`
    - If N=0, check Users API access permissions
 
@@ -198,7 +206,9 @@ EOF
 ### Issue: Wrong users appearing as owners
 
 **Possible causes**:
+
 1. **Name collisions**: Multiple users with same name
+
    - Solution: BDP should include `initiatorId` for unique resolution
    - Check logs for warnings about ambiguous names
 
@@ -208,6 +218,7 @@ EOF
 ### Issue: Missing some schemas
 
 **Check**:
+
 1. Schema filters in recipe (schema_pattern)
 2. Hidden schemas (set `include_hidden_schemas: true` if needed)
 3. Schema types (check `schema_types_to_extract: ["event", "entity"]`)
