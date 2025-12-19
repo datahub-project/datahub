@@ -12,7 +12,7 @@ from datahub.ingestion.graph.filters import (
     SearchFilterRule,
     generate_filter,
 )
-from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
+from datahub.metadata.urns import DataPlatformUrn, DocumentUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters, compute_entity_types
 from datahub.sdk.search_filters import (
@@ -773,3 +773,40 @@ def test_get_urns_with_skip_cache() -> None:
                 "includeSoftDeleted": None,
             },
         )
+
+
+def test_get_document_urns() -> None:
+    """Test searching for Document entities."""
+    graph = MockDataHubGraph()
+
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        result_urns = ["urn:li:document:tutorial-1", "urn:li:document:faq-2"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
+
+        client = DataHubClient(graph=graph)
+        urns = client.search.get_urns(
+            query="getting started",
+            filter=F.entity_type("document"),
+        )
+        urns_list = list(urns)
+
+        # Verify we get DocumentUrn instances back
+        assert len(urns_list) == 2
+        assert all(isinstance(urn, DocumentUrn) for urn in urns_list)
+        assert str(urns_list[0]) == "urn:li:document:tutorial-1"
+        assert str(urns_list[1]) == "urn:li:document:faq-2"
+
+        # Verify the GraphQL call used correct entity type
+        assert mock_execute_graphql.call_count == 1
+        call_vars = mock_execute_graphql.call_args.kwargs.get(
+            "variables"
+        ) or mock_execute_graphql.call_args[1].get("variables")
+        if call_vars is None:
+            call_vars = mock_execute_graphql.call_args[0][1]
+        assert call_vars["types"] == ["DOCUMENT"]
+        assert call_vars["query"] == "getting started"
