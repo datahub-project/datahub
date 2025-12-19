@@ -82,7 +82,7 @@ class CustomOperator(BaseOperator):
 with DAG(
     "custom_operator_sql_parsing",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
 ) as dag:
     query = """
