@@ -133,7 +133,9 @@ def test_athena_lineage_valid_three_level_hierarchy(athena_lineage):
     )
 
     # Mock argument list (Tree) with region
-    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])])
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
+    )
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -160,7 +162,7 @@ def test_athena_lineage_missing_server(athena_lineage):
     )
 
     # Empty argument list (no region)
-    arg_list = Tree("arg_list", [])
+    arg_list: Tree = Tree("arg_list", [])
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -176,7 +178,9 @@ def test_athena_lineage_missing_server(athena_lineage):
 
 def test_athena_lineage_missing_identifier_accessor(athena_lineage):
     """Test Athena lineage returns empty when identifier accessor is None."""
-    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])])
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
+    )
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -196,7 +200,9 @@ def test_athena_lineage_incomplete_hierarchy_missing_database(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=None
     )
 
-    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-west-2"')])])
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-west-2"')])]
+    )
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -218,7 +224,9 @@ def test_athena_lineage_incomplete_hierarchy_missing_table(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"eu-west-1"')])])
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"eu-west-1"')])]
+    )
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -243,7 +251,9 @@ def test_athena_lineage_malformed_items_missing_name_key(athena_lineage):
         identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
     )
 
-    arg_list = Tree("arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])])
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
+    )
 
     data_access_func_detail = DataAccessFunctionDetail(
         arg_list=arg_list,
@@ -272,7 +282,9 @@ def test_athena_lineage_different_regions(athena_lineage):
             identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
         )
 
-        arg_list = Tree("arg_list", [Tree("string", [Token("STRING", f'"{region}"')])])
+        arg_list: Tree = Tree(
+            "arg_list", [Tree("string", [Token("STRING", f'"{region}"')])]
+        )
 
         data_access_func_detail = DataAccessFunctionDetail(
             arg_list=arg_list,
