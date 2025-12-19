@@ -302,6 +302,8 @@ class StandardSchemaProcessor(EntityProcessor):
         url = f"{self.iglu_central_url}/schemas/{vendor}/{name}/{format_type}/{version}"
 
         try:
+            if not url.startswith(("http://", "https://")):
+                raise ValueError("Invalid URL scheme")
             response = requests.get(url, timeout=10)
 
             if response.status_code == 200:
