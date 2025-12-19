@@ -321,6 +321,20 @@ class QueryRecorder:
             f"Recorded {len(self._recordings)} unique query(ies)"
         )
 
+    def __enter__(self) -> "QueryRecorder":
+        """Context manager entry - start recording."""
+        self.start_recording()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit - stop recording."""
+        self.stop_recording()
+
+    def __del__(self) -> None:
+        """Ensure file handle is closed on garbage collection."""
+        if self._file_handle and not self._file_handle.closed:
+            self._file_handle.close()
+
     def record(self, recording: QueryRecording) -> None:
         """Record a query and its results."""
         key = recording.get_key()
@@ -664,9 +678,9 @@ class CursorProxy:
                         else:
                             # No description, wrap in generic format
                             results = [{"row": list(row)} for row in fetched]
-            except Exception:
+            except (AttributeError, TypeError, RuntimeError) as e:
                 # Some cursors don't support fetchall after certain operations
-                pass
+                logger.debug(f"Could not fetch results: {e}")
 
             recording = QueryRecording(
                 query=query,
