@@ -3,6 +3,8 @@ import logging
 import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+import pyhive.hive
+import thrift.transport.THttpClient
 from pydantic import field_validator
 from pydantic.fields import Field
 
@@ -59,6 +61,36 @@ register_custom_type(HiveDate, DateTypeClass)
 register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
 
+
+# TODO: need to wait for fix in acryl-pyhive https://github.com/acryldata/PyHive/pull/10
+class MyFixedTCookieHttpClient(thrift.transport.THttpClient.THttpClient):
+    def flush(self):
+        cookies = None
+        if hasattr(self, "headers") and self.headers:
+            # The hasattr call maintains compatibility with older versions of
+            # thrift (<= 0.16.0), where self.headers is only initialized after
+            # the first request has been sent.
+            cookies = self.headers.get_all("Set-Cookie")
+        if cookies:
+            parsed = [cookie.split(";")[0] for cookie in cookies]
+            customHeaders = self._THttpClient__custom_headers or {}
+            if "Cookie" in customHeaders:
+                # Preserve previous cookies, if not overridden.
+                names = set([morsel.split("=")[0] for morsel in parsed])
+                parsed = [
+                    morsel
+                    for morsel in customHeaders["Cookie"].split("; ")
+                    if morsel.split("=")[0] not in names
+                ] + parsed
+            customHeaders.update({"Cookie": "; ".join(parsed)})
+            self.setCustomHeaders(customHeaders)
+            # this is the difference from current acryl-pyhive
+            del self.headers["Set-Cookie"]
+
+        super().flush()
+
+
+pyhive.hive.TCookieHttpClient = MyFixedTCookieHttpClient
 
 try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
