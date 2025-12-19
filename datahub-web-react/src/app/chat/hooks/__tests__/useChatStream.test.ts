@@ -4,7 +4,11 @@ import { vi } from 'vitest';
 
 import { useChatStream } from '@app/chat/hooks/useChatStream';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessageType } from '@types';
+import {
+    DataHubAiConversationActorType,
+    DataHubAiConversationMessageType,
+    DataHubAiConversationOriginType,
+} from '@types';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -26,6 +30,8 @@ const originalConsoleLog = console.log;
 
 describe('useChatStream', () => {
     const mockConversationUrn = 'urn:li:agentConversation:test-conversation';
+    const originType = DataHubAiConversationOriginType.IngestionUi;
+
     const mockOnMessageReceived = vi.fn();
     const mockOnStreamComplete = vi.fn();
 
@@ -50,6 +56,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -100,6 +107,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -140,6 +148,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -171,6 +180,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -219,6 +229,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -250,6 +261,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -274,6 +286,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -318,6 +331,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -367,6 +381,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -430,6 +445,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -497,6 +513,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -537,6 +554,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -578,6 +596,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -605,6 +624,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -653,6 +673,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
                 agentName: 'custom-agent',
             }),
         );
@@ -701,6 +722,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -742,6 +764,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -794,6 +817,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 
@@ -857,6 +881,7 @@ describe('useChatStream', () => {
                 conversationUrn: mockConversationUrn,
                 onMessageReceived: mockOnMessageReceived,
                 onStreamComplete: mockOnStreamComplete,
+                originType,
             }),
         );
 

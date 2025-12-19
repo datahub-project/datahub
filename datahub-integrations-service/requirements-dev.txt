@@ -1500,7 +1500,7 @@ s3transfer==0.14.0
     # via
     #   -r requirements.txt
     #   boto3
-sagemaker-mlflow==0.1.1
+sagemaker-mlflow==0.2.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)

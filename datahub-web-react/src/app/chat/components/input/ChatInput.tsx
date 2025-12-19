@@ -86,6 +86,8 @@ interface Props {
     placeholder?: string;
     isStreaming?: boolean;
     isWelcomeState?: boolean;
+    /** Auto-focus the input on mount */
+    autoFocus?: boolean;
 }
 
 export const ChatInput: React.FC<Props> = ({
@@ -96,6 +98,7 @@ export const ChatInput: React.FC<Props> = ({
     placeholder = 'Type a message...',
     isStreaming = false,
     isWelcomeState = false,
+    autoFocus = false,
 }) => {
     const [isFocused, setIsFocused] = useState(false);
     const userContext = useUserContext();
@@ -116,6 +119,16 @@ export const ChatInput: React.FC<Props> = ({
         onChange,
         onEntitySelect: () => {}, // No additional action needed
     });
+
+    // Auto-focus input on mount when autoFocus is true
+    useEffect(() => {
+        if (autoFocus) {
+            // Use requestAnimationFrame to ensure DOM is painted
+            requestAnimationFrame(() => {
+                contentEditableRef.current?.focus();
+            });
+        }
+    }, [autoFocus, contentEditableRef]);
 
     // Fetch autocomplete suggestions when query changes
     useEffect(() => {
@@ -171,12 +184,22 @@ export const ChatInput: React.FC<Props> = ({
         }
     }, [isStreaming, onStop, isSubmitDisabled, onSubmit]);
 
+    // Handle paste safely: allow default paste but guard empty selection to avoid errors
+    const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+        const selection = document.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            // Prevent errors when selection is unavailable (rare in contentEditable)
+            e.preventDefault();
+        }
+    }, []);
+
     return (
         <InputContainer>
             <ContentEditableDiv
                 ref={contentEditableRef}
                 contentEditable={!isStreaming}
                 onInput={handleInput}
+                onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => {

@@ -1,8 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 
-import analytics, { EventType as AnalyticsEventType } from '@app/analytics';
+import analytics, { EventType as AnalyticsEventType, ChatMessageIngestionScreen } from '@app/analytics';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
+import {
+    DataHubAiConversationActorType,
+    DataHubAiConversationMessage,
+    DataHubAiConversationMessageType,
+    DataHubAiConversationOriginType,
+} from '@types';
 
 export interface MessageContext {
     text: string;
@@ -20,6 +25,8 @@ interface UseChatStreamProps {
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
     agentName?: string;
+    originType: DataHubAiConversationOriginType;
+    ingestionScreen?: ChatMessageIngestionScreen;
 }
 
 const processSSELine = (
@@ -255,6 +262,8 @@ export const useChatStream = ({
     onMessageReceived,
     onStreamComplete,
     agentName,
+    originType,
+    ingestionScreen,
 }: UseChatStreamProps) => {
     const [state, setState] = useState<StreamState>({
         isStreaming: false,
@@ -263,8 +272,11 @@ export const useChatStream = ({
     });
 
     const abortControllerRef = useRef<AbortController | null>(null);
-    const messageQueueRef = useRef<{ text: string; convoUrn?: string; messageContext?: MessageContext }[]>([]);
+    const messageQueueRef = useRef<{ text: string; targetConversationUrn?: string; messageContext?: MessageContext }[]>(
+        [],
+    );
     const isProcessingRef = useRef(false);
+    const messageStartTimeRef = useRef<number | null>(null);
 
     const cleanup = useCallback(() => {
         if (abortControllerRef.current) {
@@ -279,8 +291,26 @@ export const useChatStream = ({
         cleanup();
     }, [cleanup]);
 
+    const emitResponseCompletionEvent = useCallback(
+        (targetConversationUrn?: string) => {
+            if (messageStartTimeRef.current !== null) {
+                const responseTimeSeconds = (Date.now() - messageStartTimeRef.current) / 1000;
+                analytics.event({
+                    type: AnalyticsEventType.DataHubChatResponseCompleteEvent,
+                    conversationUrn: targetConversationUrn || conversationUrn,
+                    responseTimeSeconds,
+                });
+                messageStartTimeRef.current = null;
+            }
+        },
+        [conversationUrn],
+    );
+
     const processNextMessage = useCallback(
-        async (messageText: string, convoUrn?: string, messageContext?: MessageContext) => {
+        async (messageText: string, targetConversationUrn?: string, messageContext?: MessageContext) => {
+            // Track start time when message is sent
+            messageStartTimeRef.current = Date.now();
+
             setState({
                 isStreaming: true,
                 currentMessage: null,
@@ -296,7 +326,7 @@ export const useChatStream = ({
                     agentName?: string;
                     context?: MessageContext;
                 } = {
-                    conversationUrn: convoUrn || conversationUrn,
+                    conversationUrn: targetConversationUrn || conversationUrn,
                     text: messageText,
                 };
 
@@ -341,6 +371,9 @@ export const useChatStream = ({
                     onMessageReceived(finalMessage);
                 }
 
+                // Emit analytics event with response time
+                emitResponseCompletionEvent(targetConversationUrn);
+
                 if (onStreamComplete) {
                     onStreamComplete();
                 }
@@ -357,6 +390,8 @@ export const useChatStream = ({
                     error.name === 'AbortError' || (error.message && error.message.includes('Connection interrupted'));
 
                 if (isExpectedDisconnect) {
+                    // Reset start time on expected disconnect (user stopped streaming)
+                    messageStartTimeRef.current = null;
                     setState({
                         isStreaming: false,
                         currentMessage: null,
@@ -381,6 +416,8 @@ export const useChatStream = ({
                         errorType: error.name || 'UnknownError',
                         statusCode: error.status || undefined,
                         messagePreview: messageText.substring(0, 200), // First 200 characters of message that caused error
+                        originType,
+                        ingestionScreen,
                     });
 
                     // Create an error message to display in the chat
@@ -404,14 +441,26 @@ export const useChatStream = ({
                         error: error.message || 'Failed to send message',
                     });
                 }
+
+                // Reset start time on error
+                messageStartTimeRef.current = null;
             }
         },
-        [conversationUrn, onMessageReceived, onStreamComplete, agentName],
+        [
+            conversationUrn,
+            onMessageReceived,
+            onStreamComplete,
+            agentName,
+            emitResponseCompletionEvent,
+            setState,
+            originType,
+            ingestionScreen,
+        ],
     );
 
     const sendMessage = useCallback(
-        async (text: string, convoUrn?: string, messageContext?: MessageContext) => {
-            messageQueueRef.current.push({ text, convoUrn, messageContext });
+        async (text: string, targetConversationUrn?: string, messageContext?: MessageContext) => {
+            messageQueueRef.current.push({ text, targetConversationUrn, messageContext });
 
             if (isProcessingRef.current) {
                 return;
@@ -426,7 +475,7 @@ export const useChatStream = ({
                     return;
                 }
 
-                await processNextMessage(nextItem.text, nextItem.convoUrn, nextItem.messageContext);
+                await processNextMessage(nextItem.text, nextItem.targetConversationUrn, nextItem.messageContext);
                 await processQueue();
             };
 

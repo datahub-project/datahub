@@ -889,7 +889,7 @@ ruamel-yaml==0.17.17
     # via acryl-datahub
 s3transfer==0.14.0
     # via boto3
-sagemaker-mlflow==0.1.1
+sagemaker-mlflow==0.2.0
     # via acryl-datahub-integrations
 schwifty==2025.9.0
     # via

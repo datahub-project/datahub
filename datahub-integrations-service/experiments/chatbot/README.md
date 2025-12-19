@@ -8,7 +8,7 @@
    ```bash
    AWS_PROFILE=<profile corresponding to your Acryl_Developer_Engineer role>
    DATAHUB_TELEMETRY_ENABLED=false
-   MLFLOW_TRACKING_URI=arn:aws:sagemaker:us-west-2:795586375822:mlflow-tracking-server/prod-mlflow-tracking-server-01
+   MLFLOW_TRACKING_URI=arn:aws:sagemaker:us-west-2:795586375822:mlflow-app/app-M6WOXLBRELLV
    MLFLOW_TRACKING_AWS_SIGV4=true
    MLFLOW_S3_UPLOAD_EXTRA_ARGS={"ServerSideEncryption": "AES256"}
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false

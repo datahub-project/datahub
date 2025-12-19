@@ -8,7 +8,11 @@ import { useChatStream } from '@app/chat/hooks/useChatStream';
 import { createUserMessage, emitMessageAnalytics } from '@app/chat/utils/chatMessageUtils';
 import { groupMessages } from '@app/chat/utils/messageGrouping';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessageType } from '@types';
+import {
+    DataHubAiConversationActorType,
+    DataHubAiConversationMessageType,
+    DataHubAiConversationOriginType,
+} from '@types';
 import type { DataHubAiConversationMessage } from '@types';
 
 // Mock dependencies
@@ -33,6 +37,7 @@ const mockGroupMessages = groupMessages as MockedFunction<typeof groupMessages>;
 describe('useChatMessages', () => {
     const mockConversationUrn = 'urn:li:agentConversation:test-conversation';
     const mockUserUrn = 'urn:li:corpuser:test-user';
+    const originType = DataHubAiConversationOriginType.IngestionUi;
     const mockSendMessage = vi.fn();
     const mockStopStreaming = vi.fn();
     const mockOnStreamComplete = vi.fn();
@@ -89,6 +94,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -111,6 +117,7 @@ describe('useChatMessages', () => {
                     onStreamComplete: mockOnStreamComplete,
                     onMessageReceived: mockOnMessageReceived,
                     agentName,
+                    originType,
                 }),
             );
 
@@ -119,6 +126,7 @@ describe('useChatMessages', () => {
                 onMessageReceived: expect.any(Function),
                 onStreamComplete: mockOnStreamComplete,
                 agentName,
+                originType,
             });
         });
     });
@@ -129,6 +137,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -139,7 +148,14 @@ describe('useChatMessages', () => {
             expect(mockCreateUserMessage).toHaveBeenCalledWith('Test message', mockUserUrn);
             expect(result.current.messages).toHaveLength(1);
             expect(result.current.messages[0]).toEqual(mockUserMessage);
-            expect(mockEmitMessageAnalytics).toHaveBeenCalledWith(mockConversationUrn, 'Test message', 0, 0);
+            expect(mockEmitMessageAnalytics).toHaveBeenCalledWith(
+                mockConversationUrn,
+                'Test message',
+                0,
+                0,
+                originType,
+                undefined,
+            );
             expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
 
@@ -148,6 +164,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -165,6 +182,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -179,7 +197,14 @@ describe('useChatMessages', () => {
             });
 
             // Should count 1 existing user message, so index is 1
-            expect(mockEmitMessageAnalytics).toHaveBeenCalledWith(mockConversationUrn, 'Second message', 1, 2);
+            expect(mockEmitMessageAnalytics).toHaveBeenCalledWith(
+                mockConversationUrn,
+                'Second message',
+                1,
+                2,
+                originType,
+                undefined,
+            );
         });
 
         it('handleSendMessage should do full flow with optimistic update', () => {
@@ -187,6 +212,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -206,6 +232,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -226,6 +253,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -243,6 +271,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -264,6 +293,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -298,6 +328,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -323,6 +354,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -347,6 +379,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -391,6 +424,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -428,6 +462,7 @@ describe('useChatMessages', () => {
                     useChatMessages({
                         conversationUrn,
                         userUrn: mockUserUrn,
+                        originType,
                     }),
                 {
                     initialProps: {
@@ -473,6 +508,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -487,6 +523,7 @@ describe('useChatMessages', () => {
                     useChatMessages({
                         conversationUrn,
                         userUrn: mockUserUrn,
+                        originType,
                     }),
                 {
                     initialProps: {
@@ -520,6 +557,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -550,6 +588,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -580,6 +619,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
+                    originType,
                 }),
             );
 
@@ -614,6 +654,7 @@ describe('useChatMessages', () => {
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
                     onMessageReceived: customCallback,
+                    originType,
                 }),
             );
 

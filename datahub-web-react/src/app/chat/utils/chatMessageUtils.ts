@@ -1,7 +1,12 @@
-import analytics, { EventType } from '@app/analytics';
+import analytics, { ChatMessageIngestionScreen, EventType } from '@app/analytics';
 import { extractReferencesFromMarkdown } from '@app/chat/utils/extractUrnsFromMarkdown';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
+import {
+    DataHubAiConversationActorType,
+    DataHubAiConversationMessage,
+    DataHubAiConversationMessageType,
+    DataHubAiConversationOriginType,
+} from '@types';
 
 /**
  * Creates a user message object for optimistic UI updates
@@ -28,6 +33,8 @@ export const emitMessageAnalytics = (
     messageText: string,
     userMessageIndex: number,
     totalMessageCount: number,
+    originType: DataHubAiConversationOriginType,
+    ingestionScreen?: ChatMessageIngestionScreen,
 ): void => {
     const mentions = extractReferencesFromMarkdown(messageText);
 
@@ -40,5 +47,7 @@ export const emitMessageAnalytics = (
         userMessageIndex,
         totalMessageCount,
         messagePreview: messageText.substring(0, 200),
+        originType,
+        ingestionScreen,
     });
 };

@@ -1,6 +1,5 @@
 import { Button, Loader, Text, colors } from '@components';
 import { CaretDown, Chat, ChatsTeardrop } from '@phosphor-icons/react';
-import { message as antMessage } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +7,7 @@ import { getColor } from '@components/theme/utils';
 
 import analytics, { EventType } from '@app/analytics';
 import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
+import { ConversationListItem, sortConversationsByMostRecent } from '@app/chat/utils/conversationUtils';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import {
     NAV_ITEM_HOVER_BOX_SHADOW,
@@ -18,7 +18,6 @@ import {
 import { getTimeFromNow } from '@app/shared/time/timeUtils';
 
 import { useDeleteDataHubAiConversationMutation } from '@graphql/aiChat.generated';
-import { DataHubAiConversation } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -185,11 +184,11 @@ const LoadingContainer = styled.div`
 `;
 
 interface ConversationListProps {
-    conversations: DataHubAiConversation[];
+    conversations: ConversationListItem[];
     selectedConversationUrn?: string;
     onSelectConversation: (conversationUrn: string) => void;
     onCreateConversation: () => void;
-    onDeleteConversation: () => void;
+    onDeleteConversation: (deletedUrn: string) => void;
     loading?: boolean;
     creatingConversation?: boolean;
 }
@@ -203,21 +202,19 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     loading,
     creatingConversation,
 }) => {
-    const [deleteConversation] = useDeleteDataHubAiConversationMutation();
+    const [deleteConversation] = useDeleteDataHubAiConversationMutation({
+        refetchQueries: ['listDataHubAiConversations'],
+    });
     const [isConversationsCollapsed, setIsConversationsCollapsed] = useState(false);
 
     // Sort conversations by most recent activity to show active conversations at the top.
     // This provides better UX as users typically want to continue recent conversations.
     // Backend sorts by createdAt, so we re-sort by lastUpdated.time on the frontend.
     const sortedConversations = useMemo(() => {
-        return [...conversations].sort((a, b) => {
-            const aTime = a.lastUpdated?.time || a.created?.time || 0;
-            const bTime = b.lastUpdated?.time || b.created?.time || 0;
-            return bTime - aTime;
-        });
+        return sortConversationsByMostRecent(conversations);
     }, [conversations]);
 
-    const handleDelete = async (e: React.MouseEvent, conversation: DataHubAiConversation) => {
+    const handleDelete = async (e: React.MouseEvent, conversation: ConversationListItem) => {
         e.stopPropagation();
 
         try {
@@ -232,11 +229,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 messageCount: conversation.messageCount || 0,
             });
 
-            antMessage.success('Chat deleted');
-            onDeleteConversation();
+            onDeleteConversation(conversation.urn);
         } catch (error) {
             console.error('Failed to delete chat:', error);
-            antMessage.error('Failed to delete chat');
         }
     };
 
