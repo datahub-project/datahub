@@ -282,6 +282,8 @@ public class AuthServiceController {
    *
    * <p>Note: "title" is optional. If not provided, user title will not be set.
    *
+   * <p>Note: "title" is optional. If not provided, user title will not be set.
+   *
    * <p>Example Response:
    *
    * <p>{ "isNativeUserCreated": true }
