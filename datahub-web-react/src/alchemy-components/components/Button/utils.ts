@@ -1,6 +1,7 @@
 /*
  * Button Style Utilities
  */
+import { ButtonHTMLAttributes } from 'react';
 import { CSSObject } from 'styled-components';
 
 import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
@@ -284,8 +285,8 @@ const getButtonLoadingStyles = (): CSSObject => ({
 /*
  * Main function to generate styles for button
  */
-export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren, theme } = props;
+export const getButtonStyle = (props: ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement>): CSSObject => {
+    const { variant, color, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
 
     // Get map of colors
     const colorStyles = getButtonColorStyles(variant, color, theme);
@@ -306,7 +307,7 @@ export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
 
     // Focus & Active styles are the same, but active styles are applied conditionally & override prevs styles
     const activeStyles = { ...getButtonActiveStyles(colorStyles) };
-    if (!isDisabled && isActive) {
+    if (!disabled && isActive) {
         styles['&:focus'] = activeStyles;
         styles['&:active'] = activeStyles;
         styles = { ...styles, ...activeStyles };
