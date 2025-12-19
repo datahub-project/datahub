@@ -35,6 +35,10 @@ dependencies {
   // DataModel DataHub dependencies
   dataModel project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
 
+  // Required for base DataHub types (TimeseriesAspectBase, Urn, etc.)
+  implementation project(':metadata-models')
+  dataModel project(':metadata-models')
+
   // Required for Spring-enabled plugins only
   implementation externalDependency.springBootAutoconfigure
 }
