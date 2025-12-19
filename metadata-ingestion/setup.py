@@ -632,8 +632,8 @@ plugins: Dict[str, Set[str]] = {
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording/replay - industry standard
-        # vcrpy 7.x manages urllib3 compatibility automatically based on Python version
-        "vcrpy>=7.0.0",
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
+        "vcrpy>=8.0.0",
         # AES-256 encrypted zip files
         "pyzipper>=0.3.6",
         # Note: This plugin uses lazy imports to avoid requiring optional dependencies
