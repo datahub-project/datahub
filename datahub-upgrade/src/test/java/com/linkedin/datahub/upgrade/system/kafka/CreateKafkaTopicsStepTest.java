@@ -53,6 +53,7 @@ public class CreateKafkaTopicsStepTest {
 
     SetupConfiguration setupConfig = new SetupConfiguration();
     setupConfig.setPreCreateTopics(true);
+    setupConfig.setAutoIncreasePartitions(true);
     setupConfig.setUseConfluentSchemaRegistry(true);
     kafkaConfiguration.setSetup(setupConfig);
 
@@ -562,6 +563,54 @@ public class CreateKafkaTopicsStepTest {
     verify(mockAdminClient, times(0)).createTopics(any());
     // Verify that createPartitions was NOT called
     verify(mockAdminClient, times(0)).createPartitions(any());
+  }
+
+  @Test
+  public void testSkipPartitionIncreaseWhenAutoIncreaseDisabled() throws Exception {
+    // Create spy to mock the createAdminClient method
+    CreateKafkaTopicsStep spyStep = spy(step);
+
+    // Disable auto-increase partitions
+    kafkaConfiguration.getSetup().setAutoIncreasePartitions(false);
+
+    // Mock AdminClient and its dependencies
+    AdminClient mockAdminClient = mock(AdminClient.class);
+    ListTopicsResult mockListTopicsResult = mock(ListTopicsResult.class);
+
+    // Mock existing topics (topic already exists)
+    Set<String> existingTopics = new HashSet<>();
+    existingTopics.add("test-topic");
+    KafkaFuture<Set<String>> listTopicsFuture = mock(KafkaFuture.class);
+    when(listTopicsFuture.get()).thenReturn(existingTopics);
+    when(mockListTopicsResult.names()).thenReturn(listTopicsFuture);
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+
+    // Mock the createAdminClient method to return our mock AdminClient
+    doReturn(mockAdminClient).when(spyStep).createAdminClient();
+
+    // Set up topics configuration with test topics (5 partitions desired, but topic has 3)
+    Map<String, TopicsConfiguration.TopicConfiguration> topics = new HashMap<>();
+    TopicsConfiguration.TopicConfiguration topicConfig =
+        new TopicsConfiguration.TopicConfiguration();
+    topicConfig.setName("test-topic");
+    topicConfig.setPartitions(5); // Want to increase from 3 to 5, but auto-increase is disabled
+    topicConfig.setReplicationFactor(1);
+    topicConfig.setEnabled(true);
+    topics.put("testTopic", topicConfig);
+    kafkaConfiguration.setTopics(topics);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    UpgradeStepResult result = spyStep.executable().apply(mockContext);
+
+    assertNotNull(result);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify that createTopics was NOT called since topic already exists
+    verify(mockAdminClient, times(0)).createTopics(any());
+    // Verify that createPartitions was NOT called since auto-increase is disabled
+    verify(mockAdminClient, times(0)).createPartitions(any());
+    // Verify that describeTopics was NOT called since auto-increase is disabled
+    verify(mockAdminClient, times(0)).describeTopics(anyList());
   }
 
   @Test

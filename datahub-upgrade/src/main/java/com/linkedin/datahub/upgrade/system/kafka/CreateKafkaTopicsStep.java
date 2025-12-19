@@ -56,7 +56,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       if (_kafkaConfiguration.getSetup() == null) {
-        log.warn("Setup configuration is null - skipping topic creation");
+        log.warn("Kafka setup configuration is null - skipping topic creation");
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
       }
 
@@ -65,7 +65,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
       }
 
-      log.info("Creating Kafka topics...");
+      log.info("Creating/updating Kafka topics...");
 
       try {
         // Debug logging to understand configuration state
@@ -106,13 +106,17 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
         Set<String> existingTopics = getExistingTopics(adminClient);
         log.info("Found {} existing topics: {}", existingTopics.size(), existingTopics);
 
-        // Collect all topics to create (only those that don't exist)
-        // and topics to increase partition count
+        // Collect topics to create and partitions to increase
         List<NewTopic> topicsToCreate = new ArrayList<>();
-        List<String> topicsToSkip = new ArrayList<>();
         Map<String, NewPartitions> partitionsToIncrease = new HashMap<>();
         List<String> failedTopics = new ArrayList<>();
 
+        // Batch fetch partition counts for existing topics
+        Map<String, Integer> currentPartitionCounts =
+            fetchPartitionCountsForExistingTopics(
+                adminClient, topicsConfig, existingTopics, failedTopics);
+
+        // Process all configured topics
         for (Map.Entry<String, TopicsConfiguration.TopicConfiguration> entry :
             topicsConfig.getTopics().entrySet()) {
           String topicKey = entry.getKey();
@@ -128,37 +132,39 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
 
           // Check if topic already exists
           if (existingTopics.contains(topicName)) {
-            // For existing topics, check if partition count needs to be increased
-            try {
-              int currentPartitions = getCurrentPartitionCount(adminClient, topicName);
-              int desiredPartitions = topicConfig.getPartitions();
+            // Check if auto-increase is enabled before checking/increasing partitions
+            if (_kafkaConfiguration.getSetup().isAutoIncreasePartitions()) {
+              if (currentPartitionCounts.containsKey(topicName)) {
+                int currentPartitions = currentPartitionCounts.get(topicName);
+                int desiredPartitions = topicConfig.getPartitions();
 
-              if (currentPartitions < desiredPartitions) {
-                log.info(
-                    "Topic {} exists with {} partitions, increasing to {}",
-                    topicName,
-                    currentPartitions,
-                    desiredPartitions);
-                partitionsToIncrease.put(topicName, NewPartitions.increaseTo(desiredPartitions));
-              } else if (currentPartitions > desiredPartitions) {
-                log.warn(
-                    "Topic {} has {} partitions but configuration specifies {}. "
-                        + "Kafka does not support reducing partition count - leaving unchanged",
-                    topicName,
-                    currentPartitions,
-                    desiredPartitions);
-                topicsToSkip.add(topicName);
-              } else {
-                log.info(
-                    "Topic {} already has {} partitions - no change needed",
-                    topicName,
-                    currentPartitions);
-                topicsToSkip.add(topicName);
+                if (currentPartitions < desiredPartitions) {
+                  log.info(
+                      "Checking kafka topic {}: Increasing partitions from {} to {}",
+                      topicName,
+                      currentPartitions,
+                      desiredPartitions);
+                  partitionsToIncrease.put(topicName, NewPartitions.increaseTo(desiredPartitions));
+                } else if (currentPartitions > desiredPartitions) {
+                  log.error(
+                      "Checking kafka topic {}: Has {} partitions but configuration specifies {}. "
+                          + "Kafka does not support reducing partition count on a topic",
+                      topicName,
+                      currentPartitions,
+                      desiredPartitions);
+                } else {
+                  log.info(
+                      "Checking kafka topic {}: Already has correct partition count ({})",
+                      topicName,
+                      currentPartitions);
+                }
               }
-            } catch (Exception e) {
-              log.error(
-                  "Failed to check partition count for topic {}: {}", topicName, e.getMessage(), e);
-              failedTopics.add(topicName);
+              // If not in currentPartitionCounts, it means the describe failed
+              // and the topic was already added to failedTopics
+            } else {
+              log.info(
+                  "Checking kafka topic {}: Skipping partition count check (auto-increase disabled)",
+                  topicName);
             }
             continue;
           }
@@ -177,23 +183,15 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
 
           topicsToCreate.add(topicBuilder.build());
           log.info(
-              "Preparing to create topic: {} with {} partitions and replication factor {}",
+              "Checking kafka topic {}: Creating with {} partitions and replication factor {}",
               topicName,
               topicConfig.getPartitions(),
               topicConfig.getReplicationFactor());
         }
 
-        // Log summary of what will be created vs skipped
-        if (!topicsToSkip.isEmpty()) {
-          log.info(
-              "Skipping {} existing topics with no changes needed: {}",
-              topicsToSkip.size(),
-              topicsToSkip);
-        }
-
         // Create new topics if any
         if (!topicsToCreate.isEmpty()) {
-          log.info("Creating {} new topics in bulk", topicsToCreate.size());
+          log.info("Creating {} new topics", topicsToCreate.size());
           CreateTopicsResult createResult = adminClient.createTopics(topicsToCreate);
           createResult.all().get(); // Wait for all topics to be created
           log.info("Successfully created {} Kafka topics", topicsToCreate.size());
@@ -247,23 +245,50 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
   }
 
   /**
-   * Get the current partition count for a topic from Kafka.
+   * Fetches current partition counts for all existing configured topics
    *
-   * @param adminClient The Kafka AdminClient instance
-   * @param topicName The name of the topic to check
-   * @return The current number of partitions for the topic
-   * @throws Exception if unable to retrieve topic description
+   * @param adminClient Kafka AdminClient instance
+   * @param topicsConfig Configuration containing all topic definitions
+   * @param existingTopics Set of topics that already exist in Kafka
+   * @param failedTopics List to collect topics that failed partition count checks
+   * @return Map of topic names to their current partition counts
    */
-  private int getCurrentPartitionCount(AdminClient adminClient, String topicName) throws Exception {
-    try {
-      DescribeTopicsResult describeResult =
-          adminClient.describeTopics(java.util.Collections.singletonList(topicName));
-      TopicDescription topicDescription = describeResult.allTopicNames().get().get(topicName);
-      return topicDescription.partitions().size();
-    } catch (Exception e) {
-      log.error("Failed to get partition count for topic {}: {}", topicName, e.getMessage(), e);
-      throw e;
+  private Map<String, Integer> fetchPartitionCountsForExistingTopics(
+      AdminClient adminClient,
+      TopicsConfiguration topicsConfig,
+      Set<String> existingTopics,
+      List<String> failedTopics) {
+    // Collect all existing topics that are in our configuration
+    List<String> existingConfiguredTopics = new ArrayList<>();
+    for (Map.Entry<String, TopicsConfiguration.TopicConfiguration> entry :
+        topicsConfig.getTopics().entrySet()) {
+      TopicsConfiguration.TopicConfiguration topicConfig = entry.getValue();
+      if (topicConfig.getEnabled() && existingTopics.contains(topicConfig.getName())) {
+        existingConfiguredTopics.add(topicConfig.getName());
+      }
     }
+
+    // Batch API call to get partition counts for all existing topics
+    Map<String, Integer> currentPartitionCounts = new HashMap<>();
+    if (!existingConfiguredTopics.isEmpty()
+        && _kafkaConfiguration.getSetup().isAutoIncreasePartitions()) {
+      try {
+        DescribeTopicsResult describeResult = adminClient.describeTopics(existingConfiguredTopics);
+        Map<String, TopicDescription> topicDescriptions = describeResult.allTopicNames().get();
+        for (Map.Entry<String, TopicDescription> descEntry : topicDescriptions.entrySet()) {
+          currentPartitionCounts.put(descEntry.getKey(), descEntry.getValue().partitions().size());
+        }
+        log.info(
+            "Retrieved partition counts for {} existing topics", currentPartitionCounts.size());
+      } catch (Exception e) {
+        log.error(
+            "Failed to describe topics: {}. Will skip partition checks for existing topics.",
+            e.getMessage(),
+            e);
+        failedTopics.addAll(existingConfiguredTopics);
+      }
+    }
+    return currentPartitionCounts;
   }
 
   /**
