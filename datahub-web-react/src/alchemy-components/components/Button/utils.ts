@@ -1,6 +1,7 @@
 /*
  * Button Style Utilities
  */
+import { ButtonHTMLAttributes } from 'react';
 import { CSSObject } from 'styled-components';
 
 import { ButtonStyleProps, ButtonVariant } from '@components/components/Button/types';
@@ -121,6 +122,9 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     return base;
 };
 
+const themeV1PrimaryColor = '#1890ff';
+const themeV2PrimaryColor = '#533FD1';
+
 // Generate color styles for button
 const getButtonVariantStyles = (
     variant: ButtonVariant,
@@ -129,7 +133,14 @@ const getButtonVariantStyles = (
     theme?: Theme,
 ): CSSObject => {
     const isPrimary = color === 'violet' || color === 'primary';
-    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-gradient'] || '#705EE4'} 38.97%, ${theme?.styles?.['primary-color'] || '#533FD1'} 100%)`;
+    // Adding a hack here for login/signup pages where v1 styles are still loaded by default
+    // Once we move to remove v1 styles we can revert this hack and always use styles from theme only
+    const resolvedPrimaryColor =
+        theme?.styles?.['primary-color'] === themeV1PrimaryColor
+            ? themeV2PrimaryColor
+            : (theme?.styles?.['primary-color'] ?? themeV2PrimaryColor);
+
+    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-gradient'] || '#705EE4'} 38.97%, ${resolvedPrimaryColor} 100%)`;
 
     const variantStyles = {
         filled: {
@@ -274,8 +285,8 @@ const getButtonLoadingStyles = (): CSSObject => ({
 /*
  * Main function to generate styles for button
  */
-export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren, theme } = props;
+export const getButtonStyle = (props: ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement>): CSSObject => {
+    const { variant, color, size, isCircle, isActive, isLoading, disabled, hasChildren, theme } = props;
 
     // Get map of colors
     const colorStyles = getButtonColorStyles(variant, color, theme);
@@ -296,7 +307,7 @@ export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
 
     // Focus & Active styles are the same, but active styles are applied conditionally & override prevs styles
     const activeStyles = { ...getButtonActiveStyles(colorStyles) };
-    if (!isDisabled && isActive) {
+    if (!disabled && isActive) {
         styles['&:focus'] = activeStyles;
         styles['&:active'] = activeStyles;
         styles = { ...styles, ...activeStyles };
