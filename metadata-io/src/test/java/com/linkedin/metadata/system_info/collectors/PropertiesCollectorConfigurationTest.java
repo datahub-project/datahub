@@ -133,6 +133,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.topicDefaults.partitions",
           "kafka.topicDefaults.replicationFactor",
           "kafka.setup.preCreateTopics",
+          "kafka.setup.autoIncreasePartitions",
           "kafka.setup.useConfluentSchemaRegistry",
 
           // IAM authentication flags
