@@ -100,6 +100,25 @@ class TestUnityCatalogTagHelperIntegration:
             tags={"environment": "production"},
         )
 
+    def test_apply_table_tag_with_platform_instance(
+        self,
+        unity_tag_helper: "UnityCatalogTagHelper",
+        mock_unity_resource_manager: Mock,
+    ) -> None:
+        """Test table tag application with 4-part URN (platform instance)."""
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,myinstance.catalog.schema.table,PROD)"
+        tag_urn = "urn:li:tag:environment:production"
+
+        unity_tag_helper.apply_tag(dataset_urn, tag_urn)
+
+        # Should extract the last 3 parts (catalog, schema, table) correctly
+        mock_unity_resource_manager.add_table_tags.assert_called_once_with(
+            catalog="catalog",
+            schema="schema",
+            table="table",
+            tags={"environment": "production"},
+        )
+
     def test_apply_column_tag_success(
         self,
         unity_tag_helper: "UnityCatalogTagHelper",
@@ -116,6 +135,30 @@ class TestUnityCatalogTagHelperIntegration:
             unity_tag_helper.apply_tag(schema_field_urn, tag_urn)
 
         # Verify the Unity Resource Manager was called correctly
+        mock_unity_resource_manager.add_column_tags.assert_called_once_with(
+            catalog="catalog",
+            schema="schema",
+            table="table",
+            column="field1",
+            tags={"sensitive": ""},
+        )
+
+    def test_apply_column_tag_with_platform_instance(
+        self,
+        unity_tag_helper: "UnityCatalogTagHelper",
+        mock_unity_resource_manager: Mock,
+    ) -> None:
+        """Test column tag application with 4-part URN (platform instance)."""
+        schema_field_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,myinstance.catalog.schema.table,PROD),field1)"
+        tag_urn = "urn:li:tag:sensitive"
+
+        with patch(
+            "datahub.utilities.urns.field_paths.get_simple_field_path_from_v2_field_path",
+            return_value="field1",
+        ):
+            unity_tag_helper.apply_tag(schema_field_urn, tag_urn)
+
+        # Should extract the last 3 parts (catalog, schema, table) correctly
         mock_unity_resource_manager.add_column_tags.assert_called_once_with(
             catalog="catalog",
             schema="schema",
@@ -195,6 +238,22 @@ class TestUnityCatalogTagHelperIntegration:
             catalog="catalog", schema="schema", table="table", tag_keys=["environment"]
         )
 
+    def test_remove_table_tag_with_platform_instance(
+        self,
+        unity_tag_helper: "UnityCatalogTagHelper",
+        mock_unity_resource_manager: Mock,
+    ) -> None:
+        """Test table tag removal with 4-part URN (platform instance)."""
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,myinstance.catalog.schema.table,PROD)"
+        tag_urn = "urn:li:tag:environment:production"
+
+        unity_tag_helper.remove_tag(dataset_urn, tag_urn)
+
+        # Should extract the last 3 parts (catalog, schema, table) correctly
+        mock_unity_resource_manager.remove_table_tags.assert_called_once_with(
+            catalog="catalog", schema="schema", table="table", tag_keys=["environment"]
+        )
+
     def test_apply_table_description_success(
         self,
         unity_tag_helper: "UnityCatalogTagHelper",
@@ -209,6 +268,22 @@ class TestUnityCatalogTagHelperIntegration:
         unity_tag_helper.apply_description(dataset_urn, description)
 
         # Verify the Unity Resource Manager was called correctly
+        mock_unity_resource_manager.set_table_description.assert_called_once_with(
+            catalog="catalog", schema="schema", table="table", description=description
+        )
+
+    def test_apply_table_description_with_platform_instance(
+        self,
+        unity_tag_helper: "UnityCatalogTagHelper",
+        mock_unity_resource_manager: Mock,
+    ) -> None:
+        """Test table description application with 4-part URN (platform instance)."""
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,myinstance.catalog.schema.table,PROD)"
+        description = "This is a test table with important data"
+
+        unity_tag_helper.apply_description(dataset_urn, description)
+
+        # Should extract the last 3 parts (catalog, schema, table) correctly
         mock_unity_resource_manager.set_table_description.assert_called_once_with(
             catalog="catalog", schema="schema", table="table", description=description
         )
@@ -229,6 +304,30 @@ class TestUnityCatalogTagHelperIntegration:
             unity_tag_helper.apply_description(schema_field_urn, description)
 
         # Verify the Unity Resource Manager was called correctly
+        mock_unity_resource_manager.set_column_description.assert_called_once_with(
+            catalog="catalog",
+            schema="schema",
+            table="table",
+            column="field1",
+            description=description,
+        )
+
+    def test_apply_column_description_with_platform_instance(
+        self,
+        unity_tag_helper: "UnityCatalogTagHelper",
+        mock_unity_resource_manager: Mock,
+    ) -> None:
+        """Test column description application with 4-part URN (platform instance)."""
+        schema_field_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,myinstance.catalog.schema.table,PROD),field1)"
+        description = "This column contains sensitive customer data"
+
+        with patch(
+            "datahub.utilities.urns.field_paths.get_simple_field_path_from_v2_field_path",
+            return_value="field1",
+        ):
+            unity_tag_helper.apply_description(schema_field_urn, description)
+
+        # Should extract the last 3 parts (catalog, schema, table) correctly
         mock_unity_resource_manager.set_column_description.assert_called_once_with(
             catalog="catalog",
             schema="schema",

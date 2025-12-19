@@ -328,7 +328,8 @@ class UnityCatalogTagHelper(Closeable):
 
     def _apply_table_description(self, dataset_urn: DatasetUrn, docs: str) -> None:
         """Apply description to table."""
-        catalog, schema, table = dataset_urn.name.split(".")
+        parts = dataset_urn.name.split(".")
+        catalog, schema, table = parts[-3], parts[-2], parts[-1]
 
         success = self.unity_catalog_resource_helper.set_table_description(
             catalog=catalog,
@@ -355,7 +356,8 @@ class UnityCatalogTagHelper(Closeable):
         simplified_field_path = get_simple_field_path_from_v2_field_path(
             parsed_entity.field_path
         )
-        catalog, schema, table = parsed_entity.dataset_urn.name.split(".")
+        parts = parsed_entity.dataset_urn.name.split(".")
+        catalog, schema, table = parts[-3], parts[-2], parts[-1]
 
         success = self.unity_catalog_resource_helper.set_column_description(
             catalog=catalog,
@@ -421,7 +423,8 @@ class UnityCatalogTagHelper(Closeable):
     def _apply_table_tag(self, dataset_urn: DatasetUrn, tag_urn: TagUrn) -> None:
         """Apply tag to table."""
         tag_key, tag_value = TagTransformer.datahub_tag_to_uc_tag(tag_urn)
-        catalog, schema, table = dataset_urn.name.split(".")
+        parts = dataset_urn.name.split(".")
+        catalog, schema, table = parts[-3], parts[-2], parts[-1]
         full_table_name = f"{catalog}.{schema}.{table}"
 
         logger.info(f"Applying tag {tag_key}:{tag_value} to table {full_table_name}")
@@ -452,7 +455,8 @@ class UnityCatalogTagHelper(Closeable):
             parsed_entity.field_path
         )
         tag_key, tag_value = TagTransformer.datahub_tag_to_uc_tag(tag_urn)
-        catalog, schema, table = parsed_entity.dataset_urn.name.split(".")
+        parts = parsed_entity.dataset_urn.name.split(".")
+        catalog, schema, table = parts[-3], parts[-2], parts[-1]
         full_table_name = f"{catalog}.{schema}.{table}"
 
         logger.info(
@@ -509,7 +513,8 @@ class UnityCatalogTagHelper(Closeable):
     def _remove_table_tag(self, dataset_urn: DatasetUrn, tag_urn: TagUrn) -> None:
         """Remove tag from table."""
         tag_key, _ = TagTransformer.datahub_tag_to_uc_tag(tag_urn)
-        catalog, schema, table = dataset_urn.name.split(".")
+        parts = dataset_urn.name.split(".")
+        catalog, schema, table = parts[-3], parts[-2], parts[-1]
 
         logger.info(f"Removing tag {tag_key} from table {dataset_urn.name}")
 
@@ -532,7 +537,8 @@ class UnityCatalogTagHelper(Closeable):
         )
 
         tag_key, _ = TagTransformer.datahub_tag_to_uc_tag(tag_urn)
-        catalog, schema, table = parsed_entity.dataset_urn.name.split(".")
+        parts = parsed_entity.dataset_urn.name.split(".")
+        catalog, schema, table = parts[-3], parts[-2], parts[-1]
 
         logger.info(
             f"Removing tag {tag_key} from column {parsed_entity.field_path} in table {parsed_entity.dataset_urn.name}"
