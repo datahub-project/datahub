@@ -175,6 +175,10 @@ export enum EventType {
     DeleteDocumentEvent,
     IngestionTestConnectionClickEvent,
     IngestionTestConnectionCloseEvent,
+    EnterIngestionFlowEvent,
+    IngestionSelectSourceEvent,
+    IngestionEnterConfigurationEvent,
+    IngestionExitConfigurationEvent,
 }
 
 /**
@@ -665,6 +669,8 @@ export interface IngestionTestConnectionCloseEvent extends BaseEvent {
     hasCompleted?: boolean;
     status?: 'success' | 'failure' | 'partialSuccess' | 'running';
     ingestionOnboardingRedesignV1?: boolean;
+    failedCapabilities?: string[];
+    durationMs?: number;
 }
 
 export interface IngestionViewAllClickEvent extends BaseEvent {
@@ -682,6 +688,8 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     executionUrn: string;
     executionStatus: string;
     viewedSection: string;
+    sourceType?: string;
+    recipeUrn?: string;
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
@@ -719,6 +727,39 @@ export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
     sourceType?: string;
     sourceUrn?: string;
+}
+
+// New ingestion flow events
+
+export interface EnterIngestionFlowEvent extends BaseEvent {
+    type: EventType.EnterIngestionFlowEvent;
+    entryPoint:
+        | 'demo_data_banner'
+        | 'get_started_checklist'
+        | 'sources_page_cta'
+        | 'intercept_toast'
+        | 'nav_menu'
+        | 'direct_url';
+}
+
+export interface IngestionSelectSourceEvent extends BaseEvent {
+    type: EventType.IngestionSelectSourceEvent;
+    sourceType: string;
+}
+
+export interface IngestionEnterConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionEnterConfigurationEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    recipeUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionExitConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionExitConfigurationEvent;
+    sourceType?: string;
+    recipeUrn?: string;
+    exitType: 'save_draft' | 'save_and_run' | 'abandon' | 'cancel';
 }
 
 // TODO: Find a way to use this event
@@ -1460,4 +1501,8 @@ export type Event =
     | EditDocumentEvent
     | DeleteDocumentEvent
     | IngestionTestConnectionClickEvent
-    | IngestionTestConnectionCloseEvent;
+    | IngestionTestConnectionCloseEvent
+    | EnterIngestionFlowEvent
+    | IngestionSelectSourceEvent
+    | IngestionEnterConfigurationEvent
+    | IngestionExitConfigurationEvent;

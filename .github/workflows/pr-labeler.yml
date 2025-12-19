@@ -64,7 +64,11 @@ jobs:
           "askumar27",
           "kyungsoo-datahub",
           "AdrianMachado",
-          "pdruley"
+          "pdruley",
+          "alokr-dhub",
+          "alfiyas-datahub",
+          "dinesh-verma-datahub",
+          "rob-1019"
           ]'),
           github.actor
           )
