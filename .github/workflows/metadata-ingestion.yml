@@ -200,9 +200,12 @@ jobs:
         run: |
           cd metadata-ingestion
           # Use datahub CLI to get list of source plugins
-          PLUGINS=$(datahub check plugins 2>&1 | awk '/^Sinks:/ { exit } /^Sources:/ { next } /./ { print $1}' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          # Only capture stdout, filter for valid plugin names (alphanumeric, hyphens, underscores)
+          PLUGINS=$(datahub check plugins 2>/dev/null | awk '/^Sinks:/ { exit } /^Sources:/ { next } /^[a-zA-Z0-9_-]+$/ { print $1 }' | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "plugins=$PLUGINS" >> $GITHUB_OUTPUT
-          echo "Found plugins: $PLUGINS"
+          PLUGIN_COUNT=$(echo "$PLUGINS" | jq 'length')
+          echo "✅ Found $PLUGIN_COUNT plugins to validate:"
+          echo "$PLUGINS" | jq -r '.[]' | sed 's/^/  - /'
 
   validate-plugin-deps:
     needs: prepare-validate-plugin-deps
