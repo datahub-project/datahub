@@ -7,6 +7,7 @@ Supports two deployment modes:
 """
 
 import logging
+from datetime import datetime
 from typing import List, Optional
 
 import pydantic
@@ -16,6 +17,10 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.source.snowplow.constants import (
+    DEFAULT_SCHEMA_TYPES,
+    SchemaType,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -409,7 +414,7 @@ class SnowplowSourceConfig(
     # ============================================
 
     schema_types_to_extract: list = Field(
-        default_factory=lambda: ["event", "entity"],
+        default_factory=lambda: DEFAULT_SCHEMA_TYPES,
         description="Schema types to extract: 'event' and/or 'entity'",
     )
 
@@ -529,7 +534,7 @@ class SnowplowSourceConfig(
     @classmethod
     def validate_schema_types(cls, v: list) -> list:
         """Validate schema types."""
-        allowed = {"event", "entity"}
+        allowed = {st.value for st in SchemaType}
         for schema_type in v:
             if schema_type not in allowed:
                 raise ValueError(
@@ -539,3 +544,21 @@ class SnowplowSourceConfig(
         if not v:
             raise ValueError("schema_types_to_extract cannot be empty")
         return v
+
+    @field_validator("deployed_since", mode="after")
+    @classmethod
+    def validate_deployed_since(cls, v: Optional[str]) -> Optional[str]:
+        """Validate deployed_since is valid ISO 8601 timestamp."""
+        if v is None:
+            return v
+
+        try:
+            # Try parsing with Z suffix (common format)
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+            return v
+        except ValueError as e:
+            raise ValueError(
+                f"deployed_since must be valid ISO 8601 timestamp "
+                f"(e.g., '2025-12-15T00:00:00Z' or '2025-12-15T00:00:00+00:00'). "
+                f"Got: '{v}'"
+            ) from e

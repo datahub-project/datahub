@@ -15,6 +15,7 @@ import pytest
 
 from datahub.ingestion.source.snowplow.snowplow import SnowplowSource
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
+from datahub.ingestion.source.snowplow.snowplow_models import DataStructureDeployment
 
 
 def create_mock_context():
@@ -86,12 +87,12 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         """Simulate API delay."""
         time.sleep(0.01)  # 10ms delay
         return [
-            {
-                "version": "1-0-0",
-                "ts": "2024-01-01T00:00:00Z",
-                "initiator": "Test User",
-                "initiatorId": "user123",
-            }
+            DataStructureDeployment(
+                version="1-0-0",
+                ts="2024-01-01T00:00:00Z",
+                initiator="Test User",
+                initiator_id="user123",
+            )
         ]
 
     # Test 1: Sequential fetching (parallel disabled)
@@ -371,12 +372,12 @@ def test_large_dataset_performance(pytestconfig):
     def mock_get_deployments(schema_hash: str):
         time.sleep(0.001)  # 1ms delay
         return [
-            {
-                "version": "1-0-0",
-                "ts": "2024-01-01T00:00:00Z",
-                "initiator": "Test User",
-                "initiatorId": "user123",
-            }
+            DataStructureDeployment(
+                version="1-0-0",
+                ts="2024-01-01T00:00:00Z",
+                initiator="Test User",
+                initiator_id="user123",
+            )
         ]
 
     with patch(

@@ -40,6 +40,12 @@ from datahub.ingestion.source.snowplow.snowplow_models import (
 logger = logging.getLogger(__name__)
 
 
+class ResourceNotFoundError(Exception):
+    """Raised when API resource returns 404 Not Found."""
+
+    pass
+
+
 class SnowplowBDPClient:
     """
     API client for Snowplow BDP Console.
@@ -82,6 +88,19 @@ class SnowplowBDPClient:
 
         # Authenticate immediately
         self._authenticate()
+
+    def close(self) -> None:
+        """Close the HTTP session and release resources."""
+        if hasattr(self, "session") and self.session:
+            self.session.close()
+
+    def __enter__(self) -> "SnowplowBDPClient":
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - cleanup resources."""
+        self.close()
 
     def _authenticate(self) -> None:
         """
@@ -205,8 +224,8 @@ class SnowplowBDPClient:
                     f"Permission denied for {url}. Check API key permissions."
                 ) from e
             elif e.response.status_code == 404:
-                logger.warning(f"Resource not found: {url}")
-                return {}  # Return empty dict for not found
+                logger.debug(f"Resource not found: {url}")
+                raise ResourceNotFoundError(f"Resource not found: {url}") from e
             else:
                 logger.error(f"HTTP error {e.response.status_code}: {url}")
                 raise
@@ -517,13 +536,18 @@ class SnowplowBDPClient:
 
         logger.info("Fetching event specifications from Snowplow")
 
-        response_data = self._request("GET", endpoint)
-
-        # Handle 404 (resource not found) - endpoint may not be available
-        if not response_data or response_data == {}:
+        try:
+            response_data = self._request("GET", endpoint)
+        except ResourceNotFoundError:
+            # Endpoint may not be available for some organizations
             logger.info(
                 "Event specifications endpoint not available (404) - this is normal for some organizations"
             )
+            return []
+
+        # Handle empty response
+        if not response_data:
+            logger.info("Event specifications endpoint returned empty response")
             return []
 
         # Event specifications API uses wrapped format (unlike data structures API)
@@ -605,13 +629,18 @@ class SnowplowBDPClient:
 
         logger.info("Fetching tracking scenarios from Snowplow")
 
-        response_data = self._request("GET", endpoint)
-
-        # Handle 404 (resource not found) - endpoint may not be available
-        if not response_data or response_data == {}:
+        try:
+            response_data = self._request("GET", endpoint)
+        except ResourceNotFoundError:
+            # Endpoint may not be available for some organizations
             logger.info(
                 "Tracking scenarios endpoint not available (404) - this is normal for some organizations"
             )
+            return []
+
+        # Handle empty response
+        if not response_data:
+            logger.info("Tracking scenarios endpoint returned empty response")
             return []
 
         # Tracking scenarios API uses wrapped format (unlike data structures API)
@@ -693,13 +722,18 @@ class SnowplowBDPClient:
         # Note: Uses v2 API endpoint (newer version)
         endpoint = f"organizations/{self.organization_id}/data-products/v2"
 
-        response_data = self._request("GET", endpoint)
-
-        # Handle 404 (resource not found) - endpoint may not be available
-        if not response_data or response_data == {}:
+        try:
+            response_data = self._request("GET", endpoint)
+        except ResourceNotFoundError:
+            # Endpoint may not be available for some organizations
             logger.info(
                 "Data products endpoint not available (404) - this is normal for some organizations"
             )
+            return []
+
+        # Handle empty response
+        if not response_data:
+            logger.info("Data products endpoint returned empty response")
             return []
 
         # Data products API uses wrapped format (similar to event specs)
@@ -830,13 +864,18 @@ class SnowplowBDPClient:
 
         logger.info("Fetching pipelines from Snowplow")
 
-        response_data = self._request("GET", endpoint)
-
-        # Handle 404 (resource not found) - endpoint may not be available
-        if not response_data or response_data == {}:
+        try:
+            response_data = self._request("GET", endpoint)
+        except ResourceNotFoundError:
+            # Endpoint may not be available for some organizations
             logger.info(
                 "Pipelines endpoint not available (404) - this is normal for some organizations"
             )
+            return []
+
+        # Handle empty response
+        if not response_data:
+            logger.info("Pipelines endpoint returned empty response")
             return []
 
         try:
@@ -895,13 +934,18 @@ class SnowplowBDPClient:
 
         logger.info(f"Fetching enrichments for pipeline {pipeline_id}")
 
-        response_data = self._request("GET", endpoint)
-
-        # Handle 404 (resource not found) - endpoint may not be available
-        if not response_data or response_data == {}:
+        try:
+            response_data = self._request("GET", endpoint)
+        except ResourceNotFoundError:
+            # Endpoint may not be available for some organizations
             logger.info(
-                "Enrichments endpoint not available (404) - this is normal for some organizations"
+                f"Enrichments endpoint not available for pipeline {pipeline_id} (404)"
             )
+            return []
+
+        # Handle empty response
+        if not response_data:
+            logger.debug(f"No enrichments found for pipeline {pipeline_id}")
             return []
 
         try:
@@ -934,13 +978,18 @@ class SnowplowBDPClient:
 
         logger.info("Fetching destinations from Snowplow")
 
-        response_data = self._request("GET", endpoint)
-
-        # Handle 404 (resource not found) - endpoint may not be available
-        if not response_data or response_data == {}:
+        try:
+            response_data = self._request("GET", endpoint)
+        except ResourceNotFoundError:
+            # Endpoint may not be available for some organizations
             logger.info(
                 "Destinations endpoint not available (404) - this is normal for some organizations"
             )
+            return []
+
+        # Handle empty response
+        if not response_data:
+            logger.info("Destinations endpoint returned empty response")
             return []
 
         # Response is a direct array of destinations

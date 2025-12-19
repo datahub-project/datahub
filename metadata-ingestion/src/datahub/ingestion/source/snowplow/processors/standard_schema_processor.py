@@ -10,6 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Dict, Iterable, Optional, Set
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowplow.constants import infer_schema_type
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.metadata.schema_classes import StatusClass
 from datahub.sdk.dataset import Dataset
@@ -157,7 +158,7 @@ class StandardSchemaProcessor(EntityProcessor):
 
         # Determine schema type (event or entity)
         # Convention: context/entity schemas contain "context" in name, others are events
-        schema_type = "entity" if "context" in name.lower() else "event"
+        schema_type = infer_schema_type(name)
 
         # Build dataset name (following same pattern as data_structure_builder)
         dataset_name = f"{vendor}.{name}"

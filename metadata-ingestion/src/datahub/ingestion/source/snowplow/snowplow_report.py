@@ -7,6 +7,7 @@ Tracks extraction statistics, errors, and warnings.
 from dataclasses import dataclass, field
 from typing import Dict, List
 
+from datahub.ingestion.source.snowplow.constants import SchemaType
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -87,23 +88,23 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
 
     def report_schema_found(self, schema_type: str) -> None:
         """Record that a schema was found."""
-        if schema_type == "event":
+        if schema_type == SchemaType.EVENT.value:
             self.num_event_schemas_found += 1
-        elif schema_type == "entity":
+        elif schema_type == SchemaType.ENTITY.value:
             self.num_entity_schemas_found += 1
 
     def report_schema_extracted(self, schema_type: str) -> None:
         """Record that a schema was successfully extracted."""
-        if schema_type == "event":
+        if schema_type == SchemaType.EVENT.value:
             self.num_event_schemas_extracted += 1
-        elif schema_type == "entity":
+        elif schema_type == SchemaType.ENTITY.value:
             self.num_entity_schemas_extracted += 1
 
     def report_schema_filtered(self, schema_type: str, schema_name: str) -> None:
         """Record that a schema was filtered out."""
-        if schema_type == "event":
+        if schema_type == SchemaType.EVENT.value:
             self.num_event_schemas_filtered += 1
-        elif schema_type == "entity":
+        elif schema_type == SchemaType.ENTITY.value:
             self.num_entity_schemas_filtered += 1
         self.filtered_schemas.append(schema_name)
 

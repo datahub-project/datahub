@@ -15,6 +15,7 @@ from typing import Iterable, List, Optional, Set
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowplow.constants import DataClassification
 from datahub.ingestion.source.snowplow.snowplow_config import FieldTaggingConfig
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
@@ -310,14 +311,16 @@ class FieldTagger:
             pii_fields: Set of PII field names from enrichment config
 
         Returns:
-            Classification string: "pii", "sensitive", "public", or "internal"
+            Classification string from DataClassification enum
         """
         field_lower = field_name.lower()
 
         # Check PII from enrichment config first (most accurate)
         if self.config.use_pii_enrichment and field_name in pii_fields:
-            logger.info(f"✅ Field '{field_name}' classified as PII from enrichment config")
-            return "pii"
+            logger.info(
+                f"✅ Field '{field_name}' classified as PII from enrichment config"
+            )
+            return DataClassification.PII.value
 
         # Fall back to pattern matching if enrichment not available
         # Check PII patterns
@@ -326,7 +329,7 @@ class FieldTagger:
                 logger.info(
                     f"✅ Field '{field_name}' classified as PII by pattern match: '{pattern}'"
                 )
-                return "pii"
+                return DataClassification.PII.value
 
         # Check Sensitive patterns
         for pattern in self.config.sensitive_field_patterns:
@@ -334,7 +337,7 @@ class FieldTagger:
                 logger.info(
                     f"✅ Field '{field_name}' classified as sensitive by pattern match: '{pattern}'"
                 )
-                return "sensitive"
+                return DataClassification.SENSITIVE.value
 
         # Default to internal for most fields
-        return "internal"
+        return DataClassification.INTERNAL.value

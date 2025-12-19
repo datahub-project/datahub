@@ -5,7 +5,9 @@ Centralizes caching patterns to improve performance and reduce redundant API cal
 """
 
 import logging
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, Optional, TypeVar
+
+import cachetools
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +23,19 @@ class CacheManager:
     - URN construction
     - Data structure listings
 
+    Uses cachetools.LRUCache internally to prevent unbounded memory growth.
+
     All caches are cleared between ingestion runs to ensure fresh data.
     """
 
-    def __init__(self):
-        """Initialize cache manager with empty caches."""
-        self._caches: Dict[str, Any] = {}
+    def __init__(self, maxsize: int = 1000):
+        """
+        Initialize cache manager with LRU cache.
+
+        Args:
+            maxsize: Maximum number of cache entries before LRU eviction (default: 1000)
+        """
+        self._caches: cachetools.LRUCache = cachetools.LRUCache(maxsize=maxsize)
 
     def get(self, cache_name: str) -> Optional[Any]:
         """

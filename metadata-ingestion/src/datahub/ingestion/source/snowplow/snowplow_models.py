@@ -234,8 +234,12 @@ class EventSpecification(BaseModel):
     """
 
     id: str = Field(description="Event specification ID")
-    version: Optional[int] = Field(None, description="Event specification version number")
-    revision: Optional[int] = Field(None, description="Event specification revision number")
+    version: Optional[int] = Field(
+        None, description="Event specification version number"
+    )
+    revision: Optional[int] = Field(
+        None, description="Event specification revision number"
+    )
     name: str = Field(description="Event specification name")
     description: Optional[str] = Field(
         None, description="Event specification description"

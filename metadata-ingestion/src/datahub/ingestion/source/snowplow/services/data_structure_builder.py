@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowplow.constants import EventFieldType, SchemaType
 from datahub.ingestion.source.snowplow.schema_parser import SnowplowSchemaParser
 from datahub.ingestion.source.snowplow.snowplow_models import DataStructure
 from datahub.metadata.schema_classes import (
@@ -205,7 +206,10 @@ class DataStructureBuilder:
         self, vendor: str, name: str, schema_type: str
     ) -> None:
         """Capture first event schema for parsed events dataset naming."""
-        if schema_type == "event" and self.state.first_event_schema_vendor is None:
+        if (
+            schema_type == SchemaType.EVENT.value
+            and self.state.first_event_schema_vendor is None
+        ):
             self.state.first_event_schema_vendor = vendor
             self.state.first_event_schema_name = name
             logger.debug(
@@ -283,7 +287,9 @@ class DataStructureBuilder:
                 extra_aspects.append(dataset_tags)
                 logger.info(f"✅ Added dataset tags to '{name}'")
         else:
-            logger.info(f"⏭️ Skipping dataset tags for '{name}' (tag_event_type={self.config.field_tagging.tag_event_type})")
+            logger.info(
+                f"⏭️ Skipping dataset tags for '{name}' (tag_event_type={self.config.field_tagging.tag_event_type})"
+            )
 
         return extra_aspects
 
@@ -573,7 +579,11 @@ class DataStructureBuilder:
 
         # Map schema_type to event_type for field tagging
         # "event" schemas are self-describing events, "entity" schemas are contexts
-        event_type = "self_describing" if schema_type == "event" else "context"
+        event_type = (
+            EventFieldType.SELF_DESCRIBING.value
+            if schema_type == SchemaType.EVENT.value
+            else EventFieldType.CONTEXT.value
+        )
 
         # Update field descriptions with version information if available
         if (
@@ -594,7 +604,10 @@ class DataStructureBuilder:
                     if field_added_version and field_added_version != "1-0-0":
                         version_suffix = f" (Added in version {field_added_version})"
                         # Only append if not already present
-                        if field.description and version_suffix not in field.description:
+                        if (
+                            field.description
+                            and version_suffix not in field.description
+                        ):
                             logger.debug(
                                 f"Updated description for field '{field.fieldPath}' in {schema_key}: "
                                 f"added version {field_added_version}"
@@ -605,7 +618,9 @@ class DataStructureBuilder:
                                 f"Set description for field '{field.fieldPath}' in {schema_key}: "
                                 f"Added in version {field_added_version}"
                             )
-                            field.description = f"Added in version {field_added_version}"
+                            field.description = (
+                                f"Added in version {field_added_version}"
+                            )
             else:
                 logger.warning(
                     f"Field version map is empty for {schema_key} - field version info will not be added"
@@ -718,7 +733,11 @@ class DataStructureBuilder:
 
         # Map schema_type to event_type for field tagging
         # "event" schemas are self-describing events, "entity" schemas are contexts
-        event_type = "self_describing" if schema_type == "event" else "context"
+        event_type = (
+            EventFieldType.SELF_DESCRIBING.value
+            if schema_type == SchemaType.EVENT.value
+            else EventFieldType.CONTEXT.value
+        )
 
         # Get field version map if tracking field versions
         schema_key = f"{data_structure.vendor}/{data_structure.name}"

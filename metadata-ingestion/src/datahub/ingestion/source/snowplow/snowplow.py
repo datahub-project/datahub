@@ -18,10 +18,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from datahub.emitter.mce_builder import (
-    get_sys_time,
-    make_schema_field_urn,
-)
+import requests
+
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -45,6 +44,11 @@ from datahub.ingestion.source.snowplow.builders.ownership_builder import (
     OwnershipBuilder,
 )
 from datahub.ingestion.source.snowplow.builders.urn_factory import SnowplowURNFactory
+from datahub.ingestion.source.snowplow.constants import (
+    ConnectionMode,
+    SchemaType,
+    infer_schema_type,
+)
 from datahub.ingestion.source.snowplow.container_keys import (
     SnowplowOrganizationKey,
 )
@@ -52,17 +56,8 @@ from datahub.ingestion.source.snowplow.dependencies import (
     IngestionState,
     ProcessorDependencies,
 )
-from datahub.ingestion.source.snowplow.enrichment_lineage import (
-    CampaignAttributionLineageExtractor,
-    CurrencyConversionLineageExtractor,
-    EnrichmentLineageRegistry,
-    EventFingerprintLineageExtractor,
-    IabSpidersRobotsLineageExtractor,
-    IpLookupLineageExtractor,
-    PiiPseudonymizationLineageExtractor,
-    RefererParserLineageExtractor,
-    UaParserLineageExtractor,
-    YauaaLineageExtractor,
+from datahub.ingestion.source.snowplow.services.enrichment_registry_factory import (
+    EnrichmentRegistryFactory,
 )
 from datahub.ingestion.source.snowplow.field_tagging import (
     FieldTagger,
@@ -100,12 +95,13 @@ from datahub.ingestion.source.snowplow.services.data_structure_builder import (
     DataStructureBuilder,
 )
 from datahub.ingestion.source.snowplow.services.error_handler import ErrorHandler
+from datahub.ingestion.source.snowplow.services.property_manager import PropertyManager
+from datahub.ingestion.source.snowplow.services.user_resolver import UserResolver
 from datahub.ingestion.source.snowplow.snowplow_client import SnowplowBDPClient
 from datahub.ingestion.source.snowplow.snowplow_config import SnowplowSourceConfig
 from datahub.ingestion.source.snowplow.snowplow_models import (
     DataStructure,
     IgluSchema,
-    User,
 )
 from datahub.ingestion.source.snowplow.snowplow_report import SnowplowSourceReport
 from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
@@ -115,27 +111,18 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.structured import (
-    StructuredPropertyDefinition,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    PropertyValueClass,
     SchemaMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import (
-    DataTypeUrn,
-    EntityTypeUrn,
-    SchemaFieldUrn,
-    StructuredPropertyUrn,
-)
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.dataset import Dataset
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sentinels import unset
@@ -337,24 +324,21 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.bdp_client: Optional[SnowplowBDPClient] = None
         self.iglu_client: Optional[IgluClient] = None
 
-        # User cache for ownership resolution
-        self._user_cache: Dict[str, User] = {}
-        self._user_name_cache: Dict[str, List[User]] = {}
-
         if config.bdp_connection:
             self.bdp_client = SnowplowBDPClient(config.bdp_connection)
-            self.report.connection_mode = "bdp"
+            self.report.connection_mode = ConnectionMode.BDP.value
             self.report.organization_id = config.bdp_connection.organization_id
-
-            # Load users for ownership resolution
-            self._load_user_cache()
 
         if config.iglu_connection:
             self.iglu_client = IgluClient(config.iglu_connection)
-            if self.report.connection_mode == "bdp":
-                self.report.connection_mode = "both"
+            if self.report.connection_mode == ConnectionMode.BDP.value:
+                self.report.connection_mode = ConnectionMode.BOTH.value
             else:
-                self.report.connection_mode = "iglu"
+                self.report.connection_mode = ConnectionMode.IGLU.value
+
+        # Initialize user resolver for ownership resolution
+        self.user_resolver = UserResolver(self.bdp_client)
+        self.user_resolver.load_users()
 
         # Initialize stale entity removal handler
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
@@ -369,16 +353,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # Initialize enrichment lineage registry
-        self.enrichment_lineage_registry = EnrichmentLineageRegistry()
-        self.enrichment_lineage_registry.register(IpLookupLineageExtractor())
-        self.enrichment_lineage_registry.register(UaParserLineageExtractor())
-        self.enrichment_lineage_registry.register(YauaaLineageExtractor())
-        self.enrichment_lineage_registry.register(IabSpidersRobotsLineageExtractor())
-        self.enrichment_lineage_registry.register(PiiPseudonymizationLineageExtractor())
-        self.enrichment_lineage_registry.register(RefererParserLineageExtractor())
-        self.enrichment_lineage_registry.register(CurrencyConversionLineageExtractor())
-        self.enrichment_lineage_registry.register(CampaignAttributionLineageExtractor())
-        self.enrichment_lineage_registry.register(EventFingerprintLineageExtractor())
+        self.enrichment_lineage_registry = EnrichmentRegistryFactory.create_registry()
 
         # Initialize field tagger
         self.field_tagger = FieldTagger(self.config.field_tagging)
@@ -395,13 +370,16 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Initialize builders for metadata construction
         self.ownership_builder = OwnershipBuilder(
             config=self.config,
-            user_cache=self._user_cache,
-            user_name_cache=self._user_name_cache,
+            user_cache=self.user_resolver.get_user_cache(),
+            user_name_cache=self.user_resolver.get_user_name_cache(),
         )
         self.lineage_builder = LineageBuilder()
 
         # Initialize error handler for consistent error handling
         self.error_handler = ErrorHandler(report=self.report)
+
+        # Initialize property manager for structured properties
+        self.property_manager = PropertyManager(config=self.config)
 
         # Create mutable ingestion state (populated during extraction)
         # This is separate from deps to maintain clean separation between
@@ -492,15 +470,11 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Register structured property definitions if enabled
         if self.config.field_tagging.use_structured_properties:
             logger.info("Registering Snowplow field structured property definitions")
-            yield from self._register_structured_properties()
+            yield from self.property_manager.register_structured_properties()
 
-            # Wait for DataHub's structured properties cache to invalidate
-            # This ensures the properties are available when we try to use them
-            cache_invalidation_seconds = 10
-            logger.info(
-                f"Waiting {cache_invalidation_seconds} seconds for structured properties cache to invalidate"
-            )
-            time.sleep(cache_invalidation_seconds)
+            # Note: If properties fail to apply, ensure structured properties are registered
+            # before running ingestion:
+            #   datahub properties upsert -f snowplow_field_structured_properties.yaml
 
         # Emit organization container
         if self.bdp_client and self.config.bdp_connection:
@@ -597,92 +571,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 "connection_mode": self.report.connection_mode,
             },
         )
-
-    def _load_user_cache(self) -> None:
-        """
-        Load all users from BDP API and cache them for ownership resolution.
-
-        This is called once during initialization to enable efficient
-        initiator name/ID → email resolution for ownership tracking.
-        """
-        if not self.bdp_client:
-            return
-
-        try:
-            users = self.bdp_client.get_users()
-            for user in users:
-                # Cache by ID (for initiatorId lookups)
-                if user.id:
-                    self._user_cache[user.id] = user
-
-                # Cache by name (for initiator name lookups)
-                if user.name:
-                    if user.name not in self._user_name_cache:
-                        self._user_name_cache[user.name] = []
-                    self._user_name_cache[user.name].append(user)
-
-                # Also cache by display_name
-                if user.display_name:
-                    if user.display_name not in self._user_name_cache:
-                        self._user_name_cache[user.display_name] = []
-                    self._user_name_cache[user.display_name].append(user)
-
-            logger.info(
-                f"Cached {len(self._user_cache)} users for ownership resolution"
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to load users for ownership resolution: {e}. "
-                f"Ownership tracking will use initiator names directly."
-            )
-
-    def _resolve_user_email(
-        self, initiator_id: Optional[str], initiator_name: Optional[str]
-    ) -> Optional[str]:
-        """
-        Resolve initiator to email address or identifier.
-
-        Priority:
-        1. Use initiatorId → lookup in user cache → return email (RELIABLE)
-        2. If initiatorId missing: Try to match by name (UNRELIABLE - multiple matches possible)
-        3. Return initiator_name directly if no resolution possible
-
-        Args:
-            initiator_id: User ID from deployment (preferred)
-            initiator_name: User full name from deployment (fallback)
-
-        Returns:
-            Email address, name, or None if unresolvable
-        """
-        # Best case: Use initiatorId (unique identifier)
-        if initiator_id and initiator_id in self._user_cache:
-            user = self._user_cache[initiator_id]
-            return user.email or user.name or initiator_name
-
-        # Fallback: Try to match by name (PROBLEMATIC - names not unique!)
-        if initiator_name and initiator_name in self._user_name_cache:
-            matching_users = self._user_name_cache[initiator_name]
-
-            if len(matching_users) == 1:
-                # Single match - use it
-                user = matching_users[0]
-                logger.debug(
-                    f"Resolved '{initiator_name}' to {user.email or user.name} by name match"
-                )
-                return user.email or user.name or initiator_name
-            elif len(matching_users) > 1:
-                # Multiple matches - ambiguous!
-                logger.warning(
-                    f"Ambiguous ownership: Found {len(matching_users)} users with name '{initiator_name}'. "
-                    f"Using initiator name directly."
-                )
-                return initiator_name
-
-        # Last resort: return name directly (better than nothing)
-        if initiator_name:
-            return initiator_name
-
-        return None
 
     def _get_data_structures_filtered(self) -> List[DataStructure]:
         """
@@ -984,11 +872,23 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                 else:
                     logger.warning(f"Schema not found in Iglu: {uri}")
 
-            except Exception as e:
+            except (requests.RequestException, ValueError, KeyError) as e:
+                # Expected errors: API failures, parsing errors, missing fields
                 logger.error(f"Failed to fetch schema {uri} from Iglu: {e}")
                 self.report.report_failure(
                     title=f"Failed to fetch schema {uri}",
                     message="Error fetching schema from Iglu registry",
+                    context=uri,
+                    exc=e,
+                )
+            except Exception as e:
+                # Unexpected error - indicates a bug
+                logger.error(
+                    f"Unexpected error processing schema {uri}: {e}", exc_info=True
+                )
+                self.report.report_failure(
+                    title=f"Unexpected error processing schema {uri}",
+                    message="This may indicate a bug in the connector",
                     context=uri,
                     exc=e,
                 )
@@ -1012,7 +912,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         # Determine schema type (event or entity)
         # In Iglu-only mode, we don't have meta.schema_type, so infer from schema itself
         # Snowplow convention: contexts are entities, rest are events
-        schema_type = "entity" if "context" in name.lower() else "event"
+        schema_type = infer_schema_type(name)
 
         # Track found schema
         self.report.report_schema_found(schema_type)
@@ -1031,7 +931,10 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         # Capture first event schema for parsed events dataset naming (if not already set)
-        if schema_type == "event" and self.state.first_event_schema_vendor is None:
+        if (
+            schema_type == SchemaType.EVENT.value
+            and self.state.first_event_schema_vendor is None
+        ):
             self.state.first_event_schema_vendor = vendor
             self.state.first_event_schema_name = name
             logger.debug(
@@ -1340,129 +1243,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"Invalid SchemaVer format: {version}, using (0,0,0)")
             return (0, 0, 0)
 
-    def _register_structured_properties(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Register structured property definitions for Snowplow field metadata.
-
-        These structured properties are used to track field authorship, versioning,
-        and classification. This method automatically creates the property definitions
-        in DataHub if they don't already exist.
-
-        Yields:
-            MetadataWorkUnit containing structured property definitions
-        """
-        if not self.config.field_tagging.use_structured_properties:
-            return
-
-        logger.info("Registering Snowplow field structured property definitions")
-
-        # Define structured properties
-        properties: List[Dict[str, Any]] = [
-            {
-                "id": "io.acryl.snowplow.fieldAuthor",
-                "display_name": "Field Author",
-                "description": "The person who added this field to the Snowplow event specification or data structure. "
-                "This tracks the initiator of the deployment that introduced the field.",
-                "value_type": "string",
-                "cardinality": "SINGLE",
-            },
-            {
-                "id": "io.acryl.snowplow.fieldVersionAdded",
-                "display_name": "Version Added",
-                "description": "The schema version when this field was first added to the event specification. "
-                "Format: Major-Minor-Patch (e.g., '1-0-2' for version 1.0.2)",
-                "value_type": "string",
-                "cardinality": "SINGLE",
-            },
-            {
-                "id": "io.acryl.snowplow.fieldAddedTimestamp",
-                "display_name": "Added Timestamp",
-                "description": "ISO 8601 timestamp when this field was first added to the event specification. "
-                "Format: YYYY-MM-DDTHH:MM:SSZ (e.g., '2024-01-15T10:30:00Z')",
-                "value_type": "string",
-                "cardinality": "SINGLE",
-            },
-            {
-                "id": "io.acryl.snowplow.fieldDataClass",
-                "display_name": "Data Classification",
-                "description": "The data classification level for this field based on PII enrichment analysis. "
-                "Values: 'pii', 'sensitive', 'public', 'internal'",
-                "value_type": "string",
-                "cardinality": "SINGLE",
-                "allowed_values": [
-                    {
-                        "value": "pii",
-                        "description": "Contains personally identifiable information",
-                    },
-                    {
-                        "value": "sensitive",
-                        "description": "Contains sensitive business data",
-                    },
-                    {
-                        "value": "public",
-                        "description": "Public information, safe to share externally",
-                    },
-                    {
-                        "value": "internal",
-                        "description": "Internal information, not for external sharing",
-                    },
-                ],
-            },
-            {
-                "id": "io.acryl.snowplow.fieldEventType",
-                "display_name": "Event Type",
-                "description": "The type of Snowplow event this field belongs to. "
-                "Values: 'self_describing', 'atomic', 'context'",
-                "value_type": "string",
-                "cardinality": "SINGLE",
-                "allowed_values": [
-                    {
-                        "value": "self_describing",
-                        "description": "Custom self-describing event field",
-                    },
-                    {"value": "atomic", "description": "Snowplow atomic event field"},
-                    {"value": "context", "description": "Context entity field"},
-                ],
-            },
-        ]
-
-        # Create structured property definitions
-        for prop in properties:
-            urn = StructuredPropertyUrn(prop["id"]).urn()
-
-            # Build allowed values if provided
-            allowed_values = None
-            if "allowed_values" in prop:
-                allowed_values = [
-                    PropertyValueClass(value=av["value"], description=av["description"])
-                    for av in prop["allowed_values"]
-                ]
-
-            aspect = StructuredPropertyDefinition(
-                qualifiedName=prop["id"],
-                displayName=prop["display_name"],
-                description=prop["description"],
-                valueType=DataTypeUrn(f"datahub.{prop['value_type']}").urn(),
-                entityTypes=[
-                    EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
-                ],
-                cardinality=prop["cardinality"],
-                allowedValues=allowed_values,
-                lastModified=AuditStamp(
-                    time=get_sys_time(), actor="urn:li:corpuser:datahub"
-                ),
-            )
-
-            # Emit the structured property definition
-            # Use CREATE without If-None-Match to allow aspect upsert
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=aspect,
-                changeType=ChangeTypeClass.CREATE,
-            ).as_workunit()
-
-        logger.info("Registered 5 Snowplow field structured property definitions")
-
     def _extract_pii_fields(self) -> set:
         """
         Extract PII fields from PII Pseudonymization enrichment configuration.
@@ -1534,7 +1314,7 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
                                     if isinstance(field_names, list):
                                         pii_fields.update(field_names)
                 except Exception as e:
-                    logger.debug(
+                    logger.warning(
                         f"Failed to extract PII fields from pipeline {pipeline.id}: {e}"
                     )
                     continue

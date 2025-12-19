@@ -2,7 +2,7 @@
 {
     "entityType": "structuredProperty",
     "entityUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
-    "changeType": "CREATE",
+    "changeType": "UPSERT",
     "aspectName": "propertyDefinition",
     "aspect": {
         "json": {
@@ -14,20 +14,13 @@
                 "urn:li:entityType:datahub.schemaField"
             ],
             "description": "The person who added this field to the Snowplow event specification or data structure. This tracks the initiator of the deployment that introduced the field.",
-            "immutable": false,
-            "lastModified": {
-                "time": 1704067200000,
-                "actor": "urn:li:corpuser:datahub"
-            }
+            "immutable": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-7x2oz1",
         "lastRunId": "no-run-id-provided"
-    },
-    "headers": {
-        "If-None-Match": "*"
     }
 },
 {
@@ -57,7 +50,7 @@
 {
     "entityType": "structuredProperty",
     "entityUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
-    "changeType": "CREATE",
+    "changeType": "UPSERT",
     "aspectName": "propertyDefinition",
     "aspect": {
         "json": {
@@ -69,20 +62,13 @@
                 "urn:li:entityType:datahub.schemaField"
             ],
             "description": "The schema version when this field was first added to the event specification. Format: Major-Minor-Patch (e.g., '1-0-2' for version 1.0.2)",
-            "immutable": false,
-            "lastModified": {
-                "time": 1704067200000,
-                "actor": "urn:li:corpuser:datahub"
-            }
+            "immutable": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-7x2oz1",
         "lastRunId": "no-run-id-provided"
-    },
-    "headers": {
-        "If-None-Match": "*"
     }
 },
 {
@@ -104,7 +90,7 @@
 {
     "entityType": "structuredProperty",
     "entityUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
-    "changeType": "CREATE",
+    "changeType": "UPSERT",
     "aspectName": "propertyDefinition",
     "aspect": {
         "json": {
@@ -116,26 +102,19 @@
                 "urn:li:entityType:datahub.schemaField"
             ],
             "description": "ISO 8601 timestamp when this field was first added to the event specification. Format: YYYY-MM-DDTHH:MM:SSZ (e.g., '2024-01-15T10:30:00Z')",
-            "immutable": false,
-            "lastModified": {
-                "time": 1704067200000,
-                "actor": "urn:li:corpuser:datahub"
-            }
+            "immutable": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-7x2oz1",
         "lastRunId": "no-run-id-provided"
-    },
-    "headers": {
-        "If-None-Match": "*"
     }
 },
 {
     "entityType": "structuredProperty",
     "entityUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
-    "changeType": "CREATE",
+    "changeType": "UPSERT",
     "aspectName": "propertyDefinition",
     "aspect": {
         "json": {
@@ -167,26 +146,19 @@
                 "urn:li:entityType:datahub.schemaField"
             ],
             "description": "The type of Snowplow event this field belongs to. Values: 'self_describing', 'atomic', 'context'",
-            "immutable": false,
-            "lastModified": {
-                "time": 1704067200000,
-                "actor": "urn:li:corpuser:datahub"
-            }
+            "immutable": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-7x2oz1",
         "lastRunId": "no-run-id-provided"
-    },
-    "headers": {
-        "If-None-Match": "*"
     }
 },
 {
     "entityType": "structuredProperty",
     "entityUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
-    "changeType": "CREATE",
+    "changeType": "UPSERT",
     "aspectName": "propertyDefinition",
     "aspect": {
         "json": {
@@ -223,21 +195,14 @@
             "entityTypes": [
                 "urn:li:entityType:datahub.schemaField"
             ],
-            "description": "The data classification level for this field based on PII enrichment analysis. Values: 'pii', 'sensitive', 'public', 'internal'",
-            "immutable": false,
-            "lastModified": {
-                "time": 1704067200000,
-                "actor": "urn:li:corpuser:datahub"
-            }
+            "description": "The data classification level for this field based on PII enrichment analysis.",
+            "immutable": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-fqmaeu",
         "lastRunId": "no-run-id-provided"
-    },
-    "headers": {
-        "If-None-Match": "*"
     }
 },
 {
@@ -292,35 +257,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "vendor": "com.acme",
-                "schemaVersion": "1-1-0",
-                "schema_type": "event",
-                "hidden": "False",
-                "igluUri": "iglu:com.acme/checkout_started/jsonschema/1-1-0",
-                "team": "checkout",
-                "format": "jsonschema"
-            },
-            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/abc123def456?version=1-1-0",
-            "name": "checkout_started",
-            "description": "Event fired when user starts checkout process",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-8rzu38",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -998,7 +935,76 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_type": "atomic_event",
+                "platform": "snowplow",
+                "field_count": "50",
+                "required_fields": "app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version",
+                "schema_source": "https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0"
+            },
+            "name": "Atomic Event",
+            "description": "**Atomic Event** represents the standard Snowplow atomic event schema as it exists BEFORE enrichments run. Contains ~50 core fields including:\n- **Required fields** (~12): app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version\n- **Input fields for enrichments**: user_ipaddress, useragent, page_urlquery, page_referrer\n- **Other atomic fields**: timestamps, user IDs, page URLs, referrer URLs, browser/device properties\n\n**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, etc. Those fields are created by enrichments and only exist in the warehouse table.\n\nEnrichments read from Atomic Event fields and write new enriched fields to the warehouse table. \n\nThis dataset represents the SCHEMA (available fields), not a guarantee that all fields are populated on every event. This is correct for field-level lineage - we model what fields enrichments CAN read/write based on schema definition.\n\nSchema source: https://github.com/snowplow/iglu-central/blob/master/schemas/com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0\nReference: https://docs.snowplow.io/docs/fundamentals/canonical-event/",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "vendor": "com.acme",
+                "schemaVersion": "1-1-0",
+                "schema_type": "event",
+                "hidden": "False",
+                "igluUri": "iglu:com.acme/checkout_started/jsonschema/1-1-0",
+                "team": "checkout",
+                "format": "jsonschema"
+            },
+            "externalUrl": "https://console.snowplowanalytics.com/test-org-uuid/data-structures/abc123def456?version=1-1-0",
+            "name": "checkout_started",
+            "description": "Event fired when user starts checkout process",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-8rzu38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1024,47 +1030,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "schema_type": "event_core",
-                "platform": "snowplow",
-                "field_count": "50",
-                "required_fields": "app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version"
-            },
-            "name": "Event Core",
-            "description": "**Event Core** represents the standard Snowplow atomic event schema as it exists BEFORE enrichments run. Contains ~50 core fields including:\n- **Required fields** (~12): app_id, platform, collector_tstamp, event, event_id, v_tracker, v_collector, v_etl, event_vendor, event_name, event_format, event_version\n- **Input fields for enrichments**: user_ipaddress, useragent, page_urlquery, page_referrer\n- **Other atomic fields**: timestamps, user IDs, page URLs, referrer URLs, browser/device properties\n\n**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, etc. Those fields are created by enrichments and only exist in the warehouse table.\n\nEnrichments read from Event Core fields and write new enriched fields to the warehouse table. \n\nThis dataset represents the SCHEMA (available fields), not a guarantee that all fields are populated on every event. This is correct for field-level lineage - we model what fields enrichments CAN read/write based on schema definition.\n\nReference: https://docs.snowplow.io/docs/fundamentals/canonical-event/",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1074,46 +1040,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "event_core"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1132,6 +1059,45 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-hki20v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
+                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,atomic_event,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "atomic_event"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1912,6 +1878,120 @@
 },
 {
     "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),product_id)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Alice"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-20T11:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "internal"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "self_describing"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),category)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Alice"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-20T11:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "internal"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "self_describing"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),currency)",
     "changeType": "UPSERT",
     "aspectName": "structuredProperties",
@@ -2238,6 +2318,63 @@
     }
 },
 {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),price)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Alice"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-20T11:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "internal"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "self_describing"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
     "changeType": "UPSERT",
@@ -2255,6 +2392,63 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-hki20v",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Alice"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-20T11:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "pii"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "self_describing"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2291,6 +2485,63 @@
     }
 },
 {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),user_type)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Bob"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-10T09:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "internal"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "context"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:snowplow_event_user",
     "changeType": "UPSERT",
@@ -2307,946 +2558,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "synthetic": "true",
-                "purpose": "lineage_modeling",
-                "stage": "post_parse_pre_enrich",
-                "event_spec_id": "",
-                "event_spec_name": ""
-            },
-            "name": "checkout_started Event",
-            "description": "**checkout_started Event** represents all parsed event fields after the Collector/Parser stage and BEFORE enrichments run.\n\nThis dataset models the intermediate state of events after the Snowplow pipeline has:\n1. **Collected** events from trackers\n2. **Validated** against Iglu schemas\n3. **Parsed** atomic fields, custom event data, and entity data\n\n**But BEFORE** enrichments (IP Lookup, UA Parser, YAUAA, Campaign Attribution, etc.) add computed fields.\n\n## Fields Included\nThis dataset contains ALL fields from:\n- **Event Core**: ~50 standard Snowplow atomic fields (user_ipaddress, page_url, useragent, etc.)\n- **Event Data Structures**: Application-specific event data\n- **Entity Data Structures**: Contextual data attached to events\n\n**Does NOT include enriched output fields** like geo_*, ip_*, mkt_*, br_name/family/version, os_*, dvce_type/ismobile, event_fingerprint, etc. Those fields are created by enrichments and only exist in the warehouse table.\n\n## Purpose\nUsed for lineage modeling to show:\n- Collector/Parser job outputs to this dataset\n- Enrichment jobs read from this dataset and write new enriched fields to warehouse\n\n**Note**: This is a synthetic dataset for metadata purposes only. It does not correspond to a real table or file in your infrastructure.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "snowplow/event",
-            "platform": "urn:li:dataPlatform:snowplow",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": ""
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "app_id",
-                    "nullable": true,
-                    "description": "Application ID (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "platform",
-                    "nullable": true,
-                    "description": "Platform - web, mobile, server, etc. (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "event_id",
-                    "nullable": true,
-                    "description": "Unique event ID (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "event",
-                    "nullable": true,
-                    "description": "Event type - page_view, struct, unstruct, etc. (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "event_name",
-                    "nullable": true,
-                    "description": "Event name for custom events (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "event_vendor",
-                    "nullable": true,
-                    "description": "Event vendor (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "event_format",
-                    "nullable": true,
-                    "description": "Event format (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "event_version",
-                    "nullable": true,
-                    "description": "Event version (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "collector_tstamp",
-                    "nullable": true,
-                    "description": "Collector timestamp (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "name_tracker",
-                    "nullable": true,
-                    "description": "Tracker name (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "v_tracker",
-                    "nullable": true,
-                    "description": "Tracker version (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "v_collector",
-                    "nullable": true,
-                    "description": "Collector version (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "v_etl",
-                    "nullable": true,
-                    "description": "ETL version (REQUIRED)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "etl_tstamp",
-                    "nullable": true,
-                    "description": "ETL timestamp (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "dvce_created_tstamp",
-                    "nullable": true,
-                    "description": "Device timestamp (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "dvce_sent_tstamp",
-                    "nullable": true,
-                    "description": "Device sent timestamp (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "derived_tstamp",
-                    "nullable": true,
-                    "description": "Derived timestamp (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "true_tstamp",
-                    "nullable": true,
-                    "description": "True timestamp (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "user_id",
-                    "nullable": true,
-                    "description": "User ID from tracker (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "user_ipaddress",
-                    "nullable": true,
-                    "description": "User IP address (optional) - commonly read by IP Lookup enrichment",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "user_fingerprint",
-                    "nullable": true,
-                    "description": "User fingerprint (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "domain_userid",
-                    "nullable": true,
-                    "description": "Domain user ID - 1st party cookie (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "domain_sessionid",
-                    "nullable": true,
-                    "description": "Domain session ID (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "domain_sessionidx",
-                    "nullable": true,
-                    "description": "Domain session index (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "network_userid",
-                    "nullable": true,
-                    "description": "Network user ID - 3rd party cookie (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_url",
-                    "nullable": true,
-                    "description": "Page URL (optional) - commonly read by URL Parser enrichment",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_urlquery",
-                    "nullable": true,
-                    "description": "Page URL query string (optional) - commonly read by Campaign Attribution enrichment",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_referrer",
-                    "nullable": true,
-                    "description": "Page referrer URL (optional) - commonly read by Referer Parser enrichment",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_title",
-                    "nullable": true,
-                    "description": "Page title (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_urlscheme",
-                    "nullable": true,
-                    "description": "Page URL scheme (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_urlhost",
-                    "nullable": true,
-                    "description": "Page URL host (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_urlport",
-                    "nullable": true,
-                    "description": "Page URL port (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_urlpath",
-                    "nullable": true,
-                    "description": "Page URL path (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "page_urlfragment",
-                    "nullable": true,
-                    "description": "Page URL fragment (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_urlscheme",
-                    "nullable": true,
-                    "description": "Referrer URL scheme (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_urlhost",
-                    "nullable": true,
-                    "description": "Referrer URL host (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_urlport",
-                    "nullable": true,
-                    "description": "Referrer URL port (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_urlpath",
-                    "nullable": true,
-                    "description": "Referrer URL path (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_urlquery",
-                    "nullable": true,
-                    "description": "Referrer URL query (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_urlfragment",
-                    "nullable": true,
-                    "description": "Referrer URL fragment (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "useragent",
-                    "nullable": true,
-                    "description": "User agent string (optional) - read by UA Parser and YAUAA enrichments to derive browser/OS/device info",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "br_lang",
-                    "nullable": true,
-                    "description": "Browser language (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "br_cookies",
-                    "nullable": true,
-                    "description": "Browser cookies enabled (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "br_colordepth",
-                    "nullable": true,
-                    "description": "Browser color depth (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "br_viewwidth",
-                    "nullable": true,
-                    "description": "Browser viewport width (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "br_viewheight",
-                    "nullable": true,
-                    "description": "Browser viewport height (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_domain_userid",
-                    "nullable": true,
-                    "description": "Referrer domain user ID (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "refr_dvce_tstamp",
-                    "nullable": true,
-                    "description": "Referrer device timestamp (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "dvce_screenwidth",
-                    "nullable": true,
-                    "description": "Device screen width (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "dvce_screenheight",
-                    "nullable": true,
-                    "description": "Device screen height (optional)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "amount",
-                    "nullable": false,
-                    "description": "Total checkout amount in cents",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "currency",
-                    "nullable": false,
-                    "description": "Currency code (ISO 4217)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.EnumType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "discount_code",
-                    "nullable": true,
-                    "description": "Discount code applied (added in v1-1-0)",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "[version=2.0].items",
-                    "nullable": true,
-                    "description": "Items in checkout",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.ArrayType": {
-                                "nestedType": [
-                                    "object"
-                                ]
-                            }
-                        }
-                    },
-                    "nativeDataType": "array",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "[version=2.0].items.[type=array].product_id",
-                    "nullable": false,
-                    "description": "Product identifier",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "[version=2.0].items.[type=array].quantity",
-                    "nullable": false,
-                    "description": "Quantity of items",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "integer",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "[version=2.0].items.[type=array].price",
-                    "nullable": false,
-                    "description": "Price per item in cents",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "product_id",
-                    "nullable": false,
-                    "description": "Product identifier",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "category",
-                    "nullable": false,
-                    "description": "Product category",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "price",
-                    "nullable": false,
-                    "description": "Product price in cents",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "user_type",
-                    "nullable": true,
-                    "description": "User subscription type",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.EnumType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "registration_date",
-                    "nullable": true,
-                    "description": "User registration date",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.DateType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "event"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),currency)",
     "changeType": "UPSERT",
@@ -3259,761 +2570,6 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD)",
-                    "type": "COPY"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD)",
-                    "type": "COPY"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD)",
-                    "type": "COPY"
-                },
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD)",
-                    "type": "COPY"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),app_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),app_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),platform)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),platform)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),event_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),event_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),event)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),event)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),event_name)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),event_name)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),event_vendor)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),event_vendor)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),event_format)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),event_format)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),event_version)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),event_version)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),collector_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),collector_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),name_tracker)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),name_tracker)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),v_tracker)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),v_tracker)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),v_collector)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),v_collector)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),v_etl)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),v_etl)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),etl_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),etl_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),dvce_created_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),dvce_created_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),dvce_sent_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),dvce_sent_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),derived_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),derived_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),true_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),true_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),user_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),user_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),user_ipaddress)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),user_ipaddress)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),user_fingerprint)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),user_fingerprint)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),domain_userid)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),domain_userid)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),domain_sessionid)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),domain_sessionid)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),domain_sessionidx)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),domain_sessionidx)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),network_userid)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),network_userid)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_url)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_url)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_urlquery)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_urlquery)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_referrer)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_referrer)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_title)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_title)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_urlscheme)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_urlscheme)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_urlhost)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_urlhost)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_urlport)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_urlport)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_urlpath)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_urlpath)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),page_urlfragment)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),page_urlfragment)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_urlscheme)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_urlscheme)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_urlhost)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_urlhost)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_urlport)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_urlport)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_urlpath)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_urlpath)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_urlquery)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_urlquery)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_urlfragment)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_urlfragment)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),useragent)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),useragent)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),br_lang)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),br_lang)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),br_cookies)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),br_cookies)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),br_colordepth)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),br_colordepth)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),br_viewwidth)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),br_viewwidth)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),br_viewheight)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),br_viewheight)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_domain_userid)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_domain_userid)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),refr_dvce_tstamp)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),refr_dvce_tstamp)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),dvce_screenwidth)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),dvce_screenwidth)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,event_core,PROD),dvce_screenheight)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),dvce_screenheight)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),amount)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),amount)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),currency)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),currency)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),discount_code)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),discount_code)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),[version=2.0].items)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items.[type=array].product_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),[version=2.0].items.[type=array].product_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items.[type=array].quantity)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),[version=2.0].items.[type=array].quantity)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),[version=2.0].items.[type=array].price)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),[version=2.0].items.[type=array].price)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),product_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),product_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),category)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),category)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),price)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),price)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),user_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),user_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),user_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),user_id)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),user_type)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),user_type)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),registration_date)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started_event,PROD),registration_date)"
-                    ],
-                    "confidenceScore": 1.0
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-jl89pp",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4052,81 +2608,6 @@
 {
     "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),amount)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc_pipeline,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "pipelineId": "a44e4bc8-6948-4844-91c4-96bfb1f7f3dc",
-                "pipelineName": "Default",
-                "platform": "snowplow"
-            },
-            "name": "Snowplow Pipeline (Default)",
-            "description": "Snowplow event processing pipeline for Default.\n\nThis pipeline processes events through:\n1. **Schemas**: Event and entity schemas define the structure\n2. **Parsed Events**: Collector receives and validates events against schemas\n3. **Enrichments**: Add computed fields (IP Lookup, UA Parser, Campaign Attribution, etc.)\n4. **Loader**: Writes enriched data to warehouse\n\nFlow: Schemas \u2192 Parsed Events \u2192 Enrichments \u2192 Warehouse"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-jl89pp",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc_pipeline,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc_pipeline,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672",
-                    "urn": "urn:li:container:3bf061cc74e4eaa3a14d992578eae672"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704067200000,
-        "runId": "snowplow-2024_01_01-00_00_00-svfa35",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(snowplow,a44e4bc8-6948-4844-91c4-96bfb1f7f3dc_pipeline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4190,6 +2671,79 @@
 },
 {
     "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),category)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Bob"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-10T09:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "pii"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "context"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.checkout_started,PROD),discount_code)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -4201,6 +2755,63 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),registration_date)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
+                    "values": [
+                        {
+                            "string": "Bob"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldVersionAdded",
+                    "values": [
+                        {
+                            "string": "1-0-0"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAddedTimestamp",
+                    "values": [
+                        {
+                            "string": "2024-01-10T09:00:00Z"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldDataClass",
+                    "values": [
+                        {
+                            "string": "internal"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldEventType",
+                    "values": [
+                        {
+                            "string": "context"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4217,6 +2828,22 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),product_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4253,6 +2880,22 @@
     }
 },
 {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),user_type)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "structuredProperty",
     "entityUrn": "urn:li:structuredProperty:io.acryl.snowplow.fieldAuthor",
     "changeType": "UPSERT",
@@ -4265,6 +2908,70 @@
     "systemMetadata": {
         "lastObserved": 1704067200000,
         "runId": "snowplow-2024_01_01-00_00_00-svfa35",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.user_context,PROD),registration_date)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowplow,com.acme.product_viewed,PROD),price)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704067200000,
+        "runId": "snowplow-2024_01_01-00_00_00-ae5zfq",
         "lastRunId": "no-run-id-provided"
     }
 }

@@ -11,7 +11,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
+import requests
+
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowplow.constants import SchemaType, infer_schema_type
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.ingestion.source.snowplow.snowplow_models import (
     DataStructure,
@@ -135,10 +138,21 @@ class SchemaProcessor(EntityProcessor):
             return self.deps.bdp_client.get_data_structures(
                 page_size=self.config.schema_page_size
             )
-        except Exception as e:
+        except (requests.RequestException, ValueError) as e:
+            # Expected errors: API failures, parsing errors
             self.report.report_failure(
                 title="Failed to fetch data structures",
                 message="Unable to retrieve schemas from BDP API. Check API credentials and network connectivity.",
+                context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
+                exc=e,
+            )
+            return []
+        except Exception as e:
+            # Unexpected error - indicates a bug
+            logger.error("Unexpected error fetching data structures", exc_info=True)
+            self.report.report_failure(
+                title="Unexpected error fetching data structures",
+                message="This may indicate a bug in the connector. Please report this issue.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
                 exc=e,
             )
@@ -170,35 +184,53 @@ class SchemaProcessor(EntityProcessor):
 
         def fetch_deployments_for_schema(
             ds: DataStructure,
-        ) -> Tuple[DataStructure, Optional[Exception]]:
-            """Thread-safe deployment fetching."""
+        ) -> Tuple[str, str, Optional[List], Optional[Exception]]:
+            """
+            Fetch deployments for a schema without mutating the object.
+
+            Returns:
+                Tuple of (vendor, name, deployments, error)
+            """
             try:
                 if self.deps.bdp_client and ds.hash:
-                    ds.deployments = (
-                        self.deps.bdp_client.get_data_structure_deployments(ds.hash)
+                    deployments = self.deps.bdp_client.get_data_structure_deployments(
+                        ds.hash
                     )
                     logger.debug(
-                        f"Fetched {len(ds.deployments) if ds.deployments else 0} deployments "
+                        f"Fetched {len(deployments) if deployments else 0} deployments "
                         f"for {ds.vendor}/{ds.name}"
                     )
-                return ds, None
+                    return ds.vendor, ds.name, deployments, None
+                return ds.vendor, ds.name, None, None
             except Exception as e:
-                return ds, e
+                return ds.vendor, ds.name, None, e
 
+        # Collect results from all threads
+        deployment_map = {}
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(fetch_deployments_for_schema, ds) for ds in schemas
             ]
 
             for future in as_completed(futures):
-                ds, error = future.result()
+                vendor, name, deployments, error = future.result()
                 if error:
                     logger.warning(
-                        f"Failed to fetch deployments for {ds.vendor}/{ds.name}: {error}"
+                        f"Failed to fetch deployments for {vendor}/{name}: {error}"
                     )
+                else:
+                    # Store in map for later assignment
+                    deployment_map[f"{vendor}/{name}"] = deployments
+
+        # Safely update all schemas in single thread after all fetches complete
+        for ds in schemas:
+            schema_key = f"{ds.vendor}/{ds.name}"
+            if schema_key in deployment_map:
+                ds.deployments = deployment_map[schema_key]
 
         logger.info(
-            f"Completed parallel deployment fetching for {len(schemas)} schemas"
+            f"Completed parallel deployment fetching for {len(schemas)} schemas "
+            f"({len(deployment_map)} successful)"
         )
 
     def _fetch_deployments_sequential(self, schemas: List[DataStructure]) -> None:
@@ -400,7 +432,7 @@ class SchemaProcessor(EntityProcessor):
         # Determine schema type (event or entity)
         # In Iglu-only mode, we don't have meta.schema_type, so infer from schema itself
         # Snowplow convention: contexts are entities, rest are events
-        schema_type = "entity" if "context" in name.lower() else "event"
+        schema_type = infer_schema_type(name)
 
         # Track found schema
         self.report.report_schema_found(schema_type)
@@ -415,9 +447,9 @@ class SchemaProcessor(EntityProcessor):
 
         # Filter by schema type
         if (
-            schema_type == "event"
+            schema_type == SchemaType.EVENT.value
             and not self.config.extract_event_schemas
-            or schema_type == "entity"
+            or schema_type == SchemaType.ENTITY.value
             and not self.config.extract_entity_schemas
         ):
             self.report.report_schema_filtered(schema_type, schema_identifier)
@@ -575,7 +607,9 @@ class SchemaProcessor(EntityProcessor):
         # Delegate to DataStructureBuilder
         yield from self.data_structure_builder.process_data_structure(data_structure)
 
-    def _build_field_version_mappings(self, data_structures: List[DataStructure]) -> None:
+    def _build_field_version_mappings(
+        self, data_structures: List[DataStructure]
+    ) -> None:
         """
         Build field version mappings for all schemas.
 
@@ -591,9 +625,7 @@ class SchemaProcessor(EntityProcessor):
             field_version_map = self._build_field_version_mapping(data_structure)
             if field_version_map:
                 self.state.field_version_cache[schema_key] = field_version_map
-                logger.debug(
-                    f"Mapped {len(field_version_map)} fields for {schema_key}"
-                )
+                logger.debug(f"Mapped {len(field_version_map)} fields for {schema_key}")
 
     def _build_field_version_mapping(
         self, data_structure: DataStructure
@@ -637,44 +669,62 @@ class SchemaProcessor(EntityProcessor):
             f"Tracking field versions for {schema_key}: {len(versions)} versions to compare"
         )
 
-        # Track fields seen in each version
-        previous_fields: set = set()
-
-        for version in versions:
+        # Fetch all versions in parallel to avoid N+1 query pattern
+        def fetch_one_version(version: str) -> Tuple[str, Optional[DataStructure]]:
+            """Fetch a single version of the schema."""
             try:
-                # Fetch this version's schema
                 version_ds = self.deps.bdp_client.get_data_structure_version(
                     data_structure.hash, version
                 )
-
-                if not version_ds or not version_ds.data:
-                    logger.warning(
-                        f"Could not fetch schema for {schema_key} version {version}"
-                    )
-                    continue
-
-                # Extract field paths from this version
-                current_fields = set(version_ds.data.properties.keys())
-
-                # Fields that are new in this version
-                new_fields = current_fields - previous_fields
-
-                # Record when each new field was added
-                for field_path in new_fields:
-                    if field_path not in field_version_map:
-                        field_version_map[field_path] = version
-                        logger.debug(
-                            f"Field '{field_path}' added in version {version} of {schema_key}"
-                        )
-
-                # Update for next iteration
-                previous_fields = current_fields
-
+                return (version, version_ds)
             except Exception as e:
                 logger.warning(
-                    f"Failed to process version {version} of {schema_key}: {e}"
+                    f"Failed to fetch version {version} of {schema_key}: {e}"
+                )
+                return (version, None)
+
+        # Fetch all versions in parallel
+        version_schemas: Dict[str, Optional[DataStructure]] = {}
+        max_workers = min(10, len(versions))  # Limit concurrent requests
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(fetch_one_version, v) for v in versions]
+
+            for future in as_completed(futures):
+                version, version_ds = future.result()
+                version_schemas[version] = version_ds
+
+        logger.debug(f"Fetched {len(version_schemas)} version schemas for {schema_key}")
+
+        # Track fields seen in each version
+        previous_fields: set = set()
+
+        # Process versions in chronological order
+        for version in versions:
+            version_ds = version_schemas.get(version)
+
+            if not version_ds or not version_ds.data:
+                logger.warning(
+                    f"Could not fetch schema for {schema_key} version {version}"
                 )
                 continue
+
+            # Extract field paths from this version
+            current_fields = set(version_ds.data.properties.keys())
+
+            # Fields that are new in this version
+            new_fields = current_fields - previous_fields
+
+            # Record when each new field was added
+            for field_path in new_fields:
+                if field_path not in field_version_map:
+                    field_version_map[field_path] = version
+                    logger.debug(
+                        f"Field '{field_path}' added in version {version} of {schema_key}"
+                    )
+
+            # Update for next iteration
+            previous_fields = current_fields
 
         logger.info(
             f"Completed field version tracking for {schema_key}: "

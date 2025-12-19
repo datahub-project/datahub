@@ -59,6 +59,19 @@ class IgluClient:
             # Iglu uses UUID API key in query parameter or header
             self.session.params = {"apikey": config.api_key.get_secret_value()}  # type: ignore
 
+    def close(self) -> None:
+        """Close the HTTP session and release resources."""
+        if hasattr(self, "session") and self.session:
+            self.session.close()
+
+    def __enter__(self) -> "IgluClient":
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - cleanup resources."""
+        self.close()
+
     def get_schema(
         self,
         vendor: str,
