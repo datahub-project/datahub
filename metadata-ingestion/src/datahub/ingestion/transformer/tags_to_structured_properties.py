@@ -121,7 +121,10 @@ class TagsToStructuredPropertiesTransformer(BaseTransformer, MultipleAspectTrans
         if not aspect:
             return []
 
-        tags_aspect = cast(GlobalTagsClass, aspect)
+        assert isinstance(aspect, GlobalTagsClass), (
+            f"Expected GlobalTagsClass but got {type(aspect)}"
+        )
+        tags_aspect = aspect
         if not tags_aspect.tags:
             return []
 

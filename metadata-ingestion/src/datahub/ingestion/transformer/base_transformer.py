@@ -106,7 +106,27 @@ class MultipleAspectTransformer(HandleEndOfStreamTransformer, metaclass=ABCMeta)
 
 
 class BaseTransformer(Transformer, metaclass=ABCMeta):
-    """Transformer that offers common functionality that most transformers need"""
+    """
+    Base transformer providing common functionality for all transformers.
+
+    Architecture:
+        BaseTransformer uses a mixin pattern where concrete transformers must inherit from
+        both BaseTransformer and one of the allowed mixins:
+        - LegacyMCETransformer: For full MCE transformation
+        - SingleAspectTransformer: For transforming a single aspect type
+        - MultipleAspectTransformer: For transforming one aspect into multiple aspects
+
+        Example:
+            class MyTransformer(BaseTransformer, SingleAspectTransformer):
+                def aspect_name(self) -> str:
+                    return "globalTags"
+                def transform_aspect(self, ...) -> ...:
+                    # transformation logic
+
+        The mixins define the interface (abstract methods) while BaseTransformer provides
+        the implementation helpers that dispatch based on which mixin is present. This allows
+        type-safe polymorphic behavior with runtime assertions validating the class hierarchy.
+    """
 
     allowed_mixins = [
         LegacyMCETransformer,
@@ -251,7 +271,23 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         self,
         envelope: RecordEnvelope[MetadataChangeProposalWrapper],
     ) -> Optional[RecordEnvelope[MetadataChangeProposalWrapper]]:
-        # remember stuff
+        """
+        Handle SingleAspectTransformer processing for MetadataChangeProposalWrapper records.
+
+        This helper method is defined on BaseTransformer but calls methods from the
+        SingleAspectTransformer mixin. The runtime assertion ensures type safety while
+        allowing the mixin pattern to work correctly.
+
+        Args:
+            envelope: Record envelope containing an MCPW
+
+        Returns:
+            The envelope with transformed aspect, or None if aspect should be dropped
+
+        Note:
+            This method requires self to be an instance of SingleAspectTransformer,
+            which is validated via runtime assertion.
+        """
         assert envelope.record.entityUrn
         assert isinstance(self, SingleAspectTransformer)
         if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:
@@ -275,12 +311,33 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _transform_multiple_aspect_mcpw(
         self, envelope: RecordEnvelope[MetadataChangeProposalWrapper]
     ) -> Iterable[RecordEnvelope[MetadataChangeProposalWrapper]]:
-        """Handle MultipleAspectTransformer processing for MCPW."""
+        """
+        Handle MultipleAspectTransformer processing for MetadataChangeProposalWrapper records.
+
+        This helper method is defined on BaseTransformer but calls methods from the
+        MultipleAspectTransformer mixin. It transforms a single input aspect into
+        multiple output aspects, emitting them on-the-fly as separate envelopes.
+
+        The first output aspect replaces the original envelope, and additional aspects
+        are yielded as new envelopes with updated work unit IDs.
+
+        Args:
+            envelope: Record envelope containing an MCPW
+
+        Yields:
+            One or more envelopes, each containing a transformed aspect
+
+        Note:
+            This method requires self to be an instance of MultipleAspectTransformer,
+            which is validated via runtime assertion.
+        """
+        assert isinstance(self, MultipleAspectTransformer)
+
         assert envelope.record.entityUrn
-        if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:  # type: ignore[attr-defined]
+        if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:
             # Collect all output aspects
             output_aspects = list(
-                self.transform_aspects(  # type: ignore
+                self.transform_aspects(
                     entity_urn=envelope.record.entityUrn,
                     aspect_name=envelope.record.aspectName,
                     aspect=envelope.record.aspect,
@@ -324,19 +381,42 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _handle_single_aspect_end_of_stream(
         self, envelope: RecordEnvelope
     ) -> Iterable[RecordEnvelope]:
-        """Handle SingleAspectTransformer end of stream processing."""
+        """
+        Process accumulated state at end of stream for SingleAspectTransformer.
+
+        This helper method is defined on BaseTransformer but calls methods from the
+        SingleAspectTransformer mixin. It processes any entities that were tracked
+        during the ingestion and emits their transformed aspects.
+
+        This is necessary for transformers that need to see all aspects of an entity
+        before deciding on the final transformation (e.g., accumulating state across
+        multiple aspects).
+
+        Args:
+            envelope: The EndOfStream control record envelope
+
+        Yields:
+            Envelopes containing transformed aspects for tracked entities
+
+        Note:
+            This method requires self to be an instance of SingleAspectTransformer,
+            which is validated via runtime assertion. It accesses entity_map which is
+            managed by BaseTransformer.
+        """
+        assert isinstance(self, SingleAspectTransformer)
+
         for urn, state in self.entity_map.items():
             if "seen" in state:
                 last_seen_mcp = state["seen"].get("mcp")
                 last_seen_mce_system_metadata = state["seen"].get("mce")
 
-                transformed_aspect = self.transform_aspect(  # type: ignore
+                transformed_aspect = self.transform_aspect(
                     entity_urn=urn,
-                    aspect_name=self.aspect_name(),  # type: ignore
+                    aspect_name=self.aspect_name(),
                     aspect=(
                         last_seen_mcp.aspect
                         if last_seen_mcp
-                        and last_seen_mcp.aspectName == self.aspect_name()  # type: ignore
+                        and last_seen_mcp.aspectName == self.aspect_name()
                         else None
                     ),
                 )
@@ -351,14 +431,15 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                             if last_seen_mcp
                             else last_seen_mce_system_metadata
                         ),
-                        aspectName=self.aspect_name(),  # type: ignore
+                        aspectName=self.aspect_name(),
                         aspect=transformed_aspect,
                     )
 
                     if mcp.entityUrn:
+                        assert mcp.aspect is not None
                         record_metadata = _update_work_unit_id(
                             envelope=envelope,
-                            aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
+                            aspect_name=mcp.aspect.get_aspect_name(),
                             urn=mcp.entityUrn,
                         )
                     else:
@@ -374,19 +455,42 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _handle_multiple_aspect_end_of_stream(
         self, envelope: RecordEnvelope
     ) -> Iterable[RecordEnvelope]:
-        """Handle MultipleAspectTransformer end of stream processing."""
+        """
+        Process accumulated state at end of stream for MultipleAspectTransformer.
+
+        This helper method is defined on BaseTransformer but calls methods from the
+        MultipleAspectTransformer mixin. It processes any entities that were tracked
+        during the ingestion and emits their transformed aspects as multiple outputs.
+
+        Similar to _handle_single_aspect_end_of_stream but supports emitting multiple
+        aspects per entity (e.g., transforming tags into both tags and structured properties).
+
+        Args:
+            envelope: The EndOfStream control record envelope
+
+        Yields:
+            Envelopes containing transformed aspects for tracked entities. Multiple
+            envelopes may be yielded per entity if the transformer emits multiple aspects.
+
+        Note:
+            This method requires self to be an instance of MultipleAspectTransformer,
+            which is validated via runtime assertion. It accesses entity_map which is
+            managed by BaseTransformer.
+        """
+        assert isinstance(self, MultipleAspectTransformer)
+
         for urn, state in self.entity_map.items():
             if "seen" in state:
                 last_seen_mcp = state["seen"].get("mcp")
                 last_seen_mce_system_metadata = state["seen"].get("mce")
 
-                output_aspects = self.transform_aspects(  # type: ignore
+                output_aspects = self.transform_aspects(
                     entity_urn=urn,
-                    aspect_name=self.aspect_name(),  # type: ignore
+                    aspect_name=self.aspect_name(),
                     aspect=(
                         last_seen_mcp.aspect
                         if last_seen_mcp
-                        and last_seen_mcp.aspectName == self.aspect_name()  # type: ignore
+                        and last_seen_mcp.aspectName == self.aspect_name()
                         else None
                     ),
                 )
@@ -428,11 +532,12 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
     def _handle_end_of_stream(
         self, envelope: RecordEnvelope
     ) -> Iterable[RecordEnvelope]:
-        if not isinstance(
+        assert isinstance(
             self,
             (SingleAspectTransformer, MultipleAspectTransformer, LegacyMCETransformer),
-        ):
-            return
+        ), (
+            f"Transformer {type(self).__name__} must inherit from one of the allowed mixins"
+        )
 
         mcps: Sequence[
             Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
