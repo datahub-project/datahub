@@ -102,11 +102,11 @@ Example M-Query for Athena:
 ```shell
 let
   Source = AmazonAthena.Databases("us-east-1"),
-  awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],
-  analytics_db = awsdatacatalog{[Name="analytics"]}[Data],
-  sales_table = analytics_db{[Name="sales_data"]}[Data]
+  AwsDataCatalog_Database = Source{[Name="AwsDataCatalog",Kind="Database"]}[Data],
+  analytics_Schema = AwsDataCatalog_Database{[Name="analytics",Kind="Schema"]}[Data],
+  sales_data_Table = analytics_Schema{[Name="sales_data",Kind="Table"]}[Data]
 in
-  sales_table
+  sales_data_Table
 ```
 
 This will create lineage to the Athena table `analytics.sales_data` in the `us-east-1` region.
