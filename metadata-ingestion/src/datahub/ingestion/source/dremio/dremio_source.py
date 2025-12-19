@@ -400,7 +400,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{dataset_name}",
+            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -485,7 +485,7 @@ class DremioSource(StatefulIngestionSourceBase):
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{dataset_name}",
+            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -500,7 +500,7 @@ class DremioSource(StatefulIngestionSourceBase):
         upstream_urns = [
             make_dataset_urn_with_platform_instance(
                 platform=make_data_platform_urn(self.get_platform()),
-                name=f"dremio.{upstream_table.lower()}",
+                name=f"{DREMIO_DATABASE_NAME}.{upstream_table.lower()}",
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
@@ -562,7 +562,7 @@ class DremioSource(StatefulIngestionSourceBase):
             upstream_urns = [
                 make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn(self.get_platform()),
-                    name=f"dremio.{ds.lower()}",
+                    name=f"{DREMIO_DATABASE_NAME}.{ds.lower()}",
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
@@ -571,7 +571,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
             downstream_urn = make_dataset_urn_with_platform_instance(
                 platform=make_data_platform_urn(self.get_platform()),
-                name=f"dremio.{query.affected_dataset.lower()}",
+                name=f"{DREMIO_DATABASE_NAME}.{query.affected_dataset.lower()}",
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
