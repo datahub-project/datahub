@@ -306,3 +306,119 @@ def test_athena_platform_pair(athena_lineage):
 
     assert platform_pair.datahub_data_platform_name == "athena"
     assert platform_pair.powerbi_data_platform_name == "Amazon Athena"
+
+
+def test_athena_custom_catalog_name(athena_lineage):
+    """Test Athena lineage with custom Glue catalog name."""
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "sales_data"}, next=None
+    )
+    db_accessor = IdentifierAccessor(
+        identifier="database", items={"Name": "analytics"}, next=table_accessor
+    )
+    # Custom Glue catalog instead of AwsDataCatalog
+    catalog_accessor = IdentifierAccessor(
+        identifier="catalog", items={"Name": "my_glue_catalog"}, next=db_accessor
+    )
+
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-west-2"')])]
+    )
+
+    data_access_func_detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="AmazonAthena.Databases",
+        identifier_accessor=catalog_accessor,
+    )
+
+    lineage = athena_lineage.create_lineage(data_access_func_detail)
+
+    # Should still work with custom catalog
+    assert len(lineage.upstreams) == 1
+    # URN should NOT include catalog name (even custom ones)
+    assert "analytics.sales_data" in lineage.upstreams[0].urn
+    assert "my_glue_catalog" not in lineage.upstreams[0].urn
+
+
+def test_athena_empty_database_name(athena_lineage):
+    """Test Athena lineage with empty database name."""
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "sales_data"}, next=None
+    )
+    db_accessor = IdentifierAccessor(
+        identifier="database", items={"Name": ""}, next=table_accessor
+    )
+    catalog_accessor = IdentifierAccessor(
+        identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
+    )
+
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
+    )
+
+    data_access_func_detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="AmazonAthena.Databases",
+        identifier_accessor=catalog_accessor,
+    )
+
+    lineage = athena_lineage.create_lineage(data_access_func_detail)
+
+    # Should return empty lineage for empty database name
+    assert len(lineage.upstreams) == 0
+
+
+def test_athena_empty_table_name(athena_lineage):
+    """Test Athena lineage with empty table name."""
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": ""}, next=None
+    )
+    db_accessor = IdentifierAccessor(
+        identifier="database", items={"Name": "analytics"}, next=table_accessor
+    )
+    catalog_accessor = IdentifierAccessor(
+        identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
+    )
+
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
+    )
+
+    data_access_func_detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="AmazonAthena.Databases",
+        identifier_accessor=catalog_accessor,
+    )
+
+    lineage = athena_lineage.create_lineage(data_access_func_detail)
+
+    # Should return empty lineage for empty table name
+    assert len(lineage.upstreams) == 0
+
+
+def test_athena_whitespace_only_names(athena_lineage):
+    """Test Athena lineage with whitespace-only database/table names."""
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "   "}, next=None
+    )
+    db_accessor = IdentifierAccessor(
+        identifier="database", items={"Name": "  "}, next=table_accessor
+    )
+    catalog_accessor = IdentifierAccessor(
+        identifier="catalog", items={"Name": "awsdatacatalog"}, next=db_accessor
+    )
+
+    arg_list: Tree = Tree(
+        "arg_list", [Tree("string", [Token("STRING", '"us-east-1"')])]
+    )
+
+    data_access_func_detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="AmazonAthena.Databases",
+        identifier_accessor=catalog_accessor,
+    )
+
+    lineage = athena_lineage.create_lineage(data_access_func_detail)
+
+    # Should return empty lineage for whitespace-only names
+    assert len(lineage.upstreams) == 0

@@ -430,6 +430,19 @@ class AmazonAthenaLineage(AbstractLineage):
             )
             return Lineage.empty()
 
+        # Validate that database and table names are not empty to prevent malformed URNs
+        if not db_name or not db_name.strip():
+            logger.warning(
+                f"Empty database name for table {self.table.full_name}. Cannot generate valid URN."
+            )
+            return Lineage.empty()
+
+        if not table_name or not table_name.strip():
+            logger.warning(
+                f"Empty table name for table {self.table.full_name}. Cannot generate valid URN."
+            )
+            return Lineage.empty()
+
         qualified_table_name: str = f"{db_name}.{table_name}"
         logger.debug(
             f"Extracted Athena qualified table name: {qualified_table_name} from server: {server}"
