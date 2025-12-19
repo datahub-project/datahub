@@ -136,43 +136,6 @@
       "platform_name": "Azure AD",
       "support_status": "CERTIFIED"
     },
-    "azure-data-factory": {
-      "capabilities": [
-        {
-          "capability": "CONTAINERS",
-          "description": "Enabled by default",
-          "subtype_modifier": [
-            "Data Factory"
-          ],
-          "supported": true
-        },
-        {
-          "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "Enabled by default",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "LINEAGE_COARSE",
-          "description": "Extracts lineage from Copy and Data Flow activities",
-          "subtype_modifier": [
-            "Copy Activity",
-            "Data Flow Activity"
-          ],
-          "supported": true
-        }
-      ],
-      "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
-      "platform_id": "azure-data-factory",
-      "platform_name": "Azure Data Factory",
-      "support_status": "INCUBATING"
-    },
     "bigquery": {
       "capabilities": [
         {
@@ -627,31 +590,31 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Enabled by default",
+          "description": "Links BigQuery datasets to BigQuery dataset containers. Supports dual API extraction: Entries API (Universal Catalog) for system-managed resources, and Entities API (Lakes/Zones) for Dataplex-managed assets. Dataplex hierarchy (lakes, zones, assets) preserved as custom properties.",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
+          "description": "Enabled by default when stateful ingestion is configured. Tracks entities from both Entries API (Universal Catalog) and Entities API (Lakes/Zones).",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Enabled by default, can be disabled via configuration `include_schema`",
+          "description": "Extract schema information from Entries API (Universal Catalog) and Entities API (discovered tables/filesets). Schema extraction can be disabled via include_schema config for faster ingestion.",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Optionally enabled via configuration `include_lineage`",
+          "description": "Extract table-level lineage from Dataplex Lineage API. Supports configurable retry logic (lineage_max_retries, lineage_retry_backoff_multiplier) for handling transient errors.",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
-          "description": "Enabled by default",
+          "description": "Verifies connectivity to Dataplex API, including both Entries API (Universal Catalog) and Entities API (Lakes/Zones) if enabled.",
           "subtype_modifier": null,
           "supported": true
         }
