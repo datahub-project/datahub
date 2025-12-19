@@ -47,6 +47,8 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 5.  Google BigQuery
 6.  Databricks
 7.  MySQL
+8.  Amazon Redshift
+9.  Amazon Athena
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
 
