@@ -40,6 +40,7 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
+      DATAHUB_ACCESSIBILITY_MODE: 'false'
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_SERVER_TYPE: quickstart
@@ -125,6 +126,7 @@ services:
         condition: service_completed_successfully
         required: true
     environment:
+      DATAHUB_ACCESSIBILITY_MODE: 'true'
       DATAHUB_APP_VERSION: ${DATAHUB_VERSION}
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
