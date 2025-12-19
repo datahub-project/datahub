@@ -37,11 +37,18 @@ export interface MultiStepFormContextType<TState, TStep extends Step = Step, TSu
     isCurrentStepCompleted: () => boolean;
     setCurrentStepCompleted: () => void;
     setCurrentStepUncompleted: () => void;
+
+    isDirty: () => boolean;
 }
+
+export type OnCancelArguments = {
+    isDirty?: boolean;
+};
 
 export interface MultiStepFormProviderProps<TState, TSubmitOptions = any> {
     steps: Step[];
     initialState?: TState;
     onSubmit?: (state: TState | undefined, options?: TSubmitOptions | undefined) => Promise<void>;
-    onCancel?: () => void;
+    onCancel?: (args: OnCancelArguments) => void;
+    isDirtyChecker?: (initialState: TState | undefined, state: TState | undefined) => boolean;
 }

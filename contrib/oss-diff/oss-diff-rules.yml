@@ -102,7 +102,7 @@ rules:
     max_removals: 0
     max_total: 10
     ignored_line_patterns:
-      - "^\\s*//.*$"  # JavaScript comment lines
+      - "^\\s*//.*$" # JavaScript comment lines
   - pattern: "docs-website/**"
     max_removals: 0
     max_total: 10

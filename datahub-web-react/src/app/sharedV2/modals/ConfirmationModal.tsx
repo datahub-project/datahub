@@ -2,6 +2,8 @@ import { Modal, Text, typography } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { ModalButton } from '@components/components/Modal/Modal';
+
 export const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
@@ -28,6 +30,7 @@ interface Props {
     modalTitle?: string;
     modalText?: string | React.ReactNode;
     closeButtonText?: string;
+    closeButtonColor?: ModalButton['color'];
     confirmButtonText?: string;
     isDeleteModal?: boolean;
 }
@@ -39,6 +42,7 @@ export const ConfirmationModal = ({
     modalTitle,
     modalText,
     closeButtonText,
+    closeButtonColor,
     confirmButtonText,
     isDeleteModal,
 }: Props) => {
@@ -53,6 +57,7 @@ export const ConfirmationModal = ({
                     onClick: handleClose,
                     buttonDataTestId: 'modal-cancel-button',
                     text: closeButtonText || 'Cancel',
+                    color: closeButtonColor,
                 },
                 {
                     variant: 'filled',

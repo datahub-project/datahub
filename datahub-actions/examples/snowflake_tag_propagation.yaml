@@ -11,7 +11,7 @@ action:
   type: "snowflake_tag_propagation"
   config:
     tag_propagation:
-      tag_prefixes: 
+      tag_prefixes:
         - classification
     term_propagation:
       target_terms:

@@ -7,6 +7,6 @@ source:
     connection:
       bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
-# 2. Action: What action to take on events. 
+# 2. Action: What action to take on events.
 action:
   type: "hello_world"
