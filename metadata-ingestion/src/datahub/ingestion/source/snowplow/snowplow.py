@@ -13,7 +13,6 @@ Supports both:
 """
 
 import logging
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -56,9 +55,6 @@ from datahub.ingestion.source.snowplow.dependencies import (
     IngestionState,
     ProcessorDependencies,
 )
-from datahub.ingestion.source.snowplow.services.enrichment_registry_factory import (
-    EnrichmentRegistryFactory,
-)
 from datahub.ingestion.source.snowplow.field_tagging import (
     FieldTagger,
 )
@@ -94,6 +90,9 @@ from datahub.ingestion.source.snowplow.services.column_lineage_builder import (
 from datahub.ingestion.source.snowplow.services.data_structure_builder import (
     DataStructureBuilder,
 )
+from datahub.ingestion.source.snowplow.services.enrichment_registry_factory import (
+    EnrichmentRegistryFactory,
+)
 from datahub.ingestion.source.snowplow.services.error_handler import ErrorHandler
 from datahub.ingestion.source.snowplow.services.property_manager import PropertyManager
 from datahub.ingestion.source.snowplow.services.user_resolver import UserResolver
@@ -113,7 +112,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -122,7 +120,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.dataset import Dataset
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sentinels import unset
@@ -631,6 +628,8 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
     def _fetch_all_data_structures_main(self) -> List[DataStructure]:
         """Fetch all data structures with error handling."""
+        if not self.bdp_client:
+            return []
         try:
             return self.bdp_client.get_data_structures(
                 page_size=self.config.schema_page_size
@@ -703,6 +702,8 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
 
     def _fetch_deployments_sequential_main(self, schemas: List[DataStructure]) -> None:
         """Fetch deployments sequentially."""
+        if not self.bdp_client:
+            return
         for ds in schemas:
             try:
                 if ds.hash:
@@ -803,7 +804,9 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         data_structures = self._get_data_structures_filtered()
 
         for data_structure in data_structures:
-            yield from self._process_data_structure(data_structure)
+            yield from self.data_structure_builder.process_data_structure(
+                data_structure
+            )
 
     def _extract_schemas_from_iglu(self) -> Iterable[MetadataWorkUnit]:
         """

@@ -5,7 +5,7 @@ Centralizes caching patterns to improve performance and reduce redundant API cal
 """
 
 import logging
-from typing import Any, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 import cachetools
 
@@ -90,7 +90,7 @@ class CacheManager:
             self._caches.clear()
             logger.debug("Cleared all caches")
 
-    def get_or_compute(self, cache_name: str, compute_fn: callable) -> Any:
+    def get_or_compute(self, cache_name: str, compute_fn: "Callable[[], Any]") -> Any:
         """
         Get cached value or compute if not cached.
 

@@ -8,6 +8,7 @@ authorship, versioning, and classification in DataHub.
 import logging
 from typing import Any, Dict, Iterable, List
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowplow.constants import (
     DataClassification,
@@ -24,7 +25,6 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     StructuredPropertyUrn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 logger = logging.getLogger(__name__)
 

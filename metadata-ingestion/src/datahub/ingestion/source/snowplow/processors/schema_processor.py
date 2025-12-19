@@ -14,14 +14,12 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 import requests
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowplow.constants import SchemaType, infer_schema_type
 from datahub.ingestion.source.snowplow.processors.base import EntityProcessor
 from datahub.ingestion.source.snowplow.snowplow_models import (
     DataStructure,
+    DataStructureDeployment,
     IgluSchema,
 )
-from datahub.metadata.schema_classes import StatusClass
-from datahub.sdk.dataset import Dataset
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.snowplow.dependencies import (
@@ -134,6 +132,8 @@ class SchemaProcessor(EntityProcessor):
 
     def _fetch_all_data_structures(self) -> List[DataStructure]:
         """Fetch all data structures with error handling."""
+        if not self.deps.bdp_client:
+            return []
         try:
             return self.deps.bdp_client.get_data_structures(
                 page_size=self.config.schema_page_size
@@ -184,7 +184,9 @@ class SchemaProcessor(EntityProcessor):
 
         def fetch_deployments_for_schema(
             ds: DataStructure,
-        ) -> Tuple[str, str, Optional[List], Optional[Exception]]:
+        ) -> Tuple[
+            str, str, Optional[List[DataStructureDeployment]], Optional[Exception]
+        ]:
             """
             Fetch deployments for a schema without mutating the object.
 
@@ -200,13 +202,13 @@ class SchemaProcessor(EntityProcessor):
                         f"Fetched {len(deployments) if deployments else 0} deployments "
                         f"for {ds.vendor}/{ds.name}"
                     )
-                    return ds.vendor, ds.name, deployments, None
-                return ds.vendor, ds.name, None, None
+                    return ds.vendor or "", ds.name or "", deployments, None
+                return ds.vendor or "", ds.name or "", None, None
             except Exception as e:
-                return ds.vendor, ds.name, None, e
+                return ds.vendor or "", ds.name or "", None, e
 
         # Collect results from all threads
-        deployment_map = {}
+        deployment_map: Dict[str, Optional[List[DataStructureDeployment]]] = {}
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(fetch_deployments_for_schema, ds) for ds in schemas
@@ -226,7 +228,9 @@ class SchemaProcessor(EntityProcessor):
         for ds in schemas:
             schema_key = f"{ds.vendor}/{ds.name}"
             if schema_key in deployment_map:
-                ds.deployments = deployment_map[schema_key]
+                deployments = deployment_map[schema_key]
+                if deployments is not None:
+                    ds.deployments = deployments
 
         logger.info(
             f"Completed parallel deployment fetching for {len(schemas)} schemas "
@@ -235,6 +239,8 @@ class SchemaProcessor(EntityProcessor):
 
     def _fetch_deployments_sequential(self, schemas: List[DataStructure]) -> None:
         """Fetch deployments sequentially."""
+        if not self.deps.bdp_client:
+            return
         for ds in schemas:
             try:
                 if ds.hash:
@@ -429,9 +435,15 @@ class SchemaProcessor(EntityProcessor):
             name: Schema name
             version: Schema version
         """
+        from datahub.ingestion.source.snowplow.constants import infer_schema_type
+        from datahub.ingestion.source.snowplow.schema_parser import (
+            SnowplowSchemaParser,
+        )
+        from datahub.metadata.schema_classes import StatusClass
+        from datahub.sdk.dataset import Dataset
+        from datahub.utilities.sentinels import unset
+
         # Determine schema type (event or entity)
-        # In Iglu-only mode, we don't have meta.schema_type, so infer from schema itself
-        # Snowplow convention: contexts are entities, rest are events
         schema_type = infer_schema_type(name)
 
         # Track found schema
@@ -446,12 +458,7 @@ class SchemaProcessor(EntityProcessor):
             return
 
         # Filter by schema type
-        if (
-            schema_type == SchemaType.EVENT.value
-            and not self.config.extract_event_schemas
-            or schema_type == SchemaType.ENTITY.value
-            and not self.config.extract_entity_schemas
-        ):
+        if schema_type not in self.config.schema_types_to_extract:
             self.report.report_schema_filtered(schema_type, schema_identifier)
             logger.debug(
                 f"Schema {schema_identifier} filtered out by schema type: {schema_type}"
@@ -460,45 +467,67 @@ class SchemaProcessor(EntityProcessor):
 
         logger.info(f"Processing schema from Iglu: {schema_identifier} ({schema_type})")
 
-        # Generate dataset URN
-        dataset_urn = self.urn_factory.make_schema_dataset_urn(
-            vendor=vendor,
-            name=name,
-            version=version,
-        )
+        # Build dataset name
+        if self.config.include_version_in_urn:
+            dataset_name = f"{vendor}.{name}.{version}".replace("/", ".")
+        else:
+            dataset_name = f"{vendor}.{name}".replace("/", ".")
 
-        # Use SDK V2 for dataset creation
+        # Dataset properties
+        custom_properties = {
+            "vendor": vendor,
+            "schemaVersion": version,
+            "schema_type": schema_type,
+            "format": iglu_schema.self_descriptor.format,
+            "hidden": "false",
+            "igluUri": f"iglu:{vendor}/{name}/jsonschema/{version}",
+        }
+
+        # SubTypes
+        subtype = f"snowplow_{schema_type}_schema"
+
+        # Prepare extra aspects
+        extra_aspects: list = [
+            StatusClass(removed=False),
+        ]
+
+        # Parse schema metadata
+        try:
+            schema_metadata = SnowplowSchemaParser.parse_schema(
+                schema_data=iglu_schema.model_dump(),
+                vendor=vendor,
+                name=name,
+                version=version,
+            )
+            extra_aspects.append(schema_metadata)
+
+        except Exception as e:
+            error_msg = f"Failed to parse schema {schema_identifier}: {e}"
+            self.report.report_schema_parsing_error(error_msg)
+            logger.error(error_msg)
+            return
+
+        # Create Dataset using SDK V2
         dataset = Dataset(
-            urn=dataset_urn,
-            name=name,
-            description=iglu_schema.description,
             platform=self.deps.platform,
+            name=dataset_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            tags=[schema_type, "iglu"],
-            status=StatusClass(removed=False),
-            # Note: No ownership in Iglu-only mode (no deployment history)
+            description=iglu_schema.description,
+            display_name=name,
+            external_url=None,
+            custom_properties=custom_properties,
+            parent_container=unset,
+            subtype=subtype,
+            owners=None,
+            extra_aspects=extra_aspects,
         )
 
-        # Parse schema fields
-        if iglu_schema.data and iglu_schema.data.properties:
-            from datahub.ingestion.source.snowplow.schema_parser import (
-                SnowplowSchemaParser,
-            )
-
-            parser = SnowplowSchemaParser()
-            fields = parser.parse_schema_fields(
-                properties=iglu_schema.data.properties,
-                required_fields=iglu_schema.data.required or [],
-                parent_path="",
-            )
-            dataset.schema_metadata.fields.extend(fields)
-
-        # Emit dataset
-        for mcp in dataset.generate_mcp():
-            yield mcp.as_workunit()
+        # Yield the dataset
+        yield from dataset.as_workunits()
 
         # Track extracted schema
+        self.state.extracted_schema_urns.append(str(dataset.urn))
         self.report.report_schema_extracted(schema_type)
 
     def _fetch_full_schema_definition(
@@ -673,6 +702,8 @@ class SchemaProcessor(EntityProcessor):
         def fetch_one_version(version: str) -> Tuple[str, Optional[DataStructure]]:
             """Fetch a single version of the schema."""
             try:
+                if not self.deps.bdp_client or not data_structure.hash:
+                    return (version, None)
                 version_ds = self.deps.bdp_client.get_data_structure_version(
                     data_structure.hash, version
                 )

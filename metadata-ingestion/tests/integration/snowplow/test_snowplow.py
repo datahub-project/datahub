@@ -639,45 +639,62 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
     )
 
 
+@pytest.fixture(scope="module")
+def iglu_server_runner(docker_compose_runner, pytestconfig):
+    """Fixture to manage Iglu Server Docker containers."""
+    import subprocess
+
+    import requests
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
+    with docker_compose_runner(
+        test_resources_dir / "setup/docker-compose.iglu.yml", "iglu-server"
+    ) as docker_services:
+        # Wait for Iglu Server to be healthy
+        def check_iglu_health() -> bool:
+            try:
+                response = requests.get(
+                    "http://localhost:8081/api/meta/health", timeout=2
+                )
+                return response.status_code == 200
+            except requests.exceptions.RequestException:
+                return False
+
+        docker_services.wait_until_responsive(
+            timeout=60,
+            pause=2,
+            check=check_iglu_health,
+        )
+
+        # Run setup script to populate test schemas
+        setup_script = test_resources_dir / "setup/setup_iglu.py"
+        subprocess.run(
+            ["python", str(setup_script)],
+            check=True,
+            cwd=test_resources_dir / "setup",
+        )
+
+        yield docker_services
+
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-@pytest.mark.slow
-def test_snowplow_iglu_autodiscovery(pytestconfig, tmp_path, mock_time):
+def test_snowplow_iglu_autodiscovery(
+    iglu_server_runner, pytestconfig, tmp_path, mock_time
+):
     """
     Test Snowplow ingestion with Iglu-only mode (open-source Snowplow).
 
     This test:
-    1. Requires Docker with Iglu Server running (docker-compose.iglu.yml)
+    1. Automatically starts Docker with Iglu Server (docker-compose.iglu.yml)
     2. Uses automatic schema discovery via /api/schemas endpoint
     3. Verifies schemas are extracted from Iglu registry
-
-    Setup:
-        cd tests/integration/snowplow/setup
-        docker compose -f docker-compose.iglu.yml up -d
-        python setup_iglu.py
-
-    Teardown:
-        cd tests/integration/snowplow/setup
-        docker compose -f docker-compose.iglu.yml down -v
+    4. Automatically cleans up Docker containers after test
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowplow"
     golden_file = (
         test_resources_dir / "golden_files/snowplow_iglu_autodiscovery_golden.json"
     )
-
-    # Check if Iglu Server is running
-    import requests
-
-    try:
-        response = requests.get("http://localhost:8081/api/meta/health", timeout=2)
-        if response.status_code != 200:
-            pytest.skip(
-                "Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py"
-            )
-    except requests.exceptions.RequestException:
-        pytest.skip(
-            "Iglu Server not running. Start with: cd tests/integration/snowplow/setup && docker compose -f docker-compose.iglu.yml up -d && python setup_iglu.py"
-        )
 
     # Run ingestion with Iglu-only mode
     pipeline = Pipeline.create(

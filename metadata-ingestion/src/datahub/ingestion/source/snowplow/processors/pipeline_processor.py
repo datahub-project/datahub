@@ -18,7 +18,6 @@ from datahub.emitter.mce_builder import (
     make_data_flow_urn,
     make_data_job_urn_with_flow,
     make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

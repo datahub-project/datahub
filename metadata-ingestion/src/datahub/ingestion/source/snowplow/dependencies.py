@@ -28,6 +28,7 @@ from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
+    from datahub.ingestion.source.snowplow.snowplow_models import Pipeline
     from datahub.metadata.schema_classes import SchemaFieldClass
 
 
@@ -44,7 +45,7 @@ class IngestionState:
     """
 
     # Pipeline state
-    physical_pipeline: Optional[object] = None  # Physical pipeline object
+    physical_pipeline: Optional["Pipeline"] = None  # Physical pipeline object
     pipeline_dataflow_urn: Optional[str] = None
     parsed_events_urn: Optional[str] = None
     warehouse_table_urn: Optional[str] = None
