@@ -1715,6 +1715,20 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         parameters: Optional[Dict[str, str]] = None,
         async_flag: Optional[bool] = None,
     ) -> Dict:
+        """
+        Run a DataHub assertion on-demand.
+
+        Args:
+            urn: The URN of the assertion to run.
+            save_result: Whether to save the result to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertion's SQL fragment.
+            async_flag: Whether to run the assertion asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing the assertion result with type (SUCCESS/FAILURE/ERROR) and details.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1750,6 +1764,20 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         parameters: Optional[Dict[str, str]] = None,
         async_flag: Optional[bool] = None,
     ) -> Dict:
+        """
+        Run multiple DataHub assertions on-demand.
+
+        Args:
+            urns: List of assertion URNs to run.
+            save_result: Whether to save the results to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
@@ -1794,6 +1822,24 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         parameters: Optional[Dict[str, str]] = None,
         async_flag: Optional[bool] = None,
     ) -> Dict:
+        """
+        Run all assertions (or tagged subset) for a data asset on-demand.
+
+        Args:
+            urn: The URN of the data asset (e.g., dataset) whose assertions to run.
+            tag_urns: Optional list of tag URNs to filter which assertions to run.
+                If not specified, all assertions for the asset will be run.
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+
+        Note:
+            This method does not support the save_result parameter. Results are always
+            saved to DataHub's backend (equivalent to save_result=True).
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
