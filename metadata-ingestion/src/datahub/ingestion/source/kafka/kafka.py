@@ -469,6 +469,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 for tag in schema_tags:
                     all_tags.append(self.source_config.tag_prefix + tag)
             except TypeError as e:
+                # TODO: check if this needs to be handled or silently ignored as before
                 logger.warning(
                     f"Failed to extract tags from schema for topic {topic}: {e}"
                 )
