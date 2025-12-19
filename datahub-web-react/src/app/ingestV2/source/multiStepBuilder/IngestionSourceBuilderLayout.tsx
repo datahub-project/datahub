@@ -94,6 +94,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
                         originType={DataHubAiConversationOriginType.IngestionUi}
                         title={isEditing ? 'Ask DataHub - Edit Source' : 'Ask DataHub - Create Source'}
                         getMessageContext={getMessageContext}
+                        ingestionScreen="configure_source"
                     />
                 )
             }

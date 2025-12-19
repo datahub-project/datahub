@@ -265,7 +265,13 @@ public enum DataHubUsageEventType {
   CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
   MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
   EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
-  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent");
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent"),
+
+  // Onboarding flow events
+  FREE_TRIAL_CONTACT_SALES_CLICK_EVENT("FreeTrialContactSalesClickEvent"),
+  ONBOARDING_CHECKLIST_ACTION_EVENT("OnboardingChecklistActionEvent"),
+  COMPLETE_ONBOARDING_CHECKLIST_ACTION_EVENT("CompleteOnboardingChecklistActionEvent"),
+  ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent");
 
   private final String type;
 

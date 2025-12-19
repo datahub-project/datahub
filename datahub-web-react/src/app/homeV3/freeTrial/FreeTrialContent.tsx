@@ -3,6 +3,7 @@ import { Dropdown, Skeleton } from 'antd';
 import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 
+import analytics, { EventType } from '@app/analytics';
 import {
     CardDescription,
     CardTitle,
@@ -133,6 +134,9 @@ const FreeTrialContent = () => {
             };
             setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, result] : [result]));
         });
+        analytics.event({
+            type: EventType.CompleteOnboardingChecklistActionEvent,
+        });
     };
 
     const cardMenuItems = [
@@ -151,6 +155,10 @@ const FreeTrialContent = () => {
     const allTasksComplete = doneCount === totalCount && totalCount > 0;
 
     const handleConnectData = () => {
+        analytics.event({
+            type: EventType.EnterIngestionFlowEvent,
+            entryPoint: 'demo_data_banner',
+        });
         history.push(ingestionLink);
     };
 
@@ -166,6 +174,11 @@ const FreeTrialContent = () => {
                 properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_DISMISSED }],
             };
             setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, result] : [result]));
+        });
+        analytics.event({
+            type: EventType.OnboardingChecklistActionEvent,
+            step: stepId,
+            action: 'dismiss',
         });
     };
 
@@ -194,11 +207,20 @@ const FreeTrialContent = () => {
                 );
                 break;
             case FREE_TRIAL.CONNECT_SOURCE_ID:
+                analytics.event({
+                    type: EventType.EnterIngestionFlowEvent,
+                    entryPoint: 'get_started_checklist',
+                });
                 history.push(ingestionLink);
                 break;
             default:
                 break;
         }
+        analytics.event({
+            type: EventType.OnboardingChecklistActionEvent,
+            step: stepId,
+            action: 'start',
+        });
     };
 
     // Show loading skeleton while data is being fetched

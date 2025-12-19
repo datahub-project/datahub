@@ -2,6 +2,7 @@ import { Badge, Button, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { pluralize } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -21,6 +22,9 @@ export default function FreeTrialDaysLeft() {
     const days = appConfig.config.trialConfig.daysLeft;
 
     const onContactSales = () => {
+        analytics.event({
+            type: EventType.FreeTrialContactSalesClickEvent,
+        });
         window.open(CONTACT_SALES_LINK, '_blank');
     };
 

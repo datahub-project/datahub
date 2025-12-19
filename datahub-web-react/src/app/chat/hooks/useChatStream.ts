@@ -1,8 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 
-import analytics, { EventType as AnalyticsEventType } from '@app/analytics';
+import analytics, { EventType as AnalyticsEventType, ChatMessageIngestionScreen } from '@app/analytics';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
+import {
+    DataHubAiConversationActorType,
+    DataHubAiConversationMessage,
+    DataHubAiConversationMessageType,
+    DataHubAiConversationOriginType,
+} from '@types';
 
 export interface MessageContext {
     text: string;
@@ -20,6 +25,8 @@ interface UseChatStreamProps {
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
     agentName?: string;
+    originType: DataHubAiConversationOriginType;
+    ingestionScreen?: ChatMessageIngestionScreen;
 }
 
 const processSSELine = (
@@ -255,6 +262,8 @@ export const useChatStream = ({
     onMessageReceived,
     onStreamComplete,
     agentName,
+    originType,
+    ingestionScreen,
 }: UseChatStreamProps) => {
     const [state, setState] = useState<StreamState>({
         isStreaming: false,
@@ -407,6 +416,8 @@ export const useChatStream = ({
                         errorType: error.name || 'UnknownError',
                         statusCode: error.status || undefined,
                         messagePreview: messageText.substring(0, 200), // First 200 characters of message that caused error
+                        originType,
+                        ingestionScreen,
                     });
 
                     // Create an error message to display in the chat
@@ -435,7 +446,16 @@ export const useChatStream = ({
                 messageStartTimeRef.current = null;
             }
         },
-        [conversationUrn, onMessageReceived, onStreamComplete, agentName, emitResponseCompletionEvent, setState],
+        [
+            conversationUrn,
+            onMessageReceived,
+            onStreamComplete,
+            agentName,
+            emitResponseCompletionEvent,
+            setState,
+            originType,
+            ingestionScreen,
+        ],
     );
 
     const sendMessage = useCallback(

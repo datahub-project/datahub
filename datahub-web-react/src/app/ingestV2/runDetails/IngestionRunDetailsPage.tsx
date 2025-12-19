@@ -81,6 +81,7 @@ export default function IngestionRunDetailsPage() {
                     agentName="IngestionTroubleshooter"
                     originType={DataHubAiConversationOriginType.IngestionUi}
                     title="Ask DataHub - Run Details"
+                    ingestionScreen="view_results"
                 />
             }
             topBreadcrumb={breadCrumb}

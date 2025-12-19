@@ -13,6 +13,7 @@ import {
     AllowedValue,
     AnomalyReviewState,
     AssertionType,
+    DataHubAiConversationOriginType,
     DataHubPageModuleType,
     DataHubViewType,
     EntityChangeType,
@@ -282,6 +283,10 @@ export enum EventType {
     DeleteDocumentEvent,
     IngestionTestConnectionClickEvent,
     IngestionTestConnectionCloseEvent,
+    FreeTrialContactSalesClickEvent,
+    OnboardingChecklistActionEvent,
+    CompleteOnboardingChecklistActionEvent,
+    EnterIngestionFlowEvent,
 }
 
 /**
@@ -1957,6 +1962,8 @@ export interface CreateDataHubChatEvent extends BaseEvent {
     conversationUrn?: string;
 }
 
+export type ChatMessageIngestionScreen = 'configure_source' | 'view_results';
+
 export interface CreateDataHubChatMessageEvent extends BaseEvent {
     type: EventType.CreateDataHubChatMessageEvent;
     conversationUrn: string;
@@ -1966,6 +1973,8 @@ export interface CreateDataHubChatMessageEvent extends BaseEvent {
     userMessageIndex: number; // 0 = first user message (new conversation), N = Nth user message (reply)
     totalMessageCount: number; // total number of all messages (user + agent) in the conversation before this message
     messagePreview: string; // first 200 characters of the message
+    originType: DataHubAiConversationOriginType;
+    ingestionScreen?: ChatMessageIngestionScreen;
 }
 
 export interface DeleteDataHubChatEvent extends BaseEvent {
@@ -1981,6 +1990,8 @@ export interface DataHubChatResponseErrorEvent extends BaseEvent {
     errorType?: string; // e.g., 'connection_interrupted', 'server_error', 'parse_error'
     statusCode?: number;
     messagePreview?: string; // first 200 characters of the message that caused the error
+    originType: DataHubAiConversationOriginType;
+    ingestionScreen?: ChatMessageIngestionScreen;
 }
 
 export interface DataHubChatResponseCompleteEvent extends BaseEvent {
@@ -2120,6 +2131,31 @@ export interface DeleteDocumentEvent extends BaseEvent {
     type: EventType.DeleteDocumentEvent;
     documentUrn: string;
     documentType?: string;
+}
+
+export interface FreeTrialContactSalesClickEvent extends BaseEvent {
+    type: EventType.FreeTrialContactSalesClickEvent;
+}
+
+export interface OnboardingChecklistActionEvent extends BaseEvent {
+    type: EventType.OnboardingChecklistActionEvent;
+    step: string; // 'lineage' | 'askDataHub' | 'ingestion';
+    action: 'start' | 'dismiss';
+}
+
+export interface CompleteOnboardingChecklistActionEvent extends BaseEvent {
+    type: EventType.CompleteOnboardingChecklistActionEvent;
+}
+
+export interface EnterIngestionFlowEvent extends BaseEvent {
+    type: EventType.EnterIngestionFlowEvent;
+    entryPoint:
+        | 'demo_data_banner'
+        | 'get_started_checklist'
+        | 'sources_page_cta'
+        | 'intercept_toast'
+        | 'nav_menu'
+        | 'direct_url';
 }
 
 /**
@@ -2368,4 +2404,8 @@ export type Event =
     | EditDocumentEvent
     | DeleteDocumentEvent
     | IngestionTestConnectionClickEvent
-    | IngestionTestConnectionCloseEvent;
+    | IngestionTestConnectionCloseEvent
+    | FreeTrialContactSalesClickEvent
+    | OnboardingChecklistActionEvent
+    | CompleteOnboardingChecklistActionEvent
+    | EnterIngestionFlowEvent;

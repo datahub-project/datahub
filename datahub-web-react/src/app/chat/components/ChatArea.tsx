@@ -13,7 +13,7 @@ import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMark
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataHubAiConversationQuery } from '@graphql/aiChat.generated';
-import { Entity } from '@types';
+import { DataHubAiConversationOriginType, Entity } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -316,6 +316,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                 onConversationUpdate();
             }
         },
+        originType: DataHubAiConversationOriginType.DatahubUi,
     });
 
     // Initialize messages from conversation

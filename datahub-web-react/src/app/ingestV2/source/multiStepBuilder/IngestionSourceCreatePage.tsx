@@ -1,6 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -66,6 +66,22 @@ export function IngestionSourceCreatePage() {
             interval: DAILY_MIDNIGHT_CRON_INTERVAL,
         },
     };
+
+    const analyticsRef = useRef(false);
+
+    useEffect(() => {
+        if (analyticsRef.current) return;
+
+        // Direct page load
+        if (history.action === 'POP') {
+            analyticsRef.current = true;
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'direct_url',
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
