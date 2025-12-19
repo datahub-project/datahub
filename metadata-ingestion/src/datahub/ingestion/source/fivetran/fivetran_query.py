@@ -1,3 +1,4 @@
+import re
 from typing import List
 
 # Safeguards to prevent fetching massive amounts of data.
@@ -29,17 +30,60 @@ class FivetranLogQuery:
         # Select query db clause
         self.schema_clause: str = ""
 
+    @staticmethod
+    def _is_valid_unquoted_identifier(identifier: str) -> bool:
+        """
+        Check if an identifier can be used unquoted in Snowflake.
+
+        Snowflake unquoted identifiers must:
+        - Start with a letter (A-Z) or underscore (_)
+        - Contain only letters, numbers, and underscores
+        - Be uppercase (Snowflake auto-converts unquoted identifiers to uppercase)
+
+        Ref: https://docs.snowflake.com/en/sql-reference/identifiers-syntax#unquoted-identifiers
+        """
+        if not identifier:
+            return False
+
+        # Check if it's already quoted (starts and ends with double quotes)
+        if identifier.startswith('"') and identifier.endswith('"'):
+            return False
+
+        # Check if it starts with letter or underscore
+        if not (identifier[0].isalpha() or identifier[0] == "_"):
+            return False
+
+        # Check if it contains only alphanumeric characters and underscores
+        if not re.match(r"^[A-Za-z0-9_]+$", identifier):
+            return False
+
+        # For Snowflake, unquoted identifiers are case-insensitive and auto-converted to uppercase
+        # This means we have recieved an unquoted identifier, and we can convert it to quoted identifier with uppercase
+        return True
+
     def use_database(self, db_name: str) -> str:
-        return f"use database {db_name}"
+        """
+        Using Snowflake quoted identifiers convention
+        Ref: https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
+
+        Add double quotes around an identifier
+        """
+        db_name = db_name.replace(
+            '"', '""'
+        )  # Replace double quotes with two double quotes to use the double quote character inside a quoted identifier
+        return f'use database "{db_name}"'
 
     def set_schema(self, schema_name: str) -> None:
         """
         Using Snowflake quoted identifiers convention
+        Ref: https://docs.snowflake.com/en/sql-reference/identifiers-syntax#double-quoted-identifiers
 
         Add double quotes around an identifier
         Use two quotes to use the double quote character inside a quoted identifier
         """
-        schema_name = schema_name.replace('"', '""')
+        schema_name = schema_name.replace(
+            '"', '""'
+        )  # Replace double quotes with two double quotes to use the double quote character inside a quoted identifier
         self.schema_clause = f'"{schema_name}".'
 
     def get_connectors_query(self) -> str:
