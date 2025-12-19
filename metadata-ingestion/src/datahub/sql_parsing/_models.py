@@ -37,6 +37,21 @@ class _TableName(_FrozenModel):
     database: Optional[str] = None
     db_schema: Optional[str] = None
     table: str
+    parts: Optional[tuple] = None
+
+    def __hash__(self) -> int:
+        # Parts field is excluded - table identity is database.schema.table only
+        return hash((self.database, self.db_schema, self.table))
+
+    def __eq__(self, other: object) -> bool:
+        # Parts field is excluded - table identity is database.schema.table only
+        if not isinstance(other, _TableName):
+            return False
+        return (
+            self.database == other.database
+            and self.db_schema == other.db_schema
+            and self.table == other.table
+        )
 
     def as_sqlglot_table(self) -> sqlglot.exp.Table:
         return sqlglot.exp.Table(
@@ -70,8 +85,7 @@ class _TableName(_FrozenModel):
         default_schema: Optional[str] = None,
     ) -> "_TableName":
         if isinstance(table.this, sqlglot.exp.Dot):
-            # For tables that are more than 3 parts, the extra parts will be in a Dot.
-            # For now, we just merge them into the table name.
+            # Multi-part tables (>3 parts) have extra parts in a Dot expression
             parts = []
             exp = table.this
             while isinstance(exp, sqlglot.exp.Dot):
@@ -81,8 +95,18 @@ class _TableName(_FrozenModel):
             table_name = ".".join(parts)
         else:
             table_name = table.this.name
+
+        # Store parts as string tuple for connector-specific handling
+        parts_tuple = None
+        if hasattr(table, "parts") and table.parts:
+            try:
+                parts_tuple = tuple(getattr(p, "name", str(p)) for p in table.parts)
+            except (AttributeError, TypeError):
+                pass
+
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
             table=table_name,
+            parts=parts_tuple,
         )

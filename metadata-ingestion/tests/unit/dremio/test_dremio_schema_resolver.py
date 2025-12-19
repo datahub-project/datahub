@@ -319,3 +319,47 @@ class TestDremioSchemaResolverWithSQLGlot:
             assert urn.startswith(
                 "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.source.sales."
             )
+
+    def test_multi_part_table_name_with_parts(self):
+        """Test that multi-part Dremio table names use the parts field correctly."""
+        resolver = DremioSchemaResolver(
+            platform="dremio",
+            platform_instance="test-instance",
+            env="PROD",
+        )
+
+        # Test with a 5-part table name (typical in Dremio CE)
+        sql = 'SELECT * FROM "Performance"."source"."schema"."folder"."table_name"'
+        parsed = sqlglot.parse_one(sql)
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table = tables[0]
+
+        table_name = _TableName.from_sqlglot_table(table)
+        urn = resolver.get_urn_for_table(table_name)
+
+        # Verify the full hierarchy is preserved
+        expected_urn_part = (
+            "test-instance.dremio.performance.source.schema.folder.table_name"
+        )
+        assert expected_urn_part in urn.lower(), (
+            f"Expected '{expected_urn_part}' in '{urn}'"
+        )
+
+    def test_standard_3_part_table_names_still_work(self):
+        """Test that standard 3-part table names continue to work correctly."""
+        resolver = DremioSchemaResolver(
+            platform="dremio",
+            platform_instance="test-instance",
+            env="PROD",
+        )
+
+        table_name_3part = _TableName(
+            database="MySource", db_schema="sales", table="orders"
+        )
+
+        urn_3part = resolver.get_urn_for_table(table_name_3part)
+        expected_3part = "test-instance.dremio.mysource.sales.orders"
+
+        assert expected_3part in urn_3part.lower(), (
+            f"Expected '{expected_3part}' in '{urn_3part}'"
+        )

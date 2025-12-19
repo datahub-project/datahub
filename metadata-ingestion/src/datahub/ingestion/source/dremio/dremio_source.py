@@ -74,39 +74,40 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 
 logger = logging.getLogger(__name__)
 
+# Dremio uses 'dremio' as the default database name in all SQL contexts
+DREMIO_DATABASE_NAME = "dremio"
+
 
 class DremioSchemaResolver(SchemaResolver):
-    """Custom schema resolver for Dremio that handles the 'dremio.' prefix/infix correctly.
+    """Custom schema resolver for Dremio multi-part table names.
 
-    Dremio always uses 'dremio' as the database, but SQL queries may reference tables
-    without this prefix (e.g., MySource.sales.orders). This resolver ensures that
-    URNs are constructed with 'dremio.' as a prefix (when no platform_instance) or
-    as an infix (when platform_instance is set, e.g., test-platform.dremio.space.table).
+    Dremio uses 'dremio' as the database in all URNs. For multi-part tables (>3 parts),
+    uses table.parts to preserve the full hierarchy: dremio.part1.part2.part3.table
     """
 
     def get_urn_for_table(
         self, table: _TableName, lower: bool = False, mixed: bool = False
     ) -> str:
-        # For Dremio, we need to ensure the database is always "dremio"
-        # If the table reference doesn't include it, we add it
-        if table.database and table.database.lower() != "dremio":
-            # SQL referenced as MySource.sales.orders
-            # Prepend "dremio." to get dremio.mysource.sales.orders
-            table_name_parts = [
-                "dremio",
-                table.database,
-                table.db_schema,
-                table.table,
-            ]
+        if table.parts and len(table.parts) > 3:
+            # Use parts for full hierarchy in multi-part tables
+            table_name_parts = [DREMIO_DATABASE_NAME] + list(table.parts)
+            table_name = ".".join(filter(None, table_name_parts))
         else:
-            # SQL referenced with dremio already, or 2-part name
-            table_name_parts = [
-                table.database or "dremio",
-                table.db_schema,
-                table.table,
-            ]
+            if table.database and table.database.lower() != DREMIO_DATABASE_NAME:
+                table_name_parts = [
+                    DREMIO_DATABASE_NAME,
+                    table.database,
+                    table.db_schema,
+                    table.table,
+                ]
+            else:
+                table_name_parts = [
+                    table.database or DREMIO_DATABASE_NAME,
+                    table.db_schema,
+                    table.table,
+                ]
 
-        table_name = ".".join(filter(None, table_name_parts))
+            table_name = ".".join(filter(None, table_name_parts))
 
         platform_instance = self.platform_instance
 
@@ -202,7 +203,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
     def __init__(self, config: DremioSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.default_db = "dremio"
+        self.default_db = DREMIO_DATABASE_NAME
         self.config = config
         self.report = DremioSourceReport()
 
@@ -260,7 +261,7 @@ class DremioSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_platform(self) -> str:
-        return "dremio"
+        return DREMIO_DATABASE_NAME
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
         dremio_sources = list(self.dremio_catalog.get_sources())
