@@ -214,12 +214,12 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
               "All configured topics already exist with correct configuration - no changes needed");
         }
 
-        // Check if any topics failed to be checked for partition count
+        // Check if any topics failed to be created or configured
         if (!failedTopics.isEmpty()) {
           String errorMessage =
               String.format(
-                  "Failed to check partition count for %d topics: %s. "
-                      + "These topics may not have the correct partition configuration.",
+                  "Failed to create or configure %d topics: %s. "
+                      + "These topics may not exist or have incorrect configuration.",
                   failedTopics.size(), failedTopics);
           log.error(errorMessage);
           throw new RuntimeException(errorMessage);
