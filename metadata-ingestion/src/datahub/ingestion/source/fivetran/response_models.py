@@ -1,11 +1,14 @@
 import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class FivetranConnectionConfig(BaseModel):
-    # Note: Connection Config is different for different connectors
+    """Connection config for Google Sheets connector."""
+
+    model_config = ConfigDict(extra="ignore")
+
     auth_type: str  # Auth Type
     sheet_id: str  # Sheet ID - URL to the Google Sheet
     named_range: str  # Named Range
@@ -13,8 +16,11 @@ class FivetranConnectionConfig(BaseModel):
 
 class FivetranConnectionDetails(BaseModel):
     """
-    Note: This reponse class only captures fields that are relevant to the Google Sheets Connector
+    Note: This response class only captures fields that are relevant to the Google Sheets Connector.
+    Extra fields from the API response are ignored via ConfigDict.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     id: str  # Source ID
     group_id: str  # Destination ID

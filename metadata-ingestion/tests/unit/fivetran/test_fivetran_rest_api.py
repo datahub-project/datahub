@@ -1,8 +1,9 @@
 import json
-from unittest import TestCase
 from unittest.mock import Mock, patch
 
+import pytest
 import requests
+from pydantic import ValidationError
 
 from datahub.ingestion.source.fivetran.config import FivetranAPIConfig
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
@@ -11,10 +12,11 @@ from datahub.ingestion.source.fivetran.response_models import (
 )
 
 
-class TestFivetranAPIClient(TestCase):
+class TestFivetranAPIClient:
     """Test cases for FivetranAPIClient."""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self):
         """Set up test fixtures."""
         self.config = FivetranAPIConfig(
             api_key="test_api_key",
@@ -35,7 +37,6 @@ class TestFivetranAPIClient(TestCase):
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_success(self, mock_get):
         """Test successful retrieval of connection details."""
-        # Mock response data
         mock_response_data = {
             "code": "Success",
             "data": {
@@ -74,15 +75,12 @@ class TestFivetranAPIClient(TestCase):
             },
         }
 
-        # Mock the response
         mock_response = Mock()
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Call the method
         result = self.client.get_connection_details_by_id("test_connection_id")
 
-        # Assertions
         assert isinstance(result, FivetranConnectionDetails)
         assert result.id == "test_connection_id"
         assert result.group_id == "test_group_id"
@@ -91,19 +89,15 @@ class TestFivetranAPIClient(TestCase):
         assert result.sync_frequency == 360
         assert result.config.auth_type == "ServiceAccount"
         assert result.config.named_range == "Test_Range"
-        # assert result.config.sheet_id_from_url == "1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo"  # Removed - no longer an attribute
 
-        # Verify the API call
         mock_get.assert_called_once_with(
             "https://api.fivetran.com/v1/connections/test_connection_id", timeout=30
         )
-        mock_response.status_code = 200
         mock_response.raise_for_status.assert_called_once()
 
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_http_error(self, mock_get):
         """Test handling of HTTP error responses."""
-        # Mock HTTP error response
         mock_response = Mock()
         mock_response.status_code = 404
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
@@ -111,22 +105,19 @@ class TestFivetranAPIClient(TestCase):
         )
         mock_get.return_value = mock_response
 
-        # Should raise HTTPError
-        with self.assertRaises(requests.exceptions.HTTPError):
+        with pytest.raises(requests.exceptions.HTTPError):
             self.client.get_connection_details_by_id("test_connection_id")
 
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_json_decode_error(self, mock_get):
         """Test handling of JSON decode errors."""
-        # Mock response with invalid JSON
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.raise_for_status.return_value = None
         mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
         mock_get.return_value = mock_response
 
-        # Should raise JSONDecodeError
-        with self.assertRaises(json.JSONDecodeError):
+        with pytest.raises(json.JSONDecodeError):
             self.client.get_connection_details_by_id("test_connection_id")
 
     @patch("requests.Session.get")
@@ -143,10 +134,8 @@ class TestFivetranAPIClient(TestCase):
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Should raise ValueError
-        with self.assertRaises(ValueError) as context:
+        with pytest.raises(ValueError, match="missing 'data' field"):
             self.client.get_connection_details_by_id("test_connection_id")
-        assert "missing 'data' field" in str(context.exception)
 
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_non_success_code(self, mock_get):
@@ -164,10 +153,8 @@ class TestFivetranAPIClient(TestCase):
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Should raise ValueError
-        with self.assertRaises(ValueError) as context:
+        with pytest.raises(ValueError, match="(?i)not 'success'"):
             self.client.get_connection_details_by_id("test_connection_id")
-        assert "not 'success'" in str(context.exception).lower()
 
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_missing_code_field(self, mock_get):
@@ -208,18 +195,15 @@ class TestFivetranAPIClient(TestCase):
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Should succeed even without code field
         result = self.client.get_connection_details_by_id("test_connection_id")
         assert isinstance(result, FivetranConnectionDetails)
 
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_request_exception(self, mock_get):
         """Test handling of request exceptions."""
-        # Mock request exception
         mock_get.side_effect = requests.exceptions.RequestException("Connection error")
 
-        # Should raise RequestException
-        with self.assertRaises(requests.exceptions.RequestException):
+        with pytest.raises(requests.exceptions.RequestException):
             self.client.get_connection_details_by_id("test_connection_id")
 
     @patch("requests.Session.get")
@@ -230,7 +214,7 @@ class TestFivetranAPIClient(TestCase):
             "data": {
                 # Missing required fields to cause parsing error
                 "id": "test_connection_id",
-                # Missing other required fields
+                # Missing other required fields: group_id, service, created_at, paused, sync_frequency, config
             },
         }
 
@@ -240,10 +224,9 @@ class TestFivetranAPIClient(TestCase):
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Should raise ValueError due to missing required fields
-        with self.assertRaises(ValueError) as context:
+        # Now raises ValidationError since we use direct Pydantic parsing
+        with pytest.raises(ValidationError):
             self.client.get_connection_details_by_id("test_connection_id")
-        assert "Failed to parse FivetranConnectionDetails" in str(context.exception)
 
     @patch("requests.Session.get")
     def test_get_connection_details_by_id_filters_extra_fields(self, mock_get):
@@ -291,7 +274,6 @@ class TestFivetranAPIClient(TestCase):
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Should succeed and filter out extra fields
         result = self.client.get_connection_details_by_id("test_connection_id")
         assert isinstance(result, FivetranConnectionDetails)
         assert result.id == "test_connection_id"
@@ -337,7 +319,6 @@ class TestFivetranAPIClient(TestCase):
         mock_response.json.return_value = mock_response_data
         mock_get.return_value = mock_response
 
-        # Should succeed with None succeeded_at
         result = self.client.get_connection_details_by_id("test_connection_id")
         assert isinstance(result, FivetranConnectionDetails)
         assert result.succeeded_at is None

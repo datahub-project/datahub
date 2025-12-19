@@ -160,21 +160,23 @@ class FivetranSource(StatefulIngestionSourceBase):
                     self._get_connection_details_by_id(connector.connector_id)
                 )
 
-                if gsheets_conn_details and self._get_gsheet_named_range_dataset_id(
-                    gsheets_conn_details
-                ):
+                named_range = (
+                    self._get_gsheet_named_range_dataset_id(gsheets_conn_details)
+                    if gsheets_conn_details
+                    else None
+                )
+                if named_range:
                     input_dataset_urn = DatasetUrn.create_from_ids(
                         platform_id=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
-                        table_name=self._get_gsheet_named_range_dataset_id(
-                            gsheets_conn_details
-                        )
-                        or "",  # this will not happen if cond should take care of it
+                        table_name=named_range,
                         env=source_details.env,
                     )
                 else:
                     self.report.warning(
                         title="Failed to extract lineage for Google Sheets Connector",
-                        message="Unable to extract lineage for Google Sheets Connector, as the connector details are not available from Fivetran API.",
+                        message="Unable to extract lineage for Google Sheets Connector. "
+                        "This may occur if: (1) connector details could not be fetched from Fivetran API, or "
+                        "(2) the sheet URL format is invalid or unsupported.",
                         context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
                     )
             else:
@@ -331,14 +333,15 @@ class FivetranSource(StatefulIngestionSourceBase):
             self._connection_details_cache[connection_id] = conn_details
             return conn_details
         except Exception as e:
-            logger.debug(
+            logger.error(
                 f"Failed to get connection details using rest-api for connector_id: {connection_id}. Error: {str(e)}",
                 exc_info=True,
             )
-            self.report.warning(
+            self.report.failure(
                 title="Failed to get connection details for Google Sheets Connector",
                 message="Exception occurred while getting connection details from Fivetran API",
-                context=f"connector_id: {connection_id}. Error: {str(e)}",
+                context=f"connector_id: {connection_id}",
+                exc=e,
             )
             return None
 
@@ -371,7 +374,9 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"https://docs.google.com/spreadsheets/d/<spreadsheetId>/..."
             )
         except Exception as e:
-            logger.debug(f"Failed to extract sheet_id from URL: {sheet_id}, Error: {e}")
+            logger.warning(
+                f"Failed to extract sheet_id from URL: {sheet_id}, Error: {e}"
+            )
 
         return None
 
@@ -445,19 +450,23 @@ class FivetranSource(StatefulIngestionSourceBase):
                 self._get_connection_details_by_id(connector.connector_id)
             )
 
-            if (
-                gsheets_conn_details
-                and self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
-                and self._get_gsheet_named_range_dataset_id(gsheets_conn_details)
-            ):
+            sheet_id = (
+                self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+                if gsheets_conn_details
+                else None
+            )
+            named_range = (
+                self._get_gsheet_named_range_dataset_id(gsheets_conn_details)
+                if gsheets_conn_details
+                else None
+            )
+
+            if gsheets_conn_details and sheet_id and named_range:
                 gsheets_dataset = Dataset(
-                    name=self._get_gsheet_sheet_id_from_url(gsheets_conn_details)
-                    or "",  # this will not happen if cond should take care of it
+                    name=sheet_id,
                     platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                     env=self.config.env,
-                    display_name=self._get_gsheet_sheet_id_from_url(
-                        gsheets_conn_details
-                    ),
+                    display_name=sheet_id,
                     external_url=gsheets_conn_details.config.sheet_id,
                     created=gsheets_conn_details.created_at,
                     last_modified=gsheets_conn_details.succeeded_at,
@@ -468,8 +477,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     },
                 )
                 gsheets_named_range_dataset = Dataset(
-                    name=self._get_gsheet_named_range_dataset_id(gsheets_conn_details)
-                    or "",
+                    name=named_range,
                     platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                     env=self.config.env,
                     display_name=gsheets_conn_details.config.named_range,
@@ -505,8 +513,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             else:
                 self.report.warning(
                     title="Failed to generate entities for Google Sheets",
-                    message="Failed to generate entities for Google Sheets",
-                    context=connector.connector_id,
+                    message="Failed to generate Google Sheets dataset entities. "
+                    "This may occur if: (1) connector details could not be fetched from Fivetran API, or "
+                    "(2) the sheet URL format is invalid or unsupported.",
+                    context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
                 )
 
         # Create dataflow entity with same name as connector name
