@@ -244,3 +244,26 @@ def test_split_statement_with_end_keyword_in_bracketed_identifier_with_escapes()
     statements = [statement.strip() for statement in split_statements(test_sql)]
     expected = [test_sql.strip()]
     assert statements == expected
+
+
+def test_split_select_ending_with_parenthesis():
+    """
+    Regression test: SELECT statements ending with a closing parenthesis
+    (e.g., from function calls like GETDATE()) should be properly split
+    from subsequent CREATE INDEX statements.
+
+    Previously, the splitter mistook trailing ')' as a CTE indicator
+    and incorrectly kept both statements together.
+    """
+    select_stmt = (
+        "SELECT * INTO #temp FROM source WHERE date > DATEADD(YEAR, -1, GETDATE())"
+    )
+    create_stmt = "CREATE INDEX idx ON #temp (col1)"
+
+    test_sql = f"{select_stmt}\n\n{create_stmt}"
+
+    statements = [s.strip() for s in split_statements(test_sql)]
+
+    assert len(statements) == 2
+    assert statements[0] == select_stmt
+    assert statements[1] == create_stmt

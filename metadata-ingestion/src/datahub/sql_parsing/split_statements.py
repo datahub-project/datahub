@@ -267,8 +267,13 @@ class _StatementSplitter:
             self.current_statement.append(c)
 
     def _has_preceding_cte(self, most_recent_real_char: str) -> bool:
-        # usually we'd have a close paren that closes a CTE
-        return most_recent_real_char == ")"
+        # CTEs start with WITH keyword and end with ) before the main query.
+        # We need to check both: the preceding char is ) AND the statement starts with WITH.
+        if most_recent_real_char != ")":
+            return False
+
+        current = "".join(self.current_statement).strip().lower()
+        return current.startswith("with ")
 
     def _is_part_of_merge_query(self) -> bool:
         # In merge statement we'd have `when matched then` or `when not matched then"
