@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-11-14T14:26:00.526772+00:00",
+  "generated_at": "2025-12-20T09:11:52.936452+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -3120,6 +3120,50 @@
       "platform_id": "snowflake",
       "platform_name": "Snowflake",
       "support_status": "CERTIFIED"
+    },
+    "snowplow": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default from schema descriptions",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default for event and entity schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via warehouse_lineage.enabled configuration (requires BDP)",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snowplow.snowplow.SnowplowSource",
+      "platform_id": "snowplow",
+      "platform_name": "Snowplow",
+      "support_status": "INCUBATING"
     },
     "sql-queries": {
       "capabilities": [
