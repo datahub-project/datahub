@@ -1,11 +1,20 @@
 import logging
 import re
-from typing import Optional
+from typing import Any, Dict, Optional
 
+from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+    apply_runtime_parameters,
+)
 from datahub_executor.common.exceptions import InvalidParametersException
 from datahub_executor.common.types import DatasetFilterType
 
 logger = logging.getLogger(__name__)
+
+# Type aliases for clarity
+FilterParameters = Dict[
+    str, Any
+]  # Contains keys: "type" (DatasetFilterType), "sql" (str)
+RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
 
 
 class FilterBuilder:
@@ -13,8 +22,15 @@ class FilterBuilder:
     Used to convert Dataset Filter objects into formatted SQL strings
     """
 
-    def __init__(self, filter_params: Optional[dict]):
+    def __init__(
+        self,
+        filter_params: Optional[FilterParameters] = None,
+        runtime_parameters: Optional[RuntimeParameters] = None,
+    ):
         self._filter_params = filter_params if filter_params is not None else {}
+        self._runtime_parameters = (
+            runtime_parameters if runtime_parameters is not None else {}
+        )
         self._raw_filter_string = self._build_filter_string()
         self._cleaned_filter_string = self._clean_filter_string()
 
@@ -27,7 +43,8 @@ class FilterBuilder:
                 parameters=self._filter_params,
             )
 
-        return sql
+        # Optionally apply runtime parameter substitution before cleaning.
+        return apply_runtime_parameters(sql, self._runtime_parameters)
 
     def _build_filter_string(self) -> str:
         type = self._filter_params.get("type")

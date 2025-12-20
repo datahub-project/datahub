@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -36,6 +36,9 @@ from datahub_executor.config import (
 
 logger = logging.getLogger(__name__)
 
+# Type alias for clarity
+RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
+
 HOURS_TO_MS = 1000 * 60 * 60
 DATASET_PROFILE_MAX_AGE_MS = (
     HOURS_TO_MS * METRIC_RESOLVER_DATAHUB_DATASET_PROFILE_MAX_AGE_HOURS
@@ -66,6 +69,7 @@ class MetricResolver:
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
         strategy: Optional[MetricResolverStrategy] = None,
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> Metric:
         """
         Resolve a specific metric.
@@ -86,6 +90,7 @@ class MetricResolver:
                 database_params=database_params,
                 filter_params=filter_params,
                 strategy=strategy,
+                runtime_parameters=runtime_parameters,
             )
 
         raise UnsupportedMetricException(
@@ -102,6 +107,7 @@ class MetricResolver:
         high_watermark_field: Optional[SchemaFieldSpec],
         previous_high_watermark: Optional[str],
         strategy: Optional[MetricResolverStrategy] = None,
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> Metric:
         """
         Resolve an aggregation metric for a specific field
@@ -132,6 +138,7 @@ class MetricResolver:
                 filter_params,
                 high_watermark_field,
                 previous_high_watermark,
+                runtime_parameters,
             )
 
         # Add more handling if you support other MetricSourceType values
@@ -214,6 +221,7 @@ class MetricResolver:
         filter_params: Optional[DatasetFilter],
         high_watermark_field: Optional[SchemaFieldSpec],
         previous_high_watermark: Optional[str],
+        runtime_parameters: Optional[RuntimeParameters],
     ) -> Metric:
         # Step 1: Retrieve Connection
         connection = self.connection_provider.get_connection(entity_urn)
@@ -234,6 +242,7 @@ class MetricResolver:
             filter_params,
             previous_high_watermark,
             high_watermark_field,
+            runtime_parameters=runtime_parameters,
         )
 
         logger.debug(
@@ -250,6 +259,7 @@ class MetricResolver:
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
         strategy: Optional[MetricResolverStrategy],
+        runtime_parameters: Optional[RuntimeParameters],
     ) -> Metric:
         """
         Resolve a row_count metric for the given entity_urn, based on the provided
@@ -287,6 +297,7 @@ class MetricResolver:
                 database_params,
                 filter_params,
                 DatasetVolumeSourceType.QUERY,
+                runtime_parameters=runtime_parameters,
             )
 
         # Add more handling if you support other MetricSourceType values
@@ -304,6 +315,7 @@ class MetricResolver:
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
         volume_source_type: DatasetVolumeSourceType,  # TODO: Change this to be something else once the source is improved.
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> Metric:
         """
         Helper method that uses source.get_row_count(...) to retrieve a row count metric.
@@ -328,11 +340,16 @@ class MetricResolver:
         source = self.source_provider.create_source_from_connection(connection)
         logger.debug("MetricResolver: Created source for entity_urn=%s", entity_urn)
 
+        # Merge runtime parameters into filter dict so Source can apply substitution
+        filter_dict = filter_params.model_dump() if filter_params is not None else None
+        if filter_dict is not None and runtime_parameters:
+            filter_dict = {**filter_dict, "runtime_parameters": runtime_parameters}
+
         row_count = source.get_row_count(
             entity_urn,
             database_params,
             DatasetVolumeAssertionParameters(source_type=volume_source_type),
-            filter_params.model_dump() if filter_params is not None else None,
+            filter_dict,
         )
         if row_count is None:
             raise InsufficientDataException(

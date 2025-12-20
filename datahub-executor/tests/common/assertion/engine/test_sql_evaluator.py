@@ -1,13 +1,10 @@
 from unittest.mock import Mock
 
-from datahub_executor.common.assertion.engine.evaluator.sql_evaluator import (
-    SQLAssertionEvaluator,
-)
+import pytest
+
 from datahub_executor.common.assertion.types import AssertionState, AssertionStateType
 from datahub_executor.common.connection.connection import Connection
-from datahub_executor.common.connection.datahub_ingestion_source_connection_provider import (
-    DataHubIngestionSourceConnectionProvider,
-)
+from datahub_executor.common.exceptions import InvalidParametersException
 from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.source.provider import SourceProvider
@@ -42,7 +39,11 @@ TEST_SQL_STATEMENT = "SELECT SUM(num_items) FROM test_db.public.test_table;"
 
 class TestSQLEvaluator:
     def setup_method(self) -> None:
-        self.connection_provider = Mock(spec=DataHubIngestionSourceConnectionProvider)
+        from datahub_executor.common.assertion.engine.evaluator.sql_evaluator import (
+            SQLAssertionEvaluator,
+        )
+
+        self.connection_provider = Mock()
         self.state_provider = Mock(spec=DataHubMonitorStateProvider)
         self.source_provider = Mock(spec=SourceProvider)
         self.monitor_client = Mock(spec=MonitorClient)
@@ -156,6 +157,67 @@ class TestSQLEvaluator:
             self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.FAILURE
+
+    def test_runtime_parameters_substitution_in_statement(self) -> None:
+        sql_with_vars = "SELECT COUNT(*) FROM test_db.public.test_table WHERE created_at >= ${start} AND id IN (${ids});"
+        sql_assertion = SQLAssertion(
+            type=SQLAssertionType.METRIC,
+            statement=sql_with_vars,
+            operator=AssertionStdOperator.GREATER_THAN,
+            parameters=AssertionStdParameters(
+                value=AssertionStdParameter(
+                    value="0", type=AssertionStdParameterType.NUMBER
+                )
+            ),
+        )
+        self.assertion.sql_assertion = sql_assertion
+
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.execute_custom_sql.return_value = 10
+
+        # Provide runtime parameters; note values should be pre-quoted if needed
+        self.context.runtime_parameters = {
+            "start": "'2024-10-01'",
+            "ids": "1,2,3",
+        }
+
+        _ = self.evaluator._evaluate_internal(self.assertion, self.params, self.context)
+
+        # Validate that substitution occurred as expected
+        called_args = source_mock.execute_custom_sql.call_args[0]
+        assert (
+            called_args[2]
+            == "SELECT COUNT(*) FROM test_db.public.test_table WHERE created_at >= '2024-10-01' AND id IN (1,2,3);"
+        )
+
+    def test_runtime_parameters_missing_raises(self) -> None:
+        sql_with_vars = "SELECT COUNT(*) FROM test_db.public.test_table WHERE created_at >= ${start} AND id IN (${ids});"
+        sql_assertion = SQLAssertion(
+            type=SQLAssertionType.METRIC,
+            statement=sql_with_vars,
+            operator=AssertionStdOperator.GREATER_THAN,
+            parameters=AssertionStdParameters(
+                value=AssertionStdParameter(
+                    value="0", type=AssertionStdParameterType.NUMBER
+                )
+            ),
+        )
+        self.assertion.sql_assertion = sql_assertion
+
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.execute_custom_sql.return_value = 10
+
+        # Provide only one of the required params
+        self.context.runtime_parameters = {
+            "start": "'2024-10-01'",
+        }
+
+        with pytest.raises(InvalidParametersException):
+            _ = self.evaluator._evaluate_internal(
+                self.assertion, self.params, self.context
+            )
 
     def test_evaluate_metric_change_absolute_success(self) -> None:
         sql_assertion = SQLAssertion(

@@ -610,6 +610,7 @@ class TestMetricResolver:
             filter_params,
             "2023-01-01T00:00:00Z",
             high_watermark_field,
+            runtime_parameters=None,
         )
 
     def test_get_field_metric_unsupported_metric(

@@ -615,6 +615,8 @@ jedi==0.19.2
 jinja2==3.1.4
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
     #   acryl-great-expectations
     #   altair
     #   jupyter-server

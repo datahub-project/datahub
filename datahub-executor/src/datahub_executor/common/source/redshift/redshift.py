@@ -4,9 +4,6 @@ from typing import Any, List, Optional, Union
 
 from datahub._version import __version__
 
-from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
-    FilterBuilder,
-)
 from datahub_executor.common.connection.redshift.redshift_connection import (
     RedshiftConnection,
 )
@@ -93,6 +90,10 @@ class RedshiftSource(Source):
         self.connection = connection
         self.field_values_sql_generator = RedshiftFieldValuesSQLGenerator()
         self.field_metrics_sql_generator = RedshiftFieldMetricsSQLGenerator()
+
+    def _get_sql_dialect(self) -> Optional[str]:
+        """Return the SQL dialect for Redshift."""
+        return "postgres"
 
     def _get_user_name_filter(self, parameters: dict) -> Optional[str]:
         if parameters is not None:
@@ -237,7 +238,9 @@ class RedshiftSource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
-            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
+            filter_sql = self._build_filter_sql(
+                parameters.get("filter"), parameters.get("runtime_parameters")
+            )
 
             if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(

@@ -35,6 +35,7 @@ dependencies = [
   "acryl-executor==0.3.4",
   "pycurl==7.45.3",
   "psutil>=7.0.0",
+  "jinja2==3.1.4",
   "pandas>=1.2.0",
   "numpy==1.26.4",
   "prophet==1.1.5",

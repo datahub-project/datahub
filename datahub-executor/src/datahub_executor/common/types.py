@@ -1456,6 +1456,9 @@ class AssertionEvaluationContext:
 
     monitor_urn: Optional[str] = Field(alias="monitorUrn", default=None)
 
+    # Optional runtime parameters to inject into SQL fragments, e.g. ${var}
+    runtime_parameters: Optional[Dict[str, str]] = None
+
     evaluation_spec: Optional[AssertionEvaluationSpec] = None
 
     """
@@ -1471,6 +1474,7 @@ class AssertionEvaluationContext:
         monitor: Optional[AssertionMonitor] = None,
         assertion_evaluation_spec: Optional[AssertionEvaluationSpec] = None,
         base_assertion: Optional[RawAspect] = None,
+        runtime_parameters: Optional[Dict[str, str]] = None,
     ):
         self.dry_run = dry_run
         self.online_smart_assertions = online_smart_assertions
@@ -1478,6 +1482,7 @@ class AssertionEvaluationContext:
         self.monitor = monitor
         self.evaluation_spec = assertion_evaluation_spec
         self.base_assertion_info = base_assertion
+        self.runtime_parameters = runtime_parameters
 
 
 class AssertionEvaluationResultError:

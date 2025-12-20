@@ -1,7 +1,7 @@
 import logging
 from queue import Queue
 from threading import Thread
-from typing import Optional
+from typing import Dict, Optional
 
 import fastapi
 from acryl.executor.request.execution_request import ExecutionRequest
@@ -88,8 +88,13 @@ def handle_evaluate_assertion_urns_sync(
             assertion_input = EvaluateAssertionUrnInputSchema(
                 assertionUrn=urn, dryRun=input.dryRun
             )
+            # Pass an isolated shallow copy of runtime parameters to avoid sharing mutable
+            # state across worker threads. Values are strings, so shallow copy is sufficient.
+            runtime_params = (
+                dict(input.parameters) if input.parameters is not None else None
+            )
             assertion_result = handle_evaluate_assertion_urn(
-                assertion_input, input.asyncFlag
+                assertion_input, input.asyncFlag, runtime_params
             )
             result = None
             if assertion_result:
@@ -137,6 +142,7 @@ def _evaluate_assertion(
     parameters: AssertionEvaluationParameters,
     dry_run: bool,
     async_flag: bool,
+    runtime_parameters: Optional[Dict[str, str]] = None,
 ) -> Optional[AssertionResultSchema]:
     # For evaluate assertion by urn, the monitor urn will be present.
     # For evaluate assertion by inputs - used for test assertion flow - the monitor URN will be null.
@@ -148,10 +154,13 @@ def _evaluate_assertion(
         if assertion.monitor
         else DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
     )
+    # Use a shallow copy of runtime parameters to avoid external mutation races.
+    runtime_params_copy = dict(runtime_parameters) if runtime_parameters else None
     context = AssertionEvaluationContext(
         dry_run=dry_run,
         online_smart_assertions=ONLINE_SMART_ASSERTIONS_ENABLED,
         monitor_urn=monitor_urn,
+        runtime_parameters=runtime_params_copy,
     )
     is_embedded = DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
         DATAHUB_EXECUTOR_EMBEDDED_POOL_ID == executor_id
@@ -292,6 +301,7 @@ def handle_post_evaluate_assertion_urn(
     assertion_urn_input: EvaluateAssertionUrnInputSchema,
     engine: AssertionEngine,
     async_flag: bool,
+    runtime_parameters: Optional[Dict[str, str]] = None,
 ) -> Optional[AssertionResultSchema]:
     if (
         not assertion.source_type == AssertionSourceType.NATIVE
@@ -312,11 +322,14 @@ def handle_post_evaluate_assertion_urn(
         parameters=parameters,
         dry_run=assertion_urn_input.dryRun,
         async_flag=async_flag,
+        runtime_parameters=runtime_parameters,
     )
 
 
 def handle_evaluate_assertion_urn(
-    assertion_urn_input: EvaluateAssertionUrnInputSchema, async_flag: bool
+    assertion_urn_input: EvaluateAssertionUrnInputSchema,
+    async_flag: bool,
+    runtime_parameters: Optional[Dict[str, str]] = None,
 ) -> AssertionResultSchema:
     global graph, engine
 
@@ -342,7 +355,7 @@ def handle_evaluate_assertion_urn(
         raise fastapi.HTTPException(status_code=404)
 
     return handle_post_evaluate_assertion_urn(
-        assertion, assertion_urn_input, engine, async_flag
+        assertion, assertion_urn_input, engine, async_flag, runtime_parameters
     )
 
 

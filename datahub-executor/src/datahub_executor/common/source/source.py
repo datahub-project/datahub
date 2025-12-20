@@ -1,7 +1,6 @@
 import logging
-import re
 from datetime import date, datetime, timezone
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -9,6 +8,7 @@ from tenacity.before_sleep import before_sleep_log
 
 from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
     FilterBuilder,
+    FilterParameters,
 )
 from datahub_executor.common.assertion.types import AssertionDatabaseParams
 from datahub_executor.common.connection.connection import Connection
@@ -21,6 +21,7 @@ from datahub_executor.common.exceptions import (
     InvalidSourceTypeException,
     SourceQueryFailedException,
 )
+from datahub_executor.common.source.sql.utils import validate_sql_is_select_only
 from datahub_executor.common.types import (
     AssertionStdOperator,
     AssertionStdParameters,
@@ -40,6 +41,9 @@ from .sql.field_values_sql_generator import FieldValuesSQLGenerator
 from .types import DatabaseParams, SourceOperationParams
 
 logger = logging.getLogger(__name__)
+
+# Type alias for clarity
+RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
 
 
 class Source:
@@ -138,7 +142,9 @@ class Source:
         ):
             column_name = parameters["path"]
             column_type = parameters["native_type"]
-            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
+            filter_sql = self._build_filter_sql(
+                parameters.get("filter"), parameters.get("runtime_parameters")
+            )
 
             if (
                 column_type.upper()
@@ -272,6 +278,21 @@ class Source:
             source_type=event_type,
         )
 
+    def _build_filter_sql(
+        self,
+        filter_params: Optional[FilterParameters],
+        runtime_parameters: Optional[RuntimeParameters],
+    ) -> str:
+        """
+        Centralized helper to produce cleaned SQL filter strings, including
+        optional runtime parameter templating.
+        """
+        return (
+            FilterBuilder(filter_params, runtime_parameters).get_sql()
+            if filter_params
+            else ""
+        )
+
     def get_entity_events(
         self,
         entity_urn: str,
@@ -328,12 +349,15 @@ class Source:
         self,
         database_params: DatabaseParams,
         volume_parameters: DatasetVolumeAssertionParameters,
-        filter_params: Optional[dict],
+        filter_params: Optional[FilterParameters],
     ) -> Optional[int]:
         if volume_parameters.source_type == DatasetVolumeSourceType.INFORMATION_SCHEMA:
             return self._get_num_rows_via_stats_table(database_params)
         elif volume_parameters.source_type == DatasetVolumeSourceType.QUERY:
-            filter_sql = FilterBuilder(filter_params).get_sql() if filter_params else ""
+            filter_sql = self._build_filter_sql(
+                filter_params,
+                filter_params.get("runtime_parameters") if filter_params else None,
+            )
             return self._get_num_rows_via_count(database_params, filter_sql)
 
         raise InvalidParametersException(
@@ -346,31 +370,43 @@ class Source:
         entity_urn: str,
         database_parameters: AssertionDatabaseParams,
         volume_parameters: DatasetVolumeAssertionParameters,
-        filter_params: Optional[dict],
+        filter_params: Optional[FilterParameters],
     ) -> Optional[int]:
         database_params = self._get_database_params(entity_urn, database_parameters)
         return self._get_row_count(database_params, volume_parameters, filter_params)
+
+    def _get_sql_dialect(self) -> Optional[str]:
+        """Get the SQL dialect for this source.
+
+        Returns the dialect name used by sqlglot for parsing SQL.
+        Subclasses should override this method to return their specific dialect.
+
+        Returns:
+            str: The dialect name (e.g., "databricks", "bigquery", "snowflake", "postgres")
+            None: Use sqlglot's default dialect
+        """
+        return None
 
     def _validate_custom_sql(
         self,
         sql_statement: str,
     ) -> None:
-        INVALID_STATEMENTS = [
-            r"INSERT INTO",
-            r"UPDATE .*? SET",
-            r"DELETE FROM",
-            r"CREATE TABLE",
-            r"ALTER TABLE",
-            r"DROP TABLE",
-            r"CREATE DATABASE",
-            r"DROP DATABASE",
-        ]
-        if any(
-            re.search(invalid_statement, sql_statement, re.IGNORECASE)
-            for invalid_statement in INVALID_STATEMENTS
-        ):
+        """Validate custom SQL using sqlglot to ensure only SELECT statements are allowed.
+
+        This provides robust SQL injection prevention by parsing the SQL and ensuring
+        only read-only operations are permitted.
+
+        Raises:
+            CustomSQLErrorException: If SQL is not a valid SELECT statement
+        """
+        try:
+            validate_sql_is_select_only(
+                sql_statement, "Custom SQL", dialect=self._get_sql_dialect()
+            )
+        except InvalidParametersException as e:
+            # Convert to CustomSQLErrorException for backward compatibility
             raise CustomSQLErrorException(
-                message="Custom SQL cannot alter tables or databases"
+                message=f"Custom SQL validation failed: {e.message}"
             )
 
     @retry(
@@ -454,6 +490,7 @@ class Source:
         filter_sql: Optional[str],
         prev_high_watermark_value: Optional[str],
         changed_rows_field: Optional[FreshnessFieldSpec],
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> str:
         # if applicable, setup a "last checked" sql fragment to filter the query further
         # eg. last_modified >= TO_TIMESTAMP('2023-11-11 12:00:00')
@@ -470,6 +507,7 @@ class Source:
             filter_sql,
             transform,
             last_checked_sql_fragment,
+            runtime_parameters=runtime_parameters,
         )
 
     @retry(
@@ -489,6 +527,7 @@ class Source:
         filter_sql: Optional[str],
         prev_high_watermark_value: Optional[str],
         changed_rows_field: Optional[FreshnessFieldSpec],
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> int:
         query = self._build_field_values_query(
             database_params,
@@ -500,6 +539,7 @@ class Source:
             filter_sql,
             prev_high_watermark_value,
             changed_rows_field,
+            runtime_parameters,
         )
         rows = self._execute_fetchall_query(query)
 
@@ -529,9 +569,14 @@ class Source:
         filter: Optional[DatasetFilter],
         prev_high_watermark_value: Optional[str],
         changed_rows_field: Optional[FreshnessFieldSpec],
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> int:
         database_params = self._get_database_params(entity_urn, database_parameters)
-        filter_sql = FilterBuilder(filter.model_dump()).get_sql() if filter else None
+        filter_sql = (
+            self._build_filter_sql(filter.model_dump(), runtime_parameters)
+            if filter
+            else None
+        )
 
         return self._get_field_values_count(
             database_params,
@@ -543,6 +588,7 @@ class Source:
             filter_sql,
             prev_high_watermark_value,
             changed_rows_field,
+            runtime_parameters,
         )
 
     @retry(
@@ -598,9 +644,14 @@ class Source:
         filter: Optional[DatasetFilter],
         prev_high_watermark_value: Optional[str],
         changed_rows_field: Optional[SchemaFieldSpec],
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> float:
         database_params = self._get_database_params(entity_urn, database_parameters)
-        filter_sql = FilterBuilder(filter.model_dump()).get_sql() if filter else None
+        filter_sql = (
+            self._build_filter_sql(filter.model_dump(), runtime_parameters)
+            if filter
+            else None
+        )
 
         return self._get_field_metric_value(
             database_params,

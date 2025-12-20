@@ -9,6 +9,7 @@ from datahub_executor.common.assertion.engine.evaluator.utils import (
     get_database_parameters,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+    apply_runtime_parameters,
     is_training_required,
     make_monitor_metric_cube_urn,
 )
@@ -250,10 +251,16 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         source = self.source_provider.create_source_from_connection(connection)
         database_params = get_database_parameters(assertion)
 
+        # Apply optional runtime parameter substitution to support dynamic SQL
+        # based on user-provided inputs (e.g. ${date_partition}).
+        statement = apply_runtime_parameters(
+            sql_assertion.statement, context.runtime_parameters
+        )
+
         metric_value = source.execute_custom_sql(
             entity_urn,
             database_params,
-            sql_assertion.statement,
+            statement,
         )
 
         metric = Metric(timestamp_ms=int(time.time() * 1000), value=metric_value)

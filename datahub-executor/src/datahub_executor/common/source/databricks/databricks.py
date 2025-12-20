@@ -3,9 +3,6 @@ from typing import Any, Iterable, List, Optional, Union
 
 from datahub.utilities.time import datetime_to_ts_millis
 
-from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
-    FilterBuilder,
-)
 from datahub_executor.common.connection.databricks.databricks_connection import (
     DatabricksConnection,
 )
@@ -71,6 +68,10 @@ class DatabricksSource(Source):
 
         self.field_values_sql_generator = DatabricksFieldValuesSQLGenerator()
         self.field_metrics_sql_generator = DatabricksFieldMetricsSQLGenerator()
+
+    def _get_sql_dialect(self) -> Optional[str]:
+        """Return the SQL dialect for Databricks."""
+        return "databricks"
 
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         client = self.connection.get_client()
@@ -210,7 +211,9 @@ class DatabricksSource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
-            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
+            filter_sql = self._build_filter_sql(
+                parameters.get("filter"), parameters.get("runtime_parameters")
+            )
 
             if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(

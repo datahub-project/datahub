@@ -225,6 +225,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
             database_params,
             filter_params,
             convert_volume_parameters_to_metric_resolver_strategy(parameters),
+            runtime_parameters=context.runtime_parameters,
         )
 
         # Step 2: Optionally save the fetched metric to the metric cube.

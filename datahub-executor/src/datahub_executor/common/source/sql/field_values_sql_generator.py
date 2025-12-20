@@ -1,7 +1,10 @@
 import json
 import logging
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
+from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+    render_sql_template,
+)
 from datahub_executor.common.types import (
     AssertionStdOperator,
     AssertionStdParameters,
@@ -11,9 +14,12 @@ from datahub_executor.common.types import (
     SchemaFieldSpec,
 )
 
-from .utils import get_field_value
+from .utils import get_field_value, validate_sql_is_select_only
 
 logger = logging.getLogger(__name__)
+
+# Type alias for clarity
+RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
 
 
 class FieldValuesSQLGenerator:
@@ -36,6 +42,33 @@ class FieldValuesSQLGenerator:
         if transform and transform.type == FieldTransformType.LENGTH:
             return f"LENGTH({field.path})"
         return ""
+
+    def _validate_sql_parameter(
+        self,
+        sql: str,
+        operator: AssertionStdOperator,
+        field_path: str,
+    ) -> None:
+        """Validate SQL parameter for IN/NOT_IN operations.
+
+        Note: SQL subqueries are currently only supported for IN/NOT_IN operators.
+        This validation is not used for other operators since they don't yet support
+        SQL parameter types.
+
+        Uses sqlglot to parse and validate that only SELECT statements are used,
+        providing robust SQL injection prevention.
+
+        Args:
+            sql: The SQL string (before template rendering)
+            operator: The assertion operator (IN or NOT_IN)
+            field_path: The field path being checked
+
+        Raises:
+            InvalidParametersException: If SQL is invalid for this operation
+        """
+        # Use sqlglot-based validation for robust SQL injection prevention
+        context = f"SQL parameter for {operator.value} operator on field '{field_path}'"
+        validate_sql_is_select_only(sql, context)
 
     def _setup_where_clause_less_than(
         self, field_path: str, field_value: str, transform_string: Optional[str]
@@ -185,17 +218,12 @@ class FieldValuesSQLGenerator:
             operator_value = (
                 "IN" if operator == AssertionStdOperator.NOT_IN else "NOT IN"
             )
-            if parameters.value.type == AssertionStdParameterType.SQL:
-                sql_subquery = parameters.value.value.strip().rstrip(";")
-                where_clause = f"""CASE
-                    WHEN {field.path} {operator_value} ({sql_subquery}) THEN 1
-                    ELSE 0
-                END = 1"""
-            else:
-                values = json.loads(parameters.value.value)
-                where_clause = self._setup_where_clause_in_or_not_in(
-                    operator_value, field.path, values
-                )
+            # SQL subquery handling for IN/NOT_IN is performed in setup_query where
+            # runtime_parameters are available. Here we handle only literal lists.
+            values = json.loads(parameters.value.value)
+            where_clause = self._setup_where_clause_in_or_not_in(
+                operator_value, field.path, values
+            )
 
         return where_clause
 
@@ -233,6 +261,7 @@ class FieldValuesSQLGenerator:
         filter_sql: Optional[str],
         transform: Optional[FieldTransform],
         last_checked: Optional[str],
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> str:
         where_clause = ""
 
@@ -250,9 +279,42 @@ class FieldValuesSQLGenerator:
             AssertionStdOperator.IN,
             AssertionStdOperator.NOT_IN,
         ]:
-            where_clause = self._setup_where_clause_single_value(
-                field, operator, parameters, transform
-            )
+            # Special handling to support runtime parameter substitution when
+            # using SQL as the value source. Currently, SQL subqueries are only
+            # supported for IN/NOT_IN operations. Other operators (EQUAL_TO,
+            # LESS_THAN, etc.) do not yet support SQL parameter types and only
+            # accept literal values.
+            if (
+                operator in [AssertionStdOperator.IN, AssertionStdOperator.NOT_IN]
+                and parameters is not None
+                and parameters.value is not None
+                and parameters.value.type == AssertionStdParameterType.SQL
+            ):
+                sql_raw = (
+                    parameters.value.value if parameters.value.value is not None else ""
+                )
+
+                # Validate SQL structure before rendering
+                self._validate_sql_parameter(sql_raw, operator, field.path)
+
+                sql_subquery = render_sql_template(
+                    sql_raw, runtime_parameters, require_nonempty=True
+                )
+
+                # Invert the operator because we're counting FAILING rows (rows that violate the assertion).
+                # - NOT_IN assertion: fails when value IS IN the forbidden set, so use "IN"
+                # - IN assertion: fails when value is NOT IN the allowed set, so use "NOT IN"
+                operator_value = (
+                    "IN" if operator == AssertionStdOperator.NOT_IN else "NOT IN"
+                )
+                where_clause = f"""CASE
+                    WHEN {field.path} {operator_value} ({sql_subquery}) THEN 1
+                    ELSE 0
+                END = 1"""
+            else:
+                where_clause = self._setup_where_clause_single_value(
+                    field, operator, parameters, transform
+                )
 
         if operator in [
             AssertionStdOperator.BETWEEN,

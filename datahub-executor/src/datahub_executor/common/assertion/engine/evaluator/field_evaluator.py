@@ -144,6 +144,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                     "type": dataset_field_parameters.changed_rows_field.type,
                     "native_type": dataset_field_parameters.changed_rows_field.native_type,
                     "filter": filter.model_dump() if filter else None,
+                    "runtime_parameters": context.runtime_parameters,
                     "database": database_params,
                 },
                 prev_high_watermark_value,
@@ -203,6 +204,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             field_assertion.filter,
             prev_high_watermark_value,
             dataset_field_parameters.changed_rows_field,
+            runtime_parameters=context.runtime_parameters,
         )
 
         fail_threshold_value = (
@@ -505,6 +507,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             convert_field_parameters_to_metric_resolver_strategy(
                 parameters.dataset_field_parameters
             ),
+            runtime_parameters=context.runtime_parameters,
         )
 
         # Step 3: Optionally save the fetched metric to the metric cube.

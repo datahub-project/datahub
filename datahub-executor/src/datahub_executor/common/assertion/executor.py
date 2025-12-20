@@ -62,13 +62,13 @@ class AssertionExecutor:
             execution_request.args["assertion_spec"]
         )
 
+        ctx_args = execution_request.args.get("context", {})
         context = AssertionEvaluationContext(
-            dry_run=execution_request.args["context"]["dry_run"],
-            online_smart_assertions=execution_request.args["context"][
-                "online_smart_assertions"
-            ],
-            monitor_urn=execution_request.args["context"]["monitor_urn"],
+            dry_run=ctx_args.get("dry_run", False),
+            online_smart_assertions=ctx_args.get("online_smart_assertions", False),
+            monitor_urn=ctx_args.get("monitor_urn"),
             assertion_evaluation_spec=assertion_spec,
+            runtime_parameters=ctx_args.get("runtime_parameters"),
         )
 
         self.engine.evaluate(

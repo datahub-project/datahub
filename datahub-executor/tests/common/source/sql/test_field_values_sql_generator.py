@@ -1,3 +1,6 @@
+import pytest
+
+from datahub_executor.common.exceptions import InvalidParametersException
 from datahub_executor.common.source.bigquery.sql.field_values_sql_generator import (
     BigQueryFieldValuesSQLGenerator,
 )
@@ -527,7 +530,10 @@ class TestFieldValuesSQLGenerator:
         expected_query = f"""
             SELECT COUNT(*)
             FROM {DATABASE_STRING}
-            WHERE test_column NOT IN (77)
+            WHERE CASE
+                    WHEN test_column NOT IN (77) THEN 1
+                    ELSE 0
+                END = 1
         """
         assert query == expected_query
 
@@ -550,7 +556,10 @@ class TestFieldValuesSQLGenerator:
         expected_query = f"""
             SELECT COUNT(*)
             FROM {DATABASE_STRING}
-            WHERE test_column NOT IN ('test-string')
+            WHERE CASE
+                    WHEN test_column NOT IN ('test-string') THEN 1
+                    ELSE 0
+                END = 1
         """
         assert query == expected_query
 
@@ -599,7 +608,10 @@ class TestFieldValuesSQLGenerator:
         expected_query = f"""
             SELECT COUNT(*)
             FROM {DATABASE_STRING}
-            WHERE test_column IN (77, 88)
+            WHERE CASE
+                WHEN test_column IN (77, 88) THEN 1
+                ELSE 0
+            END = 1
         """
         assert query == expected_query
 
@@ -681,5 +693,124 @@ class TestFieldValuesSQLGenerator:
             SELECT COUNT(*)
             FROM {DATABASE_STRING}
             WHERE test_column NOT BETWEEN 100 AND 200 AND foo = 'bar'
+        """
+        assert query == expected_query
+
+    def test_in_with_sql_subquery_and_runtime_parameters_redshift(self) -> None:
+        sql_param = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="SELECT id FROM ids_table WHERE city = ${city}",
+                type=AssertionStdParameterType.SQL,
+            )
+        )
+        query = self.redshift_sql_generator.setup_query(
+            DATABASE_STRING,
+            self.field,
+            AssertionStdOperator.IN,
+            sql_param,
+            True,
+            None,
+            None,
+            None,
+            runtime_parameters={"city": "'Chicago'"},
+        )
+        expected_query = f"""
+            SELECT COUNT(*)
+            FROM {DATABASE_STRING}
+            WHERE CASE
+                    WHEN test_column NOT IN (SELECT id FROM ids_table WHERE city = 'Chicago') THEN 1
+                    ELSE 0
+                END = 1
+        """
+        assert query == expected_query
+
+    def test_in_with_sql_subquery_missing_param_raises(self) -> None:
+        sql_param = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="SELECT id FROM ids_table WHERE city = ${city}",
+                type=AssertionStdParameterType.SQL,
+            )
+        )
+        with pytest.raises(InvalidParametersException):
+            _ = self.redshift_sql_generator.setup_query(
+                DATABASE_STRING,
+                self.field,
+                AssertionStdOperator.IN,
+                sql_param,
+                True,
+                None,
+                None,
+                None,
+                runtime_parameters=None,
+            )
+
+    def test_in_with_sql_subquery_empty_raises(self) -> None:
+        sql_param = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="  ;  ",
+                type=AssertionStdParameterType.SQL,
+            )
+        )
+        with pytest.raises(InvalidParametersException):
+            _ = self.redshift_sql_generator.setup_query(
+                DATABASE_STRING,
+                self.field,
+                AssertionStdOperator.IN,
+                sql_param,
+                True,
+                None,
+                None,
+                None,
+                runtime_parameters={},
+            )
+
+    def test_in_with_sql_subquery_non_select_raises(self) -> None:
+        """Test that non-SELECT SQL raises InvalidParametersException"""
+        sql_param = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="DELETE FROM users WHERE id = ${id}",
+                type=AssertionStdParameterType.SQL,
+            )
+        )
+        with pytest.raises(InvalidParametersException) as exc_info:
+            _ = self.redshift_sql_generator.setup_query(
+                DATABASE_STRING,
+                self.field,
+                AssertionStdOperator.IN,
+                sql_param,
+                True,
+                None,
+                None,
+                None,
+                runtime_parameters={"id": "1"},
+            )
+        assert "must be a SELECT statement" in str(exc_info.value)
+
+    def test_in_with_sql_subquery_valid_passes(self) -> None:
+        """Test that valid SELECT SQL passes validation"""
+        sql_param = AssertionStdParameters(
+            value=AssertionStdParameter(
+                value="SELECT id FROM users WHERE active = true",
+                type=AssertionStdParameterType.SQL,
+            )
+        )
+        query = self.redshift_sql_generator.setup_query(
+            DATABASE_STRING,
+            self.field,
+            AssertionStdOperator.IN,
+            sql_param,
+            True,
+            None,
+            None,
+            None,
+            runtime_parameters={},
+        )
+        expected_query = f"""
+            SELECT COUNT(*)
+            FROM {DATABASE_STRING}
+            WHERE CASE
+                    WHEN test_column NOT IN (SELECT id FROM users WHERE active = true) THEN 1
+                    ELSE 0
+                END = 1
         """
         assert query == expected_query

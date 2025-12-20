@@ -990,6 +990,7 @@ class TestFieldEvaluator:
             self.params.dataset_field_parameters.changed_rows_field,
             "2023-01-01",  # prev_high_watermark_value
             ANY,  # strategy
+            runtime_parameters=None,
         )
 
     def test_evaluate_field_metric_collection_step_connection_error(self) -> None:

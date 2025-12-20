@@ -1,6 +1,9 @@
+import pytest
+
 from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
     FilterBuilder,
 )
+from datahub_executor.common.exceptions import InvalidParametersException
 from datahub_executor.common.types import DatasetFilterType
 
 
@@ -30,6 +33,34 @@ class TestFilterBuilder:
         )
         result = builder.get_sql()
         assert result == "where_table_name = 'where'"
+
+    def test_runtime_parameter_substitution(self) -> None:
+        builder = FilterBuilder(
+            {
+                "type": DatasetFilterType.SQL,
+                "sql": "created_at >= ${start} AND id IN (${ids})",
+            },
+            runtime_parameters={"start": "'2024-10-01'", "ids": "1,2,3"},
+        )
+        result = builder.get_sql()
+        assert result == "created_at >= '2024-10-01' AND id IN (1,2,3)"
+
+    def test_runtime_parameter_missing_raises(self) -> None:
+        with pytest.raises(InvalidParametersException):
+            _ = FilterBuilder(
+                {
+                    "type": DatasetFilterType.SQL,
+                    "sql": "created_at >= ${start} AND id IN (${ids})",
+                },
+                runtime_parameters={"start": "'2024-10-01'"},
+            ).get_sql()
+
+    def test_runtime_parameter_missing_when_none_raises(self) -> None:
+        with pytest.raises(InvalidParametersException):
+            _ = FilterBuilder(
+                {"type": DatasetFilterType.SQL, "sql": "created_at >= ${start}"},
+                runtime_parameters=None,
+            ).get_sql()
 
     def test_remove_leading_and(self) -> None:
         builder = FilterBuilder(

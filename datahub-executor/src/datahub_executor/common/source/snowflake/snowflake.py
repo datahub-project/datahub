@@ -1,9 +1,6 @@
 import logging
 from typing import Any, List, Optional, Union
 
-from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
-    FilterBuilder,
-)
 from datahub_executor.common.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
 )
@@ -68,6 +65,10 @@ class SnowflakeSource(Source):
             raise SourceQueryFailedException(
                 message=f"Source query (Snowflake) failed with error: {e}", query=query
             )
+
+    def _get_sql_dialect(self) -> Optional[str]:
+        """Return the SQL dialect for Snowflake."""
+        return "snowflake"
 
     def _get_operation_types_filter(self, parameters: dict) -> str:
         if parameters:
@@ -256,7 +257,9 @@ class SnowflakeSource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
-            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
+            filter_sql = self._build_filter_sql(
+                parameters.get("filter"), parameters.get("runtime_parameters")
+            )
 
             if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(

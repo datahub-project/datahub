@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pytz
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
@@ -15,9 +15,6 @@ from google.cloud.bigquery import QueryJob
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
-from datahub_executor.common.assertion.engine.evaluator.filter_builder import (
-    FilterBuilder,
-)
 from datahub_executor.common.connection.bigquery.bigquery_connection import (
     BigQueryConnection,
 )
@@ -66,6 +63,9 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
+# Type alias for clarity
+RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
+
 
 # Note that we only support Email address for username filter inside of this source!
 class BigQuerySource(Source):
@@ -81,6 +81,10 @@ class BigQuerySource(Source):
         self.connection = connection
         self.field_values_sql_generator = BigQueryFieldValuesSQLGenerator()
         self.field_metrics_sql_generator = BigQueryFieldMetricsSQLGenerator()
+
+    def _get_sql_dialect(self) -> Optional[str]:
+        """Return the SQL dialect for BigQuery."""
+        return "bigquery"
 
     # TODO: Convert from DataHub Operation Type to BQ type.
     def _get_operation_types_filter(self, parameters: dict) -> str:
@@ -297,7 +301,9 @@ class BigQuerySource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
-            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
+            filter_sql = self._build_filter_sql(
+                parameters.get("filter"), parameters.get("runtime_parameters")
+            )
 
             if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(
@@ -544,6 +550,7 @@ class BigQuerySource(Source):
         filter_sql: Optional[str],
         prev_changed_rows_value: Optional[str],
         changed_rows_field: Optional[FreshnessFieldSpec],
+        runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> int:
         query = self._build_field_values_query(
             database_params,
@@ -555,6 +562,7 @@ class BigQuerySource(Source):
             filter_sql,
             prev_changed_rows_value,
             changed_rows_field,
+            runtime_parameters,
         )
         rows = self._execute_fetchall_query(query)
 
