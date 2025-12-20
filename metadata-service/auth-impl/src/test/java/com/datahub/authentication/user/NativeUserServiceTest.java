@@ -68,10 +68,12 @@ public class NativeUserServiceTest {
         () ->
             _nativeUserService.createNativeUser(
                 mock(OperationContext.class), null, FULL_NAME, EMAIL, TITLE, PASSWORD, null));
+    // fullName is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
                 mock(OperationContext.class), USER_URN_STRING, null, EMAIL, TITLE, PASSWORD, null));
+    // email is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
@@ -82,6 +84,7 @@ public class NativeUserServiceTest {
                 TITLE,
                 PASSWORD,
                 null));
+    // password is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
@@ -92,6 +95,7 @@ public class NativeUserServiceTest {
                 TITLE,
                 null,
                 null));
+    // Note: title is optional, so null title should NOT throw
   }
 
   @Test(
@@ -357,6 +361,7 @@ public class NativeUserServiceTest {
     when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
+
     // Should succeed with null title
     _nativeUserService.createNativeUser(
         opContext, USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD, null);

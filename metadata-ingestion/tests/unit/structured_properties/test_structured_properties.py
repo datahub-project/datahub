@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -10,9 +11,11 @@ from datahub.api.entities.structuredproperties.structuredproperties import (
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    GenericAspectClass,
     PropertyValueClass,
     StructuredPropertyDefinitionClass,
 )
+from datahub.specific.structured_property import StructuredPropertyPatchBuilder
 
 
 @pytest.fixture
@@ -250,3 +253,207 @@ def test_structured_properties_list(mock_graph):
 
     assert len(props) == 2
     assert all(isinstance(prop, StructuredProperties) for prop in props)
+
+
+def test_structured_properties_version_in_generate_mcps():
+    """Test that version is correctly included when generating MCPs."""
+    props = StructuredProperties(
+        id="test_prop_versioned",
+        type="string",
+        description="A versioned property",
+        version="v1",
+        entity_types=["dataset"],
+    )
+
+    mcps = props.generate_mcps()
+    assert len(mcps) == 1
+    mcp = mcps[0]
+
+    assert mcp.entityUrn == "urn:li:structuredProperty:test_prop_versioned"
+    assert isinstance(mcp.aspect, StructuredPropertyDefinitionClass)
+    assert mcp.aspect.version == "v1"
+
+
+def test_structured_properties_version_none_in_generate_mcps():
+    """Test that version is None when not specified."""
+    props = StructuredProperties(
+        id="test_prop_no_version",
+        type="string",
+        description="A property without version",
+        entity_types=["dataset"],
+    )
+
+    mcps = props.generate_mcps()
+    assert len(mcps) == 1
+    mcp = mcps[0]
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, StructuredPropertyDefinitionClass)
+    assert mcp.aspect.version is None
+
+
+def test_structured_properties_version_from_datahub(mock_graph):
+    """Test that version is correctly retrieved from DataHub."""
+    mock_aspect = StructuredPropertyDefinitionClass(
+        qualifiedName="test_prop_versioned",
+        valueType="urn:li:dataType:datahub.string",
+        displayName="Test Property",
+        description="Test description",
+        entityTypes=["urn:li:entityType:datahub.dataset"],
+        cardinality="SINGLE",
+        version="v2",
+    )
+
+    mock_graph.get_aspect.return_value = mock_aspect
+
+    props = StructuredProperties.from_datahub(
+        mock_graph, "urn:li:structuredProperty:test_prop_versioned"
+    )
+
+    assert props.version == "v2"
+    assert props.qualified_name == "test_prop_versioned"
+
+
+def test_structured_properties_version_from_yaml(tmp_path):
+    """Test that version is correctly parsed from YAML as a string."""
+    yaml_content = """
+- id: versioned_property
+  type: string
+  description: A versioned property
+  display_name: Versioned Property
+  entity_types:
+    - dataset
+  version: v1
+"""
+    yaml_file = tmp_path / "versioned_properties.yaml"
+    yaml_file.write_text(yaml_content)
+
+    props = StructuredProperties.from_yaml(str(yaml_file))
+    assert len(props) == 1
+    assert props[0].id == "versioned_property"
+    assert props[0].version == "v1"
+
+    # Verify the version is included in MCPs
+    mcps = props[0].generate_mcps()
+    assert mcps[0].aspect is not None
+    assert isinstance(mcps[0].aspect, StructuredPropertyDefinitionClass)
+    assert mcps[0].aspect.version == "v1"
+
+
+def test_structured_properties_version_as_integer_from_yaml(tmp_path):
+    """Test that version is correctly coerced from integer to string when parsed from YAML."""
+    # When YAML parses a number without quotes, it becomes an int
+    yaml_content = """
+- id: versioned_property_int
+  type: number
+  description: A versioned property with integer version
+  display_name: Versioned Property Int
+  entity_types:
+    - dataset
+  version: 20240614080000
+  cardinality: SINGLE
+"""
+    yaml_file = tmp_path / "versioned_properties_int.yaml"
+    yaml_file.write_text(yaml_content)
+
+    props = StructuredProperties.from_yaml(str(yaml_file))
+    assert len(props) == 1
+    assert props[0].id == "versioned_property_int"
+    assert props[0].version == "20240614080000"
+    assert isinstance(props[0].version, str)
+
+    # Verify the version is included in MCPs
+    mcps = props[0].generate_mcps()
+    assert mcps[0].aspect is not None
+    assert isinstance(mcps[0].aspect, StructuredPropertyDefinitionClass)
+    assert mcps[0].aspect.version == "20240614080000"
+
+
+def test_structured_properties_version_to_yaml(tmp_path):
+    """Test that version is correctly written to YAML."""
+    props = StructuredProperties(
+        id="test_prop_versioned",
+        type="string",
+        description="Test description",
+        version="v3",
+    )
+
+    yaml_file = tmp_path / "output_versioned.yaml"
+    props.to_yaml(yaml_file)
+
+    # Verify the yaml file was created and contains the version
+    assert yaml_file.exists()
+    with open(yaml_file) as f:
+        content = yaml.safe_load(f)
+        assert content["id"] == "test_prop_versioned"
+        assert content["version"] == "v3"
+
+
+def test_structured_property_patch_builder_set_version():
+    """Test that StructuredPropertyPatchBuilder correctly sets version."""
+    property_urn = "urn:li:structuredProperty:io.acryl.test.myProperty"
+
+    patcher = StructuredPropertyPatchBuilder(property_urn).set_version("v1")
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    mcp = mcps[0]
+
+    assert mcp.entityUrn == property_urn
+    assert mcp.entityType == "structuredProperty"
+    assert mcp.changeType == "PATCH"
+    assert mcp.aspectName == "propertyDefinition"
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, GenericAspectClass)
+
+    # Parse the patch operations and verify version is set
+    patch_ops = json.loads(mcp.aspect.value)
+    assert len(patch_ops) == 1
+    assert patch_ops[0]["op"] == "add"
+    assert patch_ops[0]["path"] == "/version"
+    assert patch_ops[0]["value"] == "v1"
+
+
+def test_structured_property_patch_builder_set_version_none():
+    """Test that StructuredPropertyPatchBuilder does not add version when None."""
+    property_urn = "urn:li:structuredProperty:io.acryl.test.myProperty"
+
+    patcher = StructuredPropertyPatchBuilder(property_urn).set_version(None)
+
+    mcps = patcher.build()
+    # Should produce no MCPs since no patches were added
+    assert len(mcps) == 0
+
+
+def test_structured_property_patch_builder_combined_operations():
+    """Test that StructuredPropertyPatchBuilder handles version with other fields."""
+    property_urn = "urn:li:structuredProperty:io.acryl.test.myProperty"
+
+    patcher = (
+        StructuredPropertyPatchBuilder(property_urn)
+        .set_display_name("My Test Property")
+        .set_description("A test property description")
+        .set_version("v2")
+        .set_immutable(True)
+    )
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    mcp = mcps[0]
+
+    # Parse the patch operations
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, GenericAspectClass)
+    patch_ops = json.loads(mcp.aspect.value)
+    assert len(patch_ops) == 4
+
+    # Verify all operations are present
+    paths = [op["path"] for op in patch_ops]
+    assert "/displayName" in paths
+    assert "/description" in paths
+    assert "/version" in paths
+    assert "/immutable" in paths
+
+    # Verify version value
+    version_op = next(op for op in patch_ops if op["path"] == "/version")
+    assert version_op["value"] == "v2"

@@ -240,7 +240,6 @@ class Dashboard(_GrafanaBaseModel):
         result.setdefault("version", None)
         result.setdefault("timezone", None)
         result.setdefault("refresh", None)
-        result.setdefault("created_by", None)
 
     @staticmethod
     def _cleanup_dashboard_metadata(result: Dict[str, Any]) -> None:
@@ -276,12 +275,13 @@ class Dashboard(_GrafanaBaseModel):
             else:
                 panels = _panel_data
 
-            meta = dashboard_data.get("meta", {})
-            folder_id = meta.get("folderId") if meta else None
-
             result = {**dashboard_data, "panels": panels}
-            if folder_id is not None:
-                result["folder_id"] = folder_id
+
+            if (meta := data.get("meta")) is not None:
+                # We only want to set folder_id and created_by from meta if we get it
+                # from json and not when creating Dashboard(uid=...) like in tests.
+                result["folder_id"] = meta.get("folderId")
+                result["created_by"] = meta.get("createdBy")
 
             cls._set_dashboard_defaults(result)
             cls._cleanup_dashboard_metadata(result)

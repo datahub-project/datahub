@@ -92,6 +92,17 @@ class SecretRegistry:
                 if repr_value != raw_value and repr_value not in new_secrets:
                     new_secrets[repr_value] = variable_name
 
+            # Register SQLAlchemy-style URL encoding (only encodes :@/)
+            # This matches how SQLAlchemy.URL.__str__() renders passwords
+            sqlalchemy_encoded = (
+                raw_value.replace(":", "%3A").replace("@", "%40").replace("/", "%2F")
+            )
+            if (
+                sqlalchemy_encoded != raw_value
+                and sqlalchemy_encoded not in new_secrets
+            ):
+                new_secrets[sqlalchemy_encoded] = variable_name
+
             self._secrets = new_secrets
             self._name_to_value = new_name_to_value
             self._version += 1
@@ -150,6 +161,18 @@ class SecretRegistry:
                     repr_value = repr(raw_value)[1:-1]
                     if repr_value != raw_value and repr_value not in new_secrets:
                         new_secrets[repr_value] = variable_name
+
+                # Register SQLAlchemy-style URL encoding (only encodes :@/)
+                sqlalchemy_encoded = (
+                    raw_value.replace(":", "%3A")
+                    .replace("@", "%40")
+                    .replace("/", "%2F")
+                )
+                if (
+                    sqlalchemy_encoded != raw_value
+                    and sqlalchemy_encoded not in new_secrets
+                ):
+                    new_secrets[sqlalchemy_encoded] = variable_name
 
             if added_count > 0:
                 # Atomic swaps - single version increment for entire batch

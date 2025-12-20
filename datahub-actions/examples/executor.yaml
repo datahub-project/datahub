@@ -1,4 +1,4 @@
-name: "ingestion_executor" 
+name: "ingestion_executor"
 source:
   type: "kafka"
   config:
@@ -7,9 +7,9 @@ source:
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
-filter: 
+filter:
   event_type: "MetadataChangeLogEvent_v1"
-  event: 
+  event:
     entityType: "dataHubExecutionRequest"
     changeType: "UPSERT"
 action:

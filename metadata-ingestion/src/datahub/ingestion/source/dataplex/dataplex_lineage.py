@@ -98,9 +98,8 @@ class DataplexLineageExtractor:
         self.dataplex_client = dataplex_client
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
-        # Cache for lineage information
-        # Key: entity_id (Dataplex entity identifier)
-        # Value: Set of LineageEdge objects representing upstream dependencies for that entity
+        # Map entity IDs to their upstream dependencies to enable efficient lineage lookups
+        # during workunit generation without re-querying the Lineage API
         self.lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
 
     def get_lineage_for_entity(
@@ -635,12 +634,11 @@ class DataplexLineageExtractor:
                 for entity in batch:
                     # Construct dataset URN based on whether this is from Entries API or Entities API
                     if entity.is_entry:
-                        # For entries, use simple naming (just entity_id)
                         import datahub.emitter.mce_builder as builder
 
                         dataset_urn = builder.make_dataset_urn_with_platform_instance(
                             platform=entity.source_platform,
-                            name=entity.entity_id,
+                            name=entity.dataset_id,
                             platform_instance=None,
                             env=self.config.env,
                         )

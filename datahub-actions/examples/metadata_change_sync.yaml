@@ -20,7 +20,8 @@ action:
     # dataHubAccessTokenInfo, dataHubAccessTokenKey, dataHubSecretKey, dataHubSecretValue, dataHubExecutionRequestInput
     # dataHubExecutionRequestKey, dataHubExecutionRequestResult
     aspects_to_exclude: []
-    aspects_to_include: ['schemaMetadata','editableSchemaMetadata','ownership','domain']
+    aspects_to_include:
+      ["schemaMetadata", "editableSchemaMetadata", "ownership", "domain"]
     # you can provide extra headers in the request in key value format
     extra_headers: {}
     # you can provide a regex pattern for URNs to include

@@ -2,6 +2,7 @@ import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
@@ -39,6 +40,43 @@ export function ConnectionDetailsStep() {
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
+    const updateRecipe = useCallback(
+        (recipe: string, shouldSetIsRecipeValid?: boolean) => {
+            const recipeJson = getRecipeJson(recipe);
+            if (!recipeJson) return;
+
+            if (!JSON.parse(recipeJson).source?.type) {
+                throw Error('Ingestion type is undefined');
+            }
+
+            const newState = {
+                ...state,
+                config: {
+                    ...state.config,
+                    recipe: recipeJson,
+                },
+                type: JSON.parse(recipeJson).source.type,
+                ...(shouldSetIsRecipeValid ? { isRecipeValid: true } : {}),
+            };
+            updateState(newState);
+        },
+        [updateState, state],
+    );
+
+    const updateStagedRecipeAndState = useCallback(
+        (recipe: string) => {
+            setStagedRecipeYml(recipe);
+            try {
+                updateRecipe(recipe);
+            } catch (e: unknown) {
+                if (e instanceof Error) {
+                    console.error(e.message);
+                }
+            }
+        },
+        [updateRecipe],
+    );
+
     useEffect(() => {
         if (existingRecipeYaml) {
             setStagedRecipeYml(existingRecipeYaml);
@@ -57,6 +95,17 @@ export function ConnectionDetailsStep() {
         }
     }, [isRecipeValid, updateState, stagedRecipeYml, setCurrentStepCompleted, setCurrentStepUncompleted, state.name]);
 
+    useEffect(() => {
+        if (state) {
+            analytics.event({
+                type: EventType.IngestionEnterConfigurationEvent,
+                sourceType: state.type || '',
+                sourceUrn: state.ingestionSource?.urn,
+                configurationType: state.isEditing ? 'edit_existing' : 'create_new',
+            });
+        }
+    }, [state]);
+
     const sourceName = useMemo(() => state.name || '', [state.name]);
     const updateSourceName = useCallback(
         (newSourceName: string) => updateState({ name: newSourceName }),
@@ -67,28 +116,17 @@ export function ConnectionDetailsStep() {
     const updateOwners = useCallback((newOwners: ActorEntity[]) => updateState({ owners: newOwners }), [updateState]);
 
     const onNextHandler = useCallback(() => {
-        const recipeJson = getRecipeJson(stagedRecipeYml);
-        if (!recipeJson) return;
-
-        if (!JSON.parse(recipeJson).source?.type) {
-            message.warning({
-                content: `Please add valid ingestion type`,
-                duration: 3,
-            });
-            throw Error('Ingestion type is undefined');
+        try {
+            updateRecipe(stagedRecipeYml, true);
+        } catch (e: unknown) {
+            if (e instanceof Error) {
+                message.warning({
+                    content: `Please add valid ingestion type`,
+                    duration: 3,
+                });
+            }
         }
-
-        const newState = {
-            ...state,
-            config: {
-                ...state.config,
-                recipe: recipeJson,
-            },
-            type: JSON.parse(recipeJson).source.type,
-            isRecipeValid: true,
-        };
-        updateState(newState);
-    }, [stagedRecipeYml, state, updateState]);
+    }, [stagedRecipeYml, updateRecipe]);
 
     useEffect(() => {
         setOnNextHandler(() => onNextHandler);
@@ -113,7 +151,7 @@ export function ConnectionDetailsStep() {
                     state={state}
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
-                    setStagedRecipe={setStagedRecipeYml}
+                    setStagedRecipe={updateStagedRecipeAndState}
                     setIsRecipeValid={setIsRecipeValid}
                 />
 

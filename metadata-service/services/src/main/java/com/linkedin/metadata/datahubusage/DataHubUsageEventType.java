@@ -170,6 +170,14 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
   PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+  CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
+  MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
+  EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent"),
+  ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent"),
+  INGESTION_SELECT_SOURCE_EVENT("IngestionSelectSourceEvent"),
+  INGESTION_ENTER_CONFIGURATION_EVENT("IngestionEnterConfigurationEvent"),
+  INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
 
   // Logical models
   GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
@@ -261,17 +269,10 @@ public enum DataHubUsageEventType {
   TROUBLESHOOTING_API_REQUEST_EVENT("TroubleshootingApiRequest"),
   TROUBLESHOOTING_API_RESPONSE_EVENT("TroubleshootingApiResponse"),
 
-  // OSS Document events
-  CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
-  MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
-  EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
-  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent"),
-
   // Onboarding flow events
   FREE_TRIAL_CONTACT_SALES_CLICK_EVENT("FreeTrialContactSalesClickEvent"),
   ONBOARDING_CHECKLIST_ACTION_EVENT("OnboardingChecklistActionEvent"),
-  COMPLETE_ONBOARDING_CHECKLIST_ACTION_EVENT("CompleteOnboardingChecklistActionEvent"),
-  ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent");
+  COMPLETE_ONBOARDING_CHECKLIST_ACTION_EVENT("CompleteOnboardingChecklistActionEvent");
 
   private final String type;
 

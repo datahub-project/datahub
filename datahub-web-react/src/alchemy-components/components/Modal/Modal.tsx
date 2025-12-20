@@ -75,6 +75,7 @@ export interface ModalProps {
     onCancel?: () => void;
     dataTestId?: string;
     titleIcon?: React.ReactNode;
+    closable?: boolean;
 }
 
 export function Modal({

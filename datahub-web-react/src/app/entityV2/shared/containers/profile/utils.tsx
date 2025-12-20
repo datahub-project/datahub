@@ -315,9 +315,8 @@ export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | 
 
 /**
  * Hook to get final sidebar tabs with all additions applied.
- * This lives in profile/utils (not AskDataHub) so it can be copied to OSS.
- * In OSS, this would just call getFinalSidebarTabs directly.
- * In SaaS, we add the Ask DataHub tab on top of the base OSS behavior.
+ * In OSS, this is a simple wrapper around getFinalSidebarTabs.
+ * In SaaS, additional tabs like "Ask DataHub" are added on top.
  */
 export function useFinalSidebarTabs(
     baseTabs: EntitySidebarTab[],

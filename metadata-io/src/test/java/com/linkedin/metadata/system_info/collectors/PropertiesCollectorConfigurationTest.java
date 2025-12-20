@@ -655,6 +655,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.username",
           "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.batchSize",
           "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.maxTextLength",
+          "elasticsearch.search.validation.maxQueryLength",
+          "elasticsearch.search.validation.regex",
+          "elasticsearch.search.validation.maxLengthEnabled",
+          "elasticsearch.search.validation.enabled",
 
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",

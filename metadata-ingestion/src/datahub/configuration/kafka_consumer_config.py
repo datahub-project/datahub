@@ -7,7 +7,7 @@ from datahub.ingestion.api.registry import import_path
 logger = logging.getLogger(__name__)
 
 
-class CallableConsumerConfig:
+class KafkaOAuthCallbackResolver:
     CALLBACK_ATTRIBUTE: str = "oauth_cb"
 
     def __init__(self, config: Dict[str, Any]):
@@ -20,10 +20,10 @@ class CallableConsumerConfig:
 
     @staticmethod
     def is_callable_config(config: Dict[str, Any]) -> bool:
-        return CallableConsumerConfig.CALLBACK_ATTRIBUTE in config
+        return KafkaOAuthCallbackResolver.CALLBACK_ATTRIBUTE in config
 
     def get_call_back_attribute(self) -> Optional[str]:
-        return self._config.get(CallableConsumerConfig.CALLBACK_ATTRIBUTE)
+        return self._config.get(KafkaOAuthCallbackResolver.CALLBACK_ATTRIBUTE)
 
     def _resolve_oauth_callback(self) -> None:
         if not self.get_call_back_attribute():
@@ -40,7 +40,7 @@ class CallableConsumerConfig:
         self._validate_call_back_fn_signature(call_back_fn)
 
         # Set the callback
-        self._config[CallableConsumerConfig.CALLBACK_ATTRIBUTE] = call_back_fn
+        self._config[KafkaOAuthCallbackResolver.CALLBACK_ATTRIBUTE] = call_back_fn
 
     def _validate_call_back_fn_signature(self, call_back_fn: Any) -> None:
         sig = inspect.signature(call_back_fn)

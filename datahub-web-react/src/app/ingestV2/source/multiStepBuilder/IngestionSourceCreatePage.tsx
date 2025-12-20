@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
+import { Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -23,6 +24,7 @@ import {
     getIngestionSourceSystemFilter,
     getNewIngestionSourcePlaceholder,
 } from '@app/ingestV2/source/utils';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { PageRoutes } from '@conf/Global';
 
@@ -56,6 +58,7 @@ const STEPS: IngestionSourceFormStep[] = [
 export function IngestionSourceCreatePage() {
     const history = useHistory();
     const client = useApolloClient();
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const createIngestionSource = useCreateSource();
 
@@ -86,6 +89,7 @@ export function IngestionSourceCreatePage() {
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
             if (!data) return undefined;
+            setIsSubmitting(true);
             const shouldRun = options?.shouldRun;
             const input = getIngestionSourceMutationInput(data);
 
@@ -117,6 +121,12 @@ export function IngestionSourceCreatePage() {
                     ingestionOnboardingRedesignV1: true,
                 });
 
+                analytics.event({
+                    type: EventType.IngestionExitConfigurationEvent,
+                    sourceType: input.type,
+                    exitType: shouldRun ? 'save_and_run' : 'save_draft',
+                });
+
                 message.success({
                     content: `Successfully created ingestion source!`,
                     duration: 3,
@@ -136,14 +146,34 @@ export function IngestionSourceCreatePage() {
                 }
             }
 
+            setIsSubmitting(false);
             return undefined;
         },
         [createIngestionSource, history, client, defaultOwnershipType],
     );
 
     const onCancel = useCallback(() => {
+        analytics.event({
+            type: EventType.IngestionExitConfigurationEvent,
+            exitType: 'cancel',
+        });
         history.push(PageRoutes.INGESTION);
     }, [history]);
 
-    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />;
+    return (
+        <DiscardUnsavedChangesConfirmationProvider
+            enableRedirectHandling={!isSubmitting}
+            confirmationModalTitle="You have unsaved change"
+            confirmationModalText={
+                <>
+                    <Text type="span">You have unsaved changes to your new source. </Text>
+                    <Text type="span" weight="bold">
+                        Are you sure you want to leave and discard your unsaved changes?
+                    </Text>
+                </>
+            }
+        >
+            <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
+        </DiscardUnsavedChangesConfirmationProvider>
+    );
 }

@@ -53,7 +53,6 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     // Only compute sidebar tabs when entityData.type is available to avoid unnecessary work during loading.
-    // Previously used (entityData?.type || entityType) which caused computation on every render before type was confirmed.
     const sidebarTabs = entityData?.type ? entityRegistry.getSidebarTabs(entityData.type) : [];
     const sidebarSections = entityData?.type ? entityRegistry.getSidebarSections(entityData.type) : [];
 
