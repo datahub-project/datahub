@@ -422,3 +422,158 @@ def test_athena_whitespace_only_names(athena_lineage):
 
     # Should return empty lineage for whitespace-only names
     assert len(lineage.upstreams) == 0
+
+
+# ODBC Athena Catalog Stripping Tests
+
+
+@pytest.fixture
+def odbc_lineage(athena_config, athena_table):
+    """OdbcLineage instance for testing catalog stripping."""
+    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
+
+    return OdbcLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=athena_table,
+        reporter=PowerBiDashboardSourceReport(),
+        config=athena_config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            athena_config
+        ),
+    )
+
+
+def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
+    """Test that ODBC strips catalog prefix from upstream table URNs."""
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
+    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    # Lineage with catalog prefix in upstream URN
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,awsdatacatalog.thread-prod-normalized-parquet.accounts,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+
+    assert len(stripped_lineage.upstreams) == 1
+    # Catalog should be stripped
+    assert (
+        stripped_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,thread-prod-normalized-parquet.accounts,PROD)"
+    )
+    # Original prefix should not be present
+    assert "awsdatacatalog" not in stripped_lineage.upstreams[0].urn
+
+
+def test_odbc_strip_athena_catalog_from_column_lineage(odbc_lineage):
+    """Test that ODBC strips catalog prefix from column lineage URNs."""
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
+    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.sql_parsing.sqlglot_lineage import (
+        ColumnLineageInfo,
+        ColumnRef,
+        DownstreamColumnRef,
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    # Lineage with catalog prefix in both upstream and column lineage URNs
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,awsdatacatalog.mydb.mytable,PROD)",
+            )
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=None, column="id"),
+                upstreams=[
+                    ColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:athena,awsdatacatalog.mydb.mytable,PROD)",
+                        column="id",
+                    )
+                ],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=None, column="name"),
+                upstreams=[
+                    ColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:athena,awsdatacatalog.mydb.mytable,PROD)",
+                        column="name",
+                    )
+                ],
+            ),
+        ],
+    )
+
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+
+    # Check upstream URN is stripped
+    assert (
+        stripped_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.mytable,PROD)"
+    )
+
+    # Check column lineage URNs are stripped
+    assert len(stripped_lineage.column_lineage) == 2
+    for col_info in stripped_lineage.column_lineage:
+        for col_ref in col_info.upstreams:
+            assert "awsdatacatalog" not in col_ref.table
+            assert (
+                col_ref.table
+                == "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.mytable,PROD)"
+            )
+
+
+def test_odbc_strip_athena_catalog_preserves_non_catalog_urns(odbc_lineage):
+    """Test that URNs without catalog prefix are preserved unchanged."""
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
+    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    # Lineage without catalog prefix (already in database.table format)
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,mydb.mytable,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+
+    # URN should remain unchanged
+    assert (
+        stripped_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.mytable,PROD)"
+    )
