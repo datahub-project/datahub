@@ -192,6 +192,40 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   /**
+   * Checks if the given index exists in OpenSearch.
+   *
+   * @param indexName name of the index to check
+   * @return true if the index exists, false otherwise
+   */
+  public boolean indexExists(@Nonnull String indexName) {
+    return esWriteDAO.indexExists(indexName);
+  }
+
+  /**
+   * Applies a script update to a document in a specific index. This method works directly with
+   * index names, useful for applying script updates to semantic indices.
+   *
+   * @param indexName the name of the index
+   * @param docId the document ID
+   * @param scriptSource the script source code
+   * @param scriptParams the script parameters
+   * @param upsert the document to upsert if it doesn't exist
+   */
+  public void applyScriptUpdateByIndexName(
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    log.debug(
+        "Applying script update to indexName: {}, docId: {}, script: {}",
+        indexName,
+        docId,
+        scriptSource);
+    esWriteDAO.applyScriptUpdateByIndexName(indexName, docId, scriptSource, scriptParams, upsert);
+  }
+
+  /**
    * Updates or inserts the given search document in the V3 index for the specified search group.
    * This method uses the index convention to properly construct the V3 index name.
    *
@@ -230,13 +264,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public void appendRunId(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
+    final String entityName = urn.getEntityType();
     final String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
 
-    log.debug(
-        "Appending run id for entity name: {}, doc id: {}, run id: {}",
-        urn.getEntityType(),
-        docId,
-        runId);
+    log.info("Appending run id for entity '{}', docId='{}', runId='{}'", entityName, docId, runId);
 
     // Create an upsert document that will be used if the document doesn't exist
     Map<String, Object> upsert = new HashMap<>();
@@ -246,9 +277,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     Map<String, Object> scriptParams = new HashMap<>();
     scriptParams.put("runId", runId);
     scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
+
+    // Update V2 index
     esWriteDAO.applyScriptUpdate(
         opContext,
-        urn.getEntityType(),
+        entityName,
         docId,
         /*
           Parameterized script used to apply updates to the runId field of the index.
@@ -258,6 +291,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         SCRIPT_SOURCE,
         scriptParams,
         upsert);
+
+    // Dual-write to semantic index if it exists
+    String semanticIndexName =
+        opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
+    if (indexExists(semanticIndexName)) {
+      log.info(
+          "Semantic dual-write: APPEND_RUNID to '{}' for entity '{}', docId='{}', runId='{}'",
+          semanticIndexName,
+          entityName,
+          docId,
+          runId);
+      applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
+    } else {
+      log.info(
+          "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
+          semanticIndexName);
+    }
   }
 
   @Nonnull
