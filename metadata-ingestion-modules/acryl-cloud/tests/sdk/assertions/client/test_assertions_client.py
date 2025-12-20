@@ -3009,3 +3009,159 @@ def _validate_column_metric_assertion_vs_input(
     assert assertion.updated_by == expected_output_params.updated_by
     assert assertion.updated_at == expected_output_params.updated_at
     assert assertion.schedule == expected_output_params.schedule
+
+
+# =============================================================================
+# Tests for skip_dataset_exists_check parameter
+# =============================================================================
+
+
+class TestSkipDatasetExistsCheck:
+    """Tests for the skip_dataset_exists_check parameter on all sync methods."""
+
+    _nonexistent_dataset_urn = DatasetUrn.from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,nonexistent_table,PROD)"
+    )
+
+    def test_smart_freshness_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_smart_freshness_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())  # No datasets exist
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_smart_freshness_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                updated_by=_any_user,
+            )
+
+    def test_smart_freshness_skips_check_when_flag_is_true(self) -> None:
+        """Test that sync_smart_freshness_assertion proceeds when skip_dataset_exists_check=True."""
+        client = StubDataHubClient(existing_urns=set())  # No datasets exist
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        # Should not raise - will proceed to validation/creation
+        # (may fail later for other reasons, but not the dataset exists check)
+        try:
+            assertions_client.sync_smart_freshness_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                updated_by=_any_user,
+                skip_dataset_exists_check=True,
+            )
+        except SDKUsageError as e:
+            # Should not be the "does not exist" error
+            assert "does not exist" not in str(e)
+        except Exception:
+            # Other exceptions are acceptable for this test
+            pass
+
+    def test_smart_volume_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_smart_volume_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_smart_volume_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                updated_by=_any_user,
+            )
+
+    def test_column_metric_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_column_metric_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_column_metric_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                column_name="test_column",
+                metric_type="null_count",
+                operator="greater_than",
+                criteria_parameters=10,
+                updated_by=_any_user,
+            )
+
+    def test_smart_column_metric_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_smart_column_metric_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_smart_column_metric_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                column_name="test_column",
+                metric_type="null_count",
+                updated_by=_any_user,
+            )
+
+    def test_freshness_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_freshness_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_freshness_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                updated_by=_any_user,
+            )
+
+    def test_volume_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_volume_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_volume_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+                criteria_parameters=100,
+                updated_by=_any_user,
+            )
+
+    def test_sql_raises_when_dataset_does_not_exist(self) -> None:
+        """Test that sync_sql_assertion raises SDKUsageError when dataset doesn't exist."""
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client.sync_sql_assertion(
+                dataset_urn=self._nonexistent_dataset_urn,
+                statement="SELECT COUNT(*) FROM test_table",
+                criteria_condition="IS_GREATER_THAN",
+                criteria_parameters=100,
+                updated_by=_any_user,
+            )
+
+    def test_check_dataset_exists_helper_does_not_raise_when_dataset_exists(
+        self,
+    ) -> None:
+        """Test that _check_dataset_exists does not raise when the dataset exists."""
+        existing_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)"
+        client = StubDataHubClient(existing_urns={existing_urn})
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        # Should not raise any exception
+        assertions_client._check_dataset_exists(existing_urn, skip_check=False)
+
+    def test_check_dataset_exists_helper_raises_when_dataset_does_not_exist(
+        self,
+    ) -> None:
+        """Test that _check_dataset_exists raises when the dataset does not exist."""
+        nonexistent_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,nonexistent,PROD)"
+        )
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        with pytest.raises(SDKUsageError, match="does not exist"):
+            assertions_client._check_dataset_exists(nonexistent_urn, skip_check=False)
+
+    def test_check_dataset_exists_helper_skips_when_flag_is_true(self) -> None:
+        """Test that _check_dataset_exists skips the check when skip_check=True."""
+        nonexistent_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,nonexistent,PROD)"
+        )
+        client = StubDataHubClient(existing_urns=set())
+        assertions_client = AssertionsClient(client)  # type: ignore[arg-type]
+
+        # Should not raise even though dataset doesn't exist
+        assertions_client._check_dataset_exists(nonexistent_urn, skip_check=True)

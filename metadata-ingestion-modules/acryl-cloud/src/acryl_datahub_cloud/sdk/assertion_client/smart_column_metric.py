@@ -154,7 +154,64 @@ class SmartColumnMetricAssertionClient:
             assertion_entity, monitor_entity
         )
 
-    def _retrieve_and_merge_smart_column_metric_assertion_and_monitor(  # noqa: C901
+    def _extract_fields_from_existing_assertion(
+        self,
+        maybe_assertion_entity: Optional[Assertion],
+        column_name: Optional[str],
+        metric_type: Optional[MetricInputType],
+    ) -> tuple[Optional[str], Optional[MetricInputType]]:
+        """Extract missing fields from existing assertion entity."""
+        if maybe_assertion_entity is None:
+            return column_name, metric_type
+
+        assertion_info = maybe_assertion_entity.info
+        if not (
+            hasattr(assertion_info, "fieldMetricAssertion")
+            and assertion_info.fieldMetricAssertion
+        ):
+            return column_name, metric_type
+
+        field_metric_assertion = assertion_info.fieldMetricAssertion
+
+        # Extract column_name
+        if (
+            column_name is None
+            and hasattr(field_metric_assertion, "field")
+            and hasattr(field_metric_assertion.field, "path")
+        ):
+            column_name = field_metric_assertion.field.path
+
+        # Extract metric_type
+        if metric_type is None and hasattr(field_metric_assertion, "metric"):
+            metric_type = field_metric_assertion.metric
+
+        return column_name, metric_type
+
+    def _create_existing_assertion_from_entities(
+        self,
+        maybe_assertion_entity: Optional[Assertion],
+        maybe_monitor_entity: Optional[Monitor],
+        monitor_urn: MonitorUrn,
+        enabled: Optional[bool],
+    ) -> Optional[SmartColumnMetricAssertion]:
+        """Create existing assertion object from entities, handling missing monitor case."""
+        if maybe_assertion_entity and maybe_monitor_entity:
+            return SmartColumnMetricAssertion._from_entities(
+                maybe_assertion_entity, maybe_monitor_entity
+            )
+
+        if maybe_assertion_entity and not maybe_monitor_entity:
+            monitor_mode = (
+                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
+            )
+            return SmartColumnMetricAssertion._from_entities(
+                maybe_assertion_entity,
+                Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
+            )
+
+        return None
+
+    def _retrieve_and_merge_smart_column_metric_assertion_and_monitor(
         self,
         dataset_urn: Union[str, DatasetUrn],
         urn: Optional[Union[str, AssertionUrn]],
@@ -202,32 +259,17 @@ class SmartColumnMetricAssertionClient:
                 schedule=schedule,
             )
 
-        # 2. Retrieve any existing assertion and monitor entities:
+        # 2. Retrieve any existing assertion and monitor entities
         maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
             self._retrieve_assertion_and_monitor(urn, dataset_urn)
         )
 
-        # 3. Extract missing required fields from existing assertion if available
-        if maybe_assertion_entity is not None:
-            assertion_info = maybe_assertion_entity.info
-            if (
-                hasattr(assertion_info, "fieldMetricAssertion")
-                and assertion_info.fieldMetricAssertion
-            ):
-                field_metric_assertion = assertion_info.fieldMetricAssertion
-                # Use existing values for missing required parameters
-                if (
-                    column_name is None
-                    and hasattr(field_metric_assertion, "field")
-                    and hasattr(field_metric_assertion.field, "path")
-                ):
-                    column_name = field_metric_assertion.field.path
-                if metric_type is None and hasattr(field_metric_assertion, "metric"):
-                    metric_type = field_metric_assertion.metric
-                # Smart assertions always use BETWEEN operator - no need to fetch from existing assertion
+        # 3. Extract missing required fields from existing assertion
+        column_name, metric_type = self._extract_fields_from_existing_assertion(
+            maybe_assertion_entity, column_name, metric_type
+        )
 
         # 4. Validate required fields
-        # Note: If assertion doesn't exist, we still need to validate required fields
         if maybe_assertion_entity is None:
             self._validate_required_smart_column_fields_for_creation(
                 column_name, metric_type
@@ -241,42 +283,8 @@ class SmartColumnMetricAssertionClient:
             "Fields guaranteed non-None after validation"
         )
 
-        assertion_input = _SmartColumnMetricAssertionInput(
-            urn=urn,
-            entity_client=self.client.entities,
-            dataset_urn=dataset_urn,
-            column_name=column_name,
-            metric_type=metric_type,
-            display_name=display_name,
-            detection_mechanism=detection_mechanism,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
-            incident_behavior=incident_behavior,
-            tags=tags,
-            created_by=updated_by,  # This will be overridden by the actual created_by
-            created_at=now_utc,  # This will be overridden by the actual created_at
-            updated_by=updated_by,
-            updated_at=now_utc,
-            schedule=schedule,
-        )
-
-        # 5.1 If the assertion and monitor entities exist, create an assertion object from them:
-        if maybe_assertion_entity and maybe_monitor_entity:
-            existing_assertion = SmartColumnMetricAssertion._from_entities(
-                maybe_assertion_entity, maybe_monitor_entity
-            )
-        # 5.2 If the assertion exists but the monitor does not, create a placeholder monitor entity to be able to create the assertion:
-        elif maybe_assertion_entity and not maybe_monitor_entity:
-            monitor_mode = (
-                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
-            )
-            existing_assertion = SmartColumnMetricAssertion._from_entities(
-                maybe_assertion_entity,
-                Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
-            )
-        # 5.3 If the assertion does not exist, build and return a new assertion input:
-        elif not maybe_assertion_entity:
+        # 5. If the assertion does not exist, build and return a new assertion input
+        if not maybe_assertion_entity:
             logger.info(
                 f"No existing assertion entity found for assertion urn {urn}, building a new assertion input"
             )
@@ -301,7 +309,36 @@ class SmartColumnMetricAssertionClient:
                 schedule=schedule,
             )
 
-        # 6. Check for any issues e.g. different dataset urns
+        # 6. Build assertion input for validation
+        assertion_input = _SmartColumnMetricAssertionInput(
+            urn=urn,
+            entity_client=self.client.entities,
+            dataset_urn=dataset_urn,
+            column_name=column_name,
+            metric_type=metric_type,
+            display_name=display_name,
+            detection_mechanism=detection_mechanism,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            created_by=updated_by,
+            created_at=now_utc,
+            updated_by=updated_by,
+            updated_at=now_utc,
+            schedule=schedule,
+        )
+
+        # 7. Create existing assertion from entities
+        existing_assertion = self._create_existing_assertion_from_entities(
+            maybe_assertion_entity, maybe_monitor_entity, monitor_urn, enabled
+        )
+        assert existing_assertion is not None, (
+            "existing_assertion is guaranteed non-None after early return check"
+        )
+
+        # 8. Check for any issues e.g. different dataset urns
         if (
             existing_assertion
             and hasattr(existing_assertion, "dataset_urn")
@@ -311,7 +348,7 @@ class SmartColumnMetricAssertionClient:
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )
 
-        # 7. Merge the existing assertion with the validated input:
+        # 9. Merge the existing assertion with the validated input
         merged_assertion_input = self._merge_smart_column_metric_input(
             dataset_urn=dataset_urn,
             column_name=column_name,

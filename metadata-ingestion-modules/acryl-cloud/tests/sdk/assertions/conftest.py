@@ -11,11 +11,13 @@ from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, DataPlatformUrn, DatasetUrn, MonitorUrn
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity_client import EntityClient
+from tests.sdk.assertions.test_utils import MockGraph
 
 
 class DummyDataHubClient:
     def __init__(self) -> None:
-        pass
+        # Add a mock _graph for EntityClient compatibility
+        self._graph = MockGraph(existing_urns=set())
 
 
 _any_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD)"
@@ -429,7 +431,11 @@ class MockSearchClient:
 
 
 class StubDataHubClient:
-    def __init__(self, entity_client: Optional[StubEntityClient] = None) -> None:
+    def __init__(
+        self,
+        entity_client: Optional[StubEntityClient] = None,
+        existing_urns: Optional[set[str]] = None,
+    ) -> None:
         self.entities = entity_client or StubEntityClient()
         # Pass the monitor entity to search so it can return the correct URN
         monitor_entity = (
@@ -438,13 +444,31 @@ class StubDataHubClient:
             else None
         )
         self.search = MockSearchClient(monitor_entity=monitor_entity)
+        # Add mock graph with exists method
+        self._graph = MockGraph(
+            existing_urns=existing_urns
+            if existing_urns is not None
+            else DEFAULT_EXISTING_DATASET_URNS
+        )
+
+
+# Default set of existing dataset URNs for tests
+DEFAULT_EXISTING_DATASET_URNS = {
+    _any_dataset_urn,
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:test,not_the_same_dataset_urn,PROD)",
+    "urn:li:dataset:(urn:li:dataPlatform:test,different_dataset,PROD)",
+}
 
 
 @pytest.fixture
 def freshness_stub_datahub_client(
     freshness_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
-    return StubDataHubClient(entity_client=freshness_stub_entity_client)
+    return StubDataHubClient(
+        entity_client=freshness_stub_entity_client,
+    )
 
 
 @pytest.fixture
@@ -462,7 +486,9 @@ def volume_stub_entity_client(
 def volume_stub_datahub_client(
     volume_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
-    return StubDataHubClient(entity_client=volume_stub_entity_client)
+    return StubDataHubClient(
+        entity_client=volume_stub_entity_client,
+    )
 
 
 @pytest.fixture
@@ -561,7 +587,9 @@ def native_volume_stub_entity_client(
 def native_volume_stub_datahub_client(
     native_volume_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
-    return StubDataHubClient(entity_client=native_volume_stub_entity_client)
+    return StubDataHubClient(
+        entity_client=native_volume_stub_entity_client,
+    )
 
 
 @pytest.fixture
@@ -657,7 +685,9 @@ def sql_stub_entity_client(
 def sql_stub_datahub_client(
     sql_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
-    return StubDataHubClient(entity_client=sql_stub_entity_client)
+    return StubDataHubClient(
+        entity_client=sql_stub_entity_client,
+    )
 
 
 @pytest.fixture
@@ -756,7 +786,9 @@ def column_metric_stub_entity_client(
 def column_metric_stub_datahub_client(
     column_metric_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
-    return StubDataHubClient(entity_client=column_metric_stub_entity_client)
+    return StubDataHubClient(
+        entity_client=column_metric_stub_entity_client,
+    )
 
 
 @pytest.fixture
@@ -769,7 +801,9 @@ def native_column_metric_stub_entity_client() -> StubEntityClient:
 def native_column_metric_stub_datahub_client(
     native_column_metric_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
-    return StubDataHubClient(entity_client=native_column_metric_stub_entity_client)
+    return StubDataHubClient(
+        entity_client=native_column_metric_stub_entity_client,
+    )
 
 
 @pytest.fixture

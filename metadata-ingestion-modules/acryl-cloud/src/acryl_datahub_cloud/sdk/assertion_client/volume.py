@@ -111,7 +111,68 @@ class VolumeAssertionClient:
         #     raise e
         return VolumeAssertion._from_entities(assertion_entity, monitor_entity)
 
-    def _retrieve_and_merge_native_volume_assertion_and_monitor(  # noqa: C901
+    def _create_new_assertion_input(
+        self,
+        dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]],
+        display_name: Optional[str],
+        enabled: Optional[bool],
+        detection_mechanism: DetectionMechanismInputTypes,
+        criteria_condition: Union[str, VolumeAssertionCondition],
+        criteria_parameters: VolumeAssertionDefinitionParameters,
+        incident_behavior: Optional[AssertionIncidentBehaviorInputTypes],
+        tags: Optional[TagsInputType],
+        updated_by: Union[str, CorpUserUrn],
+        now_utc: datetime,
+        schedule: Optional[Union[str, models.CronScheduleClass]],
+    ) -> _VolumeAssertionInput:
+        """Create a new volume assertion input with given criteria."""
+        criteria: dict[str, Any] = {
+            "condition": criteria_condition,
+            "parameters": criteria_parameters,
+        }
+        return _VolumeAssertionInput(
+            urn=urn,
+            entity_client=self.client.entities,
+            dataset_urn=dataset_urn,
+            display_name=display_name,
+            enabled=enabled if enabled is not None else True,
+            detection_mechanism=detection_mechanism,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            created_by=updated_by,
+            created_at=now_utc,
+            updated_by=updated_by,
+            updated_at=now_utc,
+            schedule=schedule,
+            criteria=criteria,
+        )
+
+    def _create_existing_assertion_from_entities(
+        self,
+        maybe_assertion_entity: Optional[Assertion],
+        maybe_monitor_entity: Optional[Monitor],
+        monitor_urn: MonitorUrn,
+        enabled: Optional[bool],
+    ) -> Optional[VolumeAssertion]:
+        """Create existing assertion object from entities, handling missing monitor case."""
+        if maybe_assertion_entity and maybe_monitor_entity:
+            return VolumeAssertion._from_entities(
+                maybe_assertion_entity, maybe_monitor_entity
+            )
+
+        if maybe_assertion_entity and not maybe_monitor_entity:
+            monitor_mode = (
+                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
+            )
+            return VolumeAssertion._from_entities(
+                maybe_assertion_entity,
+                Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
+            )
+
+        return None
+
+    def _retrieve_and_merge_native_volume_assertion_and_monitor(
         self,
         dataset_urn: Union[str, DatasetUrn],
         urn: Optional[Union[str, AssertionUrn]],
@@ -126,7 +187,6 @@ class VolumeAssertionClient:
         now_utc: datetime,
         schedule: Optional[Union[str, models.CronScheduleClass]],
     ) -> _VolumeAssertionInput:
-        # Determine if we need to use backend criteria
         use_backend_criteria = criteria_condition is None
 
         # 1. If urn is not provided, build and return a new assertion input directly
@@ -136,30 +196,23 @@ class VolumeAssertionClient:
                     "Volume assertion criteria are required when creating a new assertion"
                 )
             logger.info("URN is not set, building a new assertion input")
-            # Type narrowing: we know these are not None because use_backend_criteria is False
             assert criteria_condition is not None and criteria_parameters is not None
-            criteria: dict[str, Any] = {
-                "condition": criteria_condition,
-                "parameters": criteria_parameters,
-            }
-            return _VolumeAssertionInput(
-                urn=None,
-                entity_client=self.client.entities,
-                dataset_urn=dataset_urn,
-                display_name=display_name,
-                enabled=enabled if enabled is not None else True,
-                detection_mechanism=detection_mechanism,
-                incident_behavior=incident_behavior,
-                tags=tags,
-                created_by=updated_by,
-                created_at=now_utc,
-                updated_by=updated_by,
-                updated_at=now_utc,
-                schedule=schedule,
-                criteria=criteria,
+            return self._create_new_assertion_input(
+                dataset_urn,
+                None,
+                display_name,
+                enabled,
+                detection_mechanism,
+                criteria_condition,
+                criteria_parameters,
+                incident_behavior,
+                tags,
+                updated_by,
+                now_utc,
+                schedule,
             )
 
-        # 2. Prepare temporary criteria for validation (will be replaced with backend criteria if needed)
+        # 2. Prepare temporary criteria for validation
         if criteria_condition is not None:
             temp_criteria: dict[str, Any] = {
                 "condition": criteria_condition,
@@ -168,7 +221,7 @@ class VolumeAssertionClient:
         else:
             temp_criteria = {
                 "condition": VolumeAssertionCondition.ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO,
-                "parameters": 0,  # Temporary placeholder
+                "parameters": 0,
             }
 
         # 3. Build initial assertion input for validation
@@ -180,35 +233,21 @@ class VolumeAssertionClient:
             detection_mechanism=detection_mechanism,
             incident_behavior=incident_behavior,
             tags=tags,
-            created_by=updated_by,  # This will be overridden by the actual created_by
-            created_at=now_utc,  # This will be overridden by the actual created_at
+            created_by=updated_by,
+            created_at=now_utc,
             updated_by=updated_by,
             updated_at=now_utc,
             schedule=schedule,
             criteria=temp_criteria,
         )
 
-        # 4. Retrieve any existing assertion and monitor entities:
+        # 4. Retrieve any existing assertion and monitor entities
         maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
             self._retrieve_assertion_and_monitor(assertion_input)
         )
 
-        # 5.1 If the assertion and monitor entities exist, create an assertion object from them:
-        if maybe_assertion_entity and maybe_monitor_entity:
-            existing_assertion = VolumeAssertion._from_entities(
-                maybe_assertion_entity, maybe_monitor_entity
-            )
-        # 5.2 If the assertion exists but the monitor does not, create a placeholder monitor entity to be able to create the assertion:
-        elif maybe_assertion_entity and not maybe_monitor_entity:
-            monitor_mode = (
-                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
-            )
-            existing_assertion = VolumeAssertion._from_entities(
-                maybe_assertion_entity,
-                Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
-            )
-        # 5.3 If the assertion does not exist, build and return a new assertion input:
-        elif not maybe_assertion_entity:
+        # 5. If the assertion does not exist, build and return a new assertion input
+        if not maybe_assertion_entity:
             if use_backend_criteria:
                 raise SDKUsageError(
                     f"Cannot sync assertion {urn}: no existing definition found in backend and no definition provided in request"
@@ -216,30 +255,31 @@ class VolumeAssertionClient:
             logger.info(
                 f"No existing assertion entity found for assertion urn {urn}, building a new assertion input"
             )
-            # Type narrowing: we know these are not None because use_backend_criteria is False
             assert criteria_condition is not None and criteria_parameters is not None
-            criteria = {
-                "condition": criteria_condition,
-                "parameters": criteria_parameters,
-            }
-            return _VolumeAssertionInput(
-                urn=urn,
-                entity_client=self.client.entities,
-                dataset_urn=dataset_urn,
-                display_name=display_name,
-                enabled=enabled if enabled is not None else True,
-                detection_mechanism=detection_mechanism,
-                incident_behavior=incident_behavior,
-                tags=tags,
-                created_by=updated_by,
-                created_at=now_utc,
-                updated_by=updated_by,
-                updated_at=now_utc,
-                schedule=schedule,
-                criteria=criteria,
+            return self._create_new_assertion_input(
+                dataset_urn,
+                urn,
+                display_name,
+                enabled,
+                detection_mechanism,
+                criteria_condition,
+                criteria_parameters,
+                incident_behavior,
+                tags,
+                updated_by,
+                now_utc,
+                schedule,
             )
 
-        # 6. Check for any issues e.g. different dataset urns
+        # 6. Create existing assertion from entities
+        existing_assertion = self._create_existing_assertion_from_entities(
+            maybe_assertion_entity, maybe_monitor_entity, monitor_urn, enabled
+        )
+        assert existing_assertion is not None, (
+            "existing_assertion is guaranteed non-None after early return check"
+        )
+
+        # 7. Check for any issues e.g. different dataset urns
         if (
             existing_assertion
             and hasattr(existing_assertion, "dataset_urn")
@@ -249,27 +289,18 @@ class VolumeAssertionClient:
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )
 
-        # 7. Handle criteria: use backend criteria if flag is set and backend has one
+        # 8. Determine effective criteria
         if use_backend_criteria:
-            if maybe_assertion_entity is not None:
-                # Use criteria from backend
-                backend_criteria = VolumeAssertionCriteria.from_assertion(
-                    maybe_assertion_entity
-                )
-                # Update the assertion_input with the real criteria from backend
-                assertion_input.criteria = backend_criteria
-                effective_criteria = backend_criteria
-                logger.info("Using criteria from backend assertion")
-            else:
-                # No backend assertion and no user-provided criteria - this is an error
-                raise SDKUsageError(
-                    f"Cannot sync assertion {urn}: no existing criteria found in backend and no criteria provided in request"
-                )
+            backend_criteria = VolumeAssertionCriteria.from_assertion(
+                maybe_assertion_entity
+            )
+            assertion_input.criteria = backend_criteria
+            effective_criteria = backend_criteria
+            logger.info("Using criteria from backend assertion")
         else:
-            # Use the already-parsed criteria from assertion_input
             effective_criteria = assertion_input.criteria
 
-        # 8. Merge the existing assertion with the validated input:
+        # 9. Merge the existing assertion with the validated input
         merged_assertion_input = self._merge_volume_input(
             dataset_urn=dataset_urn,
             urn=urn,

@@ -153,7 +153,111 @@ class ColumnMetricAssertionClient:
 
         return ColumnMetricAssertion._from_entities(assertion_entity, monitor_entity)
 
-    def _retrieve_and_merge_column_metric_assertion_and_monitor(  # noqa: C901
+    def _extract_fields_from_existing_assertion(
+        self,
+        maybe_assertion_entity: Optional[Assertion],
+        column_name: Optional[str],
+        metric_type: Optional[MetricInputType],
+        operator: Optional[OperatorInputType],
+        criteria_parameters: Optional[ColumnMetricAssertionParameters],
+    ) -> tuple[
+        Optional[str],
+        Optional[MetricInputType],
+        Optional[OperatorInputType],
+        Optional[ColumnMetricAssertionParameters],
+        Optional[tuple],
+    ]:
+        """Extract missing fields from existing assertion entity."""
+        gms_criteria_type_info = None
+
+        if maybe_assertion_entity is None:
+            return (
+                column_name,
+                metric_type,
+                operator,
+                criteria_parameters,
+                gms_criteria_type_info,
+            )
+
+        assertion_info = maybe_assertion_entity.info
+        if (
+            hasattr(assertion_info, "fieldMetricAssertion")
+            and assertion_info.fieldMetricAssertion
+        ):
+            field_metric_assertion = assertion_info.fieldMetricAssertion
+
+            # Extract column_name
+            if (
+                column_name is None
+                and hasattr(field_metric_assertion, "field")
+                and hasattr(field_metric_assertion.field, "path")
+            ):
+                column_name = field_metric_assertion.field.path
+
+            # Extract metric_type
+            if metric_type is None and hasattr(field_metric_assertion, "metric"):
+                metric_type = field_metric_assertion.metric
+
+            # Extract operator
+            if operator is None and hasattr(field_metric_assertion, "operator"):
+                operator = field_metric_assertion.operator
+
+            # Extract criteria_parameters
+            if criteria_parameters is None and hasattr(
+                field_metric_assertion, "parameters"
+            ):
+                params = field_metric_assertion.parameters
+                if params and hasattr(params, "value") and params.value:
+                    criteria_parameters = params.value.value
+                elif (
+                    params
+                    and hasattr(params, "minValue")
+                    and hasattr(params, "maxValue")
+                    and params.minValue
+                    and params.maxValue
+                ):
+                    criteria_parameters = (params.minValue.value, params.maxValue.value)
+
+        # Extract gms_criteria_type_info (outside the fieldMetricAssertion check)
+        gms_criteria_type_info = (
+            _HasColumnMetricFunctionality._get_criteria_parameters_with_type(
+                maybe_assertion_entity
+            )
+        )
+
+        return (
+            column_name,
+            metric_type,
+            operator,
+            criteria_parameters,
+            gms_criteria_type_info,
+        )
+
+    def _create_existing_assertion_from_entities(
+        self,
+        maybe_assertion_entity: Optional[Assertion],
+        maybe_monitor_entity: Optional[Monitor],
+        monitor_urn: MonitorUrn,
+        enabled: Optional[bool],
+    ) -> Optional[ColumnMetricAssertion]:
+        """Create existing assertion object from entities, handling missing monitor case."""
+        if maybe_assertion_entity and maybe_monitor_entity:
+            return ColumnMetricAssertion._from_entities(
+                maybe_assertion_entity, maybe_monitor_entity
+            )
+
+        if maybe_assertion_entity and not maybe_monitor_entity:
+            monitor_mode = (
+                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
+            )
+            return ColumnMetricAssertion._from_entities(
+                maybe_assertion_entity,
+                Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
+            )
+
+        return None
+
+    def _retrieve_and_merge_column_metric_assertion_and_monitor(
         self,
         dataset_urn: Union[str, DatasetUrn],
         urn: Optional[Union[str, AssertionUrn]],
@@ -202,59 +306,27 @@ class ColumnMetricAssertionClient:
                 gms_criteria_type_info=None,
             )
 
-        # 2. Retrieve any existing assertion and monitor entities:
+        # 2. Retrieve any existing assertion and monitor entities
         maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
             self._retrieve_assertion_and_monitor(urn, dataset_urn)
         )
 
-        # 3. Extract missing required fields and gms_criteria_type_info from existing assertion if available
-        gms_criteria_type_info = None
-        if maybe_assertion_entity is not None:
-            assertion_info = maybe_assertion_entity.info
-            if (
-                hasattr(assertion_info, "fieldMetricAssertion")
-                and assertion_info.fieldMetricAssertion
-            ):
-                field_metric_assertion = assertion_info.fieldMetricAssertion
-                # Use existing values for missing required parameters
-                if (
-                    column_name is None
-                    and hasattr(field_metric_assertion, "field")
-                    and hasattr(field_metric_assertion.field, "path")
-                ):
-                    column_name = field_metric_assertion.field.path
-                if metric_type is None and hasattr(field_metric_assertion, "metric"):
-                    metric_type = field_metric_assertion.metric
-                if operator is None and hasattr(field_metric_assertion, "operator"):
-                    operator = field_metric_assertion.operator
-                if criteria_parameters is None and hasattr(
-                    field_metric_assertion, "parameters"
-                ):
-                    # Extract criteria_parameters from existing assertion
-                    params = field_metric_assertion.parameters
-                    if params and hasattr(params, "value") and params.value:
-                        criteria_parameters = params.value.value
-                    elif (
-                        params
-                        and hasattr(params, "minValue")
-                        and hasattr(params, "maxValue")
-                        and params.minValue
-                        and params.maxValue
-                    ):
-                        criteria_parameters = (
-                            params.minValue.value,
-                            params.maxValue.value,
-                        )
+        # 3. Extract missing required fields and gms_criteria_type_info from existing assertion
+        (
+            column_name,
+            metric_type,
+            operator,
+            criteria_parameters,
+            gms_criteria_type_info,
+        ) = self._extract_fields_from_existing_assertion(
+            maybe_assertion_entity,
+            column_name,
+            metric_type,
+            operator,
+            criteria_parameters,
+        )
 
-            # Extract gms_criteria_type_info to preserve original parameter types
-            gms_criteria_type_info = (
-                _HasColumnMetricFunctionality._get_criteria_parameters_with_type(
-                    maybe_assertion_entity
-                )
-            )
-
-        # 4. Build initial assertion input for validation
-        # Note: If assertion doesn't exist, we still need to validate required fields
+        # 4. Validate required fields
         if maybe_assertion_entity is None:
             self._validate_required_column_fields_for_creation(
                 column_name, metric_type, operator
@@ -268,42 +340,8 @@ class ColumnMetricAssertionClient:
             column_name is not None and metric_type is not None and operator is not None
         ), "Fields guaranteed non-None after validation"
 
-        assertion_input = _ColumnMetricAssertionInput(
-            urn=urn,
-            entity_client=self.client.entities,
-            dataset_urn=dataset_urn,
-            column_name=column_name,
-            metric_type=metric_type,
-            operator=operator,
-            criteria_parameters=criteria_parameters,
-            display_name=display_name,
-            detection_mechanism=detection_mechanism,
-            incident_behavior=incident_behavior,
-            tags=tags,
-            created_by=updated_by,  # This will be overridden by the actual created_by
-            created_at=now_utc,  # This will be overridden by the actual created_at
-            updated_by=updated_by,
-            updated_at=now_utc,
-            schedule=schedule,
-            gms_criteria_type_info=gms_criteria_type_info,
-        )
-
-        # 5.1 If the assertion and monitor entities exist, create an assertion object from them:
-        if maybe_assertion_entity and maybe_monitor_entity:
-            existing_assertion = ColumnMetricAssertion._from_entities(
-                maybe_assertion_entity, maybe_monitor_entity
-            )
-        # 5.2 If the assertion exists but the monitor does not, create a placeholder monitor entity to be able to create the assertion:
-        elif maybe_assertion_entity and not maybe_monitor_entity:
-            monitor_mode = (
-                "ACTIVE" if enabled else "INACTIVE" if enabled is not None else "ACTIVE"
-            )
-            existing_assertion = ColumnMetricAssertion._from_entities(
-                maybe_assertion_entity,
-                Monitor(id=monitor_urn, info=("ASSERTION", monitor_mode)),
-            )
-        # 5.3 If the assertion does not exist, build and return a new assertion input:
-        elif not maybe_assertion_entity:
+        # 5. If the assertion does not exist, build and return a new assertion input
+        if not maybe_assertion_entity:
             logger.info(
                 f"No existing assertion entity found for assertion urn {urn}, building a new assertion input"
             )
@@ -328,7 +366,36 @@ class ColumnMetricAssertionClient:
                 gms_criteria_type_info=None,
             )
 
-        # 6. Check for any issues e.g. different dataset urns
+        # 6. Build assertion input for validation
+        assertion_input = _ColumnMetricAssertionInput(
+            urn=urn,
+            entity_client=self.client.entities,
+            dataset_urn=dataset_urn,
+            column_name=column_name,
+            metric_type=metric_type,
+            operator=operator,
+            criteria_parameters=criteria_parameters,
+            display_name=display_name,
+            detection_mechanism=detection_mechanism,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            created_by=updated_by,
+            created_at=now_utc,
+            updated_by=updated_by,
+            updated_at=now_utc,
+            schedule=schedule,
+            gms_criteria_type_info=gms_criteria_type_info,
+        )
+
+        # 7. Create existing assertion from entities
+        existing_assertion = self._create_existing_assertion_from_entities(
+            maybe_assertion_entity, maybe_monitor_entity, monitor_urn, enabled
+        )
+        assert existing_assertion is not None, (
+            "existing_assertion is guaranteed non-None after early return check"
+        )
+
+        # 8. Check for any issues e.g. different dataset urns
         if (
             existing_assertion
             and hasattr(existing_assertion, "dataset_urn")
@@ -338,7 +405,7 @@ class ColumnMetricAssertionClient:
                 f"Dataset URN mismatch, existing assertion: {existing_assertion.dataset_urn} != new assertion: {dataset_urn}"
             )
 
-        # 7. Merge the existing assertion with the validated input:
+        # 9. Merge the existing assertion with the validated input
         merged_assertion_input = self._merge_column_metric_input(
             dataset_urn=dataset_urn,
             column_name=column_name,

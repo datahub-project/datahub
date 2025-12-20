@@ -40,7 +40,10 @@ from datahub.metadata.urns import (
     TagUrn,
 )
 from datahub.sdk._shared import TagsInputType
-from tests.sdk.assertions.conftest import StubDataHubClient
+from tests.sdk.assertions.conftest import (
+    DEFAULT_EXISTING_DATASET_URNS,
+    StubDataHubClient,
+)
 
 FROZEN_TIME = "2025-01-01 10:30:00"
 
@@ -517,8 +520,8 @@ def test_sync_volume_assertion_upserts_if_assertion_and_monitor_entities_do_not_
     any_monitor_urn: MonitorUrn,
 ) -> None:
     """Test that sync_volume_assertion uses upsert even when entities don't exist."""
-    empty_stub_datahub_client = (
-        StubDataHubClient()
+    empty_stub_datahub_client = StubDataHubClient(
+        existing_urns=DEFAULT_EXISTING_DATASET_URNS
     )  # Assertion and Monitor entities do not exist
     assert empty_stub_datahub_client.entities.get(any_assertion_urn) is None
     assert empty_stub_datahub_client.entities.get(any_monitor_urn) is None
@@ -750,7 +753,9 @@ def test_sync_volume_assertion_raises_error_when_no_criteria_provided_and_no_bac
     Basically, this tests prevents the case of a sync operation without criteria when the sync is a creation.
     """
     # Arrange - create empty stub client (no assertion entities exist)
-    empty_stub_datahub_client = StubDataHubClient()  # No entities
+    empty_stub_datahub_client = StubDataHubClient(
+        existing_urns=DEFAULT_EXISTING_DATASET_URNS
+    )  # No entities
     client = AssertionsClient(empty_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Act & Assert - should raise error when no backend assertion exists and no criteria provided

@@ -55,7 +55,10 @@ from datahub.metadata.urns import (
     MonitorUrn,
     TagUrn,
 )
-from tests.sdk.assertions.conftest import StubDataHubClient, StubEntityClient
+from tests.sdk.assertions.conftest import (
+    StubDataHubClient,
+    StubEntityClient,
+)
 
 FROZEN_TIME = "2025-01-01 10:30:00"
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import functools
 import logging
+import time
 from typing import TYPE_CHECKING, Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion.assertion_base import (
@@ -65,6 +67,8 @@ from acryl_datahub_cloud.sdk.assertion_input.volume_assertion_input import (
     VolumeAssertionDefinitionParameters,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import TagsInputType
+from acryl_datahub_cloud.sdk.errors import SDKUsageError
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 
@@ -87,7 +91,42 @@ class AssertionsClient:
         self._smart_volume_client = SmartVolumeAssertionClient(client)
         self._smart_column_metric_client = SmartColumnMetricAssertionClient(client)
         self._column_metric_client = ColumnMetricAssertionClient(client)
+        # Create a cached version of the existence check with TTL using time bucketing
+        # The time_bucket parameter is used only as a cache key to invalidate entries
+        # every 60 seconds - it's not used in the function body itself
+        self._cached_exists = functools.lru_cache(maxsize=128)(
+            lambda urn, _time_bucket: self._graph.exists(urn)
+        )
         _print_experimental_warning()
+
+    @property
+    def _graph(self) -> DataHubGraph:
+        """Access to the underlying DataHubGraph client."""
+        return self.client._graph
+
+    def _check_dataset_exists(
+        self, dataset_urn: Union[str, DatasetUrn], skip_check: bool
+    ) -> None:
+        """Verify the dataset exists in DataHub.
+
+        Uses a short-lived cache (60s TTL) via functools.lru_cache to avoid
+        redundant network calls when checking multiple assertions for the same dataset.
+
+        Args:
+            dataset_urn: The URN of the dataset to check.
+            skip_check: If True, skip the existence check.
+
+        Raises:
+            SDKUsageError: If the dataset does not exist and skip_check is False.
+        """
+        if not skip_check:
+            dataset_urn_str = str(dataset_urn)
+            # Use time bucketing for TTL: bucket time into 60-second intervals
+            time_bucket = int(time.time() // 60)
+            exists = self._cached_exists(dataset_urn_str, time_bucket)
+
+            if not exists:
+                raise SDKUsageError(f"Dataset {dataset_urn_str} does not exist")
 
     def sync_smart_freshness_assertion(
         self,
@@ -103,6 +142,7 @@ class AssertionsClient:
         incident_behavior: Optional[AssertionIncidentBehaviorInputTypes] = None,
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> SmartFreshnessAssertion:
         """Upsert and merge a smart freshness assertion.
 
@@ -139,10 +179,14 @@ class AssertionsClient:
             incident_behavior (Optional[Union[str, list[str], AssertionIncidentBehavior, list[AssertionIncidentBehavior]]]): The incident behavior to be applied to the assertion. Valid values are: "raise_on_fail", "resolve_on_pass" or the typed ones (AssertionIncidentBehavior.RAISE_ON_FAIL and AssertionIncidentBehavior.RESOLVE_ON_PASS).
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             SmartFreshnessAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._smart_freshness_client.sync_smart_freshness_assertion(
             dataset_urn=dataset_urn,
             urn=urn,
@@ -172,6 +216,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> SmartVolumeAssertion:
         """Upsert and merge a smart volume assertion.
 
@@ -208,10 +253,14 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             SmartVolumeAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._smart_volume_client.sync_smart_volume_assertion(
             dataset_urn=dataset_urn,
             urn=urn,
@@ -243,6 +292,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> ColumnMetricAssertion:
         """Upsert and merge a column metric assertion.
 
@@ -317,10 +367,14 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             ColumnMetricAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._column_metric_client.sync_column_metric_assertion(
             dataset_urn=dataset_urn,
             column_name=column_name,
@@ -354,6 +408,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> SmartColumnMetricAssertion:
         """Upsert and merge a smart column metric assertion.
 
@@ -411,10 +466,14 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule of every 6 hours will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             SmartColumnMetricAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._smart_column_metric_client.sync_smart_column_metric_assertion(
             dataset_urn=dataset_urn,
             column_name=column_name,
@@ -452,6 +511,7 @@ class AssertionsClient:
         ] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         lookback_window: Optional[TimeWindowSizeInputTypes] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> FreshnessAssertion:
         """Upsert and merge a freshness assertion.
 
@@ -492,10 +552,14 @@ class AssertionsClient:
                 - {"unit": "HOUR", "multiple": 6} for 6 hours (using dict)
                 - {"unit": "DAY", "multiple": 7} for 7 days (using dict)
                 Valid values for CalendarInterval are: "MINUTE", "HOUR", "DAY" and for multiple, the integer number of units.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             FreshnessAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._freshness_client.sync_freshness_assertion(
             dataset_urn=dataset_urn,
             urn=urn,
@@ -524,6 +588,7 @@ class AssertionsClient:
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         criteria_condition: Optional[Union[str, VolumeAssertionCondition]] = None,
         criteria_parameters: Optional[VolumeAssertionDefinitionParameters] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> VolumeAssertion:
         """Upsert and merge a volume assertion.
 
@@ -568,10 +633,14 @@ class AssertionsClient:
                 - If the condition is range-based (ROW_COUNT_IS_WITHIN_A_RANGE, ROW_COUNT_GROWS_WITHIN_A_RANGE_ABSOLUTE, ROW_COUNT_GROWS_WITHIN_A_RANGE_PERCENTAGE), the value is a tuple of two threshold values, with format (min, max).
                 - For other conditions, the value is a single numeric threshold value.
                 If not provided, existing value is preserved for updates. Required when creating a new assertion.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             VolumeAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._volume_client.sync_volume_assertion(
             dataset_urn=dataset_urn,
             urn=urn,
@@ -602,6 +671,7 @@ class AssertionsClient:
         tags: Optional[TagsInputType] = None,
         updated_by: Optional[Union[str, CorpUserUrn]] = None,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        skip_dataset_exists_check: bool = False,
     ) -> SqlAssertion:
         """Upsert and merge a sql assertion.
 
@@ -643,10 +713,14 @@ class AssertionsClient:
             tags (Optional[TagsInputType]): The tags to be applied to the assertion. Valid values are: a list of strings, TagUrn objects, or TagAssociationClass objects.
             updated_by (Optional[Union[str, CorpUserUrn]]): Optional urn of the user who updated the assertion. The format is "urn:li:corpuser:<username>". The default is the datahub system user.
             schedule (Optional[Union[str, models.CronScheduleClass]]): Optional cron formatted schedule for the assertion. If not provided, a default schedule will be used. The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone. Alternatively, a models.CronScheduleClass object can be provided.
+            skip_dataset_exists_check (bool): If False (default), verifies the dataset_urn exists before creating/updating the assertion.
+                Set to True when creating assertions before ingesting datasets (e.g., setting up assertions in a new environment
+                before running ingestion pipelines), or when the dataset exists but may not be visible to the current API endpoint.
 
         Returns:
             SqlAssertion: The created or updated assertion.
         """
+        self._check_dataset_exists(dataset_urn, skip_dataset_exists_check)
         return self._sql_client.sync_sql_assertion(
             dataset_urn=dataset_urn,
             urn=urn,
