@@ -1,7 +1,9 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
@@ -403,6 +405,13 @@ class SnowflakeV2Config(
         "These databases will be included in the filter being pushed down regardless of database_pattern settings."
         "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
     )
+
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
 
     @field_validator("convert_urns_to_lowercase", mode="after")
     @classmethod

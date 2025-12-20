@@ -173,6 +173,12 @@ export enum EventType {
     MoveDocumentEvent,
     EditDocumentEvent,
     DeleteDocumentEvent,
+    IngestionTestConnectionClickEvent,
+    IngestionTestConnectionCloseEvent,
+    EnterIngestionFlowEvent,
+    IngestionSelectSourceEvent,
+    IngestionEnterConfigurationEvent,
+    IngestionExitConfigurationEvent,
 }
 
 /**
@@ -237,7 +243,7 @@ export interface HomePageViewEvent extends BaseEvent {
  */
 export interface SignUpEvent extends BaseEvent {
     type: EventType.SignUpEvent;
-    title: string;
+    title?: string;
 }
 
 /**
@@ -649,6 +655,24 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     outcome?: string;
 }
 
+export interface IngestionTestConnectionClickEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionClickEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
+export interface IngestionTestConnectionCloseEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionCloseEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    hasCompleted?: boolean;
+    status?: 'success' | 'failure' | 'partialSuccess' | 'running';
+    ingestionOnboardingRedesignV1?: boolean;
+    failedCapabilities?: string[];
+    durationMs?: number;
+}
+
 export interface IngestionViewAllClickEvent extends BaseEvent {
     type: EventType.IngestionViewAllClickEvent;
     executionUrn?: string;
@@ -664,6 +688,8 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     executionUrn: string;
     executionStatus: string;
     viewedSection: string;
+    sourceType?: string;
+    recipeUrn?: string;
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
@@ -680,6 +706,7 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -689,6 +716,7 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -699,6 +727,39 @@ export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
     sourceType?: string;
     sourceUrn?: string;
+}
+
+// New ingestion flow events
+
+export interface EnterIngestionFlowEvent extends BaseEvent {
+    type: EventType.EnterIngestionFlowEvent;
+    entryPoint:
+        | 'demo_data_banner'
+        | 'get_started_checklist'
+        | 'sources_page_cta'
+        | 'intercept_toast'
+        | 'nav_menu'
+        | 'direct_url';
+}
+
+export interface IngestionSelectSourceEvent extends BaseEvent {
+    type: EventType.IngestionSelectSourceEvent;
+    sourceType: string;
+}
+
+export interface IngestionEnterConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionEnterConfigurationEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    recipeUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionExitConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionExitConfigurationEvent;
+    sourceType?: string;
+    recipeUrn?: string;
+    exitType: 'save_draft' | 'save_and_run' | 'abandon' | 'cancel';
 }
 
 // TODO: Find a way to use this event
@@ -1438,4 +1499,10 @@ export type Event =
     | CreateDocumentEvent
     | MoveDocumentEvent
     | EditDocumentEvent
-    | DeleteDocumentEvent;
+    | DeleteDocumentEvent
+    | IngestionTestConnectionClickEvent
+    | IngestionTestConnectionCloseEvent
+    | EnterIngestionFlowEvent
+    | IngestionSelectSourceEvent
+    | IngestionEnterConfigurationEvent
+    | IngestionExitConfigurationEvent;

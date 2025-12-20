@@ -174,6 +174,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
     - ${HOME}/.datahub/search:/etc/datahub/search
+    - ${HOME}/.aws:/home/datahub/.aws:ro
 
 
 #################################

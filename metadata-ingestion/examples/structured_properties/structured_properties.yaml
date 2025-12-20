@@ -2,6 +2,7 @@
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
   qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
   type: number
+  version: "1.0.0"
   cardinality: MULTIPLE
   display_name: Retention Time
   entity_types:

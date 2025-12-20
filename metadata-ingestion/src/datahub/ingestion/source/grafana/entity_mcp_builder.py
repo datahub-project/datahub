@@ -167,6 +167,7 @@ def build_dashboard_mcps(
     chart_urns: List[str],
     base_url: str,
     ingest_owners: bool,
+    remove_email_suffix: bool,
     ingest_tags: bool,
 ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
     """Build dashboard metadata change proposals"""
@@ -205,8 +206,8 @@ def build_dashboard_mcps(
     )
 
     # Ownership aspect
-    if dashboard.uid and ingest_owners:
-        owner = _build_ownership(dashboard)
+    if ingest_owners:
+        owner = _build_ownership(dashboard, remove_email_suffix)
         if owner:
             mcps.append(
                 MetadataChangeProposalWrapper(
@@ -378,24 +379,22 @@ def _build_dashboard_properties(dashboard: Dashboard) -> Dict[str, str]:
     return props
 
 
-def _build_ownership(dashboard: Dashboard) -> Optional[OwnershipClass]:
+def _build_ownership(
+    dashboard: Dashboard, remove_email_suffix: bool
+) -> Optional[OwnershipClass]:
     """Build ownership information"""
     owners = []
 
-    if dashboard.uid:
-        owners.append(
-            OwnerClass(
-                owner=make_user_urn(dashboard.uid),
-                type=OwnershipTypeClass.TECHNICAL_OWNER,
-            )
-        )
-
     if dashboard.created_by:
-        owner_id = dashboard.created_by.split("@")[0]
+        if remove_email_suffix:
+            owner_id = dashboard.created_by.split("@")[0]
+        else:
+            owner_id = dashboard.created_by
+
         owners.append(
             OwnerClass(
                 owner=make_user_urn(owner_id),
-                type=OwnershipTypeClass.DATAOWNER,
+                type=OwnershipTypeClass.TECHNICAL_OWNER,
             )
         )
 
