@@ -5,10 +5,10 @@ This module centralizes all magic strings and constant values used throughout
 the Snowplow connector to improve maintainability and reduce errors.
 """
 
-from enum import Enum
+from datahub.utilities.str_enum import StrEnum
 
 
-class SchemaType(str, Enum):
+class SchemaType(StrEnum):
     """Snowplow schema types."""
 
     EVENT = "event"
@@ -16,7 +16,7 @@ class SchemaType(str, Enum):
     CONTEXT = "context"  # Alias for entity (used in schema names)
 
 
-class ConnectionMode(str, Enum):
+class ConnectionMode(StrEnum):
     """Snowplow connection modes."""
 
     BDP = "bdp"  # BDP Console API only
@@ -24,7 +24,7 @@ class ConnectionMode(str, Enum):
     BOTH = "both"  # Both BDP and Iglu
 
 
-class DataClassification(str, Enum):
+class DataClassification(StrEnum):
     """Data classification levels for field tagging."""
 
     PII = "pii"  # Personally Identifiable Information
@@ -33,7 +33,7 @@ class DataClassification(str, Enum):
     INTERNAL = "internal"  # Internal information
 
 
-class EventFieldType(str, Enum):
+class EventFieldType(StrEnum):
     """Event field types for structured properties."""
 
     SELF_DESCRIBING = "self_describing"  # Custom self-describing event
@@ -41,20 +41,20 @@ class EventFieldType(str, Enum):
     CONTEXT = "context"  # Context entity field
 
 
-class SchemaFormat(str, Enum):
+class SchemaFormat(StrEnum):
     """Schema format types."""
 
     JSON_SCHEMA = "jsonschema"
 
 
-class Cardinality(str, Enum):
+class Cardinality(StrEnum):
     """Structured property cardinality."""
 
     SINGLE = "SINGLE"
     MULTIPLE = "MULTIPLE"
 
 
-class Environment(str, Enum):
+class Environment(StrEnum):
     """Deployment environments."""
 
     PROD = "PROD"
