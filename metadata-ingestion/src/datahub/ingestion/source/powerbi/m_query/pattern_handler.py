@@ -1,4 +1,5 @@
 import logging
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, cast
@@ -1227,7 +1228,83 @@ class OdbcLineage(AbstractLineage):
             platform_pair=platform_pair,
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
+
+        # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs for athena/glue platforms
+        # This ensures URN consistency with the standalone Athena connector which doesn't include the catalog
+        if platform_pair.datahub_data_platform_name in ("athena", "glue"):
+            result = self._strip_athena_catalog_from_lineage(result, platform_pair)
+
         return result
+
+    def _strip_athena_catalog_from_lineage(
+        self, lineage: Lineage, platform_pair: DataPlatformPair
+    ) -> Lineage:
+        """
+        Strip AWS Glue catalog prefix (e.g., "awsdatacatalog.") from Athena/Glue URNs.
+
+        Athena queries reference tables as catalog.database.table (e.g., awsdatacatalog.mydb.mytable),
+        but the standalone Athena/Glue connectors generate URNs without the catalog prefix
+        (e.g., mydb.mytable). This method normalizes the URNs to ensure consistency.
+
+        This affects both:
+        - Table-level lineage (upstreams[*].urn)
+        - Column-level lineage (column_lineage[*].upstreams[*].table)
+        """
+        # Pattern to match and strip catalog prefix from URN's table name
+        # Matches: urn:li:dataset:(urn:li:dataPlatform:athena,CATALOG.database.table,ENV)
+        # Only strips when there are 3+ parts (catalog.database.table)
+        # Preserves 2-part names (database.table)
+        catalog_pattern = re.compile(
+            r"(urn:li:dataset:\(urn:li:dataPlatform:(?:athena|glue),)"
+            r"[^,\.]+\."  # Catalog name followed by dot
+            r"([^,\.]+\.[^,]+,"  # database.table (must have at least 2 more parts)
+            r"[A-Z]+\))"  # Environment and closing paren
+        )
+
+        def strip_catalog_from_urn(urn: str) -> str:
+            """Strip catalog prefix from a single URN."""
+            match = catalog_pattern.match(urn)
+            if match:
+                new_urn = f"{match.group(1)}{match.group(2)}"
+                logger.debug(
+                    f"Stripped Athena catalog prefix from URN: {urn} -> {new_urn}"
+                )
+                return new_urn
+            return urn
+
+        # Strip catalog from upstream table URNs
+        updated_upstreams: List[DataPlatformTable] = []
+        for upstream in lineage.upstreams:
+            new_urn = strip_catalog_from_urn(upstream.urn)
+            updated_upstreams.append(
+                DataPlatformTable(
+                    data_platform_pair=upstream.data_platform_pair,
+                    urn=new_urn,
+                )
+            )
+
+        # Strip catalog from column lineage URNs
+        updated_column_lineage: List[ColumnLineageInfo] = []
+        for col_info in lineage.column_lineage:
+            updated_col_upstreams: List[ColumnRef] = []
+            for col_ref in col_info.upstreams:
+                new_table_urn = strip_catalog_from_urn(col_ref.table)
+                updated_col_upstreams.append(
+                    ColumnRef(table=new_table_urn, column=col_ref.column)
+                )
+
+            updated_column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=col_info.downstream,
+                    upstreams=updated_col_upstreams,
+                    logic=col_info.logic,
+                )
+            )
+
+        return Lineage(
+            upstreams=updated_upstreams,
+            column_lineage=updated_column_lineage,
+        )
 
     def expression_lineage(
         self,
