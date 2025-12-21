@@ -68,7 +68,8 @@ jobs:
           "pdruley",
           "alokr-dhub",
           "alfiyas-datahub",
-          "dinesh-verma-datahub"
+          "dinesh-verma-datahub",
+          "rob-1019"
           ]'),
           github.actor
           )

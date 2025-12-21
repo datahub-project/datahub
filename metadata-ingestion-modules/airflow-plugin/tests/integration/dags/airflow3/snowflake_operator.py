@@ -1,7 +1,14 @@
+"""
+Airflow 3.0 version of snowflake_operator.py
+
+This DAG uses SQLExecuteQueryOperator instead of SnowflakeOperator,
+which was removed in Airflow 3.0.
+"""
+
 from datetime import datetime
 
 from airflow import DAG
-from airflow.providers.snowflake.operators.snowflake import SQLExecuteQueryOperator
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 
 SNOWFLAKE_COST_TABLE = "costs"
 SNOWFLAKE_PROCESSED_TABLE = "processed_costs"
@@ -14,7 +21,7 @@ def _fake_snowflake_execute(*args, **kwargs):
 with DAG(
     "snowflake_operator",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
 ) as dag:
     # HACK: We don't want to send real requests to Snowflake. As a workaround,

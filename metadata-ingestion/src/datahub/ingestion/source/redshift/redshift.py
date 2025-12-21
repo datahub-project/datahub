@@ -427,11 +427,26 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.process_schemas(connection, database)
             )
 
-            with self.report.new_stage(LINEAGE_EXTRACTION):
-                yield from self.extract_lineage_v2(
-                    connection=connection,
-                    database=database,
-                    lineage_extractor=lineage_extractor,
+            # Only extract lineage if at least one lineage flag is enabled.
+            # This addresses a regression introduced in PR #14580 where lineage v1 removal
+            # inadvertently caused lineage extraction to run even when all flags were disabled.
+            if (
+                self.config.include_table_lineage
+                or self.config.include_view_lineage
+                or self.config.include_copy_lineage
+                or self.config.include_unload_lineage
+                or self.config.include_share_lineage
+                or self.config.include_table_rename_lineage
+            ):
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    yield from self.extract_lineage_v2(
+                        connection=connection,
+                        database=database,
+                        lineage_extractor=lineage_extractor,
+                    )
+            else:
+                logger.info(
+                    "Skipping lineage extraction - all lineage flags are disabled"
                 )
 
         all_tables = self.get_all_tables()
