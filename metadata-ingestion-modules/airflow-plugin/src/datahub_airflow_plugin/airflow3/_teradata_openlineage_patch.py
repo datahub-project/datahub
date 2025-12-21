@@ -153,17 +153,16 @@ def _create_teradata_openlineage_wrapper(
     import_error = None
     try:
         # Try Airflow 3.x import path first
-        from airflow.providers.openlineage.extractors import (
-            OperatorLineage as OperatorLineageClass,
-        )
+        from airflow.providers.openlineage.extractors import OperatorLineage
+
+        OperatorLineageClass = OperatorLineage
     except (ImportError, ModuleNotFoundError) as e:
         import_error = e
         try:
             # Fallback for Airflow 2.x provider mode compatibility
-            from airflow.providers.openlineage.extractors.base import (
-                OperatorLineage as OperatorLineageClass,
-            )
+            from airflow.providers.openlineage.extractors.base import OperatorLineage
 
+            OperatorLineageClass = OperatorLineage
             import_error = None  # Success, clear the error
         except (ImportError, ModuleNotFoundError) as e2:
             # Both imports failed - log the more specific error
