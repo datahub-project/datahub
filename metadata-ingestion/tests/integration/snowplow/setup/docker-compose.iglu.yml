@@ -66,11 +66,11 @@ services:
       - ./iglu_config.hocon:/iglu/config.hocon:ro
     command: ["--config", "/iglu/config.hocon"]
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/meta/health"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/api/meta/health || curl -f http://localhost:8080/api/meta/health || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
     networks:
       - iglu_network
 

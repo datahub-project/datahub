@@ -661,7 +661,7 @@ def iglu_server_runner(docker_compose_runner, pytestconfig):
                 return False
 
         docker_services.wait_until_responsive(
-            timeout=60,
+            timeout=120,
             pause=2,
             check=check_iglu_health,
         )
