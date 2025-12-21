@@ -1,6 +1,9 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 // smoke-test/tests/library_examples/README.md
+// docs/dev-guides/semantic-search/README.md
+// docs/dev-guides/semantic-search/ARCHITECTURE.md
+// docs/dev-guides/semantic-search/CONFIGURATION.md
 module.exports = {
   overviewSidebar: [
     // Getting Started.
@@ -264,6 +267,11 @@ module.exports = {
           id: "docs/ui-ingestion",
         },
         {
+          label: "Ingestion Security",
+          type: "doc",
+          id: "docs/metadata-ingestion-security",
+        },
+        {
           label: "Lineage",
           type: "category",
           link: {
@@ -359,6 +367,12 @@ module.exports = {
           label: "Search",
           type: "doc",
           id: "docs/how/search",
+        },
+        {
+          label: "Search Access Controls",
+          type: "doc",
+          id: "docs/features/feature-guides/search-access-controls",
+          className: "saasOnly",
         },
         {
           label: "Sync Status",
@@ -1001,6 +1015,7 @@ module.exports = {
     {
       Guides: [
         "docs/api/tutorials/datasets",
+        "docs/api/tutorials/documents",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",

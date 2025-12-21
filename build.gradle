@@ -128,10 +128,10 @@ project.ext.externalDependency = [
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.25',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.2',
-    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.23.6',
+    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.30.33',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.6',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
     'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.6',
     'azureIdentity': 'com.azure:azure-identity:1.18.1',
@@ -446,6 +446,11 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+    resolutionStrategy.force 'org.lz4:lz4-java:1.8.1'
+    // Resolve capability conflict between org.lz4:lz4-java and at.yawk.lz4:lz4-java (CVE-2025-12183 fix)
+    resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+      select 'org.lz4:lz4-java:0'
+    }
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"

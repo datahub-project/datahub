@@ -226,6 +226,15 @@ clickhouse_common = {
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
+dataplex_common = {
+    "google-cloud-dataplex",
+    # Pinned to 0.2.2 because 0.3.0 changed the import path from
+    # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+    # which breaks existing code using the old import path
+    "google-cloud-datacatalog-lineage==0.2.2",
+    "tenacity>=8.0.1",
+}
+
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
@@ -455,6 +464,9 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {
+        # Pinned to 0.2.2 because 0.3.0 changed the import path from
+        # google.cloud.datacatalog.lineage_v1 to google.cloud.datacatalog_lineage,
+        # which breaks existing code using the old import path
         "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-slim": bigquery_common,
@@ -467,6 +479,7 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
+    "dataplex": dataplex_common,
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
@@ -518,9 +531,11 @@ plugins: Dict[str, Set[str]] = {
         *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
+    # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
+    # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2"},
+    | {"psycopg2-binary", "pymysql>=1.0.2", "pymetastore>=0.4.2", "tenacity>=8.0.1", "kerberos>=1.3.0"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests"},
@@ -716,6 +731,7 @@ base_dev_requirements = {
             "clickhouse",
             "clickhouse-usage",
             "cockroachdb",
+            "dataplex",
             "delta-lake",
             "dremio",
             "druid",
@@ -789,6 +805,7 @@ full_test_dev_requirements = {
             "feast",
             "hana",
             "hive",
+            "hive-metastore",
             "iceberg",
             "iceberg-catalog",
             "kafka-connect",
@@ -836,8 +853,8 @@ entry_points = {
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
-        "hive = datahub.ingestion.source.sql.hive:HiveSource",
-        "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
+        "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
@@ -850,6 +867,7 @@ entry_points = {
         "datahub-mock-data = datahub.ingestion.source.mock_data.datahub_mock_data:DataHubMockDataSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
+        "dataplex = datahub.ingestion.source.dataplex.dataplex:DataplexSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
@@ -880,7 +898,7 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
-        "presto-on-hive = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
+        "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
@@ -929,6 +947,7 @@ entry_points = {
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
+        "tags_to_structured_properties = datahub.ingestion.transformer.tags_to_structured_properties:TagsToStructuredPropertiesTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

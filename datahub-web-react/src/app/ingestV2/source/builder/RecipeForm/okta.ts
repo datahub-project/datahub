@@ -1,4 +1,10 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    FieldType,
+    FilterRecipeField,
+    FilterRule,
+    RecipeField,
+    setListValuesOnRecipe,
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 import { validateURL } from '@app/ingestV2/source/utils';
 
 export const OKTA_DOMAIN_URL: RecipeField = {
@@ -25,7 +31,7 @@ export const OKTA_API_TOKEN: RecipeField = {
     required: true,
 };
 
-export const POFILE_TO_USER: RecipeField = {
+export const PROFILE_TO_USER: RecipeField = {
     name: 'email',
     label: 'Okta Email',
     helper: 'Okta User Profile attribute',
@@ -37,7 +43,7 @@ export const POFILE_TO_USER: RecipeField = {
     rules: null,
 };
 
-export const POFILE_TO_GROUP: RecipeField = {
+export const PROFILE_TO_GROUP: RecipeField = {
     name: 'okta_profile_to_group_name_attr',
     label: 'Okta Profile to group name attribute',
     helper: 'Okta Group Profile attribute',
@@ -49,7 +55,7 @@ export const POFILE_TO_GROUP: RecipeField = {
 };
 
 const schemaAllowFieldPath = 'source.config.okta_profile_to_username_regex.allow';
-export const POFILE_TO_USER_REGX_ALLOW: RecipeField = {
+export const PROFILE_TO_USER_REGX_ALLOW: FilterRecipeField = {
     name: 'user.allow',
     label: 'Allow Patterns',
     helper: 'Include specific schemas',
@@ -57,6 +63,7 @@ export const POFILE_TO_USER_REGX_ALLOW: RecipeField = {
         'Only include specific schemas by providing the name of a schema, or a regular expression (regex) to include specific schemas. If not provided, all schemas inside allowed databases will be included.',
     placeholder: 'user_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPath,
     rules: null,
@@ -66,7 +73,7 @@ export const POFILE_TO_USER_REGX_ALLOW: RecipeField = {
 };
 
 const schemaDenyFieldPath = 'source.config.okta_profile_to_username_regex.deny';
-export const POFILE_TO_USER_REGX_DENY: RecipeField = {
+export const PROFILE_TO_USER_REGEX_DENY: FilterRecipeField = {
     name: 'user.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific schemas',
@@ -74,6 +81,7 @@ export const POFILE_TO_USER_REGX_DENY: RecipeField = {
         'Only include specific schemas by providing the name of a schema, or a regular expression (regex) to include specific schemas. If not provided, all schemas inside allowed databases will be included.',
     placeholder: 'user_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPath,
     rules: null,
@@ -83,7 +91,7 @@ export const POFILE_TO_USER_REGX_DENY: RecipeField = {
 };
 
 const schemaAllowFieldPathForGroup = 'source.config.okta_profile_to_group_name_regex.allow';
-export const POFILE_TO_GROUP_REGX_ALLOW: RecipeField = {
+export const PROFILE_TO_GROUP_REGX_ALLOW: FilterRecipeField = {
     name: 'group.allow',
     label: 'Allow Patterns',
     helper: 'Include specific schemas',
@@ -91,6 +99,7 @@ export const POFILE_TO_GROUP_REGX_ALLOW: RecipeField = {
         'Only include specific schemas by providing the name of a schema, or a regular expression (regex) to include specific schemas. If not provided, all schemas inside allowed databases will be included.',
     placeholder: 'group_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.INCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPathForGroup,
     rules: null,
@@ -100,7 +109,7 @@ export const POFILE_TO_GROUP_REGX_ALLOW: RecipeField = {
 };
 
 const schemaDenyFieldPathForGroup = 'source.config.okta_profile_to_group_name_regex.deny';
-export const POFILE_TO_GROUP_REGX_DENY: RecipeField = {
+export const PROFILE_TO_GROUP_REGX_DENY: FilterRecipeField = {
     name: 'group.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific schemas',
@@ -108,6 +117,7 @@ export const POFILE_TO_GROUP_REGX_DENY: RecipeField = {
         'Only include specific schemas by providing the name of a schema, or a regular expression (regex) to include specific schemas. If not provided, all schemas inside allowed databases will be included.',
     placeholder: 'group_pattern',
     type: FieldType.LIST,
+    rule: FilterRule.EXCLUDE,
     buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPathForGroup,
     rules: null,
