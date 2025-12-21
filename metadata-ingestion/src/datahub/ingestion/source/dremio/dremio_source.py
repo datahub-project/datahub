@@ -85,30 +85,31 @@ class DremioSchemaResolver(SchemaResolver):
     uses table.parts to preserve the full hierarchy: dremio.part1.part2.part3.table
     """
 
+    def _get_table_name_parts(self, table: _TableName) -> List[Optional[str]]:
+        if table.parts and len(table.parts) > 3:
+            return [DREMIO_DATABASE_NAME, *table.parts]
+        elif table.database and table.database.lower() != DREMIO_DATABASE_NAME:
+            return [
+                DREMIO_DATABASE_NAME,
+                table.database,
+                table.db_schema,
+                table.table,
+            ]
+        else:
+            return [
+                table.database or DREMIO_DATABASE_NAME,
+                table.db_schema,
+                table.table,
+            ]
+
+    def _construct_table_name(self, table: _TableName) -> str:
+        parts = self._get_table_name_parts(table)
+        return ".".join(filter(None, parts))
+
     def get_urn_for_table(
         self, table: _TableName, lower: bool = False, mixed: bool = False
     ) -> str:
-        if table.parts and len(table.parts) > 3:
-            # Use parts for full hierarchy in multi-part tables
-            table_name_parts = [DREMIO_DATABASE_NAME] + list(table.parts)
-            table_name = ".".join(filter(None, table_name_parts))
-        else:
-            if table.database and table.database.lower() != DREMIO_DATABASE_NAME:
-                table_name_parts = [
-                    DREMIO_DATABASE_NAME,
-                    table.database,
-                    table.db_schema,
-                    table.table,
-                ]
-            else:
-                table_name_parts = [
-                    table.database or DREMIO_DATABASE_NAME,
-                    table.db_schema,
-                    table.table,
-                ]
-
-            table_name = ".".join(filter(None, table_name_parts))
-
+        table_name = self._construct_table_name(table)
         platform_instance = self.platform_instance
 
         if lower:
