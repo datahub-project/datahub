@@ -2637,3 +2637,27 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **0b97a6680a** - feat(ingestion): add telemetry events for the new ingestion flow (#15721)
   *by Purnima Garg on 2025-12-19*
 
+
+## Upstream Merge Session - 2025-12-21 21:40:55
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `marge-session-44ebd858-branch`
+- **Merge Base**: `62e525a439b0cb901ce4003490a8bead095d1742`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 3
+- **Strategy**: stacked
+- **Started**: Sun Dec 21 21:40:55 UTC 2025
+
+### Commits Included in This Merge
+- **c1f59b11f9** - chore(ci): Add rob-1019 (Rob J. Caskey) to team-member list (#15469)
+  *by rob-1019 on 2025-12-19*
+
+- **86309039d4** - fix(redshift): fix lineage extraction ignoring disabled flags (regression from #14580) (#15545)
+  *by Sergio Gómez Villamor on 2025-12-19*
+
+- **74ca56f442** - feat(ingestion/airflow) Add Airflow 3.x support (#13790)
+  *by Tamas Nemeth on 2025-12-19*
+
