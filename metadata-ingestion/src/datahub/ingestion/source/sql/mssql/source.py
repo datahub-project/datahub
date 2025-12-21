@@ -675,6 +675,14 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data for get stored procedures as dataJob-s.
+
+        TODO: Refactor to use shared stored procedure infrastructure like other SQL sources
+        (PostgreSQL, MySQL, Oracle, Snowflake). Currently uses custom StoredProcedure model
+        and DataJob/DataFlow constructs for SQL Agent Job integration. Should be updated to:
+        1. Use BaseProcedure and generate_procedure_workunits from stored_procedures/base.py
+        2. Separate SQL Agent Jobs from stored procedures conceptually
+        3. Follow the standard pattern: get_procedures_for_schema() -> generate_procedure_workunits()
+        This would improve consistency, reduce code duplication, and simplify maintenance.
         """
         db_name = self.get_db_name(inspector)
         procedure_flow_name = f"{db_name}.{schema}.stored_procedures"
@@ -705,14 +713,15 @@ class SQLServerSource(SQLAlchemySource):
     def _process_stored_procedure(
         self, conn: Connection, procedure: StoredProcedure
     ) -> Iterable[MetadataWorkUnit]:
+        # TODO: Refactor this method to use generate_procedure_workunits() from shared infrastructure.
+        # Current implementation uses custom DataJob/DataFlow model. Dependencies tracked here
+        # should be converted to standard lineage using generate_procedure_lineage().
+        # See loop_stored_procedures() TODO for full refactoring plan.
         upstream = self._get_procedure_upstream(conn, procedure)
         downstream = self._get_procedure_downstream(conn, procedure)
         data_job = MSSQLDataJob(
             entity=procedure,
         )
-        # TODO: because of this upstream and downstream are more dependencies,
-        #  can't be used as DataJobInputOutput.
-        #  Should be reorganized into lineage.
         data_job.add_property("procedure_depends_on", str(upstream.as_property))
         data_job.add_property("depending_on_procedure", str(downstream.as_property))
         procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)

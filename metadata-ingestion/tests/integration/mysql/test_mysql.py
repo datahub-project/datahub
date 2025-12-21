@@ -2,7 +2,7 @@ import subprocess
 from typing import List
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.source.sql.mysql import MySQLSource
 from datahub.testing import mce_helpers
@@ -58,7 +58,7 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         ("mysql_stored_procedures.yml", "mysql_mces_with_stored_procs_golden.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_mysql_ingest_no_db(
     mysql_runner,
@@ -115,7 +115,7 @@ def test_mysql_ingest_no_db(
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_mysql_test_connection(mysql_runner, config_dict, is_success):
     report = test_connection_helpers.run_test_connection(MySQLSource, config_dict)

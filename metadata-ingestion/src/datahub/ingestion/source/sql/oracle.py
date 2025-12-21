@@ -44,7 +44,18 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    fetch_procedures_with_enrichment,
+)
+from datahub.ingestion.source.sql.stored_procedures.config import (
+    StoredProcedureConfigMixin,
+)
+from datahub.ingestion.source.sql.stored_procedures.enrichment import (
+    fetch_dependencies_metadata,
+    fetch_multiline_source_code,
+    fetch_parameters_metadata,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 # Oracle uses SQL aggregator for usage and lineage like SQL Server
@@ -243,7 +254,7 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
     cursor.outputtypehandler = output_type_handler
 
 
-class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
+class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig, StoredProcedureConfigMixin):
     # TODO: Change scheme to oracle+oracledb when sqlalchemy>=2 is supported
     scheme: str = Field(
         default="oracle", description="Will be set automatically to default value."
@@ -276,11 +287,8 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
         "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
-    # Stored procedures configuration
-    include_stored_procedures: bool = Field(
-        default=True,
-        description="Include ingest of stored procedures, functions, and packages. Requires access to DBA_PROCEDURES or ALL_PROCEDURES.",
-    )
+    # Stored procedures - inherits include_stored_procedures from StoredProcedureConfigMixin
+    # Override procedure_pattern with Oracle-specific description and example
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for stored procedures to filter in ingestion. "
@@ -1105,83 +1113,77 @@ class OracleSource(SQLAlchemySource):
         """
         Get stored procedures, functions, and packages for a specific schema.
         """
-        base_procedures = []
         tables_prefix = self.config.data_dictionary_mode.value
-
         # Oracle stores schema names in uppercase, so normalize the schema name
         normalized_schema = inspector.dialect.denormalize_name(schema) or schema.upper()
 
-        with inspector.engine.connect() as conn:
-            try:
-                self._validate_tables_prefix(tables_prefix)
-                procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
-                procedures = conn.execute(
-                    sql.text(procedures_query), dict(schema=normalized_schema)
-                )
+        # Validate prefix once upfront
+        self._validate_tables_prefix(tables_prefix)
+        procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
 
-                for row in procedures:
-                    source_code = self._get_procedure_source_code(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        object_type=row.type,
-                        tables_prefix=tables_prefix,
+        def map_row_with_enrichment(
+            conn: sqlalchemy.engine.Connection, row: Any
+        ) -> Optional[BaseProcedure]:
+            """Map a row to BaseProcedure with enrichment queries."""
+            # Enrich with additional metadata via helper queries
+            source_code = self._get_procedure_source_code(
+                conn=conn,
+                schema=normalized_schema,
+                procedure_name=row.name,
+                object_type=row.type,
+                tables_prefix=tables_prefix,
+            )
+
+            arguments = self._get_procedure_arguments(
+                conn=conn,
+                schema=normalized_schema,
+                procedure_name=row.name,
+                tables_prefix=tables_prefix,
+            )
+
+            dependencies = self._get_procedure_dependencies(
+                conn=conn,
+                schema=normalized_schema,
+                procedure_name=row.name,
+                tables_prefix=tables_prefix,
+            )
+
+            extra_props = {"object_type": row.type, "status": row.status}
+
+            # Add dependency information if available (flatten to strings)
+            if dependencies:
+                if "upstream" in dependencies:
+                    extra_props["upstream_dependencies"] = ", ".join(
+                        dependencies["upstream"]
+                    )
+                if "downstream" in dependencies:
+                    extra_props["downstream_dependencies"] = ", ".join(
+                        dependencies["downstream"]
                     )
 
-                    arguments = self._get_procedure_arguments(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        tables_prefix=tables_prefix,
-                    )
+            return BaseProcedure(
+                name=row.name,
+                language="SQL",
+                argument_signature=arguments,
+                return_type=None,
+                procedure_definition=source_code,
+                created=row.created,
+                last_altered=row.last_ddl_time,
+                comment=None,
+                extra_properties=extra_props,
+            )
 
-                    dependencies = self._get_procedure_dependencies(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        tables_prefix=tables_prefix,
-                    )
-
-                    extra_props = {"object_type": row.type, "status": row.status}
-
-                    # Add dependency information if available (flatten to strings)
-                    if dependencies:
-                        if "upstream" in dependencies:
-                            extra_props["upstream_dependencies"] = ", ".join(
-                                dependencies["upstream"]
-                            )
-                        if "downstream" in dependencies:
-                            extra_props["downstream_dependencies"] = ", ".join(
-                                dependencies["downstream"]
-                            )
-
-                    base_procedures.append(
-                        BaseProcedure(
-                            name=row.name,
-                            language="SQL",
-                            argument_signature=arguments,
-                            return_type=None,
-                            procedure_definition=source_code,
-                            created=row.created,
-                            last_altered=row.last_ddl_time,
-                            comment=None,
-                            extra_properties=extra_props,
-                        )
-                    )
-
-            except Exception as e:
-                logger.warning(
-                    f"Failed to get stored procedures for schema {schema}: {e}"
-                )
-
-                self.report.warning(
-                    title="Failed to Ingest Stored Procedures",
-                    message="Missing permissions to access OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES. Grant SELECT on these views or set 'include_stored_procedures: false' to disable.",
-                    context=f"schema={schema}, table={self.config.data_dictionary_mode}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES",
-                    exc=e,
-                )
-
-        return base_procedures
+        return fetch_procedures_with_enrichment(
+            inspector=inspector,
+            query=procedures_query,
+            params={"schema": normalized_schema},
+            row_mapper=map_row_with_enrichment,
+            source_name="Oracle",
+            schema=schema,
+            report=self.report,
+            permission_error_message=f"Missing permissions to access {tables_prefix}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES. Grant SELECT on these views or set 'include_stored_procedures: false' to disable.",
+            system_table=f"{tables_prefix}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES",
+        )
 
     def _get_procedure_source_code(
         self,
@@ -1191,31 +1193,21 @@ class OracleSource(SQLAlchemySource):
         object_type: str,
         tables_prefix: str,
     ) -> Optional[str]:
-        """Get procedure source code from ALL_SOURCE or DBA_SOURCE."""
-        try:
-            self._validate_tables_prefix(tables_prefix)
-            source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
+        """Get procedure source code from ALL_SOURCE or DBA_SOURCE using generalized utility."""
+        self._validate_tables_prefix(tables_prefix)
+        source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
 
-            source_data = conn.execute(
-                sql.text(source_query),
-                dict(
-                    schema=schema,
-                    procedure_name=procedure_name,
-                    object_type=object_type,
-                ),
-            )
-
-            source_lines = []
-            for row in source_data:
-                source_lines.append(row.text)
-
-            return "".join(source_lines) if source_lines else None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get source code for {object_type} {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return fetch_multiline_source_code(
+            conn=conn,
+            query=source_query,
+            params=dict(
+                schema=schema,
+                procedure_name=procedure_name,
+                object_type=object_type,
+            ),
+            text_column="text",
+            line_column="line",
+        )
 
     def _get_procedure_arguments(
         self,
@@ -1224,28 +1216,16 @@ class OracleSource(SQLAlchemySource):
         procedure_name: str,
         tables_prefix: str,
     ) -> Optional[str]:
-        """Get procedure arguments from ALL_ARGUMENTS or DBA_ARGUMENTS."""
-        try:
-            # Validate tables_prefix to prevent injection
-            self._validate_tables_prefix(tables_prefix)
-            args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
+        """Get procedure arguments from ALL_ARGUMENTS or DBA_ARGUMENTS using generalized utility."""
+        self._validate_tables_prefix(tables_prefix)
+        args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
 
-            args_data = conn.execute(
-                sql.text(args_query), dict(schema=schema, procedure_name=procedure_name)
-            )
-
-            arguments = []
-            for row in args_data:
-                arg_str = f"{row.in_out} {row.argument_name} {row.data_type}"
-                arguments.append(arg_str)
-
-            return ", ".join(arguments) if arguments else None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get arguments for procedure {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return fetch_parameters_metadata(
+            conn=conn,
+            query=args_query,
+            params=dict(schema=schema, procedure_name=procedure_name),
+            format_template="{in_out} {argument_name} {data_type}",
+        )
 
     def _get_procedure_dependencies(
         self,
@@ -1254,52 +1234,24 @@ class OracleSource(SQLAlchemySource):
         procedure_name: str,
         tables_prefix: str,
     ) -> Optional[Dict[str, List[str]]]:
-        """Get procedure dependencies from ALL_DEPENDENCIES or DBA_DEPENDENCIES."""
-        try:
-            # Validate tables_prefix to prevent injection
-            self._validate_tables_prefix(tables_prefix)
+        """Get procedure dependencies from ALL_DEPENDENCIES or DBA_DEPENDENCIES using generalized utility."""
+        self._validate_tables_prefix(tables_prefix)
 
-            upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY.format(
-                tables_prefix=tables_prefix
-            )
-            upstream_data = conn.execute(
-                sql.text(upstream_query),
-                dict(schema=schema, procedure_name=procedure_name),
-            )
+        upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY.format(
+            tables_prefix=tables_prefix
+        )
+        downstream_query = PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY.format(
+            tables_prefix=tables_prefix
+        )
 
-            downstream_query = PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY.format(
-                tables_prefix=tables_prefix
-            )
-            downstream_data = conn.execute(
-                sql.text(downstream_query),
-                dict(schema=schema, procedure_name=procedure_name),
-            )
-
-            dependencies = {}
-
-            upstream_deps = []
-            for row in upstream_data:
-                dep_str = f"{row.referenced_owner}.{row.referenced_name} ({row.referenced_type})"
-                upstream_deps.append(dep_str)
-
-            if upstream_deps:
-                dependencies["upstream"] = upstream_deps
-
-            downstream_deps = []
-            for row in downstream_data:
-                dep_str = f"{row.owner}.{row.name} ({row.type})"
-                downstream_deps.append(dep_str)
-
-            if downstream_deps:
-                dependencies["downstream"] = downstream_deps
-
-            return dependencies if dependencies else None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get dependencies for procedure {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return fetch_dependencies_metadata(
+            conn=conn,
+            upstream_query=upstream_query,
+            downstream_query=downstream_query,
+            params=dict(schema=schema, procedure_name=procedure_name),
+            upstream_format="{referenced_owner}.{referenced_name} ({referenced_type})",
+            downstream_format="{owner}.{name} ({type})",
+        )
 
     def loop_materialized_views(
         self,

@@ -1,20 +1,19 @@
 # This import verifies that the dependencies are available.
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, text, util
+from sqlalchemy import create_engine, event, inspect, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
-from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
-from datahub.configuration.common import HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -29,7 +28,6 @@ from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.sql.sql_common import (
-    SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
 )
@@ -40,6 +38,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
+    fetch_procedures_from_query,
     generate_procedure_container_workunits,
     generate_procedure_workunits,
 )
@@ -124,6 +123,14 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
 class MySQLConfig(
     MySQLConnectionConfig, TwoTierSQLAlchemyConfig, StoredProcedureConfigMixin
 ):
+    # Override procedure_pattern with MySQL-specific description and example
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion. "
+        "Specify regex to match the entire procedure name in database.procedure_name format (two-tier). "
+        "e.g. to match all procedures starting with 'sp_customer' in 'sales' database, use the regex 'sales.sp_customer.*'",
+    )
+
     def get_identifier(self, *, schema: str, table: str) -> str:
         return f"{schema}.{table}"
 
@@ -188,28 +195,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
         except (ValueError, TypeError):
             return None
 
-    def get_schema_level_workunits(
-        self,
-        inspector: Inspector,
-        schema: str,
-        database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_schema_level_workunits(
-            inspector=inspector,
-            schema=schema,
-            database=database,
-        )
-
-        if self.config.include_stored_procedures:
-            try:
-                yield from self.loop_stored_procedures(inspector, schema, self.config)
-            except Exception as e:
-                self.report.warning(
-                    title="Failed to list stored procedures for schema",
-                    message="Unable to list stored procedures. Ensure your user has SELECT privilege on information_schema.ROUTINES. Continuing with table ingestion. Set include_stored_procedures=false to disable this warning.",
-                    context=f"{database}.{schema}",
-                    exc=e,
-                )
+    # Note: MySQL relies on base class get_schema_level_workunits which handles
+    # stored procedure ingestion with two-layer error handling:
+    # 1. Base class catch-all in get_schema_level_workunits
+    # 2. MySQL-specific error handling in get_procedures_for_schema
+    # This ensures errors are properly handled and table ingestion continues
 
     def _process_procedures(
         self,
@@ -322,43 +312,46 @@ class MySQLSource(TwoTierSQLAlchemySource):
         """
         Get stored procedures for a specific schema.
         """
-        base_procedures = []
-        with inspector.engine.connect() as conn:
-            procedures = conn.execute(
-                text(STORED_PROCEDURES_QUERY),
-                {"schema": schema},
+
+        def map_row(row: Any) -> Optional[BaseProcedure]:
+            """Map a database row to a BaseProcedure object."""
+            # Convert SQLAlchemy Row to dict for easier and safer access
+            row_dict = dict(row)
+
+            # Extract name - name is required for BaseProcedure
+            procedure_name = row_dict.get("name")
+            if not procedure_name:
+                # Skip procedures without names
+                return None
+
+            return BaseProcedure(
+                name=procedure_name,
+                language="SQL",
+                argument_signature=None,
+                return_type=None,
+                procedure_definition=row_dict.get("definition"),
+                created=self._parse_datetime(row_dict.get("CREATED")),
+                last_altered=self._parse_datetime(row_dict.get("LAST_ALTERED")),
+                comment=row_dict.get("comment"),
+                extra_properties={
+                    k: v
+                    for k, v in {
+                        "sql_data_access": row_dict.get("SQL_DATA_ACCESS"),
+                        "security_type": row_dict.get("SECURITY_TYPE"),
+                        "definer": row_dict.get("DEFINER"),
+                    }.items()
+                    if v is not None
+                },
             )
 
-            procedure_rows: List[Row] = list(procedures)
-            for row in procedure_rows:
-                # Convert SQLAlchemy Row to dict for easier and safer access
-                row_dict = dict(row)
-
-                # Extract name - name is required for BaseProcedure
-                procedure_name = row_dict.get("name")
-                if not procedure_name:
-                    # Skip procedures without names
-                    continue
-
-                base_procedures.append(
-                    BaseProcedure(
-                        name=procedure_name,
-                        language="SQL",
-                        argument_signature=None,
-                        return_type=None,
-                        procedure_definition=row_dict.get("definition"),
-                        created=self._parse_datetime(row_dict.get("CREATED")),
-                        last_altered=self._parse_datetime(row_dict.get("LAST_ALTERED")),
-                        comment=row_dict.get("comment"),
-                        extra_properties={
-                            k: v
-                            for k, v in {
-                                "sql_data_access": row_dict.get("SQL_DATA_ACCESS"),
-                                "security_type": row_dict.get("SECURITY_TYPE"),
-                                "definer": row_dict.get("DEFINER"),
-                            }.items()
-                            if v is not None
-                        },
-                    )
-                )
-            return base_procedures
+        return fetch_procedures_from_query(
+            inspector=inspector,
+            query=STORED_PROCEDURES_QUERY,
+            params={"schema": schema},
+            row_mapper=map_row,
+            source_name="MySQL",
+            schema=schema,
+            report=self.report,
+            permission_error_message="Missing permissions to access information_schema.ROUTINES. Grant SELECT on this view or set 'include_stored_procedures: false' to disable.",
+            system_table="information_schema.ROUTINES",
+        )

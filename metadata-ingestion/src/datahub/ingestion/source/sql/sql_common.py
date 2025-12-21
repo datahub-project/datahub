@@ -549,9 +549,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
             except Exception as e:
-                self.report.failure(
+                self.report.warning(
                     title="Failed to list stored procedures for schema",
-                    message="An error occurred while listing procedures for the schema.",
+                    message="An error occurred while listing procedures for the schema. Continuing with table ingestion. Check permissions or set include_stored_procedures=false to disable.",
                     context=f"{database}.{schema}",
                     exc=e,
                 )

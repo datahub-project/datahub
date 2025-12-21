@@ -46,6 +46,7 @@ from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
+    fetch_procedures_from_query,
 )
 from datahub.ingestion.source.sql.stored_procedures.config import (
     StoredProcedureConfigMixin,
@@ -64,6 +65,24 @@ register_custom_type(custom_types.JSON, BytesTypeClass)
 register_custom_type(custom_types.JSONB, BytesTypeClass)
 register_custom_type(custom_types.HSTORE, MapTypeClass)
 
+
+POSTGRES_PROCEDURES_QUERY = """
+SELECT
+    p.proname AS name,
+    l.lanname AS language,
+    pg_get_function_arguments(p.oid) AS arguments,
+    pg_get_functiondef(p.oid) AS definition,
+    obj_description(p.oid, 'pg_proc') AS comment
+FROM
+    pg_proc p
+JOIN
+    pg_namespace n ON n.oid = p.pronamespace
+JOIN
+    pg_language l ON l.oid = p.prolang
+WHERE
+    p.prokind = 'p'
+    AND n.nspname = :schema
+"""
 
 VIEW_LINEAGE_QUERY = """
 WITH RECURSIVE view_deps AS (
@@ -142,6 +161,14 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
 
 
 class PostgresConfig(BasePostgresConfig, StoredProcedureConfigMixin):
+    # Override procedure_pattern with PostgreSQL-specific description and example
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion. "
+        "Specify regex to match the entire procedure name in database.schema.procedure_name format. "
+        "e.g. to match all procedures starting with 'sp_' in 'public' schema of 'analytics' database, use the regex 'analytics.public.sp_.*'",
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -378,45 +405,28 @@ class PostgresSource(SQLAlchemySource):
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
-        """
-        Get stored procedures for a specific schema.
-        """
-        base_procedures = []
-        with inspector.engine.connect() as conn:
-            procedures = conn.execute(
-                """
-                    SELECT
-                        p.proname AS name,
-                        l.lanname AS language,
-                        pg_get_function_arguments(p.oid) AS arguments,
-                        pg_get_functiondef(p.oid) AS definition,
-                        obj_description(p.oid, 'pg_proc') AS comment
-                    FROM
-                        pg_proc p
-                    JOIN
-                        pg_namespace n ON n.oid = p.pronamespace
-                    JOIN
-                        pg_language l ON l.oid = p.prolang
-                    WHERE
-                        p.prokind = 'p'
-                        AND n.nspname = %s;
-                """,
-                (schema,),
+        def map_row(row: Any) -> Optional[BaseProcedure]:
+            """Map a database row to a BaseProcedure object."""
+            return BaseProcedure(
+                name=row.name,
+                language=row.language,
+                argument_signature=row.arguments,
+                return_type=None,
+                procedure_definition=row.definition,
+                created=None,
+                last_altered=None,
+                comment=row.comment,
+                extra_properties=None,
             )
 
-            procedure_rows = list(procedures)
-            for row in procedure_rows:
-                base_procedures.append(
-                    BaseProcedure(
-                        name=row.name,
-                        language=row.language,
-                        argument_signature=row.arguments,
-                        return_type=None,
-                        procedure_definition=row.definition,
-                        created=None,
-                        last_altered=None,
-                        comment=row.comment,
-                        extra_properties=None,
-                    )
-                )
-            return base_procedures
+        return fetch_procedures_from_query(
+            inspector=inspector,
+            query=POSTGRES_PROCEDURES_QUERY,
+            params={"schema": schema},
+            row_mapper=map_row,
+            source_name="PostgreSQL",
+            schema=schema,
+            report=self.report,
+            permission_error_message="Missing permissions to access pg_proc system catalog. Grant necessary permissions or set 'include_stored_procedures: false' to disable.",
+            system_table="pg_proc",
+        )

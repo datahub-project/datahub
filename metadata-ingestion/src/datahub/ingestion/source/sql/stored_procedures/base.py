@@ -1,6 +1,11 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
+
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -18,6 +23,7 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     JobContainerSubTypes,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -31,6 +37,8 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -253,3 +261,110 @@ def generate_procedure_workunits(
                 is_temp_table=is_temp_table_fn or (lambda _: False),
             )
         )
+
+
+def _wrap_fetch_with_error_handling(
+    fetch_fn: Callable[[], List[BaseProcedure]],
+    source_name: str,
+    schema: str,
+    report: SQLSourceReport,
+    permission_error_message: str,
+    system_table: str,
+) -> List[BaseProcedure]:
+    """Wraps procedure fetching with error handling. Returns empty list on error."""
+    try:
+        return fetch_fn()
+    except Exception as e:
+        logger.warning(
+            f"Failed to get stored procedures for {source_name} schema {schema}: {e}"
+        )
+
+        report.warning(
+            title="Failed to Ingest Stored Procedures",
+            message=permission_error_message,
+            context=f"schema={schema}, table={system_table}",
+            exc=e,
+        )
+
+        return []
+
+
+def fetch_procedures_from_query(
+    inspector: Inspector,
+    query: str,
+    params: Dict[str, Any],
+    row_mapper: Callable[[Any], Optional[BaseProcedure]],
+    source_name: str,
+    schema: str,
+    report: SQLSourceReport,
+    permission_error_message: str,
+    system_table: str,
+    use_text_wrapper: bool = True,
+) -> List[BaseProcedure]:
+    """Fetch procedures using a single SQL query. Used by MySQL, PostgreSQL, etc."""
+
+    def fetch_procedures() -> List[BaseProcedure]:
+        base_procedures = []
+        with inspector.engine.connect() as conn:
+            if use_text_wrapper:
+                result = conn.execute(text(query), params)
+            else:
+                result = conn.execute(query, params)
+
+            for row in result:
+                procedure = row_mapper(row)
+                if procedure is not None:
+                    base_procedures.append(procedure)
+
+        return base_procedures
+
+    return _wrap_fetch_with_error_handling(
+        fetch_fn=fetch_procedures,
+        source_name=source_name,
+        schema=schema,
+        report=report,
+        permission_error_message=permission_error_message,
+        system_table=system_table,
+    )
+
+
+def fetch_procedures_with_enrichment(
+    inspector: Inspector,
+    query: str,
+    params: Dict[str, Any],
+    row_mapper: Callable[[Connection, Any], Optional[BaseProcedure]],
+    source_name: str,
+    schema: str,
+    report: SQLSourceReport,
+    permission_error_message: str,
+    system_table: str,
+    use_text_wrapper: bool = True,
+) -> List[BaseProcedure]:
+    """
+    Fetch procedures with enrichment queries. Used by Oracle for multi-table metadata.
+    row_mapper receives Connection to execute additional per-procedure queries.
+    """
+
+    def fetch_procedures() -> List[BaseProcedure]:
+        base_procedures = []
+        with inspector.engine.connect() as conn:
+            if use_text_wrapper:
+                result = conn.execute(text(query), params)
+            else:
+                result = conn.execute(query, params)
+
+            for row in result:
+                procedure = row_mapper(conn, row)
+                if procedure is not None:
+                    base_procedures.append(procedure)
+
+        return base_procedures
+
+    return _wrap_fetch_with_error_handling(
+        fetch_fn=fetch_procedures,
+        source_name=source_name,
+        schema=schema,
+        report=report,
+        permission_error_message=permission_error_message,
+        system_table=system_table,
+    )

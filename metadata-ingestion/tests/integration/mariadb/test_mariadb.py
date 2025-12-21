@@ -2,7 +2,7 @@ import subprocess
 from typing import List
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.source.sql.mariadb import MariaDBSource
 from datahub.testing import mce_helpers
@@ -51,7 +51,7 @@ def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         ("mariadb_to_file.yml", "mariadb_mces_golden.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_mariadb_ingest_no_db(
     mariadb_runner,
@@ -108,7 +108,7 @@ def test_mariadb_ingest_no_db(
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_mariadb_test_connection(mariadb_runner, config_dict, is_success):
     report = test_connection_helpers.run_test_connection(MariaDBSource, config_dict)
