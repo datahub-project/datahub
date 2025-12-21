@@ -771,6 +771,7 @@ base_dev_requirements = {
             "teradata",
             "trino",
             "hive",
+            "hive-metastore",
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
