@@ -30,11 +30,11 @@ datahub:
     aspectSize:
       prePatch:
         enabled: true
-        maxSizeBytes: 15728640 # 15MB (raw JSON character count)
+        maxSizeBytes: 15728640 # 15MB (serialized JSON bytes)
         oversizedRemediation: DELETE # DELETE or IGNORE
       postPatch:
         enabled: true
-        maxSizeBytes: 15728640 # 15MB (serialized JSON character count)
+        maxSizeBytes: 15728640 # 15MB (serialized JSON bytes)
         oversizedRemediation: DELETE # DELETE or IGNORE
 ```
 
@@ -45,8 +45,8 @@ Message size validation can be enabled at two points in the processing pipeline:
 ### 1. Pre-Patch Existing Aspect
 
 **When:** Before patch application, if aspect already exists in database
-**Measures:** Raw JSON character count from database (via `SystemAspect.getRawMetadata().length()`)
-**Performance:** Zero overhead - raw JSON already fetched from DB
+**Measures:** Serialized JSON bytes from database (via `SystemAspect.getRawMetadata().length()`)
+**Performance:** Zero overhead - JSON already fetched from DB
 **On Failure:**
 
 - Logs WARNING with URN, aspect name, size, threshold, measurement type, and remediation strategy
@@ -59,8 +59,8 @@ Message size validation can be enabled at two points in the processing pipeline:
 ### 2. Post-Patch Existing Aspect
 
 **When:** In AspectDao, after serialization for DB write but before actual DB persist
-**Measures:** Serialized JSON character count (from EntityAspect.getMetadata().length()) - same unit as pre-patch
-**Performance:** **Zero overhead** - validation happens on the JSON string already created for DB write (no duplicate serialization)
+**Measures:** Serialized JSON bytes (from EntityAspect.getMetadata().length()) - same unit as pre-patch
+**Performance:** **Zero overhead** - validation happens on the JSON already created for DB write (no duplicate serialization)
 **On Failure:**
 
 - Logs WARNING with URN, aspect name, size, threshold, measurement type, and remediation strategy
@@ -128,9 +128,9 @@ metadataChangeProposal:
 - **Rationale:** Safety margin below Jackson's 16MB string deserialization limit
 - **Jackson Limit:** `INGESTION_MAX_SERIALIZED_STRING_LENGTH=16000000` (16MB)
 - **Note:** Aspects stored in database, not constrained by Kafka limits
-- **Measurement:** Both use serialized JSON character count (same unit)
-  - Pre-patch: Raw JSON string from database (zero cost)
-  - Post-patch: JSON string created for DB write (zero additional cost - validation happens on data already being serialized)
+- **Measurement:** Both use serialized JSON bytes (same unit)
+  - Pre-patch: JSON from database (zero cost)
+  - Post-patch: JSON created for DB write (zero additional cost - validation happens on data already being serialized)
 
 ### Custom Limits
 
