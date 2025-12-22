@@ -6,14 +6,20 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.metadata.aspect.AspectSerializationHook;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.config.AspectSizeValidationConfig;
+import com.linkedin.metadata.config.OversizedAspectRemediation;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -23,6 +29,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Used to maintain state for the Ebean supported database. This class tracks changes to the
@@ -34,6 +41,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @Builder
 @AllArgsConstructor
+@Slf4j
 public class EbeanSystemAspect implements SystemAspect {
 
   /**
@@ -55,6 +63,12 @@ public class EbeanSystemAspect implements SystemAspect {
   @Setter @Nullable private SystemMetadata systemMetadata;
 
   @Setter @Nullable private AuditStamp auditStamp;
+
+  @Nullable private List<AspectSerializationHook> serializationHooks;
+
+  @Nullable private AspectSizeValidationConfig prePatchValidationConfig;
+
+  @Nullable private AspectDao aspectDao;
 
   @Nonnull
   @Override
@@ -85,16 +99,28 @@ public class EbeanSystemAspect implements SystemAspect {
     }
 
     AuditStamp insertAuditStamp = Objects.requireNonNull(auditStamp);
-    return new EbeanAspectV2(
-            urn.toString(),
-            aspectName,
-            version,
-            RecordUtils.toJsonString(Objects.requireNonNull(recordTemplate)),
-            new Timestamp(insertAuditStamp.getTime()),
-            insertAuditStamp.getActor().toString(),
-            Optional.ofNullable(insertAuditStamp.getImpersonator()).map(Urn::toString).orElse(null),
-            RecordUtils.toJsonString(systemMetadata))
-        .toEntityAspect();
+    EntityAspect entityAspect =
+        new EbeanAspectV2(
+                urn.toString(),
+                aspectName,
+                version,
+                RecordUtils.toJsonString(Objects.requireNonNull(recordTemplate)),
+                new Timestamp(insertAuditStamp.getTime()),
+                insertAuditStamp.getActor().toString(),
+                Optional.ofNullable(insertAuditStamp.getImpersonator())
+                    .map(Urn::toString)
+                    .orElse(null),
+                RecordUtils.toJsonString(systemMetadata))
+            .toEntityAspect();
+
+    // Call serialization hooks after aspect is serialized to JSON
+    if (serializationHooks != null && !serializationHooks.isEmpty()) {
+      for (AspectSerializationHook hook : serializationHooks) {
+        hook.afterSerialization(this, entityAspect);
+      }
+    }
+
+    return entityAspect;
   }
 
   @Nonnull
@@ -117,7 +143,10 @@ public class EbeanSystemAspect implements SystemAspect {
           this.aspectSpec,
           this.recordTemplate,
           this.systemMetadata,
-          this.auditStamp);
+          this.auditStamp,
+          this.serializationHooks,
+          this.prePatchValidationConfig,
+          this.aspectDao);
     }
 
     public EbeanSystemAspect forUpdate(
@@ -129,6 +158,52 @@ public class EbeanSystemAspect implements SystemAspect {
       this.ebeanAspectV2 = ebeanAspectV2;
       this.urn = UrnUtils.getUrn(ebeanAspectV2.getUrn());
       this.aspectName = ebeanAspectV2.getAspect();
+
+      // Pre-patch validation: check existing aspect size from DB
+      if (prePatchValidationConfig != null
+          && prePatchValidationConfig.getPrePatch() != null
+          && prePatchValidationConfig.getPrePatch().isEnabled()) {
+        String rawMetadata = ebeanAspectV2.getMetadata();
+        if (rawMetadata != null) {
+          long actualSize = rawMetadata.length();
+          long threshold = prePatchValidationConfig.getPrePatch().getMaxSizeBytes();
+
+          if (actualSize > threshold) {
+            OversizedAspectRemediation remediation =
+                prePatchValidationConfig.getPrePatch().getOversizedRemediation();
+
+            log.warn(
+                "Oversized pre-patch aspect {}: urn={}, aspect={}, size={} chars, threshold={} chars, measurement=raw_json_character_count",
+                remediation,
+                urn,
+                aspectName,
+                actualSize,
+                threshold);
+
+            // Handle oversized aspect according to remediation strategy
+            if (remediation == OversizedAspectRemediation.DELETE && aspectDao != null) {
+              try {
+                aspectDao.deleteAspect(urn, aspectName, 0L);
+                log.warn(
+                    "Hard deleted oversized pre-patch aspect from database: urn={}, aspect={}",
+                    urn,
+                    aspectName);
+              } catch (Exception e) {
+                log.error(
+                    "Failed to delete oversized pre-patch aspect: urn={}, aspect={}",
+                    urn,
+                    aspectName,
+                    e);
+              }
+            }
+
+            // For both DELETE and IGNORE: throw exception to prevent processing
+            throw new AspectSizeExceededException(
+                "prePatch", actualSize, threshold, urn.toString(), aspectName);
+          }
+        }
+      }
+
       this.recordTemplate =
           Optional.ofNullable(ebeanAspectV2.getMetadata())
               .map(
@@ -242,7 +317,10 @@ public class EbeanSystemAspect implements SystemAspect {
           this.aspectSpec,
           recordTemplateCopy,
           systemMetadataCopy,
-          auditStampCopy);
+          auditStampCopy,
+          this.serializationHooks,
+          this.prePatchValidationConfig,
+          this.aspectDao);
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }

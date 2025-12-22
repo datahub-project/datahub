@@ -21,6 +21,13 @@ public class MessageSizeValidationConfig {
   /** Validates outgoing MCL before Kafka producer (measures: Avro serialized byte size). */
   private CheckpointConfig outgoingMcl = new CheckpointConfig(false, 4718592L);
 
+  /**
+   * When enabled, catches RecordTooLargeException from Kafka producer and drops the message
+   * gracefully with detailed logging. When disabled (default), the exception propagates normally.
+   * Disabled by default for backward compatibility.
+   */
+  private boolean dropOversizedMessages = false;
+
   @Data
   @AllArgsConstructor
   @NoArgsConstructor

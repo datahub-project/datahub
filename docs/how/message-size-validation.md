@@ -11,52 +11,46 @@ Protects DataHub from oversized messages that exceed Kafka/Jackson limits by val
 ### Enable via Environment Variables
 
 ```bash
-MCP_VALIDATION_MESSAGE_SIZE_INCOMING_ENABLED=true
-MCP_VALIDATION_MESSAGE_SIZE_INCOMING_MAX_BYTES=4718592  # 4.5MB
-MCP_VALIDATION_MESSAGE_SIZE_PRE_PATCH_ENABLED=true
-MCP_VALIDATION_MESSAGE_SIZE_PRE_PATCH_MAX_BYTES=15728640  # 15MB
-MCP_VALIDATION_MESSAGE_SIZE_PRE_PATCH_REMEDIATION=DELETE
-MCP_VALIDATION_MESSAGE_SIZE_POST_PATCH_ENABLED=true
-MCP_VALIDATION_MESSAGE_SIZE_POST_PATCH_MAX_BYTES=15728640  # 15MB
-MCP_VALIDATION_MESSAGE_SIZE_POST_PATCH_REMEDIATION=DELETE
-MCP_VALIDATION_MESSAGE_SIZE_OUTGOING_ENABLED=true
-MCP_VALIDATION_MESSAGE_SIZE_OUTGOING_MAX_BYTES=4718592  # 4.5MB
+# Pre-patch validation (before patch application)
+DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED=true
+DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES=15728640  # 15MB
+DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION=DELETE
+
+# Post-patch validation (after patch, before DB write)
+DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED=true
+DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES=15728640  # 15MB
+DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION=DELETE
+
+# Drop oversized messages at Kafka producer level (optional)
+MCP_VALIDATION_MESSAGE_SIZE_DROP_OVERSIZED_MESSAGES=true
 ```
 
 ### Enable via application.yaml
 
 ```yaml
-metadataChangeProposal:
+datahub:
   validation:
-    messageSize:
-      incomingMcp:
-        enabled: true
-        maxSizeBytes: 4718592 # 4.5MB (Kafka serialized bytes)
-      prePatchExistingAspect:
+    aspectSize:
+      prePatch:
         enabled: true
         maxSizeBytes: 15728640 # 15MB (raw JSON character count)
         oversizedRemediation: DELETE # DELETE or IGNORE
-      postPatchExistingAspect:
+      postPatch:
         enabled: true
         maxSizeBytes: 15728640 # 15MB (serialized JSON character count)
         oversizedRemediation: DELETE # DELETE or IGNORE
-      outgoingMcl:
-        enabled: true
-        maxSizeBytes: 4718592 # 4.5MB (Avro serialized bytes)
+
+metadataChangeProposal:
+  validation:
+    messageSize:
+      dropOversizedMessages: true # Drop oversized Kafka messages gracefully (default: false)
 ```
 
 ## Validation Points
 
-Message size validation can be enabled at four points in the MCP processing pipeline:
+Message size validation can be enabled at three points in the processing pipeline:
 
-### 1. Incoming MCP (Kafka Consumer)
-
-**When:** Message consumed from Kafka topic, before processing begins
-**Measures:** Kafka serialized byte size (via `ConsumerRecord.serializedValueSize()`)
-**Performance:** Zero overhead - uses pre-computed value from Kafka
-**On Failure:** Routes to FailedMetadataChangeProposal topic, logs error with URN and aspect
-
-### 2. Pre-Patch Existing Aspect
+### 1. Pre-Patch Existing Aspect
 
 **When:** Before patch application, if aspect already exists in database
 **Measures:** Raw JSON character count from database (via `SystemAspect.getRawMetadata().length()`)
@@ -70,7 +64,7 @@ Message size validation can be enabled at four points in the MCP processing pipe
 
 **Note:** Use this to catch and remove pre-existing oversized aspects before attempting patches that might fail.
 
-### 3. Post-Patch Existing Aspect
+### 2. Post-Patch Existing Aspect
 
 **When:** In AspectDao, after serialization for DB write but before actual DB persist
 **Measures:** Serialized JSON character count (from EntityAspect.getMetadata().length()) - same unit as pre-patch
@@ -84,12 +78,19 @@ Message size validation can be enabled at four points in the MCP processing pipe
 
 **Note:** Use this to catch bloat from patch application before writing to database. The validation is integrated into the DAO layer and uses the JSON string already being created for the DB write - no additional serialization work.
 
-### 4. Outgoing MCL (Kafka Producer)
+### 3. Outgoing MCL (Kafka Producer - Optional)
 
-**When:** Before emitting MetadataChangeLog to Kafka
-**Measures:** Avro serialized byte size (already computed for Kafka emission)
-**Performance:** Minimal overhead - already serializing for Kafka
-**On Failure:** Throws exception, prevents emission to Kafka
+**When:** Kafka producer rejects message (client-side, before network send)
+**Measures:** Avro serialized byte size (Kafka validates against `max.request.size`)
+**Performance:** Zero overhead - Kafka validates automatically
+**What to do:** Enable `dropOversizedMessages: true` to gracefully drop oversized messages instead of propagating exception
+
+**Why this is optional:** Kafka already validates message size before sending. This configuration just controls whether to:
+
+- Drop the message gracefully with warning logs (`dropOversizedMessages: true`)
+- Let the RecordTooLargeException propagate (default behavior)
+
+**Note:** If messages are too large for Kafka, they're too large period. Pre-patch and post-patch validation catch problems earlier in the pipeline.
 
 ## Failure Handling
 
@@ -143,13 +144,6 @@ metadataChangeProposal:
 **Future options:** DEAD_LETTER_QUEUE, TRUNCATE (not yet implemented)
 
 ## Recommended Limits
-
-### Incoming MCP / Outgoing MCL: 4.5MB
-
-- **Rationale:** Safety margin below DataHub's 5MB Kafka message limit
-- **Kafka Limit:** `max.message.bytes=5242880` (5MB)
-- **AWS MSK:** 1MB default (compressed), 15MB max with quota increase
-- **Measurement:** Actual serialized bytes
 
 ### Pre-Patch / Post-Patch Aspect: 15MB
 
@@ -232,18 +226,18 @@ metadataChangeProposal:
    - Set `oversizedRemediation=IGNORE` to prevent automatic deletion
    - Modify patch to avoid creating bloat
 
-### Outgoing MCLs Rejected
+### Outgoing MCLs Rejected by Kafka
 
-**Problem:** MCL size exceeds Kafka limit
+**Problem:** MCL size exceeds Kafka `max.request.size` limit
 **Solution:**
 
-1. This should be rare if other validations are working
-2. Indicates aspect passed validation but MCL envelope exceeded Kafka limit
-3. Check WARNING logs for URN, aspect, topic
+1. Kafka client validates size before sending - throws RecordTooLargeException
+2. Enable `dropOversizedMessages: true` to drop gracefully with warning logs
+3. Check WARNING logs for URN and aspect name
 4. Options:
-   - Increase `outgoingMcl.maxSizeBytes` (must match Kafka limit)
-   - Investigate why MCL is larger than expected
-   - Enable pre-patch or post-patch validation to catch earlier
+   - Enable pre-patch or post-patch validation to catch earlier (before Kafka)
+   - Investigate which entity/aspect is too large
+   - Increase Kafka `max.request.size` if appropriate (not recommended)
 
 ## Performance Impact
 

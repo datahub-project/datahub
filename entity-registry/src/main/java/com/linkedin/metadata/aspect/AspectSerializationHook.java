@@ -1,7 +1,5 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.aspect;
 
-import com.linkedin.metadata.aspect.EntityAspect;
-import com.linkedin.metadata.aspect.SystemAspect;
 import javax.annotation.Nonnull;
 
 /**

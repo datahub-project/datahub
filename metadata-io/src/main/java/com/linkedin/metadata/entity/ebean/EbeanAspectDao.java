@@ -9,6 +9,7 @@ import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.AspectSerializationHook;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -89,6 +90,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
+  private List<AspectSerializationHook> serializationHooks = new ArrayList<>();
 
   public EbeanAspectDao(
       @Nonnull final Database server,
@@ -100,6 +102,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
     this.metricUtils = metricUtils;
+  }
+
+  public void setSerializationHooks(@Nonnull List<AspectSerializationHook> hooks) {
+    this.serializationHooks = hooks;
   }
 
   @Override
@@ -1011,17 +1017,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
   }
 
-  private static Map<String, SystemAspect> toAspectMap(
+  private Map<String, SystemAspect> toAspectMap(
       @Nonnull EntityRegistry entityRegistry, Set<EbeanAspectV2> beans) {
     return beans.stream()
         .map(bean -> Map.entry(bean.getAspect(), bean))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
-                e -> EbeanSystemAspect.builder().forUpdate(e.getValue(), entityRegistry)));
+                e ->
+                    EbeanSystemAspect.builder()
+                        .serializationHooks(serializationHooks)
+                        .forUpdate(e.getValue(), entityRegistry)));
   }
 
-  private static Map<String, Map<String, SystemAspect>> toUrnAspectMap(
+  private Map<String, Map<String, SystemAspect>> toUrnAspectMap(
       @Nonnull EntityRegistry entityRegistry, Collection<EbeanAspectV2> beans) {
     return beans.stream()
         .collect(Collectors.groupingBy(EbeanAspectV2::getUrn, Collectors.toSet()))

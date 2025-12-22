@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectSerializationHook;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -22,8 +23,11 @@ import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectSizeValidationHook;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
@@ -578,5 +582,14 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
+  }
+
+  @Bean
+  public AspectSerializationHook aspectSizeValidationHook(
+      ConfigurationProvider configProvider, AspectDao aspectDao) {
+    AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();
+    AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
+    log.info("Initialized AspectSizeValidationHook");
+    return hook;
   }
 }

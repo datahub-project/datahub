@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -98,6 +99,8 @@ public class EntityAspect {
 
     @Nonnull private final EntitySpec entitySpec;
     @Nullable private final AspectSpec aspectSpec;
+
+    @Nullable private List<AspectSerializationHook> serializationHooks;
 
     @Nonnull
     public String getUrnRaw() {
@@ -184,7 +187,8 @@ public class EntityAspect {
             this.systemMetadata,
             this.auditStamp,
             this.entitySpec,
-            this.aspectSpec);
+            this.aspectSpec,
+            this.serializationHooks);
       }
 
       public EntityAspect.EntitySystemAspect forInsert(
@@ -271,18 +275,31 @@ public class EntityAspect {
     @Override
     @Nonnull
     public EntityAspect withVersion(long version) {
-      return new EntityAspect(
-          urn.toString(),
-          aspectSpec.getName(),
-          version,
-          Optional.ofNullable(recordTemplate).map(RecordUtils::toJsonString).orElse(null),
-          Optional.ofNullable(systemMetadata).map(RecordUtils::toJsonString).orElse(null),
-          Optional.ofNullable(auditStamp).map(a -> new Timestamp(a.getTime())).orElse(null),
-          Optional.ofNullable(auditStamp).map(AuditStamp::getActor).map(Urn::toString).orElse(null),
-          Optional.ofNullable(auditStamp)
-              .map(AuditStamp::getImpersonator)
-              .map(Urn::toString)
-              .orElse(null));
+      EntityAspect entityAspect =
+          new EntityAspect(
+              urn.toString(),
+              aspectSpec.getName(),
+              version,
+              Optional.ofNullable(recordTemplate).map(RecordUtils::toJsonString).orElse(null),
+              Optional.ofNullable(systemMetadata).map(RecordUtils::toJsonString).orElse(null),
+              Optional.ofNullable(auditStamp).map(a -> new Timestamp(a.getTime())).orElse(null),
+              Optional.ofNullable(auditStamp)
+                  .map(AuditStamp::getActor)
+                  .map(Urn::toString)
+                  .orElse(null),
+              Optional.ofNullable(auditStamp)
+                  .map(AuditStamp::getImpersonator)
+                  .map(Urn::toString)
+                  .orElse(null));
+
+      // Call serialization hooks after aspect is serialized to JSON
+      if (serializationHooks != null && !serializationHooks.isEmpty()) {
+        for (AspectSerializationHook hook : serializationHooks) {
+          hook.afterSerialization(this, entityAspect);
+        }
+      }
+
+      return entityAspect;
     }
   }
 }

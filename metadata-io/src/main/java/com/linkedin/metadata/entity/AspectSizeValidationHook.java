@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.aspect.AspectSerializationHook;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
@@ -63,8 +64,7 @@ public class AspectSizeValidationHook implements AspectSerializationHook {
       if (remediation == OversizedAspectRemediation.DELETE) {
         // Hard delete the oversized aspect from database
         try {
-          aspectDao.deleteAspect(
-              systemAspect.getUrn().toString(), systemAspect.getAspectSpec().getName(), 0L, true);
+          aspectDao.deleteAspect(systemAspect.getUrn(), systemAspect.getAspectSpec().getName(), 0L);
           log.warn(
               "Hard deleted oversized post-patch aspect from database: urn={}, aspect={}",
               systemAspect.getUrn(),
