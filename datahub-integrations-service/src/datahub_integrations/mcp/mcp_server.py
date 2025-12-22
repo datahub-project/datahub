@@ -50,6 +50,7 @@ from json_repair import repair_json
 from loguru import logger
 from pydantic import BaseModel
 
+from datahub_integrations.mcp.tools.domains import remove_domains, set_domains
 from datahub_integrations.mcp.tools.get_me import get_me
 from datahub_integrations.mcp.tools.owners import add_owners, remove_owners
 from datahub_integrations.mcp.tools.terms import (
@@ -2569,6 +2570,20 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
         description=remove_owners.__doc__,
         tags={ToolType.MUTATION.value},
     )(async_background(remove_owners))
+
+    # Register set_domains tool
+    mcp_instance.tool(
+        name="set_domains",
+        description=set_domains.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(set_domains))
+
+    # Register remove_domains tool
+    mcp_instance.tool(
+        name="remove_domains",
+        description=remove_domains.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(remove_domains))
 
 
 def register_user_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:

@@ -1,5 +1,6 @@
 """MCP tools for DataHub integrations."""
 
+from datahub_integrations.mcp.tools.domains import remove_domains, set_domains
 from datahub_integrations.mcp.tools.get_me import get_me
 from datahub_integrations.mcp.tools.owners import add_owners, remove_owners
 from datahub_integrations.mcp.tools.tags import add_tags, remove_tags
@@ -16,4 +17,6 @@ __all__ = [
     "add_owners",
     "remove_owners",
     "get_me",
+    "set_domains",
+    "remove_domains",
 ]
