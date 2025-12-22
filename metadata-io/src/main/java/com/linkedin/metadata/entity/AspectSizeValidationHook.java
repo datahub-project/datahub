@@ -29,10 +29,6 @@ public class AspectSizeValidationHook implements AspectSerializationHook {
     this.config = config;
   }
 
-  public void setAspectDao(@Nonnull AspectDao aspectDao) {
-    this.aspectDao = aspectDao;
-  }
-
   @Override
   public void afterSerialization(
       @Nonnull SystemAspect systemAspect, @Nonnull EntityAspect serializedAspect) {
