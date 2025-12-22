@@ -38,9 +38,9 @@ from datahub.ingestion.source.sql.sql_utils import gen_database_key
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
-    extract_temp_tables_from_sql,
     fetch_procedures_from_query,
     generate_procedure_container_workunits,
+    make_temp_table_checker,
 )
 from datahub.ingestion.source.sql.stored_procedures.config import (
     StoredProcedureConfigMixin,
@@ -232,24 +232,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
         self, procedure: BaseProcedure, schema: str, db_name: str
     ) -> Optional[Callable[[str], bool]]:
         """Return a function to check if a table name is a MySQL temporary table."""
-        if not procedure.procedure_definition:
-            return None
-
-        # Extract temp table names and normalize to lowercase for case-insensitive matching
-        temp_tables = extract_temp_tables_from_sql(
-            procedure.procedure_definition, TEMP_TABLE_PATTERN
+        return make_temp_table_checker(
+            procedure.procedure_definition, TEMP_TABLE_PATTERN, str.lower
         )
-        temp_tables_lower = {t.lower() for t in temp_tables}
-
-        if not temp_tables_lower:
-            return None
-
-        def is_temp_table(table_name: str) -> bool:
-            # Extract just the table name (handle db.table format)
-            table_name_only = table_name.split(".")[-1].lower()
-            return table_name_only in temp_tables_lower
-
-        return is_temp_table
 
     def _setup_rds_iam_event_listener(
         self, engine: "Engine", database_name: Optional[str] = None

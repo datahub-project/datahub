@@ -53,6 +53,41 @@ def extract_temp_tables_from_sql(sql: str, temp_table_pattern: re.Pattern) -> Se
     return temp_tables
 
 
+def make_temp_table_checker(
+    procedure_definition: Optional[str],
+    temp_table_pattern: re.Pattern,
+    case_normalizer: Callable[[str], str] = str.lower,
+) -> Optional[Callable[[str], bool]]:
+    """
+    Create a temp table checker function for a stored procedure.
+
+    Extracts temp table names from the procedure SQL and returns a function
+    that checks if a given table name matches any of them.
+
+    Args:
+        procedure_definition: SQL code of the stored procedure
+        temp_table_pattern: Regex pattern to match temp table creation statements
+        case_normalizer: Function to normalize case (str.lower for MySQL/PostgreSQL, str.upper for Oracle)
+
+    Returns:
+        A function that checks if a table name is a temp table, or None if no temp tables found
+    """
+    if not procedure_definition:
+        return None
+
+    temp_tables = extract_temp_tables_from_sql(procedure_definition, temp_table_pattern)
+    temp_tables_normalized = {case_normalizer(t) for t in temp_tables}
+
+    if not temp_tables_normalized:
+        return None
+
+    def is_temp_table(table_name: str) -> bool:
+        table_name_only = table_name.split(".")[-1]
+        return case_normalizer(table_name_only) in temp_tables_normalized
+
+    return is_temp_table
+
+
 @dataclass
 class BaseProcedure:
     name: str
@@ -89,8 +124,6 @@ class BaseProcedure:
 def _generate_flow_workunits(
     database_key: DatabaseKey, schema_key: Optional[SchemaKey]
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate flow workunits for database and schema"""
-
     procedure_flow_name = _get_procedure_flow_name(database_key, schema_key)
 
     flow_urn = make_data_flow_urn(
@@ -150,8 +183,6 @@ def _generate_job_workunits(
     procedure: BaseProcedure,
     include_stored_procedures_code: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate job workunits for database, schema and procedure"""
-
     job_urn = procedure.to_urn(database_key, schema_key)
 
     yield MetadataChangeProposalWrapper(
@@ -345,8 +376,6 @@ def generate_procedure_container_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate container workunits for database and schema"""
-
     yield from _generate_flow_workunits(database_key, schema_key)
 
 
