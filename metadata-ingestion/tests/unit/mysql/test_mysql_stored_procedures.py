@@ -31,14 +31,13 @@ def test_stored_procedure_parsing():
     ctx = PipelineContext(run_id="test")
     mysql_source = MySQLSource(config, ctx)
 
-    # Mock SQL result - create mock Row objects that support dict() conversion
+    # Mock SQL result - create mock Row objects with attribute access
     def create_mock_row(data):
-        """Create a mock SQLAlchemy Row that supports dict() conversion"""
+        """Create a mock SQLAlchemy Row that supports attribute access"""
         mock_row = MagicMock()
-        # Make dict(row) return the data
-        mock_row.__iter__ = lambda: iter(data.items())
-        mock_row.keys = lambda: data.keys()
-        mock_row.__getitem__ = lambda self, key: data[key]
+        # Set attributes directly so row.name, row.definition, etc. work
+        for key, value in data.items():
+            setattr(mock_row, key, value)
         return mock_row
 
     test_data = [

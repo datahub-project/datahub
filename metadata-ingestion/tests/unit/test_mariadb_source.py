@@ -73,17 +73,25 @@ def test_get_stored_procedures():
     mock_inspector.engine = mock_engine
     mock_engine.connect.return_value.__enter__.return_value = mock_conn
 
-    # Create mock result using MySQL's column aliases (name, definition, comment)
-    test_row = {
-        "name": "test_proc",  # MySQL uses 'ROUTINE_NAME as name'
-        "definition": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",  # 'ROUTINE_DEFINITION as definition'
-        "comment": "Test procedure",  # 'ROUTINE_COMMENT as comment'
-        "CREATED": "2024-01-01",
-        "LAST_ALTERED": "2024-01-02",
-        "SQL_DATA_ACCESS": "MODIFIES",
-        "SECURITY_TYPE": "DEFINER",
-        "DEFINER": "root@localhost",
-    }
+    # Create mock Row object with attribute access
+    def create_mock_row(data):
+        mock_row = MagicMock()
+        for key, value in data.items():
+            setattr(mock_row, key, value)
+        return mock_row
+
+    test_row = create_mock_row(
+        {
+            "name": "test_proc",
+            "definition": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+            "comment": "Test procedure",
+            "CREATED": "2024-01-01",
+            "LAST_ALTERED": "2024-01-02",
+            "SQL_DATA_ACCESS": "MODIFIES",
+            "SECURITY_TYPE": "DEFINER",
+            "DEFINER": "root@localhost",
+        }
+    )
 
     routines_result = MagicMock()
     routines_result.__iter__.return_value = [test_row].__iter__()
@@ -223,17 +231,25 @@ def test_mariadb_error_handling():
     mock_inspector.engine = mock_engine
     mock_engine.connect.return_value.__enter__.return_value = mock_conn
 
-    # Create mock result using MySQL's column aliases
-    test_row = {
-        "name": "test_proc",
-        "definition": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-        "comment": "Test procedure",
-        "CREATED": "2024-01-01",
-        "LAST_ALTERED": "2024-01-02",
-        "SQL_DATA_ACCESS": "MODIFIES",
-        "SECURITY_TYPE": "DEFINER",
-        "DEFINER": "root@localhost",
-    }
+    # Create mock Row object with attribute access
+    def create_mock_row(data):
+        mock_row = MagicMock()
+        for key, value in data.items():
+            setattr(mock_row, key, value)
+        return mock_row
+
+    test_row = create_mock_row(
+        {
+            "name": "test_proc",
+            "definition": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+            "comment": "Test procedure",
+            "CREATED": "2024-01-01",
+            "LAST_ALTERED": "2024-01-02",
+            "SQL_DATA_ACCESS": "MODIFIES",
+            "SECURITY_TYPE": "DEFINER",
+            "DEFINER": "root@localhost",
+        }
+    )
 
     routines_result = MagicMock()
     routines_result.__iter__.return_value = [test_row].__iter__()
