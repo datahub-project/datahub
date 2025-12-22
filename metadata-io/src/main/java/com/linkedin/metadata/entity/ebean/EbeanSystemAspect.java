@@ -179,8 +179,8 @@ public class EbeanSystemAspect implements SystemAspect {
                 prePatchValidationConfig.getPrePatch().getOversizedRemediation();
 
             log.warn(
-                "Oversized pre-patch aspect {}: urn={}, aspect={}, size={} chars, threshold={} chars, measurement=raw_json_character_count",
-                remediation,
+                "Oversized pre-patch aspect remediation={}: urn={}, aspect={}, size={} serialized bytes, threshold={} serialized bytes",
+                remediation.logLabel,
                 urn,
                 aspectName,
                 actualSize,

@@ -63,8 +63,8 @@ public class AspectSizeValidationHook implements AspectSerializationHook {
       OversizedAspectRemediation remediation = config.getPostPatch().getOversizedRemediation();
 
       log.warn(
-          "Oversized post-patch aspect {}: urn={}, aspect={}, size={} chars, threshold={} chars, measurement=serialized_json_character_count",
-          remediation,
+          "Oversized post-patch aspect remediation={}: urn={}, aspect={}, size={} serialized bytes, threshold={} serialized bytes",
+          remediation.logLabel,
           systemAspect.getUrn(),
           systemAspect.getAspectSpec().getName(),
           actualSize,
