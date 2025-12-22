@@ -25,6 +25,18 @@ deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1
+acryl-executor==0.2.6
+
+# Additional dependencies for telemetry API test
+confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
+python-snappy>=0.6.1
+
+# SaaS Only:
+# required to propagation tests
+-e ../datahub-integrations-service
+# required for bigquery docs propagation tests
+-e ../metadata-ingestion[bigquery-slim]
+-e ../datahub-actions
 
 # For semantic search tests (embedding generation)
 litellm>=1.0.0
