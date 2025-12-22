@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-12T22:09:52.396845+00:00",
+  "generated_at": "2025-11-27T16:51:15.797044+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2485,8 +2485,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`, and to upstream connectors via `include_column_lineage`",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2523,7 +2524,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Extract table-level lineage",
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream connectors via `ingest_lineage_to_connectors`",
           "subtype_modifier": [
             "Table",
             "View"
@@ -3492,8 +3493,9 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`, and to upstream connectors via `include_column_lineage`",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -3530,7 +3532,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Extract table-level lineage",
+          "description": "Enabled by default for views via `include_view_lineage`, and to upstream connectors via `ingest_lineage_to_connectors`",
           "subtype_modifier": [
             "Table",
             "View"
