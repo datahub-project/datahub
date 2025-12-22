@@ -13,6 +13,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -248,7 +249,10 @@ public class EbeanSystemAspectTest {
             aspectSpec,
             recordTemplate,
             null, // null so that we get it from ebeanAspectV2
-            auditStamp);
+            auditStamp,
+            null, // serializationHooks
+            null, // prePatchValidationConfig
+            null); // aspectDao
 
     // First call should parse from ebeanAspectV2's system metadata
     SystemMetadata metadata = aspect.getSystemMetadata();
@@ -298,5 +302,200 @@ public class EbeanSystemAspectTest {
         aspectWithNullEbeanAspect.getSystemMetadata();
     assertNotNull(defaultMetadataWithNullEbeanAspect);
     assertEquals(defaultMetadataWithNullEbeanAspect.getRunId(), "no-run-id-provided");
+  }
+
+  @Test
+  public void testPrePatchValidationDisabled() throws Exception {
+    // Pre-patch validation is null/disabled - no exception should be thrown
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    EbeanSystemAspect aspect = EbeanSystemAspect.builder().forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
+  @Test
+  public void testPrePatchValidationNotEnabledExplicitly() throws Exception {
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    prePatchConfig.setEnabled(false);
+    config.setPrePatch(prePatchConfig);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .prePatchValidationConfig(config)
+            .forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
+  @Test
+  public void testPrePatchValidationNullMetadata() throws Exception {
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(null);
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .prePatchValidationConfig(config)
+            .forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
+  @Test
+  public void testPrePatchValidationSmallAspectPasses() throws Exception {
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(1000)); // 1KB
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .prePatchValidationConfig(config)
+            .aspectDao(mock(AspectDao.class))
+            .forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
+  @Test
+  public void testPrePatchValidationAtThreshold() throws Exception {
+    long threshold = 15728640L;
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            threshold, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata((int) threshold));
+    EbeanSystemAspect aspect =
+        EbeanSystemAspect.builder()
+            .prePatchValidationConfig(config)
+            .aspectDao(mock(AspectDao.class))
+            .forUpdate(ebeanAspectV2, entityRegistry);
+    assertNotNull(aspect);
+  }
+
+  @Test(
+      expectedExceptions =
+          com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
+  public void testPrePatchValidationOversizedWithDelete() throws Exception {
+    AspectDao mockDao = mock(AspectDao.class);
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+
+    try {
+      EbeanSystemAspect.builder()
+          .prePatchValidationConfig(config)
+          .aspectDao(mockDao)
+          .forUpdate(ebeanAspectV2, entityRegistry);
+    } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
+      assertEquals(
+          e.getValidationPoint(),
+          com.linkedin.metadata.entity.validation.ValidationPoint.PRE_DB_PATCH);
+      assertEquals(e.getActualSize(), 20000000L);
+      assertEquals(e.getThreshold(), 15728640L);
+      assertEquals(e.getUrn(), URN_STRING);
+      assertEquals(e.getAspectName(), STATUS_ASPECT_NAME);
+      verify(mockDao, times(1)).deleteAspect(eq(urn), eq(STATUS_ASPECT_NAME), eq(0L));
+      throw e;
+    }
+  }
+
+  @Test(
+      expectedExceptions =
+          com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
+  public void testPrePatchValidationOversizedWithIgnore() throws Exception {
+    AspectDao mockDao = mock(AspectDao.class);
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.IGNORE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+
+    try {
+      EbeanSystemAspect.builder()
+          .prePatchValidationConfig(config)
+          .aspectDao(mockDao)
+          .forUpdate(ebeanAspectV2, entityRegistry);
+    } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
+      assertEquals(
+          e.getValidationPoint(),
+          com.linkedin.metadata.entity.validation.ValidationPoint.PRE_DB_PATCH);
+      verifyNoInteractions(mockDao);
+      throw e;
+    }
+  }
+
+  @Test(
+      expectedExceptions =
+          com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
+  public void testPrePatchValidationOneByteOverThreshold() throws Exception {
+    long threshold = 15728640L;
+    AspectDao mockDao = mock(AspectDao.class);
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            threshold, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata((int) (threshold + 1)));
+
+    try {
+      EbeanSystemAspect.builder()
+          .prePatchValidationConfig(config)
+          .aspectDao(mockDao)
+          .forUpdate(ebeanAspectV2, entityRegistry);
+    } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
+      assertEquals(e.getActualSize(), threshold + 1);
+      assertEquals(e.getThreshold(), threshold);
+      verify(mockDao, times(1)).deleteAspect(eq(urn), eq(STATUS_ASPECT_NAME), eq(0L));
+      throw e;
+    }
+  }
+
+  @Test(
+      expectedExceptions =
+          com.linkedin.metadata.entity.validation.AspectSizeExceededException.class)
+  public void testPrePatchValidationDeleteFailureStillThrows() throws Exception {
+    AspectDao mockDao = mock(AspectDao.class);
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        createPrePatchConfig(
+            15728640L, com.linkedin.metadata.config.OversizedAspectRemediation.DELETE);
+
+    when(ebeanAspectV2.getMetadata()).thenReturn(generateLargeMetadata(20000000)); // 20MB
+    doThrow(new RuntimeException("Database error"))
+        .when(mockDao)
+        .deleteAspect(any(Urn.class), anyString(), anyLong());
+
+    try {
+      EbeanSystemAspect.builder()
+          .prePatchValidationConfig(config)
+          .aspectDao(mockDao)
+          .forUpdate(ebeanAspectV2, entityRegistry);
+    } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
+      verify(mockDao, times(1)).deleteAspect(eq(urn), eq(STATUS_ASPECT_NAME), eq(0L));
+      throw e;
+    }
+  }
+
+  private com.linkedin.metadata.config.AspectSizeValidationConfig createPrePatchConfig(
+      long maxSizeBytes, com.linkedin.metadata.config.OversizedAspectRemediation remediation) {
+    com.linkedin.metadata.config.AspectSizeValidationConfig config =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig();
+    com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig prePatchConfig =
+        new com.linkedin.metadata.config.AspectSizeValidationConfig.AspectCheckpointConfig();
+    prePatchConfig.setEnabled(true);
+    prePatchConfig.setMaxSizeBytes(maxSizeBytes);
+    prePatchConfig.setOversizedRemediation(remediation);
+    config.setPrePatch(prePatchConfig);
+    return config;
+  }
+
+  private String generateLargeMetadata(int size) {
+    StringBuilder sb = new StringBuilder(size);
+    for (int i = 0; i < size; i++) {
+      sb.append('x');
+    }
+    return sb.toString();
   }
 }

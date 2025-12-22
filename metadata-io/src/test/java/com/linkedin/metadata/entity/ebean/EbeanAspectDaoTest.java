@@ -263,7 +263,10 @@ public class EbeanAspectDaoTest {
             opContext.getEntityRegistry().getAspectSpecs().get(STATUS_ASPECT_NAME),
             new Status(),
             new SystemMetadata(),
-            AuditStampUtils.createDefaultAuditStamp());
+            AuditStampUtils.createDefaultAuditStamp(),
+            null, // serializationHooks
+            null, // prePatchValidationConfig
+            null); // aspectDao
 
     // Try to update aspect
     Optional<com.linkedin.metadata.aspect.EntityAspect> result =
