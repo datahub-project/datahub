@@ -18,6 +18,10 @@ class StoredProcedureConfigMixin(ConfigModel):
 
     include_stored_procedures_code: bool = Field(
         default=True,
-        description="Include SQL code for stored procedures in metadata. "
-        "Set to false to reduce metadata volume if procedure definitions are not needed.",
+        description=(
+            "Include the full SQL code (DDL) for stored procedures in the metadata. "
+            "When enabled (default), the procedure definitions are ingested as DataTransformLogicClass aspects. "
+            "Set to false to reduce metadata volume if procedure source code is not needed - "
+            "lineage, arguments, and other metadata will still be captured."
+        ),
     )

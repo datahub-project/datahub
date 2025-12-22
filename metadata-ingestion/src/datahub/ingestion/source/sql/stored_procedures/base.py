@@ -1,7 +1,8 @@
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
@@ -40,6 +41,16 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
+
+
+def extract_temp_tables_from_sql(sql: str, temp_table_pattern: re.Pattern) -> Set[str]:
+    """Extract temporary table names from SQL using platform-specific regex pattern."""
+    temp_tables = set()
+    for match in temp_table_pattern.finditer(sql):
+        table_name = match.group(2) if len(match.groups()) >= 2 else match.group(1)
+        if table_name:
+            temp_tables.add(table_name)
+    return temp_tables
 
 
 @dataclass
@@ -354,16 +365,27 @@ def generate_procedure_workunits(
     if schema_resolver:
         job_urn = procedure.to_urn(database_key, schema_key)
 
-        yield from auto_workunit(
-            generate_procedure_lineage(
-                schema_resolver=schema_resolver,
-                procedure=procedure,
-                procedure_job_urn=job_urn,
-                default_db=database_key.database,
-                default_schema=schema_key.db_schema if schema_key else None,
-                is_temp_table=is_temp_table_fn or (lambda _: False),
+        if is_temp_table_fn is not None:
+            yield from auto_workunit(
+                generate_procedure_lineage(
+                    schema_resolver=schema_resolver,
+                    procedure=procedure,
+                    procedure_job_urn=job_urn,
+                    default_db=database_key.database,
+                    default_schema=schema_key.db_schema if schema_key else None,
+                    is_temp_table=is_temp_table_fn,
+                )
             )
-        )
+        else:
+            yield from auto_workunit(
+                generate_procedure_lineage(
+                    schema_resolver=schema_resolver,
+                    procedure=procedure,
+                    procedure_job_urn=job_urn,
+                    default_db=database_key.database,
+                    default_schema=schema_key.db_schema if schema_key else None,
+                )
+            )
 
 
 def _wrap_fetch_with_error_handling(
@@ -443,10 +465,7 @@ def fetch_procedures_with_enrichment(
     system_table: str,
     use_text_wrapper: bool = True,
 ) -> List[BaseProcedure]:
-    """
-    Fetch procedures with enrichment queries. Used by Oracle for multi-table metadata.
-    row_mapper receives Connection to execute additional per-procedure queries.
-    """
+    """Fetch procedures with per-row enrichment queries (Oracle pattern)."""
 
     def fetch_procedures() -> List[BaseProcedure]:
         base_procedures = []

@@ -958,20 +958,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
             SnowflakeQuery.procedures_for_database(db_name),
         )
 
+        # DictCursor returns dictionaries (not Row objects like SQLAlchemy)
         for procedure in cur:
-            if procedure["PROCEDURE_SCHEMA"] not in procedures:
-                procedures[procedure["PROCEDURE_SCHEMA"]] = []
+            schema = procedure["PROCEDURE_SCHEMA"]
+            if schema not in procedures:
+                procedures[schema] = []
 
-            procedures[procedure["PROCEDURE_SCHEMA"]].append(
+            procedures[schema].append(
                 BaseProcedure(
                     name=procedure["PROCEDURE_NAME"],
-                    language=procedure["PROCEDURE_LANGUAGE"],
-                    argument_signature=procedure["ARGUMENT_SIGNATURE"],
-                    return_type=procedure["PROCEDURE_RETURN_TYPE"],
-                    procedure_definition=procedure["PROCEDURE_DEFINITION"],
-                    created=procedure["CREATED"],
-                    last_altered=procedure["LAST_ALTERED"],
-                    comment=procedure["COMMENT"],
+                    language=procedure.get("PROCEDURE_LANGUAGE"),
+                    argument_signature=procedure.get("ARGUMENT_SIGNATURE"),
+                    return_type=procedure.get("PROCEDURE_RETURN_TYPE"),
+                    procedure_definition=procedure.get("PROCEDURE_DEFINITION"),
+                    created=procedure.get("CREATED"),
+                    last_altered=procedure.get("LAST_ALTERED"),
+                    comment=procedure.get("COMMENT"),
                     extra_properties=None,
                 )
             )

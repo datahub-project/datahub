@@ -4,7 +4,18 @@ import platform
 import re
 import sys
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import oracledb
@@ -92,8 +103,13 @@ ORACLE_SYSTEM_SCHEMAS = (
     "ORDDATA",
 )
 
-# Format system schemas for SQL IN clause
 _SYSTEM_SCHEMAS_SQL = ", ".join(f"'{schema}'" for schema in ORACLE_SYSTEM_SCHEMAS)
+
+# Regex for CREATE GLOBAL TEMPORARY TABLE [schema.]table
+ORACLE_TEMP_TABLE_PATTERN = re.compile(
+    r"CREATE\s+GLOBAL\s+TEMPORARY\s+TABLE\s+" r'(?:"?(\w+)"?\.)?"?(\w+)"?',
+    re.IGNORECASE,
+)
 
 # SQL Query Constants
 # Note: System schemas are explicitly excluded to prevent ingesting internal Oracle objects,
@@ -1125,8 +1141,6 @@ class OracleSource(SQLAlchemySource):
         def map_row_with_enrichment(
             conn: sqlalchemy.engine.Connection, row: Row
         ) -> Optional[BaseProcedure]:
-            """Map a row to BaseProcedure with enrichment queries."""
-            # Enrich with additional metadata via helper queries
             source_code = self._get_procedure_source_code(
                 conn=conn,
                 schema=normalized_schema,
@@ -1185,6 +1199,34 @@ class OracleSource(SQLAlchemySource):
             permission_error_message=f"Failed to access stored procedure metadata. Grant SELECT permission on {tables_prefix}_OBJECTS, {tables_prefix}_SOURCE, {tables_prefix}_ARGUMENTS, and {tables_prefix}_DEPENDENCIES or disable with 'include_stored_procedures: false'.",
             system_table=f"{tables_prefix}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES",
         )
+
+    def get_temp_table_checker(
+        self, procedure: BaseProcedure, schema: str, db_name: str
+    ) -> Optional[Callable[[str], bool]]:
+        """Return a function to check if a table name is an Oracle global temporary table."""
+        from datahub.ingestion.source.sql.stored_procedures.base import (
+            extract_temp_tables_from_sql,
+        )
+
+        if not procedure.procedure_definition:
+            return None
+
+        # Extract temp table names and normalize to uppercase (Oracle convention)
+        temp_tables = extract_temp_tables_from_sql(
+            procedure.procedure_definition, ORACLE_TEMP_TABLE_PATTERN
+        )
+        temp_tables_upper = {t.upper() for t in temp_tables}
+
+        if not temp_tables_upper:
+            return None
+
+        def is_temp_table(table_name: str) -> bool:
+            # Extract just the table name (handle schema.table format)
+            # Oracle typically stores identifiers in uppercase
+            table_name_only = table_name.split(".")[-1].upper()
+            return table_name_only in temp_tables_upper
+
+        return is_temp_table
 
     def _get_procedure_source_code(
         self,

@@ -2,7 +2,7 @@
 import logging
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
@@ -42,7 +42,6 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
     fetch_procedures_from_query,
     generate_procedure_container_workunits,
-    generate_procedure_workunits,
 )
 from datahub.ingestion.source.sql.stored_procedures.config import (
     StoredProcedureConfigMixin,
@@ -77,8 +76,7 @@ base.ischema_names["linestring"] = LINESTRING
 base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
-# Pre-compiled regex for detecting CREATE TEMPORARY TABLE statements
-# Matches: CREATE TEMPORARY TABLE [IF NOT EXISTS] [schema.]table_name
+# Regex for CREATE [GLOBAL] TEMPORARY TABLE [IF NOT EXISTS] [db.]table
 TEMP_TABLE_PATTERN = re.compile(
     r"CREATE\s+(?:GLOBAL\s+)?TEMPORARY\s+TABLE\s+"
     r"(?:IF\s+NOT\s+EXISTS\s+)?"
@@ -86,7 +84,6 @@ TEMP_TABLE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# SQL query constants for better maintainability
 STORED_PROCEDURES_QUERY = """
 SELECT
     ROUTINE_NAME as name,
@@ -232,53 +229,32 @@ class MySQLSource(TwoTierSQLAlchemySource):
         for procedure in procedures:
             yield from self._process_procedure(procedure, schema, db_name)
 
-    def _extract_temp_tables_from_procedure(self, procedure: BaseProcedure) -> Set[str]:
-        """Extract temporary table names from procedure definition using pre-compiled regex."""
-        temp_tables: Set[str] = set()
+    def get_temp_table_checker(
+        self, procedure: BaseProcedure, schema: str, db_name: str
+    ) -> Optional[Callable[[str], bool]]:
+        """Return a function to check if a table name is a MySQL temporary table."""
+        from datahub.ingestion.source.sql.stored_procedures.base import (
+            extract_temp_tables_from_sql,
+        )
+
         if not procedure.procedure_definition:
-            return temp_tables
+            return None
 
-        for match in TEMP_TABLE_PATTERN.finditer(procedure.procedure_definition):
-            table_name = match.group(2) or match.group(1)
-            if table_name:
-                temp_tables.add(table_name.lower())
+        # Extract temp table names and normalize to lowercase for case-insensitive matching
+        temp_tables = extract_temp_tables_from_sql(
+            procedure.procedure_definition, TEMP_TABLE_PATTERN
+        )
+        temp_tables_lower = {t.lower() for t in temp_tables}
 
-        return temp_tables
-
-    def _process_procedure(
-        self,
-        procedure: BaseProcedure,
-        schema: str,
-        db_name: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process a single stored procedure for MySQL (two-tier database)."""
-        temp_tables = self._extract_temp_tables_from_procedure(procedure)
+        if not temp_tables_lower:
+            return None
 
         def is_temp_table(table_name: str) -> bool:
-            table_name_only = table_name.split(".")[-1]
-            return table_name_only in temp_tables
+            # Extract just the table name (handle db.table format)
+            table_name_only = table_name.split(".")[-1].lower()
+            return table_name_only in temp_tables_lower
 
-        try:
-            yield from generate_procedure_workunits(
-                procedure=procedure,
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=None,  # MySQL is two-tier - no schema key needed
-                schema_resolver=self.get_schema_resolver(),
-                is_temp_table_fn=is_temp_table,
-                include_stored_procedures_code=self.config.include_stored_procedures_code,
-            )
-        except Exception as e:
-            self.report.warning(
-                title="Failed to emit stored procedure",
-                message="Unable to emit stored procedure metadata. This may be due to issues with lineage parsing or invalid SQL. Check logs for details.",
-                context=procedure.name,
-                exc=e,
-            )
+        return is_temp_table
 
     def _setup_rds_iam_event_listener(
         self, engine: "Engine", database_name: Optional[str] = None
@@ -345,31 +321,24 @@ class MySQLSource(TwoTierSQLAlchemySource):
         """
 
         def map_row(row: Row) -> Optional[BaseProcedure]:
-            """Map a database row to a BaseProcedure object."""
-            # Convert SQLAlchemy Row to dict for easier and safer access
-            row_dict = dict(row._mapping)
-
-            # Extract name - name is required for BaseProcedure
-            procedure_name = row_dict.get("name")
-            if not procedure_name:
-                # Skip procedures without names
+            if not row.name:
                 return None
 
             return BaseProcedure(
-                name=procedure_name,
+                name=row.name,
                 language="SQL",
                 argument_signature=None,
                 return_type=None,
-                procedure_definition=row_dict.get("definition"),
-                created=self._parse_datetime(row_dict.get("CREATED")),
-                last_altered=self._parse_datetime(row_dict.get("LAST_ALTERED")),
-                comment=row_dict.get("comment"),
+                procedure_definition=row.definition,
+                created=self._parse_datetime(row.CREATED),
+                last_altered=self._parse_datetime(row.LAST_ALTERED),
+                comment=row.comment,
                 extra_properties={
                     k: v
                     for k, v in {
-                        "sql_data_access": row_dict.get("SQL_DATA_ACCESS"),
-                        "security_type": row_dict.get("SECURITY_TYPE"),
-                        "definer": row_dict.get("DEFINER"),
+                        "sql_data_access": row.SQL_DATA_ACCESS,
+                        "security_type": row.SECURITY_TYPE,
+                        "definer": row.DEFINER,
                     }.items()
                     if v is not None
                 },

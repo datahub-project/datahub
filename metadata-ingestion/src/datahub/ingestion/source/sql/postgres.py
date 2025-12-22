@@ -1,6 +1,17 @@
 import logging
+import re
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
@@ -66,6 +77,13 @@ register_custom_type(custom_types.JSON, BytesTypeClass)
 register_custom_type(custom_types.JSONB, BytesTypeClass)
 register_custom_type(custom_types.HSTORE, MapTypeClass)
 
+# Regex for CREATE TEMP/TEMPORARY TABLE [IF NOT EXISTS] [schema.]table
+POSTGRES_TEMP_TABLE_PATTERN = re.compile(
+    r"CREATE\s+(?:TEMP|TEMPORARY)\s+TABLE\s+"
+    r"(?:IF\s+NOT\s+EXISTS\s+)?"
+    r'(?:"?(\w+)"?\.)?"?(\w+)"?',
+    re.IGNORECASE,
+)
 
 POSTGRES_PROCEDURES_QUERY = """
 SELECT
@@ -407,7 +425,6 @@ class PostgresSource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
         def map_row(row: Row) -> Optional[BaseProcedure]:
-            """Map a database row to a BaseProcedure object."""
             return BaseProcedure(
                 name=row.name,
                 language=row.language,
@@ -431,3 +448,30 @@ class PostgresSource(SQLAlchemySource):
             permission_error_message="Failed to access stored procedure metadata. Grant SELECT permission on pg_proc or disable with 'include_stored_procedures: false'.",
             system_table="pg_proc",
         )
+
+    def get_temp_table_checker(
+        self, procedure: BaseProcedure, schema: str, db_name: str
+    ) -> Optional[Callable[[str], bool]]:
+        """Return a function to check if a table name is a PostgreSQL temporary table."""
+        from datahub.ingestion.source.sql.stored_procedures.base import (
+            extract_temp_tables_from_sql,
+        )
+
+        if not procedure.procedure_definition:
+            return None
+
+        # Extract temp table names and normalize to lowercase for case-insensitive matching
+        temp_tables = extract_temp_tables_from_sql(
+            procedure.procedure_definition, POSTGRES_TEMP_TABLE_PATTERN
+        )
+        temp_tables_lower = {t.lower() for t in temp_tables}
+
+        if not temp_tables_lower:
+            return None
+
+        def is_temp_table(table_name: str) -> bool:
+            # Extract just the table name (handle schema.table format)
+            table_name_only = table_name.split(".")[-1].lower()
+            return table_name_only in temp_tables_lower
+
+        return is_temp_table

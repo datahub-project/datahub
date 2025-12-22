@@ -8,6 +8,7 @@ from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -1551,6 +1552,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         for procedure in procedures:
             yield from self._process_procedure(procedure, schema, db_name)
 
+    def get_temp_table_checker(
+        self, procedure: BaseProcedure, schema: str, db_name: str
+    ) -> Optional[Callable[[str], bool]]:
+        """Override to provide platform-specific temp table detection. Default: no filtering."""
+        return None
+
     def _process_procedure(
         self,
         procedure: BaseProcedure,
@@ -1574,6 +1581,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     env=self.config.env,
                 ),
                 schema_resolver=self.get_schema_resolver(),
+                is_temp_table_fn=self.get_temp_table_checker(
+                    procedure, schema, db_name
+                ),
                 include_stored_procedures_code=getattr(
                     self.config, "include_stored_procedures_code", True
                 ),
