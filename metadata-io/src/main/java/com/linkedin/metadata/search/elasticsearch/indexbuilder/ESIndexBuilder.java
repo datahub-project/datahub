@@ -60,6 +60,7 @@ import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.*;
+import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.CreateIndexRequest;
@@ -1231,13 +1232,83 @@ public class ESIndexBuilder {
         .getCount();
   }
 
+  /**
+   * Check if an index exists.
+   *
+   * @param indexName The name of the index to check
+   * @return true if the index exists, false otherwise
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public boolean indexExists(@Nonnull String indexName) throws IOException {
+    return searchClient.indexExists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Refresh an index to make all operations performed since the last refresh available for search.
+   *
+   * @param indexName The name of the index to refresh
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public void refreshIndex(@Nonnull String indexName) throws IOException {
+    searchClient.refreshIndex(
+        new org.opensearch.action.admin.indices.refresh.RefreshRequest(indexName),
+        RequestOptions.DEFAULT);
+  }
+
+  /**
+   * Delete an index. Handles both aliases and concrete indices.
+   *
+   * @param indexName The name of the index or alias to delete
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public void deleteIndex(@Nonnull String indexName) throws IOException {
+    IndexDeletionUtils.IndexResolutionResult resolution =
+        IndexDeletionUtils.resolveIndexForDeletion(searchClient, indexName);
+    if (resolution == null) {
+      log.debug("Index {} does not exist, nothing to delete", indexName);
+      return;
+    }
+
+    for (String concreteIndex : resolution.indicesToDelete()) {
+      try {
+        deleteActionWithRetry(searchClient, concreteIndex);
+      } catch (Exception e) {
+        throw new IOException("Failed to delete index: " + concreteIndex, e);
+      }
+    }
+  }
+
   private void createIndex(String indexName, ReindexConfig state) throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
+    Map<String, Object> mappings = state.targetMappings();
+    Map<String, Object> settings = state.targetSettings();
+    log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    log.info("Creating index {} with targetSettings: {}", indexName, settings);
+
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
-    createIndexRequest.mapping(state.targetMappings());
-    createIndexRequest.settings(state.targetSettings());
+    createIndexRequest.mapping(mappings);
+    createIndexRequest.settings(settings);
     searchClient.createIndex(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
+  }
+
+  /**
+   * Efficiently clear an index by deleting it and recreating it with the same configuration. This
+   * is much more efficient than deleting all documents using deleteByQuery.
+   *
+   * @param indexName The name of the index to clear (can be an alias or concrete index)
+   * @param config The ReindexConfig containing mappings and settings for the index
+   * @throws IOException If the deletion or creation fails
+   */
+  public void clearIndex(String indexName, ReindexConfig config) throws IOException {
+    deleteIndex(indexName);
+    log.info("Recreating index {} after clearing", indexName);
+    createIndex(indexName, config);
+    if (!indexExists(indexName)) {
+      throw new IOException("Index " + indexName + " was not successfully created after clearing!");
+    }
+    refreshIndex(indexName);
+    log.info("Successfully cleared and recreated index {}", indexName);
   }
 
   public static void cleanOrphanedIndices(

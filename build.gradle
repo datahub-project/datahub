@@ -41,11 +41,11 @@ buildscript {
   ext.springVersion = '6.2.11'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.8'
-  ext.openTelemetryVersion = '1.54.1'
+  ext.openTelemetryVersion = '1.56.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.1'
-  ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
+  ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   ext.jacksonVersion = '2.18.4'
   ext.jettyVersion = '12.0.21'
@@ -55,7 +55,7 @@ buildscript {
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.5.19'
+  ext.logbackClassic = '1.5.21'
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
@@ -131,7 +131,7 @@ project.ext.externalDependency = [
     'awsSdk2Bom': 'software.amazon.awssdk:bom:2.23.6',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.6',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
     'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.6',
     'azureIdentity': 'com.azure:azure-identity:1.18.1',
@@ -229,6 +229,8 @@ project.ext.externalDependency = [
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
+    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.12',
+    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.12',
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
@@ -258,8 +260,8 @@ project.ext.externalDependency = [
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.7.8',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
-    'grpcProtobuf': 'io.grpc:grpc-protobuf:1.75.0',
-    'grpcNettyShaded': 'io.grpc:grpc-netty-shaded:1.75.0',
+    'grpcProtobuf': 'io.grpc:grpc-protobuf:1.77.0',
+    'grpcNettyShaded': 'io.grpc:grpc-netty-shaded:1.77.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
@@ -443,6 +445,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
     resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
+    resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+    resolutionStrategy.force 'org.lz4:lz4-java:1.8.1'
+    // Resolve capability conflict between org.lz4:lz4-java and at.yawk.lz4:lz4-java (CVE-2025-12183 fix)
+    resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
+      select 'org.lz4:lz4-java:0'
+    }
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"

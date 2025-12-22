@@ -9,7 +9,6 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
@@ -79,7 +78,9 @@ public class SearchDocumentsResolver
 
             // Build filter that combines user filters with ownership constraints
             // Filter logic: (PUBLISHED) OR (UNPUBLISHED AND owned-by-user-or-groups)
-            Filter filter = buildCombinedFilter(input, userAndGroupUrns);
+            List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            Filter filter =
+                DocumentSearchFilterUtils.buildCombinedFilter(baseUserCriteria, userAndGroupUrns);
 
             // Step 1: Search using service to get URNs
             final SearchResult gmsResult;
@@ -147,62 +148,17 @@ public class SearchDocumentsResolver
   }
 
   /**
-   * Builds a combined filter with ownership constraints. The filter structure is: (user-filters AND
-   * PUBLISHED) OR (user-filters AND UNPUBLISHED AND owned-by-user-or-groups)
-   *
-   * @param input The search input from the user
-   * @param userAndGroupUrns List of URNs for the current user and their groups
-   * @return The combined filter
-   */
-  private Filter buildCombinedFilter(SearchDocumentsInput input, List<String> userAndGroupUrns) {
-    // Build the base user filters (without state)
-    List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
-
-    // Build two conjunctive clauses:
-    // 1. Base filters AND PUBLISHED
-    // 2. Base filters AND UNPUBLISHED AND owned-by-user-or-groups
-
-    List<com.linkedin.metadata.query.filter.ConjunctiveCriterion> orClauses = new ArrayList<>();
-
-    // Clause 1: Published documents (with user filters)
-    List<Criterion> publishedCriteria = new ArrayList<>(baseUserCriteria);
-    publishedCriteria.add(CriterionUtils.buildCriterion("state", Condition.EQUAL, "PUBLISHED"));
-    orClauses.add(
-        new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
-            .setAnd(new com.linkedin.metadata.query.filter.CriterionArray(publishedCriteria)));
-
-    // Clause 2: Unpublished documents owned by user or their groups (with user filters)
-    List<Criterion> unpublishedOwnedCriteria = new ArrayList<>(baseUserCriteria);
-    unpublishedOwnedCriteria.add(
-        CriterionUtils.buildCriterion("state", Condition.EQUAL, "UNPUBLISHED"));
-    unpublishedOwnedCriteria.add(
-        CriterionUtils.buildCriterion("owners", Condition.EQUAL, userAndGroupUrns));
-    orClauses.add(
-        new com.linkedin.metadata.query.filter.ConjunctiveCriterion()
-            .setAnd(
-                new com.linkedin.metadata.query.filter.CriterionArray(unpublishedOwnedCriteria)));
-
-    return new Filter()
-        .setOr(new com.linkedin.metadata.query.filter.ConjunctiveCriterionArray(orClauses));
-  }
-
-  /**
    * Builds the base user criteria from the search input (excludes state filtering). These criteria
    * are common to both published and unpublished document searches.
    */
   private List<Criterion> buildBaseUserCriteria(SearchDocumentsInput input) {
     List<Criterion> criteria = new ArrayList<>();
 
-    // Add parent document filter if provided
-    // If parentDocuments (plural) is provided, use it; otherwise fall back to single parentDocument
+    // Add parent documents filter if provided
     if (input.getParentDocuments() != null && !input.getParentDocuments().isEmpty()) {
       criteria.add(
           CriterionUtils.buildCriterion(
               "parentDocument", Condition.EQUAL, input.getParentDocuments()));
-    } else if (input.getParentDocument() != null) {
-      criteria.add(
-          CriterionUtils.buildCriterion(
-              "parentDocument", Condition.EQUAL, input.getParentDocument()));
     } else if (input.getRootOnly() != null && input.getRootOnly()) {
       // Filter for root-level documents only (no parent)
       Criterion noParentCriterion = new Criterion();
@@ -228,9 +184,6 @@ public class SearchDocumentsResolver
               "relatedAssets", Condition.EQUAL, input.getRelatedAssets()));
     }
 
-    // NOTE: State filtering is handled in buildCombinedFilter with ownership logic
-    // Do not add state filters here
-
     // Add source type filter if provided (if null, search all)
     if (input.getSourceType() != null) {
       criteria.add(
@@ -238,35 +191,6 @@ public class SearchDocumentsResolver
               "sourceType",
               Condition.EQUAL,
               Collections.singletonList(input.getSourceType().toString())));
-    }
-
-    // Exclude documents that are drafts by default, unless explicitly requested
-    if (input.getIncludeDrafts() == null || !input.getIncludeDrafts()) {
-      Criterion notDraftCriterion = new Criterion();
-      notDraftCriterion.setField("draftOf");
-      notDraftCriterion.setCondition(Condition.IS_NULL);
-      criteria.add(notDraftCriterion);
-    }
-
-    // Add custom facet filters if provided - convert to AndFilterInput format
-    if (input.getFilters() != null && !input.getFilters().isEmpty()) {
-      final List<com.linkedin.datahub.graphql.generated.AndFilterInput> orFilters =
-          new ArrayList<>();
-      final com.linkedin.datahub.graphql.generated.AndFilterInput andFilter =
-          new com.linkedin.datahub.graphql.generated.AndFilterInput();
-      andFilter.setAnd(input.getFilters());
-      orFilters.add(andFilter);
-      Filter additionalFilter = ResolverUtils.buildFilter(null, orFilters);
-      if (additionalFilter != null && additionalFilter.getOr() != null) {
-        additionalFilter
-            .getOr()
-            .forEach(
-                conj -> {
-                  if (conj.getAnd() != null) {
-                    criteria.addAll(conj.getAnd());
-                  }
-                });
-      }
     }
 
     return criteria;

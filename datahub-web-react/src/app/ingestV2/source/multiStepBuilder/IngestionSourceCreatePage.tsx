@@ -1,16 +1,34 @@
-import React, { useCallback } from 'react';
+import { useApolloClient } from '@apollo/client';
+import { Text } from '@components';
+import { message } from 'antd';
+import React, { useCallback, useState } from 'react';
 import { useHistory } from 'react-router';
 
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from '@app/ingestV2/source/builder/types';
+import analytics, { EventType } from '@app/analytics';
+import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
+import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
+import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
+import {
+    IngestionSourceFormStep,
+    MultiStepSourceBuilderState,
+    SubmitOptions,
+} from '@app/ingestV2/source/multiStepBuilder/types';
+import {
+    getIngestionSourceMutationInput,
+    getIngestionSourceSystemFilter,
+    getNewIngestionSourcePlaceholder,
+} from '@app/ingestV2/source/utils';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { PageRoutes } from '@conf/Global';
 
-import { StringMapEntryInput } from '@types';
+const PLACEHOLDER_URN = 'placeholder-urn';
 
 const STEPS: IngestionSourceFormStep[] = [
     {
@@ -18,9 +36,11 @@ const STEPS: IngestionSourceFormStep[] = [
         key: 'selectSource',
         content: <SelectSourceStep />,
         hideRightPanel: true,
+        hideBottomPanel: true,
     },
     {
         label: 'Connection Details',
+        subTitle: <ConnectionDetailsSubTitle />,
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
     },
@@ -28,51 +48,103 @@ const STEPS: IngestionSourceFormStep[] = [
         label: 'Sync Schedule ',
         key: 'syncSchedule',
         content: <ScheduleStep />,
+        subTitle: 'Configure an ingestion schedule',
     },
 ];
 
 export function IngestionSourceCreatePage() {
     const history = useHistory();
+    const client = useApolloClient();
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const createIngestionSource = useCreateSource();
 
-    const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
-        if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs
-            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
-            .map((entry) => ({ key: entry.key, value: entry.value }));
+    const { defaultOwnershipType } = useOwnershipTypes();
+
+    const initialState = {
+        schedule: {
+            interval: DAILY_MIDNIGHT_CRON_INTERVAL,
+        },
     };
 
     const onSubmit = useCallback(
-        async (data: SourceBuilderState | undefined) => {
-            if (data) {
-                await createIngestionSource({
-                    type: data.type as string,
-                    name: data.name as string,
-                    config: {
-                        recipe: data.config?.recipe as string,
-                        version: (data.config?.version?.length && (data.config?.version as string)) || undefined,
-                        executorId:
-                            (data.config?.executorId?.length && (data.config?.executorId as string)) ||
-                            DEFAULT_EXECUTOR_ID,
-                        debugMode: data.config?.debugMode || false,
-                        extraArgs: formatExtraArgs(data.config?.extraArgs || []),
-                    },
-                    schedule: data.schedule && {
-                        interval: data.schedule?.interval as string,
-                        timezone: data.schedule?.timezone as string,
-                    },
+        async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
+            if (!data) return undefined;
+            setIsSubmitting(true);
+            const shouldRun = options?.shouldRun;
+            const input = getIngestionSourceMutationInput(data);
+
+            try {
+                const newSourceUrn = await createIngestionSource(input, data.owners);
+                if (!newSourceUrn) return undefined;
+
+                const newSourcePlaceholder = getNewIngestionSourcePlaceholder(
+                    newSourceUrn ?? PLACEHOLDER_URN,
+                    data,
+                    defaultOwnershipType,
+                );
+
+                addToListIngestionSourcesCache(client, newSourcePlaceholder, {
+                    start: 0,
+                    count: DEFAULT_PAGE_SIZE,
+                    query: undefined,
+                    filters: [getIngestionSourceSystemFilter(true)],
+                    sort: undefined,
                 });
+
+                analytics.event({
+                    type: EventType.CreateIngestionSourceEvent,
+                    sourceType: input.type,
+                    sourceUrn: newSourceUrn,
+                    interval: input.schedule?.interval,
+                    numOwners: data.owners?.length,
+                    outcome: shouldRun ? 'save_and_run' : 'save',
+                    ingestionOnboardingRedesignV1: true,
+                });
+
+                message.success({
+                    content: `Successfully created ingestion source!`,
+                    duration: 3,
+                });
+
+                history.push(`${PageRoutes.INGESTION}/sources`, {
+                    createdOrUpdatedSourceUrn: newSourceUrn,
+                    shouldRun,
+                });
+            } catch (e: unknown) {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: e.message,
+                        duration: 3,
+                    });
+                }
             }
 
-            history.push(PageRoutes.INGESTION);
+            setIsSubmitting(false);
+            return undefined;
         },
-        [createIngestionSource, history],
+        [createIngestionSource, history, client, defaultOwnershipType],
     );
 
     const onCancel = useCallback(() => {
         history.push(PageRoutes.INGESTION);
     }, [history]);
 
-    return <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} />;
+    return (
+        <DiscardUnsavedChangesConfirmationProvider
+            enableRedirectHandling={!isSubmitting}
+            confirmationModalTitle="You have unsaved change"
+            confirmationModalText={
+                <>
+                    <Text type="span">You have unsaved changes to your new source. </Text>
+                    <Text type="span" weight="bold">
+                        Are you sure you want to leave and discard your unsaved changes?
+                    </Text>
+                </>
+            }
+        >
+            <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
+        </DiscardUnsavedChangesConfirmationProvider>
+    );
 }

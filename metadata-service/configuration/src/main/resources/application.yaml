@@ -463,6 +463,11 @@ elasticsearch:
         searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+    validation:
+      enabled: ${SEARCH_VALIDATION_ENABLED:true}
+      maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
+      maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
+      regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
 
 # TODO: Kafka topic convention
 kafka:
@@ -583,6 +588,8 @@ kafka:
   consumerPool:
     initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
     maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
+    validationTimeoutSeconds: ${KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS:5}
+    validationCacheIntervalMinutes: ${KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES:5}
 
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
@@ -753,6 +760,16 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_CHART_INFO_CLL_LIMIT:0}
+  mlModel:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_CLL_LIMIT:0}
+  mlModelGroup:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ML_MODEL_GROUP_CLL_LIMIT:0}
   dashboardInfo:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}

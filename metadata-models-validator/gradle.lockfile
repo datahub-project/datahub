@@ -2,8 +2,8 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.5.19=runtimeClasspath,testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.19=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.21=runtimeClasspath,testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.21=runtimeClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-annotations:2.18.4=runtimeClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-core:2.10.2=compileClasspath,testCompileClasspath
 com.fasterxml.jackson.core:jackson-core:2.18.4=runtimeClasspath,testRuntimeClasspath

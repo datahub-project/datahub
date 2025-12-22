@@ -2,8 +2,8 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-ch.qos.logback:logback-classic:1.5.19=testRuntimeClasspath
-ch.qos.logback:logback-core:1.5.19=testRuntimeClasspath
+ch.qos.logback:logback-classic:1.5.21=testRuntimeClasspath
+ch.qos.logback:logback-core:1.5.21=testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
 com.eclipsesource.minimal-json:minimal-json:0.9.5=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.fasterxml.jackson.core:jackson-annotations:2.18.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -140,7 +140,7 @@ org.jacoco:org.jacoco.core:0.8.12=jacocoAnt
 org.jacoco:org.jacoco.report:0.8.12=jacocoAnt
 org.javassist:javassist:3.26.0-GA=runtimeClasspath,testRuntimeClasspath
 org.jetbrains:annotations:17.0.0=testCompileClasspath,testRuntimeClasspath
-org.lz4:lz4-java:1.8.0=runtimeClasspath,testRuntimeClasspath
+org.lz4:lz4-java:1.8.1=runtimeClasspath,testRuntimeClasspath
 org.mock-server:mockserver-client-java:5.11.2=testCompileClasspath,testRuntimeClasspath
 org.mock-server:mockserver-core:5.11.2=testCompileClasspath,testRuntimeClasspath
 org.mock-server:mockserver-netty:5.11.2=testCompileClasspath,testRuntimeClasspath
@@ -149,7 +149,7 @@ org.mozilla:rhino:1.7.12=testCompileClasspath,testRuntimeClasspath
 org.objenesis:objenesis:3.3=testRuntimeClasspath
 org.ow2.asm:asm-commons:9.7=jacocoAnt
 org.ow2.asm:asm-tree:9.7=jacocoAnt
-org.ow2.asm:asm:5.0.4=testCompileClasspath,testRuntimeClasspath
+org.ow2.asm:asm:9.5=testCompileClasspath,testRuntimeClasspath
 org.ow2.asm:asm:9.7=jacocoAnt
 org.projectlombok:lombok:1.18.42=annotationProcessor,compileClasspath
 org.reactivestreams:reactive-streams:1.0.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath

@@ -32,6 +32,8 @@ import {
     DATABASE_DENY,
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
+    FieldType,
+    FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
     INCLUDE_TABLE_LINEAGE,
@@ -260,7 +262,7 @@ export enum RecipeSections {
 interface RecipeFields {
     [key: string]: {
         fields: RecipeField[];
-        filterFields: RecipeField[];
+        filterFields: FilterRecipeField[];
         advancedFields: RecipeField[];
         connectionSectionTooltip?: string;
         filterSectionTooltip?: string;
@@ -268,6 +270,28 @@ interface RecipeFields {
         defaultOpenSections?: RecipeSections[];
     };
 }
+
+export const PLATFORM: RecipeField = {
+    name: 'platform',
+    label: 'Platform',
+    helper: 'Data Platform ID in DataHub',
+    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
+    type: FieldType.TEXT,
+    fieldPath: 'platform',
+    placeholder: 'snowflake',
+    rules: [{ required: true, message: 'Platform is required' }],
+};
+
+export const DEFAULT_DB: RecipeField = {
+    name: 'default_db',
+    label: 'Default Database',
+    helper: 'Database for assets from connection',
+    tooltip: 'The Database associated with assets from the Looker connection.',
+    type: FieldType.TEXT,
+    fieldPath: 'default_db',
+    placeholder: 'default_db',
+    rules: [{ required: true, message: 'Default Database is required' }],
+};
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
@@ -575,8 +599,6 @@ export const RECIPE_FIELDS: RecipeFields = {
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],
         filterFields: [
-            INGEST_STORIES,
-            INGEST_APPLICATIONS,
             RESOURCE_ID_ALLOW,
             RESOURCE_ID_DENY,
             RESOURCE_NAME_ALLOW,
@@ -584,7 +606,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_ALLOW,
             FOLDER_DENY,
         ],
-        advancedFields: [STATEFUL_INGESTION_ENABLED],
+        advancedFields: [INGEST_STORIES, INGEST_APPLICATIONS, STATEFUL_INGESTION_ENABLED],
     },
 };
 
