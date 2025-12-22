@@ -2,23 +2,26 @@ import { Badge, Icon, SearchBar, colors } from '@components';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import sourcesJson from '@app/ingestV2/source/builder/sources.json';
-import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
+import analytics, { EventType } from '@app/analytics';
+import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import CreateSourceEducationModal from '@app/ingestV2/source/multiStepBuilder/CreateSourceEducationModal';
 import EmptySearchResults from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/EmptySearchResults';
 import ShowAllCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/ShowAllCard';
 import SourcePlatformCard from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SourcePlatformCard';
 import { useCardsPerRow } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/useCardsPerRow';
 import {
     CARD_WIDTH,
+    EXTERNAL_SOURCE_REDIRECT_URL,
+    MISCELLANEOUS_CATEGORY_NAME,
     computeRows,
     groupByCategory,
     sortByPopularFirst,
 } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/utils';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 const StepContainer = styled.div`
-    padding: 0 20px 20px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -67,12 +70,13 @@ const RightSection = styled.div`
 
 export function SelectSourceStep() {
     const { updateState, setCurrentStepCompleted, isCurrentStepCompleted, goToNext } = useMultiStepContext<
-        SourceBuilderState,
+        MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
     const [searchQuery, setSearchQuery] = useState<string>('');
 
-    const ingestionSources: SourceConfig[] = JSON.parse(JSON.stringify(sourcesJson));
+    const { ingestionSources } = useIngestionSources();
+
     const filteredSources = ingestionSources.filter((src) =>
         src.displayName.toLowerCase().includes(searchQuery.toLowerCase()),
     );
@@ -85,12 +89,27 @@ export function SelectSourceStep() {
 
     const [showAllByCategory, setShowAllByCategory] = useState<Record<string, boolean>>({});
 
-    const onSelectCard = (platformName: string) => {
+    const onSelectCard = (platformSource: SourceConfig) => {
+        analytics.event({
+            type: EventType.IngestionSelectSourceEvent,
+            sourceType: platformSource.name,
+        });
+        if (platformSource.isExternal) {
+            window.open(platformSource.docsUrl ?? EXTERNAL_SOURCE_REDIRECT_URL, '_blank');
+            return;
+        }
+
         if (!isCurrentStepCompleted()) {
             setCurrentStepCompleted();
         }
         updateState({
-            type: platformName,
+            type: platformSource.name,
+            // Reset state of the connection details form
+            isConnectionDetailsValid: false,
+            config: undefined,
+            name: undefined,
+            owners: undefined,
+            schedule: undefined,
         });
         goToNext();
     };
@@ -113,14 +132,18 @@ export function SelectSourceStep() {
                 <CardsContainer>
                     {Object.entries(categories)
                         .sort(([a], [b]) => {
-                            if (a === 'Other') return 1;
-                            if (b === 'Other') return -1;
+                            if (a === MISCELLANEOUS_CATEGORY_NAME) return 1;
+                            if (b === MISCELLANEOUS_CATEGORY_NAME) return -1;
                             return a.localeCompare(b);
                         })
                         .map(([category, list]) => {
                             const sorted = sortByPopularFirst(list);
-                            const popular = sorted.filter((s) => s.isPopular);
-                            const nonPopular = sorted.filter((s) => !s.isPopular);
+                            const popular = sorted
+                                .filter((s) => s.isPopular)
+                                .sort((a, b) => a.displayName.localeCompare(b.displayName));
+                            const nonPopular = sorted
+                                .filter((s) => !s.isPopular)
+                                .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
                             const { visible: computedVisible, hidden: computedHidden } = computeRows(
                                 popular,
@@ -187,6 +210,7 @@ export function SelectSourceStep() {
                         })}
                 </CardsContainer>
             )}
+            <CreateSourceEducationModal />
         </StepContainer>
     );
 }

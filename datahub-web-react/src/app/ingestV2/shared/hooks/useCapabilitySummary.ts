@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { type CapabilitySummary, type PluginDetails } from '@app/ingestV2/shared/capabilitySummary';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export const useCapabilitySummary = () => {
     const [capabilitySummary, setCapabilitySummary] = useState<CapabilitySummary | null>(null);
@@ -13,7 +14,7 @@ export const useCapabilitySummary = () => {
             setError(null);
 
             try {
-                const response = await fetch('assets/ingestion/capability_summary.json');
+                const response = await fetch(resolveRuntimePath('/assets/ingestion/capability_summary.json'));
                 if (!response.ok) {
                     throw new Error(`Failed to fetch capability summary: ${response.status} ${response.statusText}`);
                 }

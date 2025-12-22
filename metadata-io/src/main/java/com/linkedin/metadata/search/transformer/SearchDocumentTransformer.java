@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -68,6 +69,12 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
+
+  /**
+   * Aspects that contain semantic/embedding data for vector search. These aspects are transformed
+   * specially to extract embeddings and write them to the search index.
+   */
+  public static final Set<String> SEMANTIC_DATA_ASPECTS = Set.of("semanticContent");
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -224,6 +231,12 @@ public class SearchDocumentTransformer {
     if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       setStructuredPropertiesSearchValue(
           opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
+      result = Optional.of(searchDocument);
+    }
+
+    // Handle semantic data aspects (embeddings for vector search)
+    if (SEMANTIC_DATA_ASPECTS.contains(aspectSpec.getName())) {
+      setSemanticContentSearchValue(aspect, searchDocument, forDelete);
       result = Optional.of(searchDocument);
     }
 
@@ -570,6 +583,24 @@ public class SearchDocumentTransformer {
                 searchDocument.set(fieldName, arrayNode);
               }
             });
+  }
+
+  /** Sets semantic content (embeddings) in the search document for vector search. */
+  private void setSemanticContentSearchValue(
+      final RecordTemplate aspect, final ObjectNode searchDocument, final Boolean forDelete) {
+    if (forDelete || aspect == null) {
+      searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      return;
+    }
+    try {
+      // Direct pass-through - PDL camelCase matches OpenSearch camelCase
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode embeddingsNode = mapper.valueToTree(aspect.data().get("embeddings"));
+      searchDocument.set("embeddings", embeddingsNode);
+      log.debug("Set semantic content embeddings in search document");
+    } catch (Exception e) {
+      log.error("Error transforming SemanticContent aspect to search document", e);
+    }
   }
 
   public void setSearchableRefValue(

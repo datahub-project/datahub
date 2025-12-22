@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import sqlalchemy.dialects.mssql
 from pydantic import ValidationInfo, field_validator
@@ -15,6 +15,10 @@ from sqlalchemy.sql import quoted_name
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.emitter.mce_builder import (
+    dataset_urn_to_key,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -52,9 +56,15 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
+from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.metadata.urns import DatasetUrn
 from datahub.utilities.file_backed_collections import FileBackedList
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# MSSQL uses 3-part naming: database.schema.table
+MSSQL_QUALIFIED_NAME_PARTS = 3
 
 register_custom_type(sqlalchemy.dialects.mssql.BIT, models.BooleanTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
@@ -843,6 +853,7 @@ class SQLServerSource(SQLAlchemySource):
                     code_slice_index = index
             definition = "".join(code_list[:code_slice_index])
             code = "".join(code_list[code_slice_index:])
+
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",
@@ -1019,62 +1030,521 @@ class SQLServerSource(SQLAlchemySource):
             else qualified_table_name
         )
 
+    def _is_qualified_table_urn(
+        self, urn: str, platform_instance: Optional[str] = None
+    ) -> bool:
+        """Check if a table URN represents a fully qualified table name.
+
+        MSSQL uses 3-part naming: database.schema.table.
+        This helps identify real tables vs. unqualified aliases (e.g., 'dst' in TSQL UPDATE statements).
+
+        Args:
+            urn: Dataset URN
+            platform_instance: Platform instance to strip from the name if present
+
+        Returns:
+            True if the table name is fully qualified (>= 3 parts), False otherwise
+        """
+        try:
+            dataset_urn = DatasetUrn.from_string(urn)
+            name = dataset_urn.name
+
+            # Strip platform_instance prefix if present
+            if platform_instance and name.startswith(f"{platform_instance}."):
+                name = name[len(platform_instance) + 1 :]
+
+            # Check if name has at least 3 parts (database.schema.table)
+            return len(name.split(".")) >= MSSQL_QUALIFIED_NAME_PARTS
+        except Exception:
+            return False
+
+    def _filter_upstream_aliases(
+        self, upstream_urns: List[str], platform_instance: Optional[str] = None
+    ) -> List[str]:
+        """Filter spurious TSQL aliases from upstream lineage using is_temp_table().
+
+        TSQL syntax like "UPDATE dst FROM table dst" causes the parser to extract
+        both 'dst' (alias) and 'table' (real table). These aliases appear as upstream
+        references but aren't real tables.
+
+        Uses the existing is_temp_table() method to identify aliases:
+        - Tables in schema_resolver: Real tables (keep)
+        - Tables in discovered_datasets: Real tables (keep)
+        - Undiscovered tables: Likely aliases (filter)
+
+        Args:
+            upstream_urns: List of upstream dataset URNs
+            platform_instance: Platform instance for prefix stripping (consistency with _filter_procedure_lineage)
+
+        Returns:
+            Filtered list with only real tables
+        """
+        if not upstream_urns:
+            return []
+
+        filtered = []
+
+        for urn in upstream_urns:
+            try:
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_name = dataset_urn.name
+
+                # Strip platform_instance prefix if present
+                # (dataset_urn.name includes platform_instance, but discovered_datasets doesn't)
+                if platform_instance and table_name.startswith(f"{platform_instance}."):
+                    table_name = table_name[len(platform_instance) + 1 :]
+
+                # Reuse existing is_temp_table() logic to filter aliases
+                if not self.is_temp_table(table_name):
+                    filtered.append(urn)
+            except (InvalidUrnError, ValueError) as e:
+                # Keep URNs we can't parse to preserve data integrity.
+                # If truly malformed, downstream systems will reject with clear errors.
+                # If our parser has a bug, we don't silently lose valid data.
+                logger.warning(f"Error parsing URN {urn}: {e}")
+                filtered.append(urn)
+
+        return filtered
+
+    def _remap_column_lineage_for_alias(
+        self,
+        table_urn: str,
+        column_name: str,
+        aspect: DataJobInputOutputClass,
+        procedure_name: Optional[str],
+    ) -> List[str]:
+        """Remap a column lineage entry from a filtered alias to real table(s).
+
+        Root Cause: TSQL allows table aliases in UPDATE/DELETE statements:
+            UPDATE dst SET col=val FROM real_table dst
+        sqlglot extracts both 'dst' (alias) and 'real_table' as separate tables.
+        When we filter 'dst' from outputDatasets (it's not a real table), column
+        lineages still reference it. We must remap those references to real tables.
+
+        Why matching by name: sqlglot often parses aliases with incorrect
+        database/schema qualifiers (e.g., "staging.dbo.dst" when dst actually
+        refers to "timeseries.dbo.european_priips_kid_information").
+
+        Remapping Strategy:
+        1. Try to match by table name only (last component: "dst" matches "xxx.dst")
+        2. Exactly one match → remap to that table (common case)
+        3. Multiple matches → remap to all, log warning (ambiguous)
+        4. No name match → remap to all real downstreams, log warning (fallback)
+
+        This preserves column lineage after alias filtering.
+
+        Args:
+            table_urn: The filtered alias table URN
+            column_name: The column name
+            aspect: DataJobInputOutputClass with outputDatasets
+            procedure_name: Procedure name for logging
+
+        Returns:
+            List of remapped field URNs pointing to real tables
+        """
+        remapped_urns: List[str] = []
+
+        try:
+            alias_key = dataset_urn_to_key(table_urn)
+            if not alias_key:
+                logger.warning(
+                    f"Could not parse alias URN {table_urn} for column remapping in {procedure_name}"
+                )
+                return remapped_urns
+
+            alias_table_name = alias_key.name.split(".")[-1]
+
+            # Find real tables with matching table name
+            matching_tables = []
+            if aspect.outputDatasets:
+                for real_table_urn in aspect.outputDatasets:
+                    real_key = dataset_urn_to_key(real_table_urn)
+                    if real_key:
+                        real_table_name = real_key.name.split(".")[-1]
+                        if real_table_name == alias_table_name:
+                            matching_tables.append(real_table_urn)
+
+            # Remap based on number of matches
+            if len(matching_tables) == 1:
+                remapped_urn = (
+                    f"urn:li:schemaField:({matching_tables[0]},{column_name})"
+                )
+                remapped_urns.append(remapped_urn)
+            elif len(matching_tables) > 1:
+                # Multiple matches - remap to all
+                for real_table_urn in matching_tables:
+                    remapped_urn = (
+                        f"urn:li:schemaField:({real_table_urn},{column_name})"
+                    )
+                    remapped_urns.append(remapped_urn)
+                logger.warning(
+                    f"Multiple tables match alias {alias_table_name} in {procedure_name}, "
+                    f"remapped column {column_name} to all {len(matching_tables)} matches"
+                )
+            else:
+                # No table name match - fallback to all real tables
+                if aspect.outputDatasets:
+                    for real_table_urn in aspect.outputDatasets:
+                        remapped_urn = (
+                            f"urn:li:schemaField:({real_table_urn},{column_name})"
+                        )
+                        remapped_urns.append(remapped_urn)
+                    logger.warning(
+                        f"No table name match for alias {alias_table_name} in {procedure_name}, "
+                        f"remapped column {column_name} to all {len(aspect.outputDatasets)} real tables"
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Error parsing alias URN {table_urn} for column remapping in {procedure_name}: {e}"
+            )
+
+        if not remapped_urns:
+            logger.warning(
+                f"Could not remap column lineage for filtered alias {table_urn}.{column_name} in {procedure_name} - "
+                f"no real downstream tables available"
+            )
+
+        return remapped_urns
+
+    def _filter_downstream_fields(
+        self,
+        cll_index: int,
+        downstream_fields: List[str],
+        filtered_downstream_aliases: Optional[set],
+        field_urn_pattern: re.Pattern,
+        platform_instance: Optional[str],
+        aspect: DataJobInputOutputClass,
+        procedure_name: Optional[str],
+    ) -> List[str]:
+        """Filter and remap downstream fields in a column lineage entry.
+
+        Args:
+            cll_index: Index of the column lineage entry (for logging)
+            downstream_fields: List of downstream field URNs to filter
+            filtered_downstream_aliases: Set of table URNs that were filtered as aliases
+            field_urn_pattern: Regex pattern to extract table URN and column name
+            platform_instance: Platform instance for URN checking
+            aspect: DataJobInputOutputClass with outputDatasets
+            procedure_name: Procedure name for logging
+
+        Returns:
+            List of filtered downstream field URNs
+        """
+        filtered_downstreams = []
+        for field_urn in downstream_fields:
+            match = field_urn_pattern.search(field_urn)
+            if match:
+                table_urn = match.group(1)
+                column_name = match.group(2)
+
+                # Check if this downstream points to a filtered alias
+                if (
+                    filtered_downstream_aliases
+                    and table_urn in filtered_downstream_aliases
+                ):
+                    # Remap to real table(s)
+                    remapped_urns = self._remap_column_lineage_for_alias(
+                        table_urn, column_name, aspect, procedure_name
+                    )
+                    filtered_downstreams.extend(remapped_urns)
+                elif self._is_qualified_table_urn(table_urn, platform_instance):
+                    filtered_downstreams.append(field_urn)
+                else:
+                    logger.debug(
+                        f"Filtered unqualified downstream field in column lineage for {procedure_name}: {field_urn}"
+                    )
+            else:
+                filtered_downstreams.append(field_urn)
+        return filtered_downstreams
+
+    def _filter_column_lineage(
+        self,
+        aspect: DataJobInputOutputClass,
+        platform_instance: Optional[str],
+        procedure_name: Optional[str],
+        filtered_downstream_aliases: Optional[set] = None,
+    ) -> None:
+        """Filter column lineage (fineGrainedLineages) to remove aliases.
+
+        Applies same 2-step filtering as table-level lineage:
+        1. Check if table has 3+ parts (_is_qualified_table_urn)
+        2. Check if table is real vs alias (_filter_upstream_aliases for upstreams)
+        3. Remap column lineages from filtered downstream aliases to real tables
+
+        Args:
+            aspect: DataJobInputOutputClass with lineage to filter
+            platform_instance: Platform instance for URN parsing
+            procedure_name: Procedure name for logging
+            filtered_downstream_aliases: Set of downstream table URNs that were
+                filtered as aliases. Column lineages pointing to these will be
+                remapped to real downstream tables.
+
+        Modifies aspect.fineGrainedLineages in place.
+        """
+        if not aspect.fineGrainedLineages:
+            return
+
+        filtered_column_lineage = []
+        field_urn_pattern = re.compile(r"urn:li:schemaField:\((.*),(.*)\)")
+
+        for cll_index, cll in enumerate(aspect.fineGrainedLineages, 1):
+            # Filter upstreams: same logic as inputDatasets
+            if cll.upstreams:
+                # Step 1: Filter by qualification (3+ parts)
+                qualified_upstream_fields = []
+                for field_urn in cll.upstreams:
+                    match = field_urn_pattern.search(field_urn)
+                    if match:
+                        table_urn = match.group(1)
+                        if self._is_qualified_table_urn(table_urn, platform_instance):
+                            qualified_upstream_fields.append(field_urn)
+                        else:
+                            logger.debug(
+                                f"Filtered unqualified upstream field in column lineage for {procedure_name}: {field_urn}"
+                            )
+                    else:
+                        qualified_upstream_fields.append(field_urn)
+
+                # Step 2: Filter aliases (extract table URNs and check)
+                upstream_table_urns = []
+                field_to_table_map = {}
+                for field_urn in qualified_upstream_fields:
+                    match = field_urn_pattern.search(field_urn)
+                    if match:
+                        table_urn = match.group(1)
+                        upstream_table_urns.append(table_urn)
+                        field_to_table_map[field_urn] = table_urn
+
+                # Apply alias filtering to table URNs
+                real_table_urns = set(
+                    self._filter_upstream_aliases(
+                        upstream_table_urns, platform_instance
+                    )
+                )
+
+                # Keep only field URNs whose tables passed the filter
+                filtered_upstreams = [
+                    field_urn
+                    for field_urn in qualified_upstream_fields
+                    if field_to_table_map.get(field_urn) in real_table_urns
+                    or field_urn not in field_to_table_map
+                ]
+
+                # Log filtered aliases
+                for field_urn in qualified_upstream_fields:
+                    if field_urn not in filtered_upstreams:
+                        table_urn = field_to_table_map.get(field_urn, "unknown")
+                        logger.debug(
+                            f"Filtered alias upstream field in column lineage for {procedure_name}: {field_urn} (table: {table_urn})"
+                        )
+
+                cll.upstreams = filtered_upstreams
+
+            # Filter downstreams: check qualification and remap aliases
+            if cll.downstreams:
+                cll.downstreams = self._filter_downstream_fields(
+                    cll_index,
+                    cll.downstreams,
+                    filtered_downstream_aliases,
+                    field_urn_pattern,
+                    platform_instance,
+                    aspect,
+                    procedure_name,
+                )
+
+            # Only keep column lineage if it has both upstreams and downstreams
+            if cll.upstreams and cll.downstreams:
+                filtered_column_lineage.append(cll)
+
+        aspect.fineGrainedLineages = (
+            filtered_column_lineage if filtered_column_lineage else None
+        )
+
+    def _filter_procedure_lineage(
+        self,
+        mcps: Iterable[MetadataChangeProposalWrapper],
+        procedure_name: Optional[str] = None,
+    ) -> Iterator[MetadataChangeProposalWrapper]:
+        """Filter out unqualified table URNs from stored procedure lineage.
+
+        TSQL syntax like "UPDATE dst FROM table dst" causes sqlglot to extract
+        both 'dst' (alias) and 'table' (real table). Unqualified aliases create
+        invalid URNs that cause DataHub sink to reject the entire aspect.
+
+        This filter removes URNs with < 3 parts (database.schema.table).
+
+        Args:
+            mcps: MCPs from generate_procedure_lineage()
+            procedure_name: Procedure name for logging
+
+        Yields:
+            Filtered MCPs with only qualified table URNs
+        """
+        platform_instance = self.get_schema_resolver().platform_instance
+
+        for mcp in mcps:
+            # Only filter dataJobInputOutput aspects
+            if mcp.aspect and isinstance(mcp.aspect, DataJobInputOutputClass):
+                aspect: DataJobInputOutputClass = mcp.aspect
+
+                # Filter inputs: first unqualified tables, then aliases
+                if aspect.inputDatasets:
+                    qualified_inputs = [
+                        urn
+                        for urn in aspect.inputDatasets
+                        if self._is_qualified_table_urn(urn, platform_instance)
+                    ]
+                    aspect.inputDatasets = self._filter_upstream_aliases(
+                        qualified_inputs, platform_instance
+                    )
+
+                # Filter outputs: only unqualified tables
+                # Track filtered downstream aliases for column lineage remapping
+                filtered_downstream_aliases = set()
+                if aspect.outputDatasets:
+                    original_outputs = aspect.outputDatasets.copy()
+                    aspect.outputDatasets = [
+                        urn
+                        for urn in aspect.outputDatasets
+                        if self._is_qualified_table_urn(urn, platform_instance)
+                    ]
+                    # Identify which outputs were filtered (these are aliases)
+                    filtered_downstream_aliases = set(original_outputs) - set(
+                        aspect.outputDatasets
+                    )
+
+                # Filter column lineage (with remapping for filtered downstream aliases)
+                self._filter_column_lineage(
+                    aspect,
+                    platform_instance,
+                    procedure_name,
+                    filtered_downstream_aliases,
+                )
+
+                # Skip aspect only if BOTH inputs and outputs are empty
+                if not aspect.inputDatasets and not aspect.outputDatasets:
+                    logger.warning(
+                        f"Skipping lineage for {procedure_name}: all tables were filtered"
+                    )
+                    continue
+
+            yield mcp
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
         # This is done at the end so that we will have access to tables
         # from all databases in schema_resolver and discovered_tables
-        for procedure in self.stored_procedures:
-            with self.report.report_exc(
-                message="Failed to parse stored procedure lineage",
-                context=procedure.full_name,
-                level=StructuredLogLevel.WARN,
-            ):
-                yield from auto_workunit(
-                    generate_procedure_lineage(
-                        schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure.to_base_procedure(),
-                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
-                        is_temp_table=self.is_temp_table,
-                        default_db=procedure.db,
-                        default_schema=procedure.schema,
-                    )
-                )
+        if self.stored_procedures:
+            logger.info(
+                f"Processing {len(self.stored_procedures)} stored procedure(s) for lineage extraction"
+            )
+
+            for procedure in self.stored_procedures:
+                with self.report.report_exc(
+                    message="Failed to parse stored procedure lineage",
+                    context=procedure.full_name,
+                    level=StructuredLogLevel.WARN,
+                ):
+                    for workunit in auto_workunit(
+                        self._filter_procedure_lineage(
+                            generate_procedure_lineage(
+                                schema_resolver=self.get_schema_resolver(),
+                                procedure=procedure.to_base_procedure(),
+                                procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                                is_temp_table=self.is_temp_table,
+                                default_db=procedure.db,
+                                default_schema=procedure.schema,
+                                report_failure=lambda name: self._report_procedure_failure(
+                                    name
+                                ),
+                            ),
+                            procedure_name=procedure.name,
+                        )
+                    ):
+                        yield workunit
+
+    def _report_procedure_failure(self, procedure_name: str) -> None:
+        """Report a stored procedure lineage extraction failure to the aggregator."""
+        if hasattr(self, "aggregator") and self.aggregator is not None:
+            self.aggregator.report.num_procedures_failed += 1
+            self.aggregator.report.procedure_parse_failures.append(procedure_name)
 
     def is_temp_table(self, name: str) -> bool:
+        """Check if a table name refers to a temp table or unresolved alias.
+
+        Note: This method is called for each upstream table during lineage filtering.
+        If profiling shows this as a bottleneck, consider caching parsed URNs or
+        standardized names to reduce redundant processing.
+        """
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            logger.debug(f"temp table matched by pattern {name}")
             return True
 
         try:
             parts = name.split(".")
             table_name = parts[-1]
-            schema_name = parts[-2]
-            db_name = parts[-3]
 
+            # TSQL temp tables start with #
             if table_name.startswith("#"):
                 return True
 
-            # This is also a temp table if
-            #   1. this name would be allowed by the dataset patterns, and
-            #   2. we have a list of discovered tables, and
-            #   3. it's not in the discovered tables list
-            if (
-                self.config.database_pattern.allowed(db_name)
-                and self.config.schema_pattern.allowed(schema_name)
-                and self.config.table_pattern.allowed(name)
-                and self.standardize_identifier_case(name)
-                not in self.discovered_datasets
-            ):
-                logger.debug(f"inferred as temp table {name}")
-                return True
+            # Standardize case early to ensure consistent lookups
+            # This must match how get_identifier() stores names in discovered_datasets
+            standardized_name = self.standardize_identifier_case(name)
 
-        except Exception:
-            logger.warning(f"Error parsing table name {name} ")
-        return False
+            # Check if the table exists in schema_resolver
+            # If we have schema information for it, it's a real table (not an alias)
+            # Only check schema_resolver if aggregator is initialized (not in unit tests)
+            if hasattr(self, "aggregator") and self.aggregator is not None:
+                schema_resolver = self.get_schema_resolver()
+
+                # Use standardized name for URN to match how tables are registered
+                urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=standardized_name,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
+
+                if schema_resolver.has_urn(urn):
+                    return False
+
+            # If not in schema_resolver, check against discovered_datasets
+            # For qualified names (>=3 parts), also validate against patterns
+            if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
+                schema_name = parts[-2]
+                db_name = parts[-3]
+
+                if (
+                    self.config.database_pattern.allowed(db_name)
+                    and self.config.schema_pattern.allowed(schema_name)
+                    and self.config.table_pattern.allowed(name)
+                ):
+                    # Table matches our ingestion patterns but wasn't discovered
+                    # This is likely an alias or undiscovered table - treat as temp
+                    if standardized_name not in self.discovered_datasets:
+                        return True
+                    else:
+                        return False
+                else:
+                    # Qualified name outside our patterns and not in schema_resolver
+                    # No evidence it's a real table - filter it out
+                    return True
+
+            # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS (1-part or 2-part),
+            # treat as alias/temp table since we can't verify they're real tables
+            # without full qualification. This handles common TSQL aliases like "dst", "src".
+            # Consistent with _is_qualified_table_urn which requires 3+ parts.
+            return True
+
+        except Exception as e:
+            # If parsing fails, safer to exclude (return True = treat as temp/alias)
+            # than to include potentially spurious aliases in lineage
+            logger.warning(f"Error parsing table name {name}: {e}")
+            return True
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (

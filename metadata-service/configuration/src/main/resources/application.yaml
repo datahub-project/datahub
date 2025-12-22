@@ -45,10 +45,10 @@ authentication:
 
         # Option 2: Discovery URI to auto-derive JWKS URI (alternative to jwksUri)
         discoveryUri: ${EXTERNAL_OAUTH_DISCOVERY_URI:}
-        
+
         # JWT claim to use as user identifier (defaults to 'sub')
         userIdClaim: ${EXTERNAL_OAUTH_USER_ID_CLAIM:sub}
-        
+
         # JWT signing algorithm (defaults to 'RS256')
         algorithm: ${EXTERNAL_OAUTH_ALGORITHM:RS256}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
@@ -185,6 +185,7 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
+  semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -241,7 +242,7 @@ mclProcessing:
   cdcSource:
     enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
     configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
-    type: debezium-kafka-connector  # Only supported type for now.
+    type: debezium-kafka-connector # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
       type: ${CDC_DB_TYPE:mysql} # Set to one of mysql or postgres to load additional db specific config.
       name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
@@ -362,6 +363,42 @@ elasticsearch:
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
+    semanticSearch:
+      enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
+      enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+      # Multi-model configuration: map of model name to embedding config
+      # Example with multiple models:
+      # models:
+      #   cohere_embed_v3:
+      #     vectorDimension: 1024
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      #   openai_text_embedding_3_small:
+      #     vectorDimension: 1536
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
+      models:
+        cohere_embed_v3:
+          vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:1024}
+          knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
+          spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
+          efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
+          m: ${ELASTICSEARCH_SEMANTIC_M:16}
+      # Embedding provider configuration for generating query embeddings
+      # Supports AWS Bedrock with automatic credential resolution (AWS_PROFILE, EC2 instance roles, etc.)
+      embeddingProvider:
+        # Provider type: "aws-bedrock" (currently only Bedrock is supported)
+        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
+        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
+        # Maximum text length before truncation (Cohere enforces 2048 character limit)
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -463,6 +500,11 @@ elasticsearch:
         searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+    validation:
+      enabled: ${SEARCH_VALIDATION_ENABLED:true}
+      maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
+      maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
+      regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
 
 # TODO: Kafka topic convention
 kafka:
@@ -596,7 +638,6 @@ kafka:
     registry:
       security:
         protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
-
 
 # Only required if GraphService type is neo4j
 neo4j:
@@ -882,14 +923,14 @@ featureFlags:
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
   productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core} # URL to fetch product updates JSON from remote source.
   # for Saas:
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud} # URL to fetch product updates JSON from remote source.
   productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
-  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
@@ -1109,7 +1150,7 @@ metadataChangeProposal:
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
 
 metadataChangeLog:
   consumer:
