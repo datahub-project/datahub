@@ -238,11 +238,11 @@ datahub:
       prePatch:
         enabled: false # Validates existing aspects from DB before patch application
         maxSizeBytes: 15728640
-        oversizedRemediation: REPLACE_WITH_PATCH # REPLACE_WITH_PATCH (delete old, continue) or IGNORE (reject MCP)
+        oversizedRemediation: IGNORE # IGNORE (skip write) or REPLACE_WITH_PATCH (delete old, continue as insert)
       postPatch:
         enabled: false # Validates aspects after patch, before DB write
         maxSizeBytes: 15728640
-        oversizedRemediation: DELETE
+        oversizedRemediation: IGNORE # IGNORE (skip write) or DELETE (remove from DB)
 ```
 
 ## Change Data Capture (CDC) Mode for Generating MCLs

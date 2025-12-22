@@ -5,14 +5,14 @@ package com.linkedin.metadata.config;
  */
 public enum OversizedAspectRemediation {
   /**
-   * Hard delete the oversized aspect from the database and reject the MCP with an error. This
-   * prevents oversized aspects from accumulating in the database.
+   * Hard delete the oversized aspect from the database and skip the write. This prevents oversized
+   * aspects from accumulating in the database.
    */
   DELETE,
 
   /**
-   * Leave the oversized aspect in the database, log a warning, and reject the MCP with an error.
-   * This is safer for initial rollout but may allow oversized aspects to accumulate.
+   * Leave the oversized aspect in the database, log a warning, and skip the write. May allow
+   * oversized aspects to accumulate.
    */
   IGNORE,
 
