@@ -1574,6 +1574,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     env=self.config.env,
                 ),
                 schema_resolver=self.get_schema_resolver(),
+                include_stored_procedures_code=getattr(
+                    self.config, "include_stored_procedures_code", True
+                ),
             )
         except Exception as e:
             self.report.warning(

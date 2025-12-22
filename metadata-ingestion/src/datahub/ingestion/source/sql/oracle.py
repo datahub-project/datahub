@@ -12,6 +12,7 @@ import sqlalchemy.engine
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
@@ -1122,7 +1123,7 @@ class OracleSource(SQLAlchemySource):
         procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
 
         def map_row_with_enrichment(
-            conn: sqlalchemy.engine.Connection, row: Any
+            conn: sqlalchemy.engine.Connection, row: Row
         ) -> Optional[BaseProcedure]:
             """Map a row to BaseProcedure with enrichment queries."""
             # Enrich with additional metadata via helper queries
@@ -1181,7 +1182,7 @@ class OracleSource(SQLAlchemySource):
             source_name="Oracle",
             schema=schema,
             report=self.report,
-            permission_error_message=f"Missing permissions to access {tables_prefix}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES. Grant SELECT on these views or set 'include_stored_procedures: false' to disable.",
+            permission_error_message=f"Failed to access stored procedure metadata. Grant SELECT permission on {tables_prefix}_OBJECTS, {tables_prefix}_SOURCE, {tables_prefix}_ARGUMENTS, and {tables_prefix}_DEPENDENCIES or disable with 'include_stored_procedures: false'.",
             system_table=f"{tables_prefix}_OBJECTS/SOURCE/ARGUMENTS/DEPENDENCIES",
         )
 

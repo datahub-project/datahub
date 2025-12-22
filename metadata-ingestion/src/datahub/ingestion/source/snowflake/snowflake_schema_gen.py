@@ -1570,6 +1570,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.aggregator._schema_resolver if self.aggregator else None
                 ),
                 is_temp_table_fn=self.is_temp_table,
+                include_stored_procedures_code=self.config.include_stored_procedures_code,
             )
         except Exception as e:
             self.structured_reporter.warning(

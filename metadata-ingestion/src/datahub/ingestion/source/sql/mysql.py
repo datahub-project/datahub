@@ -1,13 +1,15 @@
 # This import verifies that the dependencies are available.
 import logging
+import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Set
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -74,6 +76,15 @@ base.ischema_names["point"] = POINT
 base.ischema_names["linestring"] = LINESTRING
 base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
+
+# Pre-compiled regex for detecting CREATE TEMPORARY TABLE statements
+# Matches: CREATE TEMPORARY TABLE [IF NOT EXISTS] [schema.]table_name
+TEMP_TABLE_PATTERN = re.compile(
+    r"CREATE\s+(?:GLOBAL\s+)?TEMPORARY\s+TABLE\s+"
+    r"(?:IF\s+NOT\s+EXISTS\s+)?"
+    r"(?:`?(\w+)`?\.)?`?(\w+)`?",
+    re.IGNORECASE,
+)
 
 # SQL query constants for better maintainability
 STORED_PROCEDURES_QUERY = """
@@ -221,6 +232,19 @@ class MySQLSource(TwoTierSQLAlchemySource):
         for procedure in procedures:
             yield from self._process_procedure(procedure, schema, db_name)
 
+    def _extract_temp_tables_from_procedure(self, procedure: BaseProcedure) -> Set[str]:
+        """Extract temporary table names from procedure definition using pre-compiled regex."""
+        temp_tables: Set[str] = set()
+        if not procedure.procedure_definition:
+            return temp_tables
+
+        for match in TEMP_TABLE_PATTERN.finditer(procedure.procedure_definition):
+            table_name = match.group(2) or match.group(1)
+            if table_name:
+                temp_tables.add(table_name.lower())
+
+        return temp_tables
+
     def _process_procedure(
         self,
         procedure: BaseProcedure,
@@ -228,6 +252,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         """Process a single stored procedure for MySQL (two-tier database)."""
+        temp_tables = self._extract_temp_tables_from_procedure(procedure)
+
+        def is_temp_table(table_name: str) -> bool:
+            table_name_only = table_name.split(".")[-1]
+            return table_name_only in temp_tables
+
         try:
             yield from generate_procedure_workunits(
                 procedure=procedure,
@@ -239,7 +269,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 ),
                 schema_key=None,  # MySQL is two-tier - no schema key needed
                 schema_resolver=self.get_schema_resolver(),
-                # MySQL temporary tables aren't in information_schema, so no need for is_temp_table
+                is_temp_table_fn=is_temp_table,
+                include_stored_procedures_code=self.config.include_stored_procedures_code,
             )
         except Exception as e:
             self.report.warning(
@@ -313,10 +344,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
         Get stored procedures for a specific schema.
         """
 
-        def map_row(row: Any) -> Optional[BaseProcedure]:
+        def map_row(row: Row) -> Optional[BaseProcedure]:
             """Map a database row to a BaseProcedure object."""
             # Convert SQLAlchemy Row to dict for easier and safer access
-            row_dict = dict(row)
+            row_dict = dict(row._mapping)
 
             # Extract name - name is required for BaseProcedure
             procedure_name = row_dict.get("name")
@@ -352,6 +383,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
             source_name="MySQL",
             schema=schema,
             report=self.report,
-            permission_error_message="Missing permissions to access information_schema.ROUTINES. Grant SELECT on this view or set 'include_stored_procedures: false' to disable.",
+            permission_error_message="Failed to access stored procedure metadata. Grant SELECT permission on information_schema.ROUTINES or disable with 'include_stored_procedures: false'.",
             system_table="information_schema.ROUTINES",
         )

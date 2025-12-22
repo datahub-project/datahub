@@ -36,14 +36,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #15415: MLModel and MLModelGroup search field mapping has been updated to resolve duplicate field name conflicts. Existing entities will be automatically reindexed in the background after upgrade. New MLModel and MLModelGroup entities ingested after the upgrade will work immediately.
 - #15397: Grafana ingestion source dataset granularity changed from per-datasource to per-panel (per visual). This improves lineage accuracy by ensuring each panel's query results in a unique dataset entity with precise upstream/downstream connections. Dataset URN format changed from `{ds_type}.{ds_uid}` to `{ds_type}.{ds_uid}.{dashboard_uid}.{panel_id}`. This means all existing Grafana dataset entities will have different URNs. If stateful ingestion is enabled, running ingestion with the latest CLI version will automatically clean up old entities and create new ones. Otherwise, we recommend soft deleting all Grafana datasets via the DataHub CLI: `datahub delete --platform grafana --soft` and then re-ingesting with the latest CLI version.
 - #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
-- **Stored Procedures now enabled by default** for MySQL, MariaDB, and PostgreSQL sources: The `include_stored_procedures` configuration option now defaults to `true` (previously `false`). This change will:
-  - Ingest stored procedures, their definitions, and lineage automatically
-  - May increase ingestion time depending on the number of stored procedures
-  - May increase metadata volume in DataHub
-  - **If stored procedure ingestion fails** (e.g., due to insufficient permissions), the ingestion will log a warning and continue with table/view ingestion
-  - **Required privileges**: `SELECT` on `information_schema.ROUTINES` (MySQL/MariaDB) or access to system catalog tables (PostgreSQL)
-  - To revert to previous behavior, explicitly set `include_stored_procedures: false` in your recipe
-  - Use `procedure_pattern` to filter which procedures are ingested if you only want a subset
 - #14710: LookML ingestion source migrated to SDKv2 resulting in:
   - `browsePaths` aspect replaced with `browsePathsV2`
   - Only emits MCPs
@@ -59,6 +51,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other Notable Changes
+
+- #14415: Stored procedures now enabled by default for MySQL, MariaDB, PostgreSQL, and Oracle sources. The `include_stored_procedures` configuration option now defaults to `true` (previously `false`). This automatically ingests stored procedures, functions, and packages (Oracle) with their SQL definitions and generates upstream/downstream lineage including column-level lineage when possible. Temporary tables are automatically filtered from lineage to prevent ghost entities. **Error handling behavior change**: Previously, stored procedure failures caused ingestion to fail entirely. Now, failures log warnings and ingestion continues with tables/views to ensure database ingestion succeeds even with missing permissions. Check your monitoring/alerting if you rely on failure counts. **Performance impact**: Ingestion time may increase by 10-30% depending on procedure count and complexity. Metadata volume increases proportionally. **Required permissions**: MySQL/MariaDB need `SELECT` on `information_schema.ROUTINES`; PostgreSQL needs `SELECT` on `pg_proc`, `pg_namespace`, `pg_language`; Oracle needs `SELECT` on `ALL_OBJECTS`, `ALL_SOURCE`, `ALL_ARGUMENTS`, `ALL_DEPENDENCIES` (or `DBA_*` equivalents). To disable, set `include_stored_procedures: false` in your recipe. Use `procedure_pattern` to filter specific procedures if needed.
 
 ## 1.3.0
 

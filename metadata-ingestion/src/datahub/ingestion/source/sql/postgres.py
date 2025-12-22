@@ -15,6 +15,7 @@ from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -405,7 +406,7 @@ class PostgresSource(SQLAlchemySource):
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
-        def map_row(row: Any) -> Optional[BaseProcedure]:
+        def map_row(row: Row) -> Optional[BaseProcedure]:
             """Map a database row to a BaseProcedure object."""
             return BaseProcedure(
                 name=row.name,
@@ -427,6 +428,6 @@ class PostgresSource(SQLAlchemySource):
             source_name="PostgreSQL",
             schema=schema,
             report=self.report,
-            permission_error_message="Missing permissions to access pg_proc system catalog. Grant necessary permissions or set 'include_stored_procedures: false' to disable.",
+            permission_error_message="Failed to access stored procedure metadata. Grant SELECT permission on pg_proc or disable with 'include_stored_procedures: false'.",
             system_table="pg_proc",
         )

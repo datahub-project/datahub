@@ -857,25 +857,12 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
             ],
             "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD),company)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
-                    ],
-                    "transformOperation": "COPY: `t`.`company` AS `company`",
-                    "confidenceScore": 0.425
-                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [

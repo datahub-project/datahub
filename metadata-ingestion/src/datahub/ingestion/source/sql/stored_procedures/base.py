@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
+    DataJobInputOutputClass,
     DataPlatformInstanceClass,
     DataTransformClass,
     DataTransformLogicClass,
@@ -136,6 +137,7 @@ def _generate_job_workunits(
     database_key: DatabaseKey,
     schema_key: Optional[SchemaKey],
     procedure: BaseProcedure,
+    include_stored_procedures_code: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
     """Generate job workunits for database, schema and procedure"""
 
@@ -176,8 +178,7 @@ def _generate_job_workunits(
         aspect=ContainerClass(container=container_key.as_urn()),
     ).as_workunit()
 
-    # TODO: Config whether to ingest procedure code
-    if procedure.procedure_definition:
+    if include_stored_procedures_code and procedure.procedure_definition:
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
             aspect=DataTransformLogicClass(
@@ -203,6 +204,81 @@ def _generate_job_workunits(
         ).as_workunit()
 
 
+def _is_temp_table_field(
+    schema_field_urn: str,
+    is_temp_table: Callable[[str], bool],
+    dataset_urn_to_key: Callable[[str], Any],
+) -> bool:
+    """Check if a schemaField URN references a temp table."""
+    try:
+        if schema_field_urn.startswith("urn:li:schemaField:("):
+            # Format: urn:li:schemaField:(<DATASET_URN>,<FIELD_NAME>)
+            # Find the last comma to split dataset URN from field name
+            inner_content = schema_field_urn[len("urn:li:schemaField:(") : -1]
+            last_comma_idx = inner_content.rfind(",")
+            if last_comma_idx == -1:
+                return False
+            dataset_urn = inner_content[:last_comma_idx]
+            dataset_key = dataset_urn_to_key(dataset_urn)
+            if dataset_key is None:
+                return False
+            return is_temp_table(dataset_key.name)
+    except Exception as e:
+        logger.warning(
+            f"Failed to check if schemaField URN is temp table {schema_field_urn}: {e}",
+            exc_info=True,
+        )
+    return False
+
+
+def _filter_temp_tables_from_lineage(
+    lineage: DataJobInputOutputClass,
+    is_temp_table: Callable[[str], bool],
+) -> DataJobInputOutputClass:
+    """Filter out temporary tables from lineage input/output datasets and fine-grained lineage."""
+    from datahub.emitter.mce_builder import dataset_urn_to_key
+
+    def filter_datasets(urns: List[str]) -> List[str]:
+        filtered = []
+        for urn in urns:
+            try:
+                dataset_key = dataset_urn_to_key(urn)
+                if dataset_key is None:
+                    filtered.append(urn)
+                    continue
+                table_name = dataset_key.name
+                if not is_temp_table(table_name):
+                    filtered.append(urn)
+                else:
+                    logger.debug(f"Filtered out temp table from lineage: {table_name}")
+            except Exception as e:
+                logger.warning(f"Failed to parse dataset URN {urn}: {e}")
+                filtered.append(urn)
+        return filtered
+
+    lineage.inputDatasets = filter_datasets(lineage.inputDatasets or [])
+    lineage.outputDatasets = filter_datasets(lineage.outputDatasets or [])
+
+    if lineage.fineGrainedLineages:
+        filtered_fgl = []
+        for fgl in lineage.fineGrainedLineages:
+            if fgl.upstreams:
+                # Filter upstreams that reference temp tables
+                fgl.upstreams = [
+                    upstream_urn
+                    for upstream_urn in fgl.upstreams
+                    if not _is_temp_table_field(
+                        upstream_urn, is_temp_table, dataset_urn_to_key
+                    )
+                ]
+            # Only keep fine-grained lineage if it still has upstreams after filtering
+            if fgl.upstreams:
+                filtered_fgl.append(fgl)
+        lineage.fineGrainedLineages = filtered_fgl
+
+    return lineage
+
+
 def generate_procedure_lineage(
     *,
     schema_resolver: SchemaResolver,
@@ -226,10 +302,25 @@ def generate_procedure_lineage(
         )
 
         if datajob_input_output:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=procedure_job_urn,
-                aspect=datajob_input_output,
+            # Filter out any temp table URNs that may have slipped through the SQL parser
+            # The SQL parser already tracks lineage through temp tables (A→temp→B becomes A→B)
+            # but we filter as a safety net for edge cases
+            datajob_input_output = _filter_temp_tables_from_lineage(
+                datajob_input_output, is_temp_table
             )
+
+            if (
+                datajob_input_output.inputDatasets
+                or datajob_input_output.outputDatasets
+            ):
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=procedure_job_urn,
+                    aspect=datajob_input_output,
+                )
+            else:
+                logger.debug(
+                    f"Skipping empty lineage for procedure {procedure.name} after temp table filtering"
+                )
         else:
             logger.warning(
                 f"Failed to extract lineage for stored procedure: {procedure.name}. "
@@ -254,8 +345,11 @@ def generate_procedure_workunits(
     schema_key: Optional[SchemaKey],
     schema_resolver: Optional[SchemaResolver],
     is_temp_table_fn: Optional[Callable[[str], bool]] = None,
+    include_stored_procedures_code: bool = True,
 ) -> Iterable[MetadataWorkUnit]:
-    yield from _generate_job_workunits(database_key, schema_key, procedure)
+    yield from _generate_job_workunits(
+        database_key, schema_key, procedure, include_stored_procedures_code
+    )
 
     if schema_resolver:
         job_urn = procedure.to_urn(database_key, schema_key)
