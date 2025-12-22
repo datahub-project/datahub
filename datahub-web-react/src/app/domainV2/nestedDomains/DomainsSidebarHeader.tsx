@@ -36,7 +36,7 @@ export default function DomainsSidebarHeader() {
             <Tooltip showArrow={false} title="Create new Domain" placement="right">
                 <StyledButton
                     variant="filled"
-                    color="violet"
+                    color="primary"
                     isCircle
                     icon={{ icon: 'Plus', source: 'phosphor' }}
                     onClick={() => setIsCreatingDomain(true)}

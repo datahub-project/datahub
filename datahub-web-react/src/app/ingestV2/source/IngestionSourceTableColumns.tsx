@@ -382,7 +382,7 @@ export function ActionsColumn({
                 icon="Play"
                 source="phosphor"
                 weight="fill"
-                color="violet"
+                color="primary"
                 onClick={(e) => {
                     e.stopPropagation();
                     onExecute(record.urn);
