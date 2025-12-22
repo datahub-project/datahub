@@ -293,6 +293,11 @@ public class EntityAspect {
                   .orElse(null));
 
       // Call serialization hooks after aspect is serialized to JSON
+      // We pass both SystemAspect (this) and EntityAspect (serialized form) to hooks:
+      // - SystemAspect provides context: URN, aspect spec, RecordTemplate object
+      // - EntityAspect provides the JSON string that was ALREADY serialized for DB write (line 283)
+      // This is NOT duplicate serialization - hooks reuse the JSON created for the DB write,
+      // making validation/metrics essentially free without re-serializing.
       if (serializationHooks != null && !serializationHooks.isEmpty()) {
         for (AspectSerializationHook hook : serializationHooks) {
           hook.afterSerialization(this, entityAspect);
