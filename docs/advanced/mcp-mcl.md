@@ -225,6 +225,26 @@ The writes to the elasticsearch are asynchronous by default. A writer can add a 
 `X-DataHub-Sync-Index-Update` to the MCP `headers` with value set to `true` to enable a synchronous update of
 elasticsearch for specific MCPs that may benefit from it.
 
+## Aspect Size Validation
+
+Validates aspect sizes to protect against very large aspect sizes being created or consumed.
+
+**Debugging flags - disabled by default.** See [Environment Variables - Aspect Size Validation](../deploy/environment-vars.md#aspect-size-validation) for configuration details and usage guidance.
+
+```yaml
+datahub:
+  validation:
+    aspectSize:
+      prePatch:
+        enabled: false # Validates existing aspects from DB before patch application
+        maxSizeBytes: 15728640
+        oversizedRemediation: DELETE # DELETE or IGNORE
+      postPatch:
+        enabled: false # Validates aspects after patch, before DB write
+        maxSizeBytes: 15728640
+        oversizedRemediation: DELETE
+```
+
 ## Change Data Capture (CDC) Mode for Generating MCLs
 
 ### Overview

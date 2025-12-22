@@ -108,6 +108,33 @@ Reference Links:
 | `ENTITY_SERVICE_ENABLE_RETENTION`          | `true`  | Enable entity retention       | GMS, MCE Consumer |
 | `ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP` | `false` | Apply retention on bootstrap  | GMS, MCE Consumer |
 
+### Aspect Size Validation
+
+Protects against aspects exceeding Jackson's 16MB deserialization limit. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
+
+| Environment Variable                                              | Default  | Description                                                                                    | Components |
+| ----------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application         | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 15728640 | Max size in bytes for pre-patch aspects (15MB, safety margin below 16MB Jackson limit)         | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `DELETE` | Remediation for oversized pre-patch aspects: `DELETE` (remove from DB) or `IGNORE` (log only)  | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write         | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 15728640 | Max size in bytes for post-patch aspects (15MB)                                                | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `DELETE` | Remediation for oversized post-patch aspects: `DELETE` (remove from DB) or `IGNORE` (log only) | GMS        |
+
+**Validation points:**
+
+- **Pre-patch:** Validates existing aspect from database before applying patches. Zero overhead (uses JSON already fetched from DB).
+- **Post-patch:** Validates aspect after patch application, before DB write. Zero overhead (uses JSON already created for DB write).
+
+**Remediation strategies:**
+
+- `DELETE`: Hard deletes oversized aspect from database, logs WARNING, routes MCP to `FailedMetadataChangeProposal` topic
+- `IGNORE`: Leaves aspect in database, logs WARNING, routes MCP to `FailedMetadataChangeProposal` topic
+
+**When to enable:** Use temporarily when investigating GMS crashes, debugging memory pressure, or cleaning up pre-existing oversized data. Prefer fixing the root cause at ingestion time.
+
+See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size-validation) for configuration examples and troubleshooting.
+
 ## Graph Service Configuration
 
 | Environment Variable                      | Default         | Description                                                                 | Components        |
