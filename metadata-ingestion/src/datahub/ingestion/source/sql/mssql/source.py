@@ -1543,6 +1543,25 @@ class SQLServerSource(SQLAlchemySource):
                     # No evidence it's a real table - filter it out
                     return True
 
+            # For 2-part names (schema.table), try to qualify with discovered databases
+            # to check if it's a real table before treating as alias/temp table
+            if len(parts) == 2:
+                # Use standardized parts for case-insensitive comparison
+                standardized_parts = standardized_name.split(".")
+                schema_name_std = standardized_parts[0]
+                table_name_std = standardized_parts[1]
+
+                # Try each discovered database to see if this table exists
+                for discovered_name in self.discovered_datasets:
+                    discovered_parts = discovered_name.split(".")
+                    if (
+                        len(discovered_parts) >= 3
+                        and discovered_parts[-2] == schema_name_std
+                        and discovered_parts[-1] == table_name_std
+                    ):
+                        # Found a matching fully-qualified table - not a temp table
+                        return False
+
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS (1-part or 2-part),
             # treat as alias/temp table since we can't verify they're real tables
             # without full qualification. This handles common TSQL aliases like "dst", "src".
