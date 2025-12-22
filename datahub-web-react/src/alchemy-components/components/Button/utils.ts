@@ -30,8 +30,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     const base = {
         // Backgrounds
         bgColor: color500,
-        hoverBgColor: getColor(color, 900, theme),
-        activeBgColor: getColor(color, 700, theme),
+        hoverBgColor: getColor(color, 800, theme),
+        activeBgColor: getColor(color, 900, theme),
         disabledBgColor: getColor('gray', 100, theme),
 
         // Borders
@@ -56,8 +56,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         base.bgColor = getColor('gray', 100, theme);
         base.borderColor = getColor('gray', 100, theme);
 
-        base.hoverBgColor = getColor('gray', 100, theme);
-        base.activeBgColor = getColor('gray', 200, theme);
+        base.hoverBgColor = getColor('gray', 200, theme);
+        base.activeBgColor = getColor('gray', 300, theme);
     }
 
     // Override styles for outline variant
@@ -69,7 +69,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
             textColor: color500,
 
             hoverBgColor: getColor(color, 100, theme),
-            activeBgColor: isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme),
+            activeBgColor: getColor(color, 200, theme),
 
             disabledBgColor: 'transparent',
         };
@@ -84,7 +84,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
             bgColor: colors.transparent,
             borderColor: colors.transparent,
             hoverBgColor: getColor(color, 100, theme),
-            activeBgColor: colors.transparent,
+            activeBgColor: getColor(color, 200, theme),
             disabledBgColor: colors.transparent,
             disabledBorderColor: colors.transparent,
         };
@@ -94,9 +94,9 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'secondary') {
         return {
             ...base,
-            bgColor: getColor('violet', 0),
-            hoverBgColor: getColor('violet', 100),
-            activeBgColor: getColor('violet', 200),
+            bgColor: getColor('primary', 0),
+            hoverBgColor: getColor('primary', 100),
+            activeBgColor: getColor('primary', 200),
             textColor: color500,
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
