@@ -1,11 +1,24 @@
 """Tests for ingestion tools."""
 
+from typing import cast
 from unittest.mock import Mock, patch
 
 from datahub_integrations.chat.agents.tools.ingestion import (
+    get_full_ingestion_log_size_from_s3,
+    get_full_ingestion_log_window_from_s3,
     get_ingestion_execution_logs,
     get_ingestion_execution_request,
     get_ingestion_source,
+    grep_full_ingestion_logs_from_s3,
+    is_s3_log_streaming_enabled,
+)
+from datahub_integrations.chat.agents.tools.log_formatting import (
+    GrepResult,
+    WindowingResult,
+)
+from datahub_integrations.telemetry.ingestion_events import (
+    S3LogStreamingRequestEvent,
+    S3LogStreamingResponseEvent,
 )
 
 SAMPLE_RECIPE_WITH_SECRETS = """
@@ -16,6 +29,45 @@ source:
     password: my-secret-password
     warehouse: COMPUTE_WH
 """
+
+
+class TestIsS3LogStreamingEnabled:
+    """Tests for is_s3_log_streaming_enabled function."""
+
+    def test_returns_true_by_default(self) -> None:
+        """Test that function returns True when env var is not set."""
+        with patch.dict("os.environ", {}, clear=True):
+            # Clear the cache before testing
+            is_s3_log_streaming_enabled.cache_clear()
+            assert is_s3_log_streaming_enabled() is True
+
+    def test_returns_true_when_explicitly_enabled(self) -> None:
+        """Test that function returns True when env var is set to true."""
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "true"}):
+            # Clear the cache before testing
+            is_s3_log_streaming_enabled.cache_clear()
+            assert is_s3_log_streaming_enabled() is True
+
+    def test_returns_true_when_set_to_1(self) -> None:
+        """Test that function returns True when env var is set to 1."""
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "1"}):
+            # Clear the cache before testing
+            is_s3_log_streaming_enabled.cache_clear()
+            assert is_s3_log_streaming_enabled() is True
+
+    def test_returns_false_when_explicitly_disabled(self) -> None:
+        """Test that function returns False when env var is set to false."""
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "false"}):
+            # Clear the cache before testing
+            is_s3_log_streaming_enabled.cache_clear()
+            assert is_s3_log_streaming_enabled() is False
+
+    def test_returns_false_when_set_to_0(self) -> None:
+        """Test that function returns False when env var is set to 0."""
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "0"}):
+            # Clear the cache before testing
+            is_s3_log_streaming_enabled.cache_clear()
+            assert is_s3_log_streaming_enabled() is False
 
 
 class TestGetIngestionSource:
@@ -174,7 +226,10 @@ class TestGetIngestionExecutionLogs:
         log_lines = "\n".join([f"Log line {i}" for i in range(1, 201)])
         mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
 
-        result = get_ingestion_execution_logs("urn:li:executionRequest:test")
+        result = cast(
+            WindowingResult,
+            get_ingestion_execution_logs("urn:li:executionRequest:test"),
+        )
 
         assert result["total_lines"] == 200
         assert result["lines_returned"] == 150  # Default lines_from_end
@@ -190,10 +245,13 @@ class TestGetIngestionExecutionLogs:
         log_lines = "\n".join([f"Log line {i}" for i in range(1, 301)])
         mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
 
-        result = get_ingestion_execution_logs(
-            "urn:li:executionRequest:test",
-            lines_from_end=100,
-            offset_from_end=150,
+        result = cast(
+            WindowingResult,
+            get_ingestion_execution_logs(
+                "urn:li:executionRequest:test",
+                lines_from_end=100,
+                offset_from_end=150,
+            ),
         )
 
         assert result["total_lines"] == 300
@@ -236,11 +294,14 @@ class TestGetIngestionExecutionLogs:
         )
         mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
 
-        result = get_ingestion_execution_logs(
-            "urn:li:executionRequest:test",
-            grep_phrase="ERROR",
-            lines_after_match=1,
-            lines_before_match=1,
+        result = cast(
+            GrepResult,
+            get_ingestion_execution_logs(
+                "urn:li:executionRequest:test",
+                grep_phrase="ERROR",
+                lines_after_match=1,
+                lines_before_match=1,
+            ),
         )
 
         assert result["matches_found"] == 2
@@ -257,9 +318,12 @@ class TestGetIngestionExecutionLogs:
         log_lines = "\n".join([f"Log line {i}" for i in range(1, 11)])
         mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
 
-        result = get_ingestion_execution_logs(
-            "urn:li:executionRequest:test",
-            grep_phrase="ERROR",
+        result = cast(
+            GrepResult,
+            get_ingestion_execution_logs(
+                "urn:li:executionRequest:test",
+                grep_phrase="ERROR",
+            ),
         )
 
         assert result["matches_found"] == 0
@@ -276,40 +340,22 @@ class TestGetIngestionExecutionLogs:
         log_lines = "\n".join([f"ERROR line {i}" for i in range(1, 11)])
         mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
 
-        result = get_ingestion_execution_logs(
-            "urn:li:executionRequest:test",
-            grep_phrase="ERROR",
-            max_matches_returned=3,
-            lines_after_match=1,
-            lines_before_match=0,
+        result = cast(
+            GrepResult,
+            get_ingestion_execution_logs(
+                "urn:li:executionRequest:test",
+                grep_phrase="ERROR",
+                max_matches_returned=3,
+                lines_after_match=1,
+                lines_before_match=0,
+            ),
         )
 
         # Should find all matches but only return limited number
         assert result["matches_found"] > result["matches_returned"]
         assert result["matches_returned"] == 3
         assert result["truncated"] is True
-        assert "max_matches_returned" in result["truncation_reason"]
-
-    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
-    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
-    def test_grep_mode_truncates_by_max_total_lines(
-        self, mock_execute_graphql: Mock, mock_get_client: Mock
-    ) -> None:
-        """Test grep mode truncates when max_total_lines would be exceeded."""
-        log_lines = "\n".join([f"ERROR line {i}" for i in range(1, 11)])
-        mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
-
-        result = get_ingestion_execution_logs(
-            "urn:li:executionRequest:test",
-            grep_phrase="ERROR",
-            max_matches_returned=10,
-            lines_after_match=100,
-            max_total_lines=50,
-        )
-
-        assert result["matches_found"] >= result["matches_returned"]
-        assert result["truncated"] is True
-        assert "max_total_lines" in result["truncation_reason"]
+        assert "TRUNCATED" in result["message"]
 
     @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
     @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
@@ -440,13 +486,15 @@ class TestGetIngestionExecutionLogs:
         mock_execute_graphql.return_value = self._create_mock_graphql_result(log_lines)
 
         # Call with defaults
-        result = get_ingestion_execution_logs(
-            "urn:li:executionRequest:test", grep_phrase="ERROR"
+        result = cast(
+            GrepResult,
+            get_ingestion_execution_logs(
+                "urn:li:executionRequest:test", grep_phrase="ERROR"
+            ),
         )
 
         # Defaults should limit output
         assert result["matches_returned"] <= 3  # max_matches_returned default
-        assert result["lines_returned"] <= 500  # max_total_lines default
 
     @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
     @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
@@ -489,3 +537,399 @@ class TestGetIngestionExecutionLogs:
         assert "truncated" in result
         assert "grep_phrase" in result
         assert "message" in result
+
+
+class TestGetFullIngestionLogSizeFromS3:
+    """Tests for get_full_ingestion_log_size_from_s3 function."""
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.requests.head")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_returns_file_size_successfully(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_requests_head: Mock,
+    ) -> None:
+        """Test that function returns file size when S3 logs are available."""
+        mock_execute_graphql.return_value = {
+            "getExecutionRequestDownloadUrl": {
+                "downloadUrl": "https://s3.amazonaws.com/bucket/key?signature=xyz",
+                "expiresIn": 3600,
+            }
+        }
+
+        mock_head_response = Mock()
+        mock_head_response.status_code = 200
+        mock_head_response.headers = {"Content-Length": "5242880"}  # 5 MB
+        mock_requests_head.return_value = mock_head_response
+
+        result = get_full_ingestion_log_size_from_s3(
+            "urn:li:dataHubExecutionRequest:test"
+        )
+
+        assert result["available"] is True
+        assert result["file_size_bytes"] == 5242880
+        assert result["file_size_mb"] == 5.0
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_missing_download_url(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test handling when S3 logs are not available."""
+        mock_execute_graphql.return_value = {"getExecutionRequestDownloadUrl": None}
+
+        result = get_full_ingestion_log_size_from_s3(
+            "urn:li:dataHubExecutionRequest:test"
+        )
+
+        assert "error" in result
+        assert result["available"] is False
+        assert "S3 logs not available" in result["error"]
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_graphql_error(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock
+    ) -> None:
+        """Test handling when GraphQL call fails."""
+        mock_execute_graphql.side_effect = Exception("GraphQL error")
+
+        result = get_full_ingestion_log_size_from_s3(
+            "urn:li:dataHubExecutionRequest:test"
+        )
+
+        assert "error" in result
+        assert result["available"] is False
+        assert "Failed to get S3 download URL" in result["error"]
+
+
+class TestGrepFullIngestionLogsFromS3:
+    """Tests for grep_full_ingestion_logs_from_s3 function."""
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.requests.head")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.stream_grep_mode")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_searches_logs_for_phrase(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_stream_grep: Mock,
+        mock_requests_head: Mock,
+        mock_track_event: Mock,
+    ) -> None:
+        """Test that function searches logs for specified phrase."""
+        mock_execute_graphql.return_value = {
+            "getExecutionRequestDownloadUrl": {
+                "downloadUrl": "https://s3.amazonaws.com/bucket/key?signature=xyz",
+                "expiresIn": 3600,
+            }
+        }
+        mock_stream_grep.return_value = {
+            "logs": "ERROR found",
+            "matches_found": 1,
+            "matches_returned": 1,
+            "total_lines": 100,
+            "lines_returned": 30,
+        }
+
+        result = grep_full_ingestion_logs_from_s3(
+            "urn:li:dataHubExecutionRequest:test",
+            grep_phrase="ERROR",
+        )
+
+        # Verify grep mode was called with correct parameters
+        mock_stream_grep.assert_called_once()
+        assert mock_stream_grep.call_args[1]["grep_phrase"] == "ERROR"
+
+        # Verify result is returned correctly
+        assert result["logs"] == "ERROR found"
+        assert result["matches_found"] == 1
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_missing_download_url(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock, mock_track_event: Mock
+    ) -> None:
+        """Test handling when S3 logs are not available."""
+        mock_execute_graphql.return_value = {"getExecutionRequestDownloadUrl": None}
+
+        result = grep_full_ingestion_logs_from_s3(
+            "urn:li:dataHubExecutionRequest:test", grep_phrase="ERROR"
+        )
+
+        assert "message" in result
+        assert "S3 logs not available" in result["message"]
+        assert result["total_lines"] == 0
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.requests.head")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.stream_grep_mode")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_tracks_grep_parameters(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_stream_grep: Mock,
+        mock_requests_head: Mock,
+        mock_track_event: Mock,
+    ) -> None:
+        """Test that grep parameters are tracked correctly."""
+        mock_execute_graphql.return_value = {
+            "getExecutionRequestDownloadUrl": {
+                "downloadUrl": "https://s3.amazonaws.com/bucket/logs/file.log.gz?signature=xyz",
+                "expiresIn": 3600,
+            }
+        }
+        mock_stream_grep.return_value = {
+            "logs": "test logs",
+            "total_lines": 500,
+            "lines_returned": 75,
+            "matches_found": 10,
+            "matches_returned": 3,
+            "truncated": True,
+        }
+
+        # Mock HEAD request
+        mock_head_response = Mock()
+        mock_head_response.status_code = 200
+        mock_head_response.headers = {"Content-Length": "5242880"}  # 5 MB
+        mock_requests_head.return_value = mock_head_response
+
+        grep_full_ingestion_logs_from_s3(
+            "urn:li:dataHubExecutionRequest:test",
+            grep_phrase="ERROR",
+            lines_after_match=30,
+            lines_before_match=10,
+            max_matches_returned=3,
+        )
+
+        # Verify request event has grep parameters
+        request_event = mock_track_event.call_args_list[0][0][0]
+        assert request_event.mode == "grep"
+        assert request_event.grep_phrase == "ERROR"
+        assert request_event.lines_after_match == 30
+        assert request_event.lines_before_match == 10
+        assert request_event.max_matches_returned == 3
+
+        # Verify response event has grep results
+        response_event = mock_track_event.call_args_list[1][0][0]
+        assert response_event.mode == "grep"
+        assert response_event.matches_found == 10
+        assert response_event.matches_returned == 3
+        assert response_event.truncated is True
+
+
+class TestGetFullIngestionLogWindowFromS3:
+    """Tests for get_full_ingestion_log_window_from_s3 function."""
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.requests.head")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.stream_windowing_mode")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_gets_presigned_url_and_streams_logs(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_stream_windowing: Mock,
+        mock_requests_head: Mock,
+        mock_track_event: Mock,
+    ) -> None:
+        """Test that function gets presigned URL and streams logs."""
+        mock_execute_graphql.return_value = {
+            "getExecutionRequestDownloadUrl": {
+                "downloadUrl": "https://s3.amazonaws.com/bucket/key?signature=xyz",
+                "expiresIn": 3600,
+            }
+        }
+        mock_stream_windowing.return_value = {
+            "logs": "Log content",
+            "total_lines": 100,
+            "lines_returned": 50,
+        }
+
+        result = get_full_ingestion_log_window_from_s3(
+            "urn:li:dataHubExecutionRequest:test",
+            lines_from_end=50,
+        )
+
+        # Verify GraphQL was called with correct operation
+        assert (
+            mock_execute_graphql.call_args[1]["operation_name"]
+            == "getExecutionRequestDownloadUrl"
+        )
+
+        # Verify streaming function was called with presigned URL
+        mock_stream_windowing.assert_called_once()
+        assert (
+            mock_stream_windowing.call_args[1]["presigned_url"]
+            == "https://s3.amazonaws.com/bucket/key?signature=xyz"
+        )
+
+        # Verify result is returned
+        assert result["logs"] == "Log content"
+        assert result["total_lines"] == 100
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_missing_download_url(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock, mock_track_event: Mock
+    ) -> None:
+        """Test handling when S3 logs are not available."""
+        mock_execute_graphql.return_value = {"getExecutionRequestDownloadUrl": None}
+
+        result = get_full_ingestion_log_window_from_s3(
+            "urn:li:dataHubExecutionRequest:test"
+        )
+
+        assert "message" in result
+        assert "S3 logs not available" in result["message"]
+        assert result["total_lines"] == 0
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_handles_graphql_error(
+        self, mock_execute_graphql: Mock, mock_get_client: Mock, mock_track_event: Mock
+    ) -> None:
+        """Test handling when GraphQL call fails."""
+        mock_execute_graphql.side_effect = Exception("GraphQL error")
+
+        result = get_full_ingestion_log_window_from_s3(
+            "urn:li:dataHubExecutionRequest:test"
+        )
+
+        assert "message" in result
+        assert "Failed to get S3 download URL" in result["message"]
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.requests.head")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.stream_windowing_mode")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_passes_all_parameters_to_streaming_functions(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_stream_windowing: Mock,
+        mock_requests_head: Mock,
+        mock_track_event: Mock,
+    ) -> None:
+        """Test that all parameters are passed correctly to streaming functions."""
+        mock_execute_graphql.return_value = {
+            "getExecutionRequestDownloadUrl": {
+                "downloadUrl": "https://s3.amazonaws.com/bucket/key?signature=xyz",
+                "expiresIn": 3600,
+            }
+        }
+        mock_stream_windowing.return_value = {"logs": "test"}
+
+        get_full_ingestion_log_window_from_s3(
+            "urn:li:dataHubExecutionRequest:test",
+            lines_from_end=200,
+            offset_from_end=100,
+        )
+
+        # Verify parameters were passed
+        assert mock_stream_windowing.call_args[1]["lines_from_end"] == 200
+        assert mock_stream_windowing.call_args[1]["offset_from_end"] == 100
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.requests.head")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.stream_windowing_mode")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_emits_tracking_events_on_success(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_stream_windowing: Mock,
+        mock_requests_head: Mock,
+        mock_track_event: Mock,
+    ) -> None:
+        """Test that tracking events are emitted on successful S3 streaming."""
+        mock_execute_graphql.return_value = {
+            "getExecutionRequestDownloadUrl": {
+                "downloadUrl": "https://s3.amazonaws.com/bucket/logs/file.log.gz?signature=xyz",
+                "expiresIn": 3600,
+            }
+        }
+        mock_stream_windowing.return_value = {
+            "logs": "test logs",
+            "total_lines": 100,
+            "lines_returned": 50,
+        }
+
+        # Mock HEAD request to return file size
+        mock_head_response = Mock()
+        mock_head_response.status_code = 200
+        mock_head_response.headers = {"Content-Length": "1048576"}  # 1 MB
+        mock_requests_head.return_value = mock_head_response
+
+        get_full_ingestion_log_window_from_s3(
+            "urn:li:dataHubExecutionRequest:test",
+            lines_from_end=150,
+        )
+
+        # Verify tracking events were emitted
+        assert mock_track_event.call_count == 2  # Request and Response events
+
+        # Verify request event
+        request_event = mock_track_event.call_args_list[0][0][0]
+        assert isinstance(request_event, S3LogStreamingRequestEvent)
+        assert (
+            request_event.execution_request_urn == "urn:li:dataHubExecutionRequest:test"
+        )
+        assert request_event.mode == "windowing"
+        assert request_event.lines_from_end == 150
+
+        # Verify response event
+        response_event = mock_track_event.call_args_list[1][0][0]
+        assert isinstance(response_event, S3LogStreamingResponseEvent)
+        assert (
+            response_event.execution_request_urn
+            == "urn:li:dataHubExecutionRequest:test"
+        )
+        assert response_event.mode == "windowing"
+        assert response_event.total_lines == 100
+        assert response_event.lines_returned == 50
+        assert response_event.s3_file_size_bytes == 1048576
+        assert response_event.s3_file_path is not None
+        assert "logs/file.log.gz" in response_event.s3_file_path
+        assert response_event.stream_duration_ms >= 0  # Can be 0 in mocked test
+        assert response_event.error_msg is None
+
+    @patch("datahub_integrations.chat.agents.tools.ingestion.track_saas_event")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.get_datahub_client")
+    @patch("datahub_integrations.chat.agents.tools.ingestion.execute_graphql")
+    def test_emits_tracking_events_on_s3_unavailable(
+        self,
+        mock_execute_graphql: Mock,
+        mock_get_client: Mock,
+        mock_track_event: Mock,
+    ) -> None:
+        """Test that tracking events are emitted when S3 logs are unavailable."""
+        mock_execute_graphql.return_value = {"getExecutionRequestDownloadUrl": None}
+
+        get_full_ingestion_log_window_from_s3("urn:li:dataHubExecutionRequest:test")
+
+        # Verify tracking events were emitted
+        assert mock_track_event.call_count == 2  # Request and Response events
+
+        # Verify request event
+        request_event = mock_track_event.call_args_list[0][0][0]
+        assert isinstance(request_event, S3LogStreamingRequestEvent)
+
+        # Verify response event includes error
+        response_event = mock_track_event.call_args_list[1][0][0]
+        assert isinstance(response_event, S3LogStreamingResponseEvent)
+        assert response_event.is_s3_unavailable is True
+        assert response_event.error_msg is not None
+        assert "S3 logs not available" in response_event.error_msg

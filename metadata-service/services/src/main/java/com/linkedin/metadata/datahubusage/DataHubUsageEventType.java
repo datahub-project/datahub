@@ -270,6 +270,8 @@ public enum DataHubUsageEventType {
   INFER_DOCS_API_RESPONSE_EVENT("InferDocsApiResponse"),
   TROUBLESHOOTING_API_REQUEST_EVENT("TroubleshootingApiRequest"),
   TROUBLESHOOTING_API_RESPONSE_EVENT("TroubleshootingApiResponse"),
+  S3_LOG_STREAMING_REQUEST_EVENT("S3LogStreamingRequest"),
+  S3_LOG_STREAMING_RESPONSE_EVENT("S3LogStreamingResponse"),
 
   // Onboarding flow events
   FREE_TRIAL_CONTACT_SALES_CLICK_EVENT("FreeTrialContactSalesClickEvent"),

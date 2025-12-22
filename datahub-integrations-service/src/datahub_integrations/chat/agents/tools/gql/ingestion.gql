@@ -96,3 +96,15 @@ query executionRequestResult($urn: String!) {
         }
     }
 }
+
+query getExecutionRequestDownloadUrl($urn: String!, $expirationSeconds: Int) {
+    getExecutionRequestDownloadUrl(
+        input: {
+            executionRequestUrn: $urn
+            expirationSeconds: $expirationSeconds
+        }
+    ) {
+        downloadUrl
+        expiresIn
+    }
+}

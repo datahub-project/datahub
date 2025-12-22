@@ -28,9 +28,13 @@ from datahub_integrations.chat.agents.data_catalog_tools import (
     is_smart_search_enabled,
 )
 from datahub_integrations.chat.agents.tools.ingestion import (
+    get_full_ingestion_log_size_from_s3,
+    get_full_ingestion_log_window_from_s3,
     get_ingestion_execution_logs,
     get_ingestion_execution_request,
     get_ingestion_source,
+    grep_full_ingestion_logs_from_s3,
+    is_s3_log_streaming_enabled,
 )
 from datahub_integrations.chat.agents.tools.troubleshoot import (
     is_troubleshoot_available,
@@ -136,6 +140,31 @@ def create_ingestion_troubleshooting_agent(
             ),
         ]
     )
+
+    # Add S3 log streaming tools if enabled
+    if is_s3_log_streaming_enabled():
+        plannable_tools.extend(
+            [
+                ToolWrapper.from_function(
+                    fn=async_background(get_full_ingestion_log_size_from_s3),
+                    name="get_full_ingestion_log_size_from_s3",
+                    description=get_full_ingestion_log_size_from_s3.__doc__
+                    or "Check size of complete S3 logs",
+                ),
+                ToolWrapper.from_function(
+                    fn=async_background(grep_full_ingestion_logs_from_s3),
+                    name="grep_full_ingestion_logs_from_s3",
+                    description=grep_full_ingestion_logs_from_s3.__doc__
+                    or "Search for patterns in complete S3 logs",
+                ),
+                ToolWrapper.from_function(
+                    fn=async_background(get_full_ingestion_log_window_from_s3),
+                    name="get_full_ingestion_log_window_from_s3",
+                    description=get_full_ingestion_log_window_from_s3.__doc__
+                    or "Fetch specific line ranges from complete S3 logs",
+                ),
+            ]
+        )
 
     # Add smart_search if enabled
     if is_smart_search_enabled():

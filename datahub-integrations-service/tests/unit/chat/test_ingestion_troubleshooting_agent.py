@@ -7,6 +7,9 @@ from datahub.sdk.main_client import DataHubClient
 from datahub_integrations.chat.agents.ingestion_troubleshooting_agent import (
     create_ingestion_troubleshooting_agent,
 )
+from datahub_integrations.chat.agents.tools.ingestion import (
+    is_s3_log_streaming_enabled,
+)
 
 
 class TestIngestionTroubleshootingAgentFactory:
@@ -87,3 +90,88 @@ class TestIngestionTroubleshootingAgentFactory:
                 assert "get_ingestion_source" in plannable_tool_names
                 assert "get_ingestion_execution_request" in plannable_tool_names
                 assert "get_ingestion_execution_logs" in plannable_tool_names
+
+    def test_s3_log_streaming_tool_registered_by_default(self) -> None:
+        """S3 log streaming tool is registered by default when env var not set."""
+        # Clear the cache before testing
+        is_s3_log_streaming_enabled.cache_clear()
+        with patch.dict("os.environ", {}, clear=True):
+            # Patch MCP registration to avoid side effects
+            with patch(
+                "datahub_integrations.chat.agents.ingestion_troubleshooting_agent.register_all_tools"
+            ):
+                agent = create_ingestion_troubleshooting_agent(self.mock_client)
+
+                # Check that S3 log streaming tools are in the agent's tools (enabled by default)
+                tool_names = [tool.name for tool in agent.tools]
+                assert "get_full_ingestion_log_size_from_s3" in tool_names
+                assert "grep_full_ingestion_logs_from_s3" in tool_names
+                assert "get_full_ingestion_log_window_from_s3" in tool_names
+
+    def test_s3_log_streaming_tool_registered_when_enabled(self) -> None:
+        """S3 log streaming tools are registered when explicitly enabled."""
+        # Clear the cache before testing
+        is_s3_log_streaming_enabled.cache_clear()
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "true"}):
+            # Patch MCP registration to avoid side effects
+            with patch(
+                "datahub_integrations.chat.agents.ingestion_troubleshooting_agent.register_all_tools"
+            ):
+                agent = create_ingestion_troubleshooting_agent(self.mock_client)
+
+                # Check that S3 log streaming tools are in the agent's tools
+                tool_names = [tool.name for tool in agent.tools]
+                assert "get_full_ingestion_log_size_from_s3" in tool_names
+                assert "grep_full_ingestion_logs_from_s3" in tool_names
+                assert "get_full_ingestion_log_window_from_s3" in tool_names
+
+                # Also verify they're in plannable_tools
+                plannable_tool_names = [tool.name for tool in agent.plannable_tools]
+                assert "get_full_ingestion_log_size_from_s3" in plannable_tool_names
+                assert "grep_full_ingestion_logs_from_s3" in plannable_tool_names
+                assert "get_full_ingestion_log_window_from_s3" in plannable_tool_names
+
+    def test_s3_log_streaming_tool_not_registered_when_disabled(self) -> None:
+        """S3 log streaming tools are not registered when explicitly disabled."""
+        # Clear the cache before testing
+        is_s3_log_streaming_enabled.cache_clear()
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "false"}):
+            # Patch MCP registration to avoid side effects
+            with patch(
+                "datahub_integrations.chat.agents.ingestion_troubleshooting_agent.register_all_tools"
+            ):
+                agent = create_ingestion_troubleshooting_agent(self.mock_client)
+
+                # Check that S3 log streaming tools are not in the agent's tools
+                tool_names = [tool.name for tool in agent.tools]
+                assert "get_full_ingestion_log_size_from_s3" not in tool_names
+                assert "grep_full_ingestion_logs_from_s3" not in tool_names
+                assert "get_full_ingestion_log_window_from_s3" not in tool_names
+
+                # Also verify they're not in plannable_tools
+                plannable_tool_names = [tool.name for tool in agent.plannable_tools]
+                assert "get_full_ingestion_log_size_from_s3" not in plannable_tool_names
+                assert "grep_full_ingestion_logs_from_s3" not in plannable_tool_names
+                assert (
+                    "get_full_ingestion_log_window_from_s3" not in plannable_tool_names
+                )
+
+    def test_agent_creates_successfully_without_s3_tool(self) -> None:
+        """Agent can be created successfully even when S3 tool is disabled."""
+        # Clear the cache before testing
+        is_s3_log_streaming_enabled.cache_clear()
+        with patch.dict("os.environ", {"S3_LOG_STREAMING_ENABLED": "false"}):
+            # Patch MCP registration to avoid side effects
+            with patch(
+                "datahub_integrations.chat.agents.ingestion_troubleshooting_agent.register_all_tools"
+            ):
+                agent = create_ingestion_troubleshooting_agent(self.mock_client)
+
+                # Agent should be created successfully
+                assert agent is not None
+                assert agent.client == self.mock_client
+                # Should still have other ingestion tools
+                tool_names = [tool.name for tool in agent.tools]
+                assert "get_ingestion_source" in tool_names
+                assert "get_ingestion_execution_request" in tool_names
+                assert "get_ingestion_execution_logs" in tool_names
