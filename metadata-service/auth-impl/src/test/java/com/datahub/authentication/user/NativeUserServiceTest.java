@@ -63,26 +63,27 @@ public class NativeUserServiceTest {
 
   @Test
   public void testCreateNativeUserNullArguments() {
+    // userUrn is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
                 mock(OperationContext.class), null, FULL_NAME, EMAIL, TITLE, PASSWORD));
+    // fullName is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
                 mock(OperationContext.class), USER_URN_STRING, null, EMAIL, TITLE, PASSWORD));
+    // email is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
                 mock(OperationContext.class), USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD));
-    assertThrows(
-        () ->
-            _nativeUserService.createNativeUser(
-                mock(OperationContext.class), USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD));
+    // password is required
     assertThrows(
         () ->
             _nativeUserService.createNativeUser(
                 mock(OperationContext.class), USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null));
+    // Note: title is optional, so null title should NOT throw
   }
 
   @Test(
@@ -306,5 +307,28 @@ public class NativeUserServiceTest {
     assertFalse(
         _nativeUserService.doesPasswordMatch(
             mock(OperationContext.class), USER_URN_STRING, PASSWORD));
+  }
+
+  @Test
+  public void testCreateNativeUserWithNullTitle() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), any(Urn.class), anyBoolean()))
+        .thenReturn(false);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
+    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
+
+    // Should succeed with null title
+    _nativeUserService.createNativeUser(
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD);
+
+    // Verify ingestProposal was called 3 times (corpUserInfo, corpUserStatus, corpUserCredentials)
+    verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testUpdateCorpUserInfoWithNullTitle() throws Exception {
+    // Should succeed with null title - title field will not be set on CorpUserInfo
+    _nativeUserService.updateCorpUserInfo(opContext, USER_URN, FULL_NAME, EMAIL, null);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 }
