@@ -17,6 +17,20 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>This validation applies to ALL aspect writes (REST, GraphQL, MCP), configured via
  * datahub.validation.aspectSize.postPatch.
+ *
+ * <p><b>Why This Hook Exists:</b> This hook implements aspect size validation at zero performance
+ * cost by reusing serialization that is ALREADY REQUIRED before database writes. Aspects must be
+ * serialized to JSON before being written to the database - this is not optional. By implementing
+ * AspectSerializationHook, we can inspect the already-serialized JSON string without introducing a
+ * second serialization into the hot path. Since JSON serialization is one of the most expensive
+ * parts of MCP processing, adding a second serialization just for size validation would effectively
+ * double this cost. The hook design makes size validation essentially free.
+ *
+ * <p><b>Why Size Validation is Necessary:</b> At least one customer has oversized aspects in their
+ * database, and all customers can potentially create them. Without validation, aspects can grow
+ * beyond Jackson's 16MB deserialization limit, causing unrecoverable failures when reading those
+ * aspects back. This validation provides a sanity check to prevent creating aspects that cannot be
+ * read later.
  */
 @Slf4j
 public class AspectSizeValidationHook implements AspectSerializationHook {

@@ -25,8 +25,12 @@ import javax.annotation.Nonnull;
  *   <li>Audit logging: Record what aspects are being written
  * </ul>
  *
- * <p><b>Performance:</b> The JSON string in {@code serializedAspect} was already created for the
- * database write, so hooks can inspect it without additional serialization cost.
+ * <p><b>Performance:</b> Aspects MUST be serialized to JSON before database writes - this is a
+ * required step, not optional. The JSON string in {@code serializedAspect} is this already-created
+ * serialization, so hooks can inspect it at zero additional cost. Since JSON serialization is one
+ * of the most expensive operations in MCP processing, performing a second serialization just for
+ * validation would effectively double this cost. The hook pattern makes validation essentially free
+ * by reusing the required serialization.
  *
  * <p><b>Implementation Note:</b> Hooks are registered as Spring beans and auto-injected via
  * {@code @Autowired List<AspectSerializationHook>} in {@code EntityAspectDaoFactory}.

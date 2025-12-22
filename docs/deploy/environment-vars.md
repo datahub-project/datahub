@@ -112,14 +112,14 @@ Reference Links:
 
 Protects against aspects exceeding Jackson's 16MB deserialization limit. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
 
-| Environment Variable                                              | Default  | Description                                                                                    | Components |
-| ----------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------- | ---------- |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application         | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 15728640 | Max size in bytes for pre-patch aspects (15MB, safety margin below 16MB Jackson limit)         | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `DELETE` | Remediation for oversized pre-patch aspects: `DELETE` (remove from DB) or `IGNORE` (log only)  | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write         | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 15728640 | Max size in bytes for post-patch aspects (15MB)                                                | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `DELETE` | Remediation for oversized post-patch aspects: `DELETE` (remove from DB) or `IGNORE` (log only) | GMS        |
+| Environment Variable                                              | Default              | Description                                                                                                       | Components |
+| ----------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`              | Enable pre-patch validation - checks existing aspects from DB before patch application                            | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 15728640             | Max size in bytes for pre-patch aspects (15MB, safety margin below 16MB Jackson limit)                            | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `REPLACE_WITH_PATCH` | Remediation for oversized pre-patch aspects: `REPLACE_WITH_PATCH` (delete old, continue) or `IGNORE` (reject MCP) | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`              | Enable post-patch validation - checks aspects after patch application, before DB write                            | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 15728640             | Max size in bytes for post-patch aspects (15MB)                                                                   | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION` | `DELETE`             | Remediation for oversized post-patch aspects: `DELETE` (remove from DB) or `IGNORE` (log only)                    | GMS        |
 
 **Validation points:**
 
@@ -128,8 +128,9 @@ Protects against aspects exceeding Jackson's 16MB deserialization limit. **Debug
 
 **Remediation strategies:**
 
-- `DELETE`: Hard deletes oversized aspect from database, logs WARNING, routes MCP to `FailedMetadataChangeProposal` topic
-- `IGNORE`: Leaves aspect in database, logs WARNING, routes MCP to `FailedMetadataChangeProposal` topic
+- `REPLACE_WITH_PATCH` (pre-patch only): Deletes oversized existing aspect, continues with write as insert (no merge). If new patch is also oversized, post-patch validation will catch it.
+- `DELETE` (post-patch only): Hard deletes oversized aspect from database, logs WARNING, routes MCP to `FailedMetadataChangeProposal` topic
+- `IGNORE` (both): Leaves aspect in database (pre-patch) or rejects write (post-patch), logs WARNING, routes MCP to `FailedMetadataChangeProposal` topic
 
 **When to enable:** Use temporarily when investigating GMS crashes, debugging memory pressure, or cleaning up pre-existing oversized data. Prefer fixing the root cause at ingestion time.
 

@@ -182,25 +182,37 @@ public class EbeanSystemAspect implements SystemAspect {
                 threshold);
 
             // Handle oversized aspect according to remediation strategy
-            if (remediation == OversizedAspectRemediation.DELETE && aspectDao != null) {
+            if (remediation == OversizedAspectRemediation.REPLACE_WITH_PATCH && aspectDao != null) {
               try {
                 aspectDao.deleteAspect(urn, aspectName, 0L);
                 log.warn(
-                    "Hard deleted oversized pre-patch aspect from database: urn={}, aspect={}",
+                    "Deleted oversized pre-patch aspect, replacing with new patch as insert: urn={}, aspect={}",
                     urn,
                     aspectName);
+                // Clear ebeanAspectV2 so this is treated as an insert (no merge with old data)
+                this.ebeanAspectV2 = null;
+                // Continue processing - don't throw. If the NEW patch is oversized,
+                // post-patch validation will catch it
               } catch (Exception e) {
                 log.error(
-                    "Failed to delete oversized pre-patch aspect: urn={}, aspect={}",
+                    "Failed to delete oversized pre-patch aspect for replacement: urn={}, aspect={}",
                     urn,
                     aspectName,
                     e);
+                // If deletion fails, throw exception to prevent corrupt state
+                throw new AspectSizeExceededException(
+                    ValidationPoint.PRE_DB_PATCH,
+                    actualSize,
+                    threshold,
+                    urn.toString(),
+                    aspectName);
               }
+            } else {
+              // IGNORE (or any other remediation): throw exception to reject the MCP, leaving
+              // oversized aspect in DB
+              throw new AspectSizeExceededException(
+                  ValidationPoint.PRE_DB_PATCH, actualSize, threshold, urn.toString(), aspectName);
             }
-
-            // For both DELETE and IGNORE: throw exception to prevent processing
-            throw new AspectSizeExceededException(
-                ValidationPoint.PRE_DB_PATCH, actualSize, threshold, urn.toString(), aspectName);
           }
         }
       }

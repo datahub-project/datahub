@@ -238,7 +238,7 @@ datahub:
       prePatch:
         enabled: false # Validates existing aspects from DB before patch application
         maxSizeBytes: 15728640
-        oversizedRemediation: DELETE # DELETE or IGNORE
+        oversizedRemediation: REPLACE_WITH_PATCH # REPLACE_WITH_PATCH (delete old, continue) or IGNORE (reject MCP)
       postPatch:
         enabled: false # Validates aspects after patch, before DB write
         maxSizeBytes: 15728640

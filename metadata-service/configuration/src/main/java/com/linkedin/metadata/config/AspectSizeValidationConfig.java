@@ -14,10 +14,11 @@ import lombok.NoArgsConstructor;
 public class AspectSizeValidationConfig {
   /**
    * Validates existing aspect in DB before patch application (measures: raw JSON string character
-   * count from database). Use to catch pre-existing oversized aspects.
+   * count from database). Use to catch pre-existing oversized aspects. REPLACE_WITH_PATCH
+   * remediation deletes the oversized aspect and continues with the write as an insert.
    */
   private AspectCheckpointConfig prePatch =
-      new AspectCheckpointConfig(false, 15728640L, OversizedAspectRemediation.DELETE);
+      new AspectCheckpointConfig(false, 15728640L, OversizedAspectRemediation.REPLACE_WITH_PATCH);
 
   /**
    * Validates aspect after patch application, in DAO before DB write (measures: serialized JSON
