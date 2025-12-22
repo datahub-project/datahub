@@ -4,21 +4,21 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 
 /**
- * Exception thrown when a message or aspect exceeds configured size limits.
+ * Exception thrown when an aspect exceeds configured size limits during validation.
  *
- * <p>validationPoint indicates where validation occurred: "mcp_incoming" (from Kafka),
- * "aspect_update" (after patch), or "mcl_outgoing" (to Kafka).
+ * <p>Includes the validation point (PRE_DB_PATCH or POST_DB_PATCH), actual size, threshold, and
+ * aspect identity for debugging.
  */
 @Getter
 public class AspectSizeExceededException extends RuntimeException {
-  private final String validationPoint;
+  private final ValidationPoint validationPoint;
   private final long actualSize;
   private final long threshold;
   private final String urn;
   private final String aspectName;
 
   public AspectSizeExceededException(
-      @Nonnull String validationPoint,
+      @Nonnull ValidationPoint validationPoint,
       long actualSize,
       long threshold,
       @Nonnull String urn,

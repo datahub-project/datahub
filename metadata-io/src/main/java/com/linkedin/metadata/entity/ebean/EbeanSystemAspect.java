@@ -13,6 +13,7 @@ import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
+import com.linkedin.metadata.entity.validation.ValidationPoint;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -199,7 +200,7 @@ public class EbeanSystemAspect implements SystemAspect {
 
             // For both DELETE and IGNORE: throw exception to prevent processing
             throw new AspectSizeExceededException(
-                "prePatch", actualSize, threshold, urn.toString(), aspectName);
+                ValidationPoint.PRE_DB_PATCH, actualSize, threshold, urn.toString(), aspectName);
           }
         }
       }

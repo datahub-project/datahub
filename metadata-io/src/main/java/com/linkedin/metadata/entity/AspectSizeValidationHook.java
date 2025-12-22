@@ -6,6 +6,7 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.OversizedAspectRemediation;
 import com.linkedin.metadata.entity.validation.AspectSizeExceededException;
+import com.linkedin.metadata.entity.validation.ValidationPoint;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -76,7 +77,7 @@ public class AspectSizeValidationHook implements AspectSerializationHook {
 
       // For both DELETE and IGNORE: throw exception to prevent this write
       throw new AspectSizeExceededException(
-          "postPatch",
+          ValidationPoint.POST_DB_PATCH,
           actualSize,
           threshold,
           systemAspect.getUrn().toString(),
