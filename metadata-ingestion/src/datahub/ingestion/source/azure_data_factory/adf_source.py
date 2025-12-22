@@ -26,6 +26,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
@@ -41,6 +42,12 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
+)
+from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
+    ColumnLineageExtractor,
+    ColumnMapping,
+    CopyActivityColumnLineageExtractor,
+    DatasetSchemaInfo,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -69,6 +76,9 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     DataTransformClass,
     DataTransformLogicClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     QueryLanguageClass,
     QueryStatementClass,
 )
@@ -247,6 +257,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self._data_flows_cache: dict[str, dict[str, AdfDataFlow]] = {}
         self._pipelines_cache: dict[str, dict[str, Pipeline]] = {}
         self._triggers_cache: dict[str, list[Trigger]] = {}
+
+        # Column lineage extractors - extensible list of per-activity extractors
+        # Add new extractors here to support additional activity types
+        self._column_lineage_extractors: list[ColumnLineageExtractor] = [
+            CopyActivityColumnLineageExtractor(),
+        ]
 
     @classmethod
     def create(
@@ -614,6 +630,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             outlets=outlets,
         )
 
+        # Extract column-level lineage if enabled
+        if self.config.include_lineage and self.config.include_column_lineage:
+            column_lineage = self._extract_column_lineage(
+                activity, inlets, outlets, factory_key
+            )
+            if column_lineage:
+                datajob.set_fine_grained_lineages(column_lineage)
+
         return datajob
 
     def _extract_activity_inputs(
@@ -678,6 +702,119 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 pass  # Complex case, skip for now
 
         return outputs
+
+    def _extract_column_lineage(
+        self,
+        activity: Activity,
+        inlets: Optional[list[DatasetUrnOrStr]],
+        outlets: Optional[list[DatasetUrnOrStr]],
+        factory_key: str,
+    ) -> list[FineGrainedLineageClass]:
+        """Extract column-level lineage from an activity using registered extractors.
+
+        Args:
+            activity: The activity to extract column lineage from
+            inlets: Resolved input dataset URNs
+            outlets: Resolved output dataset URNs
+            factory_key: Factory key for context
+
+        Returns:
+            List of FineGrainedLineageClass objects for the DataJob
+        """
+        # Get first inlet/outlet as source/sink URNs
+        # For Copy activities, there's typically one source and one sink
+        source_urn = str(inlets[0]) if inlets else None
+        sink_urn = str(outlets[0]) if outlets else None
+
+        # Get source dataset schema for auto-mapping inference
+        source_schema = self._get_source_dataset_schema(activity, factory_key)
+
+        # Find an extractor that supports this activity type
+        for extractor in self._column_lineage_extractors:
+            if extractor.supports_activity(activity.type):
+                column_mappings = extractor.extract_column_lineage(
+                    activity, source_urn, sink_urn, source_schema
+                )
+
+                if not column_mappings:
+                    self.report.report_column_lineage_skipped()
+                    return []
+
+                # Convert ColumnMapping objects to FineGrainedLineageClass
+                fine_grained_lineages = [
+                    self._to_fine_grained_lineage(mapping)
+                    for mapping in column_mappings
+                ]
+
+                # Report success
+                for _ in column_mappings:
+                    self.report.report_column_lineage_extracted()
+
+                return fine_grained_lineages
+
+        # No extractor supports this activity type - this is expected for most activities
+        return []
+
+    def _get_source_dataset_schema(
+        self, activity: Activity, factory_key: str
+    ) -> Optional[DatasetSchemaInfo]:
+        """Get schema information from the source dataset for column lineage inference.
+
+        Args:
+            activity: The activity to get source schema for
+            factory_key: Factory key for dataset lookup
+
+        Returns:
+            DatasetSchemaInfo with column names, or None if not available
+        """
+        # Get source dataset name from activity inputs
+        if not activity.inputs:
+            return None
+
+        source_dataset_name = activity.inputs[0].reference_name
+        datasets = self._datasets_cache.get(factory_key, {})
+        dataset = datasets.get(source_dataset_name)
+
+        if not dataset:
+            return None
+
+        # Extract column names from dataset schema
+        schema = dataset.properties.schema_definition
+        if schema:
+            columns = [col.get("name") for col in schema if col.get("name")]
+            if columns:
+                return DatasetSchemaInfo(columns=columns)
+
+        # Try legacy structure format
+        structure = dataset.properties.structure
+        if structure:
+            columns = [col.get("name") for col in structure if col.get("name")]
+            if columns:
+                return DatasetSchemaInfo(columns=columns)
+
+        return None
+
+    def _to_fine_grained_lineage(
+        self, mapping: ColumnMapping
+    ) -> FineGrainedLineageClass:
+        """Convert a ColumnMapping to a FineGrainedLineageClass.
+
+        Args:
+            mapping: The column mapping to convert
+
+        Returns:
+            FineGrainedLineageClass for the mapping
+        """
+        return FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[
+                make_schema_field_urn(mapping.source_dataset_urn, mapping.source_column)
+            ],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[
+                make_schema_field_urn(mapping.sink_dataset_urn, mapping.sink_column)
+            ],
+        )
 
     def _get_data_flow_name_from_activity(
         self, activity: Activity, factory_key: str

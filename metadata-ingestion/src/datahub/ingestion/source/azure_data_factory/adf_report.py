@@ -40,6 +40,10 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     datasets_with_lineage: int = 0
     datasets_without_platform_mapping: LossyList[str] = field(default_factory=LossyList)
 
+    # Column-level lineage metrics
+    column_lineage_extracted: int = 0  # Number of column mappings emitted
+    column_lineage_activities_skipped: int = 0  # Activities without column mappings
+
     # Execution history metrics
     pipeline_runs_scanned: int = 0
     activity_runs_scanned: int = 0
@@ -116,6 +120,14 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
         self.datasets_without_platform_mapping.append(
             f"{dataset_name} (type={linked_service_type})"
         )
+
+    def report_column_lineage_extracted(self) -> None:
+        """Increment column lineage extracted counter."""
+        self.column_lineage_extracted += 1
+
+    def report_column_lineage_skipped(self) -> None:
+        """Record an activity without column mappings."""
+        self.column_lineage_activities_skipped += 1
 
     def report_pipeline_run_scanned(self) -> None:
         """Increment pipeline runs scanned counter."""
