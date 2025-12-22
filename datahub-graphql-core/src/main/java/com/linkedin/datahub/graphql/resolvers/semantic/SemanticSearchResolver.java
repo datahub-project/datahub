@@ -1,7 +1,9 @@
 /**
- * SAAS-SPECIFIC: This resolver is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Requires
- * SemanticSearchService and embedding infrastructure.
+ * Resolver for semantic search functionality in DataHub. Performs vector similarity search using
+ * embeddings stored in OpenSearch k-NN indices.
+ *
+ * <p>Requirements: SemanticSearchService and embedding infrastructure (OpenSearch 2.17+ with k-NN
+ * plugin).
  */
 package com.linkedin.datahub.graphql.resolvers.semantic;
 
@@ -41,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class SemanticSearchResolver implements DataFetcher<CompletableFuture<SearchResults>> {
+
   private static final SearchFlags SEARCH_RESOLVER_DEFAULTS =
       new SearchFlags()
           .setFulltext(true)

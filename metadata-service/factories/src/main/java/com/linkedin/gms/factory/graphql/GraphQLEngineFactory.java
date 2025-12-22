@@ -14,8 +14,15 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
+import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
+import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
+import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
+import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -24,36 +31,24 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
-import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SemanticSearchService;
-import com.linkedin.metadata.service.ActionRequestService;
-import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
-import com.linkedin.metadata.service.ControlPlaneService;
-import com.linkedin.metadata.service.DataContractService;
-import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
-import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
-import com.linkedin.metadata.service.ShareService;
-import com.linkedin.metadata.service.SubscriptionService;
-import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -62,7 +57,6 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.ExecutorService;
@@ -76,10 +70,21 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.services.sts.StsClient;
+import org.springframework.context.annotation.Import;
 
 @Configuration
+@Import({
+  IndexConventionFactory.class,
+  RecommendationServiceFactory.class,
+  EntityRegistryFactory.class,
+  DataHubTokenServiceFactory.class,
+  GitVersionFactory.class,
+  SiblingGraphServiceFactory.class,
+  AssertionServiceFactory.class,
+  DocumentServiceFactory.class,
+})
 public class GraphQLEngineFactory {
+
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
@@ -95,10 +100,6 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("entityService")
   private EntityService<?> entityService;
-
-  @Autowired
-  @Qualifier("entitySearchService")
-  private EntitySearchService _entitySearchService;
 
   @Autowired
   @Qualifier("graphService")
@@ -125,10 +126,6 @@ public class GraphQLEngineFactory {
   private SecretService secretService;
 
   @Autowired
-  @Qualifier("testEngine")
-  private TestEngine _testEngine;
-
-  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
@@ -151,8 +148,6 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("groupService")
   private GroupService groupService;
-
-  // SaaS only
 
   @Autowired
   @Qualifier("roleService")
@@ -206,43 +201,12 @@ public class GraphQLEngineFactory {
   @Qualifier("restrictedService")
   private RestrictedService restrictedService;
 
-  // SaaS only
-  @Autowired
-  @Qualifier("monitorService")
-  private MonitorService _monitorService;
-
-  @Autowired
-  @Qualifier("dataContractService")
-  private DataContractService _dataContractService;
-
-  @Autowired
-  @Qualifier("controlPlaneService")
-  private ControlPlaneService _controlPlaneService;
-
-  @Autowired
-  @Qualifier("integrationsService")
-  private IntegrationsService _integrationsService;
-
-  @Autowired
-  @Qualifier("subscriptionService")
-  private SubscriptionService _subscriptionService;
-
-  @Autowired
-  @Qualifier("shareService")
-  private ShareService _shareService;
-
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
-
-  @Value("${baseUrl}")
-  private String baseUrl;
 
   @Autowired
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
-
-  @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
-  private Integer defaultLineageLastDaysFilter;
 
   @Autowired
   @Qualifier("connectionService")
@@ -251,10 +215,6 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("assertionService")
   private AssertionService assertionService;
-
-  @Autowired
-  @Qualifier("dataHubAiConversationService")
-  private DataHubAiConversationService dataHubAiConversationService;
 
   @Autowired
   @Qualifier("documentService")
@@ -268,26 +228,6 @@ public class GraphQLEngineFactory {
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
 
-  @Autowired
-  @Qualifier("metadataTestClient")
-  private MetadataTestClient metadataTestClient;
-
-  @Autowired
-  @Qualifier("actionRequestService")
-  private ActionRequestService actionRequestService;
-
-  @Autowired
-  @Qualifier("actionWorkflowService")
-  private ActionWorkflowService actionWorkflowService;
-
-  @Autowired
-  @Qualifier("userService")
-  private UserService userService;
-
-  @Autowired
-  @Qualifier("semanticSearchService")
-  private SemanticSearchService _semanticSearchService;
-
   @Autowired(required = false)
   @Qualifier("s3Util")
   private S3Util s3Util;
@@ -295,6 +235,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
+
+  @Autowired(required = false)
+  @Qualifier("semanticSearchService")
+  private SemanticSearchService semanticSearchService;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -328,7 +272,6 @@ public class GraphQLEngineFactory {
     args.setGitVersion(gitVersion);
     args.setTimelineService(timelineService);
     args.setSupportsImpactAnalysis(graphService.supportsMultiHop());
-    args.setDefaultLineageLastDaysFilter(defaultLineageLastDaysFilter);
     args.setVisualConfiguration(configProvider.getVisualConfig());
     args.setTelemetryConfiguration(configProvider.getTelemetry());
     args.setTestsConfiguration(configProvider.getMetadataTests());
@@ -361,39 +304,12 @@ public class GraphQLEngineFactory {
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
     args.setEntityVersioningService(entityVersioningService);
-    args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
-    args.setClassificationConfiguration(configProvider.getClassificationConfig());
-
-    // Saas Only
-    args.setEntitySearchService(_entitySearchService);
-    args.setTestEngine(_testEngine);
-    args.setMonitorService(_monitorService);
-    args.setIntegrationsService(_integrationsService);
     args.setConnectionService(_connectionService);
-    args.setSubscriptionService(_subscriptionService);
-    args.setShareService(_shareService);
-    args.setControlPlaneService(_controlPlaneService);
-    args.setExecutorConfiguration(configProvider.getExecutors());
-    args.setAssertionMonitorsConfiguration(configProvider.getAssertionMonitors());
-    args.setDataContractService(_dataContractService);
     args.setAssertionService(assertionService);
-    args.setDataHubAiConversationService(dataHubAiConversationService);
     args.setDocumentService(documentService);
     args.setMetricUtils(metricUtils);
-    args.setBaseUrl(baseUrl);
-    args.setMetadataTestClient(metadataTestClient);
-    args.setActionRequestService(actionRequestService);
-    args.setActionWorkflowService(actionWorkflowService);
-    args.setUserService(userService);
-    args.setSemanticSearchService(_semanticSearchService);
     args.setS3Util(s3Util);
-
-    // Saas Only
-    try {
-      StsClient stsClient = StsClient.create();
-      args.setStsClient(stsClient);
-    } catch (Exception e) {
-    }
+    args.setSemanticSearchService(semanticSearchService);
 
     return new GmsGraphQLEngine(args).builder().build();
   }

@@ -63,6 +63,7 @@ import software.amazon.awssdk.services.sts.StsClient;
 
 @Data
 public class GmsGraphQLEngineArgs {
+
   EntityClient entityClient;
   SystemEntityClient systemEntityClient;
   GraphClient graphClient;
@@ -122,6 +123,7 @@ public class GmsGraphQLEngineArgs {
   MetricUtils metricUtils;
   String baseUrl;
   S3Util s3Util;
+  SemanticSearchService semanticSearchService;
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;
   ControlPlaneService controlPlaneService;
@@ -140,5 +142,4 @@ public class GmsGraphQLEngineArgs {
   MetadataTestClient metadataTestClient;
   AssertionMonitorsConfiguration assertionMonitorsConfiguration;
   UserService userService;
-  SemanticSearchService semanticSearchService;
 }

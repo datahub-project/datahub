@@ -54,13 +54,13 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
    *             "vector": { "type": "knn_vector", "dimension": 1024, "method": {...} },
    *             "text": { "type": "text", "index": false },
    *             "position": { "type": "integer" },
-   *             "character_offset": { "type": "integer" },
-   *             "character_length": { "type": "integer" },
-   *             "token_count": { "type": "integer" }
+   *             "characterOffset": { "type": "integer" },
+   *             "characterLength": { "type": "integer" },
+   *             "tokenCount": { "type": "integer" }
    *           }
    *         },
-   *         "total_chunks": { "type": "integer" },
-   *         "total_tokens": { "type": "integer" }
+   *         "totalChunks": { "type": "integer" },
+   *         "totalTokens": { "type": "integer" }
    *       }
    *     }
    *   }
@@ -99,7 +99,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       textField.put("type", "text");
       textField.put("index", false);
 
-      // Build position, character offset/length, and token_count fields
+      // Build position, characterOffset/characterLength, and tokenCount fields
       Map<String, Object> positionField = ImmutableMap.of("type", "integer");
       Map<String, Object> characterOffsetField = ImmutableMap.of("type", "integer");
       Map<String, Object> characterLengthField = ImmutableMap.of("type", "integer");
@@ -110,9 +110,9 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       chunksProperties.put("vector", vectorField);
       chunksProperties.put("text", textField);
       chunksProperties.put("position", positionField);
-      chunksProperties.put("character_offset", characterOffsetField);
-      chunksProperties.put("character_length", characterLengthField);
-      chunksProperties.put("token_count", tokenCountField);
+      chunksProperties.put("characterOffset", characterOffsetField);
+      chunksProperties.put("characterLength", characterLengthField);
+      chunksProperties.put("tokenCount", tokenCountField);
 
       Map<String, Object> chunksField = new HashMap<>();
       chunksField.put("type", "nested");
@@ -121,9 +121,9 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       // Build model-level properties
       Map<String, Object> modelLevelProperties = new HashMap<>();
       modelLevelProperties.put("chunks", chunksField);
-      modelLevelProperties.put("total_chunks", ImmutableMap.of("type", "integer"));
-      modelLevelProperties.put("model_version", ImmutableMap.of("type", "keyword"));
-      modelLevelProperties.put("generated_at", ImmutableMap.of("type", "date"));
+      modelLevelProperties.put("totalChunks", ImmutableMap.of("type", "integer"));
+      modelLevelProperties.put("modelVersion", ImmutableMap.of("type", "keyword"));
+      modelLevelProperties.put("generatedAt", ImmutableMap.of("type", "date"));
 
       Map<String, Object> modelFieldConfig = ImmutableMap.of("properties", modelLevelProperties);
 

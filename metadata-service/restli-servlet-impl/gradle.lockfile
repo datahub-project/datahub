@@ -451,6 +451,7 @@ software.amazon.awssdk:aws-core:2.30.33=integTestRuntimeClasspath,runtimeClasspa
 software.amazon.awssdk:aws-json-protocol:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:aws-query-protocol:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:aws-xml-protocol:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+software.amazon.awssdk:bedrockruntime:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:bom:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:checksums-spi:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:checksums:2.30.33=integTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath

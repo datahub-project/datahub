@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
+import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
+import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.metadata.graph.GraphService;
@@ -27,13 +30,18 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
-@Import(value = {UpgradeConfigurationSelector.class, SystemAuthenticationFactory.class})
+@Import(
+    value = {
+      UpgradeConfigurationSelector.class,
+      SystemAuthenticationFactory.class,
+    })
 public class UpgradeCliApplicationTestConfiguration {
 
   // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying
   // to instantiate
   //       see: https://github.com/spring-projects/spring-framework/issues/33934
   @MockBean public UpgradeCli upgradeCli;
+
   @MockBean public SearchService searchService;
 
   @MockBean public GraphService graphService;
@@ -43,6 +51,13 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public ConfigEntityRegistry configEntityRegistry;
 
   @MockBean public SearchClientShim<?> searchClientShim;
+
+  // Mock semantic search factories to avoid needing full configuration
+  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+
+  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+
+  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 
   @PostConstruct
   public void configureMocks() {

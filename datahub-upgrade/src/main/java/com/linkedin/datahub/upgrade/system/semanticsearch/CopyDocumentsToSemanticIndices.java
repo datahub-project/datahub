@@ -2,7 +2,7 @@ package com.linkedin.datahub.upgrade.system.semanticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -14,11 +14,11 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Non-blocking system upgrade that copies documents from base entity indices to semantic search
- * indices.
+ * Blocking system upgrade that copies documents from base entity indices to semantic search
+ * indices. Runs before GMS starts accepting traffic to ensure no MCPs are processed during reindex.
  */
 @Slf4j
-public class CopyDocumentsToSemanticIndices implements NonBlockingSystemUpgrade {
+public class CopyDocumentsToSemanticIndices implements BlockingSystemUpgrade {
 
   private final List<UpgradeStep> steps;
 

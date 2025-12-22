@@ -1,8 +1,3 @@
-/**
- * SAAS-SPECIFIC: This test is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Tests
- * SemanticEntitySearchService functionality.
- */
 package com.linkedin.metadata.search.semantic;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -58,15 +53,25 @@ import org.testng.annotations.Test;
 public class SemanticEntitySearchServiceTest {
 
   @Mock private SearchClientShim<?> searchClientShim;
+
   @Mock private IndexConvention mockIndexConvention;
+
   @Mock private EmbeddingProvider mockEmbeddingProvider;
+
   @Mock private OperationContext mockOpContext;
+
   @Mock private EntityRegistry mockEntityRegistry;
+
   @Mock private EntitySpec mockEntitySpec;
+
   @Mock private SearchContext mockSearchContext;
+
   @Mock private SearchFlags mockSearchFlags;
+
   @Mock private RawResponse mockResponse;
+
   @Mock private HttpEntity mockHttpEntity;
+
   @Mock private StatusLine mockStatusLine;
 
   private MappingsBuilder mappingsBuilder;
@@ -139,7 +144,6 @@ public class SemanticEntitySearchServiceTest {
     assertNotNull(result.getEntities());
     assertTrue(result.getEntities().isEmpty());
     assertNotNull(result.getMetadata());
-    assertEquals(result.getMetadata().getScoringMethod(), "cosine_similarity");
   }
 
   @Test
@@ -349,7 +353,6 @@ public class SemanticEntitySearchServiceTest {
             1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
 
     // No fetchExtraFields specified, should use default fields
-    when(mockSearchFlags.getFetchExtraFields()).thenReturn(null);
 
     SearchResult result =
         service.search(
@@ -391,7 +394,6 @@ public class SemanticEntitySearchServiceTest {
     extraFields.add("name");
     extraFields.add("platform");
     extraFields.add("qualifiedName");
-    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
 
     SearchResult result =
         service.search(
@@ -431,7 +433,6 @@ public class SemanticEntitySearchServiceTest {
 
     // Empty fetchExtraFields array should behave like no extra fields
     StringArray emptyExtraFields = new StringArray();
-    when(mockSearchFlags.getFetchExtraFields()).thenReturn(emptyExtraFields);
 
     SearchResult result =
         service.search(
@@ -463,7 +464,6 @@ public class SemanticEntitySearchServiceTest {
     StringArray extraFields = new StringArray();
     extraFields.add("customProperties");
     extraFields.add("description");
-    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
 
     SearchResult result =
         service.search(

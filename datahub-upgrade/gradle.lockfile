@@ -599,6 +599,7 @@ software.amazon.awssdk:aws-json-protocol:2.32.25=productionRuntimeClasspath,runt
 software.amazon.awssdk:aws-query-protocol:2.30.33=compileClasspath,testCompileClasspath
 software.amazon.awssdk:aws-query-protocol:2.32.25=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:aws-xml-protocol:2.30.33=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+software.amazon.awssdk:bedrockruntime:2.30.33=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.awssdk:bom:2.30.33=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 software.amazon.awssdk:checksums-spi:2.30.33=compileClasspath,testCompileClasspath
 software.amazon.awssdk:checksums-spi:2.32.25=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath

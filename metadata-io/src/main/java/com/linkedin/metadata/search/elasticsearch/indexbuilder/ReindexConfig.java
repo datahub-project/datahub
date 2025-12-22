@@ -24,6 +24,7 @@ import org.opensearch.common.settings.Settings;
 @Getter
 @Accessors(fluent = true)
 public class ReindexConfig {
+
   public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -100,6 +101,7 @@ public class ReindexConfig {
   }
 
   public static class ReindexConfigBuilder {
+
     // hide calculated fields
     private ReindexConfigBuilder requiresReindex(boolean ignored) {
       return this;
@@ -222,6 +224,7 @@ public class ReindexConfig {
   }
 
   private static class CalculatedBuilder extends ReindexConfigBuilder {
+
     @Override
     public ReindexConfig build() {
       if (super.exists) {
@@ -453,10 +456,10 @@ public class ReindexConfig {
         return true;
       }
 
-      return indexSettings.containsKey("analysis")
+      return (indexSettings.containsKey("analysis")
           && !equalsGroup(
               (Map<String, Object>) indexSettings.get("analysis"),
-              super.currentSettings.getByPrefix("index.analysis."));
+              super.currentSettings.getByPrefix("index.analysis.")));
     }
 
     /**
@@ -470,7 +473,6 @@ public class ReindexConfig {
      */
     private static MapDifference<String, Object> calculateMapDifference(
         Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
-
       // Identify dynamic fields in target (fields with dynamic=true) - recursively search all
       // levels
       Set<String> targetDynamicFields = findDynamicFields(targetMappings, "");

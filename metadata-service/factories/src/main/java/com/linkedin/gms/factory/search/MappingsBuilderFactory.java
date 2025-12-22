@@ -79,7 +79,6 @@ public class MappingsBuilderFactory {
       @Qualifier("multiEntityMappingsBuilder") @Nullable MappingsBuilder multiEntityMappingsBuilder,
       @Qualifier("semanticSearchMappingsBuilder") @Nullable
           MappingsBuilder semanticSearchMappingsBuilder) {
-
     List<MappingsBuilder> builders = new ArrayList<>();
 
     if (legacyMappingsBuilder != null) {

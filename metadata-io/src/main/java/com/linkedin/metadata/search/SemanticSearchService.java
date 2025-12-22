@@ -1,17 +1,13 @@
-/**
- * SAAS-SPECIFIC: This class is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Requires embedding
- * service and OpenSearch with k-NN plugin.
- */
 package com.linkedin.metadata.search;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.excludeIngestionSourceEntity;
+import static com.linkedin.metadata.search.utils.QueryUtils.filterEntitiesForSearch;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
@@ -20,6 +16,8 @@ import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class SemanticSearchService {
+
   private final CachingEntitySearchService cachingEntitySearchService;
   private final EntityDocCountCache entityDocCountCache;
   private final SearchServiceConfiguration searchServiceConfig;
@@ -95,7 +94,6 @@ public class SemanticSearchService {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
     if (entitiesToSearch.isEmpty()) {
@@ -128,7 +126,6 @@ public class SemanticSearchService {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
-
     // Single entity semantic search doesn't need facets by default
     return semanticSearchAcrossEntities(
         opContext, entityNames, input, postFilters, sortCriteria, from, size, List.of());
@@ -145,7 +142,6 @@ public class SemanticSearchService {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-
     // Fail-fast gating: ensure semantic search is enabled and service is present
     if (!Boolean.TRUE.equals(searchServiceConfig.isSemanticSearchEnabled())) {
       throw new SemanticSearchDisabledException();
@@ -154,7 +150,7 @@ public class SemanticSearchService {
         semanticEntitySearchService, "SemanticEntitySearch service must be configured");
 
     // Determine facet request intent and flags up-front
-    final com.linkedin.metadata.query.SearchFlags incomingFlags =
+    final SearchFlags incomingFlags =
         opContext.getSearchContext() != null ? opContext.getSearchContext().getSearchFlags() : null;
     final boolean skipAggs =
         incomingFlags != null && Boolean.TRUE.equals(incomingFlags.isSkipAggregates());
@@ -184,7 +180,7 @@ public class SemanticSearchService {
               .copy()
               .setEntities(
                   new SearchEntityArray(
-                      new SimpleRanker().rank(opContext, semantic.getEntities())));
+                      new SimpleRanker().rank(opContext, new ArrayList<>(semantic.getEntities()))));
     } catch (Exception e) {
       log.error("Failed to rank (semantic): {}, exception - {}", semantic, e.toString());
       throw new RuntimeException("Failed to rank " + semantic.toString());
@@ -224,8 +220,10 @@ public class SemanticSearchService {
       @Nonnull List<String> entityNames,
       @Nullable Filter postFilters,
       @Nonnull List<String> facets) {
-    final com.linkedin.metadata.query.SearchFlags incomingFlags =
-        opContext.getSearchContext() != null ? opContext.getSearchContext().getSearchFlags() : null;
+    // Clone incoming flags to avoid capturing shared mutable state in the async task.
+    // This prevents potential race conditions if the original SearchFlags are mutated
+    // by another thread while this task executes.
+    final SearchFlags incomingFlags = copySearchFlags(opContext.getSearchContext());
 
     return CompletableFuture.supplyAsync(
         () ->
@@ -252,6 +250,27 @@ public class SemanticSearchService {
   }
 
   /**
+   * Creates a defensive copy of SearchFlags from the given SearchContext to avoid capturing shared
+   * mutable state in async operations.
+   *
+   * @param searchContext the search context to extract flags from, may be null
+   * @return a copy of the SearchFlags, or null if the context or flags are null
+   */
+  @Nullable
+  private static SearchFlags copySearchFlags(@Nullable SearchContext searchContext) {
+    if (searchContext == null || searchContext.getSearchFlags() == null) {
+      return null;
+    }
+    try {
+      return searchContext.getSearchFlags().copy();
+    } catch (CloneNotSupportedException e) {
+      // Unreachable: DataTemplate extends Cloneable, so clone() never throws.
+      // Java requires handling this checked exception from Object.clone() signature.
+      throw new IllegalStateException("Failed to clone SearchFlags", e);
+    }
+  }
+
+  /**
    * If no entities are provided, fallback to the list of non-empty entities
    *
    * @param inputEntities the requested entities
@@ -267,12 +286,9 @@ public class SemanticSearchService {
     if (lowercaseEntities.isEmpty()) {
       return opContext.withSpan(
           "getNonEmptyEntities",
-          // Saas only: Exclude ingestion source entity type from list of entities as we can't
-          // search by it in some cases when searching with another entities.
-          // (see
-          // com.linkedin.metadata.search.utils.ESAccessControlUtil.shouldApplyAccessControlFilters
-          // for details)
-          () -> excludeIngestionSourceEntity(entityDocCountCache.getNonEmptyEntities(opContext)),
+          // Apply entity filtering (hook for custom filtering logic)
+          // Custom deployments can override filterEntitiesForSearch.
+          () -> filterEntitiesForSearch(entityDocCountCache.getNonEmptyEntities(opContext)),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }

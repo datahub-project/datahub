@@ -210,6 +210,7 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
   enableEviction: ${SEARCH_SERVICE_ENABLE_CACHE_EVICTION:false}
   cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
+  semanticSearchEnabled: ${SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED:false}
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
@@ -431,10 +432,17 @@ elasticsearch:
           spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
-      # Embeddings update configuration for semantic search CLI
-      embeddingsUpdate:
-        batchSize: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_BATCH_SIZE:100}
-        maxTextLength: ${ELASTICSEARCH_EMBEDDINGS_UPDATE_MAX_TEXT_LENGTH:8000}
+      # Embedding provider configuration for generating query embeddings
+      # Supports: "integrations-service" (DataHub SaaS) or "aws-bedrock" (OSS)
+      embeddingProvider:
+        # Provider type: "integrations-service" or "aws-bedrock"
+        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1) - only for aws-bedrock
+        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
+        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions) - only for aws-bedrock
+        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
+        # Maximum text length before truncation (Cohere enforces 2048 character limit)
+        maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
