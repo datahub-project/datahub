@@ -4,10 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
     TableLineageInfo,
     TableUpstream,
+    TokenProvider,
     UnityCatalogApiProxy,
 )
 from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
@@ -1872,3 +1874,282 @@ class TestUnityCatalogProxyUsageSystemTables:
         call_args = mock_execute.call_args
         params = call_args[0][1]
         assert params == (start_time, end_time)
+
+
+class TestTokenProvider:
+    """Test suite for TokenProvider class."""
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_token_provider_init_with_personal_access_token(
+        self, mock_workspace_client
+    ):
+        """Test TokenProvider initialization with personal access token."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+        )
+
+        assert provider._workspace_url == "https://test.databricks.com"
+        assert provider._personal_access_token == "test_token"
+        assert provider._azure_auth is None
+        assert provider._workspace_client == mock_client
+
+        # Verify WorkspaceClient was called with correct parameters
+        assert mock_workspace_client.call_count == 1
+        call_kwargs = mock_workspace_client.call_args[1]
+        assert call_kwargs["host"] == "https://test.databricks.com"
+        assert call_kwargs["token"] == "test_token"
+        assert call_kwargs["product"] == "datahub"
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_token_provider_init_with_azure_auth(self, mock_workspace_client):
+        """Test TokenProvider initialization with Azure authentication."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        assert provider._workspace_url == "https://test.databricks.com"
+        assert provider._personal_access_token is None
+        assert provider._azure_auth == azure_auth
+        assert provider._workspace_client == mock_client
+
+        # Verify WorkspaceClient was called with Azure auth parameters
+        assert mock_workspace_client.call_count == 1
+        call_kwargs = mock_workspace_client.call_args[1]
+        assert call_kwargs["host"] == "https://test.databricks.com"
+        assert call_kwargs["azure_tenant_id"] == "test_tenant"
+        assert call_kwargs["azure_client_id"] == "test_client"
+        assert call_kwargs["azure_client_secret"] == "test_secret"
+        assert call_kwargs["product"] == "datahub"
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_workspace_client(self, mock_workspace_client):
+        """Test get_workspace_client returns the workspace client."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+        )
+
+        result = provider.get_workspace_client()
+        assert result == mock_client
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_with_personal_access_token(self, mock_workspace_client):
+        """Test get_token with personal access token returns the token directly."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token_123",
+        )
+
+        token = provider.get_token()
+        assert token == "test_token_123"
+
+        # Verify authenticate was not called for static token
+        mock_client.config.authenticate.assert_not_called()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_with_azure_auth_dict_with_bearer(self, mock_workspace_client):
+        """Test get_token with Azure auth when authenticate returns dict with Bearer token."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        # Mock authenticate to return dict with Authorization header
+        mock_client.config.authenticate.return_value = {
+            "Authorization": "Bearer test_azure_token_456"
+        }
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        token = provider.get_token()
+        assert token == "test_azure_token_456"
+        mock_client.config.authenticate.assert_called_once()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_with_azure_auth_dict_with_access_token(
+        self, mock_workspace_client
+    ):
+        """Test get_token with Azure auth when authenticate returns dict with access_token."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        # Mock authenticate to return dict with access_token
+        mock_client.config.authenticate.return_value = {
+            "access_token": "test_access_token_789"
+        }
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        token = provider.get_token()
+        assert token == "test_access_token_789"
+        mock_client.config.authenticate.assert_called_once()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_with_azure_auth_token_object(self, mock_workspace_client):
+        """Test get_token with Azure auth when authenticate returns token object."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        # Mock authenticate to return object with token attribute
+        mock_token = MagicMock()
+        mock_token.token = "test_token_object_abc"
+        mock_client.config.authenticate.return_value = mock_token
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        token = provider.get_token()
+        assert token == "test_token_object_abc"
+        mock_client.config.authenticate.assert_called_once()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_with_azure_auth_string(self, mock_workspace_client):
+        """Test get_token with Azure auth when authenticate returns string."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        # Mock authenticate to return string directly
+        mock_client.config.authenticate.return_value = "test_token_string_xyz"
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        token = provider.get_token()
+        assert token == "test_token_string_xyz"
+        mock_client.config.authenticate.assert_called_once()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_relies_on_sdk_refresh(self, mock_workspace_client):
+        """Test that get_token relies on SDK's built-in token refresh mechanism."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        # Mock authenticate to return different tokens on subsequent calls
+        mock_client.config.authenticate.side_effect = [
+            {"Authorization": "Bearer token_1"},
+            {"Authorization": "Bearer token_2"},
+            {"Authorization": "Bearer token_3"},
+        ]
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        # Call get_token multiple times
+        token1 = provider.get_token()
+        token2 = provider.get_token()
+        token3 = provider.get_token()
+
+        # Each call should invoke authenticate, letting SDK handle refresh
+        assert token1 == "token_1"
+        assert token2 == "token_2"
+        assert token3 == "token_3"
+        assert mock_client.config.authenticate.call_count == 3
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_token_provider_with_empty_personal_access_token(
+        self, mock_workspace_client
+    ):
+        """Test TokenProvider with None personal access token."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            personal_access_token=None,
+        )
+
+        token = provider.get_token()
+        assert token == ""
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_unity_catalog_proxy_uses_token_provider(self, mock_workspace_client):
+        """Test that UnityCatalogApiProxy properly uses TokenProvider."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+        mock_client.config.host = "https://test.databricks.com"
+        mock_client.config.authenticate.return_value = {
+            "Authorization": "Bearer initial_token"
+        }
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token=None,
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            azure_auth=azure_auth,
+        )
+
+        # Verify TokenProvider was initialized
+        assert proxy._token_provider is not None
+        assert proxy._token_provider._azure_auth == azure_auth
+        assert proxy._workspace_client == mock_client
+
+        # Verify initial token was fetched
+        assert "access_token" in proxy._sql_connection_params
+        assert proxy._sql_connection_params["access_token"] == "initial_token"
