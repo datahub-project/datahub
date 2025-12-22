@@ -31,7 +31,7 @@ export const OKTA_API_TOKEN: RecipeField = {
     required: true,
 };
 
-export const POFILE_TO_USER: RecipeField = {
+export const PROFILE_TO_USER: RecipeField = {
     name: 'email',
     label: 'Okta Email',
     helper: 'Okta User Profile attribute',
@@ -43,7 +43,7 @@ export const POFILE_TO_USER: RecipeField = {
     rules: null,
 };
 
-export const POFILE_TO_GROUP: RecipeField = {
+export const PROFILE_TO_GROUP: RecipeField = {
     name: 'okta_profile_to_group_name_attr',
     label: 'Okta Profile to group name attribute',
     helper: 'Okta Group Profile attribute',
@@ -55,7 +55,7 @@ export const POFILE_TO_GROUP: RecipeField = {
 };
 
 const schemaAllowFieldPath = 'source.config.okta_profile_to_username_regex.allow';
-export const POFILE_TO_USER_REGX_ALLOW: FilterRecipeField = {
+export const PROFILE_TO_USER_REGX_ALLOW: FilterRecipeField = {
     name: 'user.allow',
     label: 'Allow Patterns',
     helper: 'Include specific schemas',
@@ -73,7 +73,7 @@ export const POFILE_TO_USER_REGX_ALLOW: FilterRecipeField = {
 };
 
 const schemaDenyFieldPath = 'source.config.okta_profile_to_username_regex.deny';
-export const POFILE_TO_USER_REGX_DENY: FilterRecipeField = {
+export const PROFILE_TO_USER_REGEX_DENY: FilterRecipeField = {
     name: 'user.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific schemas',
@@ -91,7 +91,7 @@ export const POFILE_TO_USER_REGX_DENY: FilterRecipeField = {
 };
 
 const schemaAllowFieldPathForGroup = 'source.config.okta_profile_to_group_name_regex.allow';
-export const POFILE_TO_GROUP_REGX_ALLOW: FilterRecipeField = {
+export const PROFILE_TO_GROUP_REGX_ALLOW: FilterRecipeField = {
     name: 'group.allow',
     label: 'Allow Patterns',
     helper: 'Include specific schemas',
@@ -109,7 +109,7 @@ export const POFILE_TO_GROUP_REGX_ALLOW: FilterRecipeField = {
 };
 
 const schemaDenyFieldPathForGroup = 'source.config.okta_profile_to_group_name_regex.deny';
-export const POFILE_TO_GROUP_REGX_DENY: FilterRecipeField = {
+export const PROFILE_TO_GROUP_REGX_DENY: FilterRecipeField = {
     name: 'group.deny',
     label: 'Deny Patterns',
     helper: 'Exclude specific schemas',

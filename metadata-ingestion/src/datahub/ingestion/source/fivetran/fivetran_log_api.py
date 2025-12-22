@@ -50,13 +50,39 @@ class FivetranLogAPI:
                     snowflake_destination_config.get_sql_alchemy_url(),
                     **snowflake_destination_config.get_options(),
                 )
-                engine.execute(
-                    fivetran_log_query.use_database(
-                        snowflake_destination_config.database,
+
+                """
+                Special Handling for Snowflake Backward Compatibility:
+                We have migrated to using quoted identifiers for database and schema names.
+                However, we need to support backward compatibility for existing databases and schemas that were created with unquoted identifiers.
+                When an unquoted identifier us used, we automatically convert it to uppercase + quoted identifier (this is Snowflake's behavior to resolve the identifier).
+                unquoted identifier -> uppercase + quoted identifier -> Snowflake resolves the identifier
+                """
+                snowflake_database = (
+                    snowflake_destination_config.database.upper()
+                    if FivetranLogQuery._is_valid_unquoted_identifier(
+                        snowflake_destination_config.database
                     )
+                    else snowflake_destination_config.database
+                )
+                logger.info(
+                    f"Using snowflake database: {snowflake_database} (original: {snowflake_destination_config.database})"
+                )
+                engine.execute(fivetran_log_query.use_database(snowflake_database))
+
+                snowflake_schema = (
+                    snowflake_destination_config.log_schema.upper()
+                    if FivetranLogQuery._is_valid_unquoted_identifier(
+                        snowflake_destination_config.log_schema
+                    )
+                    else snowflake_destination_config.log_schema
+                )
+
+                logger.info(
+                    f"Using snowflake schema: {snowflake_schema} (original: {snowflake_destination_config.log_schema})"
                 )
                 fivetran_log_query.set_schema(
-                    snowflake_destination_config.log_schema,
+                    snowflake_schema,
                 )
                 fivetran_log_database = snowflake_destination_config.database
         elif destination_platform == "bigquery":
