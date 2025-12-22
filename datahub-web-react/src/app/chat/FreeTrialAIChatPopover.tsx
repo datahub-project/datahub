@@ -3,6 +3,7 @@ import React, { useContext, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { FREE_TRIAL, STEP_STATE_COMPLETE, STEP_STATE_KEY } from '@app/onboarding/configV2/FreeTrialConfig';
 import { useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
 import { PageRoutes } from '@conf/Global';
@@ -109,6 +110,15 @@ export default function FreeTrialAIChatPopover({ variant }: Props) {
         if (config.navigateToHome) {
             history.push(PageRoutes.ROOT);
         }
+
+        analytics.event({
+            type: EventType.FreeTrialEducationModalActionEvent,
+            feature: 'ask_datahub',
+            action: variant === 'completion' ? 'complete' : 'close',
+            currentStep: variant === 'completion' ? 2 : 1,
+            totalSteps: Object.keys(POPOVER_CONFIGS).length,
+            isFlowCompleted: variant === 'completion',
+        });
     };
 
     if (!isVisible) {

@@ -1,6 +1,7 @@
 import { Modal, Text } from '@components';
 import React from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { INGESTION_SELECT_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import useHasSeenEducationStep from '@providers/hooks/useHasSeenEducationStep';
 import useUpdateEducationStep from '@providers/hooks/useUpdateEducationStep';
@@ -11,6 +12,9 @@ export default function CreateSourceEducationModal() {
 
     function handleClose() {
         updateEducationStep(INGESTION_SELECT_SOURCE_ID);
+        analytics.event({
+            type: EventType.CloseCreateSourceEducationModalEvent,
+        });
     }
 
     return (

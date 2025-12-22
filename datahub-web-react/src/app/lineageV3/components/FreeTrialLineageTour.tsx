@@ -3,6 +3,7 @@ import React, { useContext, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import analytics, { EducationModalAction, EventType } from '@app/analytics';
 import { LineageDisplayContext } from '@app/lineageV3/common';
 import { FREE_TRIAL } from '@app/onboarding/configV2/FreeTrialConfig';
 import { useFreeTrialPopoverVisibility } from '@app/sharedV2/freeTrial';
@@ -120,11 +121,23 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
         });
     };
 
+    const sendAnalytics = (action: EducationModalAction) => {
+        analytics.event({
+            type: EventType.FreeTrialEducationModalActionEvent,
+            feature: 'lineage',
+            action,
+            currentStep: currentStepIndex + 1,
+            totalSteps: TOUR_STEPS.length,
+            isFlowCompleted: currentStepIndex === TOUR_STEPS.length - 1,
+        });
+    };
+
     const handleClose = () => {
         // Mark all steps as seen when closing the tour
         markAllStepsAsSeen();
         setTourExpandColumnsUrn(null);
         setIsVisible(false);
+        sendAnalytics('close');
     };
 
     const handleNext = () => {
@@ -142,6 +155,7 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
             // Last step - close the tour
             setIsVisible(false);
         }
+        sendAnalytics('next');
     };
 
     const handleGoToHome = () => {
@@ -149,6 +163,7 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
         markAllStepsAsSeen();
         setTourExpandColumnsUrn(null);
         setIsVisible(false);
+        sendAnalytics('complete');
         history.push(PageRoutes.ROOT);
     };
 

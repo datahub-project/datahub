@@ -299,11 +299,13 @@ export const useChatStream = ({
                     type: AnalyticsEventType.DataHubChatResponseCompleteEvent,
                     conversationUrn: targetConversationUrn || conversationUrn,
                     responseTimeSeconds,
+                    originType,
+                    ingestionScreen,
                 });
                 messageStartTimeRef.current = null;
             }
         },
-        [conversationUrn],
+        [conversationUrn, ingestionScreen, originType],
     );
 
     const processNextMessage = useCallback(

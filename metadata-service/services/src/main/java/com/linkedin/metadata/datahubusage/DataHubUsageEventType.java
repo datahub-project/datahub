@@ -177,7 +177,9 @@ public enum DataHubUsageEventType {
   ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent"),
   INGESTION_SELECT_SOURCE_EVENT("IngestionSelectSourceEvent"),
   INGESTION_ENTER_CONFIGURATION_EVENT("IngestionEnterConfigurationEvent"),
+  INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
   INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
+  CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent"),
 
   // Logical models
   GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
@@ -272,7 +274,8 @@ public enum DataHubUsageEventType {
   // Onboarding flow events
   FREE_TRIAL_CONTACT_SALES_CLICK_EVENT("FreeTrialContactSalesClickEvent"),
   ONBOARDING_CHECKLIST_ACTION_EVENT("OnboardingChecklistActionEvent"),
-  COMPLETE_ONBOARDING_CHECKLIST_ACTION_EVENT("CompleteOnboardingChecklistActionEvent");
+  COMPLETE_ONBOARDING_CHECKLIST_ACTION_EVENT("CompleteOnboardingChecklistActionEvent"),
+  FREE_TRIAL_EDUCATION_MODAL_ACTION_EVENT("FreeTrialEducationModalActionEvent");
 
   private final String type;
 
