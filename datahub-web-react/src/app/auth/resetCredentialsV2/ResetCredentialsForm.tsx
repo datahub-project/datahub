@@ -23,16 +23,22 @@ interface Props {
     form: FormInstance;
     handleSubmit: (values: ResetCredentialsFormValues) => void;
     onFormChange: () => void;
+    isSubmitDisabled: boolean;
 }
 
-export default function ResetCredentialsForm({ form, handleSubmit, onFormChange }: Props) {
+export default function ResetCredentialsForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !isSubmitDisabled) {
+            form.submit();
+        }
+    };
     return (
         <FormContainer>
-            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange}>
+            <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
                     <FieldLabel label="Email" required />
                     <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
-                        <Input placeholder="abc@company.com" />
+                        <Input placeholder="abc@company.com" inputTestId="email" />
                     </Form.Item>
                 </ItemContainer>
 
@@ -52,7 +58,7 @@ export default function ResetCredentialsForm({ form, handleSubmit, onFormChange 
                         ]}
                         name="password"
                     >
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" inputTestId="password" />
                     </Form.Item>
                 </ItemContainer>
                 <ItemContainer>
@@ -71,7 +77,7 @@ export default function ResetCredentialsForm({ form, handleSubmit, onFormChange 
                         ]}
                         name="confirmPassword"
                     >
-                        <Input placeholder="********" type="password" />
+                        <Input placeholder="********" type="password" inputTestId="confirmPassword" />
                     </Form.Item>
                 </ItemContainer>
             </Form>
