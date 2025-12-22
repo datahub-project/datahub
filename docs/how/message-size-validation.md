@@ -2,7 +2,7 @@
 
 ## Overview
 
-Protects DataHub from oversized messages that exceed Kafka/Jackson limits by validating message sizes at four critical points in the MCP (MetadataChangeProposal) processing pipeline.
+Protects DataHub from oversized messages that exceed Jackson limits by validating aspect sizes at two critical points in the MCP (MetadataChangeProposal) processing pipeline.
 
 ## Configuration
 
@@ -20,9 +20,6 @@ DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION=DELETE
 DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED=true
 DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES=15728640  # 15MB
 DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_OVERSIZED_REMEDIATION=DELETE
-
-# Drop oversized messages at Kafka producer level (optional)
-MCP_VALIDATION_MESSAGE_SIZE_DROP_OVERSIZED_MESSAGES=true
 ```
 
 ### Enable via application.yaml
@@ -39,16 +36,11 @@ datahub:
         enabled: true
         maxSizeBytes: 15728640 # 15MB (serialized JSON character count)
         oversizedRemediation: DELETE # DELETE or IGNORE
-
-metadataChangeProposal:
-  validation:
-    messageSize:
-      dropOversizedMessages: true # Drop oversized Kafka messages gracefully (default: false)
 ```
 
 ## Validation Points
 
-Message size validation can be enabled at three points in the processing pipeline:
+Message size validation can be enabled at two points in the processing pipeline:
 
 ### 1. Pre-Patch Existing Aspect
 
@@ -77,20 +69,6 @@ Message size validation can be enabled at three points in the processing pipelin
 - Throws AspectSizeExceededException which routes original MCP to FailedMetadataChangeProposal topic
 
 **Note:** Use this to catch bloat from patch application before writing to database. The validation is integrated into the DAO layer and uses the JSON string already being created for the DB write - no additional serialization work.
-
-### 3. Outgoing MCL (Kafka Producer - Optional)
-
-**When:** Kafka producer rejects message (client-side, before network send)
-**Measures:** Avro serialized byte size (Kafka validates against `max.request.size`)
-**Performance:** Zero overhead - Kafka validates automatically
-**What to do:** Enable `dropOversizedMessages: true` to gracefully drop oversized messages instead of propagating exception
-
-**Why this is optional:** Kafka already validates message size before sending. This configuration just controls whether to:
-
-- Drop the message gracefully with warning logs (`dropOversizedMessages: true`)
-- Let the RecordTooLargeException propagate (default behavior)
-
-**Note:** If messages are too large for Kafka, they're too large period. Pre-patch and post-patch validation catch problems earlier in the pipeline.
 
 ## Failure Handling
 
@@ -159,39 +137,20 @@ metadataChangeProposal:
 Adjust limits based on your infrastructure:
 
 ```yaml
-metadataChangeProposal:
+datahub:
   validation:
-    messageSize:
-      incomingMcp:
-        enabled: true
-        maxSizeBytes: 10485760 # 10MB (if Kafka limit increased)
-      prePatchExistingAspect:
+    aspectSize:
+      prePatch:
         enabled: true
         maxSizeBytes: 20971520 # 20MB (if Jackson limit increased)
         oversizedRemediation: IGNORE # Use IGNORE during testing
-      postPatchExistingAspect:
+      postPatch:
         enabled: true
         maxSizeBytes: 20971520 # 20MB (if Jackson limit increased)
         oversizedRemediation: IGNORE # Use IGNORE during testing
-      outgoingMcl:
-        enabled: true
-        maxSizeBytes: 10485760 # 10MB (match Kafka limit)
 ```
 
 ## Troubleshooting
-
-### Incoming MCPs Rejected
-
-**Problem:** MCPs from Kafka exceed size limit
-**Solution:**
-
-1. Check FailedMetadataChangeProposal topic for rejected messages
-2. Check WARNING logs for topic, partition, offset
-3. Identify which entity/aspect is too large
-4. Options:
-   - Increase `incomingMcp.maxSizeBytes` (ensure Kafka can handle it)
-   - Fix ingestion source to send smaller messages
-   - Split large aspects into multiple smaller updates
 
 ### Pre-Patch Aspects Rejected
 
@@ -206,7 +165,7 @@ metadataChangeProposal:
    - Aspect remains in database but MCP was rejected
    - Fix the oversized aspect before attempting patches
 4. Options:
-   - Increase `prePatchExistingAspect.maxSizeBytes` (ensure Jackson can handle it)
+   - Increase `datahub.validation.aspectSize.prePatch.maxSizeBytes` (ensure Jackson can handle it)
    - Set `oversizedRemediation=IGNORE` temporarily to preserve data during investigation
 
 ### Post-Patch Aspects Rejected
@@ -222,36 +181,17 @@ metadataChangeProposal:
    - Already deleted if `oversizedRemediation=DELETE`
    - Consider splitting aspect data
 4. Options:
-   - Increase `postPatchExistingAspect.maxSizeBytes` (ensure Jackson can handle it)
+   - Increase `datahub.validation.aspectSize.postPatch.maxSizeBytes` (ensure Jackson can handle it)
    - Set `oversizedRemediation=IGNORE` to prevent automatic deletion
    - Modify patch to avoid creating bloat
-
-### Outgoing MCLs Rejected by Kafka
-
-**Problem:** MCL size exceeds Kafka `max.request.size` limit
-**Solution:**
-
-1. Kafka client validates size before sending - throws RecordTooLargeException
-2. Enable `dropOversizedMessages: true` to drop gracefully with warning logs
-3. Check WARNING logs for URN and aspect name
-4. Options:
-   - Enable pre-patch or post-patch validation to catch earlier (before Kafka)
-   - Investigate which entity/aspect is too large
-   - Increase Kafka `max.request.size` if appropriate (not recommended)
 
 ## Performance Impact
 
 - **CPU Overhead per MCP** (only when validation enabled):
-  - Incoming MCP: **Zero overhead** - uses pre-computed `ConsumerRecord.serializedValueSize()`
   - Pre-Patch Aspect: **Zero overhead** - uses raw JSON string already fetched from DB
-  - Post-Patch Aspect: **~50ms per aspect** - serializes RecordTemplate to JSON (same unit as pre-patch)
-    - Only runs when enabled - acceptable cost since pre-patch and incoming already validated
-    - Catches bloat from patch application before DB write
-  - Outgoing MCL: **Minimal overhead** - uses Avro serialization already done for Kafka
+  - Post-Patch Aspect: **Zero overhead** - uses JSON string already being created for DB write (no duplicate serialization)
 - **Memory Overhead:** Negligible (<1KB per validation)
-- **Throughput Impact:**
-  - With only incoming + pre-patch + outgoing enabled: **<1%** (zero-cost validations)
-  - With post-patch also enabled: **variable** depending on aspect size and frequency (typically <5% for workloads with small/medium aspects)
+- **Throughput Impact:** **<1%** - both validations use data already being processed
 
 ## Monitoring
 

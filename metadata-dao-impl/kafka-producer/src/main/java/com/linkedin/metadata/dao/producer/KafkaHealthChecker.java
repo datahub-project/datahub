@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,9 +22,6 @@ public class KafkaHealthChecker {
   @Value("${kafka.producer.deliveryTimeout}")
   private long kafkaProducerDeliveryTimeout;
 
-  @Value("${metadataChangeProposal.validation.messageSize.dropOversizedMessages:false}")
-  private boolean dropOversizedMessages;
-
   private final Set<MessageLog> messagesInProgress = ConcurrentHashMap.newKeySet();
 
   public Callback getKafkaCallBack(MetricUtils metricUtils, String eventType, String entityDesc) {
@@ -34,26 +30,6 @@ public class KafkaHealthChecker {
     return (metadata, e) -> {
       sendMessageEnded(tracking);
       if (e != null) {
-        // Handle RecordTooLargeException specifically if feature flag is enabled
-        if (dropOversizedMessages && isRecordTooLarge(e)) {
-          log.warn(
-              "Dropping oversized message for {} entity {} - message exceeds Kafka limits. "
-                  + "Enable pre-patch or post-patch validation to catch earlier. Exception: {}",
-              eventType,
-              entityDesc,
-              e.getMessage());
-          if (metricUtils != null) {
-            metricUtils.increment(
-                this.getClass(),
-                MetricRegistry.name(
-                    "producer_dropped_oversized_count", eventType.replaceAll(" ", "_")),
-                1);
-          }
-          // Message dropped gracefully - don't propagate exception
-          return;
-        }
-
-        // Normal error handling for all other errors
         log.error(String.format("Failed to emit %s for entity %s", eventType, entityDesc), e);
         if (metricUtils != null)
           metricUtils.increment(
@@ -67,18 +43,6 @@ public class KafkaHealthChecker {
                 eventType, entityDesc, metadata.offset(), metadata.partition(), metadata.topic()));
       }
     };
-  }
-
-  /** Check if exception is RecordTooLargeException or caused by it. */
-  private boolean isRecordTooLarge(Exception e) {
-    Throwable current = e;
-    while (current != null) {
-      if (current instanceof RecordTooLargeException) {
-        return true;
-      }
-      current = current.getCause();
-    }
-    return false;
   }
 
   private void sendMessageStarted(MessageLog messageLog) {
