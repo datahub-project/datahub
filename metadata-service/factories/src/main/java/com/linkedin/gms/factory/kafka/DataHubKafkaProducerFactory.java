@@ -10,6 +10,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -55,7 +56,11 @@ public class DataHubKafkaProducerFactory {
     props.put(
         ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
         kafkaConfiguration.getProducer().getRequestTimeout());
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfiguration.getBootstrapServers());
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getBootstrapServers())
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     // key: Actor urn.
     // value: JSON object.
     props.putAll(kafkaConfiguration.getSerde().getUsageEvent().getProducerProperties(null));
@@ -73,8 +78,12 @@ public class DataHubKafkaProducerFactory {
 
     producerProps.setKeySerializer(StringSerializer.class);
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
+    String boostrapServers =
+        org.apache.commons.lang3.StringUtils.isNotBlank(
+                kafkaConfiguration.getProducer().getBootstrapServers())
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    if (StringUtils.isNotBlank(boostrapServers)) {
       producerProps.setBootstrapServers(
           Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
