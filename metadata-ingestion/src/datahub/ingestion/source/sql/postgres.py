@@ -58,6 +58,7 @@ from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
+    extract_temp_tables_from_sql,
     fetch_procedures_from_query,
 )
 from datahub.ingestion.source.sql.stored_procedures.config import (
@@ -453,10 +454,6 @@ class PostgresSource(SQLAlchemySource):
         self, procedure: BaseProcedure, schema: str, db_name: str
     ) -> Optional[Callable[[str], bool]]:
         """Return a function to check if a table name is a PostgreSQL temporary table."""
-        from datahub.ingestion.source.sql.stored_procedures.base import (
-            extract_temp_tables_from_sql,
-        )
-
         if not procedure.procedure_definition:
             return None
 

@@ -332,6 +332,8 @@ class ProfileMetadata:
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
+    is_two_tier_source: bool = False
+
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
         self.config: SQLCommonConfig = config
@@ -1573,7 +1575,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
                 ),
-                schema_key=gen_schema_key(
+                schema_key=None
+                if self.is_two_tier_source
+                else gen_schema_key(
                     db_name=db_name,
                     schema=schema,
                     platform=self.platform,

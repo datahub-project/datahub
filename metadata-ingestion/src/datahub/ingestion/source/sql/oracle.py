@@ -58,6 +58,7 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
+    extract_temp_tables_from_sql,
     fetch_procedures_with_enrichment,
 )
 from datahub.ingestion.source.sql.stored_procedures.config import (
@@ -1204,10 +1205,6 @@ class OracleSource(SQLAlchemySource):
         self, procedure: BaseProcedure, schema: str, db_name: str
     ) -> Optional[Callable[[str], bool]]:
         """Return a function to check if a table name is an Oracle global temporary table."""
-        from datahub.ingestion.source.sql.stored_procedures.base import (
-            extract_temp_tables_from_sql,
-        )
-
         if not procedure.procedure_definition:
             return None
 

@@ -34,12 +34,11 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
-from datahub.ingestion.source.sql.sql_utils import (
-    gen_database_key,
-)
+from datahub.ingestion.source.sql.sql_utils import gen_database_key
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
+    extract_temp_tables_from_sql,
     fetch_procedures_from_query,
     generate_procedure_container_workunits,
 )
@@ -233,10 +232,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
         self, procedure: BaseProcedure, schema: str, db_name: str
     ) -> Optional[Callable[[str], bool]]:
         """Return a function to check if a table name is a MySQL temporary table."""
-        from datahub.ingestion.source.sql.stored_procedures.base import (
-            extract_temp_tables_from_sql,
-        )
-
         if not procedure.procedure_definition:
             return None
 
