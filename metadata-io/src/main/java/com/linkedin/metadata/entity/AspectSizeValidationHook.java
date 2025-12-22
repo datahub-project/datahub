@@ -73,19 +73,13 @@ public class AspectSizeValidationHook implements AspectSerializationHook {
       // Handle oversized aspect according to remediation strategy
       if (remediation == OversizedAspectRemediation.DELETE) {
         // Hard delete the oversized aspect from database
-        try {
-          aspectDao.deleteAspect(systemAspect.getUrn(), systemAspect.getAspectSpec().getName(), 0L);
-          log.warn(
-              "Hard deleted oversized post-patch aspect from database: urn={}, aspect={}",
-              systemAspect.getUrn(),
-              systemAspect.getAspectSpec().getName());
-        } catch (Exception e) {
-          log.error(
-              "Failed to delete oversized post-patch aspect: urn={}, aspect={}",
-              systemAspect.getUrn(),
-              systemAspect.getAspectSpec().getName(),
-              e);
-        }
+        // Note: If aspect doesn't exist, delete is no-op (no exception thrown)
+        // Any exceptions indicate serious database issues and should propagate
+        aspectDao.deleteAspect(systemAspect.getUrn(), systemAspect.getAspectSpec().getName(), 0L);
+        log.warn(
+            "Hard deleted oversized post-patch aspect from database: urn={}, aspect={}",
+            systemAspect.getUrn(),
+            systemAspect.getAspectSpec().getName());
       }
 
       // For both DELETE and IGNORE: throw exception to prevent this write

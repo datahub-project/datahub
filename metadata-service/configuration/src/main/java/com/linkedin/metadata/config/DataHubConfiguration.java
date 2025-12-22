@@ -33,7 +33,7 @@ public class DataHubConfiguration {
 
   private S3Configuration s3;
 
-  private ValidationConfiguration validation;
+  private ValidationConfiguration validation = new ValidationConfiguration();
 
   @Data
   public static class DataHubMetrics {

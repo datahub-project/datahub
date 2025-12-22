@@ -6,5 +6,5 @@ import lombok.Data;
 @Data
 public class ValidationConfiguration {
   /** Aspect size validation configuration (applies to ALL aspect writes: REST/GraphQL/MCP) */
-  private AspectSizeValidationConfig aspectSize;
+  private AspectSizeValidationConfig aspectSize = new AspectSizeValidationConfig();
 }
