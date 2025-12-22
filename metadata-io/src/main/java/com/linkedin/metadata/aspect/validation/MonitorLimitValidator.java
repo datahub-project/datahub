@@ -11,7 +11,12 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -75,12 +80,12 @@ public class MonitorLimitValidator extends AspectPayloadValidator {
 
     try {
       // Count existing monitor entities
-      final int existingMonitorCount = countExistingMonitors(retrieverContext);
+      final long existingMonitorCount = countExistingMonitors(retrieverContext);
 
       // Get items that would create new monitors
       final List<? extends BatchItem> newMonitorItems =
           getNewMonitorItems(monitorItems, retrieverContext);
-      final int newMonitorsCount = newMonitorItems.size();
+      final long newMonitorsCount = newMonitorItems.size();
 
       if (existingMonitorCount + newMonitorsCount > maxMonitors) {
         log.warn(
@@ -120,33 +125,31 @@ public class MonitorLimitValidator extends AspectPayloadValidator {
   }
 
   /**
-   * Counts the existing monitor entities in the system.
+   * Counts the existing monitor entities in the system, excluding INACTIVE monitors.
    *
    * @param retrieverContext the context for accessing data
-   * @return the number of existing monitor entities
+   * @return the number of existing active monitor entities
    */
-  private int countExistingMonitors(RetrieverContext retrieverContext) {
+  private long countExistingMonitors(RetrieverContext retrieverContext) {
     try {
-      // Use the search retriever to count monitor entities
-      final ScrollResult result =
-          retrieverContext
-              .getSearchRetriever()
-              .scroll(
-                  List.of(MONITOR_ENTITY_NAME),
-                  null, // No filter to get all monitors
-                  null, // scrollId
-                  1 // We only need the count, not the actual entities
-                  );
+      // Build filter to exclude INACTIVE monitors (they don't count toward the limit)
+      Filter activeMonitorsFilter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  CriterionUtils.buildCriterion(
+                                      "mode", Condition.EQUAL, true, "INACTIVE")))));
 
-      if (result == null) {
-        log.warn("Search result is null, defaulting to 0 monitor count");
-        return 0;
-      }
-
-      return result.getNumEntities();
+      // Use count endpoint for better performance
+      return retrieverContext
+          .getSearchRetriever()
+          .count(List.of(MONITOR_ENTITY_NAME), activeMonitorsFilter);
     } catch (Exception e) {
       log.error("Failed to count existing monitors, defaulting to 0", e);
-      return 0; // Default to 0 on error to be safe
+      return 0;
     }
   }
 

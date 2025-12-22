@@ -762,4 +762,252 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     clearCache();
   }
+
+  @Test
+  public void testDocCountPerEntity() throws Exception {
+    // Test with no documents
+    var countMap =
+        searchService.docCountPerEntity(operationContext, ImmutableList.of(ENTITY_NAME), null);
+    assertEquals(countMap.get(ENTITY_NAME).longValue(), 0L);
+
+    // Add test documents
+    Urn urn1 = new TestEntityUrn("doccount", "testUrn1", "VALUE_1");
+    ObjectNode document1 = JsonNodeFactory.instance.objectNode();
+    document1.set("urn", JsonNodeFactory.instance.textNode(urn1.toString()));
+    document1.set("keyPart1", JsonNodeFactory.instance.textNode("doccount_test"));
+    document1.set("textFieldOverride", JsonNodeFactory.instance.textNode("field1"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document1.toString(), urn1.toString());
+
+    Urn urn2 = new TestEntityUrn("doccount", "testUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("doccount_test"));
+    document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("field2"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
+
+    Urn urn3 = new TestEntityUrn("doccount", "testUrn3", "VALUE_3");
+    ObjectNode document3 = JsonNodeFactory.instance.objectNode();
+    document3.set("urn", JsonNodeFactory.instance.textNode(urn3.toString()));
+    document3.set("keyPart1", JsonNodeFactory.instance.textNode("other_test"));
+    document3.set("textFieldOverride", JsonNodeFactory.instance.textNode("field3"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
+
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+
+    // Test count without filter - should return all 3 documents
+    countMap =
+        searchService.docCountPerEntity(operationContext, ImmutableList.of(ENTITY_NAME), null);
+    assertEquals(countMap.get(ENTITY_NAME).longValue(), 3L);
+
+    // Test count with filter - should return only documents matching filter
+    Filter filter = new Filter();
+    ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(buildCriterion("keyPart1", Condition.EQUAL, "doccount_test"));
+    conjunction.setAnd(criterionArray);
+    disjunction.add(conjunction);
+    filter.setOr(disjunction);
+
+    countMap =
+        searchService.docCountPerEntity(operationContext, ImmutableList.of(ENTITY_NAME), filter);
+    assertEquals(countMap.get(ENTITY_NAME).longValue(), 2L);
+
+    // Clean up
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn1.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn3.toString());
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+  }
+
+  @Test
+  public void testDocCountPerEntityMultipleEntities() throws Exception {
+    // Test with multiple entity types
+    String entityName1 = "testEntity";
+    String entityName2 = "testEntity2";
+
+    // Add documents for first entity type
+    Urn urn1 = new TestEntityUrn("multi", "entity1Urn1", "VALUE_1");
+    ObjectNode document1 = JsonNodeFactory.instance.objectNode();
+    document1.set("urn", JsonNodeFactory.instance.textNode(urn1.toString()));
+    document1.set("keyPart1", JsonNodeFactory.instance.textNode("multi_test"));
+    elasticSearchService.upsertDocument(
+        operationContext, entityName1, document1.toString(), urn1.toString());
+
+    Urn urn2 = new TestEntityUrn("multi", "entity1Urn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("multi_test"));
+    elasticSearchService.upsertDocument(
+        operationContext, entityName1, document2.toString(), urn2.toString());
+
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+
+    // Test count for multiple entities
+    var countMap =
+        searchService.docCountPerEntity(
+            operationContext, ImmutableList.of(entityName1, entityName2), null);
+    assertEquals(countMap.get(entityName1).longValue(), 2L);
+    // entityName2 doesn't exist in the index, so it should return 0
+    assertEquals(countMap.getOrDefault(entityName2, 0L).longValue(), 0L);
+
+    // Clean up
+    elasticSearchService.deleteDocument(operationContext, entityName1, urn1.toString());
+    elasticSearchService.deleteDocument(operationContext, entityName1, urn2.toString());
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+  }
+
+  @Test
+  public void testSearchServiceSearchRetrieverCount() throws Exception {
+    // Create SearchServiceSearchRetriever
+    SearchServiceSearchRetriever retriever =
+        SearchServiceSearchRetriever.builder()
+            .systemOperationContext(operationContext)
+            .searchService(searchService)
+            .build();
+
+    // Test with no documents
+    long count = retriever.count(ImmutableList.of(ENTITY_NAME), null);
+    assertEquals(count, 0L);
+
+    // Add test documents
+    Urn urn1 = new TestEntityUrn("retriever", "testUrn1", "VALUE_1");
+    ObjectNode document1 = JsonNodeFactory.instance.objectNode();
+    document1.set("urn", JsonNodeFactory.instance.textNode(urn1.toString()));
+    document1.set("keyPart1", JsonNodeFactory.instance.textNode("retriever_test"));
+    document1.set("textFieldOverride", JsonNodeFactory.instance.textNode("active"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document1.toString(), urn1.toString());
+
+    Urn urn2 = new TestEntityUrn("retriever", "testUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("retriever_test"));
+    document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("active"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
+
+    Urn urn3 = new TestEntityUrn("retriever", "testUrn3", "VALUE_3");
+    ObjectNode document3 = JsonNodeFactory.instance.objectNode();
+    document3.set("urn", JsonNodeFactory.instance.textNode(urn3.toString()));
+    document3.set("keyPart1", JsonNodeFactory.instance.textNode("retriever_test"));
+    document3.set("textFieldOverride", JsonNodeFactory.instance.textNode("inactive"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
+
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+
+    // Recreate retriever with updated searchService after cache clear
+    retriever =
+        SearchServiceSearchRetriever.builder()
+            .systemOperationContext(operationContext)
+            .searchService(searchService)
+            .build();
+
+    // Test count without filter - should return all 3 documents
+    count = retriever.count(ImmutableList.of(ENTITY_NAME), null);
+    assertEquals(count, 3L);
+
+    // Test count with filter - should return only active documents
+    Filter filter = new Filter();
+    ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(buildCriterion("textFieldOverride", Condition.EQUAL, "active"));
+    conjunction.setAnd(criterionArray);
+    disjunction.add(conjunction);
+    filter.setOr(disjunction);
+
+    count = retriever.count(ImmutableList.of(ENTITY_NAME), filter);
+    assertEquals(count, 2L);
+
+    // Test count with filter for inactive documents - should return 1 inactive document
+    Filter inactiveFilter = new Filter();
+    ConjunctiveCriterionArray inactiveDisjunction = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion inactiveConjunction = new ConjunctiveCriterion();
+    CriterionArray inactiveCriterionArray = new CriterionArray();
+    Criterion inactiveCriterion = buildCriterion("textFieldOverride", Condition.EQUAL, "inactive");
+    inactiveCriterionArray.add(inactiveCriterion);
+    inactiveConjunction.setAnd(inactiveCriterionArray);
+    inactiveDisjunction.add(inactiveConjunction);
+    inactiveFilter.setOr(inactiveDisjunction);
+
+    count = retriever.count(ImmutableList.of(ENTITY_NAME), inactiveFilter);
+    assertEquals(count, 1L);
+
+    // Clean up
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn1.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn3.toString());
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+  }
+
+  @Test
+  public void testSearchServiceSearchRetrieverCountMultipleEntities() throws Exception {
+    // Create SearchServiceSearchRetriever
+    SearchServiceSearchRetriever retriever =
+        SearchServiceSearchRetriever.builder()
+            .systemOperationContext(operationContext)
+            .searchService(searchService)
+            .build();
+
+    String entityName1 = "testEntity";
+    String entityName2 = "testEntity2";
+
+    // Add documents for first entity type
+    Urn urn1 = new TestEntityUrn("multi", "retrieverUrn1", "VALUE_1");
+    ObjectNode document1 = JsonNodeFactory.instance.objectNode();
+    document1.set("urn", JsonNodeFactory.instance.textNode(urn1.toString()));
+    document1.set("keyPart1", JsonNodeFactory.instance.textNode("retriever_multi"));
+    elasticSearchService.upsertDocument(
+        operationContext, entityName1, document1.toString(), urn1.toString());
+
+    Urn urn2 = new TestEntityUrn("multi", "retrieverUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("retriever_multi"));
+    elasticSearchService.upsertDocument(
+        operationContext, entityName1, document2.toString(), urn2.toString());
+
+    Urn urn3 = new TestEntityUrn("multi", "retrieverUrn3", "VALUE_3");
+    ObjectNode document3 = JsonNodeFactory.instance.objectNode();
+    document3.set("urn", JsonNodeFactory.instance.textNode(urn3.toString()));
+    document3.set("keyPart1", JsonNodeFactory.instance.textNode("retriever_multi"));
+    elasticSearchService.upsertDocument(
+        operationContext, entityName1, document3.toString(), urn3.toString());
+
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+
+    // Recreate retriever with updated searchService after cache clear
+    retriever =
+        SearchServiceSearchRetriever.builder()
+            .systemOperationContext(operationContext)
+            .searchService(searchService)
+            .build();
+
+    // Test count for multiple entities - sum should be 3 (all from entityName1)
+    long count = retriever.count(ImmutableList.of(entityName1, entityName2), null);
+    assertEquals(count, 3L);
+
+    // Test count for single entity
+    count = retriever.count(ImmutableList.of(entityName1), null);
+    assertEquals(count, 3L);
+
+    // Clean up
+    elasticSearchService.deleteDocument(operationContext, entityName1, urn1.toString());
+    elasticSearchService.deleteDocument(operationContext, entityName1, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, entityName1, urn3.toString());
+    syncAfterWrite(getBulkProcessor());
+    clearCache();
+  }
 }

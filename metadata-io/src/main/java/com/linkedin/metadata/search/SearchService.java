@@ -53,14 +53,18 @@ public class SearchService {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nullable Filter filter) {
+    Map<String, String> lowercaseToOriginal =
+        entityNames.stream()
+            .collect(Collectors.toMap(String::toLowerCase, Function.identity(), (v1, v2) -> v1));
+
     return getEntitiesToSearch(opContext, entityNames, 0).stream()
         .collect(
             Collectors.toMap(
-                Function.identity(),
-                entityName ->
+                lowercaseEntityName -> lowercaseToOriginal.get(lowercaseEntityName),
+                lowercaseEntityName ->
                     _entityDocCountCache
                         .getEntityDocCount(opContext, filter)
-                        .getOrDefault(entityName.toLowerCase(), 0L)));
+                        .getOrDefault(lowercaseEntityName, 0L)));
   }
 
   /**

@@ -2,9 +2,7 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.MONITOR_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -18,7 +16,6 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
-import com.linkedin.metadata.search.ScrollResult;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -127,7 +124,7 @@ public class MonitorLimitValidatorTest {
     SearchRetriever mockSearchRetriever = mock(SearchRetriever.class);
 
     when(mockContext.getSearchRetriever()).thenReturn(mockSearchRetriever);
-    when(mockSearchRetriever.scroll(anyList(), any(), anyString(), anyInt()))
+    when(mockSearchRetriever.count(anyList(), any()))
         .thenThrow(new RuntimeException("Database error"));
 
     Stream<AspectValidationException> result =
@@ -265,13 +262,10 @@ public class MonitorLimitValidatorTest {
       int existingMonitorCount, Map<Urn, Boolean> existenceMap) {
     RetrieverContext mockContext = mock(RetrieverContext.class);
     SearchRetriever mockSearchRetriever = mock(SearchRetriever.class);
-    ScrollResult mockScrollResult = mock(ScrollResult.class);
     AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
 
     when(mockContext.getSearchRetriever()).thenReturn(mockSearchRetriever);
-    when(mockSearchRetriever.scroll(anyList(), any(), any(), anyInt()))
-        .thenReturn(mockScrollResult);
-    when(mockScrollResult.getNumEntities()).thenReturn(existingMonitorCount);
+    when(mockSearchRetriever.count(anyList(), any())).thenReturn((long) existingMonitorCount);
 
     when(mockContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
     when(mockAspectRetriever.entityExists(any())).thenReturn(existenceMap);

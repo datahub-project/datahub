@@ -67,6 +67,16 @@ public interface SearchRetriever {
         entities, filters, scrollId, count, ImmutableList.of(urnSort), RETRIEVER_SEARCH_FLAGS);
   }
 
+  /**
+   * Counts the number of entities matching the given criteria. Implementations must provide an
+   * efficient count mechanism that does not require scanning all entities.
+   *
+   * @param entities list of entity types to count
+   * @param filters optional filter to apply
+   * @return count of matching entities
+   */
+  long count(@Nonnull List<String> entities, @Nullable Filter filters);
+
   SearchRetriever EMPTY = new EmptySearchRetriever();
 
   class EmptySearchRetriever implements SearchRetriever {
@@ -84,6 +94,11 @@ public interface SearchRetriever {
       empty.setNumEntities(0);
       empty.setPageSize(0);
       return empty;
+    }
+
+    @Override
+    public long count(@Nonnull List<String> entities, @Nullable Filter filters) {
+      return 0L;
     }
   }
 }

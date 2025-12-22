@@ -50,4 +50,14 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
         count,
         null);
   }
+
+  @Override
+  public long count(@Nonnull List<String> entities, @Nullable Filter filters) {
+    return searchService
+        .docCountPerEntity(systemOperationContext, entities, filters)
+        .values()
+        .stream()
+        .mapToLong(Long::longValue)
+        .sum();
+  }
 }
