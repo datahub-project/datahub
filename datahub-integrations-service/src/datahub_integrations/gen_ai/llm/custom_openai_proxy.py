@@ -15,6 +15,7 @@ if sys.platform == "linux":
     import inotify.adapters  # type: ignore[import-untyped]
 else:
     inotify = None  # type: ignore[assignment]
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.utilities.perf_timer import PerfTimer
 from langchain_openai import ChatOpenAI
 from loguru import logger
@@ -51,13 +52,20 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
                 "custom_model_provider provider is required for CustomOpenAIProxyLLMWrapper provider"
             )
 
+        # Check if force reinitialize mode is enabled
+        # This is to guard against caching issues in the client
+        force_reinitialize = get_boolean_env_variable(
+            "FORCE_CUSTOM_AI_CLIENT_REINITIALIZE"
+        )
+
         # create a custom http client if cert file and key file exist
         if self.custom_model_provider.cert_file and self.custom_model_provider.key_file:
             # Only set watches once (use instance variable to avoid cross-test pollution)
             if not hasattr(self, "cert_file_watches"):
                 self.cert_file_watches: List[str] = []
 
-            if len(self.cert_file_watches) == 0:
+            # Skip background watching if force reinitialize is enabled
+            if len(self.cert_file_watches) == 0 and not force_reinitialize:
                 cert_file_watch_path = str(
                     Path(self.custom_model_provider.cert_file).parent
                 )
@@ -108,7 +116,8 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
             has_custom_openai_api_key={has_custom_openai_api_key}, \
             has_custom_http_client={custom_client is not None}, \
             cert_file={self.custom_model_provider.cert_file}, \
-            key_file={self.custom_model_provider.key_file}"
+            key_file={self.custom_model_provider.key_file}, \
+            force_reinitialize={force_reinitialize}"
         )
 
         return ChatOpenAI(
@@ -203,7 +212,16 @@ class CustomOpenAIProxyLLMWrapper(LLMWrapper):
         - Tool calling (Bedrock toolSpec -> langchain function format)
         - Prompt caching (Bedrock cachePoint markers -> OpenAI automatic caching)
         - Response format conversion (langchain AIMessage -> Bedrock output structure)
-        """  # STEP 1 & 2: Convert Bedrock messages to langchain format
+        """
+        # Force client reinitialization if environment variable is set
+        force_reinitialize = get_boolean_env_variable("FORCE_CLIENT_REINITIALIZE")
+        if force_reinitialize:
+            logger.info(
+                "Force reinitializing client due to FORCE_CLIENT_REINITIALIZE env var"
+            )
+            self._client = self._initialize_client()
+
+        # STEP 1 & 2: Convert Bedrock messages to langchain format
         # Use shared helper from base class
         lc_messages = self._convert_bedrock_messages_to_langchain(system, messages)
 

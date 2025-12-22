@@ -1807,3 +1807,181 @@ class TestLLMFactory:
                 )
 
             assert "maximum context length" in str(exc_info.value)
+
+    @patch.dict(
+        "os.environ",
+        {
+            "OPENAI_API_KEY": "test-api-key",
+            "FORCE_CUSTOM_AI_CLIENT_REINITIALIZE": "true",
+        },
+    )
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.threading.Thread")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.Client")
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.httpx.AsyncClient")
+    def test_force_reinitialize_skips_background_watching(
+        self,
+        mock_async_httpx_client: Mock,
+        mock_httpx_client: Mock,
+        mock_chat_openai: Mock,
+        mock_thread: Mock,
+    ) -> None:
+        """Test that FORCE_CUSTOM_AI_CLIENT_REINITIALIZE disables background cert watching."""
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+        mock_http_client = MagicMock()
+        mock_httpx_client.return_value = mock_http_client
+        mock_async_http_client = MagicMock()
+        mock_async_httpx_client.return_value = mock_async_http_client
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file="/path/to/cert.pem",
+            key_file="/path/to/key.pem",
+        )
+
+        CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify that NO background thread was started (due to force_reinitialize)
+        mock_thread.assert_not_called()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "OPENAI_API_KEY": "test-api-key",
+            "FORCE_CLIENT_REINITIALIZE": "true",
+        },
+    )
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_force_reinitialize_on_every_converse_call(
+        self, mock_chat_openai: Mock
+    ) -> None:
+        """Test that FORCE_CLIENT_REINITIALIZE reinitializes client on every converse call."""
+        from langchain_core.messages import AIMessageChunk
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        # Create multiple mock clients to verify reinitialization
+        mock_client_1 = MagicMock()
+        mock_client_2 = MagicMock()
+        mock_client_3 = MagicMock()
+        mock_chat_openai.side_effect = [mock_client_1, mock_client_2, mock_client_3]
+
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="Response")
+            chunk.usage_metadata = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+            }
+            chunk.response_metadata = {"finish_reason": "stop"}
+            yield chunk
+
+        mock_client_1.stream.side_effect = mock_stream
+        mock_client_2.stream.side_effect = mock_stream
+        mock_client_3.stream.side_effect = mock_stream
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify initial client was created
+        assert mock_chat_openai.call_count == 1
+        assert wrapper._client == mock_client_1
+
+        # First converse call - should reinitialize
+        wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Hello 1"}]}],
+        )
+
+        # Verify client was reinitialized
+        assert mock_chat_openai.call_count == 2
+        assert wrapper._client == mock_client_2
+
+        # Second converse call - should reinitialize again
+        wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Hello 2"}]}],
+        )
+
+        # Verify client was reinitialized again
+        assert mock_chat_openai.call_count == 3
+        assert wrapper._client == mock_client_3
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-api-key"})
+    @patch("datahub_integrations.gen_ai.llm.custom_openai_proxy.ChatOpenAI")
+    def test_without_force_reinitialize_client_persists(
+        self, mock_chat_openai: Mock
+    ) -> None:
+        """Test that without FORCE_CLIENT_REINITIALIZE, client is NOT reinitialized between calls."""
+        from langchain_core.messages import AIMessageChunk
+
+        from datahub_integrations.gen_ai.model_config import CustomModelProvider
+
+        mock_client = MagicMock()
+        mock_chat_openai.return_value = mock_client
+
+        # Mock streaming response
+        def mock_stream(messages, **kwargs):
+            chunk = AIMessageChunk(content="Response")
+            chunk.usage_metadata = {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+            }
+            chunk.response_metadata = {"finish_reason": "stop"}
+            yield chunk
+
+        mock_client.stream.side_effect = mock_stream
+
+        custom_provider = CustomModelProvider(
+            base_url="https://custom.api.com/v1",
+            api_key="test-key",
+            cert_file=None,
+            key_file=None,
+        )
+
+        wrapper = CustomOpenAIProxyLLMWrapper(
+            model_name="custom-gpt-4",
+            custom_model_provider=custom_provider,
+        )
+
+        # Verify initial client was created
+        assert mock_chat_openai.call_count == 1
+        initial_client = wrapper._client
+
+        # First converse call - should NOT reinitialize
+        wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Hello 1"}]}],
+        )
+
+        # Verify client was NOT reinitialized
+        assert mock_chat_openai.call_count == 1
+        assert wrapper._client is initial_client
+
+        # Second converse call - should NOT reinitialize
+        wrapper.converse(
+            system=[{"text": "You are helpful"}],
+            messages=[{"role": "user", "content": [{"text": "Hello 2"}]}],
+        )
+
+        # Verify client was still NOT reinitialized
+        assert mock_chat_openai.call_count == 1
+        assert wrapper._client is initial_client
