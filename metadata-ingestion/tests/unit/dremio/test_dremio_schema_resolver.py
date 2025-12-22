@@ -363,3 +363,29 @@ class TestDremioSchemaResolverWithSQLGlot:
         assert expected_3part in urn_3part.lower(), (
             f"Expected '{expected_3part}' in '{urn_3part}'"
         )
+
+    def test_unquoted_multi_part_table_names(self, resolver):
+        """Test that unquoted 5-part table names are handled correctly by SQLGlot."""
+        sql = "SELECT * FROM MySpace.folder1.folder2.folder3.table"
+        parsed = sqlglot.parse_one(sql, dialect="dremio")
+        tables = list(parsed.find_all(sqlglot.exp.Table))
+        table_name = _TableName.from_sqlglot_table(tables[0])
+
+        # Verify SQLGlot correctly populates parts for unquoted identifiers
+        assert table_name.parts is not None
+        assert len(table_name.parts) == 5
+        assert table_name.parts == ("MySpace", "folder1", "folder2", "folder3", "table")
+
+        urn = resolver.get_urn_for_table(table_name, lower=True)
+        assert "dremio.myspace.folder1.folder2.folder3.table" in urn.lower()
+
+    def test_home_folder_with_at_symbol(self, resolver):
+        """Test that home folders (starting with @) are handled correctly in URNs."""
+        table = _TableName(
+            database="@john.doe",
+            db_schema="personal",
+            table="analysis",
+        )
+        urn = resolver.get_urn_for_table(table, lower=True)
+        assert "@john.doe" in urn.lower()
+        assert "dremio.@john.doe.personal.analysis" in urn.lower()
