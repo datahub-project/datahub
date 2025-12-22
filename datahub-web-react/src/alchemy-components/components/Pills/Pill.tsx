@@ -4,6 +4,7 @@ import React from 'react';
 import { PillContainer, PillText } from '@components/components/Pills/components';
 import { PillProps, PillPropsDefaults } from '@components/components/Pills/types';
 import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeValues } from '@components/theme/config';
+
 import { useAppConfig } from '@app/useAppConfig';
 
 export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]> = {
