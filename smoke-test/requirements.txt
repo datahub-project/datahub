@@ -10,12 +10,14 @@ aiohttp
 joblib
 pytest-xdist
 networkx
+croniter>=1.3.0
 # libaries for linting below this
 mypy==1.14.1
 ruff==0.11.7
 # stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
 types-requests>=2.28.11.6,<=2.31.0.3
 types-PyYAML
+types-croniter
 # https://github.com/docker/docker-py/issues/3256
 requests<=2.31.0
 # Missing numpy requirement in 8.0.0
