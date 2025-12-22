@@ -110,12 +110,12 @@ Reference Links:
 
 ### Aspect Size Validation
 
-Protects against aspects exceeding Jackson's 16MB deserialization limit. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
+Protects against aspects exceeding deserialization limits. **Debugging flags - enable only when troubleshooting service crashes or memory pressure from oversized aspects.**
 
 | Environment Variable                                              | Default  | Description                                                                                                               | Components |
 | ----------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_ENABLED`                | `false`  | Enable pre-patch validation - checks existing aspects from DB before patch application                                    | GMS        |
-| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 15728640 | Max size in bytes for pre-patch aspects (15MB, safety margin below 16MB Jackson limit)                                    | GMS        |
+| `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_MAX_SIZE_BYTES`         | 15728640 | Max size in bytes for pre-patch aspects (15MB, safety margin below deserialization limit)                                 | GMS        |
 | `DATAHUB_VALIDATION_ASPECT_SIZE_PRE_PATCH_OVERSIZED_REMEDIATION`  | `IGNORE` | Remediation for oversized pre-patch aspects: `IGNORE` (skip write), `REPLACE_WITH_PATCH` (delete old, continue as insert) | GMS        |
 | `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_ENABLED`               | `false`  | Enable post-patch validation - checks aspects after patch application, before DB write                                    | GMS        |
 | `DATAHUB_VALIDATION_ASPECT_SIZE_POST_PATCH_MAX_SIZE_BYTES`        | 15728640 | Max size in bytes for post-patch aspects (15MB)                                                                           | GMS        |

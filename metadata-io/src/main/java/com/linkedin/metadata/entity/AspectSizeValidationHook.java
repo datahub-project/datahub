@@ -28,9 +28,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p><b>Why Size Validation is Necessary:</b> At least one customer has oversized aspects in their
  * database, and all customers can potentially create them. Without validation, aspects can grow
- * beyond Jackson's 16MB deserialization limit, causing unrecoverable failures when reading those
- * aspects back. This validation provides a sanity check to prevent creating aspects that cannot be
- * read later.
+ * beyond deserialization limits, causing unrecoverable failures when reading those aspects back.
+ * This validation provides a sanity check to prevent creating aspects that cannot be read later.
  */
 @Slf4j
 public class AspectSizeValidationHook implements AspectSerializationHook {
