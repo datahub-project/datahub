@@ -564,7 +564,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                                     onQuestionSelect={handleQuestionSelect}
                                     questions={suggestedQuestions}
                                 />
-                                <FreeTrialAIChatPopover variant="welcome" />
+                                {variant === ChatVariant.Full && <FreeTrialAIChatPopover variant="welcome" />}
                             </EmptyStateInputWrapper>
                         </EmptyStateContainer>
                     </MessagesContent>

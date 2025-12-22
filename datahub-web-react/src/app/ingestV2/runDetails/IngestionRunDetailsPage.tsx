@@ -82,6 +82,7 @@ export default function IngestionRunDetailsPage() {
                     originType={DataHubAiConversationOriginType.IngestionUi}
                     title="Ask DataHub - Run Details"
                     ingestionScreen="view_results"
+                    contentPlaceholder="Ask DataHub about your run details"
                 />
             }
             topBreadcrumb={breadCrumb}

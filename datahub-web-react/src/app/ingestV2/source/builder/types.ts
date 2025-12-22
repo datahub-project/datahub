@@ -74,6 +74,11 @@ export interface SourceBuilderState {
     type?: string;
 
     /**
+     * The display name of the source platform
+     */
+    platformDisplayName?: string;
+
+    /**
      * The schedule on which to execute the source (optional)
      */
     schedule?: {

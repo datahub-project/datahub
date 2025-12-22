@@ -95,6 +95,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
                         title={isEditing ? 'Ask DataHub - Edit Source' : 'Ask DataHub - Create Source'}
                         getMessageContext={getMessageContext}
                         ingestionScreen="configure_source"
+                        contentPlaceholder={`Ask DataHub about ${state?.platformDisplayName || 'your data source'}`}
                     />
                 )
             }

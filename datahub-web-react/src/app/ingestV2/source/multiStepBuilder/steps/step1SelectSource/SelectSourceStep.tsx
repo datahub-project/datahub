@@ -104,6 +104,7 @@ export function SelectSourceStep() {
         }
         updateState({
             type: platformSource.name,
+            platformDisplayName: platformSource.displayName,
             // Reset state of the connection details form
             isConnectionDetailsValid: false,
             config: undefined,

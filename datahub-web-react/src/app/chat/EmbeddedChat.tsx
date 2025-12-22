@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { ChatMessageIngestionScreen } from '@app/analytics';
+import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
 import { MessageList } from '@app/chat/components/MessageList';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
@@ -34,7 +35,6 @@ const MessagesContainer = styled.div`
 
 const InputContainer = styled.div`
     padding: 16px;
-    border-top: 1px solid ${colors.gray[100]};
     background-color: #ffffff;
 `;
 
@@ -45,6 +45,8 @@ const EmptyState = styled.div`
     flex: 1;
     color: ${colors.gray[400]};
     font-size: 14px;
+    flex-direction: column;
+    gap: 12px;
 `;
 
 interface EmbeddedChatProps {
@@ -52,6 +54,7 @@ interface EmbeddedChatProps {
     agentName?: string;
     originType: DataHubAiConversationOriginType;
     title?: string;
+    contentPlaceholder?: string;
     getMessageContext?: () => MessageContext;
     ingestionScreen?: ChatMessageIngestionScreen;
 }
@@ -68,6 +71,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
     agentName,
     originType,
     title,
+    contentPlaceholder,
     getMessageContext,
     ingestionScreen,
 }) => {
@@ -139,7 +143,16 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
         <Container>
             <MessagesContainer>
                 {messages.length === 0 ? (
-                    <EmptyState>Start a conversation by typing a message below</EmptyState>
+                    <>
+                        {contentPlaceholder && (
+                            <EmptyState>
+                                <div>
+                                    <AskDataHubIcon size={28} />
+                                </div>
+                                <div>{contentPlaceholder}</div>
+                            </EmptyState>
+                        )}
+                    </>
                 ) : (
                     <>
                         <MessageList
