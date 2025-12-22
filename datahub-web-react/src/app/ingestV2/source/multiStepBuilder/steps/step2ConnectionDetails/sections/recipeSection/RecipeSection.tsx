@@ -4,7 +4,7 @@ import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
-import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
@@ -21,7 +21,7 @@ interface Props {
 export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe, setIsRecipeValid }: Props) {
     const { type } = state;
     const isEditing = !!state.isEditing;
-    const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM.has(type), [type]);
+    const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
     // FYI: We don't have form validation for sources without a form
     useEffect(() => {

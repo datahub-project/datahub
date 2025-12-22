@@ -112,6 +112,7 @@ export default function SignUpModal() {
                     text: 'Get Started',
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
+                    buttonDataTestId: 'sign-up',
                 },
             ]}
             onCancel={() => {}}
@@ -119,7 +120,12 @@ export default function SignUpModal() {
             closable={false}
             width="533px"
         >
-            <SignupForm form={form} handleSubmit={handleSignUp} onFormChange={onFormChange} />
+            <SignupForm
+                form={form}
+                handleSubmit={handleSignUp}
+                onFormChange={onFormChange}
+                isSubmitDisabled={isSubmitDisabled}
+            />
         </Modal>
     );
 }
