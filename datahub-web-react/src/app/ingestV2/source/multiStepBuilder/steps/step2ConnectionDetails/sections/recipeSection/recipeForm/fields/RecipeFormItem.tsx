@@ -34,6 +34,15 @@ export function RecipeFormItem({
         return undefined;
     }, [recipeField]);
 
+    const helperText = useMemo(() => {
+        return recipeField?.helper ?? recipeField?.tooltip;
+    }, [recipeField]);
+
+    // Don't render the field if it's hidden
+    if (recipeField?.hidden) {
+        return null;
+    }
+
     return (
         <Wrapper>
             <CustomLabelFormItem
@@ -46,7 +55,7 @@ export function RecipeFormItem({
             >
                 {children}
             </CustomLabelFormItem>
-            {showHelperText && recipeField?.helper && <HelperText text={recipeField.helper} />}
+            {showHelperText && helperText && <HelperText text={helperText} />}
         </Wrapper>
     );
 }

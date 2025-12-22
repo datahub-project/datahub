@@ -39,6 +39,7 @@ const ErrorWrapper = styled.div`
 `;
 
 export function DictField({ field }: CommonFieldProps) {
+    const helper = field.helper ?? field.tooltip;
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -77,7 +78,7 @@ export function DictField({ field }: CommonFieldProps) {
                     <AddItemButton onClick={() => add()} text={field.buttonLabel} />
 
                     {errors.length > 0 && <ErrorWrapper>{errors}</ErrorWrapper>}
-                    {field.helper && <HelperText text={field.helper} />}
+                    {helper && <HelperText text={helper} />}
                 </ListWrapper>
             )}
         </Form.List>

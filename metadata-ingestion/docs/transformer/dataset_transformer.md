@@ -809,6 +809,115 @@ transformers:
         - "example3"
 ```
 
+## Tags to Structured Properties
+
+### Description
+
+The `tags_to_structured_properties` transformer converts DataHub Tags into Structured Properties, supporting both key-value formatted tags (e.g., `dept:Finance`) and simple tag names mapped via configuration. Structured Properties must be created in DataHub before running the transformation - they are not created dynamically.
+
+Some error scenarios that will cause the transformation (and pipeline) to fail include:
+
+- **Invalid property value**: Tag value doesn't match the allowed values defined in the Structured Property
+- **Property doesn't exist**: Transformed property URN references a non-existent Structured Property
+
+These failures trigger backend validation errors and are expected behavior - they indicate configuration issues that require either creating the missing Structured Properties in DataHub or adjusting the allowed values for existing properties.
+
+### Config Details
+
+| Field                         | Required | Type                                        | Default | Description                                                               |
+| ----------------------------- | -------- | ------------------------------------------- | ------- | ------------------------------------------------------------------------- |
+| `process_key_value_tags`      |          | boolean                                     | `false` | Enable parsing of key:value formatted tags                                |
+| `key_value_separator`         |          | string                                      | `:`     | Separator character for key-value tags                                    |
+| `key_value_property_prefix`   |          | string                                      | `""`    | Prefix to add to property IDs derived from key-value tags                 |
+| `tag_structured_property_map` |          | map[property_id, StructuredPropertyMapping] | `{}`    | Map of structured property IDs to tag keyword configurations              |
+| `remove_original_tags`        |          | boolean                                     | `false` | Whether to remove original tags after converting to structured properties |
+| `semantics`                   |          | enum                                        | `PATCH` | Whether to OVERWRITE or PATCH the structured properties on DataHub GMS    |
+
+The `tags_to_structured_properties` transformer converts DataHub tags into structured properties. It supports two modes:
+
+1. **Key-Value Tags**: Tags formatted as `key:value` (e.g., `dept:Finance`) where the key becomes the property name
+2. **Keyword Tags**: Simple tag names mapped to properties via configuration
+
+This transformer works with any source that emits tags (Tableau, dbt, Snowflake, etc.) and can be used to migrate from tags to structured properties.
+
+### Key-Value Tag Example
+
+Convert tags like `department:Finance` and `sensitivity:PII` into structured properties:
+
+```yaml
+transformers:
+  - type: "tags_to_structured_properties"
+    config:
+      process_key_value_tags: true
+      key_value_separator: ":"
+      key_value_property_prefix: "io.company."
+      remove_original_tags: false
+```
+
+With this config:
+
+- Tag `department:Finance` → Property `io.company.department` with value `Finance`
+- Tag `sensitivity:PII` → Property `io.company.sensitivity` with value `PII`
+
+### Keyword Tag Mapping Example
+
+Map specific tag keywords to predefined structured properties:
+
+```yaml
+transformers:
+  - type: "tags_to_structured_properties"
+    config:
+      tag_structured_property_map:
+        "io.company.department":
+          values: ["Finance", "Sales", "Marketing", "Engineering"]
+        "io.company.dataClassification":
+          values: ["PII", "Confidential", "Public"]
+        "io.company.qualityLevel":
+          values: ["Certified", "Draft", "Deprecated"]
+      remove_original_tags: false
+```
+
+With this config:
+
+- Tag `Finance` → Property `io.company.department` with value `Finance`
+- Tag `PII` → Property `io.company.dataClassification` with value `PII`
+- Tag `Certified` → Property `io.company.qualityLevel` with value `Certified`
+
+### Combined Example
+
+Use both key-value parsing and keyword mapping together:
+
+```yaml
+transformers:
+  - type: "tags_to_structured_properties"
+    config:
+      # Enable key-value processing
+      process_key_value_tags: true
+      key_value_separator: ":"
+      key_value_property_prefix: "io.company."
+
+      # Keyword mappings for tags without key-value format
+      tag_structured_property_map:
+        "io.company.department":
+          values: ["Finance", "Sales", "Marketing"]
+        "io.company.dataClassification":
+          values: ["PII", "Confidential"]
+
+      # Keep original tags as well
+      remove_original_tags: false
+
+      # Merge with existing structured properties
+      semantics: PATCH
+```
+
+### Notes
+
+- If a tag matches both key-value format and keyword mapping, key-value takes precedence
+- The first matching property in `tag_structured_property_map` receives the tag value
+- Unmatched tags generate a warning but do not fail the transformation
+- Multiple tags can map to the same property (values are accumulated as an array)
+- Structured properties must be created in DataHub before running the transformation
+
 ## Pattern Add Dataset Schema Field glossaryTerms
 
 ### Config Details

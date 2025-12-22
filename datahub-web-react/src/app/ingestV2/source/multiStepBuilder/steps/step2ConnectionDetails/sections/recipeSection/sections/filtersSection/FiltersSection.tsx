@@ -36,6 +36,11 @@ const FilterFieldsWrapper = styled.div`
 
 const SelectLabelWrapper = styled.div`
     min-width: 175px;
+    width: 25%;
+`;
+
+const SelectLabelWrapperFullWidth = styled.div`
+    width: 100%;
 `;
 
 const Spacer = styled.div`
@@ -177,7 +182,9 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                     <SelectLabelWrapper>
                         <FieldLabel label="Subtype" />
                     </SelectLabelWrapper>
-                    <FieldLabel label="Regex Entry" />
+                    <SelectLabelWrapperFullWidth>
+                        <FieldLabel label="Regex Entry" />
+                    </SelectLabelWrapperFullWidth>
                 </FilterFieldsWrapper>
                 <Spacer />
             </FilterRow>

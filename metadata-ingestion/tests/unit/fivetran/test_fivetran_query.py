@@ -156,3 +156,54 @@ class TestFivetranLogQuery:
         # Unicode characters (should be invalid)
         assert not FivetranLogQuery._is_valid_unquoted_identifier("test_数据库")
         assert not FivetranLogQuery._is_valid_unquoted_identifier("test_ñ")
+
+    def test_use_database_properly_quotes_identifier(self):
+        """Test that use_database properly quotes the database name."""
+        query = FivetranLogQuery()
+
+        # Normal identifier
+        result = query.use_database("my_database")
+        assert result == 'use database "my_database"'
+
+        # Identifier with special chars that need escaping
+        result = query.use_database('my"database')
+        assert result == 'use database "my""database"'
+
+        # Uppercase identifier
+        result = query.use_database("MY_DATABASE")
+        assert result == 'use database "MY_DATABASE"'
+
+    def test_set_schema_properly_quotes_identifier(self):
+        """Test that set_schema properly quotes and sets schema clause."""
+        query = FivetranLogQuery()
+
+        # Normal schema
+        query.set_schema("my_schema")
+        assert query.schema_clause == '"my_schema".'
+
+        # Schema with quotes needing escape
+        query.set_schema('my"schema')
+        assert query.schema_clause == '"my""schema".'
+
+        # Uppercase schema
+        query.set_schema("MY_SCHEMA")
+        assert query.schema_clause == '"MY_SCHEMA".'
+
+    def test_use_database_with_quoted_identifier(self):
+        """Test use_database with an already quoted identifier."""
+        query = FivetranLogQuery()
+
+        # If user passes quoted identifier, the quotes should be escaped
+        result = query.use_database('"already_quoted"')
+        assert result == 'use database """already_quoted"""'
+
+    def test_set_schema_affects_query_output(self):
+        """Test that set_schema affects queries generated."""
+        query = FivetranLogQuery()
+
+        # Before setting schema
+        assert query.schema_clause == ""
+
+        # After setting schema
+        query.set_schema("test_schema")
+        assert query.schema_clause == '"test_schema".'
