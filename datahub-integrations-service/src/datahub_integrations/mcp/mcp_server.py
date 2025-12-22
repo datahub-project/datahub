@@ -18,6 +18,7 @@ import pathlib
 import re
 import string
 import threading
+from enum import Enum
 from typing import (
     Any,
     Awaitable,
@@ -44,10 +45,13 @@ from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
+from fastmcp.tools.tool import Tool as FastMCPTool
 from json_repair import repair_json
 from loguru import logger
 from pydantic import BaseModel
 
+from datahub_integrations.mcp.tools.get_me import get_me
+from datahub_integrations.mcp.tools.owners import add_owners, remove_owners
 from datahub_integrations.mcp.tools.terms import (
     add_glossary_terms,
     remove_glossary_terms,
@@ -70,6 +74,15 @@ TOOL_RESPONSE_TOKEN_LIMIT = int(os.getenv("TOOL_RESPONSE_TOKEN_LIMIT", 80000))
 # Per-entity schema token budget for field truncation
 # Assumes ~5 entities per response: 80K total / 5 = 16K per entity
 ENTITY_SCHEMA_TOKEN_BUDGET = int(os.getenv("ENTITY_SCHEMA_TOKEN_BUDGET", "16000"))
+
+
+class ToolType(Enum):
+    """Tool type enumeration for different tool types."""
+
+    SEARCH = "search"  # Datahub search tools
+    MUTATION = "mutation"  # Datahub mutation tools
+    USER = "user"  # Datahub user tools
+    DEFAULT = "default"  # Fallback tag
 
 
 def _select_results_within_budget(
@@ -2511,31 +2524,74 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
                 If False, use Cloud descriptions (full sorting features).
     """
 
-    enabled = get_boolean_env_variable("TOOLS_MUTATION_ENABLED")
+    enabled = get_boolean_env_variable("TOOLS_IS_MUTATION_ENABLED")
     logger.info(f"Mutation Tools {'ENABLED' if enabled else 'DISABLED'} MCP Server.")
 
     if not enabled:
         return
 
     # Register add_tags tool
-    mcp_instance.tool(name="add_tags", description=add_tags.__doc__)(
-        async_background(add_tags)
-    )
+    mcp_instance.tool(
+        name="add_tags", description=add_tags.__doc__, tags={ToolType.MUTATION.value}
+    )(async_background(add_tags))
 
     # Register remove_tags tool
-    mcp_instance.tool(name="remove_tags", description=remove_tags.__doc__)(
-        async_background(remove_tags)
-    )
+    mcp_instance.tool(
+        name="remove_tags",
+        description=remove_tags.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(remove_tags))
 
     # Register add_terms tool
-    mcp_instance.tool(name="add_terms", description=add_glossary_terms.__doc__)(
-        async_background(add_glossary_terms)
-    )
+    mcp_instance.tool(
+        name="add_terms",
+        description=add_glossary_terms.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(add_glossary_terms))
 
     # Register remove_terms tool
-    mcp_instance.tool(name="remove_terms", description=remove_glossary_terms.__doc__)(
-        async_background(remove_glossary_terms)
-    )
+    mcp_instance.tool(
+        name="remove_terms",
+        description=remove_glossary_terms.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(remove_glossary_terms))
+
+    # Register add_owners tool
+    mcp_instance.tool(
+        name="add_owners",
+        description=add_owners.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(add_owners))
+
+    # Register remove_owners tool
+    mcp_instance.tool(
+        name="remove_owners",
+        description=remove_owners.__doc__,
+        tags={ToolType.MUTATION.value},
+    )(async_background(remove_owners))
+
+
+def register_user_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
+    """Register user information tools on an MCP instance.
+
+    This includes tools for fetching authenticated user information.
+
+    Args:
+        mcp_instance: The FastMCP instance to register tools on
+        is_oss: If True, use OSS-compatible tool descriptions.
+                If False, use Cloud descriptions.
+    """
+
+    enabled = get_boolean_env_variable("TOOLS_IS_USER_ENABLED")
+    logger.info(f"User Tools {'ENABLED' if enabled else 'DISABLED'} MCP Server.")
+
+    if not enabled:
+        return
+
+    # Register get_me tool
+    mcp_instance.tool(
+        name="get_me", description=get_me.__doc__, tags={ToolType.USER.value}
+    )(async_background(get_me))
 
 
 def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
@@ -2586,38 +2642,50 @@ def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
         # but provides clear error messages when semantic search is actually attempted
 
         # Register enhanced search tool with semantic capabilities (as "search")
-        mcp_instance.tool(name="search", description=enhanced_search.__doc__)(
-            async_background(enhanced_search)
-        )
+        mcp_instance.tool(
+            name="search",
+            description=enhanced_search.__doc__,
+            tags={ToolType.SEARCH.value},
+        )(async_background(enhanced_search))
     else:
         # Register original search tool with deployment-specific description
-        mcp_instance.tool(name="search", description=search_description)(
-            async_background(search)
-        )
+        mcp_instance.tool(
+            name="search", description=search_description, tags={ToolType.SEARCH.value}
+        )(async_background(search))
 
     # Register get_lineage tool
-    mcp_instance.tool(name="get_lineage", description=get_lineage.__doc__)(
-        async_background(get_lineage)
-    )
+    mcp_instance.tool(
+        name="get_lineage",
+        description=get_lineage.__doc__,
+        tags={ToolType.SEARCH.value},
+    )(async_background(get_lineage))
 
     # Register get_dataset_queries tool
     mcp_instance.tool(
-        name="get_dataset_queries", description=get_dataset_queries.__doc__
+        name="get_dataset_queries",
+        description=get_dataset_queries.__doc__,
+        tags={ToolType.SEARCH.value},
     )(async_background(get_dataset_queries))
 
     # Register get_entities tool
-    mcp_instance.tool(name="get_entities", description=get_entities.__doc__)(
-        async_background(get_entities)
-    )
+    mcp_instance.tool(
+        name="get_entities",
+        description=get_entities.__doc__,
+        tags={ToolType.SEARCH.value},
+    )(async_background(get_entities))
 
     # Register list_schema_fields tool
     mcp_instance.tool(
-        name="list_schema_fields", description=list_schema_fields.__doc__
+        name="list_schema_fields",
+        description=list_schema_fields.__doc__,
+        tags={ToolType.SEARCH.value},
     )(async_background(list_schema_fields))
 
     # Register get_lineage_paths_between tool
     mcp_instance.tool(
-        name="get_lineage_paths_between", description=get_lineage_paths_between.__doc__
+        name="get_lineage_paths_between",
+        description=get_lineage_paths_between.__doc__,
+        tags={ToolType.SEARCH.value},
     )(async_background(get_lineage_paths_between))
 
 
@@ -2646,3 +2714,33 @@ def register_all_tools(is_oss: bool = False) -> None:
     register_search_tools(mcp, is_oss)
 
     register_mutation_tools(mcp, is_oss)
+
+    register_user_tools(mcp, is_oss)
+
+
+def get_valid_tools_from_mcp(
+    filter_fn: Optional[Callable[[FastMCPTool], bool]] = None,
+) -> List[FastMCPTool]:
+    """Get valid tools from MCP, optionally filtered.
+
+    Args:
+        filter_fn: Optional function to filter tools. Receives a Tool and returns True to include it.
+
+    Returns:
+        List of Tool objects that pass the filter (or all tools if no filter provided).
+
+    Example filtering by tag values:
+        # Filter tools that have the "mutation" tag
+        tools = get_valid_tools_from_mcp(
+            filter_fn=lambda tool: "mutation" in (tool.tags or set())
+        )
+
+        # Filter tools that have either "search" or "user" tags
+        tools = get_valid_tools_from_mcp(
+            filter_fn=lambda tool: bool((tool.tags or set()) & {"search", "user"})
+        )
+    """
+    tools = list(mcp._tool_manager._tools.values())
+    if filter_fn:
+        return [tool for tool in tools if filter_fn(tool)]
+    return tools

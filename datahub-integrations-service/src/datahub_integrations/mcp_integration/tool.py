@@ -9,6 +9,7 @@ import fastmcp.tools
 import mlflow
 import mlflow.entities
 from fastmcp import FastMCP
+from fastmcp.tools.tool import Tool as FastMCPTool
 from loguru import logger
 from mcp.types import TextContent
 
@@ -151,6 +152,12 @@ class ToolWrapper:
         return ToolWrapper(
             fastmcp.tools.Tool.from_function(fn, name=name, description=description)
         )
+
+
+def tools_from_fastmcp_tools(
+    mcp: FastMCP, tools: List[FastMCPTool]
+) -> List[ToolWrapper]:
+    return [ToolWrapper(tool, name_prefix=mcp.name) for tool in tools]
 
 
 def tools_from_fastmcp(mcp: FastMCP) -> List[ToolWrapper]:

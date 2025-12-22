@@ -41,11 +41,16 @@ from datahub_integrations.chat.chat_history import (
 )
 from datahub_integrations.chat.types import ChatType
 from datahub_integrations.gen_ai.model_config import model_config
-from datahub_integrations.mcp.mcp_server import register_all_tools
+from datahub_integrations.mcp.mcp_server import (
+    ToolType,
+    get_valid_tools_from_mcp,
+    register_all_tools,
+)
 from datahub_integrations.mcp_integration.tool import (
     ToolWrapper,
     async_background,
     tools_from_fastmcp,
+    tools_from_fastmcp_tools,
 )
 from datahub_integrations.smart_search.smart_search import smart_search
 
@@ -89,7 +94,16 @@ def create_ingestion_troubleshooting_agent(
     if tools is None:
         from datahub_integrations.mcp.mcp_server import mcp
 
-        tools = [mcp]
+        def filter_user_tools(tool):
+            if chat_type in {ChatType.SLACK, ChatType.TEAMS}:
+                return ToolType.USER not in (tool.tags or {})
+
+            # include all tools if not slack or teams
+            return True
+
+        tools = tools_from_fastmcp_tools(
+            mcp, get_valid_tools_from_mcp(filter_fn=filter_user_tools)
+        )
 
     # Prepare plannable tools (public tools from MCP)
     plannable_tools: List[ToolWrapper] = [
