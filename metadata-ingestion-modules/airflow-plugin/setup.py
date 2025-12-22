@@ -25,12 +25,12 @@ _self_pin = (
 base_requirements = {
     f"acryl-datahub[sql-parser,datahub-rest]{_self_pin}",
     "pydantic>=2.4.0",
-    # We require Airflow 2.7.x at minimum, to be compatible with the native Airflow Openlineage provider.
-    "apache-airflow>=2.7.0,<3",
-    # We remain restrictive on the versions allowed here to prevent
-    # us from being broken by backwards-incompatible changes in the
-    # underlying package.
-    "openlineage-airflow>=1.2.0,<=1.30.1",
+    # We require Airflow 2.5.x at minimum, since we need the new DAG listener API.
+    # We support both Airflow 2.x and 3.x with full backward compatibility.
+    "apache-airflow>=2.5.0,<4.0.0",
+    # Note: OpenLineage dependencies are version-specific and provided via extras:
+    # - airflow2: for Airflow 2.x (uses standalone openlineage-airflow package)
+    # - airflow3: for Airflow 3.x (uses native apache-airflow-providers-openlineage)
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -42,6 +42,14 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-file": {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
+    },
+    # airflow2: For Airflow 2.x, use standalone openlineage-airflow package
+    "airflow2": {
+        "openlineage-airflow>=1.2.0",
+    },
+    # airflow3: For Airflow 3.x, use native OpenLineage provider
+    "airflow3": {
+        "apache-airflow-providers-openlineage>=1.0.0",
     },
 }
 

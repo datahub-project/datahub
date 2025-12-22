@@ -102,6 +102,12 @@ export function IngestionSourceCreatePage() {
                     ingestionOnboardingRedesignV1: true,
                 });
 
+                analytics.event({
+                    type: EventType.IngestionExitConfigurationEvent,
+                    sourceType: input.type,
+                    exitType: shouldRun ? 'save_and_run' : 'save_draft',
+                });
+
                 message.success({
                     content: `Successfully created ingestion source!`,
                     duration: 3,
@@ -128,6 +134,10 @@ export function IngestionSourceCreatePage() {
     );
 
     const onCancel = useCallback(() => {
+        analytics.event({
+            type: EventType.IngestionExitConfigurationEvent,
+            exitType: 'cancel',
+        });
         history.push(PageRoutes.INGESTION);
     }, [history]);
 
