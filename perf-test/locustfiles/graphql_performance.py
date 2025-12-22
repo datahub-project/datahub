@@ -34,7 +34,7 @@ class SearchUser(HttpUser):
             test_name = rand_vars["test_name"]
             post_json = gql_query.get_query_with_variables(rand_vars)
         else:
-            raise "Unknown test run type: {}".format(test_run)
+            raise ValueError("Unknown test run type: {}".format(test_run))
 
         response = self.client.request(
             method="POST",

@@ -1,4 +1,3 @@
-import json
 import random
 
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -54,15 +53,13 @@ class IngestUser(HttpUser):
         session = datahub_instances.get_session(self.host)
         self.client.post(
             "/api/gms/entities?action=ingest",
-            json.dumps(
-                {
-                    "entity": {
-                        "value": {
-                            snapshot_fqn: pre_json_transform(proposed_snapshot.to_obj())
-                        }
+            json={
+                "entity": {
+                    "value": {
+                        snapshot_fqn: pre_json_transform(proposed_snapshot.to_obj())
                     }
                 }
-            ),
+            },
             cookies=session.get_cookies()
         )
 

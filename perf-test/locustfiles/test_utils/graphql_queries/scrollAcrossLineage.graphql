@@ -1,0 +1,23 @@
+{
+"operationName": "scrollAcrossLineage",
+"variables": {
+"input": {
+"urn": null,
+"direction": "DOWNSTREAM",
+"types": ["DATASET"],
+"query": "",
+"scrollId": null,
+"keepAlive": "5m",
+"count": 10,
+"orFilters": [{
+"and": [{
+"field": "degree",
+"condition": "EQUAL",
+"values": ["1"],
+"negated": false
+}]
+}]
+}
+},
+"query": "query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {\n  scrollAcrossLineage(input: $input) {\n    ...scrollAcrossLineageResult\n    __typename\n  }\n}\n\nfragment scrollAcrossLineageResult on ScrollAcrossLineageResults {\n  nextScrollId\n  count\n  total\n  searchResults {\n    entity {\n      urn\n      type\n      ... on Dataset {\n        name\n        platform {\n          urn\n          name\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    degree\n    __typename\n  }\n  __typename\n}\n"
+}

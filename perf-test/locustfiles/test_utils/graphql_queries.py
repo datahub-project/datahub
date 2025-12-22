@@ -24,21 +24,25 @@ class GraphQLQuery:
     def get_query(self):
         return self._query
 
-    def get_query_with_inputs(self, input, drop_keys=['test_name']):
+    def get_query_with_inputs(self, input, drop_keys=None):
+        if drop_keys is None:
+            drop_keys = ['test_name']
         query = dict(self.get_query())
         new_dict = dict(self._get_default_input())
         new_dict.update(input)
         for drop_key in drop_keys:
-            del new_dict[drop_key]
+            new_dict.pop(drop_key, None)
         query["variables"]["input"] = new_dict
         return query
 
-    def get_query_with_variables(self, variables, drop_keys=['test_name']):
+    def get_query_with_variables(self, variables, drop_keys=None):
+        if drop_keys is None:
+            drop_keys = ['test_name']
         query = dict(self.get_query())
         new_dict = dict(self._get_default_variables())
         new_dict.update(variables)
         for drop_key in drop_keys:
-            del new_dict[drop_key]
+            new_dict.pop(drop_key, None)
         query["variables"] = new_dict
         return query
 

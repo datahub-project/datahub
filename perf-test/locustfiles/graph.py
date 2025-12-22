@@ -15,6 +15,6 @@ class GraphUser(HttpUser):
     def relationships(self):
         session = datahub_instances.get_session(self.host)
         self.client.get(
-            "/api/gms/relationships?direction=INCOMING&urn=urn:li:corpuser:common&types=OwnedBy''",
+            "/api/gms/relationships?direction=INCOMING&urn=urn:li:corpuser:common&types=OwnedBy",
             cookies=session.get_cookies()
         )

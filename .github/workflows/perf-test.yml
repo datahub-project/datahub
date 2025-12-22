@@ -15,6 +15,8 @@ on:
         required: true
         type: choice
         options:
+          - "scroll_across_lineage_1_hop.py"
+          - "get_entities.py"
           - "ingest.py"
           - "ingest_small.py"
           - "ingest_graph.py"
@@ -22,7 +24,6 @@ on:
           - "search_graphql.py"
           - "browse.py"
           - "graph.py"
-          - "get_entities.py"
           - "graphql_performance.py"
         default: "search.py"
       users:
@@ -99,6 +100,7 @@ jobs:
             --html=results.html \
             --csv=results
       - name: Upload results to s3
+        if: always()
         env:
           AWS_ACCESS_KEY_ID: "${{ secrets.AWS_PERF_TEST_BUCKET_KEY_ID }}"
           AWS_SECRET_ACCESS_KEY: "${{ secrets.AWS_PERF_TEST_BUCKET_KEY_SECRET }}"

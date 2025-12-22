@@ -49,16 +49,65 @@ pip3 install -r requirements.txt
 [Locustfiles](./locustfiles) define how the users will behave once they are spawned. Refer to
 this [doc](https://docs.locust.io/en/stable/writing-a-locustfile.html) on how to write one.
 
-Here, we have defined 4 common requests
+Here, we have defined several common requests:
 
 - Ingest: ingests a dataset with a random URN with properties, browse paths, and ownership aspects filled out
 - Search: searches datasets with query "test"
 - Browse: browses datasets with path "/perf/test"
 - Graph: gets datasets owned by user "common"
 - Search GraphQL: Searches datasets using breadth{randInt} assuming the graph ingest has been used with 100 children
+- Get Entities: Fetches random entities using URNs from mock data
+- Scroll Across Lineage: Queries lineage with random URNs and directions against ~1M mock tables to test cache behavior
 
 We will continue adding more as more use cases arise, but feel free to play around with the default behavior to create a
 load test that matches your request pattern.
+
+### Using MockDataHelper for Realistic Load Tests
+
+To avoid cache pollution and simulate realistic access patterns, use the `MockDataHelper` utility when writing locustfiles that test against mock data ingested via the `datahub ingest` CLI.
+
+**Example usage:**
+
+```python
+from test_utils.mock_data_helper import default_mock_data
+
+@task
+def my_task(self):
+    # Get a random URN from the ~1M table mock dataset
+    urn = default_mock_data.get_random_urn()
+
+    # Use the URN in your API request
+    self.client.get(f"/api/gms/entities/{urn}")
+```
+
+**Key benefits:**
+
+- **Diverse URN selection**: Spans the full mock dataset (~1 million tables)
+- **Avoids cache hits**: Each request can use a different URN
+- **Realistic load patterns**: Simulates random access patterns
+- **Easy configuration**: Matches the mock data source configuration automatically
+
+**Configuration:**
+By default, `default_mock_data` uses these parameters matching common perf test setups:
+
+- `prefix="attempt001"`
+- `lineage_hops=10000`
+- `lineage_fan_out=100`
+- `platform="fake"`
+- `env="PROD"`
+
+For custom configurations, create your own instance:
+
+```python
+from test_utils.mock_data_helper import MockDataHelper
+
+custom_mock = MockDataHelper(
+    prefix="custom",
+    lineage_hops=5000,
+    lineage_fan_out=50
+)
+urn = custom_mock.get_random_urn()
+```
 
 ## Load testing
 

@@ -1,5 +1,3 @@
-import json
-
 from locust import HttpUser, between, task
 
 from test_utils.datahub_sessions import DataHubSessions
@@ -16,6 +14,6 @@ class SearchUser(HttpUser):
         session = datahub_instances.get_session(self.host)
         self.client.post(
             "/api/gms/entities?action=search",
-            json.dumps({"input": "test", "entity": "dataset", "start": 0, "count": 10}),
+            json={"input": "test", "entity": "dataset", "start": 0, "count": 10},
             cookies=session.get_cookies()
         )
