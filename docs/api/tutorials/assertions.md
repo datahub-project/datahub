@@ -569,7 +569,11 @@ Where **type** will contain the Result of the assertion run, either `SUCCESS`, `
 
 The `saveResult` argument determines whether the result of the assertion will be saved to DataHub's backend,
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
-backend. The value defaults to `true`.
+backend. **Default: `true`** (results are saved when not specified).
+
+The `async` argument controls whether the assertion runs asynchronously. When set to `true`, the API will kick off
+the assertion run and return immediately. When set to `false` or omitted, the assertion runs synchronously with a
+30-second timeout. **Default: `false`** (synchronous execution when not specified).
 
 If the assertion is external (not natively executed by DataHub), this API will return an error.
 
@@ -624,7 +628,11 @@ Where **type** will contain the Result of the assertion run, either `SUCCESS`, `
 
 The `saveResults` argument determines whether the result of the assertion will be saved to DataHub's backend,
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
-backend. The value defaults to `true`.
+backend. **Default: `true`** (results are saved when not specified).
+
+The `async` argument controls whether the assertions run asynchronously. When set to `true`, the API will kick off
+the assertion runs and return immediately. When set to `false` or omitted, the assertions run synchronously with a
+30-second timeout per assertion. **Default: `false`** (synchronous execution when not specified).
 
 If any of the assertion are external (not natively executed by DataHub), they will simply be omitted from the result set.
 
@@ -702,7 +710,11 @@ Where `type` will contain the Result of the assertion run, either `SUCCESS`, `FA
 
 The `saveResults` argument determines whether the result of the assertion will be saved to DataHub's backend,
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
-backend. The value defaults to `true`.
+backend. **Default: `true`** (results are saved when not specified).
+
+The `async` argument controls whether the assertions run asynchronously. When set to `true`, the API will kick off
+the assertion runs and return immediately. When set to `false` or omitted, the assertions run synchronously with a
+30-second timeout per assertion. **Default: `false`** (synchronous execution when not specified).
 
 If any of the assertion are external (not natively executed by DataHub), they will simply be omitted from the result
 set.
@@ -827,7 +839,7 @@ mutation runAssertionsForAsset {
 
 </Tabs>
 
-<!-- ### Experimental: Providing Dynamic Parameters to Assertions
+### Providing Dynamic Parameters to Assertions
 
 You can provide **dynamic parameters** to your assertions to customize their behavior. This is particularly useful for
 assertions that require dynamic parameters, such as a threshold value that changes based on the time of day.
@@ -859,7 +871,7 @@ mutation runAssertion {
 ```
 
 At runtime, the `${parameterName}` placeholder in the SQL fragment will be replaced with the provided `parameterValue` before the query
-is sent to the database for execution. -->
+is sent to the database for execution.
 
 ## Get Assertion Details
 

@@ -18,13 +18,20 @@ interface Props {
     id?: string;
     checked?: boolean;
     onChange?: (newValue: boolean) => void;
-    helper?: string;
+    helper?: string | React.ReactNode;
+    disabled?: boolean;
 }
 
-export function AntdFormCompatibleCheckbox({ id, checked, onChange, helper }: Props) {
+export function AntdFormCompatibleCheckbox({ id, checked, onChange, helper, disabled }: Props) {
     return (
         <CheckboxWithHelper>
-            <Checkbox id={id} isChecked={checked} onCheckboxChange={onChange} justifyContent="flex-start" />
+            <Checkbox
+                id={id}
+                isChecked={checked}
+                onCheckboxChange={onChange}
+                justifyContent="flex-start"
+                isDisabled={disabled}
+            />
             {helper && (
                 <Text size="sm" color="gray" colorLevel={600}>
                     {helper}

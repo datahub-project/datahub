@@ -158,6 +158,10 @@ class AbstractLineage(ABC):
     def get_db_detail_from_argument(
         arg_list: Tree,
     ) -> Tuple[Optional[str], Optional[str]]:
+        # TODO: tree_function.token_values turns nulls into empty strings,
+        # which then get removed by remove_whitespaces_from_list. We would
+        # prefer to pass them along as None to give callers an accurate view
+        # of the arguments.
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
@@ -165,11 +169,10 @@ class AbstractLineage(ABC):
         )
         logger.debug(f"DB Details: {arguments}")
 
-        if len(arguments) < 2:
-            logger.debug(f"Expected minimum 2 arguments, but got {len(arguments)}")
-            return None, None
-
-        return arguments[0], arguments[1]
+        return (
+            arguments[0] if len(arguments) > 0 else None,
+            arguments[1] if len(arguments) > 1 else None,
+        )
 
     @staticmethod
     def create_reference_table(
@@ -322,6 +325,148 @@ class AbstractLineage(ABC):
                 column_lineage.append(column_lineage_info)
 
         return column_lineage
+
+
+class AmazonAthenaLineage(AbstractLineage):
+    """
+    Handles lineage extraction for Amazon Athena data sources in PowerBI.
+
+    Athena uses a three-level hierarchy: catalog.database.table
+    Example M-Query:
+        Source = AmazonAthena.Databases("us-east-1")
+        catalog = Source{[Name="AwsDataCatalog",Kind="Database"]}[Data]
+        database = catalog{[Name="my_database",Kind="Schema"]}[Data]
+        table = database{[Name="my_table",Kind="Table"]}[Data]
+
+    URN Format:
+        Generated URNs use database.table format (catalog is omitted) to match the
+        standalone Athena connector behavior. This ensures URN consistency across
+        different ingestion sources.
+        Example: urn:li:dataset:(urn:li:dataPlatform:athena,my_database.my_table,PROD)
+
+        Note: Athena's default catalog is "AwsDataCatalog", but users can have multiple
+        catalogs (Glue, Hive, federated). The catalog is intentionally omitted from URNs
+        because the standalone Athena connector also omits it, treating the database as
+        the top-level namespace. This matches Athena's typical usage where most users
+        work within a single catalog context.
+    """
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.AMAZON_ATHENA.value
+
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing AmazonAthena data-access function detail {data_access_func_detail}"
+        )
+
+        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        if server is None:
+            logger.debug("Server/region not found in Athena data access function")
+            return Lineage.empty()
+
+        # Validate identifier accessor exists
+        if data_access_func_detail.identifier_accessor is None:
+            logger.warning(
+                f"Missing identifier accessor for Athena table {self.table.full_name}"
+            )
+            return Lineage.empty()
+
+        # Extract database and table names from Athena's 3-level hierarchy (catalog.database.table)
+        # Note: Catalog is extracted but NOT included in URN to match the standalone Athena connector
+        # which uses database.table format. This avoids URN mismatches between PowerBI and Athena sources.
+        try:
+            catalog_accessor = data_access_func_detail.identifier_accessor
+
+            if catalog_accessor.next is None:
+                logger.warning(
+                    f"Incomplete Athena hierarchy for table {self.table.full_name}: "
+                    f"missing database level after catalog. Expected format: catalog.database.table"
+                )
+                return Lineage.empty()
+
+            db_accessor = catalog_accessor.next
+
+            # Extract database name with specific error handling
+            try:
+                db_name: str = db_accessor.items["Name"]
+            except KeyError:
+                logger.warning(
+                    f"Missing 'Name' key in database accessor for table {self.table.full_name}. "
+                    f"Available keys: {list(db_accessor.items.keys())}"
+                )
+                return Lineage.empty()
+
+            if db_accessor.next is None:
+                logger.warning(
+                    f"Incomplete Athena hierarchy for table {self.table.full_name}: "
+                    f"missing table level after database '{db_name}'. Expected format: catalog.database.table"
+                )
+                return Lineage.empty()
+
+            table_accessor = db_accessor.next
+
+            # Extract table name with specific error handling
+            try:
+                table_name: str = table_accessor.items["Name"]
+            except KeyError:
+                logger.warning(
+                    f"Missing 'Name' key in table accessor for table {self.table.full_name}. "
+                    f"Available keys: {list(table_accessor.items.keys())}"
+                )
+                return Lineage.empty()
+
+        except AttributeError as e:
+            logger.warning(
+                f"AttributeError while accessing Athena hierarchy for table {self.table.full_name}: {e}. "
+                f"This usually indicates a malformed M-Query structure."
+            )
+            return Lineage.empty()
+        except TypeError as e:
+            logger.warning(
+                f"TypeError while processing Athena hierarchy for table {self.table.full_name}: {e}. "
+                f"This usually indicates unexpected data types in the M-Query structure."
+            )
+            return Lineage.empty()
+
+        # Validate that database and table names are not empty to prevent malformed URNs
+        if not db_name or not db_name.strip():
+            logger.warning(
+                f"Empty database name for table {self.table.full_name}. Cannot generate valid URN."
+            )
+            return Lineage.empty()
+
+        if not table_name or not table_name.strip():
+            logger.warning(
+                f"Empty table name for table {self.table.full_name}. Cannot generate valid URN."
+            )
+            return Lineage.empty()
+
+        qualified_table_name: str = f"{db_name}.{table_name}"
+        logger.debug(
+            f"Extracted Athena qualified table name: {qualified_table_name} from server: {server}"
+        )
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
 
 
 class AmazonRedshiftLineage(AbstractLineage):
@@ -1207,6 +1352,11 @@ class SupportedPattern(Enum):
     GOOGLE_BIG_QUERY = (
         GoogleBigQueryLineage,
         FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
+    )
+
+    AMAZON_ATHENA = (
+        AmazonAthenaLineage,
+        FunctionName.AMAZON_ATHENA_DATA_ACCESS,
     )
 
     AMAZON_REDSHIFT = (
