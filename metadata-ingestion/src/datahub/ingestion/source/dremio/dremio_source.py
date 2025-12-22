@@ -91,7 +91,7 @@ class DremioSchemaResolver(SchemaResolver):
     """
 
     def _get_table_name_parts(self, table: _TableName) -> List[Optional[str]]:
-        if table.parts and len(table.parts) > 3:
+        if table.parts:
             return [DREMIO_DATABASE_NAME, *table.parts]
         elif table.database and table.database.lower() != DREMIO_DATABASE_NAME:
             return [

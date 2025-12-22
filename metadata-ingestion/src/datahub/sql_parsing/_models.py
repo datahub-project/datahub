@@ -40,9 +40,18 @@ class _TableName(_FrozenModel):
     parts: Optional[Tuple[str, ...]] = None
 
     @property
-    def identity(self) -> Tuple[Optional[str], Optional[str], str]:
-        """Table identity for hashing and equality."""
-        return (self.database, self.db_schema, self.table)
+    def identity(
+        self,
+    ) -> Tuple[Optional[str], Optional[str], str, Optional[Tuple[str, ...]]]:
+        """
+        Table identity for hashing and equality.
+
+        Includes parts only when >3 parts to distinguish multi-part tables
+        while maintaining backward compatibility for standard 3-part names.
+        """
+        if self.parts and len(self.parts) > 3:
+            return (self.database, self.db_schema, self.table, self.parts)
+        return (self.database, self.db_schema, self.table, None)
 
     def __hash__(self) -> int:
         return hash(self.identity)
