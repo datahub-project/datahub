@@ -553,7 +553,10 @@ def create_mock_client(
         activity_runs_by_pipeline = test_data["activity_runs"]
 
         def get_activity_runs(
-            resource_group_name: str, factory_name: str, run_id: str, filter_parameters
+            resource_group_name: str,
+            factory_name: str,
+            run_id: str,
+            filter_parameters: object,
         ) -> MockQueryResponse:
             """Return activity runs for the given pipeline run ID."""
             runs = activity_runs_by_pipeline.get(run_id, [])

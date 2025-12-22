@@ -286,7 +286,7 @@ class TestActivityRunPropertyExtraction:
 
     def test_activity_run_properties_extracted(self) -> None:
         """Verify essential activity run properties are extracted."""
-        activity_run = {
+        activity_run: dict[str, object] = {
             "activityRunId": "act-run-123",
             "activityName": "CopyData",
             "activityType": "Copy",
@@ -297,10 +297,10 @@ class TestActivityRunPropertyExtraction:
 
         # Logic pattern from _emit_activity_runs
         properties: dict[str, str] = {
-            "activity_run_id": activity_run["activityRunId"],
-            "activity_type": activity_run["activityType"],
-            "pipeline_run_id": activity_run["pipelineRunId"],
-            "status": activity_run["status"],
+            "activity_run_id": str(activity_run["activityRunId"]),
+            "activity_type": str(activity_run["activityType"]),
+            "pipeline_run_id": str(activity_run["pipelineRunId"]),
+            "status": str(activity_run["status"]),
         }
 
         if activity_run.get("durationInMs") is not None:
@@ -317,14 +317,15 @@ class TestActivityRunPropertyExtraction:
         MAX_RUN_MESSAGE_LENGTH = 500
         long_error = "E" * 1000  # 1000 character error
 
-        activity_run = {
+        activity_run: dict[str, object] = {
             "activityRunId": "act-run-err",
             "error": {"message": long_error},
         }
 
         # Logic pattern from _emit_activity_runs
-        error = activity_run.get("error", {})
-        if error:
+        truncated = ""
+        error = activity_run.get("error")
+        if isinstance(error, dict):
             error_msg = str(error.get("message", ""))
             if error_msg:
                 truncated = error_msg[:MAX_RUN_MESSAGE_LENGTH]
@@ -334,7 +335,7 @@ class TestActivityRunPropertyExtraction:
 
     def test_activity_run_missing_optional_fields(self) -> None:
         """Verify graceful handling of missing optional fields."""
-        activity_run = {
+        activity_run: dict[str, object] = {
             "activityRunId": "act-run-minimal",
             "activityName": "MinimalActivity",
             "activityType": "Copy",
@@ -344,10 +345,10 @@ class TestActivityRunPropertyExtraction:
         }
 
         properties: dict[str, str] = {
-            "activity_run_id": activity_run["activityRunId"],
-            "activity_type": activity_run["activityType"],
-            "pipeline_run_id": activity_run["pipelineRunId"],
-            "status": activity_run["status"],
+            "activity_run_id": str(activity_run["activityRunId"]),
+            "activity_type": str(activity_run["activityType"]),
+            "pipeline_run_id": str(activity_run["pipelineRunId"]),
+            "status": str(activity_run["status"]),
         }
 
         # Optional fields should not cause errors
@@ -355,7 +356,7 @@ class TestActivityRunPropertyExtraction:
             properties["duration_ms"] = str(activity_run["durationInMs"])
 
         error = activity_run.get("error")
-        if error:
+        if isinstance(error, dict):
             error_msg = str(error.get("message", ""))
             if error_msg:
                 properties["error"] = error_msg[:500]
