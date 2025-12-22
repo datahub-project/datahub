@@ -21,7 +21,7 @@ Historical RFCs will be migrated to this directory on an as-needed basis when th
 
 - **[active/](./active/)** - RFCs currently under discussion or implementation
 - **[accepted/](./accepted/)** - RFCs that have been implemented and shipped
-- **[template.md](./template.md)** - Template for creating new RFCs
+- **template.md** - Template for creating new RFCs (available in the repository)
 
 ## Active RFCs
 
