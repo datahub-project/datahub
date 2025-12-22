@@ -261,6 +261,11 @@ public class BatchTestEngine {
   private void reportTestRunResult(
       @Nonnull final BatchTestResult result, final long currentTime, String runId) {
     Urn testUrn = result.getUrn();
+    log.info(
+        "Reporting batch test run result for test {}: passing={}, failing={}",
+        testUrn,
+        result.getPassCount(),
+        result.getFailCount());
     BatchTestRunEvent event = new BatchTestRunEvent();
     event.setTimestampMillis(currentTime);
     event.setStatus(BatchTestRunStatus.COMPLETE);

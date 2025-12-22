@@ -477,6 +477,13 @@ public class TestEngine implements AutoCloseable {
               .collect(Collectors.toSet());
     }
 
+    log.info(
+        "Evaluating {} tests for {} entities of types {}. Test URNs: {}",
+        testDefinitions.size(),
+        entityUrns.size(),
+        entityTypes,
+        testDefinitions.stream().map(TestDefinition::getUrn).collect(Collectors.toList()));
+
     HashMap<Urn, BatchTestRunResult> batchedTestRunResults = new HashMap<>();
     // Step 2: Evaluate all tests for entity
     Map<Urn, TestResults> results =
@@ -1515,6 +1522,8 @@ public class TestEngine implements AutoCloseable {
       // do not add tests without a schedule to the cache to prevent automatic runs
       if (test.getTestInfo().getSchedule() != null
           && test.getTestInfo().getSchedule().getInterval().equals(TestInterval.NONE)) {
+        log.info(
+            "Skipping test {} - schedule interval is NONE (manual/on-demand only)", test.getUrn());
         return;
       }
 

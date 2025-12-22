@@ -152,7 +152,12 @@ public class TestFetcher {
               new Test(
                   entityResponse.getUrn(),
                   new TestInfo(aspectMap.get(TEST_INFO_ASPECT_NAME).getValue().data())));
+        } else {
+          log.info("Skipping test {} - status mode is INACTIVE", entityResponse.getUrn());
         }
+      } else {
+        log.info(
+            "Skipping test {} - missing {} aspect", entityResponse.getUrn(), TEST_INFO_ASPECT_NAME);
       }
     }
 
