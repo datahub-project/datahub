@@ -33,8 +33,7 @@ public class AdminClientFactory {
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
     if (StringUtils.isNotBlank(bootstrapServers)) {
       adminProperties.put(
-          AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+          AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092 or environment variables
 
     return KafkaAdminClient.create(adminProperties);

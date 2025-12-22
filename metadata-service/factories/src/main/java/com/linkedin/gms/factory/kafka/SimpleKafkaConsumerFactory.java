@@ -39,13 +39,12 @@ public class SimpleKafkaConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    String boostrapServers =
+    String bootstrapServers =
         StringUtils.isNotBlank(kafkaConfiguration.getConsumer().getBootstrapServers())
             ? kafkaConfiguration.getConsumer().getBootstrapServers()
             : kafkaConfiguration.getBootstrapServers();
-    if (StringUtils.isNotBlank(boostrapServers)) {
-      consumerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);

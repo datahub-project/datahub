@@ -6,11 +6,11 @@ import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.codehaus.plexus.util.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
@@ -78,14 +78,12 @@ public class DataHubKafkaProducerFactory {
 
     producerProps.setKeySerializer(StringSerializer.class);
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    String boostrapServers =
-        org.apache.commons.lang3.StringUtils.isNotBlank(
-                kafkaConfiguration.getProducer().getBootstrapServers())
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getProducer().getBootstrapServers())
             ? kafkaConfiguration.getProducer().getBootstrapServers()
             : kafkaConfiguration.getBootstrapServers();
-    if (StringUtils.isNotBlank(boostrapServers)) {
-      producerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      producerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> props = properties.buildProducerProperties(null);
