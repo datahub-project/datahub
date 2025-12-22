@@ -38,6 +38,11 @@ public class EntityAspectDaoFactory {
     if (serializationHooks != null && !serializationHooks.isEmpty()) {
       ebeanAspectDao.setSerializationHooks(serializationHooks);
     }
+    if (configurationProvider.getDatahub().getValidation() != null
+        && configurationProvider.getDatahub().getValidation().getAspectSize() != null) {
+      ebeanAspectDao.setPrePatchValidationConfig(
+          configurationProvider.getDatahub().getValidation().getAspectSize());
+    }
     return ebeanAspectDao;
   }
 

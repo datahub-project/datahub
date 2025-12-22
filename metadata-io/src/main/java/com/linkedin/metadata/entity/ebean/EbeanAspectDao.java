@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.AspectSerializationHook;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.config.AspectSizeValidationConfig;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -91,6 +92,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
   private List<AspectSerializationHook> serializationHooks = new ArrayList<>();
+  @Nullable private AspectSizeValidationConfig prePatchValidationConfig;
 
   public EbeanAspectDao(
       @Nonnull final Database server,
@@ -106,6 +108,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   public void setSerializationHooks(@Nonnull List<AspectSerializationHook> hooks) {
     this.serializationHooks = hooks;
+  }
+
+  public void setPrePatchValidationConfig(@Nonnull AspectSizeValidationConfig config) {
+    this.prePatchValidationConfig = config;
   }
 
   @Override
@@ -1027,6 +1033,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                 e ->
                     EbeanSystemAspect.builder()
                         .serializationHooks(serializationHooks)
+                        .prePatchValidationConfig(prePatchValidationConfig)
+                        .aspectDao(this)
                         .forUpdate(e.getValue(), entityRegistry)));
   }
 
