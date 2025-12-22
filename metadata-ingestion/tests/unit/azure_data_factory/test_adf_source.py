@@ -73,7 +73,6 @@ class TestLinkedServicePlatformMapping:
             "PostgreSql": "postgres",
             "MySql": "mysql",
             "Oracle": "oracle",
-            "CosmosDbMongoDbApi": "mongodb",  # MongoDB via Cosmos DB API
         }
         for service_type, expected_platform in oss_databases.items():
             assert LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform

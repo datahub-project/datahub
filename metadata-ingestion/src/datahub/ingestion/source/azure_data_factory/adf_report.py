@@ -38,7 +38,6 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     dataflow_lineage_extracted: int = 0  # Data Flow source/sink lineage
     lineage_extraction_failures: int = 0
     datasets_with_lineage: int = 0
-    datasets_without_platform_mapping: LossyList[str] = field(default_factory=LossyList)
 
     # Execution history metrics
     pipeline_runs_scanned: int = 0
@@ -112,9 +111,11 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_unmapped_platform(
         self, dataset_name: str, linked_service_type: str
     ) -> None:
-        """Record a dataset with unmapped platform."""
-        self.datasets_without_platform_mapping.append(
-            f"{dataset_name} (type={linked_service_type})"
+        """Record a dataset with unmapped platform via structured warning."""
+        self.report_warning(
+            title="Unmapped Linked Service Type",
+            message="Lineage skipped for dataset using unsupported linked service type.",
+            context=f"dataset={dataset_name}, linked_service_type={linked_service_type}",
         )
 
     def report_pipeline_run_scanned(self) -> None:

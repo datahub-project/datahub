@@ -27,18 +27,107 @@ The connector supports multiple authentication methods:
 
 ### Required Azure Permissions
 
-Grant the following role to your identity on the Data Factory resources:
+The connector only performs **read operations** and does not modify any Azure resources.
 
-| Role                         | Required For                        |
-| ---------------------------- | ----------------------------------- |
-| **Reader**                   | Basic metadata extraction           |
-| **Data Factory Contributor** | Full access including pipeline runs |
+#### Option 1: Built-in Reader Role
 
-To set up a service principal:
+**Minimum Required Role:** [**Reader**](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles#reader)
 
-1. Create an App Registration in Azure Portal > Microsoft Entra ID > App registrations
+Grant this role at one of the following scopes:
+
+- **Subscription level** - Access all Data Factories in the subscription
+- **Resource Group level** - Access Data Factories in specific resource group(s)
+- **Data Factory level** - Access specific Data Factory instance(s)
+
+#### Option 2: Custom Role with Fine-Grained Permissions
+
+Create a custom role with only the specific Data Factory read operations needed.
+
+**Download the role definition:** [`datahub-adf-reader-role.json`](./datahub-adf-reader-role.json)
+
+<details>
+<summary>View role definition</summary>
+
+```json
+{
+  "Name": "DataHub ADF Reader",
+  "Description": "Custom role for DataHub Azure Data Factory connector with minimal read permissions",
+  "IsCustom": true,
+  "Actions": [
+    "Microsoft.DataFactory/factories/read",
+    "Microsoft.DataFactory/factories/pipelines/read",
+    "Microsoft.DataFactory/factories/datasets/read",
+    "Microsoft.DataFactory/factories/linkedservices/read",
+    "Microsoft.DataFactory/factories/dataflows/read",
+    "Microsoft.DataFactory/factories/triggers/read",
+    "Microsoft.DataFactory/factories/pipelineruns/read",
+    "Microsoft.DataFactory/factories/pipelineruns/activityruns/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/{subscription-id}"]
+}
+```
+
+</details>
+
+**Deployment Instructions:**
+
+**Using Azure CLI:**
+
+```bash
+# 1. Download the role definition file and update {subscription-id}
+# 2. Create the custom role
+az role definition create --role-definition datahub-adf-reader-role.json
+
+# 3. Assign to service principal at subscription level
+az role assignment create \
+  --assignee <service-principal-object-id> \
+  --role "DataHub ADF Reader" \
+  --scope /subscriptions/{subscription-id}
+
+# Or assign at resource group level for more restrictive scope
+az role assignment create \
+  --assignee <service-principal-object-id> \
+  --role "DataHub ADF Reader" \
+  --scope /subscriptions/{subscription-id}/resourceGroups/{resource-group-name}
+```
+
+**Using Azure Portal:**
+
+1. Navigate to your **Subscription** or **Resource Group** in Azure Portal
+2. Click **Access control (IAM)** → **Add** → **Add custom role**
+3. Click **Start from JSON** → **Select a file** → Upload `datahub-adf-reader-role.json`
+4. Update the subscription ID in the **Assignable scopes** tab
+5. Click **Review + create** → **Create**
+6. Once created, go back to **Access control (IAM)** → **Add role assignment**
+7. Select **DataHub ADF Reader** role → Next
+8. Click **Select members** → Search for your service principal → Select
+9. Click **Review + assign**
+
+:::note Custom Role Permissions
+The custom role includes only the exact permissions needed:
+
+- **factories/read** - List and get Data Factory instances
+- **pipelines/read** - List and get pipeline definitions
+- **datasets/read** - List and get dataset definitions (for lineage)
+- **linkedservices/read** - List and get linked service definitions (for platform mapping)
+- **dataflows/read** - List and get data flow definitions (for lineage and scripts)
+- **triggers/read** - List and get trigger definitions (for pipeline metadata)
+- **pipelineruns/read** - Query pipeline execution history
+- **pipelineruns/activityruns/read** - Query activity execution details within pipeline runs
+  :::
+
+**To set up a service principal:**
+
+1. Create an App Registration in Azure Portal → Microsoft Entra ID → App registrations
 2. Create a client secret under Certificates & secrets
-3. Grant the service principal **Reader** or **Data Factory Contributor** role on your resource group or Data Factory
+3. Grant the service principal either the **Reader** role (Option 1) or the **DataHub ADF Reader** custom role (Option 2):
+   - Navigate to the resource in Azure Portal
+   - Click **Access control (IAM)** → **Add role assignment**
+   - Select the appropriate role
+   - Assign to your service principal
 
 ## Concept Mapping
 
@@ -52,15 +141,16 @@ To set up a service principal:
 
 ## Capabilities
 
-| Capability            | Status | Notes                                       |
-| --------------------- | ------ | ------------------------------------------- |
-| Platform Instance     | ✅     | Enabled by default                          |
-| Containers            | ✅     | Data Factories as containers                |
-| Lineage (Table-level) | ✅     | From activity inputs/outputs and Data Flows |
-| Pipeline-to-Pipeline  | ✅     | ExecutePipeline activities create lineage   |
-| Data Flow Scripts     | ✅     | Stored as transformation logic              |
-| Execution History     | ✅     | Optional, via `include_execution_history`   |
-| Stateful Ingestion    | ✅     | Stale entity removal                        |
+| Capability             | Status | Notes                                              |
+| ---------------------- | ------ | -------------------------------------------------- |
+| Platform Instance      | ✅     | Enabled by default                                 |
+| Containers             | ✅     | Data Factories as containers                       |
+| Lineage (Table-level)  | ✅     | From activity inputs/outputs and Data Flows        |
+| Lineage (Column-level) | 🔜     | Coming soon for Copy Activity mappings             |
+| Pipeline-to-Pipeline   | ✅     | ExecutePipeline activities create lineage          |
+| Data Flow Scripts      | ✅     | Stored as transformation logic                     |
+| Execution History      | ✅     | Enabled by default via `include_execution_history` |
+| Stateful Ingestion     | ✅     | Stale entity removal                               |
 
 ## Lineage Extraction
 
@@ -70,6 +160,10 @@ The connector extracts lineage from:
 2. **Data Flow Activities**: Extracts sources and sinks from Data Flow definitions
 3. **Lookup Activities**: Maps lookup datasets as inputs
 4. **ExecutePipeline Activities**: Creates pipeline-to-pipeline lineage to child pipelines
+
+:::tip Column-Level Lineage Coming Soon
+Column-level lineage support is planned for Copy Activity `translator.columnMappings`. This will extract field-to-field mappings from Copy activities, enabling fine-grained impact analysis at the column level.
+:::
 
 ### Pipeline-to-Pipeline Lineage
 
@@ -91,19 +185,30 @@ The child pipeline's first activity will have the ExecutePipeline as its input/u
 
 ### Supported Linked Service Mappings
 
-| ADF Linked Service                                  | DataHub Platform |
-| --------------------------------------------------- | ---------------- |
-| AzureBlobStorage, AzureBlobFS, AzureDataLakeStore   | `abs`            |
-| AzureSqlDatabase, AzureSqlDW, AzureSynapseAnalytics | `mssql`          |
-| Snowflake                                           | `snowflake`      |
-| AmazonS3                                            | `s3`             |
-| GoogleBigQuery                                      | `bigquery`       |
-| PostgreSql, AzurePostgreSql                         | `postgres`       |
-| MySql, AzureMySql                                   | `mysql`          |
-| Oracle                                              | `oracle`         |
-| Salesforce                                          | `salesforce`     |
-| CosmosDb                                            | `cosmosdb`       |
-| AzureDatabricks, AzureDatabricksDeltaLake           | `databricks`     |
+The connector maps ADF linked services to DataHub platforms for lineage resolution:
+
+| Category          | ADF Linked Service                                                         | DataHub Platform |
+| ----------------- | -------------------------------------------------------------------------- | ---------------- |
+| **Azure Storage** | AzureBlobStorage, AzureBlobFS, AzureDataLakeStore, AzureFileStorage        | `abs`            |
+| **Azure SQL**     | AzureSqlDatabase, AzureSqlDW, AzureSynapseAnalytics, AzureSqlMI, SqlServer | `mssql`          |
+| **Databricks**    | AzureDatabricks, AzureDatabricksDeltaLake                                  | `databricks`     |
+| **Cloud - AWS**   | AmazonS3, AmazonS3Compatible                                               | `s3`             |
+|                   | AmazonRedshift                                                             | `redshift`       |
+| **Cloud - GCP**   | GoogleCloudStorage                                                         | `gcs`            |
+|                   | GoogleBigQuery                                                             | `bigquery`       |
+| **Cloud - Other** | Snowflake                                                                  | `snowflake`      |
+| **Databases**     | PostgreSql, AzurePostgreSql                                                | `postgres`       |
+|                   | MySql, AzureMySql                                                          | `mysql`          |
+|                   | Oracle, OracleServiceCloud                                                 | `oracle`         |
+|                   | Db2                                                                        | `db2`            |
+|                   | Teradata                                                                   | `teradata`       |
+|                   | Vertica                                                                    | `vertica`        |
+| **Big Data**      | Hive                                                                       | `hive`           |
+|                   | Spark                                                                      | `spark`          |
+|                   | Hdfs                                                                       | `hdfs`           |
+| **SaaS**          | Salesforce, SalesforceServiceCloud, SalesforceMarketingCloud               | `salesforce`     |
+
+For linked services not in this list (e.g., CosmosDb, CosmosDbMongoDbApi, ServiceNow, Dynamics), the connector logs a warning and skips lineage for that dataset. You can check the `unmapped_platforms` counter in the ingestion report to identify any unmapped services.
 
 ### Platform Instance Mapping
 
@@ -132,14 +237,15 @@ The script is stored in the `dataTransformLogic` aspect and is visible in the Da
 
 ## Execution History
 
-When `include_execution_history: true`, the connector extracts pipeline runs as `DataProcessInstance` entities:
+By default, the connector extracts pipeline runs as `DataProcessInstance` entities. This is controlled by `include_execution_history` (default: `true`).
 
 ```yaml
 source:
   type: azure-data-factory
   config:
-    include_execution_history: true
-    execution_history_days: 7 # 1-90 days
+    # Execution history is enabled by default
+    include_execution_history: true # Set to false to disable
+    execution_history_days: 7 # 1-90 days (default: 7)
 ```
 
 This provides:
@@ -148,6 +254,7 @@ This provides:
 - Run duration and timestamps
 - Trigger information (who/what started the run)
 - Run parameters
+- Activity-level run details
 
 ## When to Use Platform Instance
 

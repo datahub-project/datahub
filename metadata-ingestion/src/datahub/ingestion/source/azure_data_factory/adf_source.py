@@ -91,6 +91,7 @@ MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
 # Mapping of ADF linked service types to DataHub platforms.
 # Platform identifiers must match those defined in:
 # metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
+# Unsupported linked service types will trigger a structured warning.
 LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
     # Azure Storage - all Azure storage types map to "abs" (Azure Blob Storage)
     "AzureBlobStorage": "abs",
@@ -106,8 +107,6 @@ LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
     "SqlServer": "mssql",
     "AzurePostgreSql": "postgres",
     "AzureMySql": "mysql",
-    "CosmosDb": "cosmosdb",
-    "CosmosDbMongoDbApi": "mongodb",
     # Databricks
     "AzureDatabricks": "databricks",
     "AzureDatabricksDeltaLake": "databricks",
@@ -124,12 +123,8 @@ LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
     "Oracle": "oracle",
     "OracleServiceCloud": "oracle",
     "Db2": "db2",
-    "Sybase": "sybase",
     "Teradata": "teradata",
-    "Informix": "informix",
-    "Netezza": "netezza",
     "Vertica": "vertica",
-    "Greenplum": "greenplum",
     # Data Warehouses
     "Hive": "hive",
     "Spark": "spark",
@@ -138,16 +133,6 @@ LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
     "Salesforce": "salesforce",
     "SalesforceServiceCloud": "salesforce",
     "SalesforceMarketingCloud": "salesforce",
-    "ServiceNow": "servicenow",
-    "Dynamics": "dynamics",
-    "DynamicsAX": "dynamics",
-    "DynamicsCrm": "dynamics",
-    # File Formats (use linked service or default)
-    "FtpServer": "ftp",
-    "Sftp": "sftp",
-    "HttpServer": "http",
-    "OData": "odata",
-    "Rest": "rest",
 }
 
 # Mapping of ADF activity types to DataHub subtypes
@@ -959,9 +944,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         linked_service = linked_services.get(linked_service_ref.reference_name)
 
         if not linked_service:
-            logger.debug(
-                f"Linked service not found: {linked_service_ref.reference_name}"
-            )
             self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
@@ -970,7 +952,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         platform = LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
 
         if not platform:
-            logger.debug(f"Unknown linked service type: {ls_type}")
             self.report.report_unmapped_platform(dataset_name, ls_type)
             return None
 
