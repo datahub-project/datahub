@@ -2661,3 +2661,36 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **74ca56f442** - feat(ingestion/airflow) Add Airflow 3.x support (#13790)
   *by Tamas Nemeth on 2025-12-19*
 
+
+## Upstream Merge Session - 2025-12-22 02:02:35
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Merge Base**: `74ca56f4425d57d59a6b8f2963c01a0e96a2b7fa`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 6
+- **Strategy**: stacked
+- **Started**: Mon Dec 22 02:02:35 UTC 2025
+
+### Commits Included in This Merge
+- **5b0306aaa2** - feat: add transformer to convert tags to structured properties (#15423)
+  *by Sergio Gómez Villamor on 2025-12-19*
+
+- **cceba531a5** - fix(ci): cleanup prev run artifacts during retry (#15734)
+  *by Chakru on 2025-12-19*
+
+- **52829920cc** - feat(ingest/powerbi): add Amazon Athena lineage support (#15728)
+  *by kyungsoo-datahub on 2025-12-19*
+
+- **7d041cc073** - feat(ingestion): add forms for popular sources (#15712)
+  *by v-tarasevich-blitz-brain on 2025-12-19*
+
+- **a461da02b1** - feat(sdk): enable parametrized assertion run in python sdk  (#15447)
+  *by Peter Wang on 2025-12-19*
+
+- **925eb824a6** - bugfix(fivetran): Improve Fivetran REST API Error Handling and User Reporting (#15323)
+  *by Anush Kumar on 2025-12-19*
+
