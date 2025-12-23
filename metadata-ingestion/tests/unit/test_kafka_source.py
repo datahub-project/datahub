@@ -26,7 +26,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     KafkaSchemaClass,
     SchemaMetadataClass,
@@ -68,14 +68,9 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     )
     workunits = list(kafka_source.get_workunits())
 
-    # First workunit should be a status MCP
-    first_mcp = workunits[0].metadata
-    assert isinstance(first_mcp, MetadataChangeProposalWrapper)
-    assert first_mcp.aspectName == "status"
     mock_kafka.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    # 2 topics x 5 aspects (status, browsePaths, datasetProperties, subTypes, browsePathsV2) = 10 workunits
-    assert len(workunits) == 10
+    assert len(workunits) == 8
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -97,8 +92,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
 
     mock_kafka.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    # 1 topic x 5 aspects (status, browsePaths, datasetProperties, subTypes, browsePathsV2) = 5 workunits
-    assert len(workunits) == 5
+    assert len(workunits) == 4
 
     mock_cluster_metadata.topics = {"test": None, "test2": None, "bazbaz": None}
     ctx = PipelineContext(run_id="test2")
@@ -110,8 +104,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
         ctx,
     )
     workunits = [w for w in kafka_source.get_workunits()]
-    # 2 topics x 5 aspects = 10 workunits
-    assert len(workunits) == 10
+    assert len(workunits) == 8
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -135,8 +128,7 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
     )
     workunits = [w for w in kafka_source.get_workunits()]
 
-    # We should have 1 topic x 6 aspects (status, browsePaths, datasetProperties, dataPlatformInstance, subTypes, browsePathsV2) = 6 workunits
-    assert len(workunits) == 6
+    assert len(workunits) == 5
 
     expected_urn = make_dataset_urn_with_platform_instance(
         platform=PLATFORM,
@@ -145,13 +137,11 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
         env="PROD",
     )
 
-    # Check all workunits have the correct URN
     for wu in workunits:
         assert isinstance(wu, MetadataWorkUnit)
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         assert wu.metadata.entityUrn == expected_urn
 
-    # Find the DataPlatformInstance aspect
     data_platform_mcps = [
         wu.metadata
         for wu in workunits
@@ -165,17 +155,18 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
         PLATFORM, PLATFORM_INSTANCE
     )
 
-    # Find the BrowsePaths aspect
     browse_path_mcps = [
         wu.metadata
         for wu in workunits
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and wu.metadata.aspectName == "browsePaths"
+        and wu.metadata.aspectName == "browsePathsV2"
     ]
     assert len(browse_path_mcps) == 1
     browse_paths_aspect = browse_path_mcps[0].aspect
-    assert isinstance(browse_paths_aspect, BrowsePathsClass)
-    assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_paths_aspect.paths
+    assert isinstance(browse_paths_aspect, BrowsePathsV2Class)
+    path_ids = [entry.id for entry in browse_paths_aspect.path]
+    platform_instance_urn = make_dataplatform_instance_urn(PLATFORM, PLATFORM_INSTANCE)
+    assert path_ids == [platform_instance_urn, "prod", PLATFORM]
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -195,9 +186,7 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
     )
     workunits = [w for w in kafka_source.get_workunits()]
 
-    # We should have 1 topic x 5 aspects (status, browsePaths, datasetProperties, subTypes, browsePathsV2) = 5 workunits
-    # No dataPlatformInstance since platform_instance is not configured
-    assert len(workunits) == 5
+    assert len(workunits) == 4
 
     expected_urn = make_dataset_urn(
         platform=PLATFORM,
@@ -205,13 +194,11 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
         env="PROD",
     )
 
-    # Check all workunits have the correct URN
     for wu in workunits:
         assert isinstance(wu, MetadataWorkUnit)
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         assert wu.metadata.entityUrn == expected_urn
 
-    # DataPlatform aspect should not be present when platform_instance is not configured
     data_platform_mcps = [
         wu.metadata
         for wu in workunits
@@ -220,17 +207,17 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
     ]
     assert len(data_platform_mcps) == 0
 
-    # Find the BrowsePaths aspect
     browse_path_mcps = [
         wu.metadata
         for wu in workunits
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and wu.metadata.aspectName == "browsePaths"
+        and wu.metadata.aspectName == "browsePathsV2"
     ]
     assert len(browse_path_mcps) == 1
     browse_paths_aspect = browse_path_mcps[0].aspect
-    assert isinstance(browse_paths_aspect, BrowsePathsClass)
-    assert f"/prod/{PLATFORM}" in browse_paths_aspect.paths
+    assert isinstance(browse_paths_aspect, BrowsePathsV2Class)
+    path_ids = [entry.id for entry in browse_paths_aspect.path]
+    assert path_ids == ["prod", PLATFORM]
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -370,16 +357,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
 
     mock_kafka_consumer.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    # 4 topics (3 with schema, 1 schemaless) x 5 aspects = 20 topic workunits
-    # 6 schemas x 5 aspects = 30 schema workunits
-    # Plus browsePathsV2 workunits (10 total)
-    # Total = 60 workunits (but we need to count exactly based on the new structure)
-    # Actually: 4 topics * (status, schemaMetadata?, browsePaths, datasetProperties, subTypes) + browsePathsV2
-    # 3 topics with schema: 3 * 6 = 18 (status, schemaMetadata, browsePaths, datasetProperties, subTypes, browsePathsV2)
-    # 1 schemaless topic: 1 * 5 = 5 (no schemaMetadata)
-    # 6 schemas: 6 * 6 = 36 (status, schemaMetadata, browsePaths, datasetProperties, subTypes, browsePathsV2)
-    # Total = 18 + 5 + 36 = 59
-    # Let's just verify the schema metadata aspects are correct
+
     schema_metadata_mcps = [
         wu.metadata
         for wu in workunits
@@ -387,15 +365,12 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         and wu.metadata.aspectName == "schemaMetadata"
     ]
 
-    # Should have schema metadata for 3 topics + 6 subjects = 9 schema metadata aspects
     assert len(schema_metadata_mcps) == 9
 
-    # Check that topics with schema have correct schema metadata
     for mcp in schema_metadata_mcps:
         schema_metadata = mcp.aspect
         assert isinstance(schema_metadata, SchemaMetadataClass)
         assert isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
-        # Verify schema name exists in our test data if it's a topic (not a subject)
         if schema_metadata.schemaName in topic_subject_schema_map:
             # Make sure the schema_str matches for the key schema
             assert (
@@ -508,9 +483,7 @@ def test_kafka_ignore_warnings_on_schema_type(
     kafka_source = KafkaSource.create(source_config, ctx)
 
     workunits = list(kafka_source.get_workunits())
-    # 1 topic x 6 aspects (status, schemaMetadata, browsePaths, datasetProperties, subTypes, browsePathsV2) = 6 workunits
-    # Note: schemaMetadata is still emitted for UNKNOWN_TYPE
-    assert len(workunits) == 6
+    assert len(workunits) == 5
     if ignore_warnings_on_schema_type:
         assert not kafka_source.report.warnings
     else:
@@ -544,8 +517,7 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
 
     mock_kafka_admin_client.assert_called_once()
 
-    # 1 topic x 5 aspects = 5 workunits
-    assert len(workunits) == 5
+    assert len(workunits) == 4
 
 
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
@@ -577,8 +549,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     mock_kafka_admin_client.assert_called_once()
     mock_admin_client_instance.describe_configs.assert_called_once()
 
-    # 1 topic x 5 aspects = 5 workunits
-    assert len(workunits) == 5
+    assert len(workunits) == 4
 
 
 @freeze_time("2023-09-20 10:00:00")
@@ -693,15 +664,8 @@ def test_kafka_source_topic_meta_mappings(
         },
         ctx,
     )
-    # 1 topic with schema and meta mappings:
-    #   status, schemaMetadata, browsePaths, ownership, glossaryTerms, globalTags, datasetProperties, subTypes, browsePathsV2 = 9 workunits
-    # 2 schema subjects with meta mappings:
-    #   Each has: status, schemaMetadata, browsePaths, ownership, glossaryTerms, globalTags, datasetProperties, subTypes, browsePathsV2 = 9 workunits x 2 = 18 workunits
-    # Plus additional tag and glossary term workunits (4 workunits for tag/term creation)
-    # Total = 9 + 18 + 4 = 31 workunits
     workunits = [w for w in kafka_source.get_workunits()]
 
-    # Verify all workunits are MetadataChangeProposalWrapper
     for wu in workunits:
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
 
@@ -913,14 +877,13 @@ def test_validate_kafka_connectivity_no_brokers(mock_get_kafka_consumer):
     mock_consumer.list_topics.assert_called_once_with(topic="", timeout=30)
 
 
-@patch("datahub.ingestion.source.kafka.kafka.logger")
 @patch(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_handles_non_iterable_schema_tags(
-    mock_kafka_consumer, mock_schema_registry_client, mock_logger, mock_admin_client
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
     """Test that a TypeError from non-iterable schema_tags_field is handled gracefully.
 
@@ -994,16 +957,11 @@ def test_kafka_source_handles_non_iterable_schema_tags(
     # Should not raise an exception - the source should handle the TypeError gracefully
     workunits = list(kafka_source.get_workunits())
 
-    # Verify workunits were still produced (source didn't crash)
-    # Should have: status, schemaMetadata, browsePaths, datasetProperties, subTypes, browsePathsV2
-    # The exact count may vary due to auto-generated aspects
     assert len(workunits) >= 5
 
-    # Verify all workunits are MetadataChangeProposalWrapper
     for wu in workunits:
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
 
-    # Verify each expected MCP aspect was yielded (coverage for yield MetadataChangeProposalWrapper lines)
     aspect_names = [
         wu.metadata.aspectName
         for wu in workunits
@@ -1012,7 +970,7 @@ def test_kafka_source_handles_non_iterable_schema_tags(
     expected_aspects = [
         "status",
         "schemaMetadata",
-        "browsePaths",
+        "browsePathsV2",
         "datasetProperties",
         "subTypes",
     ]
@@ -1021,33 +979,18 @@ def test_kafka_source_handles_non_iterable_schema_tags(
             f"Expected aspect '{expected_aspect}' to be yielded, got: {aspect_names}"
         )
 
-    # Verify logger.warning was called for the TypeError
-    warning_calls = [
-        call
-        for call in mock_logger.warning.call_args_list
-        if "Failed to extract tags from schema for topic" in str(call)
-    ]
-    assert len(warning_calls) >= 1, (
-        f"Expected logger.warning call for tag extraction failure, "
-        f"got calls: {mock_logger.warning.call_args_list}"
-    )
-
-    # Verify a warning was reported to the source report
     report = kafka_source.get_report()
     warnings_list = list(report.warnings)
     assert len(warnings_list) > 0
-    # Check that at least one warning mentions the tags extraction failure
-    # The warning's message is the topic name, and context contains the actual error details
     warning_found = any(
-        w.message == "topic_with_bad_tags"
-        and any("Unable to extract tags from schema field" in ctx for ctx in w.context)
+        "Unable to extract tags from schema field" in w.message
+        and any("topic_with_bad_tags" in ctx for ctx in w.context)
         for w in warnings_list
     )
     assert warning_found, (
         f"Expected warning about tags extraction, got: {[(w.message, list(w.context)) for w in warnings_list]}"
     )
 
-    # Verify no GlobalTags aspect was emitted (since tag extraction failed)
     tags_mcps = [
         wu.metadata
         for wu in workunits
@@ -1135,12 +1078,8 @@ def test_kafka_source_handles_valid_schema_tags(
 
     workunits = list(kafka_source.get_workunits())
 
-    # Verify workunits were produced
-    # Should have: status, schemaMetadata, browsePaths, globalTags, datasetProperties, subTypes, browsePathsV2
-    # Plus potentially additional auto-generated tag creation workunits
     assert len(workunits) >= 7
 
-    # Verify GlobalTags aspect was emitted with the correct tags
     tags_mcps = [
         wu.metadata
         for wu in workunits
@@ -1149,13 +1088,11 @@ def test_kafka_source_handles_valid_schema_tags(
     ]
     assert len(tags_mcps) == 1
 
-    # Check that the tags match (with default empty prefix)
     expected_tags = make_global_tag_aspect_with_tag_list(
         ["pii", "sensitive", "internal"]
     )
     assert tags_mcps[0].aspect == expected_tags
 
-    # Verify no warnings about tag extraction failure were reported
     report = kafka_source.get_report()
     warnings_list = list(report.warnings)
     tag_extraction_warnings = [
