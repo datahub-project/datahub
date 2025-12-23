@@ -436,7 +436,7 @@ elasticsearch:
       # Supports: "integrations-service" (DataHub SaaS) or "aws-bedrock" (OSS)
       embeddingProvider:
         # Provider type: "integrations-service" or "aws-bedrock"
-        type: ${EMBEDDING_PROVIDER_TYPE:aws-bedrock}
+        type: ${EMBEDDING_PROVIDER_TYPE:integrations-service}
         # AWS region where Bedrock is available (e.g., us-west-2, us-east-1) - only for aws-bedrock
         awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
         # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions) - only for aws-bedrock
