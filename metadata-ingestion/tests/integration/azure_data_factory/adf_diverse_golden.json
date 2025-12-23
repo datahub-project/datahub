@@ -186,24 +186,6 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DiverseActivitiesPipeline,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Pipeline"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-diverse-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.DiverseActivitiesPipeline,DEV)",
-    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {

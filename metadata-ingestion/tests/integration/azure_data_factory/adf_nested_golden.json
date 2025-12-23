@@ -122,24 +122,6 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Pipeline"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ParentOrchestrationPipeline,DEV)",
-    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -430,24 +412,6 @@
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Pipeline"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildDataMovementPipeline,DEV)",
-    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -617,24 +581,6 @@
             "name": "ChildTransformPipeline",
             "description": "Child pipeline for data transformation",
             "env": "DEV"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "adf-nested-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.ChildTransformPipeline,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Pipeline"
-            ]
         }
     },
     "systemMetadata": {

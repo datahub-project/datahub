@@ -608,13 +608,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if activity.description:
             custom_props["activity_description"] = activity.description
 
-        # Add policy info
-        if activity.policy:
-            if "timeout" in activity.policy:
-                custom_props["timeout"] = str(activity.policy["timeout"])
-            if "retry" in activity.policy:
-                custom_props["retry"] = str(activity.policy["retry"])
-
         # Extract lineage (inlets/outlets)
         inlets: Optional[list[DatasetUrnOrStr]] = None
         outlets: Optional[list[DatasetUrnOrStr]] = None

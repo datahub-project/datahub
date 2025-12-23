@@ -181,9 +181,7 @@
         "json": {
             "customProperties": {
                 "activity_type": "Copy",
-                "activity_description": "Copy data from Blob to SQL",
-                "timeout": "7.00:00:00",
-                "retry": "0"
+                "activity_description": "Copy data from Blob to SQL"
             },
             "externalUrl": "https://adf.azure.com/en/authoring/pipeline/DataIngestionPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/test-data-factory",
             "name": "CopyBlobToSQL",
@@ -290,9 +288,7 @@
         "json": {
             "customProperties": {
                 "activity_type": "Lookup",
-                "activity_description": "Lookup configuration values",
-                "timeout": "7.00:00:00",
-                "retry": "0"
+                "activity_description": "Lookup configuration values"
             },
             "externalUrl": "https://adf.azure.com/en/authoring/pipeline/DataIngestionPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/test-data-factory",
             "name": "LookupConfig",
@@ -397,9 +393,7 @@
         "json": {
             "customProperties": {
                 "activity_type": "ExecuteDataFlow",
-                "activity_description": "Execute mapping data flow",
-                "timeout": "7.00:00:00",
-                "retry": "0"
+                "activity_description": "Execute mapping data flow"
             },
             "externalUrl": "https://adf.azure.com/en/authoring/pipeline/DataIngestionPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/test-data-factory",
             "name": "TransformData",
@@ -561,9 +555,7 @@
         "json": {
             "customProperties": {
                 "activity_type": "SqlServerStoredProcedure",
-                "activity_description": "Call stored procedure",
-                "timeout": "7.00:00:00",
-                "retry": "0"
+                "activity_description": "Call stored procedure"
             },
             "externalUrl": "https://adf.azure.com/en/authoring/pipeline/DataProcessingPipeline?factory=/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/test-resource-group/providers/Microsoft.DataFactory/factories/test-data-factory",
             "name": "CallStoredProc",
