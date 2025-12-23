@@ -59,22 +59,33 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datasourcePassword",
           "keyStorePassword",
           "salt",
+
           // Database passwords
           "ebean.password",
           "cassandra.datasourcePassword",
           "neo4j.password",
+
           // Elasticsearch security
           "elasticsearch.password",
           "elasticsearch.sslContext.keyPassword",
           "elasticsearch.sslContext.trustStorePassword",
           "elasticsearch.sslContext.keyStorePassword",
+
           // Services encryption
           "secretService.encryptionKey",
+
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD", // Current directory may contain sensitive info
+
+          // SaaS Only
+          "telemetry.mixpanel.token",
+
           // CDC db password
-          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password",
+
+          // Control plane
+          "controlPlane.apiKey");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -87,7 +98,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingKey",
           "authentication.tokenService.salt",
           "authentication.authenticators[*].configs.signingKey",
-          "authentication.authenticators[*].configs.salt");
+          "authentication.authenticators[*].configs.salt",
+
+          // SaaS Only
+          "notifications.sinks[*].configs.botToken");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -100,17 +114,24 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].type",
           "authentication.authenticators[*].configs.enabled",
           "authentication.authenticators[*].configs.guestUser",
+
           // Spring autoconfigure exclusions with dynamic indices
           "spring.autoconfigure.exclude[*]",
+
           // Cache configuration with dynamic entity/aspect combinations
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
+
           // Gradle test worker properties (Java system properties)
           "org.gradle.test.worker*",
+
           // System update properties
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
           "systemUpdate.*.limit",
           "systemUpdate.*.delayMs",
+          "systemUpdate.*.historicalDays",
+          "systemUpdate.*.futureDays",
+
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.partitions",
@@ -124,9 +145,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.topicDefaults.replicationFactor",
           "kafka.setup.preCreateTopics",
           "kafka.setup.useConfluentSchemaRegistry",
+
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth",
+
           // Bulk rules
           "featureFlags.*",
           "*.*nabled",
@@ -143,7 +166,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
           // Shim properties
-          "elasticsearch.shim.*");
+          "elasticsearch.shim.*",
+          // Semantic search configuration
+          "elasticsearch.entityIndex.semanticSearch.enabledEntities",
+          "elasticsearch.entityIndex.semanticSearch.models.*.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.*.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.*.m",
+          "elasticsearch.entityIndex.semanticSearch.models.*.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.*.efConstruction");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -175,10 +205,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingAlgorithm",
           "authorization.defaultAuthorizer.enabled",
           "authorization.view.enabled",
+
           // Service and component names
           "secretService",
           "secretService.v1AlgorithmEnabled",
           "tokenService",
+
           // Configuration keys and settings (not secret keys)
           "key",
           "corpUserKey",
@@ -191,6 +223,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.index.maxObjectKeys",
           "mainTokenizer",
           "elasticsearch.index.mainTokenizer",
+
           // Cache configuration
           "cache.client.entityClient.entityAspectTTLSeconds.corpuser.corpUserCredentials",
           "cache.client.entityClient.entityAspectTTLSeconds.corpuser.corpUserKey",
@@ -226,11 +259,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.primary.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
           "cache.search.lineage.ttlSeconds",
+
           // Authentication mode flags (not credentials)
           "opensearchUseAwsIamAuth",
           "postgresUseIamAuth",
+
           // Time durations and settings
           "sessionTokenDurationMs",
+
           // Kafka serializer/deserializer class names
           "kafka.serde.event.key.serializer",
           "kafka.serde.event.key.deserializer",
@@ -272,8 +308,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.schema.registry.security.protocol",
           "kafka.topics.dataHubUsage",
           "spring.kafka.security.protocol",
+
           // Entity/field names that happen to contain sensitive keywords
           "corpUserCredentials",
+
           // Environment variables (paths and non-sensitive settings)
           "auth",
           "SSH_AUTH_SOCK",
@@ -338,6 +376,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "npm_config_yes",
           "socksNonProxyHosts",
           "ELASTIC_VERSION",
+
           // Java system properties
           "apple.awt.application.name",
           "file.encoding",
@@ -385,10 +424,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "sun.java.launcher",
           "sun.jnu.encoding",
           "sun.management.compiler",
+
           // JNA (Java Native Access) properties
           "jna.loaded",
           "jna.platform.library.path",
           "jnidispatch.path",
+
           // Java CRaC (Coordinated Restore at Checkpoint) properties
           "sun.java.crac_command",
           "user.country",
@@ -398,6 +439,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "user.name",
           "user.timezone",
           "user.variant",
+
           // Spring and application configuration
           "baseUrl",
           "bootstrap.policies.file",
@@ -415,6 +457,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "spring.mvc.throw-exception-if-no-handler-found",
           "spring.web.resources.add-mappings",
           "server.server-header",
+
           // DataHub configuration
           "datahub.gms.async.request-timeout-ms",
           "datahub.gms.host",
@@ -440,7 +483,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedUploadUrlExpirationSeconds",
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
+          "datahub.freeTrialInstance",
           "datahub.readOnly",
+
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
@@ -495,6 +540,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",
+
           // Database configuration (non-sensitive settings)
           "cassandra.datacenter",
           "cassandra.datasourceUsername",
@@ -522,6 +568,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "neo4j.maxTransactionRetryTime",
           "neo4j.uri",
           "neo4j.username",
+
           // Elasticsearch configuration
           "elasticsearch.buildIndices.allowDocCountMismatch",
           "elasticsearch.buildIndices.cloneIndices",
@@ -606,10 +653,18 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.threadCount",
           "elasticsearch.useSSL",
           "elasticsearch.username",
+          "elasticsearch.entityIndex.semanticSearch.enabled",
+          "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.batchSize",
+          "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.maxTextLength",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.type",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
           "elasticsearch.search.validation.maxQueryLength",
           "elasticsearch.search.validation.regex",
           "elasticsearch.search.validation.maxLengthEnabled",
           "elasticsearch.search.validation.enabled",
+
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",
@@ -672,6 +727,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestionScheduler.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",
           "path-mappings./",
+
           // Management and monitoring
           "management.defaults.metrics.export.enabled",
           "management.endpoints.jmx.enabled",
@@ -685,6 +741,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "management.simple.metrics.export.enabled",
           "management.tracing.enabled",
           "management.tracing.propagation.type",
+
           // System metadata and updates
           "systemMetadataService.limit.results.apiDefault",
           "systemMetadataService.limit.results.max",
@@ -715,6 +772,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.ingestionIndices.delayMs",
           "systemUpdate.ingestionIndices.enabled",
           "systemUpdate.ingestionIndices.limit",
+          "systemUpdate.assertionEntityField.batchSize",
+          "systemUpdate.assertionEntityField.delayMs",
+          "systemUpdate.assertionEntityField.enabled",
+          "systemUpdate.assertionEntityField.limit",
           "systemUpdate.initialBackOffMs",
           "systemUpdate.maxBackOffs",
           "systemUpdate.ownershipTypes.batchSize",
@@ -744,6 +805,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.schemaFieldsFromSchemaMetadata.enabled",
           "systemUpdate.schemaFieldsFromSchemaMetadata.limit",
           "systemUpdate.waitForSystemUpdate",
+
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
           "metadataChangeProposal.consumer.batch.size",
@@ -766,6 +828,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.throttle.versioned.threshold",
           "metadataChangeProposal.validation.extensions.enabled",
           "metadataChangeProposal.validation.ignoreUnknown",
+          "metadataChangeProposal.validation.monitorLimit.enabled",
+          "metadataChangeProposal.validation.monitorLimit.maxMonitors",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
           "metadataTests.enabled",
           "platformAnalytics.enabled",
@@ -793,6 +857,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "searchService.queryFilterRewriter.domainExpansion.limit",
           "searchService.queryFilterRewriter.domainExpansion.pageSize",
           "searchService.resultBatchSize",
+          "searchService.semanticSearchEnabled",
           "siblings.consumerGroupSuffix",
           "siblings.enabled",
           "springdoc.api-docs.path",
@@ -831,15 +896,18 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "visualConfig.searchResult.enableNameHighlight",
           "visualConfig.showFullTitleInLineage",
           "visualConfig.theme.themeId",
+
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
           "datahub.policies.systemPolicyUrnList",
+
           // Base Path
           "datahub.basePath",
           "server.servlet.context-path",
           "datahub.gms.basePath",
           "datahub.gms.basePathEnabled",
+
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
           "kafka.serde.cdc.key.deserializer",
@@ -886,23 +954,99 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
           "elasticsearch.entityIndex.v3.maxFieldsLimit",
-          // Semantic search configuration
-          "elasticsearch.entityIndex.semanticSearch.enabled",
-          "elasticsearch.entityIndex.semanticSearch.enabledEntities",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.vectorDimension",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.knnEngine",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.spaceType",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.efConstruction",
-          "elasticsearch.entityIndex.semanticSearch.models.cohere_embed_v3.m",
-          "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.batchSize",
-          "elasticsearch.entityIndex.semanticSearch.embeddingsUpdate.maxTextLength",
-          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.type",
-          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.awsRegion",
-          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.modelId",
-          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.maxCharacterLength",
+
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
-          "metadataChangeLog.consumer.batch.size"
+          "metadataChangeLog.consumer.batch.size",
+
+          // SaaS properties
+          "assertionMonitors.resolveIngestionSourceForAspects",
+          "aws.eventBridge.assumeRoleArn",
+          "aws.eventBridge.auditEventExport.aspectTypes",
+          "aws.eventBridge.auditEventExport.usageEventTypes",
+          "aws.eventBridge.auditEventExport.userFilters",
+          "aws.eventBridge.eventBus",
+          "aws.eventBridge.externalId",
+          "aws.eventBridge.flushIntervalSeconds",
+          "aws.eventBridge.maxBatchSize",
+          "aws.eventBridge.maxRetries",
+          "aws.eventBridge.region",
+          "cache.search.lineage.evictionPolicy",
+          "cache.search.lineage.maxSize",
+          "classificationConfig.automations.aiTermClassification",
+          "classificationConfig.automations.snowflake",
+          "datahub.plugin.openApiClient.backOffMillis",
+          "datahub.plugin.openApiClient.maxRetries",
+          "elasticsearch.scroll.timeout",
+          "entityService.applyMclSyncForSources.reportingExecutor",
+          "entityService.applyMclSyncForSources.ui",
+          "eventSinks.entityChangeEvent.sinks[0].configs.assumeRoleArn",
+          "eventSinks.entityChangeEvent.sinks[0].configs.eventBus",
+          "eventSinks.entityChangeEvent.sinks[0].configs.externalId",
+          "eventSinks.entityChangeEvent.sinks[0].configs.region",
+          "eventSinks.entityChangeEvent.sinks[0].type",
+          "executors.backendRevision",
+          "executors.cloudLoggingS3Bucket",
+          "executors.cloudLoggingS3Prefix",
+          "executors.executorCustomerId",
+          "executors.executorPoolHook.messageRetentionPeriod",
+          "executors.executorPoolHook.policyTemplate",
+          "executors.executorPoolHook.sqsBaseDelayMs",
+          "executors.executorPoolHook.sqsMaxRetries",
+          "executors.executorPoolHook.visibilityTimeout",
+          "executors.executorRoleArn",
+          "integrationsService.host",
+          "integrationsService.port",
+          "integrationsService.useSsl",
+          "metadataChangeProposal.validation.extensions.configFile",
+          "metadataTests.actions.concurrency",
+          "metadataTests.actions.queueSize",
+          "metadataTests.actions.threadKeepAlive",
+          "metadataTests.bootstrap.activeDefaults",
+          "metadataTests.cacheRefreshDelayIntervalSecs",
+          "metadataTests.cacheRefreshIntervalSecs",
+          "metadataTests.forwardingAction.recipe",
+          "metadataTests.futuresBatchSize",
+          "metadataTests.hook.hookExecutionLimit.defaultExecutor",
+          "metadataTests.hook.hookExecutionLimit.elasticSearchExecutor",
+          "metadataTests.hook.onEntityChange",
+          "metadataTests.hook.onTestChange",
+          "monitorService.host",
+          "monitorService.port",
+          "monitorService.useSsl",
+          "notifications.sinks[0].configs.defaultChannel",
+          "notifications.sinks[0].configs.maxNumRetries",
+          "notifications.sinks[0].configs.proxyUrl",
+          "notifications.sinks[0].type",
+          "notifications.sinks[1].type",
+          "notifications.sinks[2].type",
+          "notifications.sinks[3].type",
+          "recommendationService.mostPopular.offline",
+          "recommendationService.topTags.offline",
+          "recommendationService.topTerms.offline",
+          "searchService.ranker.type",
+          "sentry.debug",
+          "sentry.dsn",
+          "sentry.env",
+          "systemUpdate.assertionInfo.delayMs",
+          "systemUpdate.assertionInfo.limit",
+          "systemUpdate.monitorInfo.delayMs",
+          "systemUpdate.monitorInfo.limit",
+          "systemUpdate.executorPools.customerId",
+          "systemUpdate.migrateProcessInstanceEdges.inputPlatforms",
+          "systemUpdate.migrateProcessInstanceEdges.outputPlatforms",
+          "systemUpdate.migrateProcessInstanceEdges.parentPlatforms",
+          "systemUpdate.postInfo.delayMs",
+          "systemUpdate.postInfo.limit",
+          "systemUpdate.sendAdminInviteToken.retryCount",
+          "systemUpdate.sendAdminInviteToken.retryIntervalSeconds",
+          "telemetry.googleAnalytics.measurementId",
+          "telemetry.mixpanel.disableObfuscation",
+          "telemetry.mixpanel.useStandardEndpoints",
+
+          // Control plane
+          "controlPlane.url",
+          "controlPlane.cacheTtlMinutes"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
