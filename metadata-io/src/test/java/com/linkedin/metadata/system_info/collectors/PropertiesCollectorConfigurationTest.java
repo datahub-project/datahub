@@ -131,6 +131,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.delayMs",
           "systemUpdate.*.historicalDays",
           "systemUpdate.*.futureDays",
+          "systemUpdate.*.dryRun",
+          "systemUpdate.*.entityTypes",
+          "systemUpdate.*.checkIds",
+          "systemUpdate.*.systemMetadataFilterConfig.*",
+          "systemUpdate.*.gracePeriodSeconds",
+
+          // Consistency checks configuration
+          "consistencyChecks.checks.*.*",
+          "consistencyChecks.gracePeriodSeconds",
 
           // Kafka topic Configs
           "kafka.topics.*.name",

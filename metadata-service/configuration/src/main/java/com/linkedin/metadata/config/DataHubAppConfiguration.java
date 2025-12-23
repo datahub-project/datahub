@@ -128,6 +128,9 @@ public class DataHubAppConfiguration {
   /** Structured properties related configurations */
   private StructuredPropertiesConfiguration structuredProperties;
 
+  /** Consistency checks configuration (shared by upgrade job and API endpoints) */
+  private ConsistencyChecksConfiguration consistencyChecks;
+
   // SaaS Only Config
 
   /** AWS Integration Configuration */

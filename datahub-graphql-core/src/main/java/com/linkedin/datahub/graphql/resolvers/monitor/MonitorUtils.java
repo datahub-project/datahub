@@ -30,12 +30,10 @@ import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersIn
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.MonitorUrnUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AuditLogSpec;
@@ -57,12 +55,12 @@ import javax.annotation.Nullable;
 public class MonitorUtils {
 
   private static final String MONITORS_RELATIONSHIP_NAME = "Monitors";
+  private static final String EVALUATES_RELATIONSHIP_NAME = "Evaluates";
   private static final int MAX_MONITORS_TO_FETCH = 5000;
 
   // Entity types that have system monitors enabled.
   public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS =
-      ImmutableSet.of(Constants.DATASET_ENTITY_NAME);
-  private static final String EVALUATES_RELATIONSHIP_NAME = "Evaluates";
+      ImmutableSet.of(com.linkedin.metadata.Constants.DATASET_ENTITY_NAME);
 
   /**
    * Converts the URN for an entity and the type of a system monitor into a unique monitor urn,
@@ -76,10 +74,7 @@ public class MonitorUtils {
    */
   public static Urn getMonitorUrnForSystemMonitorType(
       @Nonnull final Urn entityUrn, @Nonnull final SystemMonitorType type) {
-    final MonitorKey key = new MonitorKey();
-    key.setEntity(entityUrn);
-    key.setId(MonitorUtils.getIdForSystemMonitorType(type));
-    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.MONITOR_ENTITY_NAME);
+    return MonitorUrnUtils.generateMonitorUrn(entityUrn, getIdForSystemMonitorType(type));
   }
 
   /** Converts the system monitor type into a monitor id that is unique for the specified entity. */

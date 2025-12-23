@@ -192,6 +192,7 @@ task runNonBlocking(type: Exec) {
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
   environment "BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED", "false"
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
+  environment "SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS", "0"
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",

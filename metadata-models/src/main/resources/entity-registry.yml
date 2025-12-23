@@ -963,6 +963,7 @@ entities:
       - monitorInfo
       - monitorTimeseriesState
       - monitorAnomalyEvent
+      - status
   - name: monitorSuite
     category: core
     keyAspect: monitorSuiteKey

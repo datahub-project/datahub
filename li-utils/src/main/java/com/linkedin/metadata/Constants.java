@@ -535,6 +535,9 @@ public class Constants {
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
   public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
 
+  /** Relationship from Monitor to Assertion (via AssertionEvaluationSpec.assertion) */
+  public static final String EVALUATES_RELATIONSHIP_NAME = "Evaluates";
+
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";

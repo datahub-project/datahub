@@ -1,0 +1,163 @@
+[
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/checks",
+      "description": "List all registered consistency checks",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/checks?entityType=assertion",
+      "description": "List consistency checks for assertion entity type",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/checks?entityType=monitor",
+      "description": "List consistency checks for monitor entity type",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/checks/assertion-entity-not-found",
+      "description": "Get details about assertion-entity-not-found check",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [200],
+      "json": {
+        "id": "assertion-entity-not-found",
+        "name": "Assertion Entity Not Found",
+        "entityType": "assertion",
+        "onDemandOnly": false,
+        "requiresAllAspects": false,
+        "requiredAspects": [
+          "assertionInfo",
+          "status"
+        ],
+        "targetAspects": []
+      },
+      "exclude_regex_paths": [
+        "root\\['description'\\]"
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/checks/monitor-assertions-empty",
+      "description": "Get details about monitor-assertions-empty check",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [200],
+      "json": {
+        "id": "monitor-assertions-empty",
+        "name": "Monitor Assertions Empty",
+        "entityType": "monitor",
+        "onDemandOnly": false,
+        "requiresAllAspects": false,
+        "requiredAspects": [
+          "monitorInfo",
+          "status"
+        ],
+        "targetAspects": []
+      },
+      "exclude_regex_paths": [
+        "root\\['description'\\]"
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/checks/non-existent-check-id",
+      "description": "Get a non-existent check returns 404",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [404]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/check",
+      "description": "Run batch check on assertion entities - expect no issues",
+      "method": "post",
+      "json": {
+        "entityType": "assertion",
+        "batchSize": 10
+      }
+    },
+    "response": {
+      "status_codes": [200],
+      "json": {
+        "issuesFound": 0,
+        "issues": []
+      },
+      "exclude_regex_paths": [
+        "root\\['entitiesScanned'\\]",
+        "root\\['scrollId'\\]"
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/check",
+      "description": "Run batch check on monitor entities - expect no issues",
+      "method": "post",
+      "json": {
+        "entityType": "monitor",
+        "batchSize": 10
+      }
+    },
+    "response": {
+      "status_codes": [200],
+      "json": {
+        "issuesFound": 0,
+        "issues": []
+      },
+      "exclude_regex_paths": [
+        "root\\['entitiesScanned'\\]",
+        "root\\['scrollId'\\]"
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/operations/consistency/fix",
+      "description": "Run check and fix on assertion entities in dry-run mode - expect no issues",
+      "method": "post",
+      "json": {
+        "entityType": "assertion",
+        "batchSize": 10,
+        "dryRun": true
+      }
+    },
+    "response": {
+      "status_codes": [200],
+      "json": {
+        "issuesFound": 0,
+        "dryRun": true,
+        "totalProcessed": 0,
+        "entitiesFixed": 0,
+        "entitiesFailed": 0,
+        "fixDetails": []
+      },
+      "exclude_regex_paths": [
+        "root\\['entitiesScanned'\\]",
+        "root\\['scrollId'\\]"
+      ]
+    }
+  }
+]
