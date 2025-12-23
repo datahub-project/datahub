@@ -412,9 +412,16 @@ class Mapper:
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
+                # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
+                # This is done after all parsing is complete to avoid interfering with M-Query parsing
+                from datahub.ingestion.source.powerbi.m_query import native_sql_parser
+
+                converted_expression = native_sql_parser.remove_special_characters(
+                    table.expression
+                )
                 view_properties = ViewPropertiesClass(
                     materialized=False,
-                    viewLogic=table.expression,
+                    viewLogic=converted_expression,
                     viewLanguage="m_query",
                 )
                 view_prop_mcp = self.new_mcp(
