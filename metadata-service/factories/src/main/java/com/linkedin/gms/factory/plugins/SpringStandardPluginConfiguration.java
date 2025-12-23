@@ -53,6 +53,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 
 @Configuration
 @Slf4j
@@ -586,7 +587,7 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public AspectSerializationHook aspectSizeValidationHook(
-      ConfigurationProvider configProvider, AspectDao aspectDao) {
+      ConfigurationProvider configProvider, @Lazy AspectDao aspectDao) {
     AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();
     AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
     log.debug("Initialized AspectSizeValidationHook");
