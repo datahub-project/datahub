@@ -54,6 +54,10 @@ from datahub_integrations.mcp.tools.descriptions import update_description
 from datahub_integrations.mcp.tools.domains import remove_domains, set_domains
 from datahub_integrations.mcp.tools.get_me import get_me
 from datahub_integrations.mcp.tools.owners import add_owners, remove_owners
+from datahub_integrations.mcp.tools.structured_properties import (
+    add_structured_properties,
+    remove_structured_properties,
+)
 from datahub_integrations.mcp.tools.terms import (
     add_glossary_terms,
     remove_glossary_terms,
@@ -2590,6 +2594,18 @@ def register_mutation_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None
     mcp_instance.tool(
         name="update_description", description=update_description.__doc__
     )(async_background(update_description))
+
+    # Register add_structured_properties tool
+    mcp_instance.tool(
+        name="add_structured_properties",
+        description=add_structured_properties.__doc__,
+    )(async_background(add_structured_properties))
+
+    # Register remove_structured_properties tool
+    mcp_instance.tool(
+        name="remove_structured_properties",
+        description=remove_structured_properties.__doc__,
+    )(async_background(remove_structured_properties))
 
 
 def register_user_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
