@@ -29,7 +29,6 @@ acryl-executor==0.2.6
 
 # Additional dependencies for telemetry API test
 confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
-pydantic>2
 python-snappy>=0.6.1
 
 # SaaS Only:
@@ -38,3 +37,6 @@ python-snappy>=0.6.1
 # required for bigquery docs propagation tests
 -e ../metadata-ingestion[bigquery-slim]
 -e ../datahub-actions
+
+# For semantic search tests (embedding generation)
+litellm>=1.0.0

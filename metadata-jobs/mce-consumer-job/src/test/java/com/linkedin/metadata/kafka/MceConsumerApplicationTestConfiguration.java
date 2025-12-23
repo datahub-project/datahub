@@ -6,13 +6,15 @@ import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
+import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
+import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -31,7 +33,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
-@Import(value = {SystemAuthenticationFactory.class, SystemOperationContextFactory.class})
+@Import(
+    value = {
+      SystemAuthenticationFactory.class,
+      SystemOperationContextFactory.class,
+    })
 public class MceConsumerApplicationTestConfiguration {
 
   @Autowired private TestRestTemplate restTemplate;
@@ -79,6 +85,10 @@ public class MceConsumerApplicationTestConfiguration {
 
   @MockBean protected SiblingGraphService siblingGraphService;
 
-  // Saas Only
-  @MockBean protected TestEngine testEngine;
+  // Mock semantic search factories to avoid needing full configuration
+  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+
+  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+
+  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 }

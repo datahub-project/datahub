@@ -111,8 +111,6 @@ import com.linkedin.datahub.graphql.resolvers.role.DismissUserSuggestionResolver
 import com.linkedin.datahub.graphql.resolvers.role.RevokeUserInvitationResolver;
 import com.linkedin.datahub.graphql.resolvers.role.SendUserInvitationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.UserInvitationService;
-import com.linkedin.datahub.graphql.resolvers.semantic.SemanticSearchAcrossEntitiesResolver;
-import com.linkedin.datahub.graphql.resolvers.semantic.SemanticSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.TeamsOAuthConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.TeamsSearchResolver;
@@ -165,7 +163,6 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.AssertionService;
@@ -218,7 +215,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private DataContractService dataContractService;
   private DataHubAiConversationService dataHubAiConversationService;
   private EntitySearchService entitySearchService;
-  private SemanticSearchService semanticSearchService;
   private MonitorService monitorService;
   private SubscriptionService subscriptionService;
   private GroupService groupService;
@@ -271,7 +267,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.monitorService = args.getMonitorService();
     this.integrationsService = args.getIntegrationsService();
     this.entitySearchService = args.getEntitySearchService();
-    this.semanticSearchService = args.getSemanticSearchService();
     this.subscriptionService = args.getSubscriptionService();
     this.groupService = args.getGroupService();
     this.settingsService = args.getSettingsService();
@@ -350,7 +345,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         AI_SCHEMA_FILE,
         SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
-        SEMANTIC_SEARCH_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
         REMOTE_EXECUTOR_SCHEMA_FILE,
         INTEGRATIONS_TEAMS_SCHEMA_FILE,
@@ -646,11 +640,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "defaultRemoteExecutorPool",
                     new GetDefaultRemoteExecutorPoolResolver(this.entityClient))
-                .dataFetcher("semanticSearch", new SemanticSearchResolver(semanticSearchService))
-                .dataFetcher(
-                    "semanticSearchAcrossEntities",
-                    new SemanticSearchAcrossEntitiesResolver(
-                        semanticSearchService, null, formService, entityClient))
                 .dataFetcher(
                     "listUsersAndGroups",
                     new ListUsersAndGroupsResolver(

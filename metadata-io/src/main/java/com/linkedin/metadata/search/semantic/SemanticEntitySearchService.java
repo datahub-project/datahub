@@ -1,8 +1,3 @@
-/**
- * SAAS-SPECIFIC: This class is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Requires embedding
- * service and OpenSearch 2.17+ with k-NN plugin.
- */
 package com.linkedin.metadata.search.semantic;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -138,7 +133,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nullable SortCriterion sortCriterion,
       int from,
       @Nullable Integer pageSize) {
-
     // 1) Map entity names to semantic indices
     List<String> indices =
         entityNames.stream()
@@ -198,7 +192,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     // 6) Build filters using ESUtils with proper field types
     Map<String, Object> finalFilterMap =
         transformedFilters != null
-            ? ESUtils.buildFilterMap( // Use the new method that delegates to buildFilterQuery
+            ? ESUtils.buildFilterMap(
+                // Use the new method that delegates to buildFilterQuery
                 transformedFilters, // Use transformed filters instead of raw postFilters
                 false, // not timeseries
                 searchableFieldTypes,
@@ -215,9 +210,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             Math.min(MAX_K, (int) Math.ceil(needed * DEFAULT_OVERSAMPLE_FACTOR)));
 
     // 7) Build field set using same logic as keyword search
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     Set<String> fieldsToFetch =
         new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
       fieldsToFetch.addAll(searchFlags.getFetchExtraFields());
     }
@@ -238,9 +233,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     // Note: For k-NN, numEntities represents the total candidates found (after filtering),
     // not total documents in index. With track_total_hits=false, hits.size() is our best estimate.
     SearchResultMetadata metadata =
-        new SearchResultMetadata()
-            .setAggregations(new AggregationMetadataArray())
-            .setScoringMethod("cosine_similarity");
+        new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
     return new SearchResult()
         .setEntities(new SearchEntityArray(page))
         .setMetadata(metadata)
@@ -273,10 +266,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         .setNumEntities(0)
         .setFrom(from)
         .setPageSize(size)
-        .setMetadata(
-            new SearchResultMetadata()
-                .setAggregations(new AggregationMetadataArray())
-                .setScoringMethod("cosine_similarity"));
+        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 
   @Nonnull
@@ -355,7 +345,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       // This follows keyword search pattern. In k-NN, the returned hits are our best estimate.
       log.info("kNN search with pre-filtering returned {} hits", results.size());
       return results;
-
     } catch (IOException e) {
       throw new RuntimeException("Failed to execute semantic kNN search with pre-filtering", e);
     }
@@ -383,7 +372,6 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       @Nullable Map<String, Object> docLevelFilterMap,
       @Nonnull Set<String> fieldsToFetch)
       throws IOException {
-
     // Build the kNN parameters map
     Map<String, Object> knnParams = new HashMap<>();
     knnParams.put("vector", convertToFloatList(vector));

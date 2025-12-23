@@ -1,8 +1,3 @@
-/**
- * SAAS-SPECIFIC: This interface is part of the semantic search feature exclusive to DataHub SaaS.
- * It should NOT be merged back to the open-source DataHub repository. Dependencies: Requires
- * embedding service and OpenSearch with k-NN plugin.
- */
 package com.linkedin.metadata.search.semantic;
 
 import com.linkedin.metadata.query.filter.Filter;

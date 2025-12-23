@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.plugins.AcrylGraphQLPlugin;
+import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationResolver;
@@ -559,7 +560,7 @@ public class GmsGraphQLEngine {
     this.graphQLPlugins =
         List.of(
             // Add new plugins here
-            new AcrylGraphQLPlugin());
+            new AcrylGraphQLPlugin(), new SemanticSearchPlugin());
     this.graphQLPlugins.forEach(plugin -> plugin.init(args));
 
     this.metadataTestClient = args.metadataTestClient;
@@ -773,8 +774,7 @@ public class GmsGraphQLEngine {
     return loadableTypes.stream()
         .collect(
             Collectors.toMap(
-                LoadableType::name,
-                (graphType) -> (context) -> createDataLoader(graphType, context)));
+                LoadableType::name, graphType -> context -> createDataLoader(graphType, context)));
   }
 
   /**
@@ -1231,7 +1231,7 @@ public class GmsGraphQLEngine {
                       ResolverUtils.filterEntitiesForExistence(
                           context.getOperationContext(), urn, entityClient, checkForExistence))
               .map(
-                  (urn) -> {
+                  urn -> {
                     try {
                       /* Start SaaS Only */
                       if (!canView(context.getOperationContext(), urn)) {

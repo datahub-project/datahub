@@ -1,7 +1,9 @@
 /**
- * SAAS-SPECIFIC: This resolver is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Requires
- * SemanticSearchService and embedding infrastructure.
+ * Resolver for cross-entity semantic search functionality in DataHub. Performs vector similarity
+ * search across multiple entity types using embeddings stored in OpenSearch k-NN indices.
+ *
+ * <p>Requirements: SemanticSearchService and embedding infrastructure (OpenSearch 2.17+ with k-NN
+ * plugin).
  */
 package com.linkedin.datahub.graphql.resolvers.semantic;
 
@@ -115,14 +117,6 @@ public class SemanticSearchAcrossEntitiesResolver
                     ? FilterUtils.combineFilters(
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
-
-            // Note: Semantic search does not support predicate filters for simplicity
-            // If predicate support is needed, it can be added in a future iteration
-            if (input.getPredicateFilter() != null
-                || (input.getConvertToPredicate() != null && input.getConvertToPredicate())) {
-              log.warn(
-                  "Predicate filters are not supported for semantic search, ignoring predicate filter");
-            }
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null

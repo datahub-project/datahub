@@ -1,8 +1,3 @@
-/**
- * SAAS-SPECIFIC: This test is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Tests
- * SemanticSearchResolver functionality.
- */
 package com.linkedin.datahub.graphql.resolvers.semantic;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;

@@ -24,6 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 
 // Default implementation of search index naming convention
 public class IndexConventionImpl implements IndexConvention {
+
   public static IndexConvention noPrefix(
       @Nonnull String idHashAlgo, @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
     return new IndexConventionImpl(
@@ -36,7 +37,9 @@ public class IndexConventionImpl implements IndexConvention {
   private final List<String> _getAllEntityIndicesPatterns;
   private final String _getAllTimeseriesIndicesPattern;
   private final String _v3EntityIndexPatterns;
+
   @Getter private final IndexConventionConfig indexConventionConfig;
+
   private final EntityIndexConfiguration entityIndexConfiguration;
 
   private static final String ENTITY_INDEX_VERSION = "v2";
@@ -81,19 +84,19 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   private String buildV2Pattern() {
-    return _prefix.map(p -> p + "_").orElse("")
+    return (_prefix.map(p -> p + "_").orElse("")
         + "*"
         + ENTITY_INDEX_SUFFIX
         + "_"
-        + ENTITY_INDEX_VERSION;
+        + ENTITY_INDEX_VERSION);
   }
 
   private String buildV3Pattern() {
-    return _prefix.map(p -> p + "_").orElse("")
+    return (_prefix.map(p -> p + "_").orElse("")
         + "*"
         + ENTITY_INDEX_SUFFIX
         + "_"
-        + ENTITY_INDEX_VERSION_V3;
+        + ENTITY_INDEX_VERSION_V3);
   }
 
   @Nonnull
@@ -179,10 +182,10 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getTimeseriesAspectIndexName(String entityName, String aspectName) {
-    return this.getIndexName(entityName + "_" + aspectName)
+    return (this.getIndexName(entityName + "_" + aspectName)
         + TIMESERIES_ENTITY_INDEX_SUFFIX
         + "_"
-        + TIMESERIES_INDEX_VERSION;
+        + TIMESERIES_INDEX_VERSION);
   }
 
   @Nonnull
@@ -263,22 +266,26 @@ public class IndexConventionImpl implements IndexConvention {
 
   /** Checks if V2 entity index is enabled based on configuration */
   private boolean isV2Enabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
-    return entityIndexConfiguration.getV2() != null && entityIndexConfiguration.getV2().isEnabled();
+    return (entityIndexConfiguration.getV2() != null
+        && entityIndexConfiguration.getV2().isEnabled());
   }
 
   /** Checks if V3 entity index is enabled based on configuration */
   private boolean isV3Enabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
-    return entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isEnabled();
+    return (entityIndexConfiguration.getV3() != null
+        && entityIndexConfiguration.getV3().isEnabled());
   }
 
   /** Checks if V2 cleanup is enabled based on configuration */
   private boolean isV2CleanupEnabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
-    return entityIndexConfiguration.getV2() != null && entityIndexConfiguration.getV2().isCleanup();
+    return (entityIndexConfiguration.getV2() != null
+        && entityIndexConfiguration.getV2().isCleanup());
   }
 
   /** Checks if V3 cleanup is enabled based on configuration */
   private boolean isV3CleanupEnabled(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
-    return entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isCleanup();
+    return (entityIndexConfiguration.getV3() != null
+        && entityIndexConfiguration.getV3().isCleanup());
   }
 
   /**
@@ -330,8 +337,11 @@ public class IndexConventionImpl implements IndexConvention {
   @Value
   @Builder
   public static class IndexConventionConfig {
+
     @Builder.Default String hashIdAlgo = "MD5";
+
     @Builder.Default @Nullable String prefix = null;
+
     @Builder.Default boolean schemaFieldDocIdHashEnabled = false;
   }
 }

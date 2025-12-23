@@ -1,8 +1,3 @@
-/**
- * SAAS-SPECIFIC: This integration test is part of the semantic search feature exclusive to DataHub
- * SaaS. It should NOT be merged back to the open-source DataHub repository. Dependencies: Requires
- * OpenSearch with k-NN plugin and semantic indices.
- */
 package com.linkedin.metadata.search.semantic;
 
 import static org.testng.Assert.*;

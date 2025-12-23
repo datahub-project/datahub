@@ -67,6 +67,8 @@ dependencies {
   implementation 'software.amazon.awssdk:regions'
   implementation 'software.amazon.awssdk:sts'
   implementation 'software.amazon.awssdk:s3'
+  // AWS SDK for Bedrock (semantic search embeddings)
+  implementation 'software.amazon.awssdk:bedrockruntime'
 
   // Exclude AWS SDK v1 to avoid conflicts with AWS SDK v2
   configurations.all {

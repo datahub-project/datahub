@@ -65,7 +65,7 @@ public interface IndexConvention {
   /**
    * Inverse of getEntityIndexNameSemantic
    *
-   * @param semanticIndexName The index name to parse
+   * @param semanticIndexName The semantic index name to parse
    * @return a string, the entity name that that index is for, or empty if one cannot be extracted
    */
   Optional<String> getEntityNameSemantic(String semanticIndexName);
@@ -110,11 +110,11 @@ public interface IndexConvention {
   boolean isV3EntityIndex(@Nonnull String indexName);
 
   /**
-   * Checks if the given index name matches the semantic index naming pattern. Semantic indices
-   * should contain "index_v2_semantic" in their name.
+   * Checks if the given index name is a semantic entity index. Semantic entity indices should
+   * contain "_semantic" in their name.
    *
    * @param indexName the index name to check
-   * @return true if the index name matches the semantic index pattern
+   * @return true if the index name is a semantic entity index
    */
   boolean isSemanticEntityIndex(@Nonnull String indexName);
 }

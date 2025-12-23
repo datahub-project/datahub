@@ -275,6 +275,26 @@ public class QueryUtils {
     return excludeIngestionSourceFromList(entities, EntitySpec::getName);
   }
 
+  /**
+   * Filters entities for search. In the fork, this excludes ingestion source entities.
+   *
+   * @param entities list of entity names
+   * @return filtered list of entity names
+   */
+  public static List<String> filterEntitiesForSearch(List<String> entities) {
+    return excludeIngestionSourceEntity(entities);
+  }
+
+  /**
+   * Filters entity specs for search. In the fork, this excludes ingestion source entities.
+   *
+   * @param entities list of EntitySpecs
+   * @return filtered list of EntitySpecs
+   */
+  public static List<EntitySpec> filterEntitySpecsForSearch(List<EntitySpec> entities) {
+    return excludeIngestionSourceEntitySpec(entities);
+  }
+
   private static <T> List<T> excludeIngestionSourceFromList(
       List<T> items, Function<T, String> nameExtractor) {
 

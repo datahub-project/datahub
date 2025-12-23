@@ -1,8 +1,3 @@
-/**
- * SAAS-SPECIFIC: This factory is part of the semantic search feature exclusive to DataHub SaaS. It
- * should NOT be merged back to the open-source DataHub repository. Dependencies: Creates
- * SemanticEntitySearchService with OpenSearch k-NN support.
- */
 package com.linkedin.gms.factory.search.semantic;
 
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;

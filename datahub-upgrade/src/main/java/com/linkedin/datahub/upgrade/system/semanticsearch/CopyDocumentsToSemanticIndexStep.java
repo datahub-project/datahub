@@ -9,24 +9,31 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Optional;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.client.tasks.GetTaskRequest;
+import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.tasks.TaskInfo;
 
 /**
  * Upgrade step that copies documents from base entity indices to semantic search indices.
  *
- * <p>The embeddings field will be empty after copying - a separate backfill process is needed to
- * populate embeddings.
+ * <p>Note: This step only copies document metadata. Embeddings are populated separately via the
+ * SemanticContent aspect, which is emitted by ingestion connectors.
  */
 @Slf4j
 public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
 
   private static final String UPGRADE_ID_PREFIX = "CopyDocumentsToSemanticIndex";
+  private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
+  private static final long TASK_TIMEOUT_MS = 3600000; // 1 hour
 
   private final OperationContext opContext;
   private final String entityName;
@@ -85,16 +92,77 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
       String taskId = searchClient.submitReindexTask(reindexRequest, RequestOptions.DEFAULT);
       log.info("Document copy task submitted for entity '{}'. Task ID: {}", entityName, taskId);
 
-      // TODO: Properly handle asynchrony of the reindex task.
-      // - Persist task id with step state IN_PROGRESS
-      // - Wait until reindex task completes before storing step state as SUCCEEDED
+      // Wait for the reindex task to complete
+      if (!waitForTaskCompletion(taskId)) {
+        log.error("Reindex task {} failed or timed out for entity '{}'", taskId, entityName);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
 
+      log.info("Document copy completed successfully for entity '{}'", entityName);
       BootstrapStep.setUpgradeResult(opContext, upgradeIdUrn, entityService);
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     } catch (Exception e) {
       log.error("Failed to copy documents for entity: {}", entityName, e);
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
     }
+  }
+
+  /**
+   * Wait for an OpenSearch task to complete.
+   *
+   * @param taskId The task ID in format "nodeId:taskId"
+   * @return true if task completed successfully, false otherwise
+   */
+  private boolean waitForTaskCompletion(String taskId) {
+    String[] parts = taskId.split(":");
+    if (parts.length != 2) {
+      log.error("Invalid task ID format: {}", taskId);
+      return false;
+    }
+
+    GetTaskRequest taskRequest = new GetTaskRequest(parts[0], Long.parseLong(parts[1]));
+    long startTime = System.currentTimeMillis();
+
+    while (System.currentTimeMillis() - startTime < TASK_TIMEOUT_MS) {
+      try {
+        Optional<GetTaskResponse> responseOpt =
+            searchClient.getTask(taskRequest, RequestOptions.DEFAULT);
+
+        if (responseOpt.isEmpty()) {
+          // Task not found - may have completed and been cleaned up
+          log.warn("Task {} not found, assuming completed", taskId);
+          return true;
+        }
+
+        GetTaskResponse response = responseOpt.get();
+        if (response.isCompleted()) {
+          TaskInfo taskInfo = response.getTaskInfo();
+          if (taskInfo.isCancelled()) {
+            log.error("Task {} was cancelled", taskId);
+            return false;
+          }
+          log.info("Task {} completed successfully", taskId);
+          return true;
+        }
+
+        log.debug("Task {} still running...", taskId);
+
+        Thread.sleep(TASK_POLL_INTERVAL_MS);
+      } catch (InterruptedException e) {
+        // Restore interrupt flag - likely caused by JVM shutdown (e.g., container restart
+        // during deployment). Returning false leaves upgrade as non-SUCCEEDED so it retries
+        // on next startup.
+        Thread.currentThread().interrupt();
+        log.error("Interrupted while waiting for task {}", taskId);
+        return false;
+      } catch (Exception e) {
+        log.error("Error checking task status for {}", taskId, e);
+        return false;
+      }
+    }
+
+    log.error("Task {} timed out after {} ms", taskId, TASK_TIMEOUT_MS);
+    return false;
   }
 
   @Override
@@ -104,8 +172,19 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    // Don't skip - let the enabled entities check handle this
-    return false;
+    // Check if this upgrade has already completed successfully
+    Optional<DataHubUpgradeResult> prevResult =
+        context.upgrade().getUpgradeResult(opContext, upgradeIdUrn, entityService);
+
+    boolean previousRunSucceeded =
+        prevResult
+            .filter(result -> DataHubUpgradeState.SUCCEEDED.equals(result.getState()))
+            .isPresent();
+
+    if (previousRunSucceeded) {
+      log.info("{} was already completed successfully. Skipping.", id());
+    }
+    return previousRunSucceeded;
   }
 
   @Override

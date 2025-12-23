@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Import;
 @Import(EntityRegistryFactory.class)
 @Slf4j
 public class SettingsBuilderFactory {
+
   @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
@@ -71,7 +72,6 @@ public class SettingsBuilderFactory {
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder) {
-
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
     SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
 
@@ -95,7 +95,6 @@ public class SettingsBuilderFactory {
       @Qualifier("multiEntitySettingsBuilder") @Nullable SettingsBuilder multiEntitySettingsBuilder,
       @Qualifier("semanticSearchSettingsBuilder") @Nullable
           SettingsBuilder semanticSearchSettingsBuilder) {
-
     List<SettingsBuilder> builders = new ArrayList<>();
 
     if (legacySettingsBuilder != null) {
