@@ -58,6 +58,11 @@ from datahub.ingestion.source.azure_data_factory.adf_models import (
 from datahub.ingestion.source.azure_data_factory.adf_report import (
     AzureDataFactorySourceReport,
 )
+from datahub.ingestion.source.common.subtypes import (
+    DataJobSubTypes,
+    FlowContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -137,44 +142,44 @@ LINKED_SERVICE_PLATFORM_MAP: dict[str, str] = {
 
 # Mapping of ADF activity types to DataHub subtypes
 ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
-    "Copy": "Copy Activity",
-    "DataFlow": "Data Flow Activity",
-    "ExecutePipeline": "Execute Pipeline",
-    "ExecuteDataFlow": "Data Flow Activity",
-    "Lookup": "Lookup Activity",
-    "GetMetadata": "Get Metadata Activity",
-    "SqlServerStoredProcedure": "Stored Procedure Activity",
-    "Script": "Script Activity",
-    "WebActivity": "Web Activity",
-    "WebHook": "Webhook Activity",
-    "IfCondition": "If Condition",
-    "ForEach": "ForEach Loop",
-    "Until": "Until Loop",
-    "Wait": "Wait Activity",
-    "SetVariable": "Set Variable",
-    "AppendVariable": "Append Variable",
-    "Switch": "Switch Activity",
-    "Filter": "Filter Activity",
-    "Validation": "Validation Activity",
-    "DatabricksNotebook": "Databricks Notebook",
-    "DatabricksSparkJar": "Databricks Spark Jar",
-    "DatabricksSparkPython": "Databricks Spark Python",
-    "HDInsightHive": "HDInsight Hive",
-    "HDInsightPig": "HDInsight Pig",
-    "HDInsightSpark": "HDInsight Spark",
-    "HDInsightMapReduce": "HDInsight MapReduce",
-    "HDInsightStreaming": "HDInsight Streaming",
-    "AzureFunctionActivity": "Azure Function Activity",
-    "AzureMLBatchExecution": "Azure ML Batch",
-    "AzureMLUpdateResource": "Azure ML Update",
-    "AzureMLExecutePipeline": "Azure ML Pipeline",
-    "Custom": "Custom Activity",
-    "Delete": "Delete Activity",
-    "SynapseNotebook": "Synapse Notebook",
-    "SparkJob": "Spark Job",
-    "SynapseSparkJob": "Synapse Spark Job",
-    "SqlPoolStoredProcedure": "SQL Pool Stored Procedure",
-    "Fail": "Fail Activity",
+    "Copy": DataJobSubTypes.ADF_COPY_ACTIVITY,
+    "DataFlow": DataJobSubTypes.ADF_DATA_FLOW_ACTIVITY,
+    "ExecutePipeline": DataJobSubTypes.ADF_EXECUTE_PIPELINE,
+    "ExecuteDataFlow": DataJobSubTypes.ADF_DATA_FLOW_ACTIVITY,
+    "Lookup": DataJobSubTypes.ADF_LOOKUP_ACTIVITY,
+    "GetMetadata": DataJobSubTypes.ADF_GET_METADATA_ACTIVITY,
+    "SqlServerStoredProcedure": DataJobSubTypes.ADF_STORED_PROCEDURE_ACTIVITY,
+    "Script": DataJobSubTypes.ADF_SCRIPT_ACTIVITY,
+    "WebActivity": DataJobSubTypes.ADF_WEB_ACTIVITY,
+    "WebHook": DataJobSubTypes.ADF_WEBHOOK_ACTIVITY,
+    "IfCondition": DataJobSubTypes.ADF_IF_CONDITION,
+    "ForEach": DataJobSubTypes.ADF_FOREACH_LOOP,
+    "Until": DataJobSubTypes.ADF_UNTIL_LOOP,
+    "Wait": DataJobSubTypes.ADF_WAIT_ACTIVITY,
+    "SetVariable": DataJobSubTypes.ADF_SET_VARIABLE,
+    "AppendVariable": DataJobSubTypes.ADF_APPEND_VARIABLE,
+    "Switch": DataJobSubTypes.ADF_SWITCH_ACTIVITY,
+    "Filter": DataJobSubTypes.ADF_FILTER_ACTIVITY,
+    "Validation": DataJobSubTypes.ADF_VALIDATION_ACTIVITY,
+    "DatabricksNotebook": DataJobSubTypes.ADF_DATABRICKS_NOTEBOOK,
+    "DatabricksSparkJar": DataJobSubTypes.ADF_DATABRICKS_SPARK_JAR,
+    "DatabricksSparkPython": DataJobSubTypes.ADF_DATABRICKS_SPARK_PYTHON,
+    "HDInsightHive": DataJobSubTypes.ADF_HDINSIGHT_HIVE,
+    "HDInsightPig": DataJobSubTypes.ADF_HDINSIGHT_PIG,
+    "HDInsightSpark": DataJobSubTypes.ADF_HDINSIGHT_SPARK,
+    "HDInsightMapReduce": DataJobSubTypes.ADF_HDINSIGHT_MAPREDUCE,
+    "HDInsightStreaming": DataJobSubTypes.ADF_HDINSIGHT_STREAMING,
+    "AzureFunctionActivity": DataJobSubTypes.ADF_AZURE_FUNCTION_ACTIVITY,
+    "AzureMLBatchExecution": DataJobSubTypes.ADF_AZURE_ML_BATCH,
+    "AzureMLUpdateResource": DataJobSubTypes.ADF_AZURE_ML_UPDATE,
+    "AzureMLExecutePipeline": DataJobSubTypes.ADF_AZURE_ML_PIPELINE,
+    "Custom": DataJobSubTypes.ADF_CUSTOM_ACTIVITY,
+    "Delete": DataJobSubTypes.ADF_DELETE_ACTIVITY,
+    "SynapseNotebook": DataJobSubTypes.ADF_SYNAPSE_NOTEBOOK,
+    "SparkJob": DataJobSubTypes.ADF_SPARK_JOB,
+    "SynapseSparkJob": DataJobSubTypes.ADF_SYNAPSE_SPARK_JOB,
+    "SqlPoolStoredProcedure": DataJobSubTypes.ADF_SQL_POOL_STORED_PROCEDURE,
+    "Fail": DataJobSubTypes.ADF_FAIL_ACTIVITY,
 }
 
 
@@ -191,9 +196,19 @@ class AzureDataFactoryContainerKey(ContainerKey):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Extracts lineage from activity inputs/outputs",
+    "Extracts lineage from Copy and Data Flow activities",
+    subtype_modifier=[
+        SourceCapabilityModifier.ADF_COPY_ACTIVITY,
+        SourceCapabilityModifier.ADF_DATA_FLOW_ACTIVITY,
+    ],
 )
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.ADF_DATA_FACTORY,
+    ],
+)
 class AzureDataFactorySource(StatefulIngestionSourceBase):
     """Extracts metadata and lineage from Azure Data Factory pipelines, activities, and datasets."""
 
@@ -385,7 +400,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             container_key,
             display_name=factory.name,
             description=f"Azure Data Factory: {factory.name}",
-            subtype="Data Factory",
+            subtype=FlowContainerSubTypes.ADF_DATA_FACTORY,
             external_url=self._get_factory_url(factory, resource_group),
             extra_properties=custom_props,
             parent_container=None,  # Top-level container
@@ -537,7 +552,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             description=description,
             external_url=self._get_pipeline_url(factory, resource_group, pipeline.name),
             custom_properties=custom_props,
-            subtype="Pipeline",
             parent_container=container,
         )
 
@@ -1130,7 +1144,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 factory, resource_group, pipeline_run.run_id
             ),
             data_platform_instance=self.config.platform_instance,
-            subtype="Pipeline Run",
         )
 
         # Emit the instance
@@ -1244,7 +1257,6 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         factory, resource_group, pipeline_run.run_id
                     ),
                     data_platform_instance=self.config.platform_instance,
-                    subtype="Activity Run",
                 )
 
                 # Emit the instance
