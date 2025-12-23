@@ -365,6 +365,15 @@ class PowerBiDashboardSourceConfig(
         "is 'prod' you would configure the mapping as 'database: prod'. "
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
     )
+    # ODBC table to platform override mapping
+    odbc_table_platform_override: Dict[str, str] = pydantic.Field(
+        default={},
+        description="A mapping of table names to DataHub platform names for ODBC lineage. "
+        "Use this to override the platform for specific tables when Athena queries data "
+        "from federated sources (e.g., MySQL) via ODBC. "
+        "Table names should match the format after catalog stripping (database.table). "
+        "Example: {'my-schema.my_table': 'mysql'}",
+    )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
         "dataset_type_mapping",

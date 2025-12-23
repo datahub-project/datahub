@@ -1236,6 +1236,9 @@ class OdbcLineage(AbstractLineage):
         ):
             result = self._strip_athena_catalog_from_lineage(result)
 
+        # Apply table-specific platform overrides (e.g., athena -> mysql for federated tables)
+        result = self._apply_table_platform_override(result)
+
         return result
 
     def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
@@ -1304,6 +1307,90 @@ class OdbcLineage(AbstractLineage):
             updated_col_upstreams: List[ColumnRef] = []
             for col_ref in col_info.upstreams:
                 new_table_urn = strip_catalog_from_urn(col_ref.table)
+                updated_col_upstreams.append(
+                    ColumnRef(table=new_table_urn, column=col_ref.column)
+                )
+
+            updated_column_lineage.append(
+                ColumnLineageInfo(
+                    downstream=col_info.downstream,
+                    upstreams=updated_col_upstreams,
+                    logic=col_info.logic,
+                )
+            )
+
+        return Lineage(
+            upstreams=updated_upstreams,
+            column_lineage=updated_column_lineage,
+        )
+
+    def _apply_table_platform_override(self, lineage: Lineage) -> Lineage:
+        """
+        Override the platform in URNs for specific tables based on config.
+
+        This is used when Athena queries federated data sources (e.g., MySQL)
+        and the lineage should point to the actual source platform entity.
+        """
+        if not self.config.odbc_table_platform_override:
+            return lineage
+
+        def override_platform_in_urn(urn: str) -> str:
+            """Check if table matches override config and replace platform."""
+            # Extract table name from URN: urn:li:dataset:(urn:li:dataPlatform:X,TABLE_NAME,ENV)
+            # Find the table name between the platform comma and the env comma
+            platform_prefix = "urn:li:dataplatform:"
+            urn_lower = urn.lower()
+
+            platform_start = urn_lower.find(platform_prefix)
+            if platform_start == -1:
+                return urn
+
+            # Find platform end (the comma after platform name)
+            platform_name_start = platform_start + len(platform_prefix)
+            platform_end = urn.find(",", platform_name_start)
+            if platform_end == -1:
+                return urn
+
+            # Extract current platform
+            current_platform = urn[platform_name_start:platform_end]
+
+            # Find table name (between platform comma and env comma)
+            table_start = platform_end + 1
+            env_idx = urn.find(",", table_start)
+            if env_idx == -1:
+                return urn
+
+            table_name = urn[table_start:env_idx]
+
+            # Check if table matches any override
+            new_platform = self.config.odbc_table_platform_override.get(table_name)
+            if not new_platform:
+                return urn
+
+            # Replace platform in URN
+            new_urn = urn[:platform_name_start] + new_platform + urn[platform_end:]
+            logger.debug(
+                f"Overriding platform for table {table_name}: {current_platform} -> {new_platform}"
+            )
+            return new_urn
+
+        # Apply override to upstream table URNs
+        updated_upstreams: List[DataPlatformTable] = []
+        for upstream in lineage.upstreams:
+            new_urn = override_platform_in_urn(upstream.urn)
+            updated_upstreams.append(
+                DataPlatformTable(
+                    data_platform_pair=upstream.data_platform_pair,
+                    urn=new_urn,
+                )
+            )
+
+        # Apply override to column lineage URNs
+        updated_column_lineage: List[ColumnLineageInfo] = []
+        for col_info in lineage.column_lineage:
+            updated_col_upstreams: List[ColumnRef] = []
+            for col_ref in col_info.upstreams:
+                new_table_urn = override_platform_in_urn(col_ref.table)
                 updated_col_upstreams.append(
                     ColumnRef(table=new_table_urn, column=col_ref.column)
                 )
