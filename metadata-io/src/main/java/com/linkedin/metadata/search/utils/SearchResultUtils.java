@@ -44,6 +44,10 @@ public final class SearchResultUtils {
       double backendScore, @Nullable Map<String, Object> sourceAsMap) {
     DoubleMap features = new DoubleMap();
     features.put(Features.Name.SEARCH_BACKEND_SCORE.toString(), backendScore);
+    Object usage = sourceAsMap == null ? null : sourceAsMap.get("usageCountLast30Days");
+    if (usage instanceof Number) {
+      features.put(Features.Name.QUERY_COUNT.toString(), ((Number) usage).doubleValue());
+    }
     return features;
   }
 
