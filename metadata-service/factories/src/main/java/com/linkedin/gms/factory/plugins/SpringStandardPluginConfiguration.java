@@ -589,7 +589,7 @@ public class SpringStandardPluginConfiguration {
       ConfigurationProvider configProvider, AspectDao aspectDao) {
     AspectSizeValidationConfig config = configProvider.getDatahub().getValidation().getAspectSize();
     AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
-    log.info("Initialized AspectSizeValidationHook");
+    log.debug("Initialized AspectSizeValidationHook");
     return hook;
   }
 }
