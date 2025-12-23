@@ -195,15 +195,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
 )
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 class AzureDataFactorySource(StatefulIngestionSourceBase):
-    """Extracts metadata from Azure Data Factory.
-
-    This source extracts:
-    - Data Factories as Containers
-    - Pipelines as DataFlows
-    - Activities as DataJobs
-    - Dataset lineage from activity inputs/outputs
-    - Execution history (optional)
-    """
+    """Extracts metadata and lineage from Azure Data Factory pipelines, activities, and datasets."""
 
     config: AzureDataFactoryConfig
     report: AzureDataFactorySourceReport
