@@ -531,9 +531,11 @@ plugins: Dict[str, Set[str]] = {
         *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
+    # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
+    # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
     | pyhive_common
-    | {"psycopg2-binary", "pymysql>=1.0.2"},
+    | {"psycopg2-binary", "pymysql>=1.0.2", "pymetastore>=0.4.2", "tenacity>=8.0.1", "kerberos>=1.3.0"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "json-schema": {"requests"},
@@ -803,6 +805,7 @@ full_test_dev_requirements = {
             "feast",
             "hana",
             "hive",
+            "hive-metastore",
             "iceberg",
             "iceberg-catalog",
             "kafka-connect",
@@ -944,6 +947,7 @@ entry_points = {
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
         "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
+        "tags_to_structured_properties = datahub.ingestion.transformer.tags_to_structured_properties:TagsToStructuredPropertiesTransformer",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
