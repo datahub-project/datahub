@@ -359,7 +359,7 @@ export const IngestionSourceList = ({
             })
                 .then(() => {
                     setSourcesToRefetch((prev) => new Set(prev).add(urn));
-                    analytics.event({ type: EventType.ExecuteIngestionSourceEvent });
+                    analytics.event({ type: EventType.ExecuteIngestionSourceEvent, sourceUrn: urn });
                     message.success({
                         content: `Successfully submitted ingestion execution request!`,
                         duration: 3,

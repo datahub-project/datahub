@@ -163,7 +163,7 @@ export function IngestionSourceCreatePage() {
     return (
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
-            confirmationModalTitle="You have unsaved change"
+            confirmationModalTitle="You have unsaved changes"
             confirmationModalText={
                 <>
                     <Text type="span">You have unsaved changes to your new source. </Text>

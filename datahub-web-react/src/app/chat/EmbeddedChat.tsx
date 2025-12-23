@@ -3,7 +3,7 @@ import { message as antMessage } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ChatMessageIngestionScreen } from '@app/analytics';
+import { ChatLocationType } from '@app/analytics';
 import { AskDataHubIcon } from '@app/chat/components/AskDataHubIcon';
 import { MessageList } from '@app/chat/components/MessageList';
 import { ChatInput } from '@app/chat/components/input/ChatInput';
@@ -56,7 +56,7 @@ interface EmbeddedChatProps {
     title?: string;
     contentPlaceholder?: string;
     getMessageContext?: () => MessageContext;
-    ingestionScreen?: ChatMessageIngestionScreen;
+    chatLocation: ChatLocationType;
 }
 
 /**
@@ -73,7 +73,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
     title,
     contentPlaceholder,
     getMessageContext,
-    ingestionScreen,
+    chatLocation,
 }) => {
     const userUrn = useGetAuthenticatedUserUrn();
     const [conversationUrn, setConversationUrn] = useState<string | null>(null);
@@ -89,8 +89,7 @@ export const EmbeddedChat: React.FC<EmbeddedChatProps> = ({
             conversationUrn: conversationUrn || '',
             userUrn,
             agentName,
-            originType,
-            ingestionScreen,
+            chatLocation,
         });
 
     const handleSend = async () => {

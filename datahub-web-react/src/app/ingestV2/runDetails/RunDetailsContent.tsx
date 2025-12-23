@@ -52,7 +52,6 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
 
     const sendAnalyticsTabViewedEvent = useCallback(
         (tab: TabType) => {
-            if (!result) return;
             analytics.event({
                 type: EventType.IngestionExecutionResultViewedEvent,
                 executionUrn: urn,
@@ -61,7 +60,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 sourceType: data?.executionRequest?.source?.type,
             });
         },
-        [result, urn, status, data?.executionRequest?.source?.type],
+        [urn, status, data?.executionRequest?.source?.type],
     );
 
     const selectTab = (tab: TabType) => {

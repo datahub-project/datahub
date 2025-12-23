@@ -1,10 +1,12 @@
 import { Breadcrumb } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
 import { BreadcrumbItem } from '@components/components/Breadcrumb/types';
 
+import analytics, { EventType } from '@app/analytics';
 import { EmbeddedChat } from '@app/chat/EmbeddedChat';
 import { MessageContext } from '@app/chat/hooks/useChatStream';
 import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
@@ -33,6 +35,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
         MultiStepSourceBuilderState,
         IngestionSourceFormStep
     >();
+    const history = useHistory();
     const currentStep = useMemo(() => getCurrentStep(), [getCurrentStep]);
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -52,13 +55,21 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
         }
     }, [currentStep]);
 
+    const goToDataSources = () => {
+        history.push(tabUrlMap[TabType.Sources]);
+        analytics.event({
+            type: EventType.IngestionExitConfigurationEvent,
+            exitType: 'abandon',
+        });
+    };
+
     const breadCrumb = (
         <Breadcrumb
             items={[
                 {
                     label: 'Manage Data Sources',
-                    href: tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
+                    onClick: goToDataSources,
                 },
                 {
                     label: isEditing ? 'Update Source' : 'Create Source',
@@ -94,7 +105,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
                         originType={DataHubAiConversationOriginType.IngestionUi}
                         title={isEditing ? 'Ask DataHub - Edit Source' : 'Ask DataHub - Create Source'}
                         getMessageContext={getMessageContext}
-                        ingestionScreen="configure_source"
+                        chatLocation="ingestion_configure_source"
                         contentPlaceholder={`Ask DataHub about ${state?.platformDisplayName || 'your data source'}`}
                     />
                 )

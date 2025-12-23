@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import analytics, { ChatMessageIngestionScreen, EventType } from '@app/analytics';
+import analytics, { ChatLocationType, EventType } from '@app/analytics';
 import { MessageContext, useChatStream } from '@app/chat/hooks/useChatStream';
 import { createUserMessage, emitMessageAnalytics } from '@app/chat/utils/chatMessageUtils';
 import { groupMessages } from '@app/chat/utils/messageGrouping';
 
-import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationOriginType } from '@types';
+import { DataHubAiConversationActorType, DataHubAiConversationMessage } from '@types';
 
 export interface UseChatMessagesProps {
     conversationUrn: string;
@@ -13,8 +13,7 @@ export interface UseChatMessagesProps {
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
     agentName?: string;
-    originType: DataHubAiConversationOriginType;
-    ingestionScreen?: ChatMessageIngestionScreen;
+    chatLocation: ChatLocationType;
 }
 
 export interface UseChatMessagesReturn {
@@ -38,8 +37,7 @@ export const useChatMessages = ({
     onMessageReceived,
     onStreamComplete,
     agentName,
-    originType,
-    ingestionScreen,
+    chatLocation,
 }: UseChatMessagesProps): UseChatMessagesReturn => {
     const [messages, setMessages] = useState<DataHubAiConversationMessage[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -69,8 +67,7 @@ export const useChatMessages = ({
         },
         onStreamComplete,
         agentName,
-        originType,
-        ingestionScreen,
+        chatLocation,
     });
 
     // Group messages for rendering
@@ -127,14 +124,7 @@ export const useChatMessages = ({
         ).length;
 
         // Emit analytics event for message creation
-        emitMessageAnalytics(
-            convoUrn || conversationUrn,
-            text,
-            userMessageCount,
-            messages.length,
-            originType,
-            ingestionScreen,
-        );
+        emitMessageAnalytics(convoUrn || conversationUrn, text, userMessageCount, messages.length, chatLocation);
 
         // Send the message with optional message context
         sendMessage(text, convoUrn, messageContext);

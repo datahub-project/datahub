@@ -13,7 +13,6 @@ import {
     AllowedValue,
     AnomalyReviewState,
     AssertionType,
-    DataHubAiConversationOriginType,
     DataHubPageModuleType,
     DataHubViewType,
     EntityChangeType,
@@ -2013,7 +2012,11 @@ export interface CreateDataHubChatEvent extends BaseEvent {
     conversationUrn?: string;
 }
 
-export type ChatMessageIngestionScreen = 'configure_source' | 'view_results';
+export type ChatLocationType =
+    | 'ask_datahub_ui'
+    | 'ask_datahub_tab'
+    | 'ingestion_configure_source'
+    | 'ingestion_view_results';
 
 export interface CreateDataHubChatMessageEvent extends BaseEvent {
     type: EventType.CreateDataHubChatMessageEvent;
@@ -2024,8 +2027,7 @@ export interface CreateDataHubChatMessageEvent extends BaseEvent {
     userMessageIndex: number; // 0 = first user message (new conversation), N = Nth user message (reply)
     totalMessageCount: number; // total number of all messages (user + agent) in the conversation before this message
     messagePreview: string; // first 200 characters of the message
-    originType: DataHubAiConversationOriginType;
-    ingestionScreen?: ChatMessageIngestionScreen;
+    chatLocation: ChatLocationType;
 }
 
 export interface DeleteDataHubChatEvent extends BaseEvent {
@@ -2041,16 +2043,14 @@ export interface DataHubChatResponseErrorEvent extends BaseEvent {
     errorType?: string; // e.g., 'connection_interrupted', 'server_error', 'parse_error'
     statusCode?: number;
     messagePreview?: string; // first 200 characters of the message that caused the error
-    originType: DataHubAiConversationOriginType;
-    ingestionScreen?: ChatMessageIngestionScreen;
+    chatLocation: ChatLocationType;
 }
 
 export interface DataHubChatResponseCompleteEvent extends BaseEvent {
     type: EventType.DataHubChatResponseCompleteEvent;
     conversationUrn: string;
     responseTimeSeconds: number; // Time in seconds from message sent to response complete
-    originType: DataHubAiConversationOriginType;
-    ingestionScreen?: ChatMessageIngestionScreen;
+    chatLocation: ChatLocationType;
 }
 
 export interface StopDataHubChatResponseEvent extends BaseEvent {

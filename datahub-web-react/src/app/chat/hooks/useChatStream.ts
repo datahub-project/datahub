@@ -1,13 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 
-import analytics, { EventType as AnalyticsEventType, ChatMessageIngestionScreen } from '@app/analytics';
+import analytics, { EventType as AnalyticsEventType, ChatLocationType } from '@app/analytics';
 
-import {
-    DataHubAiConversationActorType,
-    DataHubAiConversationMessage,
-    DataHubAiConversationMessageType,
-    DataHubAiConversationOriginType,
-} from '@types';
+import { DataHubAiConversationActorType, DataHubAiConversationMessage, DataHubAiConversationMessageType } from '@types';
 
 export interface MessageContext {
     text: string;
@@ -25,8 +20,7 @@ interface UseChatStreamProps {
     onMessageReceived?: (message: DataHubAiConversationMessage) => void;
     onStreamComplete?: () => void;
     agentName?: string;
-    originType: DataHubAiConversationOriginType;
-    ingestionScreen?: ChatMessageIngestionScreen;
+    chatLocation: ChatLocationType;
 }
 
 const processSSELine = (
@@ -262,8 +256,7 @@ export const useChatStream = ({
     onMessageReceived,
     onStreamComplete,
     agentName,
-    originType,
-    ingestionScreen,
+    chatLocation,
 }: UseChatStreamProps) => {
     const [state, setState] = useState<StreamState>({
         isStreaming: false,
@@ -299,13 +292,12 @@ export const useChatStream = ({
                     type: AnalyticsEventType.DataHubChatResponseCompleteEvent,
                     conversationUrn: targetConversationUrn || conversationUrn,
                     responseTimeSeconds,
-                    originType,
-                    ingestionScreen,
+                    chatLocation,
                 });
                 messageStartTimeRef.current = null;
             }
         },
-        [conversationUrn, ingestionScreen, originType],
+        [conversationUrn, chatLocation],
     );
 
     const processNextMessage = useCallback(
@@ -418,8 +410,7 @@ export const useChatStream = ({
                         errorType: error.name || 'UnknownError',
                         statusCode: error.status || undefined,
                         messagePreview: messageText.substring(0, 200), // First 200 characters of message that caused error
-                        originType,
-                        ingestionScreen,
+                        chatLocation,
                     });
 
                     // Create an error message to display in the chat
@@ -455,8 +446,7 @@ export const useChatStream = ({
             agentName,
             emitResponseCompletionEvent,
             setState,
-            originType,
-            ingestionScreen,
+            chatLocation,
         ],
     );
 

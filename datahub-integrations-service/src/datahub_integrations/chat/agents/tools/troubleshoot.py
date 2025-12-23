@@ -94,7 +94,7 @@ class RunLLMTroubleshootingProvider(BaseTroubleshootingProvider):
         # Track request
         track_saas_event(
             TroubleshootingApiRequestEvent(
-                question=question,
+                question=question[:200],
                 context=context,
                 provider="runllm",
             )

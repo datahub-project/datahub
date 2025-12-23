@@ -81,6 +81,7 @@ export default function AskDataHubTab(_props: EntityTabProps) {
                 suggestedQuestions={SUGGESTED_QUESTIONS}
                 onStartConversation={startConversation}
                 welcomePlaceholder={`Ask about ${entityName}...`}
+                chatLocation="ask_datahub_tab"
             />
         </ChatContainer>
     );

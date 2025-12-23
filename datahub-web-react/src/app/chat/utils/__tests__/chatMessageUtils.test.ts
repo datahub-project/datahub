@@ -1,13 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import analytics from '@app/analytics';
+import analytics, { ChatLocationType } from '@app/analytics';
 import { createUserMessage, emitMessageAnalytics } from '@app/chat/utils/chatMessageUtils';
 
-import {
-    DataHubAiConversationActorType,
-    DataHubAiConversationMessageType,
-    DataHubAiConversationOriginType,
-} from '@types';
+import { DataHubAiConversationActorType, DataHubAiConversationMessageType } from '@types';
 
 // Mock analytics
 vi.mock('@app/analytics', () => ({
@@ -31,7 +27,7 @@ vi.mock('@app/chat/utils/extractUrnsFromMarkdown', () => ({
     }),
 }));
 
-const originType = DataHubAiConversationOriginType.IngestionUi;
+const chatLocation: ChatLocationType = 'ingestion_configure_source';
 
 describe('chatMessageUtils', () => {
     describe('createUserMessage', () => {
@@ -84,7 +80,7 @@ describe('chatMessageUtils', () => {
         });
 
         it('emits analytics event with correct basic properties', () => {
-            emitMessageAnalytics('urn:li:conversation:123', 'Hello world', 0, 0, originType);
+            emitMessageAnalytics('urn:li:conversation:123', 'Hello world', 0, 0, chatLocation);
 
             expect(analytics.event).toHaveBeenCalledWith({
                 type: 'CreateDataHubChatMessageEvent',
@@ -95,14 +91,14 @@ describe('chatMessageUtils', () => {
                 userMessageIndex: 0,
                 totalMessageCount: 0,
                 messagePreview: 'Hello world',
-                originType,
+                chatLocation,
             });
         });
 
         it('detects entity mentions in message text', () => {
             const messageWithMentions = 'Check out @[dataset1] and @[dataset2]';
 
-            emitMessageAnalytics('urn:li:conversation:123', messageWithMentions, 1, 2, originType);
+            emitMessageAnalytics('urn:li:conversation:123', messageWithMentions, 1, 2, chatLocation);
 
             expect(analytics.event).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -117,7 +113,7 @@ describe('chatMessageUtils', () => {
         it('truncates long messages to 200 characters in preview', () => {
             const longMessage = 'a'.repeat(300);
 
-            emitMessageAnalytics('urn:li:conversation:123', longMessage, 0, 0, originType);
+            emitMessageAnalytics('urn:li:conversation:123', longMessage, 0, 0, chatLocation);
 
             expect(analytics.event).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -128,7 +124,7 @@ describe('chatMessageUtils', () => {
         });
 
         it('handles message without mentions', () => {
-            emitMessageAnalytics('urn:li:conversation:456', 'Simple message', 2, 5, originType);
+            emitMessageAnalytics('urn:li:conversation:456', 'Simple message', 2, 5, chatLocation);
 
             expect(analytics.event).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -140,7 +136,7 @@ describe('chatMessageUtils', () => {
         });
 
         it('includes correct message indices', () => {
-            emitMessageAnalytics('urn:li:conversation:789', 'Message text', 5, 10, originType);
+            emitMessageAnalytics('urn:li:conversation:789', 'Message text', 5, 10, chatLocation);
 
             expect(analytics.event).toHaveBeenCalledWith(
                 expect.objectContaining({

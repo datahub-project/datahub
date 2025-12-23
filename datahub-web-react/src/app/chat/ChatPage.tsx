@@ -358,6 +358,7 @@ export const ChatPage = () => {
                             selectedEntityUrn={selectedEntity?.urn}
                             onEntitySelect={handleEntitySelect}
                             initialMessage={initialMessageRef.current}
+                            chatLocation="ask_datahub_ui"
                         />
                     )}
                 </MainContent>

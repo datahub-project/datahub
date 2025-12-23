@@ -2,17 +2,13 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 import type { MockedFunction } from 'vitest';
 
-import analytics from '@app/analytics';
+import analytics, { ChatLocationType } from '@app/analytics';
 import { useChatMessages } from '@app/chat/hooks/useChatMessages';
 import { useChatStream } from '@app/chat/hooks/useChatStream';
 import { createUserMessage, emitMessageAnalytics } from '@app/chat/utils/chatMessageUtils';
 import { groupMessages } from '@app/chat/utils/messageGrouping';
 
-import {
-    DataHubAiConversationActorType,
-    DataHubAiConversationMessageType,
-    DataHubAiConversationOriginType,
-} from '@types';
+import { DataHubAiConversationActorType, DataHubAiConversationMessageType } from '@types';
 import type { DataHubAiConversationMessage } from '@types';
 
 // Mock dependencies
@@ -37,7 +33,7 @@ const mockGroupMessages = groupMessages as MockedFunction<typeof groupMessages>;
 describe('useChatMessages', () => {
     const mockConversationUrn = 'urn:li:agentConversation:test-conversation';
     const mockUserUrn = 'urn:li:corpuser:test-user';
-    const originType = DataHubAiConversationOriginType.IngestionUi;
+    const chatLocation: ChatLocationType = 'ingestion_configure_source';
     const mockSendMessage = vi.fn();
     const mockStopStreaming = vi.fn();
     const mockOnStreamComplete = vi.fn();
@@ -94,7 +90,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -117,7 +113,7 @@ describe('useChatMessages', () => {
                     onStreamComplete: mockOnStreamComplete,
                     onMessageReceived: mockOnMessageReceived,
                     agentName,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -126,7 +122,7 @@ describe('useChatMessages', () => {
                 onMessageReceived: expect.any(Function),
                 onStreamComplete: mockOnStreamComplete,
                 agentName,
-                originType,
+                chatLocation,
             });
         });
     });
@@ -137,7 +133,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -153,8 +149,7 @@ describe('useChatMessages', () => {
                 'Test message',
                 0,
                 0,
-                originType,
-                undefined,
+                chatLocation,
             );
             expect(mockSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
@@ -164,7 +159,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -182,7 +177,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -202,8 +197,7 @@ describe('useChatMessages', () => {
                 'Second message',
                 1,
                 2,
-                originType,
-                undefined,
+                chatLocation,
             );
         });
 
@@ -212,7 +206,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -232,7 +226,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -253,7 +247,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -271,7 +265,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -293,7 +287,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -328,7 +322,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -354,7 +348,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -379,7 +373,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -424,7 +418,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -462,7 +456,7 @@ describe('useChatMessages', () => {
                     useChatMessages({
                         conversationUrn,
                         userUrn: mockUserUrn,
-                        originType,
+                        chatLocation,
                     }),
                 {
                     initialProps: {
@@ -508,7 +502,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -523,7 +517,7 @@ describe('useChatMessages', () => {
                     useChatMessages({
                         conversationUrn,
                         userUrn: mockUserUrn,
-                        originType,
+                        chatLocation,
                     }),
                 {
                     initialProps: {
@@ -557,7 +551,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -588,7 +582,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -619,7 +613,7 @@ describe('useChatMessages', () => {
                 useChatMessages({
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
-                    originType,
+                    chatLocation,
                 }),
             );
 
@@ -654,7 +648,7 @@ describe('useChatMessages', () => {
                     conversationUrn: mockConversationUrn,
                     userUrn: mockUserUrn,
                     onMessageReceived: customCallback,
-                    originType,
+                    chatLocation,
                 }),
             );
 

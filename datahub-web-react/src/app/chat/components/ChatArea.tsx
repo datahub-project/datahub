@@ -3,6 +3,7 @@ import { ChatCircle } from '@phosphor-icons/react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
+import { ChatLocationType } from '@app/analytics';
 import FreeTrialAIChatPopover from '@app/chat/FreeTrialAIChatPopover';
 import { MessageList } from '@app/chat/components/MessageList';
 import { SuggestedQuestions } from '@app/chat/components/SuggestedQuestions';
@@ -13,7 +14,7 @@ import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMark
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataHubAiConversationQuery } from '@graphql/aiChat.generated';
-import { DataHubAiConversationOriginType, Entity } from '@types';
+import { Entity } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -236,6 +237,7 @@ interface ChatAreaProps {
     onStartConversation?: (message: string) => Promise<boolean>;
     /** Placeholder text for the input field in welcome state */
     welcomePlaceholder?: string;
+    chatLocation: ChatLocationType;
 }
 
 /** Props for the inner component that requires a conversation */
@@ -265,6 +267,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
     welcomePlaceholder = 'Ask anything about your data...',
     draft,
     onDraftChange,
+    chatLocation,
 }) => {
     const [inputValue, setInputValue] = useState('');
     const hasAutoSentInitialMessage = useRef(false);
@@ -316,7 +319,7 @@ const ChatAreaWithConversation: React.FC<ChatAreaWithConversationProps> = ({
                 onConversationUpdate();
             }
         },
-        originType: DataHubAiConversationOriginType.DatahubUi,
+        chatLocation,
     });
 
     // Initialize messages from conversation
