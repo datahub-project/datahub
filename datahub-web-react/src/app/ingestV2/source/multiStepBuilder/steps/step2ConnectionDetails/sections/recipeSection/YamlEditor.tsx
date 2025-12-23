@@ -37,7 +37,6 @@ const Spacer = styled.div`
 const EditorWrapper = styled.div`
     && .view-line > span > span {
         font-family: ${typography.fonts.mono} !important;
-        font-size: ${typography.fontSizes.md} !important;
     }
 
     padding-bottom: 8px;
@@ -132,6 +131,7 @@ export function YamlEditor({ value, onChange }: Props) {
                         overviewRulerBorder: false,
                         lineNumbers: 'off',
                         fontFamily: typography.fonts.mono,
+                        fontSize: 14,
                         renderIndentGuides: false,
                         theme: 'my-custom-theme',
                         renderLineHighlight: 'none',
