@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -211,6 +212,10 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     // 7) Build field set using same logic as keyword search
     Set<String> fieldsToFetch =
         new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
+      fieldsToFetch.addAll(searchFlags.getFetchExtraFields());
+    }
 
     // 8) Execute OpenSearch nested kNN query with pre-filtering inside kNN
     List<SearchEntity> hits =
