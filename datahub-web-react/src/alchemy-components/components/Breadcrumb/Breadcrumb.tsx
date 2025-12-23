@@ -21,16 +21,26 @@ export const Breadcrumb = ({ items }: BreadcrumbProps) => {
                 let content;
 
                 if (item.href) {
-                    content = <BreadcrumbLink to={item.href}>{item.label}</BreadcrumbLink>;
+                    content = (
+                        <BreadcrumbLink to={item.href} $isCurrent={item.isCurrent}>
+                            {item.label}
+                        </BreadcrumbLink>
+                    );
                 } else if (item.onClick) {
                     content = (
-                        <BreadcrumbButton size="sm" color="gray" colorLevel={1800} onClick={item.onClick}>
+                        <BreadcrumbButton
+                            size="sm"
+                            color="gray"
+                            colorLevel={1800}
+                            onClick={item.onClick}
+                            $isCurrent={item.isCurrent}
+                        >
                             {item.label}
                         </BreadcrumbButton>
                     );
                 } else {
                     content = (
-                        <Text size="sm" weight={item.isCurrent ? 'semiBold' : 'medium'} color="gray" colorLevel={1800}>
+                        <Text size="sm" weight="medium" color="gray" colorLevel={item.isCurrent ? 600 : 1800}>
                             {item.label}
                         </Text>
                     );

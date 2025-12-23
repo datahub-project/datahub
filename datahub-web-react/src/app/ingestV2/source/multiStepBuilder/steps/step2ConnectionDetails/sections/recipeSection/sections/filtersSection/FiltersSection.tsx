@@ -1,4 +1,4 @@
-import { Button, Input, SimpleSelect, spacing } from '@components';
+import { Button, Icon, Input, SimpleSelect, Tooltip, spacing } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -41,6 +41,9 @@ const SelectLabelWrapper = styled.div`
 
 const SelectLabelWrapperFullWidth = styled.div`
     width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 `;
 
 const Spacer = styled.div`
@@ -184,6 +187,9 @@ export function FiltersSection({ fields, recipe, updateRecipe }: Props) {
                     </SelectLabelWrapper>
                     <SelectLabelWrapperFullWidth>
                         <FieldLabel label="Regex Entry" />
+                        <Tooltip title="Regular expressions (regex) for pattern matching within strings">
+                            <Icon icon="Info" source="phosphor" color="gray" size="lg" />
+                        </Tooltip>
                     </SelectLabelWrapperFullWidth>
                 </FilterFieldsWrapper>
                 <Spacer />

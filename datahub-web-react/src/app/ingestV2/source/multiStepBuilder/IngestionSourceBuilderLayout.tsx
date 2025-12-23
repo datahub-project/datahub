@@ -44,6 +44,7 @@ export function IngestionSourceBuilderLayout({ children, isEditing = false, sour
         const breadCrumpItem: BreadcrumbItem = {
             label: step.label,
             onClick: isStepVisited(step.key) ? () => goToStep(step.key) : undefined,
+            isCurrent: currentStep === step,
         };
 
         return breadCrumpItem;
