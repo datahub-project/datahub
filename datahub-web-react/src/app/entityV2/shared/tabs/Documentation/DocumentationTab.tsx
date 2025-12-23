@@ -8,13 +8,12 @@ import styled from 'styled-components';
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewModal';
 import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
-import { Button, Editor } from '@src/alchemy-components';
+import { Button, colors, Editor } from '@src/alchemy-components';
 
 const DocumentationContainer = styled.div`
     margin: 0 16px;
@@ -23,10 +22,7 @@ const DocumentationContainer = styled.div`
 `;
 
 const StyledTabToolbar = styled(TabToolbar)`
-    background-color: ${REDESIGN_COLORS.LIGHT_GREY};
-    border-top-left-radius: 4px;
-    border-bottom-left-radius: 4px;
-    border-left: 2px solid #5c3fd1;
+    background-color: ${colors.primary[0]};
     padding: 8px 20px;
     margin: 2px 14px 2px 12px;
 
