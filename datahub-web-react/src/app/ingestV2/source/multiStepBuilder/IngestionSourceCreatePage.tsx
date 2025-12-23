@@ -10,9 +10,11 @@ import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils'
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
+import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
 import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
+import { ScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStepSubtitle';
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
 import {
     IngestionSourceFormStep,
@@ -33,6 +35,7 @@ const PLACEHOLDER_URN = 'placeholder-urn';
 const STEPS: IngestionSourceFormStep[] = [
     {
         label: 'Select Source',
+        subTitle: <SelectSourceSubtitle />,
         key: 'selectSource',
         content: <SelectSourceStep />,
         hideRightPanel: true,
@@ -46,6 +49,7 @@ const STEPS: IngestionSourceFormStep[] = [
     },
     {
         label: 'Sync Schedule ',
+        subTitle: <ScheduleStepSubtitle />,
         key: 'syncSchedule',
         content: <ScheduleStep />,
         subTitle: 'Configure an ingestion schedule',
