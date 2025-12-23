@@ -60,7 +60,6 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.telemetry",
       "com.linkedin.gms.factory.trace",
       "com.linkedin.gms.factory.kafka.trace",
-      "com.linkedin.gms.factory.system_info",
     })
 @Slf4j
 @Configuration
@@ -79,10 +78,6 @@ public class CommonApplicationConfig {
             // --- HTTP Configuration (always created) ---
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setRequestHeaderSize(32768);
-
-            // Security: Disable server version disclosure
-            httpConfig.setSendServerVersion(false);
-            httpConfig.setSendDateHeader(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
             // Configure URI compliance to allow encoded slashes
@@ -106,10 +101,28 @@ public class CommonApplicationConfig {
             String keyStorePassword = environment.getProperty("server.ssl.key-store-password");
             String keyStoreType = environment.getProperty("server.ssl.key-store-type", "PKCS12");
             String keyAlias = environment.getProperty("server.ssl.key-alias");
+            String clientAuthValue = environment.getProperty("server.ssl.client-auth", "NONE");
+
+            boolean needClientAuth = false;
+            boolean wantClientAuth = false;
+            // Determine client-auth mode (mTLS)
+            if ("NEED".equalsIgnoreCase(clientAuthValue)) {
+              needClientAuth = true; // Enforce client cert
+            } else if ("WANT".equalsIgnoreCase(clientAuthValue)) {
+              wantClientAuth = true; // Accept if provided
+            }
 
             ServerConnector connector;
 
             // --- SSL Only if Configured ---
+            /*
+             * ----------------------------------------------------
+             * SSL ENABLED ONLY IF a keystore is configured
+             * ----------------------------------------------------
+             * If no keystore is provided → HTTP‑only mode.
+             *
+             * If keystore IS provided → configure Jetty SSLContextFactory (HTTPS).
+             */
             if (keyStorePath != null
                 && !keyStorePath.isBlank()
                 && keyStorePassword != null
@@ -125,6 +138,46 @@ public class CommonApplicationConfig {
                 sslContextFactory.setCertAlias(keyAlias);
               }
 
+              // Configure mutual TLS (client certificate authentication)
+              sslContextFactory.setNeedClientAuth(needClientAuth); // client cert REQUIRED
+              sslContextFactory.setWantClientAuth(wantClientAuth); // client cert OPTIONAL
+
+              // --- Truststore config ---
+              String trustStorePath = environment.getProperty("server.ssl.trust-store");
+              String trustStorePassword =
+                  environment.getProperty("server.ssl.trust-store-password");
+              String trustStoreType =
+                  environment.getProperty("server.ssl.trust-store-type", "PKCS12");
+
+              /*
+               * ----------------------------------------------------
+               * Configure TRUSTSTORE for mTLS
+               * ----------------------------------------------------
+               * The truststore contains the CA certificates used to validate CLIENT certificates.
+               *
+               * - Required when server.ssl.client-auth = NEED
+               * - Optional when WANT
+               *
+               * If missing while NEED=true → Jetty cannot validate client certs.
+               */
+              if (trustStorePath != null && !trustStorePath.isBlank()) {
+                sslContextFactory.setTrustStorePath(trustStorePath);
+                sslContextFactory.setTrustStorePassword(trustStorePassword);
+                sslContextFactory.setTrustStoreType(trustStoreType);
+                log.info("Using truststore at {} to validate client certificates", trustStorePath);
+              } else if (needClientAuth) {
+                log.warn(
+                    "mTLS is ENABLED but no truststore is configured — client certificates will not be validated!");
+              }
+
+              // Create a separate HTTPS configuration based on the HTTP config.
+              // In this setup, only one connector (HTTP or HTTPS) is active at a time,
+              // so we could safely reuse httpConfig directly. However, using a copy for HTTPS
+              // is a safer and more extensible pattern—especially if we ever want to support both
+              // HTTP and HTTPS connectors simultaneously in the future. This way, adding the
+              // SecureRequestCustomizer (needed for SSL: sets scheme/port, extracts SSL attributes,
+              // etc.)
+              // does not affect the base HTTP config and keeps the logic clear.
               HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
               httpsConfig.addCustomizer(new org.eclipse.jetty.server.SecureRequestCustomizer());
 
