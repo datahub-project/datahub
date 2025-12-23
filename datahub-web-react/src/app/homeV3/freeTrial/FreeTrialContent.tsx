@@ -252,8 +252,9 @@ const FreeTrialContent = () => {
                     icon={<Icon icon="Info" color="blue" size="lg" weight="fill" source="phosphor" />}
                     content={
                         <Text color="blue">
-                            You&apos;re exploring DataHub with sample e-commerce data. All features are fully functional
-                            with demo data.
+                            Your free trial account has been loaded with sample data representing an imaginary
+                            e-commerce company. This sample data is meant to help you explore tool features, but you can
+                            connect your own company data as well.
                         </Text>
                     }
                     backgroundColor={colors.blue[0]}
@@ -269,7 +270,7 @@ const FreeTrialContent = () => {
                         subTitle={
                             <CardDescription>
                                 DataHub is like a search engine for all your data assets. Find any dataset, understand
-                                where it comes from, see who uses it, and discover insights, all in one place.
+                                where it comes from, see who uses it, and discover insights — all in one place.
                             </CardDescription>
                         }
                         width="100%"

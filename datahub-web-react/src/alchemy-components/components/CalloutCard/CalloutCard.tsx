@@ -3,7 +3,9 @@ import styled, { css } from 'styled-components';
 
 import { Button } from '@components/components/Button';
 import { Card } from '@components/components/Card';
+import { Icon } from '@components/components/Icon';
 import { Text } from '@components/components/Text';
+import spacing from '@components/theme/foundations/spacing';
 
 import { colors } from '@src/alchemy-components/theme';
 
@@ -65,7 +67,12 @@ const Footer = styled.div`
     justify-content: flex-end;
     align-items: center;
     gap: 8px;
-    margin-top: 16px;
+`;
+
+const StyledIcon = styled(Icon)`
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export interface CalloutCardProps {
@@ -85,6 +92,8 @@ export interface CalloutCardProps {
     onPrimaryClick: () => void;
     /** Show secondary close button */
     showCloseButton?: boolean;
+    /** Show close button in header */
+    showCloseButtonInHeader?: boolean;
     /** Close button click handler */
     onClose?: () => void;
 }
@@ -104,6 +113,7 @@ export const CalloutCard = ({
     size = 'sm',
     primaryButtonText,
     onPrimaryClick,
+    showCloseButtonInHeader = false,
     showCloseButton = false,
     onClose,
 }: CalloutCardProps) => {
@@ -116,10 +126,17 @@ export const CalloutCard = ({
                             {title}
                         </Text>
                     }
+                    button={
+                        showCloseButtonInHeader && onClose ? (
+                            <StyledIcon icon="X" source="phosphor" color="gray" size="xl" onClick={onClose} />
+                        ) : null
+                    }
                     icon={icon}
                     iconAlignment="horizontal"
                     isCardClickable={false}
                     width="100%"
+                    padding={spacing.sm}
+                    gap={spacing.xsm}
                 >
                     <Content>{children}</Content>
                     <Footer>

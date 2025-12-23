@@ -182,8 +182,8 @@ export default function FreeTrialLineageTour({ rootUrn }: Props) {
             size="md"
             primaryButtonText={isLastStep ? 'Go to Home' : 'Next'}
             onPrimaryClick={isLastStep ? handleGoToHome : handleNext}
-            showCloseButton={!isLastStep}
             onClose={handleClose}
+            showCloseButton
         >
             {currentStep.content}
         </CalloutCard>

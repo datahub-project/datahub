@@ -27,6 +27,7 @@ interface PopoverConfig {
     position: CalloutPosition;
     primaryButtonText: string;
     navigateToHome: boolean;
+    showCloseButton: boolean;
 }
 
 const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
@@ -38,6 +39,7 @@ const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
         position: 'inline',
         primaryButtonText: 'Close',
         navigateToHome: false,
+        showCloseButton: false,
     },
     completion: {
         stepId: FREE_TRIAL.AI_CHAT_COMPLETION_POPOVER_ID,
@@ -47,8 +49,11 @@ const POPOVER_CONFIGS: Record<AIChatPopoverVariant, PopoverConfig> = {
         position: 'fixed-top-right',
         primaryButtonText: 'Go to Home',
         navigateToHome: true,
+        showCloseButton: true,
     },
 };
+
+const STEPS_IDS = Object.values(POPOVER_CONFIGS).map((config) => config.stepId);
 
 interface Props {
     /** Which variant of the popover to show */
@@ -70,6 +75,29 @@ export default function FreeTrialAIChatPopover({ variant }: Props) {
     const stepIds = useMemo(() => [config.stepId], [config.stepId]);
 
     const { isVisible, setIsVisible } = useFreeTrialPopoverVisibility({ stepIds });
+
+    // Helper to mark all tour steps as seen
+    const markAllStepsAsSeen = () => {
+        const completionStepState = {
+            id: FREE_TRIAL.ASK_DATAHUB_ID,
+            properties: [{ key: STEP_STATE_KEY, value: STEP_STATE_COMPLETE }],
+        };
+
+        const states = [...STEPS_IDS.map((id) => ({ id, properties: [] })), completionStepState];
+
+        batchUpdateStepStates({ variables: { input: { states } } }).then(() => {
+            const results: StepStateResult[] = [
+                ...STEPS_IDS.map((id) => ({ id, properties: [] })),
+                completionStepState,
+            ];
+            setEducationSteps((existingSteps) => (existingSteps ? [...existingSteps, ...results] : results));
+        });
+    };
+
+    const onClose = () => {
+        markAllStepsAsSeen();
+        setIsVisible(false);
+    };
 
     const handlePrimaryClick = () => {
         const states: StepStateInput[] = [
@@ -132,6 +160,8 @@ export default function FreeTrialAIChatPopover({ variant }: Props) {
             position={config.position}
             primaryButtonText={config.primaryButtonText}
             onPrimaryClick={handlePrimaryClick}
+            onClose={onClose}
+            showCloseButton={config.showCloseButton}
         >
             <ContentText>{config.content}</ContentText>
         </CalloutCard>

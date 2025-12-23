@@ -26,28 +26,27 @@ export const FREE_TRIAL = {
 export const FreeTrialOnboardingConfig: OnboardingTasks = {
     id: FREE_TRIAL.ONBOARDING_ID,
     title: 'Get Started',
-    content: 'Explore demo data on DataHub.',
+    content: 'Explore sample data on DataHub.',
     showProgress: true,
     steps: [
         {
             id: FREE_TRIAL.DATA_LINEAGE_ID,
             icon: 'TreeStructure',
             title: 'Explore Data Lineage',
-            content:
-                'We have cross platform lineage and column level lineage, check it out! Trace data from source to destination.',
+            content: 'Visually discover connections across your data ecosystem, including at the column-level.',
         },
         {
             id: FREE_TRIAL.ASK_DATAHUB_ID,
             icon: 'Sparkle',
             title: 'Ask DataHub',
-            content: 'Chat with our AI about the demo data like analysis, management, and discovering insights.',
+            content:
+                'Use our AI assistant to find, govern, observe, and build data with simple prompts and interactive questions.',
         },
         {
             id: FREE_TRIAL.CONNECT_SOURCE_ID,
             icon: 'Plugs',
             title: 'Connect Your First Source',
-            content:
-                'Configure and schedule syncs to import data from your data sources; and set them up and keep exploring DataHub.',
+            content: 'Bring your own data into DataHub by connecting your sources and running ingestion.',
         },
     ],
 };

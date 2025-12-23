@@ -3,30 +3,35 @@ import styled from 'styled-components';
 import { colors, radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
-export const CardContainer = styled.div<{ isClickable?: boolean; width?: string; maxWidth?: string; height?: string }>(
-    ({ isClickable, width, maxWidth, height, theme }) => ({
-        border: `1px solid ${colors.gray[100]}`,
-        borderRadius: radius.lg,
-        padding: spacing.md,
-        display: 'flex',
-        flex: `1 1 ${maxWidth}`,
-        minWidth: '150px',
-        boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
-        backgroundColor: colors.white,
-        flexDirection: 'column',
-        gap: spacing.md,
-        maxWidth,
-        width,
-        height,
+export const CardContainer = styled.div<{
+    isClickable?: boolean;
+    width?: string;
+    maxWidth?: string;
+    height?: string;
+    padding?: string;
+    gap?: string;
+}>(({ isClickable, width, maxWidth, height, padding, gap, theme }) => ({
+    border: `1px solid ${colors.gray[100]}`,
+    borderRadius: radius.lg,
+    padding: padding ?? spacing.md,
+    display: 'flex',
+    flex: `1 1 ${maxWidth}`,
+    minWidth: '150px',
+    boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+    backgroundColor: colors.white,
+    flexDirection: 'column',
+    gap: gap ?? spacing.md,
+    maxWidth,
+    width,
+    height,
 
-        '&:hover': isClickable
-            ? {
-                  border: `1px solid ${theme.styles['primary-color']}`,
-                  cursor: 'pointer',
-              }
-            : {},
-    }),
-);
+    '&:hover': isClickable
+        ? {
+              border: `1px solid ${theme.styles['primary-color']}`,
+              cursor: 'pointer',
+          }
+        : {},
+}));
 
 export const Header = styled.div<{ iconAlignment?: IconAlignmentOptions }>(({ iconAlignment }) => ({
     display: 'flex',

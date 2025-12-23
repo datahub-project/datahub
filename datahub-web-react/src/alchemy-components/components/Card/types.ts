@@ -12,6 +12,8 @@ export interface CardProps {
     width?: string;
     maxWidth?: string;
     height?: string;
+    padding?: string;
+    gap?: string;
     isEmpty?: boolean;
     style?: React.CSSProperties;
     isCardClickable?: boolean;

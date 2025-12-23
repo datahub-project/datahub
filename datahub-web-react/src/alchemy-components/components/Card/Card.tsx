@@ -30,6 +30,8 @@ export const Card = ({
     width,
     maxWidth,
     height,
+    padding,
+    gap,
     isEmpty,
     style,
     isCardClickable = cardDefaults.isCardClickable,
@@ -60,7 +62,14 @@ export const Card = ({
     return (
         <>
             {isEmpty ? (
-                <CardContainer maxWidth={maxWidth} height={height} width={width} data-testid={dataTestId}>
+                <CardContainer
+                    maxWidth={maxWidth}
+                    height={height}
+                    width={width}
+                    data-testid={dataTestId}
+                    padding={padding}
+                    gap={gap}
+                >
                     <TitleContainer data-testid="no-data">
                         <Title $isEmpty={isEmpty}>No Data</Title>
                         <SubTitle>{subTitle}</SubTitle>
@@ -73,6 +82,8 @@ export const Card = ({
                     maxWidth={maxWidth}
                     height={height}
                     width={width}
+                    padding={padding}
+                    gap={gap}
                     style={style}
                     data-testid={dataTestId}
                 >

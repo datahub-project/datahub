@@ -85,6 +85,18 @@ const meta = {
                 type: 'text',
             },
         },
+        padding: {
+            desciption: 'The padding of the card',
+            control: {
+                type: 'text',
+            },
+        },
+        gap: {
+            desciption: 'The gap between title, content and footer',
+            control: {
+                type: 'text',
+            },
+        },
         onClick: {
             description: 'The on click function for the card',
         },
