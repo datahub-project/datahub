@@ -113,8 +113,8 @@ function LineageVisualization({ initialNodes, initialEdges, levelsInfo, levelsMa
             <LineageSVGs />
             <StyledReactFlow
                 isDraggingBoundingBox={isDraggingBoundingBox}
-                nodes={nodes}
-                edges={edges}
+                defaultNodes={nodes}
+                defaultEdges={edges}
                 // Selection change event does not get emitted without timeout
                 onPaneClick={() => setTimeout(() => setSelectedColumn(null), 0)}
                 onClick={() => setDisplayedMenuNode(null)}
