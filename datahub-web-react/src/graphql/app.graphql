@@ -95,7 +95,6 @@ query appConfig {
         trialConfig {
             trialEnabled
             daysLeft
-            sampleDataEnabled
         }
         classificationConfig {
             enabled

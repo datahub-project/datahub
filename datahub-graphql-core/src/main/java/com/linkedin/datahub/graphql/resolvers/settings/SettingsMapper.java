@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.datahub.graphql.generated.GlobalVisualSettings;
 import com.linkedin.datahub.graphql.generated.HelpLink;
 import com.linkedin.datahub.graphql.generated.OidcSettings;
+import com.linkedin.datahub.graphql.generated.SampleDataSettings;
 import com.linkedin.datahub.graphql.generated.SlackIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.SsoSettings;
 import com.linkedin.datahub.graphql.generated.TeamsChannel;
@@ -28,6 +29,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.SampleDataStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.Collections;
@@ -206,6 +208,15 @@ public class SettingsMapper {
     }
     if (gmsGlobalVisualSettings.hasCustomOrgName()) {
       result.setCustomOrgName(gmsGlobalVisualSettings.getCustomOrgName());
+    }
+    if (gmsGlobalVisualSettings.getSampleDataSettings() != null) {
+      SampleDataSettings sampleDataSettings = new SampleDataSettings();
+      sampleDataSettings.setEnabled(
+          gmsGlobalVisualSettings
+              .getSampleDataSettings()
+              .getSampleDataStatus()
+              .equals(SampleDataStatus.ENABLED));
+      result.setSampleDataSettings(sampleDataSettings);
     }
     return result;
   }

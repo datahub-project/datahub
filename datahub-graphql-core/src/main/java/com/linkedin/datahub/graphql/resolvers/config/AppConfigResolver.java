@@ -400,8 +400,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
     }
 
-    // TODO: Store whether sample data is enabled
-    trialConfig.setSampleDataEnabled(true);
     appConfig.setTrialConfig(trialConfig);
 
     return CompletableFuture.completedFuture(appConfig);

@@ -579,6 +579,5 @@ public class AppConfigResolverTest {
     assertNotNull(result.getTrialConfig());
     assertTrue(result.getTrialConfig().getTrialEnabled());
     assertEquals(result.getTrialConfig().getDaysLeft(), Integer.valueOf(5));
-    assertTrue(result.getTrialConfig().getSampleDataEnabled());
   }
 }

@@ -44,6 +44,7 @@ import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
+import com.linkedin.metadata.service.SampleDataService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
@@ -99,6 +100,7 @@ public class GmsGraphQLEngineArgs {
   ViewService viewService;
   OwnershipTypeService ownershipTypeService;
   SettingsService settingsService;
+  SampleDataService sampleDataService;
   LineageService lineageService;
   QueryService queryService;
   FeatureFlags featureFlags;

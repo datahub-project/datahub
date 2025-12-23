@@ -158,7 +158,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     trialConfig: {
         trialEnabled: false,
         daysLeft: 0,
-        sampleDataEnabled: false,
     },
 };
 

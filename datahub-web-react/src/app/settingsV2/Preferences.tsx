@@ -1,9 +1,10 @@
 import { Card, Icon, PageTitle, Pill, Switch, Text, colors } from '@components';
-import { message } from 'antd';
+import { message, notification } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
 import OrganizationInfo from '@app/settingsV2/OrganizationInfo';
 import { useAppConfig } from '@app/useAppConfig';
@@ -13,6 +14,7 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateUserSettingMutation } from '@graphql/me.generated';
+import { useUpdateSampleDataSettingsMutation } from '@graphql/settings.generated';
 import { UserSetting } from '@types';
 
 const Page = styled.div`
@@ -108,6 +110,7 @@ export const Preferences = () => {
     const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
     const userContext = useUserContext();
     const appConfig = useAppConfig();
+    const { globalSettings, refetch: refetchGlobalSettings } = useGlobalSettingsContext();
 
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
@@ -115,16 +118,23 @@ export const Preferences = () => {
 
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
+    const [updateSampleDataSettingsMutation] = useUpdateSampleDataSettingsMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const authenticatedUser = useGetAuthenticatedUser();
+
+    const canManageGlobalSettings = authenticatedUser?.platformPrivileges?.manageGlobalSettings;
     const canManageOrganizationDisplayPreferences =
         authenticatedUser?.platformPrivileges?.manageOrganizationDisplayPreferences;
     const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
     // only show beta features card if the user has access (currently only applications)
     const anyBetaFeaturesEnabled = canManageApplicationAppearance;
+
+    const isFreeTrialInstance = appConfig.config.trialConfig?.trialEnabled ?? false;
+    const showSampleDataToggle = isFreeTrialInstance && canManageGlobalSettings;
+    const sampleDataEnabled = globalSettings?.visualSettings?.sampleDataSettings?.enabled ?? false;
 
     return (
         <Page>
@@ -164,6 +174,53 @@ export const Preferences = () => {
                                     });
                                     message.success({ content: 'Setting updated!', duration: 2 });
                                     refetchUser?.();
+                                }}
+                            />
+                        </UserSettingRow>
+                    </StyledCard>
+                )}
+                {showSampleDataToggle && (
+                    <StyledCard>
+                        <UserSettingRow>
+                            <TextContainer>
+                                <SettingText>Use Sample Data</SettingText>
+                                <DescriptionText>
+                                    Sample data is pre-loaded as part of this free trial. It appears in Search, Lineage,
+                                    Ask DataHub, and everywhere else.
+                                </DescriptionText>
+                            </TextContainer>
+                            <Switch
+                                label=""
+                                checked={sampleDataEnabled}
+                                onChange={async () => {
+                                    const newEnabled = !sampleDataEnabled;
+                                    await updateSampleDataSettingsMutation({
+                                        variables: {
+                                            input: {
+                                                enabled: newEnabled,
+                                            },
+                                        },
+                                    });
+                                    notification.open({
+                                        message: (
+                                            <Text color="violet" colorLevel={500} weight="semiBold">
+                                                Sample data {newEnabled ? 'enabled' : 'disabled'}. Changes may take a
+                                                few minutes.
+                                            </Text>
+                                        ),
+                                        icon: (
+                                            <Icon
+                                                icon="MegaphoneSimple"
+                                                weight="fill"
+                                                source="phosphor"
+                                                color="violet"
+                                            />
+                                        ),
+                                        style: { backgroundColor: colors.violet[0], borderRadius: 8 },
+                                        duration: 4,
+                                        placement: 'top',
+                                    });
+                                    refetchGlobalSettings?.();
                                 }}
                             />
                         </UserSettingRow>

@@ -18,4 +18,9 @@ record GlobalVisualSettings {
    * A customized name for organization display preferences
    */
    customOrgName: optional string
+
+   /**
+    * Settings related to sample data, used to aid in initial onboarding.
+    */
+   sampleDataSettings: optional SampleDataSettings
 }

@@ -67,6 +67,14 @@ extend type Mutation {
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 
   """
+  Update the sample data settings (enable/disable sample data visibility).
+  When disabled, sample data entities are soft-deleted and hidden from search/browse.
+  Requires the 'Manage Global Settings' Platform Privilege.
+  Only applicable for free trial instances.
+  """
+  updateSampleDataSettings(input: UpdateSampleDataSettingsInput!): Boolean!
+
+  """
   Update the help link displayed in the help dropdown in the header of the UI.
   Requires the 'Manage Global Settings' Platform Privilege.
   """
@@ -824,6 +832,26 @@ type GlobalSettings {
 }
 
 """
+Settings related to sample data visibility in the platform.
+"""
+type SampleDataSettings {
+  """
+  Whether sample data is enabled and visible in the platform.
+  """
+  enabled: Boolean!
+}
+
+"""
+Input for updating sample data settings.
+"""
+input UpdateSampleDataSettingsInput {
+  """
+  Whether sample data should be enabled (visible) or disabled (hidden).
+  """
+  enabled: Boolean!
+}
+
+"""
 Global (platform-level) integrations settings.
 """
 type GlobalIntegrationSettings {
@@ -1158,6 +1186,11 @@ type GlobalVisualSettings {
   A customized name for organization display preferences
   """
   customOrgName: String
+
+  """
+  Settings related to sample data, for initial onboarding
+  """
+  sampleDataSettings: SampleDataSettings
 }
 
 """
@@ -1937,11 +1970,6 @@ type TrialConfig {
   Number of days remaining in the trial period
   """
   daysLeft: Int!
-
-  """
-  Whether sample data is enabled for trial users
-  """
-  sampleDataEnabled: Boolean!
 }
 
 """

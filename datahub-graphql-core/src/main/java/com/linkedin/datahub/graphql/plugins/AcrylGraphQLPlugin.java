@@ -170,6 +170,7 @@ import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.metadata.service.SampleDataService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
@@ -184,6 +185,7 @@ import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.*;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.sts.StsClient;
 
@@ -231,6 +233,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private InviteTokenService inviteTokenService;
   private String baseUrl;
   private UserService userService;
+  @Nullable private SampleDataService sampleDataService;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -280,6 +283,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.inviteTokenService = args.getInviteTokenService();
     this.baseUrl = args.getBaseUrl();
     this.userService = args.getUserService();
+    this.sampleDataService = args.getSampleDataService();
 
     // Initialize UserInvitationService after all dependencies are set
     this.userInvitationService =
@@ -393,6 +397,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureAssertionResolvers(builder, baseEngine);
     configureActionWorkflowResolvers(builder, baseEngine);
     configureAiConversationResolvers(builder, baseEngine);
+    configureSampleDataResolvers(builder);
   }
 
   private void configureMutationResolvers(
@@ -1370,5 +1375,17 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     final DataHubAiConversationResolvers agentConversationResolvers =
         new DataHubAiConversationResolvers(dataHubAiConversationService);
     agentConversationResolvers.configureResolvers(builder);
+  }
+
+  private void configureSampleDataResolvers(final RuntimeWiring.Builder builder) {
+    if (sampleDataService != null) {
+      builder.type(
+          "Mutation",
+          typeWiring ->
+              typeWiring.dataFetcher(
+                  "updateSampleDataSettings",
+                  new com.linkedin.datahub.graphql.resolvers.settings
+                      .UpdateSampleDataSettingsResolver(sampleDataService)));
+    }
   }
 }

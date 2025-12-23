@@ -1,0 +1,23 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings related to sample data, used to aid in initial onboarding.
+ */
+record SampleDataSettings {
+  /**
+   * Status of sample data visibility in the platform.
+   * Controls which types of sample data entities are visible.
+   * Only applicable for free trial instances.
+   */
+  sampleDataStatus: enum SampleDataStatus {
+    /**
+     * Sample data is enabled and visible throughout the platform.
+     */
+    ENABLED
+
+    /**
+     * Sample data is disabled and hidden from the platform.
+     */
+    DISABLED
+  }
+}

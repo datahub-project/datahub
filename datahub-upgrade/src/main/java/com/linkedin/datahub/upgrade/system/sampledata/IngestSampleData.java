@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.freetrial;
+package com.linkedin.datahub.upgrade.system.sampledata;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -18,11 +18,11 @@ import lombok.extern.slf4j.Slf4j;
  * historical and future-dated data to provide a rich demo experience.
  */
 @Slf4j
-public class IngestFreeTrialData implements NonBlockingSystemUpgrade {
+public class IngestSampleData implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> steps;
 
-  public IngestFreeTrialData(
+  public IngestSampleData(
       OperationContext opContext,
       EntityService<?> entityService,
       OrderDetailsStatisticsGenerator statisticsGenerator,
@@ -36,8 +36,7 @@ public class IngestFreeTrialData implements NonBlockingSystemUpgrade {
 
       // Always add the data ingestion step
       stepsBuilder.add(
-          new IngestFreeTrialDataStep(
-              opContext, entityService, enabled, reprocessEnabled, batchSize));
+          new IngestSampleDataStep(opContext, entityService, enabled, reprocessEnabled, batchSize));
 
       // Only add statistics generation if the generator bean is available
       if (statisticsGenerator != null) {

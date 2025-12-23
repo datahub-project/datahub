@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.freetrial;
+package com.linkedin.datahub.upgrade.system.sampledata;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -21,7 +21,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class IngestFreeTrialDataStepTest {
+public class IngestSampleDataStepTest {
 
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -38,24 +38,24 @@ public class IngestFreeTrialDataStepTest {
 
   @Test
   public void testId() {
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
     // ID includes a hash of the file content for versioning
-    assertTrue(step.id().startsWith("IngestFreeTrialData-"));
+    assertTrue(step.id().startsWith("IngestSampleData-"));
   }
 
   @Test
   public void testIsOptional() {
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
     // Free trial data ingestion is optional and should not block system startup
     assertTrue(step.isOptional());
   }
 
   @Test
   public void testSkipWhenDisabled() {
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, false, false, 500);
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(OP_CONTEXT, mockEntityService, false, false, 500);
     assertTrue(step.skip(mockContext));
   }
 
@@ -63,8 +63,8 @@ public class IngestFreeTrialDataStepTest {
   public void testSkipWhenPreviouslyRun() {
     when(mockEntityService.exists(any(), any(), any(), anyBoolean())).thenReturn(true);
 
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
     assertTrue(step.skip(mockContext));
   }
 
@@ -72,8 +72,8 @@ public class IngestFreeTrialDataStepTest {
   public void testNoSkipWhenEnabledAndNotPreviouslyRun() {
     when(mockEntityService.exists(any(), any(), any(), anyBoolean())).thenReturn(false);
 
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(OP_CONTEXT, mockEntityService, true, false, 500);
     assertFalse(step.skip(mockContext));
   }
 
@@ -82,23 +82,23 @@ public class IngestFreeTrialDataStepTest {
     // Even if previously run, reprocess should not skip
     when(mockEntityService.exists(any(), any(), any(), anyBoolean())).thenReturn(true);
 
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(OP_CONTEXT, mockEntityService, true, true, 500);
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(OP_CONTEXT, mockEntityService, true, true, 500);
     assertFalse(step.skip(mockContext));
   }
 
   @Test(expectedExceptions = IllegalStateException.class)
   public void testConstructorFailsWhenFileNotFound() {
     // When file doesn't exist, constructor should fail (can't compute hash)
-    new IngestFreeTrialDataStep(
+    new IngestSampleDataStep(
         OP_CONTEXT, mockEntityService, true, false, 500, "nonexistent/path/sample_data.json");
   }
 
   @Test
   public void testExecutableSucceedsWithValidFile() {
-    IngestFreeTrialDataStep step =
-        new IngestFreeTrialDataStep(
-            OP_CONTEXT, mockEntityService, true, false, 500, "freetrial/test_sample_data.json");
+    IngestSampleDataStep step =
+        new IngestSampleDataStep(
+            OP_CONTEXT, mockEntityService, true, false, 500, "sampledata/test_sample_data.json");
 
     UpgradeStepResult result = step.executable().apply(mockContext);
 
@@ -109,20 +109,20 @@ public class IngestFreeTrialDataStepTest {
 
   @Test
   public void testUpgradeWrapperWithDisabled() {
-    IngestFreeTrialData upgrade =
-        new IngestFreeTrialData(OP_CONTEXT, mockEntityService, null, false, false, 500, 30, 30);
+    IngestSampleData upgrade =
+        new IngestSampleData(OP_CONTEXT, mockEntityService, null, false, false, 500, 30, 30);
 
-    assertEquals(upgrade.id(), "IngestFreeTrialData");
+    assertEquals(upgrade.id(), "IngestSampleData");
     assertTrue(upgrade.steps().isEmpty());
   }
 
   @Test
   public void testUpgradeWrapperWithEnabled() {
     // When enabled but statisticsGenerator is null, should only have 1 step (data ingestion)
-    IngestFreeTrialData upgrade =
-        new IngestFreeTrialData(OP_CONTEXT, mockEntityService, null, true, false, 500, 30, 30);
+    IngestSampleData upgrade =
+        new IngestSampleData(OP_CONTEXT, mockEntityService, null, true, false, 500, 30, 30);
 
-    assertEquals(upgrade.id(), "IngestFreeTrialData");
+    assertEquals(upgrade.id(), "IngestSampleData");
     assertEquals(upgrade.steps().size(), 1);
   }
 }

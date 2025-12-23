@@ -296,6 +296,10 @@ public class GraphQLEngineFactory {
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
 
+  @Autowired(required = false)
+  @Qualifier("sampleDataService")
+  private com.linkedin.metadata.service.SampleDataService sampleDataService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -387,6 +391,7 @@ public class GraphQLEngineFactory {
     args.setUserService(userService);
     args.setSemanticSearchService(_semanticSearchService);
     args.setS3Util(s3Util);
+    args.setSampleDataService(sampleDataService);
 
     // Saas Only
     try {

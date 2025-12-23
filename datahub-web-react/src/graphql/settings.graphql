@@ -156,6 +156,9 @@ query getGlobalSettings {
             }
             customLogoUrl
             customOrgName
+            sampleDataSettings {
+                enabled
+            }
         }
         documentationAi {
             enabled
@@ -301,4 +304,8 @@ mutation updateAssetSettings($input: UpdateAssetSettingsInput!) {
     updateAssetSettings(input: $input) {
         ...AssetSettingsFields
     }
+}
+
+mutation updateSampleDataSettings($input: UpdateSampleDataSettingsInput!) {
+    updateSampleDataSettings(input: $input)
 }

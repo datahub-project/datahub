@@ -8,11 +8,11 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
-import com.linkedin.datahub.upgrade.system.freetrial.IngestFreeTrialData;
 import com.linkedin.datahub.upgrade.system.freetrial.SendAdminInviteToken;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.sampledata.IngestSampleData;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -194,16 +194,15 @@ public class NonBlockingConfigs {
   }
 
   @Bean
-  public NonBlockingSystemUpgrade ingestFreeTrialData(
+  public NonBlockingSystemUpgrade ingestSampleData(
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
-      @Value("${systemUpdate.ingestFreeTrialData.enabled}") final boolean enabled,
-      @Value("${systemUpdate.ingestFreeTrialData.reprocess.enabled}")
-          final boolean reprocessEnabled,
-      @Value("${systemUpdate.ingestFreeTrialData.batchSize}") final int batchSize,
-      @Value("${systemUpdate.ingestFreeTrialData.historicalDays}") final int historicalDays,
-      @Value("${systemUpdate.ingestFreeTrialData.futureDays}") final int futureDays) {
-    return new IngestFreeTrialData(
+      @Value("${systemUpdate.ingestSampleData.enabled}") final boolean enabled,
+      @Value("${systemUpdate.ingestSampleData.reprocess.enabled}") final boolean reprocessEnabled,
+      @Value("${systemUpdate.ingestSampleData.batchSize}") final int batchSize,
+      @Value("${systemUpdate.ingestSampleData.historicalDays}") final int historicalDays,
+      @Value("${systemUpdate.ingestSampleData.futureDays}") final int futureDays) {
+    return new IngestSampleData(
         opContext,
         entityService,
         orderDetailsStatisticsGenerator,

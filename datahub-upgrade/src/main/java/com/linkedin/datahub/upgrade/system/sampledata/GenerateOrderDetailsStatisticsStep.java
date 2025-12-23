@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.freetrial;
+package com.linkedin.datahub.upgrade.system.sampledata;
 
 import static com.linkedin.gms.factory.statistics.OrderDetailsStatisticsGenerator.ORDER_DETAILS_DATASET_URN;
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;

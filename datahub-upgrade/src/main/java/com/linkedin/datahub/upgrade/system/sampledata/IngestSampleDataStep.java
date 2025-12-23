@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.system.freetrial;
+package com.linkedin.datahub.upgrade.system.sampledata;
 
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
 
@@ -11,14 +11,20 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.McpJsonUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.GlobalVisualSettings;
+import com.linkedin.settings.global.SampleDataSettings;
+import com.linkedin.settings.global.SampleDataStatus;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -36,14 +42,12 @@ import org.springframework.core.io.ClassPathResource;
 /**
  * Upgrade step to ingest sample data for free trial instances.
  *
- * <p>This step only executes if IS_FREE_TRIAL_INSTANCE env var is set to true.
- *
  * <p>The JSON file format is a JSON array of standard MCPs.
  */
 @Slf4j
-public class IngestFreeTrialDataStep implements UpgradeStep {
+public class IngestSampleDataStep implements UpgradeStep {
 
-  private static final String UPGRADE_ID_PREFIX = "IngestFreeTrialData";
+  private static final String UPGRADE_ID_PREFIX = "IngestSampleData";
   private static final String DEFAULT_FILE_PATH = "boot/sample_data_mcp.json";
   private static final int MAX_PARSE_ERRORS_TO_LOG = 10;
   private static final String SAMPLE_DATA_PROPERTY_KEY = "sampleData";
@@ -58,7 +62,7 @@ public class IngestFreeTrialDataStep implements UpgradeStep {
   private final String upgradeId;
   private final Urn upgradeIdUrn;
 
-  public IngestFreeTrialDataStep(
+  public IngestSampleDataStep(
       OperationContext systemOpContext,
       EntityService<?> entityService,
       boolean enabled,
@@ -67,7 +71,7 @@ public class IngestFreeTrialDataStep implements UpgradeStep {
     this(systemOpContext, entityService, enabled, reprocessEnabled, batchSize, DEFAULT_FILE_PATH);
   }
 
-  public IngestFreeTrialDataStep(
+  public IngestSampleDataStep(
       OperationContext systemOpContext,
       EntityService<?> entityService,
       boolean enabled,
@@ -114,13 +118,44 @@ public class IngestFreeTrialDataStep implements UpgradeStep {
           markAsSampleData(mcp);
         }
 
-        log.info("Starting batch ingestion...");
+        log.info("Updating global settings to reflect sample data enabled...");
 
-        // Batch and ingest
         final AuditStamp auditStamp =
             new AuditStamp()
                 .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                 .setTime(System.currentTimeMillis());
+
+        GlobalSettingsInfo globalSettingsInfo =
+            (GlobalSettingsInfo)
+                entityService.getLatestAspect(
+                    context.opContext(),
+                    Constants.GLOBAL_SETTINGS_URN,
+                    Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+        if (globalSettingsInfo == null) {
+          globalSettingsInfo = new GlobalSettingsInfo();
+        }
+        GlobalVisualSettings visualSettings =
+            globalSettingsInfo.getVisual() != null
+                ? globalSettingsInfo.getVisual()
+                : new GlobalVisualSettings();
+        SampleDataSettings sampleDataSettings =
+            visualSettings.getSampleDataSettings() != null
+                ? visualSettings.getSampleDataSettings()
+                : new SampleDataSettings();
+        sampleDataSettings.setSampleDataStatus(SampleDataStatus.ENABLED);
+        visualSettings.setSampleDataSettings(sampleDataSettings);
+        globalSettingsInfo.setVisual(visualSettings);
+        final MetadataChangeProposal globalSettingsMcp = new MetadataChangeProposal();
+        globalSettingsMcp.setEntityUrn(Constants.GLOBAL_SETTINGS_URN);
+        globalSettingsMcp.setEntityType(Constants.GLOBAL_SETTINGS_ENTITY_NAME);
+        globalSettingsMcp.setAspectName(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+        globalSettingsMcp.setChangeType(ChangeType.UPSERT);
+        globalSettingsMcp.setAspect(GenericRecordUtils.serializeAspect(globalSettingsInfo));
+        entityService.ingestProposal(context.opContext(), globalSettingsMcp, auditStamp, false);
+
+        log.info("Starting batch ingestion...");
+
+        // Batch and ingest
 
         final AtomicInteger batchesProcessed = new AtomicInteger(0);
         final AtomicInteger batchesFailed = new AtomicInteger(0);
