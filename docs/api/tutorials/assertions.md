@@ -12,7 +12,6 @@ This guide specifically covers how to use the Assertion APIs for **DataHub Cloud
 - [Column Assertions](/docs/managed-datahub/observe/column-assertions.md)
 - [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md)
 - [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md)
-- [Smart SQL Assertions](#smart-sql-assertions)
 
 ## Why Would You Use Assertions APIs?
 
@@ -490,6 +489,35 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
+---
+
+To create a new **smart SQL** assertion (AI anomaly detection), use the same mutation with `inferWithAI: true`.
+
+```graphql
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC
+      description: "<description of the smart SQL assertion>"
+      statement: "<SQL query to be evaluated>"
+      inferWithAI: true
+      inferenceSettings: { sensitivity: { level: 5 } }
+      # Placeholder operator and parameters (AI will infer actual thresholds)
+      operator: GREATER_THAN_OR_EQUAL_TO
+      parameters: { value: { value: "0", type: NUMBER } }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
 </TabItem>
 <TabItem value="python" label="Python">
 
@@ -531,60 +559,10 @@ range_sql_assertion = client.assertions.sync_sql_assertion(
 )
 
 print(f"Created range SQL assertion: {range_sql_assertion.urn}")
-```
 
-</TabItem>
-</Tabs>
-
-For more details, see the [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md) guide.
-
-### Smart SQL Assertions
-
-Smart SQL assertions use machine learning to automatically infer appropriate thresholds for your SQL query results,
-instead of requiring you to manually specify fixed threshold values.
-
-<Tabs>
-<TabItem value="graphql" label="GraphQL" default>
-
-To create a new smart SQL assertion, use the `upsertDatasetSqlAssertionMonitor` GraphQL Mutation with `inferWithAI: true`.
-
-```graphql
-mutation upsertDatasetSqlAssertionMonitor {
-  upsertDatasetSqlAssertionMonitor(
-    input: {
-      entityUrn: "<urn of entity being monitored>"
-      type: METRIC
-      description: "<description of the smart SQL assertion>"
-      statement: "<SQL query to be evaluated>"
-      inferWithAI: true
-      inferenceSettings: { sensitivity: { level: 5 } }
-      # Placeholder operator and parameters (AI will infer actual thresholds)
-      operator: GREATER_THAN_OR_EQUAL_TO
-      parameters: { value: { value: "0", type: NUMBER } }
-      evaluationSchedule: {
-        timezone: "America/Los_Angeles"
-        cron: "0 */6 * * *"
-      }
-      mode: ACTIVE
-    }
-  ) {
-    urn
-  }
-}
-```
-
-</TabItem>
-<TabItem value="python" label="Python">
-
-```python
-from datahub.sdk import DataHubClient
-from datahub.metadata.urns import DatasetUrn
-
-# Initialize the client
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-# Create smart SQL assertion (AI-powered anomaly detection)
-dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+# ----------------------------
+# Smart SQL assertions (AI anomaly detection)
+# ----------------------------
 
 smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
     dataset_urn=dataset_urn,
@@ -624,6 +602,8 @@ print(f"Created smart SQL assertion with exclusions: {smart_sql_with_exclusions.
 
 </TabItem>
 </Tabs>
+
+For more details, see the [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md) guide.
 
 ### Schema Assertions
 
