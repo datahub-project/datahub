@@ -632,6 +632,12 @@ jobs:
               ;;
           esac
 
+      - name: Clean up downloaded artifacts
+        if: steps.retry-detection.outputs.is_retry == 'true'
+        run: |
+          # Cleaning up downloaded test results to prevent contamination of current run
+          rm -rf "${{ github.workspace }}/previous-test-results"
+
       - name: Skip batch if all tests passed
         if: |
           steps.parse-cypress-failures.outputs.parse_result == 'all_passed' ||
