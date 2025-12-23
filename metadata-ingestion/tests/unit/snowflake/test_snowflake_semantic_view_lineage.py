@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -231,7 +232,7 @@ class TestSnowflakeSemanticViewColumnMerging:
                 name="ORDER_ID",
                 data_type="NUMBER",
                 comment="Order identifier for lookups",
-                subtype="DIMENSION",
+                subtype=SemanticViewColumnSubtype.DIMENSION,
                 table_name=None,
                 synonyms=[],
                 expression=None,
@@ -240,7 +241,7 @@ class TestSnowflakeSemanticViewColumnMerging:
                 name="ORDER_ID",
                 data_type="NUMBER",
                 comment="Order ID used in aggregations",
-                subtype="FACT",
+                subtype=SemanticViewColumnSubtype.FACT,
                 table_name=None,
                 synonyms=[],
                 expression="ORDER_ID",
@@ -266,7 +267,7 @@ class TestSnowflakeSemanticViewColumnMerging:
                 name="TOTAL_REVENUE",
                 data_type="NUMBER",
                 comment="Total revenue calculation",
-                subtype="METRIC",
+                subtype=SemanticViewColumnSubtype.METRIC,
                 table_name=None,
                 synonyms=[],
                 expression="SUM(ORDERS.ORDER_TOTAL)",
@@ -289,7 +290,7 @@ class TestSnowflakeSemanticViewColumnMerging:
                 name="VALUE",
                 data_type="NUMBER",
                 comment="Numeric value",
-                subtype="FACT",
+                subtype=SemanticViewColumnSubtype.FACT,
                 table_name=None,
                 synonyms=[],
                 expression=None,
@@ -298,7 +299,7 @@ class TestSnowflakeSemanticViewColumnMerging:
                 name="VALUE",
                 data_type="VARCHAR",
                 comment="String value",
-                subtype="DIMENSION",
+                subtype=SemanticViewColumnSubtype.DIMENSION,
                 table_name=None,
                 synonyms=[],
                 expression=None,

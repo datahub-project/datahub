@@ -67,6 +67,15 @@ LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
 
 STREAMLIT_PLATFORM = "streamlit"
 
+
+class SemanticViewColumnSubtype(StrEnum):
+    """Subtype for semantic view columns: dimensions, facts, and metrics."""
+
+    DIMENSION = "DIMENSION"
+    FACT = "FACT"
+    METRIC = "METRIC"
+
+
 # Snowflake connection arguments
 # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
 CLIENT_PREFETCH_THREADS = "client_prefetch_threads"

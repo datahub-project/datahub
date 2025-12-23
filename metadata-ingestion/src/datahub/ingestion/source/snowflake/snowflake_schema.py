@@ -17,7 +17,10 @@ from typing import (
 from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SemanticViewColumnSubtype,
+    SnowflakeObjectDomain,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
@@ -101,7 +104,7 @@ class SemanticViewColumnMetadata:
     name: str
     data_type: str
     comment: Optional[str]
-    subtype: str  # "DIMENSION", "FACT", or "METRIC"
+    subtype: SemanticViewColumnSubtype
     table_name: Optional[str]
     synonyms: List[str]
     expression: Optional[str]
@@ -798,76 +801,50 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeSemanticView]]]:
         """
-        Fetch semantic views for a database using SHOW SEMANTIC VIEWS command.
-        Falls back to information_schema if SHOW command fails.
+        Fetch semantic views for a database using INFORMATION_SCHEMA.
+
+        Uses information_schema.tables with TABLE_TYPE = 'SEMANTIC VIEW' which provides
+        better metadata (LAST_ALTERED) than SHOW SEMANTIC VIEWS. At realistic scale
+        (dozens to hundreds of semantic views), this approach is reliable and simple.
         """
-        semantic_views: Dict[str, List[SnowflakeSemanticView]] = {}
-        semantic_view_pagination_marker: Optional[str] = None
-
         try:
-            while True:
-                cur = self.connection.query(
-                    SnowflakeQuery.show_semantic_views_for_database(
-                        db_name,
-                        semantic_view_pagination_marker=semantic_view_pagination_marker,
-                    )
-                )
-
-                semantic_view_pagination_marker = None
-                result_set_size = 0
-
-                for semantic_view in cur:
-                    result_set_size += 1
-
-                    try:
-                        semantic_view_name = semantic_view["name"]
-                        schema_name = semantic_view["schema_name"]
-
-                        semantic_views.setdefault(schema_name, []).append(
-                            SnowflakeSemanticView(
-                                name=semantic_view_name,
-                                created=semantic_view.get("created_on"),
-                                comment=semantic_view.get("comment"),
-                                view_definition=None,  # SHOW SEMANTIC VIEWS doesn't return definition; populated later via GET_DDL
-                                last_altered=semantic_view.get("created_on"),
-                            )
-                        )
-                    except (KeyError, TypeError) as e:
-                        logger.warning(
-                            f"Failed to parse semantic view from SHOW SEMANTIC VIEWS result: {e}. "
-                            f"Available keys: {list(semantic_view.keys()) if hasattr(semantic_view, 'keys') else 'N/A'}"
-                        )
-                        continue
-
-                if result_set_size >= SHOW_COMMAND_MAX_PAGE_SIZE:
-                    logger.info(
-                        f"Fetching next page of semantic views for {db_name} - after {semantic_view_name}"
-                    )
-                    semantic_view_pagination_marker = semantic_view_name
-                else:
-                    break
-
-            # Because this is in a cached function, this will only log once per database.
-            semantic_view_counts = {
-                schema_name: len(semantic_views[schema_name])
-                for schema_name in semantic_views
-            }
-            logger.info(
-                f"Finished fetching semantic views in {db_name}; counts by schema {semantic_view_counts}"
+            cur = self.connection.query(
+                SnowflakeQuery.get_semantic_views_for_database(db_name),
             )
-
-            self._populate_semantic_view_definitions(db_name, semantic_views)
-            self._populate_semantic_view_base_tables(db_name, semantic_views)
-            self._populate_semantic_view_columns(db_name, semantic_views)
-
-            return semantic_views
         except Exception as e:
             logger.warning(
-                f"Failed to get semantic views for database {db_name} using SHOW command: {e}. "
-                f"Will fall back to per-schema queries.",
+                f"Failed to get semantic views for database {db_name}: {e}",
                 exc_info=True,
             )
             return None
+
+        semantic_views: Dict[str, List[SnowflakeSemanticView]] = {}
+
+        for row in cur:
+            schema_name = row["SEMANTIC_VIEW_SCHEMA"]
+            semantic_view = SnowflakeSemanticView(
+                name=row["SEMANTIC_VIEW_NAME"],
+                created=row["CREATED"],
+                comment=row.get("COMMENT"),
+                view_definition=None,  # Populated later via GET_DDL
+                last_altered=row["LAST_ALTERED"],
+            )
+            semantic_views.setdefault(schema_name, []).append(semantic_view)
+
+        # Log counts per schema (cached function, logs once per database)
+        semantic_view_counts = {
+            schema_name: len(semantic_views[schema_name])
+            for schema_name in semantic_views
+        }
+        logger.info(
+            f"Finished fetching semantic views in {db_name}; counts by schema {semantic_view_counts}"
+        )
+
+        self._populate_semantic_view_definitions(db_name, semantic_views)
+        self._populate_semantic_view_base_tables(db_name, semantic_views)
+        self._populate_semantic_view_columns(db_name, semantic_views)
+
+        return semantic_views
 
     def _populate_semantic_view_definitions(
         self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
@@ -1064,7 +1041,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     row, "DIMENSION", col_name, "VARCHAR"
                 ),
                 comment=row.get("COMMENT"),
-                subtype="DIMENSION",
+                subtype=SemanticViewColumnSubtype.DIMENSION,
                 table_name=row.get("TABLE_NAME"),
                 synonyms=synonyms,
                 expression=row.get("EXPRESSION"),
@@ -1105,7 +1082,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     row, "FACT", col_name, "NUMBER"
                 ),
                 comment=row.get("COMMENT"),
-                subtype="FACT",
+                subtype=SemanticViewColumnSubtype.FACT,
                 table_name=row.get("TABLE_NAME"),
                 synonyms=synonyms,
                 expression=row.get("EXPRESSION"),
@@ -1146,7 +1123,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     row, "METRIC", col_name, "NUMBER"
                 ),
                 comment=row.get("COMMENT"),
-                subtype="METRIC",
+                subtype=SemanticViewColumnSubtype.METRIC,
                 table_name=row.get("TABLE_NAME"),
                 synonyms=synonyms,
                 expression=row.get("EXPRESSION"),
@@ -1261,7 +1238,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 comment = occ.comment or "(no description)"
 
                 # For FACT and METRIC, include expression inline if available
-                if occ.subtype in ["FACT", "METRIC"] and occ.expression:
+                if (
+                    occ.subtype
+                    in (
+                        SemanticViewColumnSubtype.FACT,
+                        SemanticViewColumnSubtype.METRIC,
+                    )
+                    and occ.expression
+                ):
                     comment_parts.append(
                         f"• {occ.subtype}: {comment} [Expression: {occ.expression}]"
                     )
@@ -1277,7 +1261,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # For single occurrence FACT/METRIC columns, append expression if available
         # (This handles the case where there's only one description)
         if len(unique_comments) <= 1 and any(
-            subtype in ["FACT", "METRIC"] for subtype in unique_subtypes
+            subtype
+            in (SemanticViewColumnSubtype.FACT, SemanticViewColumnSubtype.METRIC)
+            for subtype in unique_subtypes
         ):
             expression = occurrences[0].expression
             if expression:
@@ -1343,34 +1329,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.warning(
                 f"Failed to fetch semantic view columns for database {db_name}: {e}"
             )
-
-    def _get_semantic_views_for_database_using_information_schema(
-        self, db_name: str
-    ) -> Optional[Dict[str, List[SnowflakeSemanticView]]]:
-        try:
-            cur = self.connection.query(
-                SnowflakeQuery.get_semantic_views_for_database(db_name),
-            )
-        except Exception as e:
-            logger.debug(
-                f"Failed to get all semantic views for database {db_name}", exc_info=e
-            )
-            return None
-
-        semantic_views: Dict[str, List[SnowflakeSemanticView]] = {}
-
-        for row in cur:
-            schema_name = row["SEMANTIC_VIEW_SCHEMA"]
-            semantic_view = SnowflakeSemanticView(
-                name=row["SEMANTIC_VIEW_NAME"],
-                created=row["CREATED"],
-                comment=row.get("COMMENT"),
-                view_definition=None,  # Not available in information_schema
-                last_altered=row["LAST_ALTERED"],
-            )
-            semantic_views.setdefault(schema_name, []).append(semantic_view)
-
-        return semantic_views
 
     def get_semantic_views_for_schema_using_information_schema(
         self, *, schema_name: str, db_name: str

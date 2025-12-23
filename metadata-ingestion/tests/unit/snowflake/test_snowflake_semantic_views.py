@@ -8,14 +8,16 @@ from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDic
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
 def test_populate_semantic_view_base_tables(mock_connection):
     """Test populating base tables for semantic views from INFORMATION_SCHEMA.SEMANTIC_TABLES."""
-    # Mock the connection for semantic views query
+    # Mock the connection for semantic views query (INFORMATION_SCHEMA format)
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "test_semantic_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Test semantic view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_semantic_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Test semantic view",
         },
     ]
 
@@ -117,14 +119,16 @@ def test_populate_semantic_view_base_tables(mock_connection):
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
 def test_populate_semantic_view_columns_with_dimensions(mock_connection):
     """Test populating semantic view columns with dimensions."""
-    # Mock semantic views
+    # Mock semantic views (INFORMATION_SCHEMA format)
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "sales_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Sales semantic view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Sales semantic view",
         },
     ]
 
@@ -210,10 +214,12 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "sales_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Sales view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Sales view",
         },
     ]
 
@@ -301,10 +307,12 @@ def test_semantic_view_with_metrics(mock_connection):
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "metrics_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Metrics view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "metrics_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Metrics view",
         },
     ]
 
@@ -372,14 +380,16 @@ def test_semantic_view_with_metrics(mock_connection):
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
 def test_orphaned_columns_warning(mock_connection):
     """Test that orphaned columns (columns without corresponding semantic view) trigger warnings."""
-    # Mock semantic views - only one view
+    # Mock semantic views - only one view (INFORMATION_SCHEMA format)
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "existing_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Existing view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "existing_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Existing view",
         },
     ]
 
@@ -466,10 +476,12 @@ def test_synonym_case_insensitive_deduplication(mock_connection):
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "test_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Test view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Test view",
         },
     ]
 
@@ -555,24 +567,10 @@ def test_synonym_case_insensitive_deduplication(mock_connection):
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
-def test_show_semantic_views_fallback_to_information_schema(mock_connection):
-    """Test fallback from SHOW SEMANTIC VIEWS to INFORMATION_SCHEMA queries."""
-    # First call to SHOW SEMANTIC VIEWS fails
-    show_call_count = [0]
-
-    def query_side_effect(query_str):
-        query_lower = query_str.lower()
-        if "show semantic views" in query_lower:
-            show_call_count[0] += 1
-            raise Exception("SHOW SEMANTIC VIEWS not supported")
-        else:
-            # Return empty for information_schema queries
-            mock_empty = MagicMock()
-            mock_empty.__iter__.return_value = []
-            return mock_empty
-
+def test_semantic_views_query_failure_returns_none(mock_connection):
+    """Test that query failure returns None for graceful error handling."""
     mock_connection_instance = MagicMock()
-    mock_connection_instance.query.side_effect = query_side_effect
+    mock_connection_instance.query.side_effect = Exception("Query failed")
 
     report = SnowflakeV2Report()
     data_dict = SnowflakeDataDictionary(
@@ -580,11 +578,9 @@ def test_show_semantic_views_fallback_to_information_schema(mock_connection):
         report=report,
     )
 
-    # Should return None when SHOW fails (indicating fallback needed)
     result = data_dict.get_semantic_views_for_database("TEST_DB")
 
-    assert result is None, "Expected None when SHOW SEMANTIC VIEWS fails"
-    assert show_call_count[0] == 1, "SHOW SEMANTIC VIEWS should have been called once"
+    assert result is None, "Expected None when query fails"
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
@@ -593,10 +589,12 @@ def test_ddl_fetch_success(mock_connection):
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "test_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Test view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Test view",
         },
     ]
 
@@ -648,10 +646,12 @@ def test_ddl_fetch_failure(mock_connection):
     mock_semantic_views_cursor = MagicMock()
     mock_semantic_views_cursor.__iter__.return_value = [
         {
-            "name": "test_view",
-            "schema_name": "PUBLIC",
-            "created_on": datetime.datetime.now(),
-            "comment": "Test view",
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "test_view",
+            "CREATED": datetime.datetime.now(),
+            "LAST_ALTERED": datetime.datetime.now(),
+            "COMMENT": "Test view",
         },
     ]
 

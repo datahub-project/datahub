@@ -314,31 +314,6 @@ WHERE TABLE_CATALOG = '{db_name}'
         """
 
     @staticmethod
-    def show_semantic_views_for_database(
-        db_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        semantic_view_pagination_marker: Optional[str] = None,
-    ) -> str:
-        # SHOW SEMANTIC VIEWS can return a maximum of 10000 rows.
-        if limit > SHOW_COMMAND_MAX_PAGE_SIZE:
-            logger.warning(
-                f"Requested limit {limit} exceeds maximum page size {SHOW_COMMAND_MAX_PAGE_SIZE}, "
-                f"capping to {SHOW_COMMAND_MAX_PAGE_SIZE}"
-            )
-            limit = SHOW_COMMAND_MAX_PAGE_SIZE
-
-        # To work around this, we paginate through the results using the FROM clause.
-        from_clause = (
-            f"""FROM '{semantic_view_pagination_marker}'"""
-            if semantic_view_pagination_marker
-            else ""
-        )
-        return f"""\
-SHOW SEMANTIC VIEWS IN DATABASE "{db_name}"
-LIMIT {limit} {from_clause};
-"""
-
-    @staticmethod
     def get_semantic_views_for_database(db_name: str) -> str:
         # Query semantic views from information_schema
         return f"""\
