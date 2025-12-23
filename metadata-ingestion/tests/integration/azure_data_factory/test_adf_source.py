@@ -743,3 +743,142 @@ def test_adf_source_with_platform_instance(pytestconfig, tmp_path):
         output_path=str(output_file),
         golden_path=str(golden_file),
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_exception_propagation_to_factory_level(tmp_path):
+    """Test that exceptions in child methods propagate to factory-level handler.
+
+    This test verifies the error handling pattern where:
+    1. An exception in _cache_factory_resources (e.g., get_datasets fails)
+    2. Propagates to the per-factory try/except in get_workunits_internal
+    3. Reports a warning and continues to next factory (if any)
+    4. The overall pipeline does NOT fail
+    """
+    output_file = tmp_path / "adf_exception_test.json"
+
+    test_data = get_mock_test_data()
+    mock_client = create_mock_client(test_data)
+
+    # Make get_datasets raise an exception to simulate API failure
+    mock_client.datasets.list_by_factory.side_effect = Exception(
+        "Azure API error: Service unavailable"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-exception",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": RESOURCE_GROUP,
+                            "credential": {
+                                "authentication_method": "default",
+                            },
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {
+                            "filename": str(output_file),
+                        },
+                    },
+                }
+            )
+
+            pipeline.run()
+
+            # Pipeline should complete without raising - errors are captured as warnings
+            # The source should have reported a warning for the failed factory
+            source_report = pipeline.source.get_report()
+            assert source_report is not None
+
+            # Verify a warning was reported for the factory processing failure
+            assert len(source_report.warnings) > 0, (
+                "Expected at least one warning to be reported"
+            )
+
+            # Check that the warning is about the Data Factory processing failure
+            warning_messages = [str(w) for w in source_report.warnings]
+            assert any(
+                "Failed to Process Data Factory" in msg for msg in warning_messages
+            ), (
+                f"Expected 'Failed to Process Data Factory' warning, got: {warning_messages}"
+            )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_adf_source_factory_listing_failure_reports_failure(tmp_path):
+    """Test that failure to list factories reports a failure (not warning).
+
+    When we can't even list factories, it's a critical failure and should
+    be reported as such, but still not crash the pipeline.
+    """
+    output_file = tmp_path / "adf_factory_fail_test.json"
+
+    mock_client = MagicMock()
+    # Make factories.list raise an exception
+    mock_client.factories.list.side_effect = Exception(
+        "Azure API error: Authentication failed"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-factory-fail",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "credential": {
+                                "authentication_method": "default",
+                            },
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {
+                            "filename": str(output_file),
+                        },
+                    },
+                }
+            )
+
+            pipeline.run()
+
+            # Pipeline should complete (not crash)
+            source_report = pipeline.source.get_report()
+            assert source_report is not None
+
+            # Verify a failure was reported for the factory listing failure
+            assert len(source_report.failures) > 0, (
+                "Expected at least one failure to be reported"
+            )
+
+            # Check that the failure is about listing Data Factories
+            failure_messages = [str(f) for f in source_report.failures]
+            assert any(
+                "Failed to List Data Factories" in msg for msg in failure_messages
+            ), (
+                f"Expected 'Failed to List Data Factories' failure, got: {failure_messages}"
+            )

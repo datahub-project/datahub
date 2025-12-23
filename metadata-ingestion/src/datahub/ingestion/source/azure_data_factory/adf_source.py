@@ -256,10 +256,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if self.config.resource_group:
             logger.info(f"Filtering to resource group: {self.config.resource_group}")
 
-        # Iterate over all factories
-        for factory in self.client.get_factories(
-            resource_group=self.config.resource_group
-        ):
+        # Fetch all Data Factories first
+        try:
+            factories: list[Factory] = list(
+                self.client.get_factories(resource_group=self.config.resource_group)
+            )
+        except Exception as e:
+            self.report.report_failure(
+                title="Failed to List Data Factories",
+                message="Unable to retrieve Data Factories from Azure. Check permissions and subscription ID.",
+                context=f"subscription={self.config.subscription_id}",
+                exc=e,
+            )
+            return
+
+        # Process each factory independently
+        for factory in factories:
             self.report.report_api_call()
 
             # Check if factory matches pattern
@@ -267,31 +279,37 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_factory_filtered(factory.name)
                 continue
 
-            self.report.report_factory_scanned()
-            logger.info(f"Processing factory: {factory.name}")
+            try:
+                self.report.report_factory_scanned()
+                logger.info(f"Processing Data Factory: {factory.name}")
 
-            # Extract resource group from factory ID
-            # Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/...
-            resource_group = self._extract_resource_group(factory.id)
+                # Extract resource group from factory ID
+                # Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/...
+                resource_group = self._extract_resource_group(factory.id)
 
-            # Cache datasets and linked services for this factory
-            if self.config.include_lineage:
-                logger.info(f"Fetching lineage resources for factory: {factory.name}")
-            self._cache_factory_resources(resource_group, factory.name)
+                # Cache datasets and linked services for this factory
+                self._cache_factory_resources(resource_group, factory.name)
 
-            # Emit factory as container and get the Container object for browse paths
-            container, container_workunits = self._emit_factory(factory, resource_group)
-            yield from container_workunits
+                # Emit factory as container and get the Container object for browse paths
+                container, container_workunits = self._emit_factory(
+                    factory, resource_group
+                )
+                yield from container_workunits
 
-            # Process pipelines, passing the Container for proper browse path hierarchy
-            logger.info(
-                f"Extracting pipelines and activities for factory: {factory.name}"
-            )
-            yield from self._process_pipelines(factory, resource_group, container)
+                # Process pipelines, passing the Container for proper browse path hierarchy
+                yield from self._process_pipelines(factory, resource_group, container)
 
-            # Process execution history if enabled
-            if self.config.include_execution_history:
-                yield from self._process_execution_history(factory, resource_group)
+                # Process execution history if enabled
+                if self.config.include_execution_history:
+                    yield from self._process_execution_history(factory, resource_group)
+
+            except Exception as e:
+                self.report.report_warning(
+                    title="Failed to Process Data Factory",
+                    message="Error processing Data Factory. Skipping to next.",
+                    context=f"factory={factory.name}",
+                    exc=e,
+                )
 
     def _extract_resource_group(self, resource_id: str) -> str:
         """Extract resource group name from Azure resource ID."""
@@ -305,7 +323,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             return "unknown"
 
     def _cache_factory_resources(self, resource_group: str, factory_name: str) -> None:
-        """Cache datasets and linked services for a factory."""
+        """Cache datasets, linked services, triggers, and data flows for a factory.
+
+        Exceptions propagate to the parent handler which handles them at the
+        Data Factory level.
+        """
         factory_key = f"{resource_group}/{factory_name}"
 
         # Cache datasets (needed for lineage resolution)
@@ -408,9 +430,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # First pass: Cache all pipelines for this factory
         self._pipelines_cache[factory_key] = {}
-        for pipeline in self.client.get_pipelines(resource_group, factory.name):
-            self.report.report_api_call()
-            self._pipelines_cache[factory_key][pipeline.name] = pipeline
+        try:
+            for pipeline in self.client.get_pipelines(resource_group, factory.name):
+                self.report.report_api_call()
+                self._pipelines_cache[factory_key][pipeline.name] = pipeline
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to List Pipelines",
+                message="Unable to retrieve pipelines from factory.",
+                context=f"factory={factory.name}",
+                exc=e,
+            )
+            return  # Can't process pipelines if we can't list them
 
         # Second pass: Process pipelines and emit entities
         for pipeline_name, pipeline in self._pipelines_cache[factory_key].items():
@@ -438,7 +469,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_activity_scanned()
 
                 datajob = self._create_datajob(
-                    activity, pipeline, factory, resource_group, dataflow, factory_key
+                    activity,
+                    pipeline,
+                    factory,
+                    resource_group,
+                    dataflow,
+                    factory_key,
                 )
                 yield from datajob.as_workunits()
 
@@ -1018,17 +1054,30 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     def _process_execution_history(
         self, factory: Factory, resource_group: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Process pipeline execution history for a factory."""
+        """Process pipeline execution history for a Data Factory."""
         logger.info(
-            f"Fetching execution history for factory: {factory.name} "
+            f"Fetching execution history for Data Factory: {factory.name} "
             f"(last {self.config.execution_history_days} days)"
         )
 
-        for pipeline_run in self.client.get_pipeline_runs(
-            resource_group,
-            factory.name,
-            days=self.config.execution_history_days,
-        ):
+        try:
+            pipeline_runs: list[PipelineRun] = list(
+                self.client.get_pipeline_runs(
+                    resource_group,
+                    factory.name,
+                    days=self.config.execution_history_days,
+                )
+            )
+        except Exception as e:
+            self.report.report_warning(
+                title="Failed to Fetch Execution History",
+                message="Unable to retrieve pipeline runs.",
+                context=f"factory={factory.name}",
+                exc=e,
+            )
+            return
+
+        for pipeline_run in pipeline_runs:
             self.report.report_api_call()
             self.report.report_pipeline_run_scanned()
 
