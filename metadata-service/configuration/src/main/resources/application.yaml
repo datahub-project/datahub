@@ -800,6 +800,7 @@ metadataTests:
       defaultExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_SQL:1000} # configures the limit for the default sql executor
   cacheRefreshDelayIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_DELAY_INTERVAL_SECONDS:10}
   cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
+  cachePageSize: ${METADATA_TESTS_CACHE_PAGE_SIZE:200}
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:
     enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:true}

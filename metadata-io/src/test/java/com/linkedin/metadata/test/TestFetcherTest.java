@@ -2,8 +2,7 @@ package com.linkedin.metadata.test;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -240,8 +239,134 @@ public class TestFetcherTest {
 
     // Then
     assertNotNull(result);
-    assertEquals(result.getTotal(), 2); // Only active tests
+    // Total should be the search result count (3), not the extracted count (2)
+    // This ensures pagination continues correctly even when tests are filtered out
+    assertEquals(result.getTotal(), 3);
+    // Only 2 tests are extracted (1 is INACTIVE)
     assertEquals(result.getTests().size(), 2);
+  }
+
+  @Test
+  public void testFetch_PaginationTotalReflectsSearchResult()
+      throws RemoteInvocationException, URISyntaxException {
+    // This test verifies that the pagination bug is fixed:
+    // When some tests are filtered out during extraction, the total should still
+    // reflect the search result count to ensure pagination continues correctly.
+
+    // Given: Search returns 50 total, but we're fetching page of 10
+    SearchResult searchResult =
+        createSearchResultWithTotal(
+            50, TEST_URN_STRING, TEST_URN_STRING_2); // 50 total, 2 in this page
+    when(mockEntitySearchService.search(any(), anyList(), eq(""), any(), any(), eq(0), eq(10)))
+        .thenReturn(searchResult);
+
+    // One test is INACTIVE, so only 1 will be extracted
+    Map<Urn, EntityResponse> entityResponses = new HashMap<>();
+    Urn urn1 = Urn.createFromString(TEST_URN_STRING);
+    Urn urn2 = Urn.createFromString(TEST_URN_STRING_2);
+    entityResponses.put(urn1, createEntityResponse(urn1, createActiveTestInfo()));
+    entityResponses.put(urn2, createEntityResponse(urn2, createInactiveTestInfo()));
+
+    when(mockEntityService.getEntitiesV2(
+            any(OperationContext.class),
+            eq(TEST_ENTITY_NAME),
+            any(),
+            eq(ImmutableSet.of(TEST_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponses);
+
+    // When
+    TestFetcher.TestFetchResult result = testFetcher.fetch(operationContext, 0, 10);
+
+    // Then
+    assertNotNull(result);
+    // Total MUST be 50 (search total) to ensure pagination continues
+    // If this were 1 (extracted count), pagination would stop early and miss tests 10-50!
+    assertEquals(result.getTotal(), 50);
+    // Only 1 test extracted (the other is INACTIVE)
+    assertEquals(result.getTests().size(), 1);
+  }
+
+  @Test
+  public void testFetch_MultiplePaginationCalls_WithFilteredTests()
+      throws RemoteInvocationException, URISyntaxException {
+    // This test simulates the actual pagination loop from TestRefreshRunnable
+    // to verify that multiple pages are fetched even when tests are filtered out.
+    //
+    // Scenario: 5 tests total, page size of 2, with some INACTIVE tests
+    // Page 1 (start=0): 2 tests, 1 filtered -> extracted=1, total=5
+    // Page 2 (start=2): 2 tests, 1 filtered -> extracted=1, total=5
+    // Page 3 (start=4): 1 test, 0 filtered -> extracted=1, total=5
+    // Without the fix, pagination would stop after page 1 (total=1, start=2, 2>=1)
+
+    int pageSize = 2;
+    int totalTests = 5;
+
+    // Set up page 1 (start=0)
+    SearchResult page1 =
+        createSearchResultWithTotal(totalTests, "urn:li:test:t1", "urn:li:test:t2");
+    when(mockEntitySearchService.search(
+            any(), anyList(), eq(""), any(), any(), eq(0), eq(pageSize)))
+        .thenReturn(page1);
+
+    // Set up page 2 (start=2)
+    SearchResult page2 =
+        createSearchResultWithTotal(totalTests, "urn:li:test:t3", "urn:li:test:t4");
+    when(mockEntitySearchService.search(
+            any(), anyList(), eq(""), any(), any(), eq(2), eq(pageSize)))
+        .thenReturn(page2);
+
+    // Set up page 3 (start=4)
+    SearchResult page3 = createSearchResultWithTotal(totalTests, "urn:li:test:t5");
+    when(mockEntitySearchService.search(
+            any(), anyList(), eq(""), any(), any(), eq(4), eq(pageSize)))
+        .thenReturn(page3);
+
+    // Set up entity responses - some active, some inactive
+    when(mockEntityService.getEntitiesV2(
+            any(OperationContext.class), eq(TEST_ENTITY_NAME), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              java.util.Set<Urn> urns = invocation.getArgument(2);
+              Map<Urn, EntityResponse> responses = new HashMap<>();
+              for (Urn urn : urns) {
+                // Make t2 and t4 inactive (to simulate filtering)
+                boolean isInactive =
+                    urn.toString().equals("urn:li:test:t2")
+                        || urn.toString().equals("urn:li:test:t4");
+                TestInfo testInfo = isInactive ? createInactiveTestInfo() : createActiveTestInfo();
+                responses.put(urn, createEntityResponse(urn, testInfo));
+              }
+              return responses;
+            });
+
+    // Simulate the pagination loop from TestRefreshRunnable
+    int start = 0;
+    int total = pageSize;
+    int totalExtracted = 0;
+    int fetchCallCount = 0;
+
+    while (start < total) {
+      TestFetcher.TestFetchResult result = testFetcher.fetch(operationContext, start, pageSize);
+      total = result.getTotal();
+      totalExtracted += result.getTests().size();
+      start += pageSize;
+      fetchCallCount++;
+    }
+
+    // Verify all 3 pages were fetched
+    assertEquals(fetchCallCount, 3, "Should have made 3 fetch calls to get all pages");
+
+    // Verify total extracted (t1, t3, t5 are active; t2, t4 are inactive)
+    assertEquals(totalExtracted, 3, "Should have extracted 3 active tests");
+
+    // Verify search was called 3 times with correct start values
+    verify(mockEntitySearchService, times(1))
+        .search(any(), anyList(), eq(""), any(), any(), eq(0), eq(pageSize));
+    verify(mockEntitySearchService, times(1))
+        .search(any(), anyList(), eq(""), any(), any(), eq(2), eq(pageSize));
+    verify(mockEntitySearchService, times(1))
+        .search(any(), anyList(), eq(""), any(), any(), eq(4), eq(pageSize));
   }
 
   @Test(expectedExceptions = RuntimeException.class)
@@ -370,6 +495,22 @@ public class TestFetcherTest {
     }
 
     return new SearchResult().setEntities(entities).setNumEntities(entities.size());
+  }
+
+  /**
+   * Creates a search result with a specific total count (for pagination testing). This simulates a
+   * paginated search where total is greater than the entities in the current page.
+   */
+  private SearchResult createSearchResultWithTotal(int total, String... urnStrings)
+      throws URISyntaxException {
+    SearchEntityArray entities = new SearchEntityArray();
+    for (String urnString : urnStrings) {
+      SearchEntity entity = new SearchEntity();
+      entity.setEntity(Urn.createFromString(urnString));
+      entities.add(entity);
+    }
+
+    return new SearchResult().setEntities(entities).setNumEntities(total);
   }
 
   private Map<Urn, EntityResponse> createEntityResponses() throws URISyntaxException {

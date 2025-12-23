@@ -100,8 +100,12 @@ public class TestFetcher {
     List<Urn> testUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
+    // Use search total for pagination, not extracted count
+    // This ensures pagination continues correctly even if some tests are filtered out
+    int searchTotal = result.getNumEntities();
+
     if (testUrns.isEmpty()) {
-      return new TestFetchResult(Collections.emptyList(), 0);
+      return new TestFetchResult(Collections.emptyList(), searchTotal);
     }
 
     // Fetch aspects for each urn
@@ -118,7 +122,9 @@ public class TestFetcher {
             .flatMap(resp -> extractTest(resp).stream())
             .collect(Collectors.toList());
 
-    return new TestFetchResult(extractedTests, extractedTests.size());
+    // Return searchTotal (not extractedTests.size()) to ensure pagination continues correctly
+    // when some tests are filtered out (e.g., INACTIVE status, missing aspect)
+    return new TestFetchResult(extractedTests, searchTotal);
   }
 
   private Filter buildActiveFilter() {

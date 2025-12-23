@@ -1451,24 +1451,24 @@ public class TestEngine implements AutoCloseable {
         Map<String, Set<TestDefinition>> newTestPerEntityCache = new HashMap<>();
 
         int start = 0;
-        int count = 30;
-        int total = 30;
+        int pageSize = testsConfiguration.getCachePageSize();
+        int total = pageSize; // Initial value to enter the loop at least once
 
         while (start < total) {
           try {
             final TestFetcher.TestFetchResult testFetchResult =
-                _testFetcher.fetch(systemOpContext, start, count);
+                _testFetcher.fetch(systemOpContext, start, pageSize);
 
             addTestsToCache(
                 newTestCache, newTestInfoCache, newTestPerEntityCache, testFetchResult.getTests());
 
             total = testFetchResult.getTotal();
-            start = start + count;
+            start = start + pageSize;
           } catch (Exception e) {
             log.error(
-                "Failed to retrieve test urns! Skipping updating test cache until next refresh. start: {}, count: {}",
+                "Failed to retrieve test urns! Skipping updating test cache until next refresh. start: {}, pageSize: {}",
                 start,
-                count,
+                pageSize,
                 e);
             return;
           }

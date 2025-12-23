@@ -23,6 +23,10 @@ public class TestsConfiguration {
   private TestsHookConfiguration hook;
   private int cacheRefreshDelayIntervalSecs;
   private int cacheRefreshIntervalSecs;
+
+  /** Page size for fetching tests during cache refresh. Default is 30. */
+  private int cachePageSize;
+
   private TestsBootstrapConfiguration bootstrap;
   private ElasticSearchTestExecutorConfiguration elasticSearchExecutor;
   private ForwardingActionConfiguration forwardingAction;

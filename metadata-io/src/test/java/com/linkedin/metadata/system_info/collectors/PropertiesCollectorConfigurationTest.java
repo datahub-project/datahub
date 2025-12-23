@@ -999,6 +999,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataTests.bootstrap.activeDefaults",
           "metadataTests.cacheRefreshDelayIntervalSecs",
           "metadataTests.cacheRefreshIntervalSecs",
+          "metadataTests.cachePageSize",
           "metadataTests.forwardingAction.recipe",
           "metadataTests.futuresBatchSize",
           "metadataTests.hook.hookExecutionLimit.defaultExecutor",

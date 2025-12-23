@@ -223,6 +223,7 @@ public class BatchTestEngineTest extends AbstractTestNGSpringContextTests {
     testsConfiguration.setEnabled(true);
     testsConfiguration.setCacheRefreshDelayIntervalSecs(0);
     testsConfiguration.setCacheRefreshIntervalSecs(0);
+    testsConfiguration.setCachePageSize(200);
     testsConfiguration.setElasticSearchExecutor(new ElasticSearchTestExecutorConfiguration());
     testsConfiguration.getElasticSearchExecutor().setEnabled(true);
     testsConfiguration.setHook(new TestsHookConfiguration());
