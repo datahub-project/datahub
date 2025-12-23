@@ -175,14 +175,6 @@ public class CommonApplicationConfig {
                     "mTLS is ENABLED but no truststore is configured — client certificates will not be validated!");
               }
 
-              // Create a separate HTTPS configuration based on the HTTP config.
-              // In this setup, only one connector (HTTP or HTTPS) is active at a time,
-              // so we could safely reuse httpConfig directly. However, using a copy for HTTPS
-              // is a safer and more extensible pattern—especially if we ever want to support both
-              // HTTP and HTTPS connectors simultaneously in the future. This way, adding the
-              // SecureRequestCustomizer (needed for SSL: sets scheme/port, extracts SSL attributes,
-              // etc.)
-              // does not affect the base HTTP config and keeps the logic clear.
               HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
               httpsConfig.addCustomizer(new org.eclipse.jetty.server.SecureRequestCustomizer());
 
