@@ -577,3 +577,37 @@ def test_odbc_strip_athena_catalog_preserves_non_catalog_urns(odbc_lineage):
         stripped_lineage.upstreams[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.mytable,PROD)"
     )
+
+
+def test_odbc_strip_athena_3part_catalog_from_upstreams(odbc_lineage):
+    """Test that ODBC strips any 3-part table names to 2-part format (not just awsdatacatalog)."""
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
+    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    # Lineage with 3-part table name (catalog.database.table)
+    original_lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(
+                data_platform_pair=platform_pair,
+                urn="urn:li:dataset:(urn:li:dataPlatform:athena,my_catalog.my_schema.my_table,PROD)",
+            )
+        ],
+        column_lineage=[],
+    )
+
+    stripped_lineage = odbc_lineage._strip_athena_catalog_from_lineage(original_lineage)
+
+    assert len(stripped_lineage.upstreams) == 1
+    # First part should be stripped, leaving database.table format
+    assert (
+        stripped_lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,my_schema.my_table,PROD)"
+    )

@@ -1114,9 +1114,6 @@ class NativeQueryLineage(AbstractLineage):
 
 
 class OdbcLineage(AbstractLineage):
-    # Athena's default AWS Glue catalog prefix that needs to be stripped from URNs
-    ATHENA_CATALOG_PREFIX = "awsdatacatalog."
-
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
@@ -1233,31 +1230,34 @@ class OdbcLineage(AbstractLineage):
 
         # Strip Athena catalog prefix (e.g., "awsdatacatalog.") from URNs for athena platform
         # This ensures URN consistency with the standalone Athena connector which doesn't include the catalog
-        athena_platform = (
-            SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
-        )
-        if platform_pair.datahub_data_platform_name == athena_platform:
+        if (
+            platform_pair.datahub_data_platform_name
+            == SupportedDataPlatform.AMAZON_ATHENA.value.datahub_data_platform_name
+        ):
             result = self._strip_athena_catalog_from_lineage(result)
 
         return result
 
     def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
         """
-        Strip AWS catalog prefix (e.g., "awsdatacatalog.") from Athena URNs.
+        Strip catalog/database prefix from Athena URNs to normalize to database.table format.
 
-        Athena queries reference tables as catalog.database.table (e.g., awsdatacatalog.mydb.mytable),
-        but the standalone Athena connector generates URNs without the catalog prefix
-        (e.g., mydb.mytable). This method normalizes the URNs to ensure consistency.
+        Athena queries may reference tables as:
+        - awsdatacatalog.database.table (AWS Glue catalog)
+        - catalog.database.table (any 3-part reference like thread-prod-data.normalized-data.table)
+
+        This method strips the first part from 3-part references to produce database.table format,
+        matching the standalone Athena connector URN format and enabling lineage connections
+        to entities cataloged with 2-part names.
 
         This affects both:
         - Table-level lineage (upstreams[*].urn)
         - Column-level lineage (column_lineage[*].upstreams[*].table)
         """
-        catalog_prefix = self.ATHENA_CATALOG_PREFIX
         platform_marker = "urn:li:dataplatform:athena,"
 
         def strip_catalog_from_urn(urn: str) -> str:
-            """Strip catalog prefix from a single URN."""
+            """Strip first part from 3-part table names in URN."""
             urn_lower = urn.lower()
 
             marker_idx = urn_lower.find(platform_marker)
@@ -1267,27 +1267,25 @@ class OdbcLineage(AbstractLineage):
             # Position right after the platform marker (after "athena,")
             table_start = marker_idx + len(platform_marker)
 
-            # Check if awsdatacatalog. appears at the start of table name
-            if not urn_lower[table_start:].startswith(catalog_prefix):
-                return urn
-
-            # Extract the part after awsdatacatalog.
-            after_catalog_start = table_start + len(catalog_prefix)
             # Find the environment part (,PROD) or (,DEV) etc.
-            env_idx = urn.find(",", after_catalog_start)
+            env_idx = urn.find(",", table_start)
             if env_idx == -1:
                 return urn
 
-            table_path = urn[after_catalog_start:env_idx]
+            table_path = urn[table_start:env_idx]
+            parts = table_path.split(".")
 
-            # Only strip if there are 2+ parts remaining (database.table)
-            if "." not in table_path:
+            # Only strip if there are 3+ parts (catalog.database.table)
+            if len(parts) < 3:
                 return urn
 
-            # Reconstruct URN without the catalog prefix
-            new_urn = urn[:table_start] + urn[after_catalog_start:]
-            logger.debug(f"Stripped Athena catalog prefix from URN: {urn} -> {new_urn}")
-            return new_urn
+            # Strip first part, keep remaining parts (database.table)
+            stripped_path = ".".join(parts[1:])
+
+            # Reconstruct URN without the first part
+            stripped_urn = urn[:table_start] + stripped_path + urn[env_idx:]
+            logger.debug(f"Stripped catalog prefix from URN: {urn} -> {stripped_urn}")
+            return stripped_urn
 
         # Strip catalog from upstream table URNs
         updated_upstreams: List[DataPlatformTable] = []
