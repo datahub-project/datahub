@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Type, cast
+from typing import Dict, Iterable, List, Optional, Type, cast
 
 import avro.schema
 import confluent_kafka
@@ -413,7 +413,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=schema_metadata,
             ).as_workunit()
 
-        # Note: auto_browse_path_v2 processor will prepend platform instance to the path
+        # Source emits [env, platform]. The auto_browse_path_v2 processor prepends
+        # the platform instance URN when configured, resulting in final path:
+        # [platform_instance_urn, env, platform]
         browse_path_entries = [
             BrowsePathEntryClass(id=self.source_config.env.lower()),
             BrowsePathEntryClass(id=self.platform),
@@ -607,11 +609,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if self.consumer:
             self.consumer.close()
         super().close()
-
-    def _get_config_value_if_present(
-        self, config_dict: Dict[str, ConfigEntry], key: str
-    ) -> Any:
-        return
 
     def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:
         extra_topic_details = {}

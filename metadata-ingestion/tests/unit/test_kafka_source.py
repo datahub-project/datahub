@@ -235,6 +235,37 @@ def test_close(mock_kafka, mock_admin_client):
     assert mock_kafka_instance.close.call_count == 1
 
 
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_workunit_emission_order(mock_kafka, mock_admin_client):
+    """Test that workunits are emitted in the expected order for stateful ingestion."""
+    TOPIC_NAME = "test"
+
+    mock_kafka_instance = mock_kafka.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {TOPIC_NAME: None}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    ctx = PipelineContext(run_id="test_order")
+    kafka_source = KafkaSource.create(
+        {"connection": {"bootstrap": "localhost:9092"}},
+        ctx,
+    )
+    workunits = [w for w in kafka_source.get_workunits()]
+
+    aspect_order = [
+        wu.metadata.aspectName
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
+
+    assert aspect_order[0] == "status"
+    expected_aspects = {"status", "browsePathsV2", "datasetProperties", "subTypes"}
+    assert expected_aspects.issubset(set(aspect_order))
+    status_idx = aspect_order.index("status")
+    for aspect in ["browsePathsV2", "datasetProperties", "subTypes"]:
+        assert status_idx < aspect_order.index(aspect)
+
+
 @patch(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
