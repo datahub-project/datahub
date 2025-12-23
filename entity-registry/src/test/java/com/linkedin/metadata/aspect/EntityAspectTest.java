@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -302,7 +303,8 @@ public class EntityAspectTest {
             null,
             null,
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
-            null);
+            null,
+            Collections.emptyList());
 
     // Should create default system metadata
     SystemMetadata nullEntityDefaultMetadata = nullEntityAspect.getSystemMetadata();
@@ -331,7 +333,8 @@ public class EntityAspectTest {
             null, // No systemMetadata initially - should be populated from entityAspect
             null, // No auditStamp
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
-            entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT));
+            entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT),
+            Collections.emptyList());
 
     // This should trigger the condition we're testing:
     // "if (entityAspect != null && entityAspect.getSystemMetadata() != null)"
