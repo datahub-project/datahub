@@ -5,48 +5,6 @@ import sqlglot
 from pydantic import BaseModel
 
 
-def _restore_temp_table_prefix(
-    table_name: str, identifier: sqlglot.exp.Expression
-) -> str:
-    """Restore MSSQL temp table prefix (# or ##) based on SQLGlot identifier flags.
-
-    For MSSQL dialect, SQLGlot strips the # or ## prefix from temp tables
-    but sets flags on the identifier. We need to restore the prefix so that
-    downstream temp table detection (which checks for startswith("#")) works.
-    - Local temp tables (#name): 'temporary' flag is set
-    - Global temp tables (##name): 'global' flag is set
-
-    Note: Redshift also uses # for temp tables but SQLGlot keeps the prefix intact.
-
-    The following functions depend on the # prefix for temp table detection:
-      - datahub.ingestion.source.sql.mssql.source.SQLServerSource.is_temp_table()
-      - datahub.ingestion.source.sql_queries.SqlQueriesSource.is_temp_table()
-      - datahub.ingestion.source.bigquery_v2.queries_extractor.BigQueryQueriesExtractor.is_temp_table()
-      - datahub.ingestion.source.snowflake.snowflake_queries.SnowflakeQueriesExtractor.is_temp_table()
-      - datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator.is_temp_table()
-
-    Args:
-        table_name: The table name (potentially with prefix stripped by SQLGlot)
-        identifier: The SQLGlot identifier to check for temp flags
-
-    Returns:
-        The table name with # or ## prefix restored if needed
-    """
-    if not hasattr(identifier, "args"):
-        return table_name
-
-    is_local_temp = identifier.args.get("temporary", False)
-    # SQLGlot uses 'global' (no underscore) for global temp tables
-    is_global_temp = identifier.args.get("global", False)
-
-    if is_global_temp and not table_name.startswith("##"):
-        return f"##{table_name}"
-    elif is_local_temp and not table_name.startswith("#"):
-        return f"#{table_name}"
-
-    return table_name
-
-
 class _ParserBaseModel(
     BaseModel,
     arbitrary_types_allowed=True,
@@ -113,23 +71,16 @@ class _TableName(_FrozenModel):
     ) -> "_TableName":
         if isinstance(table.this, sqlglot.exp.Dot):
             # For tables that are more than 3 parts, the extra parts will be in a Dot.
-            # Unwind the Dot chain to get all parts.
+            # For now, we just merge them into the table name.
             parts = []
             exp = table.this
             while isinstance(exp, sqlglot.exp.Dot):
                 parts.append(exp.this.name)
                 exp = exp.expression
-
-            # exp now points to the final/rightmost identifier
-            # For MSSQL temp tables, restore the # prefix on the final part only
-            # This ensures we get "a.b.#temptable" not "#a.b.temptable"
-            final_part = _restore_temp_table_prefix(exp.name, exp)
-            parts.append(final_part)
+            parts.append(exp.name)
             table_name = ".".join(parts)
         else:
-            # Simple identifier - restore temp table prefix if needed
-            table_name = _restore_temp_table_prefix(table.this.name, table.this)
-
+            table_name = table.this.name
         return cls(
             database=table.catalog or default_db,
             db_schema=table.db or default_schema,
