@@ -581,23 +581,6 @@ smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
 )
 
 print(f"Created smart SQL assertion: {smart_sql_assertion.urn}")
-
-# Example with exclusion windows (e.g., exclude holiday periods)
-smart_sql_with_exclusions = client.assertions.sync_smart_sql_assertion(
-    dataset_urn=dataset_urn,
-    display_name="Smart Active Users Monitor",
-    statement="SELECT COUNT(DISTINCT user_id) FROM database.schema.events WHERE date = CURRENT_DATE",
-    sensitivity="high",
-    exclusion_windows=[
-        {"start": "2025-12-24T00:00:00", "end": "2025-12-26T00:00:00"},  # Christmas
-        {"start": "2025-01-01T00:00:00", "end": "2025-01-02T00:00:00"},  # New Year
-    ],
-    schedule="0 8 * * *",  # Daily at 8 AM
-    tags=["automated", "users", "smart_sql"],
-    enabled=True
-)
-
-print(f"Created smart SQL assertion with exclusions: {smart_sql_with_exclusions.urn}")
 ```
 
 </TabItem>
