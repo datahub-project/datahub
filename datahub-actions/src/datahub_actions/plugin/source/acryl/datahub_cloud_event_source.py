@@ -4,6 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union, cast
 
+from pydantic import Field
+
 from datahub.configuration import ConfigModel
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.client import DataHubGraph
@@ -59,8 +61,10 @@ def build_metadata_change_log_event(msg: ExternalEvent) -> MetadataChangeLogEven
 
 class DataHubEventsSourceConfig(ConfigModel):
     topics: Union[str, List[str]] = PLATFORM_EVENT_TOPIC_NAME
-    consumer_id: Optional[str] = None  # Used to store offset for the consumer.
-    lookback_days: Optional[int] = None
+    consumer_id: Optional[str] = Field(
+        default=None, description="Used to store offset for the consumer."
+    )
+    lookback_days: Optional[int] = Field(default=None)
     reset_offsets: Optional[bool] = False
     infinite_retry: Optional[bool] = False
 

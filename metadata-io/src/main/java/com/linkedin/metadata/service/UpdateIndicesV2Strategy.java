@@ -6,6 +6,9 @@ import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_T
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +17,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -22,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -34,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,9 +49,22 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * V2 update indices strategy implementation for UpdateIndicesService. This handles the legacy v2
  * mapping approach with per-entity indices.
+ *
+ * <p>When semantic search is enabled, this strategy also writes to the corresponding semantic
+ * indices (with "_semantic" suffix) to keep them in sync with the base V2 indices. Dual-write
+ * occurs when all three conditions are met:
+ *
+ * <ol>
+ *   <li>Semantic search is globally enabled
+ *   <li>The entity type is in the list of enabled entities for semantic search
+ *   <li>The semantic index exists in OpenSearch
+ * </ol>
  */
 @Slf4j
 public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
+
+  /** Cache TTL for semantic index existence checks (5 minutes) */
+  private static final long SEMANTIC_INDEX_CACHE_TTL_MINUTES = 5;
 
   private final EntityIndexVersionConfiguration v2Config;
   private final ElasticSearchService elasticSearchService;
@@ -53,22 +73,60 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final String idHashAlgo;
   private final V2MappingsBuilder mappingsBuilder;
 
+  // Semantic search configuration (optional - null if semantic search not configured)
+  @Nullable private final SemanticSearchConfiguration semanticSearchConfig;
+  @Nullable private final IndexConvention indexConvention;
+
+  // Cache for semantic index existence checks to avoid repeated HEAD requests
+  private final Cache<String, Boolean> semanticIndexExistsCache;
+
+  /**
+   * Creates an UpdateIndicesV2Strategy with optional semantic search support.
+   *
+   * @param v2Config V2 index configuration
+   * @param elasticSearchService Elasticsearch service for index operations
+   * @param searchDocumentTransformer Document transformer for search documents
+   * @param timeseriesAspectService Service for timeseries aspect operations
+   * @param idHashAlgo Hash algorithm for document IDs
+   * @param semanticSearchConfig Semantic search configuration (null to disable dual-write)
+   * @param indexConvention Index naming convention for deriving semantic index names (required)
+   */
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull String idHashAlgo) {
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
     this.idHashAlgo = idHashAlgo;
+    this.semanticSearchConfig = semanticSearchConfig;
+    this.indexConvention = indexConvention;
     this.mappingsBuilder =
         new V2MappingsBuilder(
             com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                 .v2(v2Config)
                 .build());
+    this.semanticIndexExistsCache =
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
+            .maximumSize(100)
+            .build();
+
+    // Log semantic search configuration at initialization
+    if (semanticSearchConfig == null) {
+      log.info(
+          "UpdateIndicesV2Strategy initialized: semantic dual-write DISABLED (config is null)");
+    } else {
+      log.info(
+          "UpdateIndicesV2Strategy initialized: semantic dual-write enabled={}, enabledEntities={}",
+          semanticSearchConfig.isEnabled(),
+          semanticSearchConfig.getEnabledEntities());
+    }
   }
 
   @Override
@@ -212,7 +270,25 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                 searchDocument.get(), previousSearchDocument.orElse(null))
             .toString();
 
+    // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
+
+    // #region agent debug log - dual-write decision point
+    log.debug(
+        "[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'",
+        entityName,
+        docId);
+    boolean shouldWrite = shouldWriteToSemanticIndex(opContext, entityName);
+    log.debug(
+        "[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'",
+        shouldWrite,
+        entityName);
+    // #endregion
+
+    // Dual-write to semantic index if enabled for this entity
+    if (shouldWrite) {
+      writeToSemanticIndex(entityName, finalDocument, docId);
+    }
   }
 
   void deleteSearchData(
@@ -235,7 +311,13 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
 
     if (isKeyAspect) {
+      // Delete from V2 index
       elasticSearchService.deleteDocument(opContext, entityName, docId);
+
+      // Also delete from semantic index if enabled
+      if (shouldWriteToSemanticIndex(opContext, entityName)) {
+        deleteFromSemanticIndex(entityName, docId);
+      }
       return;
     }
 
@@ -374,6 +456,127 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   @Override
   public boolean isEnabled() {
     return v2Config.isEnabled();
+  }
+
+  /**
+   * Checks whether we should write to the semantic index for the given entity.
+   *
+   * <p>Returns true only if ALL three conditions are met:
+   *
+   * <ol>
+   *   <li>Semantic search is globally enabled (semanticSearchConfig.isEnabled())
+   *   <li>The entity is in the list of enabled entities for semantic search
+   *   <li>The semantic index exists in OpenSearch
+   * </ol>
+   *
+   * @param opContext Operation context for index checks
+   * @param entityName The entity name to check
+   * @return true if we should write to the semantic index
+   */
+  @VisibleForTesting
+  boolean shouldWriteToSemanticIndex(
+      @Nonnull OperationContext opContext, @Nonnull String entityName) {
+    // Condition 1: Semantic search must be configured and enabled
+    if (semanticSearchConfig == null) {
+      log.info(
+          "Semantic dual-write check for '{}': SKIP - semanticSearchConfig is null", entityName);
+      return false;
+    }
+    if (!semanticSearchConfig.isEnabled()) {
+      log.info(
+          "Semantic dual-write check for '{}': SKIP - semantic search disabled (enabled={})",
+          entityName,
+          semanticSearchConfig.isEnabled());
+      return false;
+    }
+
+    // Condition 2: Entity must be in the enabled entities list
+    Set<String> enabledEntities = semanticSearchConfig.getEnabledEntities();
+    if (enabledEntities == null || !enabledEntities.contains(entityName)) {
+      log.info(
+          "Semantic dual-write check for '{}': SKIP - entity not in enabled list (enabledEntities={})",
+          entityName,
+          enabledEntities);
+      return false;
+    }
+
+    // Condition 3: Semantic index must exist
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    Boolean indexExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
+    if (indexExists == null) {
+      // Check if the index exists and cache the result
+      indexExists = checkSemanticIndexExists(semanticIndexName);
+      semanticIndexExistsCache.put(semanticIndexName, indexExists);
+      log.info(
+          "Semantic dual-write check for '{}': index existence check for '{}' = {} (cached)",
+          entityName,
+          semanticIndexName,
+          indexExists);
+    }
+
+    if (!indexExists) {
+      log.info(
+          "Semantic dual-write check for '{}': SKIP - semantic index '{}' does not exist",
+          entityName,
+          semanticIndexName);
+      return false;
+    }
+
+    log.info(
+        "Semantic dual-write check for '{}': ENABLED - will write to '{}'",
+        entityName,
+        semanticIndexName);
+    return true;
+  }
+
+  /**
+   * Checks if the semantic index exists in OpenSearch.
+   *
+   * @param semanticIndexName The semantic index name to check
+   * @return true if the index exists
+   */
+  private boolean checkSemanticIndexExists(@Nonnull String semanticIndexName) {
+    try {
+      return elasticSearchService.indexExists(semanticIndexName);
+    } catch (Exception e) {
+      log.warn("Error checking if semantic index {} exists: {}", semanticIndexName, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Writes a document to the semantic index for the given entity.
+   *
+   * @param entityName Entity name
+   * @param document The document to write
+   * @param docId Document ID
+   */
+  private void writeToSemanticIndex(
+      @Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    log.info(
+        "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
+        semanticIndexName,
+        entityName,
+        docId,
+        document.length());
+    elasticSearchService.upsertDocumentByIndexName(semanticIndexName, document, docId);
+  }
+
+  /**
+   * Deletes a document from the semantic index for the given entity.
+   *
+   * @param entityName Entity name
+   * @param docId Document ID
+   */
+  private void deleteFromSemanticIndex(@Nonnull String entityName, @Nonnull String docId) {
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    log.info(
+        "Semantic dual-write: DELETE from '{}' for entity '{}', docId='{}'",
+        semanticIndexName,
+        entityName,
+        docId);
+    elasticSearchService.deleteDocumentByIndexName(semanticIndexName, docId);
   }
 
   // Package-level methods for testing
