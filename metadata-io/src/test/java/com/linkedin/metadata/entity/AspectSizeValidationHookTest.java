@@ -181,7 +181,7 @@ public class AspectSizeValidationHookTest {
   }
 
   @Test
-  public void testDeletionFailureStillThrowsException() {
+  public void testDeletionFailurePropagatesException() {
     AspectSizeValidationConfig config =
         createEnabledConfig(15728640L, OversizedAspectRemediation.DELETE);
     AspectSizeValidationHook hook = new AspectSizeValidationHook(aspectDao, config);
@@ -195,9 +195,10 @@ public class AspectSizeValidationHookTest {
 
     try {
       hook.afterSerialization(systemAspect, serializedAspect);
-      fail("Expected AspectSizeExceededException");
-    } catch (AspectSizeExceededException exception) {
-      assertEquals(exception.getValidationPoint(), ValidationPoint.POST_DB_PATCH);
+      fail("Expected RuntimeException");
+    } catch (RuntimeException exception) {
+      // Database errors should propagate naturally for better incident response
+      assertEquals(exception.getMessage(), "Database error");
       verify(aspectDao, times(1)).deleteAspect(urn, STATUS_ASPECT_NAME, 0L);
     }
   }
