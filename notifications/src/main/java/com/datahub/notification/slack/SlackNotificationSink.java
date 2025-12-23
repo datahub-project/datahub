@@ -1071,7 +1071,7 @@ public class SlackNotificationSink implements NotificationSink {
     final String resultsUrl =
         String.format(
             "%s%s/Validation/Assertions?assertion_urn=%s",
-            this.baseUrl, entityPath, urlEncode(assertionUrn));
+            this.baseUrl, entityPath, urlEncode(normalizeAssertionUrn(assertionUrn)));
 
     final String result = request.getMessage().getParameters().get("result");
     final String resultReason = request.getMessage().getParameters().get("resultReason");
@@ -1544,6 +1544,25 @@ public class SlackNotificationSink implements NotificationSink {
     } catch (UnsupportedEncodingException e) {
       throw new RuntimeException("Failed to encode string", e);
     }
+  }
+
+  /**
+   * Normalizes the assertion urn parameter to a bare URN string.
+   *
+   * <p>We have observed cases where {@code assertionUrn} contains a query string suffix (e.g.
+   * {@code urn:li:assertion:...?...}). If we URL-encode such a value and place it into the {@code
+   * assertion_urn=} query param, we end up with a "double-encoded" / nested query param in the
+   * final URL.
+   */
+  private String normalizeAssertionUrn(@Nullable final String assertionUrn) {
+    if (assertionUrn == null) {
+      return "";
+    }
+    int idx = assertionUrn.indexOf('?');
+    if (idx >= 0) {
+      return assertionUrn.substring(0, idx);
+    }
+    return assertionUrn;
   }
 
   /**

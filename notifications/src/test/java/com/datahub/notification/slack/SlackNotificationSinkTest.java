@@ -600,6 +600,101 @@ public class SlackNotificationSinkTest {
   }
 
   @Test
+  public void testNativeAssertionNotificationStripsQueryFromAssertionUrn() throws Exception {
+    SettingsProvider mockSettingsProvider = mock(SettingsProvider.class);
+    Mockito.when(mockSettingsProvider.getGlobalSettings(opContext)).thenReturn(enabledSettings());
+    ConnectionService mockConnectionService = mock(ConnectionService.class);
+    Mockito.when(
+            mockConnectionService.getConnectionDetails(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(null);
+    IdentityProvider mockIdentityProvider = mock(IdentityProvider.class);
+    Mockito.when(mockIdentityProvider.getUser(any(OperationContext.class), eq(TEST_USER_URN)))
+        .thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
+    SecretProvider mockSecretProvider = mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = mock(IntegrationsService.class);
+
+    // Init the slack client mock
+    MethodsClient mockSlackClient = mock(MethodsClient.class);
+    UsersLookupByEmailRequest lookupRequests =
+        UsersLookupByEmailRequest.builder().email("test@gmail.com").build();
+    UsersLookupByEmailResponse lookupResponse = new UsersLookupByEmailResponse();
+    lookupResponse.setOk(true);
+    User slackUser = new User();
+    slackUser.setId("test-id");
+    lookupResponse.setUser(slackUser);
+    Mockito.when(mockSlackClient.usersLookupByEmail(eq(lookupRequests))).thenReturn(lookupResponse);
+
+    ChatPostMessageRequest dmMsgRequest =
+        ChatPostMessageRequest.builder()
+            .channel("12345")
+            .text(
+                String.format(
+                    "*<%s|%s>*\n%s *Smart Column Assertion* `column x is greater than y` has passed!\n<%s|View results>",
+                    "http://localhost:9002/datasets/test",
+                    "SampleName",
+                    ":white_check_mark:",
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
+            .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
+            .build();
+    ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
+    defaultChannelMsgResponse.setOk(true);
+    Mockito.when(mockSlackClient.chatPostMessage(eq(dmMsgRequest)))
+        .thenReturn(defaultChannelMsgResponse);
+
+    SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.botToken = TEST_BOT_TOKEN;
+    sink.init(
+        opContext,
+        new NotificationSinkConfig(
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
+            mockEntityClient,
+            mockSettingsProvider,
+            mockIdentityProvider,
+            mockEntityNameProvider,
+            mockSecretProvider,
+            mockConnectionService,
+            mockIntegrationsService,
+            TEST_BASE_URL));
+
+    NotificationRequest notificationRequest = new NotificationRequest();
+    notificationRequest.setMessage(
+        new NotificationMessage()
+            .setTemplate(
+                com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+                    NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "assertionUrn",
+                        "urn:li:assertion:test?assertion_urn=urn:li:assertion:test",
+                        "assertionType",
+                        "FIELD",
+                        "entityName",
+                        "SampleName",
+                        "entityPath",
+                        "/datasets/test",
+                        "result",
+                        "SUCCESS",
+                        "resultReason",
+                        "The assertion met the expected criteria.",
+                        "description",
+                        "column x is greater than y",
+                        "sourceType",
+                        "INFERRED"))));
+
+    notificationRequest.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.SLACK_DM)
+                    .setId("12345"))));
+
+    sink.send(opContext, notificationRequest, new NotificationContext());
+    Mockito.verify(mockSlackClient, Mockito.times(1)).chatPostMessage(eq(dmMsgRequest));
+  }
+
+  @Test
   public void testDeprecationNotification() throws Exception {
     /*
      * This test verifies that sending a notification for deprecation updates work as expected.

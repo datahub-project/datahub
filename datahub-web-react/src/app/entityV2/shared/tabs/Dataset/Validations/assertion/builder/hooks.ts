@@ -2,6 +2,7 @@ import { message } from 'antd';
 import { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
+import { isValidAssertionUrnFormat } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/assertionUrnUtils';
 import { getFreshnessSourceOption } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
@@ -64,6 +65,14 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
     useEffect(() => {
         if (assertionUrnParam) {
             const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
+
+            if (!isValidAssertionUrnFormat(decodedAssertionUrn)) {
+                message.error(
+                    `The assertion link appears to be malformed (URN: ${decodedAssertionUrn}). Please try again or navigate to the assertion directly.`,
+                );
+                return;
+            }
+
             setFocusAssertionUrn(decodedAssertionUrn);
 
             // Remove the query parameter from the URL
