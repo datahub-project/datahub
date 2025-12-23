@@ -440,8 +440,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         description: Optional[str] = None
         external_url: Optional[str] = None
-        # Initialize all_tags outside Avro block to support meta_mapping tags accumulation.
-        # Will only emit GlobalTagsClass if non-empty (checked before yield).
         all_tags: List[str] = []
 
         if (
@@ -499,11 +497,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
-        if all_tags:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=mce_builder.make_global_tag_aspect_with_tag_list(all_tags),
-            ).as_workunit()
+            # Emit tags collected from schema and meta_mapping
+            if all_tags:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=mce_builder.make_global_tag_aspect_with_tag_list(all_tags),
+                ).as_workunit()
 
         if self.source_config.external_url_base:
             base_url = self.source_config.external_url_base.rstrip("/")
