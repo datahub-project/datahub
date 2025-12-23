@@ -23,6 +23,7 @@ from datahub_executor.common.metric.types import (
     UnsupportedMetricException,
 )
 from datahub_executor.common.source.provider import SourceProvider
+from datahub_executor.common.source.source import get_assertion_query_tags
 from datahub_executor.common.types import (
     DatasetFilter,
     DatasetVolumeAssertionParameters,
@@ -69,6 +70,7 @@ class MetricResolver:
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
         strategy: Optional[MetricResolverStrategy] = None,
+        assertion_urn: Optional[str] = None,
         runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> Metric:
         """
@@ -90,6 +92,7 @@ class MetricResolver:
                 database_params=database_params,
                 filter_params=filter_params,
                 strategy=strategy,
+                assertion_urn=assertion_urn,
                 runtime_parameters=runtime_parameters,
             )
 
@@ -107,6 +110,7 @@ class MetricResolver:
         high_watermark_field: Optional[SchemaFieldSpec],
         previous_high_watermark: Optional[str],
         strategy: Optional[MetricResolverStrategy] = None,
+        assertion_urn: Optional[str] = None,
         runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> Metric:
         """
@@ -138,7 +142,8 @@ class MetricResolver:
                 filter_params,
                 high_watermark_field,
                 previous_high_watermark,
-                runtime_parameters,
+                assertion_urn=assertion_urn,
+                runtime_parameters=runtime_parameters,
             )
 
         # Add more handling if you support other MetricSourceType values
@@ -221,6 +226,7 @@ class MetricResolver:
         filter_params: Optional[DatasetFilter],
         high_watermark_field: Optional[SchemaFieldSpec],
         previous_high_watermark: Optional[str],
+        assertion_urn: Optional[str],
         runtime_parameters: Optional[RuntimeParameters],
     ) -> Metric:
         # Step 1: Retrieve Connection
@@ -232,6 +238,8 @@ class MetricResolver:
 
         # Step 2: Create a source from the connection
         source = self.source_provider.create_source_from_connection(connection)
+        if assertion_urn:
+            source.set_query_tag_context(get_assertion_query_tags(assertion_urn))
         logger.debug("MetricResolver: Created source for entity_urn=%s", entity_urn)
 
         metric_value = source.get_field_metric_value(
@@ -259,6 +267,7 @@ class MetricResolver:
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
         strategy: Optional[MetricResolverStrategy],
+        assertion_urn: Optional[str],
         runtime_parameters: Optional[RuntimeParameters],
     ) -> Metric:
         """
@@ -288,6 +297,7 @@ class MetricResolver:
                 database_params,
                 filter_params,
                 DatasetVolumeSourceType.INFORMATION_SCHEMA,
+                assertion_urn=assertion_urn,
             )
 
         elif source_type == MetricSourceType.QUERY:
@@ -297,6 +307,7 @@ class MetricResolver:
                 database_params,
                 filter_params,
                 DatasetVolumeSourceType.QUERY,
+                assertion_urn=assertion_urn,
                 runtime_parameters=runtime_parameters,
             )
 
@@ -315,6 +326,7 @@ class MetricResolver:
         database_params: AssertionDatabaseParams,
         filter_params: Optional[DatasetFilter],
         volume_source_type: DatasetVolumeSourceType,  # TODO: Change this to be something else once the source is improved.
+        assertion_urn: Optional[str],
         runtime_parameters: Optional[RuntimeParameters] = None,
     ) -> Metric:
         """
@@ -338,6 +350,8 @@ class MetricResolver:
 
         # Step 2: Create a source from the connection
         source = self.source_provider.create_source_from_connection(connection)
+        if assertion_urn:
+            source.set_query_tag_context(get_assertion_query_tags(assertion_urn))
         logger.debug("MetricResolver: Created source for entity_urn=%s", entity_urn)
 
         # Merge runtime parameters into filter dict so Source can apply substitution

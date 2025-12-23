@@ -41,7 +41,7 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 
-def _add_redshift_query_tag(query: str) -> str:
+def get_partner_query_tag() -> str:
     """
     Adds AWS Redshift query tagging comment to identify DataHub queries.
     Format: -- partner: DataHub -v <version>
@@ -49,8 +49,7 @@ def _add_redshift_query_tag(query: str) -> str:
     This is required for AWS Redshift Ready program compliance and helps
     identify DataHub traffic in Redshift query logs.
     """
-    tag_comment = f"-- partner: DataHub -v {__version__}\n"
-    return tag_comment + query
+    return f"-- partner: DataHub -v {__version__}"
 
 
 """
@@ -109,9 +108,12 @@ class RedshiftSource(Source):
     def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
         return convert_value_for_comparison(column_value, column_type)
 
+    def _apply_partner_query_tag(self, query: str) -> str:
+        return f"{get_partner_query_tag()}\n{query}"
+
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         # Add query tagging for AWS Redshift Ready program
-        tagged_query = _add_redshift_query_tag(query)
+        tagged_query = self._apply_partner_query_tag(query)
 
         with self.connection.get_client().cursor() as cur:
             try:
@@ -130,7 +132,9 @@ class RedshiftSource(Source):
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
         # Add query tagging for AWS Redshift Ready program
-        tagged_query = _add_redshift_query_tag(query)
+        tagged_query = self._apply_partner_query_tag(
+            self._apply_query_tag_comment(query)
+        )
 
         with self.connection.get_client().cursor() as cur:
             try:

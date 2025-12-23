@@ -990,6 +990,7 @@ class TestFieldEvaluator:
             self.params.dataset_field_parameters.changed_rows_field,
             "2023-01-01",  # prev_high_watermark_value
             ANY,  # strategy
+            assertion_urn=self.assertion.urn,
             runtime_parameters=None,
         )
 

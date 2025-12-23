@@ -30,7 +30,7 @@ from datahub_executor.common.exceptions import (
     InvalidParametersException,
     SourceConnectionErrorException,
 )
-from datahub_executor.common.source.source import Source
+from datahub_executor.common.source.source import Source, get_assertion_query_tags
 from datahub_executor.common.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -145,6 +145,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         # This is where we drop into system-specific bits --> Need a way to do this for Snowflake first.
         # TODO: Consider what it would take to batch queries. Maybe the client aggregates?
         source = self.source_provider.create_source_from_connection(connection)
+        source.set_query_tag_context(get_assertion_query_tags(assertion.urn))
 
         if (
             parameters

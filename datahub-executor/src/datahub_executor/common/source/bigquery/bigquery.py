@@ -11,7 +11,7 @@ from google.api_core.exceptions import (
     NotFound,
     ServiceUnavailable,
 )
-from google.cloud.bigquery import QueryJob
+from google.cloud.bigquery import QueryJob, QueryJobConfig
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
@@ -28,7 +28,7 @@ from datahub_executor.common.source.bigquery.time_utils import (
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
 )
-from datahub_executor.common.source.source import Source
+from datahub_executor.common.source.source import DATAHUB_OBSERVE_SOURCE_VALUE, Source
 from datahub_executor.common.source.sql.field_metrics_sql_generator import (
     FieldMetricsSQLGenerator,
 )
@@ -65,6 +65,9 @@ logger = logging.getLogger(__name__)
 
 # Type alias for clarity
 RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
+
+# BigQuery job label key/value for identifying observe-originated queries.
+DATAHUB_OBSERVE_BIGQUERY_LABELS: Dict[str, str] = {DATAHUB_OBSERVE_SOURCE_VALUE: "true"}
 
 
 # Note that we only support Email address for username filter inside of this source!
@@ -184,10 +187,15 @@ class BigQuerySource(Source):
 
     def _execute_fetchall_query(self, query: str) -> QueryJob:  # type: ignore[override]  # TODO: Sync with parent class
         self._validate_custom_sql(query)
-        return self._execute_fetchall_query_internal(query)
+        tagged_query = self._apply_query_tag_comment(query)
+        return self._execute_fetchall_query_internal(tagged_query)
 
     def _execute_fetchall_query_internal(self, query: str) -> QueryJob:  # type: ignore[override]  # TODO: Sync with parent class
         try:
+            # Add native BigQuery labels when this query is part of assertion/observe execution.
+            if self._query_tag_context:
+                job_config = QueryJobConfig(labels=DATAHUB_OBSERVE_BIGQUERY_LABELS)
+                return self.connection.get_client().query(query, job_config=job_config)
             return self.connection.get_client().query(query)
         except (
             NotFound,

@@ -14,7 +14,12 @@ from datahub_executor.common.exceptions import (
 )
 from datahub_executor.common.source.redshift.redshift import (
     RedshiftSource,
-    _add_redshift_query_tag,
+    get_partner_query_tag,
+)
+from datahub_executor.common.source.source import (
+    ASSERTION_URN_TAG_KEY,
+    DATAHUB_OBSERVE_QUERY_SOURCE_TAG,
+    get_assertion_query_tags,
 )
 from datahub_executor.common.source.types import DatabaseParams
 from datahub_executor.common.types import (
@@ -131,6 +136,7 @@ TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
         FROM test_db.public.test_table
         WHERE foo = 'bar'
     """
+TEST_ASSERTION_URN = "urn:li:assertion:123"
 
 
 class TestRedshiftSource:
@@ -375,6 +381,25 @@ class TestRedshiftSource:
         self.mock_cursor.fetchall.assert_called_once()
         assert result == [("test",)]
 
+    def test_execute_fetchall_query_with_query_tagging(self) -> None:
+        query = "SELECT * FROM TABLE;"
+        self.redshift_source.set_query_tag_context(
+            get_assertion_query_tags(TEST_ASSERTION_URN)
+        )
+
+        # Mock fetchall return value
+        self.mock_cursor.execute = Mock()
+        self.mock_cursor.fetchall.return_value = [("test",)]
+
+        result = self.redshift_source._execute_fetchall_query(query)
+
+        expected_tagged_query = (
+            f"{get_partner_query_tag()}\n"
+            f"/* {DATAHUB_OBSERVE_QUERY_SOURCE_TAG} {ASSERTION_URN_TAG_KEY}={TEST_ASSERTION_URN} */\n{query}"
+        )
+        self.mock_cursor.execute.assert_called_with(expected_tagged_query)
+        assert result == [("test",)]
+
     def test_execute_fetchone_query(self) -> None:
         query = "SELECT * FROM TABLE;"
 
@@ -390,6 +415,25 @@ class TestRedshiftSource:
         expected_tagged_query = f"-- partner: DataHub -v {__version__}\n{query}"
         self.mock_cursor.execute.assert_called_with(expected_tagged_query)
         self.mock_cursor.fetchone.assert_called_once()
+        assert result == ("test",)
+
+    def test_execute_fetchone_query_with_query_tagging(self) -> None:
+        query = "SELECT * FROM TABLE;"
+        self.redshift_source.set_query_tag_context(
+            get_assertion_query_tags(TEST_ASSERTION_URN)
+        )
+
+        # Mock fetchone return value
+        self.mock_cursor.execute = Mock()
+        self.mock_cursor.fetchone.return_value = ("test",)
+
+        result = self.redshift_source._execute_fetchone_query(query)
+
+        expected_tagged_query = (
+            f"{get_partner_query_tag()}\n"
+            f"/* {DATAHUB_OBSERVE_QUERY_SOURCE_TAG} {ASSERTION_URN_TAG_KEY}={TEST_ASSERTION_URN} */\n{query}"
+        )
+        self.mock_cursor.execute.assert_called_with(expected_tagged_query)
         assert result == ("test",)
 
     def test_build_audit_log_results(self) -> None:
@@ -585,26 +629,8 @@ class TestRedshiftSource:
         convert_value_mock.assert_not_called()
 
 
-def test_add_redshift_query_tag():
-    """Test that query tagging adds the correct comment format for AWS Redshift Ready program."""
-    query = "SELECT * FROM test_table"
-    tagged_query = _add_redshift_query_tag(query)
-
-    # Verify the tag comment is prepended
-    expected_tag = f"-- partner: DataHub -v {__version__}\n"
-    assert tagged_query.startswith(expected_tag), "Query should start with tag comment"
-
-    # Verify the original query is preserved after the tag
-    assert "SELECT * FROM test_table" in tagged_query, (
-        "Original query should be present"
-    )
-
-    # Verify format matches AWS requirements
-    assert tagged_query == expected_tag + query, "Tagged query format is correct"
-
-
 def test_query_tagging_in_execution():
-    """Verify that query tagging is applied in actual query execution methods."""
+    """Verify that partner tag + observe tag are applied in actual query execution methods."""
     mock_connection = Mock(spec=RedshiftConnection)
     mock_cursor = Mock()
     cursor_context_manager = Mock()
@@ -614,16 +640,21 @@ def test_query_tagging_in_execution():
     mock_cursor.fetchall.return_value = []
 
     source = RedshiftSource(mock_connection)
+    source.set_query_tag_context(get_assertion_query_tags(TEST_ASSERTION_URN))
 
     # Execute a simple query
     test_query = "SELECT 1"
-    source._execute_fetchall_query_internal(test_query)
+    source._execute_fetchall_query(test_query)
 
     # Verify the executed query was tagged
     mock_cursor.execute.assert_called_once()
     executed_query = mock_cursor.execute.call_args[0][0]
 
-    assert executed_query.startswith(f"-- partner: DataHub -v {__version__}\n"), (
-        "Query should be tagged"
+    assert executed_query.startswith(f"{get_partner_query_tag()}\n"), (
+        "Missing partner tag"
     )
+    assert (
+        f"/* {DATAHUB_OBSERVE_QUERY_SOURCE_TAG} {ASSERTION_URN_TAG_KEY}={TEST_ASSERTION_URN} */\n"
+        in executed_query
+    ), "Missing observe tag"
     assert "SELECT 1" in executed_query, "Original query should be present"

@@ -1,4 +1,5 @@
 import datetime
+import json
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -15,6 +16,11 @@ from datahub_executor.common.exceptions import (
 from datahub_executor.common.source.snowflake.snowflake import SnowflakeSource
 from datahub_executor.common.source.snowflake.types import (
     DEFAULT_OPERATION_TYPES_FILTER,
+)
+from datahub_executor.common.source.source import (
+    ASSERTION_URN_TAG_KEY,
+    DATAHUB_OBSERVE_QUERY_SOURCE_TAG,
+    get_assertion_query_tags,
 )
 from datahub_executor.common.source.types import DatabaseParams
 from datahub_executor.common.types import (
@@ -208,6 +214,7 @@ TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
         WHERE foo = 'bar'
     """
 TEST_CUSTOM_SQL_STATEMENT = "SELECT SUM(num_items) FROM test_db.public.test_table;"
+TEST_ASSERTION_URN = "urn:li:assertion:123"
 
 
 class TestSnowflakeSource:
@@ -419,6 +426,28 @@ class TestSnowflakeSource:
         self.mock_cursor.fetchall.assert_called()
         assert result == [("test",)]
 
+    def test_execute_fetchall_query_with_query_tagging(self) -> None:
+        query = "SELECT * FROM TABLE;"
+        self.snowflake_source.set_query_tag_context(
+            get_assertion_query_tags(TEST_ASSERTION_URN)
+        )
+
+        # Mock fetchall return value
+        self.mock_cursor.fetchall.return_value = [("test",)]
+
+        result = self.snowflake_source._execute_fetchall_query(query)
+
+        expected_query_tag_stmt = (
+            "ALTER SESSION SET QUERY_TAG = "
+            f"'{json.dumps({'query_source': 'datahub_observe', 'assertion_urn': TEST_ASSERTION_URN}, separators=(',', ':'))}';"
+        )
+        expected_tagged_query = f"/* {DATAHUB_OBSERVE_QUERY_SOURCE_TAG} {ASSERTION_URN_TAG_KEY}={TEST_ASSERTION_URN} */\n{query}"
+
+        executed_queries = [c.args[0] for c in self.mock_cursor.execute.call_args_list]
+        assert expected_query_tag_stmt in executed_queries
+        assert expected_tagged_query in executed_queries
+        assert result == [("test",)]
+
     def test_execute_fetchone_query(self) -> None:
         query = "SELECT * FROM TABLE;"
 
@@ -433,6 +462,28 @@ class TestSnowflakeSource:
         self.mock_cursor.execute.assert_called_with(query)
         self.mock_cursor.fetchone.assert_called()
         assert result == []  # None gets converted to empty list
+
+    def test_execute_fetchone_query_with_query_tagging(self) -> None:
+        query = "SELECT * FROM TABLE;"
+        self.snowflake_source.set_query_tag_context(
+            get_assertion_query_tags(TEST_ASSERTION_URN)
+        )
+
+        # Mock fetchone return value
+        self.mock_cursor.fetchone.return_value = None
+
+        result = self.snowflake_source._execute_fetchone_query(query)
+
+        expected_query_tag_stmt = (
+            "ALTER SESSION SET QUERY_TAG = "
+            f"'{json.dumps({'query_source': 'datahub_observe', 'assertion_urn': TEST_ASSERTION_URN}, separators=(',', ':'))}';"
+        )
+        expected_tagged_query = f"/* {DATAHUB_OBSERVE_QUERY_SOURCE_TAG} {ASSERTION_URN_TAG_KEY}={TEST_ASSERTION_URN} */\n{query}"
+
+        executed_queries = [c.args[0] for c in self.mock_cursor.execute.call_args_list]
+        assert expected_query_tag_stmt in executed_queries
+        assert expected_tagged_query in executed_queries
+        assert result == []
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:
         with pytest.raises(InvalidParametersException):

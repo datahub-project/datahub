@@ -87,10 +87,12 @@ class DatabricksSource(Source):
         client = self.connection.get_client()
         try:
             with client.cursor() as cursor:
-                return cursor.execute(query).fetchone()
+                tagged_query = self._apply_query_tag_comment(query)
+                return cursor.execute(tagged_query).fetchone()
         except Exception as e:
             raise SourceQueryFailedException(
-                message=f"Source query (Databricks) failed with error: {e}", query=query
+                message=f"Source query (Databricks) failed with error: {e}",
+                query=tagged_query,
             )
 
     def _get_database_string(

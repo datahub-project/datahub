@@ -25,6 +25,7 @@ from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.metric.types import Metric
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.source.provider import SourceProvider
+from datahub_executor.common.source.source import get_assertion_query_tags
 from datahub_executor.common.state.assertion_state_provider import (
     AssertionStateProvider,
 )
@@ -249,6 +250,7 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         sql_assertion = assertion.sql_assertion
 
         source = self.source_provider.create_source_from_connection(connection)
+        source.set_query_tag_context(get_assertion_query_tags(assertion.urn))
         database_params = get_database_parameters(assertion)
 
         # Apply optional runtime parameter substitution to support dynamic SQL

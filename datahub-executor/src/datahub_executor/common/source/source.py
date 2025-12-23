@@ -1,4 +1,6 @@
+import json
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -45,6 +47,71 @@ logger = logging.getLogger(__name__)
 # Type alias for clarity
 RuntimeParameters = Dict[str, Any]  # Runtime template variables for ${var} substitution
 
+# Shared token for all “observe” tagging surfaces (SQL comment tags, BigQuery labels, etc).
+DATAHUB_OBSERVE_SOURCE_VALUE = "datahub_observe"
+
+DATAHUB_OBSERVE_QUERY_SOURCE_TAG = f"query_source={DATAHUB_OBSERVE_SOURCE_VALUE}"
+ASSERTION_URN_TAG_KEY = "assertion_urn"
+
+
+def sanitize_query_tag_fragment(value: str) -> str:
+    """
+    Sanitizes a tag fragment to ensure it is safe to embed inside a SQL comment.
+
+    This is not intended for SQL literal escaping; it only protects comment formatting.
+    """
+    value = value.replace("*/", "* /")
+    value = value.replace("\\", "\\\\")
+    value = value.replace('"', '\\"')
+    value = value.replace("\n", " ").replace("\r", " ")
+    return value
+
+
+def get_assertion_query_tags(assertion_urn: str) -> List[str]:
+    return [
+        DATAHUB_OBSERVE_QUERY_SOURCE_TAG,
+        f"{ASSERTION_URN_TAG_KEY}={sanitize_query_tag_fragment(assertion_urn)}",
+    ]
+
+
+def tag_fragments_to_tag_map(
+    tag_fragments: List[str],
+) -> Dict[str, Union[str, bool]]:
+    """
+    Convert tag fragments into a key/value map suitable for JSON serialization.
+
+    Rules:
+    - If the fragment contains '=', treat as key=value -> {key: value}
+    - Otherwise treat as key -> {key: true}
+    """
+    result: Dict[str, Union[str, bool]] = {}
+    for fragment in tag_fragments:
+        frag = fragment.strip()
+        if not frag:
+            continue
+        if "=" in frag:
+            key, value = frag.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            # Keep values as strings; JSON serialization will quote/escape as needed.
+            result[key] = value.strip()
+        else:
+            result[frag] = True
+    return result
+
+
+def tag_fragments_to_json(tag_fragments: List[str]) -> str:
+    """
+    Produce a compact JSON object string from tag fragments.
+    """
+    return json.dumps(tag_fragments_to_tag_map(tag_fragments), separators=(",", ":"))
+
+
+@dataclass(frozen=True)
+class QueryTagContext:
+    tag_fragments: List[str]
+
 
 class Source:
     """Base class for a connector responsible for fetching information from external sources. Parallel concept to a normal ingestion source."""
@@ -53,16 +120,56 @@ class Source:
     source_name: str
     field_values_sql_generator: FieldValuesSQLGenerator
     field_metrics_sql_generator: FieldMetricsSQLGenerator
+    _query_tag_context: Optional[QueryTagContext]
     row_limit: int = (
         5  # row limit to prevent large queries but still show recent events
     )
 
     def __init__(self, connection: Connection):
         self.connection = connection
+        self._query_tag_context = None
+
+    def set_query_tag_context(self, tag_fragments: List[str]) -> None:
+        """
+        Sets a per-instance tagging context that will be applied to all queries executed by this Source.
+
+        Tag fragments are arbitrary strings that will be sanitized and embedded in a portable SQL comment.
+        Example fragment: datahub-observe assertionUrn="urn:li:assertion:..."
+        """
+        self._query_tag_context = QueryTagContext(tag_fragments=list(tag_fragments))
+
+    @staticmethod
+    def _escape_sql_comment_value(value: str) -> str:
+        # Prevent comment termination. Also escape quotes to keep the tag parseable.
+        # Note: this is not intended for SQL literal use, only for comment payloads.
+        value = value.replace("*/", "* /")
+        value = value.replace("\\", "\\\\")
+        value = value.replace('"', '\\"')
+        return value
+
+    def _apply_query_tag_comment(self, query: str) -> str:
+        """
+        Adds a portable SQL comment prefix for observability.
+
+        Format: /* <tag1> <tag2> <tag3> */
+        """
+        if not self._query_tag_context:
+            return query
+        safe_fragments = [
+            sanitize_query_tag_fragment(f)
+            for f in self._query_tag_context.tag_fragments
+        ]
+        # Ensure stable formatting for easier parsing and testing.
+        safe_fragments = [f for f in safe_fragments if f]
+        if not safe_fragments:
+            return query
+        tag_comment = "/* " + " ".join(safe_fragments) + " */\n"
+        return tag_comment + query
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
         self._validate_custom_sql(query)
-        return self._execute_fetchall_query_internal(query)
+        tagged_query = self._apply_query_tag_comment(query)
+        return self._execute_fetchall_query_internal(tagged_query)
 
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         raise NotImplementedError()

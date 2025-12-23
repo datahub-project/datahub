@@ -44,7 +44,7 @@ from datahub_executor.common.monitor.client.client import (
     MonitorClient,
 )
 from datahub_executor.common.source.provider import SourceProvider
-from datahub_executor.common.source.source import Source
+from datahub_executor.common.source.source import Source, get_assertion_query_tags
 from datahub_executor.common.state.assertion_state_provider import (
     AssertionStateProvider,
 )
@@ -481,6 +481,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                 )
 
             source = self.source_provider.create_source_from_connection(connection)
+            source.set_query_tag_context(get_assertion_query_tags(assertion.urn))
             database_params = get_database_parameters(assertion)
 
             (
@@ -507,6 +508,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             convert_field_parameters_to_metric_resolver_strategy(
                 parameters.dataset_field_parameters
             ),
+            assertion_urn=assertion.urn,
             runtime_parameters=context.runtime_parameters,
         )
 
@@ -612,6 +614,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             )
 
         source = self.source_provider.create_source_from_connection(connection)
+        source.set_query_tag_context(get_assertion_query_tags(assertion.urn))
         database_params = get_database_parameters(assertion)
 
         return self._evaluate_field_values_assertion(

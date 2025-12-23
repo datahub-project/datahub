@@ -12,7 +12,7 @@ from datahub_executor.common.source.snowflake.time_utils import (
     convert_millis_to_timestamp_type,
     convert_value_for_comparison,
 )
-from datahub_executor.common.source.source import Source
+from datahub_executor.common.source.source import Source, tag_fragments_to_json
 from datahub_executor.common.source.sql.field_metrics_sql_generator import (
     FieldMetricsSQLGenerator,
 )
@@ -97,6 +97,11 @@ class SnowflakeSource(Source):
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         try:
             with self.connection.get_client().cursor() as cur:
+                if self._query_tag_context:
+                    tag_value_json = tag_fragments_to_json(
+                        self._query_tag_context.tag_fragments
+                    ).replace("'", "''")
+                    cur.execute(f"ALTER SESSION SET QUERY_TAG = '{tag_value_json}';")
                 cur.execute(query)
                 return cur.fetchall()
         except Exception as e:
@@ -107,7 +112,13 @@ class SnowflakeSource(Source):
     def _execute_fetchone_query(self, query: str) -> List[Any]:
         try:
             with self.connection.get_client().cursor() as cur:
-                cur.execute(query)
+                tagged_query = self._apply_query_tag_comment(query)
+                if self._query_tag_context:
+                    tag_value_json = tag_fragments_to_json(
+                        self._query_tag_context.tag_fragments
+                    ).replace("'", "''")
+                    cur.execute(f"ALTER SESSION SET QUERY_TAG = '{tag_value_json}';")
+                cur.execute(tagged_query)
                 result = cur.fetchone()
                 if result is None:
                     return []
@@ -117,11 +128,13 @@ class SnowflakeSource(Source):
                     return list(result)
                 else:
                     raise SourceQueryFailedException(
-                        message=f"Unexpected result type: {type(result)}", query=query
+                        message=f"Unexpected result type: {type(result)}",
+                        query=tagged_query,
                     )
         except Exception as e:
             raise SourceQueryFailedException(
-                message=f"Source query (Snowflake) failed with error: {e}", query=query
+                message=f"Source query (Snowflake) failed with error: {e}",
+                query=tagged_query,
             )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:

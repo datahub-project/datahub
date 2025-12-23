@@ -4,6 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from google.cloud.bigquery import QueryJobConfig
 
 from datahub_executor.common.connection.bigquery.bigquery_connection import (
     BigQueryConnection,
@@ -15,6 +16,12 @@ from datahub_executor.common.exceptions import (
 )
 from datahub_executor.common.source.bigquery.bigquery import BigQuerySource
 from datahub_executor.common.source.bigquery.types import DEFAULT_OPERATION_TYPES_FILTER
+from datahub_executor.common.source.source import (
+    ASSERTION_URN_TAG_KEY,
+    DATAHUB_OBSERVE_QUERY_SOURCE_TAG,
+    DATAHUB_OBSERVE_SOURCE_VALUE,
+    get_assertion_query_tags,
+)
 from datahub_executor.common.source.types import DatabaseParams
 from datahub_executor.common.types import (
     DatasetFilterType,
@@ -87,6 +94,7 @@ TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
         WHERE foo = 'bar'
     """
 TEST_CUSTOM_SQL_STATEMENT = "SELECT SUM(num_items) FROM test_db.public.test_table;"
+TEST_ASSERTION_URN = "urn:li:assertion:123"
 
 
 class MockLogginEntry:
@@ -292,6 +300,22 @@ class TestBigQuerySource:
             validate_spy.assert_called_once_with(query)
 
         self.bigquery_connection_mock.get_client().query.assert_called_once_with(query)
+
+    def test_execute_fetchall_query_with_observe_label(self) -> None:
+        query = "SELECT * FROM TABLE;"
+        self.bigquery_source.set_query_tag_context(
+            get_assertion_query_tags(TEST_ASSERTION_URN)
+        )
+
+        self.bigquery_source._execute_fetchall_query(query)
+
+        expected_tagged_query = f"/* {DATAHUB_OBSERVE_QUERY_SOURCE_TAG} {ASSERTION_URN_TAG_KEY}={TEST_ASSERTION_URN} */\n{query}"
+
+        # Ensure we set BigQuery native job labels for observe.
+        _args, kwargs = self.bigquery_connection_mock.get_client().query.call_args
+        assert _args[0] == expected_tagged_query
+        assert isinstance(kwargs.get("job_config"), QueryJobConfig)
+        assert kwargs["job_config"].labels == {DATAHUB_OBSERVE_SOURCE_VALUE: "true"}
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:
         with pytest.raises(InvalidParametersException):
