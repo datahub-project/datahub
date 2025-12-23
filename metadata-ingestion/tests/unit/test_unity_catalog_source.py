@@ -548,7 +548,7 @@ class TestUnityCatalogSource:
 
         assert len(source.report.ml_models.processed_entities) == 1
         assert (
-            source.report.ml_models.processed_entities[0][1]
+            source.report.ml_models.processed_entities[0]
             == "test_catalog.test_schema.test_model"
         )
 
@@ -564,7 +564,7 @@ class TestUnityCatalogSource:
         # Verify the report was updated
         assert len(source.report.ml_model_versions.processed_entities) == 1
         assert (
-            source.report.ml_model_versions.processed_entities[0][1]
+            source.report.ml_model_versions.processed_entities[0]
             == "test_catalog.test_schema.test_model_1"
         )
 
