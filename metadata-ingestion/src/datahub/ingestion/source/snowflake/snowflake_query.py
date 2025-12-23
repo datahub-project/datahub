@@ -315,26 +315,22 @@ WHERE TABLE_CATALOG = '{db_name}'
 
     @staticmethod
     def get_semantic_views_for_database(db_name: str) -> str:
-        # Query semantic views from information_schema
+        # Query semantic views from dedicated INFORMATION_SCHEMA.SEMANTIC_VIEWS view
         return f"""\
 SELECT
-  TABLE_CATALOG as "SEMANTIC_VIEW_CATALOG",
-  TABLE_SCHEMA as "SEMANTIC_VIEW_SCHEMA",
-  TABLE_NAME as "SEMANTIC_VIEW_NAME",
+  CATALOG as "SEMANTIC_VIEW_CATALOG",
+  SCHEMA as "SEMANTIC_VIEW_SCHEMA",
+  NAME as "SEMANTIC_VIEW_NAME",
   COMMENT,
-  CREATED,
-  LAST_ALTERED
-FROM "{db_name}".information_schema.tables
-WHERE TABLE_CATALOG = '{db_name}'
-  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
-  AND TABLE_TYPE = 'SEMANTIC VIEW'
+  CREATED
+FROM "{db_name}".information_schema.semantic_views
 """
 
     @staticmethod
     def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
         return f"""\
 {SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
-  AND TABLE_SCHEMA = '{schema_name}'
+WHERE SCHEMA = '{schema_name}'
 """
 
     @staticmethod

@@ -16,7 +16,6 @@ def test_populate_semantic_view_base_tables(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "test_semantic_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Test semantic view",
         },
     ]
@@ -127,7 +126,6 @@ def test_populate_semantic_view_columns_with_dimensions(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "sales_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Sales semantic view",
         },
     ]
@@ -218,7 +216,6 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "sales_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Sales view",
         },
     ]
@@ -311,7 +308,6 @@ def test_semantic_view_with_metrics(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "metrics_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Metrics view",
         },
     ]
@@ -388,7 +384,6 @@ def test_orphaned_columns_warning(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "existing_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Existing view",
         },
     ]
@@ -480,7 +475,6 @@ def test_synonym_case_insensitive_deduplication(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "test_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Test view",
         },
     ]
@@ -593,7 +587,6 @@ def test_ddl_fetch_success(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "test_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Test view",
         },
     ]
@@ -650,7 +643,6 @@ def test_ddl_fetch_failure(mock_connection):
             "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
             "SEMANTIC_VIEW_NAME": "test_view",
             "CREATED": datetime.datetime.now(),
-            "LAST_ALTERED": datetime.datetime.now(),
             "COMMENT": "Test view",
         },
     ]

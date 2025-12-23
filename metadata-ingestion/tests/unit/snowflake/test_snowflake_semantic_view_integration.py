@@ -40,14 +40,13 @@ class MockQueryResults:
 
     @staticmethod
     def semantic_views() -> List[Dict[str, Any]]:
-        """INFORMATION_SCHEMA.TABLES result for semantic views."""
+        """INFORMATION_SCHEMA.SEMANTIC_VIEWS result."""
         return [
             {
                 "SEMANTIC_VIEW_CATALOG": "TEST_DB",
                 "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
                 "SEMANTIC_VIEW_NAME": "SALES_ANALYTICS",
                 "CREATED": datetime.datetime(2024, 1, 1),
-                "LAST_ALTERED": datetime.datetime(2024, 1, 15),
                 "COMMENT": "Sales analytics semantic view",
             },
         ]
@@ -212,8 +211,8 @@ def create_mock_connection(query_results: Dict[str, List[Dict]]) -> MagicMock:
             )
         elif "get_ddl" in query_lower:
             cursor.__iter__ = MagicMock(return_value=iter(query_results.get("ddl", [])))
-        elif "table_type = 'semantic view'" in query_lower:
-            # INFORMATION_SCHEMA.TABLES query for semantic views
+        elif "information_schema.semantic_views" in query_lower:
+            # INFORMATION_SCHEMA.SEMANTIC_VIEWS query
             cursor.__iter__ = MagicMock(
                 return_value=iter(query_results.get("semantic_views", []))
             )

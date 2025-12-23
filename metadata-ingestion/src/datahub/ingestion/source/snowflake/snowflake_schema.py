@@ -801,11 +801,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeSemanticView]]]:
         """
-        Fetch semantic views for a database using INFORMATION_SCHEMA.
+        Fetch semantic views for a database using INFORMATION_SCHEMA.SEMANTIC_VIEWS.
 
-        Uses information_schema.tables with TABLE_TYPE = 'SEMANTIC VIEW' which provides
-        better metadata (LAST_ALTERED) than SHOW SEMANTIC VIEWS. At realistic scale
-        (dozens to hundreds of semantic views), this approach is reliable and simple.
+        Uses the dedicated information_schema.semantic_views view which provides
+        semantic view metadata. At realistic scale (dozens to hundreds of semantic views),
+        this approach is reliable and simple.
         """
         try:
             cur = self.connection.query(
@@ -826,8 +826,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 name=row["SEMANTIC_VIEW_NAME"],
                 created=row["CREATED"],
                 comment=row.get("COMMENT"),
-                view_definition=None,  # Populated later via GET_DDL
-                last_altered=row["LAST_ALTERED"],
+                view_definition=None,
+                last_altered=row["CREATED"],
             )
             semantic_views.setdefault(schema_name, []).append(semantic_view)
 
