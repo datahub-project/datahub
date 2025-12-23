@@ -197,14 +197,14 @@ class TokenProvider:
                 azure_tenant_id=self._azure_auth.tenant_id,
                 azure_client_id=self._azure_auth.client_id,
                 azure_client_secret=self._azure_auth.client_secret.get_secret_value(),
-                product="datahub",
+                product=DATABRICKS_USER_AGENT_ENTRY,
                 product_version=nice_version_name(),
             )
         else:
             self._workspace_client = WorkspaceClient(
                 host=self._workspace_url,
                 token=self._personal_access_token,
-                product="datahub",
+                product=DATABRICKS_USER_AGENT_ENTRY,
                 product_version=nice_version_name(),
             )
 
@@ -221,11 +221,22 @@ class TokenProvider:
 
         Returns:
             A valid authentication token
+
+        Raises:
+            ValueError: If Azure authentication fails (authenticate() returns None)
         """
         if self._azure_auth:
             # The SDK automatically refreshes the token if it's expired
             # through the Refreshable class mechanism
             token = self._workspace_client.config.authenticate()
+
+            # Handle None case - authentication failed
+            if token is None:
+                raise ValueError(
+                    "Authentication failed: authenticate() returned None. "
+                    "Please check your Azure credentials and permissions."
+                )
+
             if isinstance(token, dict):
                 auth_header = token.get("Authorization")
                 if auth_header and auth_header.startswith("Bearer "):
@@ -278,14 +289,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.databricks_api_page_size = databricks_api_page_size
         self._workspace_url = workspace_url
 
-        # Initialize connection params with initial token
-        initial_token = self._token_provider.get_token()
+        # Initialize connection params (token will be fetched lazily when needed)
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
                 "https://", ""
             ),
             "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
-            "access_token": initial_token,
+            "access_token": None,  # Will be populated on first SQL query
             "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
         }
         # Initialize MLflow APIs
@@ -1392,7 +1402,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.debug("No proxy environment variables detected for SQL connection")
 
         try:
-            # Refresh token if needed before executing query
+            # Initialize or refresh token before executing query
+            # This lazy initialization ensures we only fail when SQL is actually needed
             fresh_token = self._token_provider.get_token()
             if fresh_token != self._sql_connection_params["access_token"]:
                 logger.debug("Updating SQL connection token")
@@ -1409,6 +1420,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 )
                 return rows
 
+        except ValueError as token_error:
+            # Token fetch failed - log error and return empty results
+            logger.error(
+                f"Failed to obtain authentication token for SQL query: {token_error}"
+            )
+            return []
         except Exception as e:
             logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
             if logger.isEnabledFor(logging.DEBUG):

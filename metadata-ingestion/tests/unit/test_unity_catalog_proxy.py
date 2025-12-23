@@ -1936,20 +1936,6 @@ class TestTokenProvider:
         assert call_kwargs["product"] == "datahub"
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
-    def test_get_workspace_client(self, mock_workspace_client):
-        """Test get_workspace_client returns the workspace client."""
-        mock_client = MagicMock()
-        mock_workspace_client.return_value = mock_client
-
-        provider = TokenProvider(
-            workspace_url="https://test.databricks.com",
-            personal_access_token="test_token",
-        )
-
-        result = provider.get_workspace_client()
-        assert result == mock_client
-
-    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_get_token_with_personal_access_token(self, mock_workspace_client):
         """Test get_token with personal access token returns the token directly."""
         mock_client = MagicMock()
@@ -2122,8 +2108,36 @@ class TestTokenProvider:
         assert token == ""
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_get_token_with_azure_auth_returns_none(self, mock_workspace_client):
+        """Test get_token with Azure auth when authenticate returns None."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+
+        # Mock authenticate to return None (authentication failure)
+        mock_client.config.authenticate.return_value = None
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        provider = TokenProvider(
+            workspace_url="https://test.databricks.com",
+            azure_auth=azure_auth,
+        )
+
+        # Should raise ValueError when authentication returns None
+        with pytest.raises(ValueError) as exc_info:
+            provider.get_token()
+
+        assert "Authentication failed" in str(exc_info.value)
+        assert "authenticate() returned None" in str(exc_info.value)
+        mock_client.config.authenticate.assert_called_once()
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_unity_catalog_proxy_uses_token_provider(self, mock_workspace_client):
-        """Test that UnityCatalogApiProxy properly uses TokenProvider."""
+        """Test that UnityCatalogApiProxy properly uses TokenProvider with lazy token initialization."""
         mock_client = MagicMock()
         mock_workspace_client.return_value = mock_client
         mock_client.config.host = "https://test.databricks.com"
@@ -2150,6 +2164,85 @@ class TestTokenProvider:
         assert proxy._token_provider._azure_auth == azure_auth
         assert proxy._workspace_client == mock_client
 
-        # Verify initial token was fetched
+        # Verify token was NOT fetched during initialization (lazy loading)
         assert "access_token" in proxy._sql_connection_params
-        assert proxy._sql_connection_params["access_token"] == "initial_token"
+        assert proxy._sql_connection_params["access_token"] is None
+
+        # Token should not have been fetched yet
+        mock_client.config.authenticate.assert_not_called()
+
+    @patch("datahub.ingestion.source.unity.proxy.connect")
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_unity_catalog_proxy_lazy_token_fetch(
+        self, mock_workspace_client, mock_connect
+    ):
+        """Test that token is fetched lazily when SQL query is executed."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+        mock_client.config.host = "https://test.databricks.com"
+        mock_client.config.authenticate.return_value = {
+            "Authorization": "Bearer lazy_token"
+        }
+
+        # Mock SQL connection
+        mock_connection = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [{"col1": "value1"}]
+        mock_connection.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value.__enter__.return_value = mock_connection
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token=None,
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            azure_auth=azure_auth,
+        )
+
+        # Token should not be fetched yet
+        assert proxy._sql_connection_params["access_token"] is None
+        mock_client.config.authenticate.assert_not_called()
+
+        # Execute a SQL query
+        result = proxy._execute_sql_query("SELECT * FROM table")
+
+        # Now token should be fetched
+        mock_client.config.authenticate.assert_called_once()
+        assert proxy._sql_connection_params["access_token"] == "lazy_token"
+        assert len(result) == 1
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_unity_catalog_proxy_token_fetch_failure(self, mock_workspace_client):
+        """Test that SQL query gracefully handles token fetch failure."""
+        mock_client = MagicMock()
+        mock_workspace_client.return_value = mock_client
+        mock_client.config.host = "https://test.databricks.com"
+
+        # Mock authenticate to return None (authentication failure)
+        mock_client.config.authenticate.return_value = None
+
+        azure_auth = AzureAuthConfig(
+            tenant_id="test_tenant",
+            client_id="test_client",
+            client_secret="test_secret",
+        )
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token=None,
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            azure_auth=azure_auth,
+        )
+
+        # Execute a SQL query - should handle authentication failure gracefully
+        result = proxy._execute_sql_query("SELECT * FROM table")
+
+        # Should return empty list instead of crashing
+        assert result == []
