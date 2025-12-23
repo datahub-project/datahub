@@ -497,7 +497,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
-            # Emit tags collected from schema and meta_mapping
             if all_tags:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
