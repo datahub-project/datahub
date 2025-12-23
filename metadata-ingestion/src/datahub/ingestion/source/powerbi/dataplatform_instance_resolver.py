@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 def _normalize_platform_name_for_lookup(platform_name: str) -> str:
     """
     Normalize platform name for lookup in dataset_type_mapping.
-    
+
     Removes spaces to handle mismatches like:
     - "Amazon Redshift" (from ODBC) -> "AmazonRedshift" (in SupportedDataPlatform)
     - "Amazon Athena" -> "AmazonAthena"
     - "Google BigQuery" -> "GoogleBigQuery"
-    
+
     Args:
         platform_name: The platform name to normalize
-        
+
     Returns:
         Normalized platform name with spaces removed
     """
@@ -55,12 +55,12 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
         powerbi_platform_name = (
             data_platform_detail.data_platform_pair.powerbi_data_platform_name
         )
-        
+
         # Try exact match first
-        platform: Optional[Union[str, PlatformDetail]] = self.config.dataset_type_mapping.get(
-            powerbi_platform_name
+        platform: Optional[Union[str, PlatformDetail]] = (
+            self.config.dataset_type_mapping.get(powerbi_platform_name)
         )
-        
+
         # If not found, try normalized version (removes spaces)
         # This handles cases like "Amazon Redshift" -> "AmazonRedshift"
         if platform is None:
@@ -72,7 +72,7 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
                         f"Found platform '{powerbi_platform_name}' in dataset_type_mapping "
                         f"using normalized key '{normalized_name}'"
                     )
-        
+
         if platform is None:
             logger.debug(
                 f"Platform '{powerbi_platform_name}' (normalized: "
