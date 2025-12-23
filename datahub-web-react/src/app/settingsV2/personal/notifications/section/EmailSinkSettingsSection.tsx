@@ -168,17 +168,16 @@ export const EmailSinkSettingsSection = ({
                             <HelperText>The email address where notifications will be sent.</HelperText>
                         </>
                     )}
-
-                    <CheckboxContainer>
-                        <Checkbox
-                            isChecked={marketingOptIn}
-                            onCheckboxChange={handleCheckboxToggle}
-                            data-testid="marketing-updates-checkbox"
-                        />
-                        <CheckboxLabel onClick={handleCheckboxToggle}>Send me updates about DataHub</CheckboxLabel>
-                    </CheckboxContainer>
                 </SinkConfigurationContainer>
             ) : null}
+            <CheckboxContainer>
+                <Checkbox
+                    isChecked={marketingOptIn}
+                    onCheckboxChange={handleCheckboxToggle}
+                    data-testid="marketing-updates-checkbox"
+                />
+                <CheckboxLabel onClick={handleCheckboxToggle}>Send me updates about DataHub</CheckboxLabel>
+            </CheckboxContainer>
         </ToggleCard>
     );
 };

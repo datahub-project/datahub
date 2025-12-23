@@ -67,11 +67,11 @@ describe('EmailSinkSettingsSection - Marketing Opt-in', () => {
             expect(screen.getByText('Send me updates about DataHub')).toBeInTheDocument();
         });
 
-        it('should not render the marketing opt-in checkbox when sink is disabled', () => {
+        it('should render the marketing opt-in checkbox even when sink is disabled', () => {
             renderComponent({ sinkEnabled: false });
 
-            expect(screen.queryByTestId('marketing-updates-checkbox')).not.toBeInTheDocument();
-            expect(screen.queryByText('Send me updates about DataHub')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('marketing-updates-checkbox')).toBeInTheDocument();
+            expect(screen.queryByText('Send me updates about DataHub')).toBeInTheDocument();
         });
 
         it('should reflect the correct checked state based on marketingOptIn', () => {
