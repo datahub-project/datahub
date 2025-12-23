@@ -440,6 +440,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         description: Optional[str] = None
         external_url: Optional[str] = None
+        # Initialize all_tags outside Avro block to support meta_mapping tags accumulation.
+        # Will only emit GlobalTagsClass if non-empty (checked before yield).
         all_tags: List[str] = []
 
         if (
@@ -467,7 +469,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     all_tags.append(self.source_config.tag_prefix + tag)
             except TypeError as e:
                 self.report.warning(
-                    message=f"Unable to extract tags from schema field '{self.source_config.schema_tags_field}': {e}",
+                    message=f"Unable to extract tags from schema field '{self.source_config.schema_tags_field}': {e}. Expected an array of strings.",
                     context=topic,
                     title="Unable to extract tags from schema field",
                     exc=e,
