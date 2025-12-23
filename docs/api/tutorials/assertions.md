@@ -400,6 +400,10 @@ column_metric_assertion = client.assertions.sync_column_metric_assertion(
 
 print(f"Created column metric assertion: {column_metric_assertion.urn}")
 
+# ----------------------------
+# Column value assertions (row-level checks)
+# ----------------------------
+
 # Example 1: Simple email validation with regex pattern
 # Validates that all email values match a valid email format
 email_regex_assertion = client.assertions.sync_column_value_assertion(
