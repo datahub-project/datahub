@@ -81,8 +81,15 @@ public class SemanticSearchAcrossEntitiesResolver
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter baseFilter =
+          final Filter inputFilter =
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+          final Filter formFilter =
+              SearchUtils.getFormFilter(
+                  context.getOperationContext(), input.getFormFilter(), _formService);
+          final Filter baseFilter =
+              formFilter != null
+                  ? FilterUtils.combineFilters(inputFilter, formFilter)
+                  : inputFilter;
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
