@@ -230,6 +230,7 @@ class Mapper:
 
         return fine_grained_lineages
 
+
     def extract_lineage(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
@@ -262,12 +263,10 @@ class Mapper:
 
         for lineage in upstream_lineage:
             for upstream_dpt in lineage.upstreams:
-                if (
-                    upstream_dpt.data_platform_pair.powerbi_data_platform_name
-                    not in self.__config.dataset_type_mapping
-                ):
+                platform_name = upstream_dpt.data_platform_pair.powerbi_data_platform_name
+                if not self.__config.is_platform_in_dataset_type_mapping(platform_name):
                     logger.debug(
-                        f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                        f"Skipping upstream table for {ds_urn}. The platform {platform_name} is not part of dataset_type_mapping",
                     )
                     continue
 

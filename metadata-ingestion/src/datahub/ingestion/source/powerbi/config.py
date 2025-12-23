@@ -646,3 +646,42 @@ class PowerBiDashboardSourceConfig(
                     )
 
         return self
+
+    def get_from_dataset_type_mapping(
+        self, platform_name: str
+    ) -> Optional[Union[str, PlatformDetail]]:
+        """
+        Get a value from dataset_type_mapping using normalized lookup.
+        
+        Handles naming mismatches by normalizing platform names (removing spaces).
+        For example, "Amazon Redshift" (from ODBC) will match "AmazonRedshift" (in enum).
+        
+        Args:
+            platform_name: The PowerBI platform name to look up
+            
+        Returns:
+            The value from dataset_type_mapping if found, None otherwise
+        """
+        # Try exact match first
+        if platform_name in self.dataset_type_mapping:
+            return self.dataset_type_mapping[platform_name]
+        
+        # Try normalized version (removes spaces)
+        # This handles cases like "Amazon Redshift" -> "AmazonRedshift"
+        normalized_name = platform_name.replace(" ", "")
+        if normalized_name != platform_name:
+            return self.dataset_type_mapping.get(normalized_name)
+        
+        return None
+
+    def is_platform_in_dataset_type_mapping(self, platform_name: str) -> bool:
+        """
+        Check if a platform name exists in dataset_type_mapping using normalized lookup.
+        
+        Args:
+            platform_name: The PowerBI platform name to check
+            
+        Returns:
+            True if the platform (or its normalized version) exists in the mapping
+        """
+        return self.get_from_dataset_type_mapping(platform_name) is not None
