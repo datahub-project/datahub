@@ -25,6 +25,9 @@ const DocumentationContainer = styled.div`
 
 const StyledTabToolbar = styled(TabToolbar)`
     background-color: ${REDESIGN_COLORS.LIGHT_GREY};
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-left: 2px solid #5c3fd1;
     padding: 8px 20px;
     margin: 2px 14px 2px 12px;
 
