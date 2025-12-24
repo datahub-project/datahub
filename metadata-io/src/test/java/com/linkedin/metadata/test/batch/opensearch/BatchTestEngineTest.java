@@ -125,7 +125,7 @@ public class BatchTestEngineTest extends AbstractTestNGSpringContextTests {
   @Test
   public void batchTestEngineTest() throws RemoteInvocationException, InterruptedException {
     BatchTestEngine batchTestEngine =
-        new BatchTestEngine(operationContext, mockEntityClient, entitySearchService, testEngine);
+        new BatchTestEngine(operationContext, entitySearchService, testEngine);
 
     // Configure for minimum testing of parallelism and pagination
     BatchTestEngineEnvConfig envConfig =
@@ -186,11 +186,14 @@ public class BatchTestEngineTest extends AbstractTestNGSpringContextTests {
                     batch -> batch.getMCPItems().stream().map(MCPItem::getMetadataChangeProposal)));
 
     // should collapse multiple tests into 1 upsert for the combined results for all tests
+    // also includes batchTestRunEvent for each test (3 tests total)
     assertEquals(
         testResultsBreakdown,
         Map.of(
             ChangeType.UPSERT,
             Map.of(
+                "test",
+                Map.of("batchTestRunEvent", 3L),
                 "dataset",
                 Map.of("testResults", totalDatasetCount),
                 "chart",

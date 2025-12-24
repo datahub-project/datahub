@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -38,11 +37,10 @@ public class EvaluateTestsConfig {
   @Bean(name = "evaluateTests")
   @Nonnull
   public EvaluateTests createInstance(
-      @Qualifier("systemEntityClient") final SystemEntityClient entityClient,
       @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
       @Qualifier("testEngine") final TestEngine testEngine,
       @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
-    return new EvaluateTests(systemOpContext, entityClient, entitySearchService, testEngine);
+    return new EvaluateTests(systemOpContext, entitySearchService, testEngine);
   }
 
   @Primary

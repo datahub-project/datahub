@@ -2,9 +2,6 @@ package com.linkedin.metadata.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.AcrylConstants;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -14,15 +11,8 @@ import com.linkedin.metadata.test.batch.BatchTestEngineEnvConfig;
 import com.linkedin.metadata.test.batch.BatchTestEngineExecConfig;
 import com.linkedin.metadata.test.batch.BatchTestResult;
 import com.linkedin.metadata.test.batch.BatchTestResultAggregator;
-import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.test.BatchTestRunEvent;
-import com.linkedin.test.BatchTestRunResult;
-import com.linkedin.test.BatchTestRunStatus;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
-import com.linkedin.timeseries.PartitionSpec;
-import com.linkedin.timeseries.PartitionType;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -49,17 +39,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BatchTestEngine {
   private final OperationContext systemOpContext;
-  private final EntityClient entityClient;
   private final EntitySearchService entitySearchService;
   private final TestEngine testEngine;
 
   public BatchTestEngine(
       @Nonnull OperationContext systemOpContext,
-      @Nonnull EntityClient entityClient,
       @Nonnull EntitySearchService entitySearchService,
       @Nonnull TestEngine testEngine) {
     this.systemOpContext = systemOpContext;
-    this.entityClient = entityClient;
     this.entitySearchService = entitySearchService;
     this.testEngine = testEngine;
   }
@@ -239,52 +226,19 @@ public class BatchTestEngine {
 
   /**
    * In this method we produce a BatchTestRunResult aspect for each test that should have been
-   * executed by this process.
-   *
-   * <p>To do so, we also issue a query to count the number of entities with a given run result.
+   * executed by this process. Delegates to TestEngine which publishes asynchronously via Kafka.
    */
   private void reportTestRunResults(
       @Nonnull final Collection<BatchTestResult> results, String runId) {
     try {
-      final long currentTime = System.currentTimeMillis();
       for (BatchTestResult result : results) {
-        reportTestRunResult(result, currentTime, runId);
+        testEngine.reportBatchRunResult(
+            result.getUrn(), result.getPassCount(), result.getFailCount(), runId);
       }
     } catch (Exception e) {
       // Catch everything so that issuing in reporting never break all tests.
       log.error(
           "Caught exception while attempting to report Metadata Test run results! This may mean that one or more tests is missing results.",
-          e);
-    }
-  }
-
-  private void reportTestRunResult(
-      @Nonnull final BatchTestResult result, final long currentTime, String runId) {
-    Urn testUrn = result.getUrn();
-    log.info(
-        "Reporting batch test run result for test {}: passing={}, failing={}",
-        testUrn,
-        result.getPassCount(),
-        result.getFailCount());
-    BatchTestRunEvent event = new BatchTestRunEvent();
-    event.setTimestampMillis(currentTime);
-    event.setStatus(BatchTestRunStatus.COMPLETE);
-    PartitionSpec partitionSpec =
-        new PartitionSpec().setType(PartitionType.FULL_TABLE).setPartition("FULL");
-    event.setPartitionSpec(partitionSpec);
-    event.setResult(
-        new BatchTestRunResult()
-            .setPassingCount(result.getPassCount())
-            .setFailingCount(result.getFailCount()));
-    try {
-      MetadataChangeProposal mcp =
-          AspectUtils.buildMetadataChangeProposal(
-              testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event);
-      mcp.setSystemMetadata(new SystemMetadata().setRunId(runId));
-      entityClient.ingestProposal(systemOpContext, mcp, false);
-    } catch (Exception e) {
-      log.error(
-          "Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!",
           e);
     }
   }

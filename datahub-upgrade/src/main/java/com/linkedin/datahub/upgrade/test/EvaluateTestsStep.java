@@ -5,7 +5,6 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.BatchTestEngine;
 import com.linkedin.metadata.test.TestEngine;
@@ -30,11 +29,9 @@ public class EvaluateTestsStep implements UpgradeStep {
 
   public EvaluateTestsStep(
       @Nonnull OperationContext systemOpContext,
-      @Nonnull EntityClient entityClient,
       @Nonnull EntitySearchService entitySearchService,
       @Nonnull TestEngine testEngine) {
-    this.batchTestEngine =
-        new BatchTestEngine(systemOpContext, entityClient, entitySearchService, testEngine);
+    this.batchTestEngine = new BatchTestEngine(systemOpContext, entitySearchService, testEngine);
   }
 
   @Override

@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.TestResultsPatchBuilder;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.query.filter.Filter;
@@ -41,6 +42,7 @@ import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -54,6 +56,8 @@ import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestSourceType;
+import com.linkedin.timeseries.PartitionSpec;
+import com.linkedin.timeseries.PartitionType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.time.Instant;
@@ -862,6 +866,50 @@ public class TestEngine implements AutoCloseable {
             .build(systemOpContext);
 
     entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
+  }
+
+  /**
+   * Reports the result of a batch test run by producing a batchTestRunEvent timeseries aspect.
+   * Results are published asynchronously to Kafka via EntityService.
+   *
+   * @param testUrn the URN of the test
+   * @param passCount the number of passing entities
+   * @param failCount the number of failing entities
+   * @param runId the run identifier
+   */
+  public void reportBatchRunResult(Urn testUrn, long passCount, long failCount, String runId) {
+    final long currentTime = System.currentTimeMillis();
+    log.info(
+        "Reporting batch test run result for test {}: passing={}, failing={}",
+        testUrn,
+        passCount,
+        failCount);
+    BatchTestRunEvent event =
+        new BatchTestRunEvent()
+            .setTimestampMillis(currentTime)
+            .setStatus(BatchTestRunStatus.COMPLETE)
+            .setPartitionSpec(
+                new PartitionSpec().setType(PartitionType.FULL_TABLE).setPartition("FULL"))
+            .setResult(
+                new BatchTestRunResult().setPassingCount(passCount).setFailingCount(failCount));
+    try {
+      MetadataChangeProposal mcp =
+          AspectUtils.buildMetadataChangeProposal(testUrn, BATCH_TEST_RUN_EVENT_ASPECT_NAME, event);
+      mcp.setSystemMetadata(new SystemMetadata().setRunId(runId));
+
+      AuditStamp auditStamp =
+          AuditStampUtils.getAuditStamp(
+              systemOpContext.getActorContext().getActorUrn(), currentTime);
+      AspectsBatchImpl batch =
+          AspectsBatchImpl.builder()
+              .mcps(List.of(mcp), auditStamp, systemOpContext.getRetrieverContext())
+              .build(systemOpContext);
+      entityService.ingestProposal(systemOpContext, batch, true);
+    } catch (Exception e) {
+      log.error(
+          "Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!",
+          e);
+    }
   }
 
   /**

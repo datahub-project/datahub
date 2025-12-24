@@ -4,8 +4,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import io.datahubproject.metadata.context.OperationContext;
@@ -20,11 +18,10 @@ public class EvaluateTests implements Upgrade {
 
   public EvaluateTests(
       final OperationContext systemOpContext,
-      final SystemEntityClient entityClient,
       final EntitySearchService entitySearchService,
       final TestEngine testEngine) {
     this.systemOpContext = systemOpContext;
-    _steps = buildSteps(entityClient, entitySearchService, testEngine);
+    _steps = buildSteps(entitySearchService, testEngine);
   }
 
   @Override
@@ -38,12 +35,9 @@ public class EvaluateTests implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(
-      final EntityClient entityClient,
-      final EntitySearchService entitySearchService,
-      final TestEngine testEngine) {
+      final EntitySearchService entitySearchService, final TestEngine testEngine) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(
-        new EvaluateTestsStep(systemOpContext, entityClient, entitySearchService, testEngine));
+    steps.add(new EvaluateTestsStep(systemOpContext, entitySearchService, testEngine));
     steps.add(new WaitForTestActionsStep(testEngine));
     return steps;
   }

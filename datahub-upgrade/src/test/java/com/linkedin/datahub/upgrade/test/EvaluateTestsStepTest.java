@@ -16,7 +16,6 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -74,14 +73,12 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
     final TestEngine testEngine = mock(TestEngine.class);
     configureTestEngineMock(testEngine);
     configureEntitySearchServiceMock(entitySearchService);
-    EntityClient entityClient = Mockito.mock(EntityClient.class);
 
     OperationContext opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
             Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
-    EvaluateTestsStep testStep =
-        new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);
+    EvaluateTestsStep testStep = new EvaluateTestsStep(opContext, entitySearchService, testEngine);
 
     ExecutorService executorSpy =
         spy(
