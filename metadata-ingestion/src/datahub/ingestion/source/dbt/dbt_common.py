@@ -1204,18 +1204,18 @@ def get_upstreams(
             skip_sources_in_lineage=skip_sources_in_lineage,
         )
         upstream_urns.append(urn)
-        
+
         # Debug: Log each upstream URN generation
         logger.debug(
             f"get_upstreams: upstream={upstream} -> urn={urn}, "
             f"node_type={upstream_manifest_node.node_type}"
         )
-    
+
     # Debug: Log final upstream URN count
     logger.debug(
         f"get_upstreams: returning {len(upstream_urns)} URNs from {len(upstreams)} upstream nodes"
     )
-    
+
     return upstream_urns
 
 
@@ -1456,7 +1456,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
 
         all_nodes, additional_custom_props = self.load_nodes()
-        
+
         # Debug: Count semantic views at each stage
         sv_nodes_raw = [n for n in all_nodes if n.node_type == "semantic_view"]
         sv_count_raw = len(sv_nodes_raw)
@@ -1464,7 +1464,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         sv_name_counts = {}
         for name in sv_names_raw:
             sv_name_counts[name] = sv_name_counts.get(name, 0) + 1
-        duplicates = {name: count for name, count in sv_name_counts.items() if count > 1}
+        duplicates = {
+            name: count for name, count in sv_name_counts.items() if count > 1
+        }
         logger.debug(
             f"load_nodes returned {len(all_nodes)} nodes, {sv_count_raw} semantic views. "
             f"Unique SV names: {len(sv_name_counts)}. Duplicates: {duplicates if duplicates else 'None'}"
@@ -1476,10 +1478,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for key, value in additional_custom_props.items()
             if value is not None
         }
-        
+
         # Debug: Count unique semantic view names in map
-        sv_count_map = sum(1 for n in all_nodes_map.values() if n.node_type == "semantic_view")
-        logger.debug(f"all_nodes_map has {len(all_nodes_map)} unique nodes, {sv_count_map} semantic views")
+        sv_count_map = sum(
+            1 for n in all_nodes_map.values() if n.node_type == "semantic_view"
+        )
+        logger.debug(
+            f"all_nodes_map has {len(all_nodes_map)} unique nodes, {sv_count_map} semantic views"
+        )
 
         # We need to run this before filtering nodes, because the info generated
         # for a filtered node may be used by an unfiltered node.
@@ -1491,22 +1497,30 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # and only that instance has CLL. By reconstructing from the map, we ensure all
         # downstream processing uses the mutated nodes with CLL.
         all_nodes = list(all_nodes_map.values())
-        
+
         # Debug: Count after reconstruction
-        sv_count_reconstructed = sum(1 for n in all_nodes if n.node_type == "semantic_view")
-        logger.debug(f"Reconstructed all_nodes has {len(all_nodes)} nodes, {sv_count_reconstructed} semantic views")
+        sv_count_reconstructed = sum(
+            1 for n in all_nodes if n.node_type == "semantic_view"
+        )
+        logger.debug(
+            f"Reconstructed all_nodes has {len(all_nodes)} nodes, {sv_count_reconstructed} semantic views"
+        )
 
         nodes = self._filter_nodes(all_nodes)
-        
+
         # Debug: Count after filtering
         sv_count_filtered = sum(1 for n in nodes if n.node_type == "semantic_view")
-        logger.debug(f"After _filter_nodes: {len(nodes)} nodes, {sv_count_filtered} semantic views")
-        
+        logger.debug(
+            f"After _filter_nodes: {len(nodes)} nodes, {sv_count_filtered} semantic views"
+        )
+
         nodes = self._drop_duplicate_sources(nodes)
-        
+
         # Debug: Count after dropping duplicates
         sv_count_final = sum(1 for n in nodes if n.node_type == "semantic_view")
-        logger.debug(f"After _drop_duplicate_sources: {len(nodes)} nodes, {sv_count_final} semantic views")
+        logger.debug(
+            f"After _drop_duplicate_sources: {len(nodes)} nodes, {sv_count_final} semantic views"
+        )
 
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
@@ -1990,7 +2004,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the dbt platform."""
-        
+
         # Debug: Count semantic views in input
         sv_count = sum(1 for n in dbt_nodes if n.node_type == "semantic_view")
         sv_names = [n.dbt_name for n in dbt_nodes if n.node_type == "semantic_view"]
@@ -2019,7 +2033,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.env,
                 self.config.platform_instance,
             )
-            
+
             # Debug: Track semantic view processing
             if node.node_type == "semantic_view":
                 logger.debug(
@@ -2086,7 +2100,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ),
                     aspects,
                 )
-                
+
                 # Debug: Track aspect partitioning for semantic views
                 if node.node_type == "semantic_view":
                     standalone_list = list(standalone_aspects)
@@ -2098,7 +2112,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                     standalone_aspects = iter(standalone_list)
                     snapshot_aspects = iter(snapshot_list)
-                
+
                 for aspect in standalone_aspects:
                     # The domains aspect, and some others, may not support being added to the snapshot.
                     yield MetadataChangeProposalWrapper(
@@ -2109,7 +2123,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
-                
+
                 # Debug: Track DatasetSnapshot creation for semantic views
                 if node.node_type == "semantic_view":
                     aspect_types = [type(a).__name__ for a in dataset_snapshot.aspects]
@@ -2120,7 +2134,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         f"has_UpstreamLineageClass={has_upstream}, "
                         f"types={aspect_types}"
                     )
-                
+
                 # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                 if self._should_create_sibling_relationships(node):
                     # Get the target platform URN
@@ -2141,10 +2155,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
-                
+
                 # Debug: Track MCE emission for semantic views
                 if node.node_type == "semantic_view":
-                    final_aspect_types = [type(a).__name__ for a in mce.proposedSnapshot.aspects]
+                    final_aspect_types = [
+                        type(a).__name__ for a in mce.proposedSnapshot.aspects
+                    ]
                     has_upstream = "UpstreamLineageClass" in final_aspect_types
                     logger.debug(
                         f"Emitting MCE for {node.dbt_name}: "
@@ -2152,7 +2168,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         f"has_UpstreamLineageClass={has_upstream}, "
                         f"types={final_aspect_types}"
                     )
-                
+
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
@@ -2670,7 +2686,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             env=self.config.env,
             data_platform_instance=self.config.platform_instance,
         )
-        
+
         # Debug: Log entry point for semantic views
         if node.node_type == "semantic_view":
             logger.debug(
@@ -2694,16 +2710,35 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 skip_sources_in_lineage=self.config.skip_sources_in_lineage,
             )
         else:
-            upstream_urns = get_upstreams(
-                node.upstream_nodes,
-                all_nodes_map,
-                self.config.target_platform,
-                self.config.target_platform_instance,
-                self.config.env,
-                self.config.platform_instance,
-                skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-            )
-            
+            # For semantic views, we want dbt → dbt lineage (not dbt → Snowflake)
+            # because semantic views define logical relationships between dbt entities.
+            # The column-level lineage references dbt columns, not platform columns.
+            if node.node_type == "semantic_view":
+                # Force upstream URNs to be dbt entities
+                upstream_urns = [
+                    all_nodes_map[upstream_node].get_urn(
+                        target_platform=DBT_PLATFORM,
+                        env=self.config.env,
+                        data_platform_instance=self.config.platform_instance,
+                    )
+                    for upstream_node in node.upstream_nodes
+                    if upstream_node in all_nodes_map
+                ]
+                logger.debug(
+                    f"Semantic view {node.dbt_name}: Created {len(upstream_urns)} dbt → dbt upstream URNs"
+                )
+            else:
+                # For regular models, use the default behavior (dbt → Snowflake)
+                upstream_urns = get_upstreams(
+                    node.upstream_nodes,
+                    all_nodes_map,
+                    self.config.target_platform,
+                    self.config.target_platform_instance,
+                    self.config.env,
+                    self.config.platform_instance,
+                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
+                )
+
             logger.debug(
                 f"Creating lineage aspect for {node.dbt_name}: "
                 f"node_type={node.node_type}, upstream_nodes={len(node.upstream_nodes)}, "
@@ -2711,13 +2746,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             def _translate_dbt_name_to_upstream_urn(dbt_name: str) -> str:
-                return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
-                    dbt_platform_instance=self.config.platform_instance,
-                    target_platform=self.config.target_platform,
-                    target_platform_instance=self.config.target_platform_instance,
-                    env=self.config.env,
-                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-                )
+                # For semantic views, use dbt URNs; for others, use the default behavior
+                if node.node_type == "semantic_view":
+                    return all_nodes_map[dbt_name].get_urn(
+                        target_platform=DBT_PLATFORM,
+                        env=self.config.env,
+                        data_platform_instance=self.config.platform_instance,
+                    )
+                else:
+                    return all_nodes_map[dbt_name].get_urn_for_upstream_lineage(
+                        dbt_platform_instance=self.config.platform_instance,
+                        target_platform=self.config.target_platform,
+                        target_platform_instance=self.config.target_platform_instance,
+                        env=self.config.env,
+                        skip_sources_in_lineage=self.config.skip_sources_in_lineage,
+                    )
 
             if node.cll_debug_info and node.cll_debug_info.error:
                 self.report.report_warning(
