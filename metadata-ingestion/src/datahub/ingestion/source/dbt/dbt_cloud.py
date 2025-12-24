@@ -685,32 +685,113 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         return nodes, additional_metadata
 
-    def _parse_into_dbt_node(self, node: Dict) -> DBTNode:  # noqa: C901
+    def _extract_code_fields(
+        self, node: Dict, materialization: Optional[str]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Extract raw_code and compiled_code from a node."""
         key = node["uniqueId"]
+        resource_type = node["resourceType"]
+
+        if resource_type in {"model", "seed", "snapshot"}:
+            status = node["status"]
+            if status is None and materialization != "ephemeral":
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                    log=False,
+                )
+
+            raw_code = node["rawCode"] or node["rawSql"]
+            compiled_code = node["compiledCode"] or node["compiledSql"]
+
+            if not compiled_code:
+                logger.warning(
+                    f"Model {key}: compiled_code is missing (materialization={materialization}). "
+                    "Column-level lineage will not be available for this model."
+                )
+            return raw_code, compiled_code
+
+        return None, None
+
+    def _extract_semantic_model_fields(
+        self, node: Dict
+    ) -> Tuple[List[DBTColumn], List[Dict], List[Dict], List[Dict]]:
+        """Extract columns, entities, dimensions, and measures from a semantic model node."""
+        entities = node.get("entities", [])
+        dimensions = node.get("dimensions", [])
+        measures = node.get("measures", [])
+
+        columns = convert_semantic_view_fields_to_columns(
+            entities, dimensions, measures, self.config.tag_prefix
+        )
+        return columns, entities, dimensions, measures
+
+    def _extract_test_info(
+        self, node: Dict, name: str
+    ) -> Tuple[Optional[DBTTest], Optional[DBTTestResult]]:
+        """Extract test info and result from a test node."""
+        qualified_test_name = name
+
+        for dependency in node["dependsOn"]:
+            if dependency.startswith("macro."):
+                _, macro = dependency.split(".", 1)
+                if macro.startswith("dbt."):
+                    if not macro.startswith("dbt.test_"):
+                        continue
+                    macro = macro[len("dbt.test_") :]
+
+                qualified_test_name = macro
+                break
+
+        test_info = DBTTest(
+            qualified_test_name=qualified_test_name,
+            column_name=node["columnName"],
+            kw_args={},  # TODO: dbt Cloud doesn't expose the args.
+        )
+
+        test_result = None
+        if not node["skip"]:
+            test_result = DBTTestResult(
+                invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                status=node["status"],
+                native_results={
+                    key: str(node[key])
+                    for key in {
+                        "columnName",
+                        "error",
+                        "fail",
+                        "warn",
+                        "skip",
+                        "state",
+                        "status",
+                    }
+                },
+            )
+        return test_info, test_result
+
+    def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
+        key = node["uniqueId"]
+        resource_type = node["resourceType"]
 
         name = node["name"]
         if self.config.use_identifiers and node.get("identifier"):
             name = node["identifier"]
-        if node["resourceType"] != "test" and node.get("alias"):
+        if resource_type != "test" and node.get("alias"):
             name = node["alias"]
 
         comment = node.get("comment", "")
-
-        # In dbt sources, there are two types of descriptions:
-        # - description: table-level description (specific to the source table)
-        # - sourceDescription: schema-level description (describes the overall source schema)
-        # The table-level description should take precedence since it's more specific.
         description = node["description"] or node.get("sourceDescription", "")
 
-        if node["resourceType"] == "model":
+        if resource_type == "model":
             materialization = node["materializedType"]
-            logger.debug(f"Model {key}: materialization={materialization}, name={name}")
-        elif node["resourceType"] == "snapshot":
+        elif resource_type == "snapshot":
             materialization = "snapshot"
         else:
             materialization = None
 
-        if node["resourceType"] == "snapshot":
+        if resource_type == "snapshot":
             upstream_nodes = [
                 obj["uniqueId"]
                 for obj in [
@@ -722,79 +803,29 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             upstream_nodes = node.get("dependsOn", [])
 
         catalog_type = node.get("type")
-
         meta = node["meta"]
-
-        # The dbt owner field is set to the db user, and not the meta property.
-        # owner = node.get("owner")
         owner = meta.get("owner")
+        tags = [self.config.tag_prefix + tag for tag in node["tags"]]
 
-        tags = node["tags"]
-        tags = [self.config.tag_prefix + tag for tag in tags]
-
-        if node["resourceType"] in {"model", "seed", "snapshot"}:
-            status = node["status"]
-            if status is None and materialization != "ephemeral":
-                self.report.warning(
-                    title="Schema information may be incomplete",
-                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
-                    context=key,
-                    log=False,
-                )
-
-            # The code fields are new in dbt 1.3, and replace the sql ones.
-            raw_code = node["rawCode"] or node["rawSql"]
-            compiled_code = node["compiledCode"] or node["compiledSql"]
-
-            if compiled_code:
-                logger.debug(
-                    f"Model {key}: compiled_code present (length={len(compiled_code)})"
-                )
-            else:
-                logger.warning(
-                    f"Model {key}: compiled_code is missing (materialization={materialization}). "
-                    "Column-level lineage will not be available for this model."
-                )
-        elif node["resourceType"] == "semantic_model":
-            raw_code = None
-            compiled_code = None
-            logger.debug(
-                f"Semantic model {key}: compiled_code not expected (YAML-based)"
-            )
-        else:
-            raw_code = None
-            compiled_code = None
+        raw_code, compiled_code = self._extract_code_fields(node, materialization)
 
         max_loaded_at = None
-        if node["resourceType"] == "source":
+        if resource_type == "source":
             max_loaded_at_str = node["maxLoadedAt"]
             if max_loaded_at_str:
                 max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
-
-                # For missing data, dbt returns 0001-01-01T00:00:00.000Z.
                 if max_loaded_at.year <= 1:
                     max_loaded_at = None
 
-        # Handle columns differently for semantic models
-        columns = []
-        entities = []
-        dimensions = []
-        measures = []
+        # Handle columns and semantic model fields
+        columns: List[DBTColumn] = []
+        entities: List[Dict] = []
+        dimensions: List[Dict] = []
+        measures: List[Dict] = []
 
-        if node["resourceType"] == "semantic_model":
-            # For semantic models, extract entities, dimensions, and measures
-            entities = node.get("entities", [])
-            dimensions = node.get("dimensions", [])
-            measures = node.get("measures", [])
-
-            logger.debug(
-                f"Parsing semantic model {node.get('name')}: "
-                f"{len(entities)} entity/entities, {len(dimensions)} dimension(s), {len(measures)} measure(s)"
-            )
-
-            # Convert semantic model fields to columns
-            columns = convert_semantic_view_fields_to_columns(
-                entities, dimensions, measures, self.config.tag_prefix
+        if resource_type == "semantic_model":
+            columns, entities, dimensions, measures = (
+                self._extract_semantic_model_fields(node)
             )
         elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
@@ -807,71 +838,20 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         test_info = None
         test_result = None
-        if node["resourceType"] == "test":
-            qualified_test_name = name
+        if resource_type == "test":
+            test_info, test_result = self._extract_test_info(node, name)
 
-            # The qualified test name should be the test name from the dbt project.
-            # It can be simple (e.g. 'unique') or prefixed (e.g. 'dbt_expectations.expect_column_values_to_not_be_null').
-            # We attempt to guess the test name based on the macros used.
-            for dependency in node["dependsOn"]:
-                # An example dependsOn list could be:
-                #     ['model.sample_dbt.monthly_billing_with_cust', 'macro.dbt.test_not_null', 'macro.dbt.get_where_subquery']
-                # In that case, the test should be `not_null`.
-
-                if dependency.startswith("macro."):
-                    _, macro = dependency.split(".", 1)
-                    if macro.startswith("dbt."):
-                        if not macro.startswith("dbt.test_"):
-                            continue
-                        macro = macro[len("dbt.test_") :]
-
-                    qualified_test_name = macro
-                    break
-
-            test_info = DBTTest(
-                qualified_test_name=qualified_test_name,
-                column_name=node["columnName"],
-                kw_args={},  # TODO: dbt Cloud doesn't expose the args.
-            )
-            if not node["skip"]:
-                test_result = DBTTestResult(
-                    invocation_id=f"job{node['jobId']}-run{node['runId']}",
-                    execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
-                    status=node["status"],
-                    native_results={
-                        key: str(node[key])
-                        for key in {
-                            "columnName",
-                            "error",
-                            "fail",
-                            "warn",
-                            "skip",
-                            "state",
-                            "status",
-                        }
-                    },
-                )
-
-        # Use "semantic_view" node_type for semantic models to match dbt_core.py convention
-        node_type = (
-            "semantic_view"
-            if node["resourceType"] == "semantic_model"
-            else node["resourceType"]
-        )
-
-        # Also override node_type for models with semantic_view materialization
-        # (e.g., Snowflake semantic views using dbt_semantic_view package)
-        if materialization == "semantic_view":
+        # Determine node_type: semantic_model or semantic_view materialization -> "semantic_view"
+        if resource_type == "semantic_model" or materialization == "semantic_view":
             node_type = "semantic_view"
-            logger.debug(
-                f"Detected Snowflake semantic view: {key} (node_type overridden to 'semantic_view')"
-            )
-            if not compiled_code:
+            if materialization == "semantic_view" and not compiled_code:
                 self.report.warning(
                     title="Semantic View Missing compiled_code",
                     message="CLL extraction will be skipped - compiled_code not available from dbt Cloud API",
                     context=key,
                 )
+        else:
+            node_type = resource_type
 
         return DBTNode(
             dbt_name=key,
