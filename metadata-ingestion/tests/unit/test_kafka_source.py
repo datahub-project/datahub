@@ -13,6 +13,7 @@ from freezegun import freeze_time
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     OwnerType,
+    make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
@@ -70,7 +71,7 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
 
     mock_kafka.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    assert len(workunits) == 8
+    assert len(workunits) == 10
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -92,7 +93,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
 
     mock_kafka.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    assert len(workunits) == 4
+    assert len(workunits) == 5
 
     mock_cluster_metadata.topics = {"test": None, "test2": None, "bazbaz": None}
     ctx = PipelineContext(run_id="test2")
@@ -104,7 +105,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
         ctx,
     )
     workunits = [w for w in kafka_source.get_workunits()]
-    assert len(workunits) == 8
+    assert len(workunits) == 10
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
@@ -186,7 +187,7 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
     )
     workunits = [w for w in kafka_source.get_workunits()]
 
-    assert len(workunits) == 4
+    assert len(workunits) == 5
 
     expected_urn = make_dataset_urn(
         platform=PLATFORM,
@@ -205,7 +206,11 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and wu.metadata.aspectName == "dataPlatformInstance"
     ]
-    assert len(data_platform_mcps) == 0
+    assert len(data_platform_mcps) == 1
+    data_platform_aspect = data_platform_mcps[0].aspect
+    assert isinstance(data_platform_aspect, DataPlatformInstanceClass)
+    assert data_platform_aspect.platform == make_data_platform_urn(PLATFORM)
+    assert data_platform_aspect.instance is None
 
     browse_path_mcps = [
         wu.metadata
@@ -259,10 +264,21 @@ def test_kafka_source_workunit_emission_order(mock_kafka, mock_admin_client):
     ]
 
     assert aspect_order[0] == "status"
-    expected_aspects = {"status", "browsePathsV2", "datasetProperties", "subTypes"}
+    expected_aspects = {
+        "status",
+        "browsePathsV2",
+        "datasetProperties",
+        "subTypes",
+        "dataPlatformInstance",
+    }
     assert expected_aspects.issubset(set(aspect_order))
     status_idx = aspect_order.index("status")
-    for aspect in ["browsePathsV2", "datasetProperties", "subTypes"]:
+    for aspect in [
+        "browsePathsV2",
+        "datasetProperties",
+        "subTypes",
+        "dataPlatformInstance",
+    ]:
         assert status_idx < aspect_order.index(aspect)
 
 
@@ -514,7 +530,7 @@ def test_kafka_ignore_warnings_on_schema_type(
     kafka_source = KafkaSource.create(source_config, ctx)
 
     workunits = list(kafka_source.get_workunits())
-    assert len(workunits) == 5
+    assert len(workunits) == 6
     if ignore_warnings_on_schema_type:
         assert not kafka_source.report.warnings
     else:
@@ -548,7 +564,7 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
 
     mock_kafka_admin_client.assert_called_once()
 
-    assert len(workunits) == 4
+    assert len(workunits) == 5
 
 
 @patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
@@ -580,7 +596,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     mock_kafka_admin_client.assert_called_once()
     mock_admin_client_instance.describe_configs.assert_called_once()
 
-    assert len(workunits) == 4
+    assert len(workunits) == 5
 
 
 @freeze_time("2023-09-20 10:00:00")
@@ -988,7 +1004,7 @@ def test_kafka_source_handles_non_iterable_schema_tags(
     # Should not raise an exception - the source should handle the TypeError gracefully
     workunits = list(kafka_source.get_workunits())
 
-    assert len(workunits) >= 5
+    assert len(workunits) >= 6
 
     for wu in workunits:
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
@@ -1004,6 +1020,7 @@ def test_kafka_source_handles_non_iterable_schema_tags(
         "browsePathsV2",
         "datasetProperties",
         "subTypes",
+        "dataPlatformInstance",
     ]
     for expected_aspect in expected_aspects:
         assert expected_aspect in aspect_names, (
@@ -1109,7 +1126,7 @@ def test_kafka_source_handles_valid_schema_tags(
 
     workunits = list(kafka_source.get_workunits())
 
-    assert len(workunits) >= 7
+    assert len(workunits) >= 8
 
     tags_mcps = [
         wu.metadata

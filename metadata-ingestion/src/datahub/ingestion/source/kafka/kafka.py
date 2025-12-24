@@ -517,16 +517,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             ),
         ).as_workunit()
 
-        if self.source_config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=platform_urn,
-                    instance=make_dataplatform_instance_urn(
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=platform_urn,
+                instance=(
+                    make_dataplatform_instance_urn(
                         self.platform, self.source_config.platform_instance
-                    ),
+                    )
+                    if self.source_config.platform_instance
+                    else None
                 ),
-            ).as_workunit()
+            ),
+        ).as_workunit()
 
         typeName = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
         yield MetadataChangeProposalWrapper(
