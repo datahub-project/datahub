@@ -1,12 +1,15 @@
 # This import verifies that the dependencies are available.
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional
+import re
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -21,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     RDSIAMTokenManager,
@@ -30,9 +34,16 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
+from datahub.ingestion.source.sql.sql_utils import gen_database_key
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
+    fetch_procedures_from_query,
+    generate_procedure_container_workunits,
+    make_temp_table_checker,
+)
+from datahub.ingestion.source.sql.stored_procedures.config import (
+    StoredProcedureConfigMixin,
 )
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
@@ -64,6 +75,29 @@ base.ischema_names["linestring"] = LINESTRING
 base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
+# Regex for CREATE [GLOBAL] TEMPORARY TABLE [IF NOT EXISTS] [db.]table
+TEMP_TABLE_PATTERN = re.compile(
+    r"CREATE\s+(?:GLOBAL\s+)?TEMPORARY\s+TABLE\s+"
+    r"(?:IF\s+NOT\s+EXISTS\s+)?"
+    r"(?:`?(\w+)`?\.)?`?(\w+)`?",
+    re.IGNORECASE,
+)
+
+STORED_PROCEDURES_QUERY = """
+SELECT
+    ROUTINE_NAME as name,
+    ROUTINE_DEFINITION as definition,
+    ROUTINE_COMMENT as comment,
+    CREATED,
+    LAST_ALTERED,
+    SQL_DATA_ACCESS,
+    SECURITY_TYPE,
+    DEFINER
+FROM information_schema.ROUTINES
+WHERE ROUTINE_TYPE = 'PROCEDURE'
+AND ROUTINE_SCHEMA = :schema
+"""
+
 
 class MySQLAuthMode(StrEnum):
     """Authentication mode for MySQL connection."""
@@ -93,20 +127,19 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     )
 
 
-class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
-    def get_identifier(self, *, schema: str, table: str) -> str:
-        return f"{schema}.{table}"
-
-    include_stored_procedures: bool = Field(
-        default=True,
-        description="Include ingest of stored procedures.",
-    )
-
+class MySQLConfig(
+    MySQLConnectionConfig, TwoTierSQLAlchemyConfig, StoredProcedureConfigMixin
+):
+    # Override procedure_pattern with MySQL-specific description and example
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for stored procedures to filter in ingestion."
-        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for stored procedures to filter in ingestion. "
+        "Specify regex to match the entire procedure name in database.procedure_name format (two-tier). "
+        "e.g. to match all procedures starting with 'sp_customer' in 'sales' database, use the regex 'sales.sp_customer.*'",
     )
+
+    def get_identifier(self, *, schema: str, table: str) -> str:
+        return f"{schema}.{table}"
 
 
 @platform_name("MySQL")
@@ -119,9 +152,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 
-    Metadata for databases, schemas, and tables
-    Column types and schema associated with each table
-    Table, row, and column statistics via optional SQL profiling
+    - Metadata for databases, schemas, views, tables, and stored procedures
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
     """
 
     config: MySQLConfig
@@ -152,6 +185,56 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @staticmethod
+    def _parse_datetime(value: Optional[Any]) -> Optional[datetime]:
+        """
+        Convert a timestamp value to datetime or return None.
+
+        Handles both string and datetime objects from SQLAlchemy.
+        """
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except (ValueError, TypeError):
+            return None
+
+    # Note: MySQL relies on base class get_schema_level_workunits which handles
+    # stored procedure ingestion with two-layer error handling:
+    # 1. Base class catch-all in get_schema_level_workunits
+    # 2. MySQL-specific error handling in get_procedures_for_schema
+    # This ensures errors are properly handled and table ingestion continues
+
+    def _process_procedures(
+        self,
+        procedures: List[BaseProcedure],
+        db_name: str,
+        schema: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if procedures:
+            yield from generate_procedure_container_workunits(
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=None,  # MySQL is two-tier
+            )
+
+        for procedure in procedures:
+            yield from self._process_procedure(procedure, schema, db_name)
+
+    def get_temp_table_checker(
+        self, procedure: BaseProcedure, schema: str, db_name: str
+    ) -> Optional[Callable[[str], bool]]:
+        """Return a function to check if a table name is a MySQL temporary table."""
+        return make_temp_table_checker(
+            procedure.procedure_definition, TEMP_TABLE_PATTERN, str.lower
+        )
 
     def _setup_rds_iam_event_listener(
         self, engine: "Engine", database_name: Optional[str] = None
@@ -216,33 +299,39 @@ class MySQLSource(TwoTierSQLAlchemySource):
         """
         Get stored procedures for a specific schema.
         """
-        base_procedures = []
-        with inspector.engine.connect() as conn:
-            procedures = conn.execute(
-                """
-                SELECT ROUTINE_NAME AS name, 
-                    ROUTINE_DEFINITION AS definition, 
-                    EXTERNAL_LANGUAGE AS language
-                FROM information_schema.ROUTINES
-                WHERE ROUTINE_TYPE = 'PROCEDURE'
-                AND ROUTINE_SCHEMA = %s
-                """,
-                (schema,),
+
+        def map_row(row: Row) -> Optional[BaseProcedure]:
+            if not row.name:
+                return None
+
+            return BaseProcedure(
+                name=row.name,
+                language="SQL",
+                argument_signature=None,
+                return_type=None,
+                procedure_definition=row.definition,
+                created=self._parse_datetime(row.CREATED),
+                last_altered=self._parse_datetime(row.LAST_ALTERED),
+                comment=row.comment,
+                extra_properties={
+                    k: v
+                    for k, v in {
+                        "sql_data_access": row.SQL_DATA_ACCESS,
+                        "security_type": row.SECURITY_TYPE,
+                        "definer": row.DEFINER,
+                    }.items()
+                    if v is not None
+                },
             )
 
-            procedure_rows = list(procedures)
-            for row in procedure_rows:
-                base_procedures.append(
-                    BaseProcedure(
-                        name=row.name,
-                        language=row.language,
-                        argument_signature=None,
-                        return_type=None,
-                        procedure_definition=row.definition,
-                        created=None,
-                        last_altered=None,
-                        extra_properties=None,
-                        comment=None,
-                    )
-                )
-            return base_procedures
+        return fetch_procedures_from_query(
+            inspector=inspector,
+            query=STORED_PROCEDURES_QUERY,
+            params={"schema": schema},
+            row_mapper=map_row,
+            source_name="MySQL",
+            schema=schema,
+            report=self.report,
+            permission_error_message="Failed to access stored procedure metadata. Grant SELECT permission on information_schema.ROUTINES or disable with 'include_stored_procedures: false'.",
+            system_table="information_schema.ROUTINES",
+        )

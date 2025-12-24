@@ -1,7 +1,7 @@
 import itertools
 import logging
 import time
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -181,6 +181,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
         fetch_views_from_information_schema: bool = False,
+        is_temp_table: Callable[[str], bool] = lambda _: False,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -209,6 +210,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.databases: List[SnowflakeDatabase] = []
 
         self.aggregator = aggregator
+        self.is_temp_table = is_temp_table
 
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
@@ -1567,6 +1569,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 schema_resolver=(
                     self.aggregator._schema_resolver if self.aggregator else None
                 ),
+                is_temp_table_fn=self.is_temp_table,
+                include_stored_procedures_code=self.config.include_stored_procedures_code,
             )
         except Exception as e:
             self.structured_reporter.warning(

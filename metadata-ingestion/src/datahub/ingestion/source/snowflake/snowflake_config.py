@@ -30,6 +30,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.sql.stored_procedures.config import (
+    StoredProcedureConfigMixin,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -192,6 +195,7 @@ class SnowflakeConfig(
     SnowflakeConnectionConfig,
     BaseTimeWindowConfig,
     SQLCommonConfig,
+    StoredProcedureConfigMixin,
 ):
     include_table_lineage: bool = pydantic.Field(
         default=True,

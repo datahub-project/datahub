@@ -309,11 +309,24 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
-        mock_args_data = [
-            Mock(argument_name="PARAM1", data_type="VARCHAR2", in_out="IN", position=1),
-            Mock(argument_name="PARAM2", data_type="NUMBER", in_out="OUT", position=2),
-        ]
-        mock_connection.execute.return_value = mock_args_data
+        # Create mock rows with _mapping attribute to simulate SQLAlchemy Row objects
+        mock_row1 = Mock()
+        mock_row1._mapping = {
+            "argument_name": "PARAM1",
+            "data_type": "VARCHAR2",
+            "in_out": "IN",
+            "position": 1,
+        }
+        mock_row2 = Mock()
+        mock_row2._mapping = {
+            "argument_name": "PARAM2",
+            "data_type": "NUMBER",
+            "in_out": "OUT",
+            "position": 2,
+        }
+        mock_result = Mock()
+        mock_result.__iter__ = Mock(return_value=iter([mock_row1, mock_row2]))
+        mock_connection.execute.return_value = mock_result
 
         result = source._get_procedure_arguments(
             mock_connection, "TEST_SCHEMA", "TEST_PROC", "DBA"
@@ -333,31 +346,38 @@ class TestOracleSource:
 
         mock_connection = Mock()
 
-        # Mock upstream dependencies
-        mock_upstream_data = [
-            Mock(
-                referenced_owner="TEST_SCHEMA",
-                referenced_name="TEST_TABLE",
-                referenced_type="TABLE",
-            ),
-            Mock(
-                referenced_owner="TEST_SCHEMA",
-                referenced_name="OTHER_PROC",
-                referenced_type="PROCEDURE",
-            ),
-        ]
-        # Set attributes explicitly to avoid Mock object issues
-        mock_upstream_data[0].referenced_name = "TEST_TABLE"
-        mock_upstream_data[1].referenced_name = "OTHER_PROC"
+        # Mock upstream dependencies with _mapping attribute
+        mock_upstream_row1 = Mock()
+        mock_upstream_row1._mapping = {
+            "referenced_owner": "TEST_SCHEMA",
+            "referenced_name": "TEST_TABLE",
+            "referenced_type": "TABLE",
+        }
+        mock_upstream_row2 = Mock()
+        mock_upstream_row2._mapping = {
+            "referenced_owner": "TEST_SCHEMA",
+            "referenced_name": "OTHER_PROC",
+            "referenced_type": "PROCEDURE",
+        }
+        mock_upstream_result = Mock()
+        mock_upstream_result.__iter__ = Mock(
+            return_value=iter([mock_upstream_row1, mock_upstream_row2])
+        )
 
-        # Mock downstream dependencies
-        mock_downstream_data = [
-            Mock(owner="TEST_SCHEMA", name="DEPENDENT_PROC", type="PROCEDURE"),
-        ]
-        # Set the name attribute explicitly to avoid Mock object issues
-        mock_downstream_data[0].name = "DEPENDENT_PROC"
+        # Mock downstream dependencies with _mapping attribute
+        mock_downstream_row = Mock()
+        mock_downstream_row._mapping = {
+            "owner": "TEST_SCHEMA",
+            "name": "DEPENDENT_PROC",
+            "type": "PROCEDURE",
+        }
+        mock_downstream_result = Mock()
+        mock_downstream_result.__iter__ = Mock(return_value=iter([mock_downstream_row]))
 
-        mock_connection.execute.side_effect = [mock_upstream_data, mock_downstream_data]
+        mock_connection.execute.side_effect = [
+            mock_upstream_result,
+            mock_downstream_result,
+        ]
 
         result = source._get_procedure_dependencies(
             mock_connection, "TEST_SCHEMA", "TEST_PROC", "DBA"

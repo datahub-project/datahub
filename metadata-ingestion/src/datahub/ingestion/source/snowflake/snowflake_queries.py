@@ -291,6 +291,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         return path
 
     def is_temp_table(self, name: str) -> bool:
+        """
+        Check if a table name refers to a temporary table.
+
+        Snowflake uses a different approach than MySQL/PostgreSQL/Oracle:
+        - Relies on config patterns and discovered tables list (query-level filtering)
+        - Does NOT parse stored procedure SQL to extract CREATE TEMPORARY TABLE statements
+
+        This is because Snowflake temp tables are session-scoped and typically managed
+        via patterns in the config rather than by parsing procedure definitions.
+        """
         if any(
             pattern.match(name)
             for pattern in self.config._compiled_temporary_tables_pattern

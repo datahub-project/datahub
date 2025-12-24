@@ -1,0 +1,27 @@
+from pydantic import Field
+
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+
+
+class StoredProcedureConfigMixin(ConfigModel):
+    include_stored_procedures: bool = Field(
+        default=True,
+        description="Include ingest of stored procedures.",
+    )
+
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion. "
+        "Specify regex to match the entire procedure name in the format expected by the specific SQL source. "
+        "e.g., 'database.procedure_name' for two-tier systems like MySQL/MariaDB or 'database.schema.procedure_name' for three-tier systems.",
+    )
+
+    include_stored_procedures_code: bool = Field(
+        default=True,
+        description=(
+            "Include the full SQL code (DDL) for stored procedures in the metadata. "
+            "When enabled (default), the procedure definitions are ingested as DataTransformLogicClass aspects. "
+            "Set to false to reduce metadata volume if procedure source code is not needed - "
+            "lineage, arguments, and other metadata will still be captured."
+        ),
+    )

@@ -8,6 +8,7 @@ from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -331,6 +332,8 @@ class ProfileMetadata:
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
+    is_two_tier_source: bool = False
+
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
         self.config: SQLCommonConfig = config
@@ -549,9 +552,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
             except Exception as e:
-                self.report.failure(
+                self.report.warning(
                     title="Failed to list stored procedures for schema",
-                    message="An error occurred while listing procedures for the schema.",
+                    message="An error occurred while listing procedures for the schema. Continuing with table ingestion. Check permissions or set include_stored_procedures=false to disable.",
                     context=f"{database}.{schema}",
                     exc=e,
                 )
@@ -1551,6 +1554,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         for procedure in procedures:
             yield from self._process_procedure(procedure, schema, db_name)
 
+    def get_temp_table_checker(
+        self, procedure: BaseProcedure, schema: str, db_name: str
+    ) -> Optional[Callable[[str], bool]]:
+        """Override to provide platform-specific temp table detection. Default: no filtering."""
+        return None
+
     def _process_procedure(
         self,
         procedure: BaseProcedure,
@@ -1566,7 +1575,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
                 ),
-                schema_key=gen_schema_key(
+                schema_key=None
+                if self.is_two_tier_source
+                else gen_schema_key(
                     db_name=db_name,
                     schema=schema,
                     platform=self.platform,
@@ -1574,6 +1585,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     env=self.config.env,
                 ),
                 schema_resolver=self.get_schema_resolver(),
+                is_temp_table_fn=self.get_temp_table_checker(
+                    procedure, schema, db_name
+                ),
+                include_stored_procedures_code=getattr(
+                    self.config, "include_stored_procedures_code", True
+                ),
             )
         except Exception as e:
             self.report.warning(

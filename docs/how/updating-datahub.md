@@ -52,6 +52,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- #14415: Stored procedures now enabled by default for MySQL, MariaDB, PostgreSQL, and Oracle sources. The `include_stored_procedures` configuration option now defaults to `true` (previously `false`). This automatically ingests stored procedures, functions, and packages (Oracle) with their SQL definitions and generates upstream/downstream lineage including column-level lineage when possible. Temporary tables are automatically filtered from lineage to prevent ghost entities. **Error handling behavior change**: Previously, stored procedure failures caused ingestion to fail entirely. Now, failures log warnings and ingestion continues with tables/views to ensure database ingestion succeeds even with missing permissions. Check your monitoring/alerting if you rely on failure counts. **Performance impact**: Ingestion time may increase by 10-30% depending on procedure count and complexity. Metadata volume increases proportionally. **Required permissions**: MySQL/MariaDB need `SELECT` on `information_schema.ROUTINES`; PostgreSQL needs `SELECT` on `pg_proc`, `pg_namespace`, `pg_language`; Oracle needs `SELECT` on `ALL_OBJECTS`, `ALL_SOURCE`, `ALL_ARGUMENTS`, `ALL_DEPENDENCIES` (or `DBA_*` equivalents). To disable, set `include_stored_procedures: false` in your recipe. Use `procedure_pattern` to filter specific procedures if needed.
+
 ## 1.3.0
 
 ### Breaking Changes

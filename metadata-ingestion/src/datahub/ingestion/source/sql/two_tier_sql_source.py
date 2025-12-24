@@ -67,6 +67,8 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
 
 
 class TwoTierSQLAlchemySource(SQLAlchemySource):
+    is_two_tier_source: bool = True
+
     def __init__(self, config, ctx, platform):
         super().__init__(config, ctx, platform)
         self.config: TwoTierSQLAlchemyConfig = config

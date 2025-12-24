@@ -9,12 +9,19 @@ source:
     username: root
     password: example
 
+    # Stored Procedures (optional)
+    include_stored_procedures: true # Default: true
+    procedure_pattern:
+      allow:
+        - "mydb.*" # Include all procedures from mydb database
+      deny:
+        - ".*_temp" # Exclude procedures ending with _temp
+
+
     # If you need to use SSL with MariaDB:
     # options:
     #   connect_args:
     #     ssl_ca: "path_to/server-ca.pem"
     #     ssl_cert: "path_to/client-cert.pem"
     #     ssl_key: "path_to/client-key.pem"
-
-
 # sink configs
