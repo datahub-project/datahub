@@ -49,6 +49,7 @@ from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UsageDataSource,
 )
+from datahub.ingestion.source.unity.connection import DATABRICKS_USER_AGENT_ENTRY
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
@@ -185,14 +186,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 azure_tenant_id=azure_auth.tenant_id,
                 azure_client_id=azure_auth.client_id,
                 azure_client_secret=azure_auth.client_secret.get_secret_value(),
-                product="datahub",
+                product=DATABRICKS_USER_AGENT_ENTRY,
                 product_version=nice_version_name(),
             )
         else:
             self._workspace_client = WorkspaceClient(
                 host=workspace_url,
                 token=personal_access_token,
-                product="datahub",
+                product=DATABRICKS_USER_AGENT_ENTRY,
                 product_version=nice_version_name(),
             )
         self.warehouse_id = warehouse_id or ""
@@ -208,7 +209,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ),
             "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
             "access_token": self._workspace_client.config.token,
-            "user_agent_entry": "datahub",
+            "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
         }
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)

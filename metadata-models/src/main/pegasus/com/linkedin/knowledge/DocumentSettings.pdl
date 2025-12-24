@@ -15,7 +15,8 @@ record DocumentSettings {
    * When true, the document appears in the global documents space accessible to all users.
    */
   @Searchable = {
-    "fieldType": "BOOLEAN"
+    "fieldType": "BOOLEAN",
+    "queryByDefault": false
   }
   showInGlobalContext: boolean = true
 
