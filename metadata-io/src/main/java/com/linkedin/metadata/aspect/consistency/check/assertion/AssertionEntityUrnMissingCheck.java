@@ -9,7 +9,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
-import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
+import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.Collections;
@@ -57,7 +57,7 @@ public class AssertionEntityUrnMissingCheck extends AbstractAssertionCheck {
     if (!assertionInfo.hasEntityUrn() || assertionInfo.getEntityUrn() == null) {
       // Try to derive entityUrn from the assertion's type-specific properties
       try {
-        Urn derivedEntityUrn = AssertionInfoMutator.getEntityFromAssertionInfo(assertionInfo);
+        Urn derivedEntityUrn = AssertionUtils.getEntityFromAssertionInfo(assertionInfo);
         if (derivedEntityUrn != null) {
           // Create a copy and set the derived entityUrn
           AssertionInfo fixedInfo = GenericRecordUtils.copy(assertionInfo, AssertionInfo.class);

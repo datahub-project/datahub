@@ -1,0 +1,344 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestValidFreshness",
+      "description": "Cleanup: Remove test assertion (valid freshness)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestDerivedEntityUrn",
+      "description": "Cleanup: Remove test assertion (derived entityUrn)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestMissingEntity",
+      "description": "Cleanup: Remove test assertion (missing entity)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestTypeMismatch",
+      "description": "Cleanup: Remove test assertion (type mismatch)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestValidMonitor%29",
+      "description": "Cleanup: Remove test monitor (valid)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestMissingAssertionMonitor%29",
+      "description": "Cleanup: Remove test monitor (missing assertionMonitor)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestTooManyAssertions%29",
+      "description": "Cleanup: Remove test monitor (too many assertions)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestEmptyAssertions%29",
+      "description": "Cleanup: Remove test monitor (empty assertions)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29",
+      "description": "Cleanup: Remove test dataset",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "description": "Create test dataset for assertions/monitors",
+      "params": {
+        "async": "false"
+      },
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,openApiTestMonitor,PROD)",
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestValidFreshness/assertionInfo",
+      "description": "Valid assertion - FRESHNESS type with entityUrn and freshnessAssertion",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "FRESHNESS",
+          "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,openApiTestMonitor,PROD)",
+          "freshnessAssertion": {
+            "type": "DATASET_CHANGE",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:test,openApiTestMonitor,PROD)"
+          }
+        }
+      }
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestDerivedEntityUrn/assertionInfo",
+      "description": "Valid assertion - Missing entityUrn but derivable from freshnessAssertion.entity",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "FRESHNESS",
+          "freshnessAssertion": {
+            "type": "DATASET_CHANGE",
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:test,openApiTestMonitor,PROD)"
+          }
+        }
+      }
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestMissingEntity/assertionInfo",
+      "description": "Invalid assertion - No entityUrn and no derivable entity from sub-property",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "FRESHNESS"
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestTypeMismatch/assertionInfo",
+      "description": "Invalid assertion - FRESHNESS type but missing freshnessAssertion sub-property",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "FRESHNESS",
+          "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,openApiTestMonitor,PROD)"
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestValidMonitor%29/monitorInfo",
+      "description": "Valid monitor - ASSERTION type with one assertion in array",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "ASSERTION",
+          "status": {
+            "mode": "ACTIVE"
+          },
+          "assertionMonitor": {
+            "assertions": [
+              {
+                "assertion": "urn:li:assertion:openApiTestValidFreshness",
+                "schedule": {
+                  "cron": "0 0 * * *",
+                  "timezone": "UTC"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestEmptyAssertions%29/monitorInfo",
+      "description": "Valid monitor - ASSERTION type with empty assertions array (allowed for intermediate states)",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "ASSERTION",
+          "status": {
+            "mode": "ACTIVE"
+          },
+          "assertionMonitor": {
+            "assertions": []
+          }
+        }
+      }
+    },
+    "response": {
+      "status_codes": [200]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestMissingAssertionMonitor%29/monitorInfo",
+      "description": "Invalid monitor - ASSERTION type but missing assertionMonitor",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "ASSERTION",
+          "status": {
+            "state": "ACTIVE"
+          }
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestTooManyAssertions%29/monitorInfo",
+      "description": "Invalid monitor - ASSERTION type with more than one assertion (1:1 relationship)",
+      "params": {
+        "async": "false",
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "type": "ASSERTION",
+          "status": {
+            "mode": "ACTIVE"
+          },
+          "assertionMonitor": {
+            "assertions": [
+              {
+                "assertion": "urn:li:assertion:openApiTestValidFreshness",
+                "schedule": {
+                  "cron": "0 0 * * *",
+                  "timezone": "UTC"
+                }
+              },
+              {
+                "assertion": "urn:li:assertion:openApiTestDerivedEntityUrn",
+                "schedule": {
+                  "cron": "0 12 * * *",
+                  "timezone": "UTC"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestValidFreshness",
+      "description": "Final cleanup: Remove test assertion (valid freshness)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/assertion/urn%3Ali%3Aassertion%3AopenApiTestDerivedEntityUrn",
+      "description": "Final cleanup: Remove test assertion (derived entityUrn)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestValidMonitor%29",
+      "description": "Final cleanup: Remove test monitor (valid)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/monitor/urn%3Ali%3Amonitor%3A%28urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29%2CopenApiTestEmptyAssertions%29",
+      "description": "Final cleanup: Remove test monitor (empty assertions)",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CopenApiTestMonitor%2CPROD%29",
+      "description": "Final cleanup: Remove test dataset",
+      "method": "delete"
+    }
+  }
+]

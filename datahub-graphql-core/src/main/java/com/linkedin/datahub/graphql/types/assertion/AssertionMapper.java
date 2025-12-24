@@ -61,7 +61,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
+import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.timeseries.DayOfWeekArray;
@@ -98,7 +98,7 @@ public class AssertionMapper {
         // Don't want to break entire graphql call if we have data corruption
         final @Nonnull Urn datasetUrn =
             Optional.ofNullable(assertionInfo.getEntityUrn())
-                .orElse(AssertionInfoMutator.getEntityFromAssertionInfo(assertionInfo));
+                .orElse(AssertionUtils.getEntityFromAssertionInfo(assertionInfo));
         final Dataset dataset = new Dataset();
         dataset.setUrn(datasetUrn.toString());
         dataset.setType(EntityType.DATASET);
