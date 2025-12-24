@@ -1010,128 +1010,45 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 f"Failed to fetch semantic tables for database {db_name}: {e}"
             )
 
-    def _fetch_dimensions(
+    def _fetch_semantic_columns(
         self,
         db_name: str,
         column_data: Dict[Tuple[str, str], SemanticViewColumnCollection],
+        column_type: SemanticViewColumnSubtype,
+        query_func: Callable[[str], str],
+        default_data_type: str,
     ) -> int:
-        """Fetch dimension columns for semantic views in a database."""
-        dim_rows = self.connection.query(
-            SnowflakeQuery.get_semantic_dimensions_for_database(db_name)
-        )
-        dim_count = 0
-        for row in dim_rows:
-            dim_count += 1
-            schema_name = row["SEMANTIC_VIEW_SCHEMA"]
-            view_name = row["SEMANTIC_VIEW_NAME"]
-            col_name = row["NAME"]
+        """Fetch columns of a specific type for semantic views in a database."""
+        rows = self.connection.query(query_func(db_name))
+        count = 0
+        type_label = column_type.value.lower()
 
-            view_key = (schema_name, view_name)
+        for row in rows:
+            count += 1
+            view_key = (row["SEMANTIC_VIEW_SCHEMA"], row["SEMANTIC_VIEW_NAME"])
             if view_key not in column_data:
                 column_data[view_key] = SemanticViewColumnCollection()
 
-            synonyms_raw = row.get("SYNONYMS")
+            col_name = row["NAME"]
             synonyms = self._parse_json_array(
-                synonyms_raw, "SYNONYMS", f"dimension {col_name}"
+                row.get("SYNONYMS"), "SYNONYMS", f"{type_label} {col_name}"
             )
 
             metadata = SemanticViewColumnMetadata(
                 name=col_name,
                 data_type=self._get_data_type_with_default(
-                    row, "DIMENSION", col_name, "VARCHAR"
+                    row, type_label.upper(), col_name, default_data_type
                 ),
                 comment=row.get("COMMENT"),
-                subtype=SemanticViewColumnSubtype.DIMENSION,
+                subtype=column_type,
                 table_name=row.get("TABLE_NAME"),
                 synonyms=synonyms,
                 expression=row.get("EXPRESSION"),
             )
             column_data[view_key].add_column(metadata)
 
-        logger.debug(f"Fetched {dim_count} dimensions for database {db_name}")
-        return dim_count
-
-    def _fetch_facts(
-        self,
-        db_name: str,
-        column_data: Dict[Tuple[str, str], SemanticViewColumnCollection],
-    ) -> int:
-        """Fetch fact columns for semantic views in a database."""
-        fact_rows = self.connection.query(
-            SnowflakeQuery.get_semantic_facts_for_database(db_name)
-        )
-        fact_count = 0
-        for row in fact_rows:
-            fact_count += 1
-            schema_name = row["SEMANTIC_VIEW_SCHEMA"]
-            view_name = row["SEMANTIC_VIEW_NAME"]
-            col_name = row["NAME"]
-
-            view_key = (schema_name, view_name)
-            if view_key not in column_data:
-                column_data[view_key] = SemanticViewColumnCollection()
-
-            synonyms_raw = row.get("SYNONYMS")
-            synonyms = self._parse_json_array(
-                synonyms_raw, "SYNONYMS", f"fact {col_name}"
-            )
-
-            metadata = SemanticViewColumnMetadata(
-                name=col_name,
-                data_type=self._get_data_type_with_default(
-                    row, "FACT", col_name, "NUMBER"
-                ),
-                comment=row.get("COMMENT"),
-                subtype=SemanticViewColumnSubtype.FACT,
-                table_name=row.get("TABLE_NAME"),
-                synonyms=synonyms,
-                expression=row.get("EXPRESSION"),
-            )
-            column_data[view_key].add_column(metadata)
-
-        logger.debug(f"Fetched {fact_count} facts for database {db_name}")
-        return fact_count
-
-    def _fetch_metrics(
-        self,
-        db_name: str,
-        column_data: Dict[Tuple[str, str], SemanticViewColumnCollection],
-    ) -> int:
-        """Fetch metric columns for semantic views in a database."""
-        metric_rows = self.connection.query(
-            SnowflakeQuery.get_semantic_metrics_for_database(db_name)
-        )
-        metric_count = 0
-        for row in metric_rows:
-            metric_count += 1
-            schema_name = row["SEMANTIC_VIEW_SCHEMA"]
-            view_name = row["SEMANTIC_VIEW_NAME"]
-            col_name = row["NAME"]
-
-            view_key = (schema_name, view_name)
-            if view_key not in column_data:
-                column_data[view_key] = SemanticViewColumnCollection()
-
-            synonyms_raw = row.get("SYNONYMS")
-            synonyms = self._parse_json_array(
-                synonyms_raw, "SYNONYMS", f"metric {col_name}"
-            )
-
-            metadata = SemanticViewColumnMetadata(
-                name=col_name,
-                data_type=self._get_data_type_with_default(
-                    row, "METRIC", col_name, "NUMBER"
-                ),
-                comment=row.get("COMMENT"),
-                subtype=SemanticViewColumnSubtype.METRIC,
-                table_name=row.get("TABLE_NAME"),
-                synonyms=synonyms,
-                expression=row.get("EXPRESSION"),
-            )
-            column_data[view_key].add_column(metadata)
-
-        logger.debug(f"Fetched {metric_count} metrics for database {db_name}")
-        return metric_count
+        logger.debug(f"Fetched {count} {type_label}s for database {db_name}")
+        return count
 
     def _deduplicate_synonyms(
         self, occurrences: List[SemanticViewColumnMetadata]
@@ -1295,9 +1212,27 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # Step 1: Collect all column metadata with duplicates
             column_data: Dict[Tuple[str, str], SemanticViewColumnCollection] = {}
 
-            dim_count = self._fetch_dimensions(db_name, column_data)
-            fact_count = self._fetch_facts(db_name, column_data)
-            metric_count = self._fetch_metrics(db_name, column_data)
+            dim_count = self._fetch_semantic_columns(
+                db_name,
+                column_data,
+                SemanticViewColumnSubtype.DIMENSION,
+                SnowflakeQuery.get_semantic_dimensions_for_database,
+                "VARCHAR",
+            )
+            fact_count = self._fetch_semantic_columns(
+                db_name,
+                column_data,
+                SemanticViewColumnSubtype.FACT,
+                SnowflakeQuery.get_semantic_facts_for_database,
+                "NUMBER",
+            )
+            metric_count = self._fetch_semantic_columns(
+                db_name,
+                column_data,
+                SemanticViewColumnSubtype.METRIC,
+                SnowflakeQuery.get_semantic_metrics_for_database,
+                "NUMBER",
+            )
 
             # Step 2: Deduplicate and merge metadata for each semantic view
             for view_key, column_collection in column_data.items():
