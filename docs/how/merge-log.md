@@ -2694,3 +2694,60 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **925eb824a6** - bugfix(fivetran): Improve Fivetran REST API Error Handling and User Reporting (#15323)
   *by Anush Kumar on 2025-12-19*
 
+
+## Upstream Merge Session - 2025-12-24 08:51:31
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-12-24-085130`
+- **Merge Base**: `cd5fb01fb28377cafdb1d214e9937b4790593d64`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 14
+- **Strategy**: stacked
+- **Started**: Wed Dec 24 08:51:31 UTC 2025
+
+### Commits Included in This Merge
+- **e166fce0de** - feat(ingestion): Use UA constant for dbrx (#15745)
+  *by Adrian Machado on 2025-12-19*
+
+- **71d0e10d47** - feat(ingestion): adding ingestion security guidelines (#15729)
+  *by Gabe Lyons on 2025-12-19*
+
+- **95fd5d6e08** - fix(ingest/mssql): Fix MSSQL stored procedure lineage extraction (#15340)
+  *by kyungsoo-datahub on 2025-12-19*
+
+- **6f6c010fe8** - chore(test): Update test weights from CI runs (2025-12-21) (#15747)
+  *by github-actions[bot] on 2025-12-22*
+
+- **45b3e128dc** - fix(cli): apply latest cli version (#15731)
+  *by Deepak Garg on 2025-12-22*
+
+- **659b16f0b1** - fix(metabase): add legacy-mbql parameter for Metabase 0.57+ compatibility (#15709)
+  *by Georvic Tur on 2025-12-22*
+
+- **8275f890be** - fix(actions): Added support for pydantic v2 to actions framework (#15742)
+  *by Patrick Druley on 2025-12-22*
+
+- **d46bceb37e** - docs: integrate metadata standards sidebar section (#15718)
+  *by Hyejin Yoon on 2025-12-23*
+
+- **c93ed17bcb** - feat(dataplex): Adding dataplex platform logo ahead of connector (#15354)
+  *by Patrick Druley on 2025-12-22*
+
+- **023916952f** - feat(docs): migrate RFC process back to main repository (#15242)
+  *by Shirshanka Das on 2025-12-22*
+
+- **0198f2cade** - fix(ui/lineageV3): Fix lineage graph (breaks lineage module) (#15715)
+  *by Andrew Sikowitz on 2025-12-23*
+
+- **cd6528ece6** - fix(ui) Fix yaml editor cursor alignment issues (#15758)
+  *by Chris Collins on 2025-12-23*
+
+- **e6b394d38c** - feat(config): support split consumer/producer config for kafka (#15751)
+  *by RyanHolstien on 2025-12-23*
+
+- **4e8c0f182a** - feat(ingestion): add Azure Data Factory connector (#15499)
+  *by Anush Kumar on 2025-12-23*
+
