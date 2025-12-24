@@ -1,4 +1,3 @@
-import logging
 from typing import List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -8,8 +7,6 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
-
-logger = logging.getLogger(__name__)
 
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
