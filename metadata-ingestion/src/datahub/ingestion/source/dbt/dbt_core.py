@@ -221,9 +221,10 @@ def extract_semantic_views(
                         break
 
             if not database or not schema:
-                logger.warning(
-                    f"Could not resolve database.schema for semantic view {name} - sibling relationships may not work. "
-                    f"Ensure the referenced model exists in the manifest."
+                report.warning(
+                    title="Semantic View Missing Database/Schema",
+                    message="Could not resolve database.schema - sibling relationships may not work. Ensure the referenced model exists in the manifest.",
+                    context=f"semantic_model.{name}",
                 )
 
         # Convert semantic view fields to columns

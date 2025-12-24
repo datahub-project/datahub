@@ -140,6 +140,47 @@ _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 # Semantic view constants
 SEMANTIC_VIEW_UNKNOWN_DATA_TYPE = "unknown"
 
+# Pre-compiled regex patterns for semantic view CLL parsing (performance optimization)
+# These patterns are used in parse_semantic_view_cll() to extract column-level lineage
+_SV_TABLES_SECTION_RE = re.compile(r"TABLES\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
+_SV_ALIAS_RE = re.compile(r"(\w+)\s+as\s+[\w.]+\.(\w+)", re.IGNORECASE)
+_SV_DIMENSION_RE = re.compile(
+    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|$|\n))",
+    re.IGNORECASE,
+)
+_SV_AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
+_SV_METRIC_RE = re.compile(
+    rf"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+{_SV_AGGREGATIONS}\s*\(\s*(\w+|\"[^\"]+\")\s*\)",
+    re.IGNORECASE,
+)
+_SV_DERIVED_METRIC_RE = re.compile(
+    r"(\w+|\"[^\"]+\")\s+AS\s+((?:(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")(?:\s*[+\-*/]\s*)?)+)",
+    re.IGNORECASE,
+)
+_SV_TABLE_METRIC_REF_RE = re.compile(
+    r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")", re.IGNORECASE
+)
+
+
+def _add_cll_entry(
+    cll_info: List["DBTColumnLineageInfo"],
+    seen_cll: Set[Tuple[str, str, str]],
+    upstream_dbt_name: str,
+    upstream_col: str,
+    downstream_col: str,
+) -> None:
+    """Add a CLL entry if not already seen (deduplication helper)."""
+    key = (upstream_dbt_name, upstream_col, downstream_col)
+    if key not in seen_cll:
+        seen_cll.add(key)
+        cll_info.append(
+            DBTColumnLineageInfo(
+                upstream_dbt_name=upstream_dbt_name,
+                upstream_col=upstream_col,
+                downstream_col=downstream_col,
+            )
+        )
+
 
 # Semantic view field structures
 class SemanticViewEntity(TypedDict, total=False):
@@ -686,7 +727,7 @@ def convert_semantic_view_fields_to_columns(
     return columns
 
 
-def parse_semantic_view_cll(  # noqa: C901
+def parse_semantic_view_cll(
     compiled_sql: str,
     upstream_nodes: List[str],
     all_nodes_map: Dict[str, Any],
@@ -694,186 +735,69 @@ def parse_semantic_view_cll(  # noqa: C901
     """
     Parse semantic view DDL to extract column-level lineage.
 
-    Extracts mappings from DIMENSIONS, FACTS, and METRICS sections:
-    - DIMENSIONS ( ORDERS.CUSTOMER_ID AS CUSTOMER_ID, ... )
-    - FACTS ( orders.ORDER_TOTAL AS ORDER_TOTAL, ... )
-    - METRICS ( ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL), ... )
-
+    Extracts mappings from DIMENSIONS, FACTS, and METRICS sections.
     Returns list of DBTColumnLineageInfo mapping upstream columns to downstream columns.
     """
     if not compiled_sql:
-        logger.debug(
-            "parse_semantic_view_cll: No compiled_sql provided, returning empty CLL"
-        )
         return []
 
-    logger.debug(
-        f"parse_semantic_view_cll: Starting CLL extraction (compiled_sql length={len(compiled_sql)}, upstream_nodes={len(upstream_nodes)})"
-    )
-    logger.debug(f"Upstream nodes: {upstream_nodes}")
-
-    cll_info = []
-    # Use a set for O(1) duplicate checking instead of O(n) list iteration
-    # Format: (upstream_dbt_name, source_column, output_column)
-    seen_cll = set()
+    cll_info: List[DBTColumnLineageInfo] = []
+    seen_cll: Set[Tuple[str, str, str]] = set()
 
     # Build mapping of table references to dbt source node names
-    # upstream_nodes contains dbt_names like "source.project.source_name.TABLE_NAME"
-    table_to_dbt_name = {}
+    table_to_dbt_name: Dict[str, str] = {}
     for upstream_dbt_name in upstream_nodes:
         if upstream_dbt_name in all_nodes_map:
             upstream_node = all_nodes_map[upstream_dbt_name]
-            # The table reference in DDL might be just the table name (ORDERS, TRANSACTIONS)
             table_name = upstream_node.name.upper()
             table_to_dbt_name[table_name] = upstream_dbt_name
-        else:
-            logger.warning(
-                f"Upstream node {upstream_dbt_name} not found in all_nodes_map, skipping for CLL extraction"
-            )
 
     if not table_to_dbt_name:
-        logger.warning(
-            "No upstream table mapping available for semantic view CLL extraction"
-        )
         return []
 
-    logger.debug(
-        f"Built table mapping for {len(table_to_dbt_name)} tables: {list(table_to_dbt_name.keys())}"
-    )
-
-    # Parse TABLES section to extract alias mappings
-    # Example: cases as analytics_cs_mart.analytics.r_support_case_analysis
-    # The DDL may use aliases (e.g., 'cases') instead of actual table names
-    alias_to_dbt_name = {}
-    tables_section = re.search(
-        r"TABLES\s*\((.*?)\)", compiled_sql, re.IGNORECASE | re.DOTALL
-    )
+    # Parse TABLES section to extract alias mappings (e.g., 'cases' -> 'r_support_case_analysis')
+    tables_section = _SV_TABLES_SECTION_RE.search(compiled_sql)
     if tables_section:
-        tables_content = tables_section.group(1)
-        # Pattern: alias AS database.schema.table or alias AS table
-        # Example: cases as analytics_cs_mart.analytics.r_support_case_analysis
-        alias_pattern = r"(\w+)\s+as\s+[\w.]+\.(\w+)"
-        alias_matches = re.findall(alias_pattern, tables_content, re.IGNORECASE)
+        alias_matches = _SV_ALIAS_RE.findall(tables_section.group(1))
         for alias, table_name in alias_matches:
             alias_upper = alias.upper()
             table_upper = table_name.upper()
-            # Find the dbt node name for this table
             if table_upper in table_to_dbt_name:
-                alias_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
-                logger.debug(
-                    f"Mapped alias '{alias_upper}' to table '{table_upper}' -> {table_to_dbt_name[table_upper]}"
-                )
-
-    # Merge alias mappings into table mappings
-    # This allows dimensions to reference either the alias or the actual table name
-    table_to_dbt_name.update(alias_to_dbt_name)
-    logger.debug(
-        f"Final table+alias mapping has {len(table_to_dbt_name)} entries: {list(table_to_dbt_name.keys())}"
-    )
-
-    # Pattern 1: DIMENSIONS/FACTS - TABLE.SOURCE_COLUMN AS OUTPUT_COLUMN
-    # Example: ORDERS.CUSTOMER_ID AS CUSTOMER_ID, "Order-ID" AS order_id
-    # Handles quoted identifiers, newlines, EOF, comments, and various terminators
-    dimension_pattern = r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|$|\n))"
-
-    # Pattern 2: METRICS - TABLE.OUTPUT_NAME AS AGG_FUNC(SOURCE_COLUMN)
-    # Example: ORDERS.GROSS_REVENUE AS SUM(ORDER_TOTAL), "Total-Revenue" AS COUNT_DISTINCT("order_id")
-    # Extended to support more aggregation functions and quoted identifiers
-    AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
-    metric_pattern = rf"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+{AGGREGATIONS}\s*\(\s*(\w+|\"[^\"]+\")\s*\)"
-
-    # Pattern 3: DERIVED METRICS - OUTPUT_NAME AS TABLE.METRIC1 + TABLE.METRIC2
-    # Example: TOTAL_ORDER_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
-    # Now handles quoted identifiers: "total-revenue" AS "Orders"."gross-revenue" + "Trans"."net-amount"
-    derived_metric_pattern = r"(\w+|\"[^\"]+\")\s+AS\s+((?:(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")(?:\s*[+\-*/]\s*)?)+)"
-
-    # Detect DDL sections for debugging
-    has_dimensions = bool(re.search(r"DIMENSIONS\s*\(", compiled_sql, re.IGNORECASE))
-    has_facts = bool(re.search(r"FACTS\s*\(", compiled_sql, re.IGNORECASE))
-    has_metrics = bool(re.search(r"METRICS\s*\(", compiled_sql, re.IGNORECASE))
-    logger.debug(
-        f"DDL sections detected: DIMENSIONS={has_dimensions}, FACTS={has_facts}, METRICS={has_metrics}"
-    )
+                table_to_dbt_name[alias_upper] = table_to_dbt_name[table_upper]
 
     # Parse METRICS first (more specific pattern)
-    metric_matches = list(re.finditer(metric_pattern, compiled_sql, re.IGNORECASE))
-    logger.debug(f"Found {len(metric_matches)} metric patterns")
-
-    for match in metric_matches:
-        # Pattern: TABLE.OUTPUT_NAME AS AGG_FUNC(SOURCE_COLUMN)
-        # Groups: (1) table, (2) output, (3) source
+    for match in _SV_METRIC_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         output_column = match.group(2).strip('"').lower()
         source_column = match.group(3).strip('"').lower()
 
-        # Map table reference to dbt source node
         if table_ref in table_to_dbt_name:
-            upstream_dbt_name = table_to_dbt_name[table_ref]
-
-            # Check for duplicates using the set
-            key = (upstream_dbt_name, source_column, output_column)
-            if key in seen_cll:
-                continue
-            seen_cll.add(key)
-
-            cll_info.append(
-                DBTColumnLineageInfo(
-                    upstream_dbt_name=upstream_dbt_name,
-                    upstream_col=source_column,  # The column inside the aggregation
-                    downstream_col=output_column,  # The output metric name
-                )
-            )
-            logger.debug(
-                f"Extracted metric CLL: {table_ref}.{source_column} → {output_column}"
-            )
-        else:
-            logger.debug(
-                f"Table {table_ref} not found in upstream mapping, skipping metric {output_column}"
+            _add_cll_entry(
+                cll_info,
+                seen_cll,
+                table_to_dbt_name[table_ref],
+                source_column,
+                output_column,
             )
 
     # Parse DIMENSIONS/FACTS (simpler 1:1 mapping)
-    dimension_matches = list(
-        re.finditer(dimension_pattern, compiled_sql, re.IGNORECASE)
-    )
-    logger.debug(f"Found {len(dimension_matches)} dimension/fact patterns")
-
-    for match in dimension_matches:
-        # Pattern: TABLE.SOURCE_COLUMN AS OUTPUT_COLUMN
-        # Groups: (1) table, (2) source, (3) output
+    for match in _SV_DIMENSION_RE.finditer(compiled_sql):
         table_ref = match.group(1).strip('"').upper()
         source_column = match.group(2).strip('"').lower()
         output_column = match.group(3).strip('"').lower()
 
-        # Map table reference to dbt source node
         if table_ref in table_to_dbt_name:
-            upstream_dbt_name = table_to_dbt_name[table_ref]
-
-            # Check for duplicates using the set
-            key = (upstream_dbt_name, source_column, output_column)
-            if key in seen_cll:
-                continue
-            seen_cll.add(key)
-
-            cll_info.append(
-                DBTColumnLineageInfo(
-                    upstream_dbt_name=upstream_dbt_name,
-                    upstream_col=source_column,
-                    downstream_col=output_column,
-                )
-            )
-            logger.debug(
-                f"Extracted dimension/fact CLL: {table_ref}.{source_column} → {output_column}"
-            )
-        else:
-            logger.debug(
-                f"Table {table_ref} not found in upstream mapping, skipping dimension/fact {output_column}"
+            _add_cll_entry(
+                cll_info,
+                seen_cll,
+                table_to_dbt_name[table_ref],
+                source_column,
+                output_column,
             )
 
-    # Build a map of metric names to their base columns for resolving derived metrics
-    # Format: {metric_name: [(upstream_dbt_name, source_column)]}
+    # Build metric-to-sources map for resolving derived metrics
     metric_to_sources: Dict[str, List[Tuple[str, str]]] = {}
     for cll in cll_info:
-        # Track what each output column is derived from
         if cll.downstream_col not in metric_to_sources:
             metric_to_sources[cll.downstream_col] = []
         metric_to_sources[cll.downstream_col].append(
@@ -881,79 +805,22 @@ def parse_semantic_view_cll(  # noqa: C901
         )
 
     # Parse DERIVED METRICS (metrics computed from other metrics)
-    # Example: TOTAL_ORDER_REVENUE AS ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
-    derived_matches = list(
-        re.finditer(derived_metric_pattern, compiled_sql, re.IGNORECASE)
-    )
-    logger.debug(f"Found {len(derived_matches)} derived metric patterns")
+    for match in _SV_DERIVED_METRIC_RE.finditer(compiled_sql):
+        output_metric = match.group(1).strip('"').lower()
+        expression = match.group(2)
 
-    for match in derived_matches:
-        output_metric = match.group(1).strip('"').lower()  # total_order_revenue
-        expression = match.group(
-            2
-        )  # ORDERS.GROSS_REVENUE + TRANSACTIONS.NET_PAYMENT_AMOUNT
-
-        # Extract all TABLE.METRIC references from the expression
-        # Pattern: TABLE.METRIC_NAME (handles quoted identifiers)
-        ref_pattern = r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")"
-        refs = re.findall(ref_pattern, expression, re.IGNORECASE)
-
-        logger.debug(
-            f"Found derived metric: {output_metric} from expression: {expression}"
-        )
-
-        # For each referenced metric, trace back to its source columns
-        for table_ref, metric_name in refs:
-            # Strip quotes from identifiers
-            table_ref = table_ref.strip('"')
+        refs = _SV_TABLE_METRIC_REF_RE.findall(expression)
+        for _table_ref, metric_name in refs:
             metric_name_lower = metric_name.strip('"').lower()
-
-            # Check if this metric is in our map (meaning we've seen it before)
             if metric_name_lower in metric_to_sources:
-                # Create CLL from the base columns to this derived metric
                 for upstream_dbt_name, source_col in metric_to_sources[
                     metric_name_lower
                 ]:
-                    # Check for duplicates using the set
-                    key = (upstream_dbt_name, source_col, output_metric)
-                    if key in seen_cll:
-                        continue
-                    seen_cll.add(key)
-
-                    cll_info.append(
-                        DBTColumnLineageInfo(
-                            upstream_dbt_name=upstream_dbt_name,
-                            upstream_col=source_col,
-                            downstream_col=output_metric,
-                        )
+                    _add_cll_entry(
+                        cll_info, seen_cll, upstream_dbt_name, source_col, output_metric
                     )
-                    logger.debug(
-                        f"Extracted derived metric CLL: {source_col} → {output_metric} (via {metric_name_lower})"
-                    )
-            else:
-                logger.debug(
-                    f"Referenced metric {table_ref}.{metric_name_lower} not found in metric mapping for derived metric {output_metric}"
-                )
 
-    if cll_info:
-        logger.debug(
-            f"Successfully parsed {len(cll_info)} column lineage entries from semantic view DDL "
-            f"(metrics={len([c for c in cll_info if c.downstream_col in metric_to_sources])}, "
-            f"dimensions/facts={len([c for c in cll_info if c.downstream_col not in metric_to_sources])})"
-        )
-        # Log first few entries as examples
-        for i, cll in enumerate(cll_info[:5]):
-            logger.debug(
-                f"  Example CLL #{i + 1}: {cll.upstream_dbt_name.split('.')[-1]}.{cll.upstream_col} -> {cll.downstream_col}"
-            )
-        if len(cll_info) > 5:
-            logger.debug(f"  ... and {len(cll_info) - 5} more entries")
-    else:
-        logger.warning(
-            "No column lineage entries extracted from semantic view DDL - verify DDL contains DIMENSIONS, FACTS, or METRICS"
-        )
-        logger.debug(f"DDL preview (first 500 chars): {compiled_sql[:500]}")
-
+    logger.debug(f"Parsed {len(cll_info)} CLL entries from semantic view DDL")
     return cll_info
 
 
@@ -1826,27 +1693,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
 
                 if node.compiled_code:
-                    logger.debug(
-                        f"Semantic view {node.dbt_name}: compiled_code available (length={len(node.compiled_code)}), calling CLL parser"
-                    )
-                    cll_info = parse_semantic_view_cll(
-                        compiled_sql=node.compiled_code,
-                        upstream_nodes=node.upstream_nodes,
-                        all_nodes_map=all_nodes_map,
-                    )
-                    node.upstream_cll.extend(cll_info)
-
-                    if cll_info:
-                        logger.debug(
-                            f"Semantic view {node.dbt_name}: Extracted {len(cll_info)} column lineage entries"
+                    try:
+                        cll_info = parse_semantic_view_cll(
+                            compiled_sql=node.compiled_code,
+                            upstream_nodes=node.upstream_nodes,
+                            all_nodes_map=all_nodes_map,
                         )
-                    else:
-                        logger.warning(
-                            f"Semantic view {node.dbt_name}: CLL parser returned 0 entries - check DDL format"
+                        node.upstream_cll.extend(cll_info)
+
+                        if not cll_info:
+                            self.report.warning(
+                                title="Semantic View CLL Empty",
+                                message="CLL parser returned 0 entries - DDL may contain unsupported syntax",
+                                context=node.dbt_name,
+                            )
+                    except Exception as e:
+                        self.report.warning(
+                            title="Semantic View CLL Parsing Failed",
+                            message=f"Failed to parse column-level lineage: {str(e)}",
+                            context=node.dbt_name,
                         )
                 else:
-                    logger.warning(
-                        f"Semantic view {node.dbt_name}: No compiled_code available, skipping CLL extraction"
+                    self.report.warning(
+                        title="Semantic View Missing compiled_code",
+                        message="No compiled_code available, CLL extraction skipped",
+                        context=node.dbt_name,
                     )
             elif node.node_type in {"source", "test", "seed"}:
                 # For sources, we generate CLL as a 1:1 mapping.

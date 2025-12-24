@@ -866,13 +866,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             logger.debug(
                 f"Detected Snowflake semantic view: {key} (node_type overridden to 'semantic_view')"
             )
-            if compiled_code:
-                logger.debug(
-                    f"Semantic view {key}: compiled_code present (length={len(compiled_code)}). Will attempt CLL extraction from compiled DDL"
-                )
-            else:
-                logger.warning(
-                    f"Semantic view {key}: Missing compiled_code - CLL extraction will be skipped!"
+            if not compiled_code:
+                self.report.warning(
+                    title="Semantic View Missing compiled_code",
+                    message="CLL extraction will be skipped - compiled_code not available from dbt Cloud API",
+                    context=key,
                 )
 
         return DBTNode(
