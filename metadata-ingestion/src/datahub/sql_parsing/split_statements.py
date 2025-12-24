@@ -267,8 +267,23 @@ class _StatementSplitter:
             self.current_statement.append(c)
 
     def _has_preceding_cte(self, most_recent_real_char: str) -> bool:
-        # usually we'd have a close paren that closes a CTE
-        return most_recent_real_char == ")"
+        # A CTE (Common Table Expression) has the pattern: WITH name AS (...) SELECT
+        # The closing paren before SELECT indicates a CTE.
+        # However, closing parens can also appear in WHERE clauses of DML statements.
+
+        if most_recent_real_char != ")":
+            return False
+
+        current_text = "".join(self.current_statement).upper()
+
+        # If current statement starts with INSERT/UPDATE/DELETE, the closing paren
+        # is likely from the DML statement itself (e.g., WHERE clause), not a CTE
+        current_text_stripped = current_text.strip()
+        if current_text_stripped.startswith(("INSERT", "UPDATE", "DELETE")):
+            return False
+
+        # Otherwise, assume ) might indicate a CTE
+        return True
 
     def _is_part_of_merge_query(self) -> bool:
         # In merge statement we'd have `when matched then` or `when not matched then"

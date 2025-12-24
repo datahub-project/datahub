@@ -244,3 +244,107 @@ def test_split_statement_with_end_keyword_in_bracketed_identifier_with_escapes()
     statements = [statement.strip() for statement in split_statements(test_sql)]
     expected = [test_sql.strip()]
     assert statements == expected
+
+
+def test_split_mssql_insert_with_closing_paren_in_where():
+    """
+    Test Fix #4: INSERT with closing paren in WHERE clause should split correctly.
+
+    Bug: _has_preceding_cte() was too simplistic - it assumed ANY closing paren
+    meant a CTE continuation. This caused INSERT statements ending with ) in WHERE
+    clauses to incorrectly continue parsing into the next statement.
+
+    Fix: Check if current statement starts with INSERT/UPDATE/DELETE - if so, the
+    closing paren is from the DML statement itself, not a CTE.
+    """
+    test_sql = """\
+INSERT INTO TimeSeries.dbo.european_priips_kid_information
+    (kid_synthetic_risk_indicator)
+SELECT
+    src.kid_summary_risk_indicator
+FROM Staging.dbo.source src
+WHERE (src.record_action IS NULL OR (src.record_action <> 'DELETE'))
+DELETE dst
+FROM CurrentData.dbo.european_priips_kid_information dst
+WHERE dst.expired = 1"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+
+    # Should split into 2 statements, not 1 incorrectly merged statement
+    assert len(statements) == 2, (
+        f"Expected 2 statements, got {len(statements)}. "
+        "This verifies Fix #4: INSERT with closing paren in WHERE doesn't continue to next statement."
+    )
+
+    # First statement should be the complete INSERT
+    assert statements[0].startswith("INSERT INTO TimeSeries")
+    assert statements[0].endswith("'DELETE'))")
+
+    # Second statement should be the DELETE
+    assert statements[1].startswith("DELETE dst")
+    assert statements[1].endswith("expired = 1")
+
+    # Verify INSERT statement length is correct (not including DELETE)
+    # The INSERT should NOT include "DELETE dst FROM..." text
+    assert "DELETE dst" not in statements[0], (
+        "INSERT statement should not include next DELETE statement"
+    )
+
+
+def test_split_mssql_update_with_closing_paren_in_where():
+    """
+    Test that UPDATE with closing paren in WHERE clause splits correctly.
+    """
+    test_sql = """\
+UPDATE TimeSeries.dbo.european_priips_kid_information
+SET kid_synthetic_risk_indicator = src.kid_summary_risk_indicator
+FROM Staging.dbo.source src
+WHERE (dst.share_class_id IS NULL OR dst.publication_date IS NULL)
+INSERT INTO CurrentData.dbo.output (id) SELECT id FROM input"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+
+    assert len(statements) == 2
+    assert statements[0].startswith("UPDATE TimeSeries")
+    assert statements[0].endswith("publication_date IS NULL)")
+    assert statements[1].startswith("INSERT INTO CurrentData")
+
+
+def test_split_mssql_delete_with_closing_paren_in_where():
+    """
+    Test that DELETE with closing paren in WHERE clause splits correctly.
+    """
+    test_sql = """\
+DELETE dst
+FROM CurrentData.dbo.european_priips_kid_information dst
+WHERE (dst.expired = 1 OR (dst.status = 'DELETED'))
+UPDATE TimeSeries.dbo.target SET value = 1"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+
+    assert len(statements) == 2
+    assert statements[0].startswith("DELETE dst")
+    assert statements[0].endswith("'DELETED'))")
+    assert statements[1].startswith("UPDATE TimeSeries")
+
+
+def test_split_cte_still_works_correctly():
+    """
+    Test that legitimate CTEs still work correctly after the fix.
+
+    The fix should only affect INSERT/UPDATE/DELETE statements, not CTEs.
+    """
+    test_sql = """\
+WITH summary AS (
+    SELECT id, name
+    FROM source
+    WHERE (active = 1)
+)
+SELECT * FROM summary"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+
+    # CTE should remain as single statement
+    assert len(statements) == 1
+    assert "WITH summary AS" in statements[0]
+    assert "SELECT * FROM summary" in statements[0]
