@@ -215,9 +215,6 @@ def extract_semantic_views(
                     database = upstream_entity.get("database")
                     schema = upstream_entity.get("schema")
                     if database and schema:
-                        logger.debug(
-                            f"Resolved database.schema for semantic view {name}: {database}.{schema}"
-                        )
                         break
 
             if not database or not schema:

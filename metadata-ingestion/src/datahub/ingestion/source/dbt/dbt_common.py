@@ -865,7 +865,6 @@ def parse_semantic_view_cll(
                         cll_info, seen_cll, upstream_dbt_name, source_col, output_metric
                     )
 
-    logger.debug(f"Parsed {len(cll_info)} CLL entries from semantic view DDL")
     return cll_info
 
 
@@ -1971,19 +1970,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
 
-                # Debug: Track MCE emission for semantic views
-                if node.node_type == "semantic_view":
-                    final_aspect_types = [
-                        type(a).__name__ for a in mce.proposedSnapshot.aspects
-                    ]
-                    has_upstream = "UpstreamLineageClass" in final_aspect_types
-                    logger.debug(
-                        f"Emitting MCE for {node.dbt_name}: "
-                        f"aspects={len(mce.proposedSnapshot.aspects)}, "
-                        f"has_UpstreamLineageClass={has_upstream}, "
-                        f"types={final_aspect_types}"
-                    )
-
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
@@ -2492,14 +2478,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             env=self.config.env,
             data_platform_instance=self.config.platform_instance,
         )
-
-        # Debug: Log entry point for semantic views
-        if node.node_type == "semantic_view":
-            logger.debug(
-                f"_create_lineage_aspect_for_dbt_node called for {node.dbt_name}: "
-                f"upstream_nodes={node.upstream_nodes}, "
-                f"upstream_cll={len(node.upstream_cll)}"
-            )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
         # from the platform. This code block is executed when we are generating entities of type "dbt".
