@@ -1677,11 +1677,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 # Parse semantic view DDL to extract column-level lineage
                 # SQL parser can't handle semantic view DDL syntax, so we use a custom parser
-                logger.debug(
-                    f"Processing semantic view {node.dbt_name} for CLL extraction"
-                )
-
-                if node.compiled_code:
+                # CLL parsing is currently only supported for Snowflake semantic views.
+                # The regex patterns parse Snowflake-specific DDL syntax.
+                if node.dbt_adapter != "snowflake":
+                    logger.debug(
+                        f"Skipping CLL parsing for semantic view {node.dbt_name}: "
+                        f"adapter '{node.dbt_adapter}' not supported (only snowflake)"
+                    )
+                elif node.compiled_code:
                     try:
                         cll_info = parse_semantic_view_cll(
                             compiled_sql=node.compiled_code,
