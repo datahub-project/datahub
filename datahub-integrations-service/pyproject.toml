@@ -76,6 +76,8 @@ dependencies = [
 	"debugpy", # Enables remote debugging. Used in dev env
 	"py-spy",
 	"inotify",
+	# Safe regex engine (prevents ReDoS attacks from user-supplied patterns)
+	"google-re2",
 ]
 
 [project.optional-dependencies]

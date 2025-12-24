@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from langchain_google_vertexai.functions_utils import (
@@ -168,7 +168,14 @@ def test_preprocesses_schema_before_conversion():
 
 def test_all_registered_tools_convert_to_protobuf():
     register_all_tools(is_oss=False)
-    tools = tools_from_fastmcp(mcp)
+    mock_client = Mock()
+
+    # Patch filter_document_tools to pass through all tools
+    with patch(
+        "datahub_integrations.mcp_integration.tool.filter_document_tools",
+        side_effect=lambda tools: list(tools),
+    ):
+        tools = tools_from_fastmcp(mcp, mock_client)
     wrapper = GeminiLLMWrapper(model_name="gemini-2.5-pro")
     failed_tools = []
 

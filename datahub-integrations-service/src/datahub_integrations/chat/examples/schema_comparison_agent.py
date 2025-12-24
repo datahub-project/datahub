@@ -177,7 +177,7 @@ def create_schema_comparison_agent(
     """
 
     # Prepare tools
-    plannable_tools = flatten_tools([mcp])  # Reuse DataHub MCP tools
+    plannable_tools = flatten_tools([mcp], client)  # Reuse DataHub MCP tools
     plannable_tools.append(
         ToolWrapper.from_function(
             fn=report_schema_differences,

@@ -1,6 +1,7 @@
 import re
 import time
 from typing import Optional
+from unittest.mock import Mock, patch
 
 import pytest
 from datahub.sdk.search_client import compile_filters
@@ -60,7 +61,14 @@ def test_tools_from_fastmcp() -> None:
             raise ValueError("missing filter")
         return compile_filters(filter)[0]
 
-    tools = tools_from_fastmcp(fake_mcp)
+    mock_client = Mock()
+
+    # Patch filter_document_tools to pass through all tools
+    with patch(
+        "datahub_integrations.mcp_integration.tool.filter_document_tools",
+        side_effect=lambda tools: list(tools),
+    ):
+        tools = tools_from_fastmcp(fake_mcp, mock_client)
     tools_map = {tool.name: tool for tool in tools}
     assert set(tools_map.keys()) == {"fake_mcp__get_entity_filter"}
 

@@ -14,6 +14,8 @@ from datahub_integrations.mcp.tools.terms import (
     remove_glossary_terms,
 )
 
+# Note: grep_documents and search_documents are not exported here to avoid
+# circular imports. Import them directly from tools.documents when needed.
 __all__ = [
     "add_tags",
     "remove_tags",

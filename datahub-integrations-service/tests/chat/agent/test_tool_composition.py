@@ -1,6 +1,6 @@
 """Unit tests for tool composition utilities."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from fastmcp import FastMCP
 
@@ -34,8 +34,15 @@ class TestToolsFromFastMCP:
             "tool2": mock_tool_2,
         }
 
-        # Extract tools
-        result = tools_from_fastmcp(mcp_server)
+        # Mock client
+        mock_client = Mock()
+
+        # Extract tools (patch filter_document_tools to pass through all tools)
+        with patch(
+            "datahub_integrations.mcp_integration.tool.filter_document_tools",
+            side_effect=lambda tools: list(tools),
+        ):
+            result = tools_from_fastmcp(mcp_server, mock_client)
 
         # Verify
         assert len(result) == 2
@@ -51,7 +58,13 @@ class TestToolsFromFastMCP:
         mcp_server._tool_manager = Mock()
         mcp_server._tool_manager._tools = {}
 
-        result = tools_from_fastmcp(mcp_server)
+        mock_client = Mock()
+
+        with patch(
+            "datahub_integrations.mcp_integration.tool.filter_document_tools",
+            side_effect=lambda tools: list(tools),
+        ):
+            result = tools_from_fastmcp(mcp_server, mock_client)
 
         assert result == []
 
@@ -72,9 +85,15 @@ class TestFlattenTools:
         mcp_server._tool_manager = Mock()
         mcp_server._tool_manager._tools = {"mcp_tool": mock_mcp_tool}
 
-        # Flatten
+        mock_client = Mock()
+
+        # Flatten (patch filter_document_tools to pass through all tools)
         tools = [direct_tool, mcp_server]
-        result = flatten_tools(tools)  # type: ignore[arg-type]
+        with patch(
+            "datahub_integrations.mcp_integration.tool.filter_document_tools",
+            side_effect=lambda tools: list(tools),
+        ):
+            result = flatten_tools(tools, mock_client)  # type: ignore[arg-type]
 
         # Should have 2 tools: 1 direct + 1 from MCP
         assert len(result) == 2
@@ -88,7 +107,9 @@ class TestFlattenTools:
         tool2 = Mock(spec=ToolWrapper)
         tool2.name = "tool2"
 
-        result = flatten_tools([tool1, tool2])
+        mock_client = Mock()
+
+        result = flatten_tools([tool1, tool2], mock_client)
 
         assert len(result) == 2
         assert result[0] == tool1
@@ -106,7 +127,13 @@ class TestFlattenTools:
         mcp2._tool_manager = Mock()
         mcp2._tool_manager._tools = {"tool2": Mock(), "tool3": Mock()}
 
-        result = flatten_tools([mcp1, mcp2])
+        mock_client = Mock()
+
+        with patch(
+            "datahub_integrations.mcp_integration.tool.filter_document_tools",
+            side_effect=lambda tools: list(tools),
+        ):
+            result = flatten_tools([mcp1, mcp2], mock_client)
 
         # Should have 3 tools total (1 from mcp1, 2 from mcp2)
         assert len(result) == 3
@@ -114,7 +141,8 @@ class TestFlattenTools:
 
     def test_flatten_empty_list(self) -> None:
         """Test flattening empty list."""
-        result = flatten_tools([])
+        mock_client = Mock()
+        result = flatten_tools([], mock_client)
         assert result == []
 
 
@@ -272,9 +300,11 @@ class TestToolCompositionIntegration:
         tool2 = Mock(spec=ToolWrapper)
         tool2.name = "delete"
 
+        mock_client = Mock()
+
         # For this integration test, just test with ToolWrappers
         # (testing MCP flattening is covered in other tests)
-        flattened = flatten_tools([tool1, tool2])
+        flattened = flatten_tools([tool1, tool2], mock_client)
         assert len(flattened) == 2
 
         # Filter
@@ -292,8 +322,14 @@ class TestToolCompositionIntegration:
         mcp._tool_manager = Mock()
         mcp._tool_manager._tools = {"tool2": Mock(), "tool3": Mock()}
 
-        # Flatten
-        flattened = flatten_tools([tool1, mcp])
+        mock_client = Mock()
+
+        # Flatten (patch filter_document_tools to pass through all tools)
+        with patch(
+            "datahub_integrations.mcp_integration.tool.filter_document_tools",
+            side_effect=lambda tools: list(tools),
+        ):
+            flattened = flatten_tools([tool1, mcp], mock_client)
         assert len(flattened) == 3
 
         # Exclude

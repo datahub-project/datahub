@@ -182,10 +182,11 @@ The DataHub Integrations Service provides integrations between DataHub and exter
 
 ### MCP Server Configuration
 
-| Environment Variable               | Default | Unit/Type | Components               | Description                                                                                                                  |
-| ---------------------------------- | ------- | --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `SEMANTIC_SEARCH_ENABLED`          | `false` | boolean   | [`Integrations Service`] | Enable semantic search capabilities (requires DataHub Cloud with semantic search support)                                    |
-| `DATAHUB_MCP_DISABLE_DEFAULT_VIEW` | `false` | boolean   | [`Integrations Service`] | Disable automatic application of organization's default global view to MCP search operations (by default, views are applied) |
+| Environment Variable                  | Default | Unit/Type | Components               | Description                                                                                                                    |
+| ------------------------------------- | ------- | --------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `SEMANTIC_SEARCH_ENABLED`             | `false` | boolean   | [`Integrations Service`] | Enable semantic search capabilities (requires DataHub Cloud with semantic search support)                                      |
+| `DATAHUB_MCP_DISABLE_DEFAULT_VIEW`    | `false` | boolean   | [`Integrations Service`] | Disable automatic application of organization's default global view to MCP search operations (by default, views are applied)   |
+| `DATAHUB_MCP_DOCUMENT_TOOLS_DISABLED` | `false` | boolean   | [`Integrations Service`] | Completely disable document tools (search_documents, grep_documents). Use if document tools negatively impact chatbot behavior |
 
 ### AI Model Configuration
 

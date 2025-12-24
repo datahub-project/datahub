@@ -8,13 +8,18 @@ import asyncer
 import fastmcp.tools
 import mlflow
 import mlflow.entities
+from datahub.sdk.main_client import DataHubClient
 from fastmcp import FastMCP
 from fastmcp.tools.tool import Tool as FastMCPTool
 from loguru import logger
 from mcp.types import TextContent
 
 from datahub_integrations.mcp._token_estimator import TokenCountEstimator
-from datahub_integrations.mcp.mcp_server import TOOL_RESPONSE_TOKEN_LIMIT
+from datahub_integrations.mcp.document_tools_middleware import filter_document_tools
+from datahub_integrations.mcp.mcp_server import (
+    TOOL_RESPONSE_TOKEN_LIMIT,
+    with_datahub_client,
+)
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -154,14 +159,44 @@ class ToolWrapper:
         )
 
 
-def tools_from_fastmcp_tools(
-    mcp: FastMCP, tools: List[FastMCPTool]
+def tools_from_fastmcp(
+    mcp: FastMCP,
+    client: DataHubClient,
+    filter_fn: Optional[Callable[[FastMCPTool], bool]] = None,
 ) -> List[ToolWrapper]:
-    return [ToolWrapper(tool, name_prefix=mcp.name) for tool in tools]
+    """
+    Extract ToolWrapper objects from a FastMCP server instance.
 
+    Applies two levels of filtering:
+    1. Optional custom filter (e.g., for Slack/Teams tag filtering)
+    2. Document tools filtering (hides document tools if no documents exist)
 
-def tools_from_fastmcp(mcp: FastMCP) -> List[ToolWrapper]:
-    return [
-        ToolWrapper(tool, name_prefix=mcp.name)
-        for tool in mcp._tool_manager._tools.values()
-    ]
+    Args:
+        mcp: FastMCP server instance with registered tools
+        client: DataHub client for querying catalog contents during filtering
+        filter_fn: Optional function to filter tools. Receives a Tool and returns
+                   True to include it. Useful for filtering by tags.
+
+    Returns:
+        List of ToolWrapper objects, one for each tool in the MCP server
+
+    Example:
+        # Filter out tools with USER tag for Slack/Teams
+        tools = tools_from_fastmcp(
+            mcp, client,
+            filter_fn=lambda tool: "user" not in (tool.tags or set())
+        )
+    """
+    # Get all tools from the MCP server
+    all_tools = list(mcp._tool_manager._tools.values())
+
+    # Apply custom filter if provided (e.g., tag filtering for Slack/Teams)
+    if filter_fn:
+        all_tools = [tool for tool in all_tools if filter_fn(tool)]
+
+    # Apply document tools filtering
+    # Use context manager to avoid polluting thread context
+    with with_datahub_client(client):
+        filtered_tools = filter_document_tools(all_tools)
+
+    return [ToolWrapper(tool, name_prefix=mcp.name) for tool in filtered_tools]

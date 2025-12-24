@@ -559,6 +559,11 @@ google-genai==1.50.1
     # via
     #   -r requirements.txt
     #   google-cloud-aiplatform
+google-re2==1.1.20251105
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 google-resumable-media==2.7.2
     # via
     #   -r requirements.txt

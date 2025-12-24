@@ -65,6 +65,7 @@ from datahub_integrations.mcp.tools.terms import (
 
 # IMPORTANT: Use relative import to maintain compatibility across repositories
 from ._token_estimator import TokenCountEstimator
+from .tools.documents import grep_documents, search_documents
 from .tools.tags import add_tags, remove_tags
 
 _P = ParamSpec("_P")
@@ -72,6 +73,7 @@ _R = TypeVar("_R")
 T = TypeVar("T")
 DESCRIPTION_LENGTH_HARD_LIMIT = 1000
 QUERY_LENGTH_HARD_LIMIT = 5000
+DOCUMENT_CONTENT_CHAR_LIMIT = 8000
 
 # Maximum token count for tool responses to prevent context window issues
 # As per telemetry tool result length goes upto
@@ -994,6 +996,22 @@ def clean_get_entities_response(
     if response and (view_properties := response.get("viewProperties")):
         if view_properties.get("logic"):
             view_properties["logic"] = truncate_query(view_properties["logic"])
+
+    # Truncate document content to prevent context window issues
+    if response and (info := response.get("info")):
+        if contents := info.get("contents"):
+            if text := contents.get("text"):
+                if len(text) > DOCUMENT_CONTENT_CHAR_LIMIT:
+                    original_length = len(text)
+                    contents["text"] = (
+                        text[:DOCUMENT_CONTENT_CHAR_LIMIT]
+                        + "\n\n[Content truncated. Use grep_documents to search within.]"
+                    )
+                    contents["_truncated"] = True
+                    contents["_originalLengthChars"] = original_length
+                    logger.info(
+                        f"Document content truncated: {original_length:,} -> {DOCUMENT_CONTENT_CHAR_LIMIT:,} chars"
+                    )
 
     return response
 
@@ -2724,6 +2742,16 @@ def register_search_tools(mcp_instance: FastMCP, is_oss: bool = False) -> None:
         description=get_lineage_paths_between.__doc__,
         tags={ToolType.SEARCH.value},
     )(async_background(get_lineage_paths_between))
+
+    # Register search_documents tool
+    mcp_instance.tool(name="search_documents", description=search_documents.__doc__)(
+        async_background(search_documents)
+    )
+
+    # Register grep_documents tool
+    mcp_instance.tool(name="grep_documents", description=grep_documents.__doc__)(
+        async_background(grep_documents)
+    )
 
 
 def register_all_tools(is_oss: bool = False) -> None:

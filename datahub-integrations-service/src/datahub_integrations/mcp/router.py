@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 
 import datahub_integrations as di
 from datahub_integrations.app import DATAHUB_SERVER
+from datahub_integrations.mcp.document_tools_middleware import DocumentToolsMiddleware
 from datahub_integrations.mcp.mcp_server import (
     mcp as datahub_fastmcp,
     with_datahub_client,
@@ -59,7 +60,15 @@ async def _parse_token(
         return await call_next(request)
 
 
+# Register MCP middleware
+# Order matters: middleware are executed in reverse order of registration
+# (last registered runs first on the way in, first on the way out)
+
+# Telemetry middleware - tracks tool calls and other MCP events
 datahub_fastmcp.add_middleware(MCPTelemetryMiddleware())
+
+# Document tools middleware - hides document tools when no documents exist in the catalog
+datahub_fastmcp.add_middleware(DocumentToolsMiddleware())
 
 mcp_http_app = datahub_fastmcp.http_app(
     stateless_http=True,

@@ -712,7 +712,7 @@ def create_ingestion_troubleshooting_agent(
     # ========================================================================
 
     # Start with all MCP tools (search, get_entities, list_schema_fields, etc.)
-    public_tools = flatten_tools([mcp])
+    public_tools = flatten_tools([mcp], client)
 
     # Add ingestion-specific placeholder tools
     public_tools.extend(

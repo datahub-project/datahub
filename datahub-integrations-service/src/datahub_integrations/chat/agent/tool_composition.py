@@ -5,33 +5,19 @@ This module provides helper functions for combining tools from different sources
 (FastMCP, ToolWrapper, etc.) into a unified tool list for agents.
 """
 
-from typing import List, Union
+from typing import TYPE_CHECKING, List, Union
 
 from fastmcp import FastMCP
 
-from datahub_integrations.mcp_integration.tool import ToolWrapper
+from datahub_integrations.mcp_integration.tool import ToolWrapper, tools_from_fastmcp
+
+if TYPE_CHECKING:
+    from datahub.sdk.main_client import DataHubClient
 
 
-def tools_from_fastmcp(mcp_server: FastMCP) -> List[ToolWrapper]:
-    """
-    Extract ToolWrapper objects from a FastMCP server instance.
-
-    Uses the MCP server's own name as the prefix (e.g., if mcp.name="datahub",
-    tools will be named "datahub__search", "datahub__get_entities", etc.)
-
-    Args:
-        mcp_server: FastMCP server instance with registered tools
-
-    Returns:
-        List of ToolWrapper objects, one for each tool in the MCP server
-    """
-    return [
-        ToolWrapper(_tool=tool, name_prefix=mcp_server.name)
-        for tool in mcp_server._tool_manager._tools.values()
-    ]
-
-
-def flatten_tools(tools: List[Union[ToolWrapper, FastMCP]]) -> List[ToolWrapper]:
+def flatten_tools(
+    tools: List[Union[ToolWrapper, FastMCP]], client: "DataHubClient"
+) -> List[ToolWrapper]:
     """
     Flatten a mixed list of ToolWrapper and FastMCP objects into a uniform list.
 
@@ -41,6 +27,7 @@ def flatten_tools(tools: List[Union[ToolWrapper, FastMCP]]) -> List[ToolWrapper]
 
     Args:
         tools: Mixed list of ToolWrapper and FastMCP objects
+        client: DataHub client for querying catalog contents during tool filtering
 
     Returns:
         Flattened list of ToolWrapper objects
@@ -48,7 +35,7 @@ def flatten_tools(tools: List[Union[ToolWrapper, FastMCP]]) -> List[ToolWrapper]
     result = []
     for entry in tools:
         if isinstance(entry, FastMCP):
-            result.extend(tools_from_fastmcp(entry))
+            result.extend(tools_from_fastmcp(entry, client))
         else:
             result.append(entry)
     return result

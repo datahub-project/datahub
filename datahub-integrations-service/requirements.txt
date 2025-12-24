@@ -347,6 +347,8 @@ google-crc32c==1.7.1
     #   google-resumable-media
 google-genai==1.50.1
     # via google-cloud-aiplatform
+google-re2==1.1.20251105
+    # via acryl-datahub-integrations
 google-resumable-media==2.7.2
     # via
     #   google-cloud-bigquery
