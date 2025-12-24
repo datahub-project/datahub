@@ -426,6 +426,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
             and schema_metadata.platformSchema.documentSchemaType == AVRO
         ):
+            # Point to note:
+            # In Kafka documentSchema and keySchema both contains "doc" field.
+            # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
             avro_schema = avro.schema.parse(
                 schema_metadata.platformSchema.documentSchema
             )
