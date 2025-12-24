@@ -80,6 +80,7 @@ import software.amazon.awssdk.services.sts.StsClient;
 
 @Configuration
 public class GraphQLEngineFactory {
+
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
@@ -284,7 +285,7 @@ public class GraphQLEngineFactory {
   @Qualifier("userService")
   private UserService userService;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("semanticSearchService")
   private SemanticSearchService _semanticSearchService;
 
