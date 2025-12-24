@@ -194,11 +194,13 @@ DataHub supports ingestion of Snowflake Semantic Views, which are business-defin
 
 #### Configuration
 
-Semantic view ingestion is enabled by default. You can control it using the following configuration options:
+Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
 
 ```yaml
-# Enable or disable semantic view ingestion
-include_semantic_views: true # Default: true
+# Enable semantic view ingestion (requires Enterprise Edition)
+semantic_views:
+  enabled: true # Default: false
+  column_lineage: true # Default: false - enable column-level lineage
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
@@ -220,7 +222,7 @@ semantic_view_pattern:
 
 - Semantic views require appropriate Snowflake edition and privileges
 - Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
-- The semantic view definition (YAML) is extracted when available through the `SHOW SEMANTIC VIEWS` command
+- The semantic view definition (SQL DDL) is extracted when available through the `GET_DDL` function
 
 ### Caveats
 
