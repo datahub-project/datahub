@@ -138,25 +138,70 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
 # Semantic view constants
+# dbt semantic views (semantic_models) don't expose column data types in the manifest.
+# Unlike regular models/sources that have catalog metadata, semantic view fields
+# (entities, dimensions, measures) are defined in YAML without explicit SQL types.
+# We use "unknown" as a placeholder since the actual types depend on the underlying
+# model columns and any transformations applied via `expr`.
 SEMANTIC_VIEW_UNKNOWN_DATA_TYPE = "unknown"
 
-# Pre-compiled regex patterns for semantic view CLL parsing (performance optimization)
-# These patterns are used in parse_semantic_view_cll() to extract column-level lineage
+# =============================================================================
+# Pre-compiled regex patterns for semantic view CLL (Column-Level Lineage) parsing
+# =============================================================================
+# These patterns parse Snowflake semantic view DDL syntax to extract lineage.
+# Semantic views use a declarative DDL format (not standard SQL), e.g.:
+#   CREATE SEMANTIC VIEW sv TABLES(...) DIMENSIONS(...) METRICS(...) FACTS(...)
+#
+# Pattern naming convention: _SV_ prefix = Semantic View
+
+# Extracts the TABLES(...) section containing table references and aliases
+# Example: TABLES(orders AS db.schema.orders, customers AS db.schema.customers)
+# Captures: entire content inside TABLES(...)
 _SV_TABLES_SECTION_RE = re.compile(r"TABLES\s*\((.*?)\)", re.IGNORECASE | re.DOTALL)
+
+# Extracts alias-to-table mappings from TABLES section
+# Example: "orders AS db.schema.orders" -> captures ("orders", "orders")
+# Group 1: alias name (e.g., "orders")
+# Group 2: actual table name (e.g., "orders" from "db.schema.orders")
 _SV_ALIAS_RE = re.compile(r"(\w+)\s+as\s+[\w.]+\.(\w+)", re.IGNORECASE)
+
+# Extracts dimension/fact 1:1 column mappings
+# Example: "ORDERS.CUSTOMER_ID AS CUSTOMER_ID" or with quotes: '"ORDERS"."ID" AS "ID"'
+# Group 1: table reference (e.g., "ORDERS")
+# Group 2: source column (e.g., "CUSTOMER_ID")
+# Group 3: output column name (e.g., "CUSTOMER_ID")
+# Lookahead ensures we stop at: comma, closing paren, COMMENT keyword, end of line
 _SV_DIMENSION_RE = re.compile(
     r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+(\w+|\"[^\"]+\")(?=\s*(?:,|\)|COMMENT|$|\n))",
     re.IGNORECASE,
 )
+
+# Supported aggregation functions in semantic view metrics
 _SV_AGGREGATIONS = r"(?:SUM|AVG|COUNT|COUNT_DISTINCT|MIN|MAX|ARRAY_AGG|MEDIAN|STDDEV|VARIANCE|PERCENTILE|APPROX_COUNT_DISTINCT)"
+
+# Extracts metric definitions with aggregation functions
+# Example: "ORDERS.REVENUE AS SUM(ORDER_TOTAL)"
+# Group 1: table reference (e.g., "ORDERS")
+# Group 2: output metric name (e.g., "REVENUE")
+# Group 3: source column inside aggregation (e.g., "ORDER_TOTAL")
 _SV_METRIC_RE = re.compile(
     rf"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")\s+AS\s+{_SV_AGGREGATIONS}\s*\(\s*(\w+|\"[^\"]+\")\s*\)",
     re.IGNORECASE,
 )
+
+# Extracts derived metrics (computed from other metrics)
+# Example: "TOTAL_REVENUE AS ORDERS.GROSS_REVENUE + ORDERS.NET_REVENUE"
+# Group 1: output metric name (e.g., "TOTAL_REVENUE")
+# Group 2: expression containing table.metric references (e.g., "ORDERS.GROSS_REVENUE + ORDERS.NET_REVENUE")
 _SV_DERIVED_METRIC_RE = re.compile(
     r"(\w+|\"[^\"]+\")\s+AS\s+((?:(?:\w+|\"[^\"]+\")\.(?:\w+|\"[^\"]+\")(?:\s*[+\-*/]\s*)?)+)",
     re.IGNORECASE,
 )
+
+# Extracts table.column references from derived metric expressions
+# Used to find source metrics in expressions like "ORDERS.REVENUE + ORDERS.COST"
+# Group 1: table reference (e.g., "ORDERS")
+# Group 2: metric/column name (e.g., "REVENUE")
 _SV_TABLE_METRIC_REF_RE = re.compile(
     r"(\w+|\"[^\"]+\")\.(\w+|\"[^\"]+\")", re.IGNORECASE
 )
@@ -1072,17 +1117,6 @@ def get_upstreams(
         )
         upstream_urns.append(urn)
 
-        # Debug: Log each upstream URN generation
-        logger.debug(
-            f"get_upstreams: upstream={upstream} -> urn={urn}, "
-            f"node_type={upstream_manifest_node.node_type}"
-        )
-
-    # Debug: Log final upstream URN count
-    logger.debug(
-        f"get_upstreams: returning {len(upstream_urns)} URNs from {len(upstreams)} upstream nodes"
-    )
-
     return upstream_urns
 
 
@@ -1324,35 +1358,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         all_nodes, additional_custom_props = self.load_nodes()
 
-        # Debug: Count semantic views at each stage
-        sv_nodes_raw = [n for n in all_nodes if n.node_type == "semantic_view"]
-        sv_count_raw = len(sv_nodes_raw)
-        sv_names_raw = [n.dbt_name for n in sv_nodes_raw]
-        sv_name_counts: Dict[str, int] = {}
-        for name in sv_names_raw:
-            sv_name_counts[name] = sv_name_counts.get(name, 0) + 1
-        duplicates = {
-            name: count for name, count in sv_name_counts.items() if count > 1
-        }
-        logger.debug(
-            f"load_nodes returned {len(all_nodes)} nodes, {sv_count_raw} semantic views. "
-            f"Unique SV names: {len(sv_name_counts)}. Duplicates: {duplicates if duplicates else 'None'}"
-        )
-
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         additional_custom_props_filtered = {
             key: value
             for key, value in additional_custom_props.items()
             if value is not None
         }
-
-        # Debug: Count unique semantic view names in map
-        sv_count_map = sum(
-            1 for n in all_nodes_map.values() if n.node_type == "semantic_view"
-        )
-        logger.debug(
-            f"all_nodes_map has {len(all_nodes_map)} unique nodes, {sv_count_map} semantic views"
-        )
 
         # We need to run this before filtering nodes, because the info generated
         # for a filtered node may be used by an unfiltered node.
@@ -1365,29 +1376,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # downstream processing uses the mutated nodes with CLL.
         all_nodes = list(all_nodes_map.values())
 
-        # Debug: Count after reconstruction
-        sv_count_reconstructed = sum(
-            1 for n in all_nodes if n.node_type == "semantic_view"
-        )
-        logger.debug(
-            f"Reconstructed all_nodes has {len(all_nodes)} nodes, {sv_count_reconstructed} semantic views"
-        )
-
         nodes = self._filter_nodes(all_nodes)
-
-        # Debug: Count after filtering
-        sv_count_filtered = sum(1 for n in nodes if n.node_type == "semantic_view")
-        logger.debug(
-            f"After _filter_nodes: {len(nodes)} nodes, {sv_count_filtered} semantic views"
-        )
-
         nodes = self._drop_duplicate_sources(nodes)
-
-        # Debug: Count after dropping duplicates
-        sv_count_final = sum(1 for n in nodes if n.node_type == "semantic_view")
-        logger.debug(
-            f"After _drop_duplicate_sources: {len(nodes)} nodes, {sv_count_final} semantic views"
-        )
 
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
@@ -1876,14 +1866,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the dbt platform."""
 
-        # Debug: Count semantic views in input
-        sv_count = sum(1 for n in dbt_nodes if n.node_type == "semantic_view")
-        sv_names = [n.dbt_name for n in dbt_nodes if n.node_type == "semantic_view"]
-        logger.debug(
-            f"create_dbt_platform_mces called with {len(dbt_nodes)} nodes, "
-            f"{sv_count} semantic views: {sv_names}"
-        )
-
         action_processor = OperationProcessor(
             self.config.meta_mapping,
             self.config.tag_prefix,
@@ -1905,13 +1887,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.platform_instance,
             )
 
-            # Debug: Track semantic view processing
-            if node.node_type == "semantic_view":
-                logger.debug(
-                    f"Processing semantic view node in create_dbt_platform_mces: {node.dbt_name}, "
-                    f"upstream_cll={len(node.upstream_cll)}, id={id(node)}"
-                )
-
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
@@ -1931,19 +1906,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             if upstream_lineage_class:
                 aspects.append(upstream_lineage_class)
-                if node.node_type == "semantic_view":
-                    num_cll = len(upstream_lineage_class.fineGrainedLineages or [])
-                    logger.debug(
-                        f"Appended UpstreamLineageClass to aspects for {node.dbt_name}: "
-                        f"upstreams={len(upstream_lineage_class.upstreams)}, "
-                        f"fineGrainedLineages={num_cll}"
-                    )
-            else:
-                if node.node_type == "semantic_view":
-                    logger.warning(
-                        f"UpstreamLineageClass is None for semantic view {node.dbt_name} - "
-                        f"lineage will not be emitted"
-                    )
+            elif node.node_type == "semantic_view":
+                logger.warning(
+                    f"UpstreamLineageClass is None for semantic view {node.dbt_name} - "
+                    f"lineage will not be emitted"
+                )
 
             # View properties.
             view_prop_aspect = self._create_view_properties_aspect(node)
@@ -1972,18 +1939,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects,
                 )
 
-                # Debug: Track aspect partitioning for semantic views
-                if node.node_type == "semantic_view":
-                    standalone_list = list(standalone_aspects)
-                    snapshot_list = list(snapshot_aspects)
-                    logger.debug(
-                        f"Aspect partitioning for {node.dbt_name}: "
-                        f"standalone={len(standalone_list)} types={[type(a).__name__ for a in standalone_list]}, "
-                        f"snapshot={len(snapshot_list)} types={[type(a).__name__ for a in snapshot_list]}"
-                    )
-                    standalone_aspects = iter(standalone_list)
-                    snapshot_aspects = iter(snapshot_list)
-
                 for aspect in standalone_aspects:
                     # The domains aspect, and some others, may not support being added to the snapshot.
                     yield MetadataChangeProposalWrapper(
@@ -1994,17 +1949,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
-
-                # Debug: Track DatasetSnapshot creation for semantic views
-                if node.node_type == "semantic_view":
-                    aspect_types = [type(a).__name__ for a in dataset_snapshot.aspects]
-                    has_upstream = "UpstreamLineageClass" in aspect_types
-                    logger.debug(
-                        f"Created DatasetSnapshot for {node.dbt_name}: "
-                        f"aspects={len(dataset_snapshot.aspects)}, "
-                        f"has_UpstreamLineageClass={has_upstream}, "
-                        f"types={aspect_types}"
-                    )
 
                 # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                 if self._should_create_sibling_relationships(node):
@@ -2124,12 +2068,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         mce_platform = self.config.target_platform
         mce_platform_instance = self.config.target_platform_instance
 
-        logger.info(f"create_target_platform_mces called with {len(dbt_nodes)} nodes")
-        for n in dbt_nodes:
-            logger.info(
-                f"  - Node: {n.dbt_name}, type={n.node_type}, materialization={n.materialization}"
-            )
-
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             node_datahub_urn = node.get_urn(
                 mce_platform,
@@ -2144,9 +2082,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # We are creating empty node for platform and only add lineage/keyaspect.
             if not node.exists_in_target_platform:
-                logger.info(
-                    f"Skipping {node.dbt_name} (type={node.node_type}) - does not exist in target platform"
-                )
                 continue
 
             # Emit sibling patch for target platform entity BEFORE any other aspects.
