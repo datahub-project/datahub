@@ -133,6 +133,7 @@ function list_markdown_files(): string[] {
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /AGENTS\.md$/, // Internal AI agent documentation
     /CLAUDE\.md$/, // Internal Claude Code documentation
+    /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
     /^\s*$/, //Empty string
   ];
 
