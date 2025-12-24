@@ -105,6 +105,7 @@ class SnowflakeV2Report(
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
+    semantic_views_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -155,6 +156,8 @@ class SnowflakeV2Report(
             self.tables_scanned += 1
         elif ent_type == "view":
             self.views_scanned += 1
+        elif ent_type == "semantic view":
+            self.semantic_views_scanned += 1
         elif ent_type == "schema":
             self.schemas_scanned += 1
         elif ent_type == "database":
