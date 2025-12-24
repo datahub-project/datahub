@@ -531,10 +531,10 @@ public class SlackNotificationSinkTest {
             .text(
                 String.format(
                     "*<%s|%s>*\n%s *Smart Column Assertion* `column x is greater than y` has passed!\n<%s|View results>",
-                    "http://localhost:9002/datasets/test",
+                    "http://localhost:9002/datasets/test?notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&notification_channel=slack",
                     "SampleName",
                     ":white_check_mark:",
-                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&notification_channel=slack"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
     ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
@@ -570,6 +570,10 @@ public class SlackNotificationSinkTest {
                     ImmutableMap.of(
                         "assertionUrn",
                         "urn:li:assertion:test",
+                        "assertionRunId",
+                        "run-123",
+                        "assertionRunTimestampMillis",
+                        "1700000000000",
                         "assertionType",
                         "FIELD",
                         "entityName",
@@ -631,10 +635,10 @@ public class SlackNotificationSinkTest {
             .text(
                 String.format(
                     "*<%s|%s>*\n%s *Smart Column Assertion* `column x is greater than y` has passed!\n<%s|View results>",
-                    "http://localhost:9002/datasets/test",
+                    "http://localhost:9002/datasets/test?notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest&notification_channel=slack",
                     "SampleName",
                     ":white_check_mark:",
-                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest&notification_channel=slack"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
     ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
@@ -830,7 +834,7 @@ public class SlackNotificationSinkTest {
             .text(
                 String.format(
                     "*<%s|%s>*\n%s *External Assertion* `urn:li:assertion:test` has passed!\n<%s|View results in dbt>",
-                    "http://localhost:9002/datasets/test",
+                    "http://localhost:9002/datasets/test?notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&notification_channel=slack",
                     "SampleName",
                     ":white_check_mark:",
                     "http://localhost:8084/dbt/results"))
@@ -859,34 +863,25 @@ public class SlackNotificationSinkTest {
 
     // Now, construct an assertion message request and verify that it is sent to the slack client.
     NotificationRequest notificationRequest = new NotificationRequest();
+    Map<String, String> paramsMap = new HashMap<>();
+    paramsMap.put("assertionUrn", "urn:li:assertion:test");
+    paramsMap.put("assertionRunId", "run-123");
+    paramsMap.put("assertionRunTimestampMillis", "1700000000000");
+    paramsMap.put("assertionType", "DATASET");
+    paramsMap.put("entityName", "SampleName");
+    paramsMap.put("entityPath", "/datasets/test");
+    paramsMap.put("result", "SUCCESS");
+    paramsMap.put("resultReason", "Expected criteria has been met.");
+    paramsMap.put("description", "urn:li:assertion:test");
+    paramsMap.put("sourceType", "EXTERNAL");
+    paramsMap.put("externalPlatform", "dbt");
+    paramsMap.put("externalUrl", "http://localhost:8084/dbt/results");
     notificationRequest.setMessage(
         new NotificationMessage()
             .setTemplate(
                 com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
                     NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
-            .setParameters(
-                new StringMap(
-                    ImmutableMap.of(
-                        "assertionUrn",
-                        "urn:li:assertion:test",
-                        "assertionType",
-                        "DATASET",
-                        "entityName",
-                        "SampleName",
-                        "entityPath",
-                        "/datasets/test",
-                        "result",
-                        "SUCCESS",
-                        "resultReason",
-                        "Expected criteria has been met.",
-                        "description",
-                        "urn:li:assertion:test",
-                        "sourceType",
-                        "EXTERNAL",
-                        "externalPlatform",
-                        "dbt",
-                        "externalUrl",
-                        "http://localhost:8084/dbt/results"))));
+            .setParameters(new StringMap(paramsMap)));
 
     notificationRequest.setRecipients(
         new NotificationRecipientArray(
@@ -939,7 +934,7 @@ public class SlackNotificationSinkTest {
             .text(
                 String.format(
                     "*<%s|%s>*\n%s *External Assertion* `urn:li:assertion:test` has passed!\n<%s|View results in dbt>",
-                    "http://localhost:9002/datasets/test",
+                    "http://localhost:9002/datasets/test?notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&notification_channel=slack",
                     "SampleName",
                     ":white_check_mark:",
                     "http://localhost:8084/dbt/results"))
@@ -991,6 +986,8 @@ public class SlackNotificationSinkTest {
                 "http://localhost:8084/dbt/results",
                 Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY,
                 TEST_EXECUTION_REQUEST_URN));
+    paramsMap.put("assertionRunId", "run-123");
+    paramsMap.put("assertionRunTimestampMillis", "1700000000000");
     paramsMap.put("resultReason", "Expected criteria has been met.");
     paramsMap.put("requestName", Constants.NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME);
     notificationRequest.setMessage(
@@ -1071,10 +1068,10 @@ public class SlackNotificationSinkTest {
             .text(
                 String.format(
                     "*<%s|%s>*\n%s *Column Assertion* `column x is greater than y` has failed!\n> Expected 0 rows to fail, but found 1000.\n<%s|View results>",
-                    "http://localhost:9002/datasets/test",
+                    "http://localhost:9002/datasets/test?notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&notification_channel=slack",
                     "SampleName",
                     ":x:",
-                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
+                    "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=assertion&notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&notification_channel=slack"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
 
@@ -1112,6 +1109,10 @@ public class SlackNotificationSinkTest {
                     ImmutableMap.of(
                         "assertionUrn",
                         "urn:li:assertion:test",
+                        "assertionRunId",
+                        "run-123",
+                        "assertionRunTimestampMillis",
+                        "1700000000000",
                         "assertionType",
                         "FIELD",
                         "entityName",

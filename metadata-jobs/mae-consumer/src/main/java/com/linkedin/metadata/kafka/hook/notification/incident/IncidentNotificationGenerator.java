@@ -167,7 +167,12 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         buildNotificationRequest(
             NotificationTemplateType.BROADCAST_NEW_INCIDENT.name(), templateParams, recipients);
 
-    log.info(String.format("Broadcasting new incident for entity %s...", entityUrn));
+    log.info(
+        "Broadcasting new incident notification. incidentUrn={}, entityUrn={}, assertionRelated={}, recipientCount={}",
+        urn,
+        entityUrn,
+        info.hasSource() && IncidentSourceType.ASSERTION_FAILURE.equals(info.getSource().getType()),
+        recipients.size());
     sendNotificationRequest(notificationRequest);
   }
 

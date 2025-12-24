@@ -300,6 +300,8 @@ public class EntityChangeNotificationGeneratorTest {
     String entityName = "test-entity";
     String entityType = "dataset";
     String entityPlatform = "snowflake";
+    long assertionRunTimestampMillis = 1700000000000L;
+    String assertionRunId = "run-1";
 
     // Execute
     Map<String, String> templateParams =
@@ -311,7 +313,9 @@ public class EntityChangeNotificationGeneratorTest {
             entityUrn,
             entityName,
             entityType,
-            entityPlatform);
+            entityPlatform,
+            assertionRunTimestampMillis,
+            assertionRunId);
 
     // Verify required fields are populated
     assertEquals(templateParams.get("assertionType"), "DATASET");
@@ -322,6 +326,8 @@ public class EntityChangeNotificationGeneratorTest {
     assertEquals(templateParams.get("result"), "SUCCESS");
     assertEquals(templateParams.get("externalUrl"), "https://example.com/result");
     assertEquals(templateParams.get("sourceType"), "EXTERNAL");
+    assertEquals(templateParams.get("assertionRunTimestampMillis"), "1700000000000");
+    assertEquals(templateParams.get("assertionRunId"), assertionRunId);
 
     // Verify fields that depend on method calls are populated
     assertNotNull(templateParams.get("entityPath"));
@@ -357,6 +363,8 @@ public class EntityChangeNotificationGeneratorTest {
     String entityName = "test-entity";
     String entityType = "dataset";
     String entityPlatform = null; // null platform
+    long assertionRunTimestampMillis = 1700000000000L;
+    String assertionRunId = "run-1";
 
     // Execute
     Map<String, String> templateParams =
@@ -368,7 +376,9 @@ public class EntityChangeNotificationGeneratorTest {
             entityUrn,
             entityName,
             entityType,
-            entityPlatform);
+            entityPlatform,
+            assertionRunTimestampMillis,
+            assertionRunId);
 
     // Verify required fields are populated
     assertEquals(templateParams.get("assertionType"), "VOLUME");
@@ -376,6 +386,8 @@ public class EntityChangeNotificationGeneratorTest {
     assertEquals(templateParams.get("entityName"), entityName);
     assertEquals(templateParams.get("entityType"), entityType);
     assertEquals(templateParams.get("result"), "FAILURE");
+    assertEquals(templateParams.get("assertionRunTimestampMillis"), "1700000000000");
+    assertEquals(templateParams.get("assertionRunId"), assertionRunId);
 
     // Verify optional fields are not populated when inputs are null
     assertNull(templateParams.get("entityPlatform"));
@@ -415,6 +427,8 @@ public class EntityChangeNotificationGeneratorTest {
     String entityName = "test-entity";
     String entityType = "dataset";
     String entityPlatform = "mysql";
+    long assertionRunTimestampMillis = 1700000000000L;
+    String assertionRunId = "run-1";
 
     // Execute
     Map<String, String> templateParams =
@@ -426,11 +440,15 @@ public class EntityChangeNotificationGeneratorTest {
             entityUrn,
             entityName,
             entityType,
-            entityPlatform);
+            entityPlatform,
+            assertionRunTimestampMillis,
+            assertionRunId);
 
     // Verify specific fields
     assertEquals(templateParams.get("assertionType"), "SQL");
     assertEquals(templateParams.get("result"), "ERROR");
     assertEquals(templateParams.get("entityPlatform"), entityPlatform);
+    assertEquals(templateParams.get("assertionRunTimestampMillis"), "1700000000000");
+    assertEquals(templateParams.get("assertionRunId"), assertionRunId);
   }
 }

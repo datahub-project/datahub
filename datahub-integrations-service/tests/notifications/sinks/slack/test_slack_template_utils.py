@@ -254,8 +254,8 @@ def test_build_new_incident_message_success_user_has_slack_ids(
 
     expected_string = (
         ":warning: *New Data Incident* \n\n"
-        "An incident has been raised on asset <https://base.url/entity/path/Incidents|Entity Name> by *Actor Name*.\n\n"
-        "*Incident Name*: Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn:li:assertion:test|Table was not updated in past 6 hours> has failed\n"
+        "An incident has been raised on asset <https://base.url/entity/path/Incidents?incident_urn=urn%3Ali%3Aincident%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Entity Name> by *Actor Name*.\n\n"
+        "*Incident Name*: Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Table was not updated in past 6 hours> has failed\n"
         "*Incident Description*: Description of incident\n\n"
         "*Asset Owners*: <@U12345>, <@U12346>, <@U12347>, <@U12348>, <@U12349>, <@U12350>, <@U12351>, <@U12352>, <@U12353>, <@U12354>, + 1 more\n"
         "*Impacted Asset Owners*: <@G12345>"
@@ -315,8 +315,8 @@ def test_build_new_incident_message_success_user_has_email_lookup(
 
     expected_string = (
         ":warning: *New Data Incident* \n\n"
-        "An incident has been raised on asset <https://base.url/entity/path/Incidents|Entity Name> by *Actor Name*.\n\n"
-        "*Incident Name*: Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn:li:assertion:test|Table was not updated in past 6 hours> has failed\n"
+        "An incident has been raised on asset <https://base.url/entity/path/Incidents?incident_urn=urn%3Ali%3Aincident%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Entity Name> by *Actor Name*.\n\n"
+        "*Incident Name*: Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Table was not updated in past 6 hours> has failed\n"
         "*Incident Description*: Description of incident\n\n"
         "*Asset Owners*: <@U12345>\n"
         "*Impacted Asset Owners*: Test Group"
@@ -388,7 +388,7 @@ def test_incident_resolved_success(
 
     expected_string = (
         ":white_check_mark: *Data Incident Resolved*\n\n"
-        "Incident *Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn:li:assertion:test|Table was not updated in past 6 hours> has failed* on asset <https://base.url/entity/path/Incidents|Entity Name> "
+        "Incident *Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Table was not updated in past 6 hours> has failed* on asset <https://base.url/entity/path/Incidents?incident_urn=urn%3Ali%3Aincident%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Entity Name> "
         "has been resolved by *Actor Name*.\n\n"
         "*Note*: Issue has been resolved successfully.\n\n"
         "*Asset Owners*: <@U12345>, <@U12346>\n"
@@ -468,7 +468,7 @@ def test_incident_reopened_success(
 
     expected_string = (
         ":warning: *Data Incident Reopened*\n\n"
-        "Incident *Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn:li:assertion:test|Table was not updated in past 6 hours> has failed* on asset <https://base.url/entity/path/Incidents|Entity Name> "
+        "Incident *Freshness Assertion <https://base.url/entity/path/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Table was not updated in past 6 hours> has failed* on asset <https://base.url/entity/path/Incidents?incident_urn=urn%3Ali%3Aincident%3Atest&notification_type=incident&notification_id=urn%3Ali%3Aincident%3Atest&notification_channel=slack|Entity Name> "
         "has been reopened by *Actor Name*.\n\n"
         "*Asset Owners*: <@U12345>, <@U12346>\n"
         "*Impacted Asset Owners*: <@G12347>"

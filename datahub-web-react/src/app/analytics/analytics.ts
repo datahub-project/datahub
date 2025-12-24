@@ -3,6 +3,11 @@ import Cookies from 'js-cookie';
 
 import { Event, EventType } from '@app/analytics/event';
 import { fetchTrackingSettings } from '@app/analytics/fetchTrackingSettings';
+import {
+    NOTIFICATION_CONTEXT_STORAGE_KEY,
+    NotificationChannel,
+    NotificationType,
+} from '@app/analytics/notificationTracking';
 import plugins from '@app/analytics/plugin';
 import { createPluginsFromSettings } from '@app/analytics/plugin/utils';
 import { getBrowserId } from '@app/browserId';
@@ -16,6 +21,50 @@ const appName = 'datahub-react';
 export const THIRD_PARTY_LOGGING_KEY = 'enableThirdPartyLogging';
 export const SERVER_VERSION_KEY = 'dataHubServerVersion';
 const { NODE_ENV } = import.meta.env;
+
+type PersistedSessionContext = {
+    // Future: support other entry points beyond alerts by adding more types here.
+    type: 'notification';
+    notification?: {
+        type: NotificationType;
+        notificationId: string;
+        notificationChannel: NotificationChannel;
+    };
+    createdAtMillis: number;
+    expiresAtMillis: number;
+};
+
+type NotificationContextFields = {
+    notificationType: NotificationType;
+    notificationId: string;
+    notificationChannel: NotificationChannel;
+};
+
+function getPersistedSessionContext(): NotificationContextFields | null {
+    try {
+        const raw = sessionStorage.getItem(NOTIFICATION_CONTEXT_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as PersistedSessionContext;
+        const notification = parsed?.notification;
+        if (!notification?.type || !notification?.notificationId || !notification?.notificationChannel) return null;
+        if (parsed.expiresAtMillis && Date.now() > parsed.expiresAtMillis) {
+            sessionStorage.removeItem(NOTIFICATION_CONTEXT_STORAGE_KEY);
+            return null;
+        }
+        return {
+            notificationType: notification.type,
+            notificationId: notification.notificationId,
+            notificationChannel: notification.notificationChannel,
+        };
+    } catch (e) {
+        // Best-effort only. sessionStorage can be unavailable or contain bad JSON (e.g. user/devtools edits).
+        if (NODE_ENV !== 'production') {
+            // eslint-disable-next-line no-console
+            console.debug('Failed to parse persisted session context from sessionStorage', e);
+        }
+        return null;
+    }
+}
 
 let analytics: any = null; // Global variable for analytics. Uninitialized at the start
 
@@ -71,6 +120,7 @@ export default {
         const userTitle = loadUserTitleFromLocalStorage();
         const serverVersion = localStorage.getItem(SERVER_VERSION_KEY);
         const actorUrn = Cookies.get(CLIENT_AUTH_COOKIE) || undefined;
+        const persistedSessionContext = getPersistedSessionContext();
         const modifiedData = {
             ...data,
             type: EventType[EventType.PageViewEvent],
@@ -84,6 +134,7 @@ export default {
             userPersona: userPersona || undefined,
             userTitle: userTitle || undefined,
             serverVersion,
+            ...(persistedSessionContext || {}),
         };
 
         if (NODE_ENV === 'test' || !actorUrn) {
@@ -104,6 +155,7 @@ export default {
         const userTitle = loadUserTitleFromLocalStorage();
         const serverVersion = localStorage.getItem(SERVER_VERSION_KEY);
         const eventTypeName = EventType[event.type];
+        const persistedSessionContext = getPersistedSessionContext();
         const modifiedEvent = {
             ...event,
             type: eventTypeName,
@@ -117,6 +169,7 @@ export default {
             userPersona: userPersona || undefined,
             userTitle: userTitle || undefined,
             serverVersion,
+            ...(persistedSessionContext || {}),
         };
 
         if (NODE_ENV === 'test') {

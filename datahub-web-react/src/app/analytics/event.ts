@@ -1,5 +1,6 @@
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
+import { NotificationChannel, NotificationType } from '@app/analytics/notificationTracking';
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { Direction } from '@app/lineage/types';
@@ -218,6 +219,8 @@ export enum EventType {
     TunePredictionsClickEvent,
     TunePredictionsMarkAnomalyEvent,
     TunePredictionsUpdateMonitorSettingsEvent,
+    NotificationOpenEvent,
+    NotificationSentEvent,
     CreateActionWorkflowFormRequest,
     ReviewActionWorkflowFormRequest,
     BatchReviewActionWorkflowFormRequest,
@@ -316,6 +319,26 @@ interface BaseEvent {
     userTitle?: string;
     /** the current server version when this event happened */
     serverVersion?: string;
+    /** optional notification context captured from inbound links (e.g. Slack notifications) */
+    notificationType?: NotificationType;
+    notificationId?: string;
+    notificationChannel?: NotificationChannel;
+}
+
+export interface NotificationOpenEvent extends BaseEvent {
+    type: EventType.NotificationOpenEvent;
+    notificationType: NotificationType;
+    notificationId: string;
+    notificationChannel: NotificationChannel;
+    pathname: string;
+}
+
+export interface NotificationSentEvent extends BaseEvent {
+    type: EventType.NotificationSentEvent;
+    notificationType: NotificationType;
+    notificationId: string;
+    notificationChannel: NotificationChannel;
+    recipientCount?: number;
 }
 
 /**
@@ -2216,6 +2239,8 @@ export interface FreeTrialEducationModalActionEvent extends BaseEvent {
  */
 export type Event =
     | PageViewEvent
+    | NotificationOpenEvent
+    | NotificationSentEvent
     | HomePageViewEvent
     | IntroduceYourselfViewEvent
     | IntroduceYourselfSubmitEvent

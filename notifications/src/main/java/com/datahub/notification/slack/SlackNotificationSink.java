@@ -12,6 +12,7 @@ import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
+import com.datahub.notification.NotificationTracking;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -1064,14 +1065,34 @@ public class SlackNotificationSink implements NotificationSink {
 
   private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     final String assertionUrn = request.getMessage().getParameters().get("assertionUrn");
+    final String normalizedAssertionUrn = normalizeAssertionUrn(assertionUrn);
+    final String assertionRunId = request.getMessage().getParameters().get("assertionRunId");
+    final String assertionRunTimestampMillis =
+        request.getMessage().getParameters().get("assertionRunTimestampMillis");
     final String assertionType = request.getMessage().getParameters().get("assertionType");
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String entityPath = request.getMessage().getParameters().get("entityPath");
-    final String entityUrl = String.format("%s%s", this.baseUrl, entityPath);
+    final String alertIdRaw =
+        (normalizedAssertionUrn != null
+                && assertionRunTimestampMillis != null
+                && assertionRunId != null)
+            ? String.format(
+                "%s|%s|%s", normalizedAssertionUrn, assertionRunTimestampMillis, assertionRunId)
+            : normalizedAssertionUrn;
+    final String alertParams =
+        String.format(
+            "%s=%s&%s=%s&%s=%s",
+            NotificationTracking.NOTIFICATION_QUERY_PARAM_TYPE,
+            NotificationTracking.NotificationType.ASSERTION.getValue(),
+            NotificationTracking.NOTIFICATION_QUERY_PARAM_ID,
+            urlEncode(alertIdRaw),
+            NotificationTracking.NOTIFICATION_QUERY_PARAM_CHANNEL,
+            NotificationTracking.NotificationChannel.SLACK.getValue());
+    final String entityUrl = String.format("%s%s?%s", this.baseUrl, entityPath, alertParams);
     final String resultsUrl =
         String.format(
-            "%s%s/Validation/Assertions?assertion_urn=%s",
-            this.baseUrl, entityPath, urlEncode(normalizeAssertionUrn(assertionUrn)));
+            "%s%s/Validation/Assertions?assertion_urn=%s&%s",
+            this.baseUrl, entityPath, urlEncode(normalizedAssertionUrn), alertParams);
 
     final String result = request.getMessage().getParameters().get("result");
     final String resultReason = request.getMessage().getParameters().get("resultReason");

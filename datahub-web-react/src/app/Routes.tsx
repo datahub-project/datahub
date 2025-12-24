@@ -6,6 +6,7 @@ import AcrylApp from '@app/AcrylApp';
 import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
 import { useTrackPageView } from '@app/analytics';
+import { useCaptureNotificationContext } from '@app/analytics/useCaptureNotificationContext';
 import { ImplicitLogIn } from '@app/auth/ImplicitLogIn';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import LoginV2 from '@app/auth/loginV2/LoginV2';
@@ -40,6 +41,7 @@ const ProtectedRoute = ({
  */
 export const Routes = (): JSX.Element => {
     const location = useLocation();
+    useCaptureNotificationContext();
     useTrackPageView();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
 

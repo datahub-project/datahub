@@ -27,6 +27,10 @@ from datahub_integrations.graphql.subscription import (
     CREATE_SUBSCRIPTION,
     DELETE_SUBSCRIPTION,
 )
+from datahub_integrations.notifications.notification_tracking import (
+    NotificationChannel,
+    NotificationType,
+)
 from datahub_integrations.slack.app_manifest import (
     create_app_with_manifest,
     get_slack_app_manifest,
@@ -82,6 +86,11 @@ from datahub_integrations.slack.utils.entity_extract import (
 )
 from datahub_integrations.slack.utils.time import slack_ts_to_datetime
 from datahub_integrations.slack.utils.urls import extract_urn_from_url
+from datahub_integrations.telemetry.notification_events import (
+    NotificationSlackAction,
+    NotificationSlackActionEvent,
+)
+from datahub_integrations.telemetry.telemetry import track_saas_event
 
 # 7 days because admins may take some time to approve
 _state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
@@ -89,6 +98,27 @@ _state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
 
 private_router = fastapi.APIRouter()
 public_router = fastapi.APIRouter()
+
+
+def _track_notification_slack_action(
+    *,
+    user_urn: str | None,
+    notification_id: str,
+    notification_type: NotificationType,
+    notification_channel: NotificationChannel = NotificationChannel.SLACK,
+    action: NotificationSlackAction,
+    success: bool,
+) -> None:
+    track_saas_event(
+        NotificationSlackActionEvent(
+            user_urn=user_urn,
+            action=action,
+            success=success,
+            notificationType=notification_type,
+            notificationChannel=notification_channel,
+            notificationId=notification_id,
+        )
+    )
 
 
 def get_oauth_url_generator(config: SlackConnection) -> AuthorizeUrlGenerator:
@@ -663,6 +693,13 @@ def get_slack_app(
         )
 
         logger.debug(f"resolved incident!: {data}")
+        _track_notification_slack_action(
+            user_urn=user_urn,
+            notification_id=incident_urn,
+            notification_type=NotificationType.INCIDENT,
+            action=NotificationSlackAction.RESOLVE,
+            success=bool(data),
+        )
 
     @app.action("reopen_incident")
     def handle_reopen_incident(
@@ -698,6 +735,13 @@ def get_slack_app(
         )
 
         logger.debug(f"reopened incident!: {data}")
+        _track_notification_slack_action(
+            user_urn=user_urn,
+            notification_id=incident_urn,
+            notification_type=NotificationType.INCIDENT,
+            action=NotificationSlackAction.REOPEN,
+            success=bool(data),
+        )
 
     @app.action("select_incident_stage")
     def handle_select_incident_stage(

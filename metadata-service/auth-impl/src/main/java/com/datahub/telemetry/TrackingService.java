@@ -61,6 +61,11 @@ public class TrackingService {
   private static final String SOURCE_TYPE_FIELD = "sourceType";
   private static final String INTERVAL_FIELD = "interval";
   private static final String VIEW_TYPE_FIELD = "viewType";
+  private static final String RECIPIENT_COUNT_FIELD = "recipientCount";
+  private static final String INCIDENT_URN_FIELD = "incidentUrn";
+  private static final String NOTIFICATION_TYPE_FIELD = "notificationType";
+  private static final String NOTIFICATION_ID_FIELD = "notificationId";
+  private static final String NOTIFICATION_CHANNEL_FIELD = "notificationChannel";
 
   private static final Set<String> ALLOWED_EVENT_FIELDS =
       new HashSet<>(
@@ -84,7 +89,12 @@ public class TrackingService {
               POLICY_URN_FIELD,
               SOURCE_TYPE_FIELD,
               INTERVAL_FIELD,
-              VIEW_TYPE_FIELD));
+              VIEW_TYPE_FIELD,
+              RECIPIENT_COUNT_FIELD,
+              INCIDENT_URN_FIELD,
+              NOTIFICATION_TYPE_FIELD,
+              NOTIFICATION_ID_FIELD,
+              NOTIFICATION_CHANNEL_FIELD));
 
   private static final String ACTOR_URN_FIELD = "actorUrn";
   private static final String ORIGIN_FIELD = "origin";

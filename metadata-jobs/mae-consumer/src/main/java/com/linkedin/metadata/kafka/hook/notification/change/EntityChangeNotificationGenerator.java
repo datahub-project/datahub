@@ -816,7 +816,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           logEvent.getEntityUrn(),
           EntityChangeType.ASSERTION_PASSED,
           runEvent.getResult(),
-          runEvent.getAsserteeUrn());
+          runEvent.getAsserteeUrn(),
+          runEvent.getTimestampMillis(),
+          runEvent.getRunId());
     }
 
     List<ChangeEvent> failedAssertionEvents =
@@ -834,7 +836,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           logEvent.getEntityUrn(),
           EntityChangeType.ASSERTION_FAILED,
           runEvent.getResult(),
-          runEvent.getAsserteeUrn());
+          runEvent.getAsserteeUrn(),
+          runEvent.getTimestampMillis(),
+          runEvent.getRunId());
     }
 
     List<ChangeEvent> errorAssertionEvents =
@@ -852,7 +856,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           logEvent.getEntityUrn(),
           EntityChangeType.ASSERTION_ERROR,
           runEvent.getResult(),
-          runEvent.getAsserteeUrn());
+          runEvent.getAsserteeUrn(),
+          runEvent.getTimestampMillis(),
+          runEvent.getRunId());
     }
   }
 
@@ -860,7 +866,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       final Urn assertionUrn,
       final EntityChangeType entityChangeType,
       final AssertionResult result,
-      final Urn entityUrn) {
+      final Urn entityUrn,
+      final long assertionRunTimestampMillis,
+      final String assertionRunId) {
     // 1. Determine who to send to.
     final Set<NotificationRecipient> recipients =
         new HashSet<>(
@@ -910,7 +918,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
             entityUrn,
             entityName,
             entityType,
-            entityPlatform);
+            entityPlatform,
+            assertionRunTimestampMillis,
+            assertionRunId);
 
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
@@ -920,11 +930,13 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
     // 3. Send request.
     log.info(
-        "Broadcasting assertion change notification. assertionUrn={}, entityUrn={}, entityChangeType={}, resultType={}, recipientCount={}",
+        "Broadcasting assertion change notification. assertionUrn={}, entityUrn={}, entityChangeType={}, resultType={}, assertionRunTimestampMillis={}, assertionRunId={}, recipientCount={}",
         assertionUrn,
         entityUrn,
         entityChangeType,
         result.getType(),
+        assertionRunTimestampMillis,
+        assertionRunId,
         recipients.size());
     sendNotificationRequest(notificationRequest);
   }
@@ -938,10 +950,14 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       final Urn entityUrn,
       final String entityName,
       final String entityType,
-      final String entityPlatform) {
+      final String entityPlatform,
+      final long assertionRunTimestampMillis,
+      final String assertionRunId) {
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("assertionType", assertionInfo.getType().toString());
     templateParams.put("assertionUrn", assertionUrn.toString());
+    templateParams.put("assertionRunTimestampMillis", String.valueOf(assertionRunTimestampMillis));
+    templateParams.put("assertionRunId", assertionRunId);
     templateParams.put("entityName", entityName);
     templateParams.put("entityType", entityType);
     templateParams.put("entityPath", generateEntityPath(entityUrn));

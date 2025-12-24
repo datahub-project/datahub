@@ -1,6 +1,7 @@
 import dataclasses
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlencode
 
 from datahub.metadata.schema_classes import NotificationRequestClass
 from loguru import logger
@@ -20,6 +21,13 @@ from datahub_integrations.notifications.constants import (
     INCIDENT_STATUS_RESOLVED,
     MAX_ACTOR_TAGS,
     RESOLVED_INCIDENT_COLOR,
+)
+from datahub_integrations.notifications.notification_tracking import (
+    NOTIFICATION_QUERY_PARAM_CHANNEL,
+    NOTIFICATION_QUERY_PARAM_ID,
+    NOTIFICATION_QUERY_PARAM_TYPE,
+    NotificationChannel,
+    NotificationType,
 )
 from datahub_integrations.slack.context import IncidentContext, IncidentSelectOption
 
@@ -262,12 +270,27 @@ def extract_incident_details(
     url = base_url + (request_parameters.get("entityPath") or "")
     # URL encode the path if necessary (not shown here for brevity)
 
-    assertion_urn = request_parameters.get("assertionUrn")
-    assertion_url = (
-        f"{url}/Validation/Assertions?assertion_urn={assertion_urn}"
-        if assertion_urn
+    incident_urn = request_parameters.get("incidentUrn")
+    notification_query = (
+        urlencode(
+            {
+                NOTIFICATION_QUERY_PARAM_TYPE: NotificationType.INCIDENT.value,
+                NOTIFICATION_QUERY_PARAM_ID: incident_urn,
+                NOTIFICATION_QUERY_PARAM_CHANNEL: NotificationChannel.SLACK.value,
+            }
+        )
+        if incident_urn
         else None
     )
+
+    assertion_urn = request_parameters.get("assertionUrn")
+    assertion_url = None
+    if assertion_urn:
+        assertion_url = f"{url}/Validation/Assertions?" + urlencode(
+            {"assertion_urn": assertion_urn}
+        )
+        if notification_query:
+            assertion_url = assertion_url + "&" + notification_query
 
     actor_urn = request_parameters.get("actorUrn", "")
     actor_name = (
@@ -283,7 +306,14 @@ def extract_incident_details(
         "title": request_parameters.get("incidentTitle", "None"),
         "description": request_parameters.get("incidentDescription", "None"),
         "type": map_incident_type(request_parameters.get("incidentType", "None")),
-        "url": f"{url}/Incidents",
+        "url": (
+            f"{url}/Incidents?"
+            + urlencode({"incident_urn": incident_urn})
+            + "&"
+            + notification_query
+            if incident_urn and notification_query
+            else f"{url}/Incidents"
+        ),
         "entity_name": request_parameters.get("entityName"),
         "entity_platform": request_parameters.get("entityPlatform"),
         "entity_type": request_parameters.get("entityType"),
