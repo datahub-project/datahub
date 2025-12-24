@@ -1328,7 +1328,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         sv_nodes_raw = [n for n in all_nodes if n.node_type == "semantic_view"]
         sv_count_raw = len(sv_nodes_raw)
         sv_names_raw = [n.dbt_name for n in sv_nodes_raw]
-        sv_name_counts = {}
+        sv_name_counts: Dict[str, int] = {}
         for name in sv_names_raw:
             sv_name_counts[name] = sv_name_counts.get(name, 0) + 1
         duplicates = {
