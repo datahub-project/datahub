@@ -346,7 +346,7 @@ def log_mlflow_run_with_human_annotations(annotations: Dict[str, Any]) -> None:
         },
     ) as new_run:
         eval_results = get_eval_table(st.session_state.input_run_id)
-        mlflow.evaluate(
+        mlflow.models.evaluate(
             data=eval_results,
             predictions="description",
             evaluators="default",

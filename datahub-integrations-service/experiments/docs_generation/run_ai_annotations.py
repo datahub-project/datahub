@@ -242,7 +242,7 @@ def run_ai_annotations_experiment(
         )
 
         try:
-            mlflow.evaluate(
+            mlflow.models.evaluate(
                 model=model_fn,
                 data=table_descriptions,
                 predictions="description",

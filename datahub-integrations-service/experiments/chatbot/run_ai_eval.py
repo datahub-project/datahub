@@ -222,7 +222,7 @@ def run_ai_evaluation(run_name: str, run_description: Optional[str] = None) -> N
         logger.info(f"Starting AI evaluation with {len(results_df)} entries")
 
         try:
-            mlflow.evaluate(
+            mlflow.models.evaluate(
                 model=model_fn,
                 data=results_df,
                 predictions="history",

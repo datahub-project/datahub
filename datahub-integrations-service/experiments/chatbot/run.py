@@ -400,7 +400,7 @@ async def main(
 
         logger.info("Evaluating results")
         logger.debug(f"Results dataframe shape: {results_df.shape}")
-        eval_result = mlflow.evaluate(
+        eval_result = mlflow.models.evaluate(
             data=results_df,
             predictions="response",
             evaluators="default",

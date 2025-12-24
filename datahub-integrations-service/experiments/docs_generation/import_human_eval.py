@@ -53,7 +53,7 @@ def import_prompt_experiment(
     original_expt_run_id = None
 
     with mlflow.start_run(experiment_id=experiment_id, run_name=run_name):
-        mlflow.evaluate(
+        mlflow.models.evaluate(
             data=human_eval_df_original_expt,
             predictions="description",
             evaluators="default",
@@ -75,7 +75,7 @@ def import_prompt_experiment(
                 "evaluation_type": "human",
             },
         ):
-            mlflow.evaluate(
+            mlflow.models.evaluate(
                 data=human_eval_df,
                 predictions="description",
                 evaluators="default",
