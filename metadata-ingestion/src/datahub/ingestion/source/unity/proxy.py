@@ -1404,11 +1404,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         try:
             # Initialize or refresh token before executing query
             # This lazy initialization ensures we only fail when SQL is actually needed
-            fresh_token = self._token_provider.get_token()
-            if fresh_token != self._sql_connection_params["access_token"]:
-                logger.debug("Updating SQL connection token")
-                self._sql_connection_params["access_token"] = fresh_token
-
+            self._sql_connection_params["access_token"] = (
+                self._token_provider.get_token()
+            )
             with (
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
