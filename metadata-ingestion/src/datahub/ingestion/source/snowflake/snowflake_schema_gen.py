@@ -1135,9 +1135,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         f"No upstream URNs found for {semantic_view.name}, skipping lineage"
                     )
             except Exception as e:
-                logger.error(
-                    f"Failed to generate column lineage for {semantic_view.name}: {e}",
-                    exc_info=True,
+                self.structured_reporter.warning(
+                    title="Failed to generate column lineage for semantic view",
+                    message=str(e),
+                    context=semantic_view.name,
+                    exc=e,
                 )
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
@@ -1530,7 +1532,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         # For semantic views, use primary_key_columns from SEMANTIC_TABLES
                         else (
                             col.name.upper() in primary_key_columns
-                            if isinstance(table, SnowflakeSemanticView)
+                            if isinstance(table, SnowflakeSemanticView) and col.name
                             else None
                         )
                     ),
@@ -1872,7 +1874,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # Check if source_col is itself a derived column
         derived_col_expression = None
         for sv_col in semantic_view.columns:
-            if sv_col.name.upper() == source_col and sv_col.expression:
+            if sv_col.name and sv_col.name.upper() == source_col and sv_col.expression:
                 derived_col_expression = sv_col.expression
                 break
 
@@ -1980,7 +1982,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # Check if it's another derived column (chained derivation)
                 found_derived = False
                 for sv_col in semantic_view.columns:
-                    if sv_col.name.upper() == source_col and sv_col.expression:
+                    if (
+                        sv_col.name
+                        and sv_col.name.upper() == source_col
+                        and sv_col.expression
+                    ):
                         # Recursively resolve, passing effective_table as context
                         nested_sources = self._resolve_derived_column_sources(
                             sv_col.expression,
@@ -2017,7 +2023,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         unprocessed_columns = [
             col
             for col in semantic_view.columns
-            if col.name.upper() not in processed_columns and col.expression
+            if col.name and col.name.upper() not in processed_columns and col.expression
         ]
 
         for col in unprocessed_columns:
@@ -2172,7 +2178,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     # Look up the column's expression from semantic view metadata
                     column_expression = None
                     for col in semantic_view.columns:
-                        if col.name.upper() == col_name_upper:
+                        if col.name and col.name.upper() == col_name_upper:
                             # Expression was stored during _populate_semantic_view_columns
                             column_expression = col.expression
                             break
