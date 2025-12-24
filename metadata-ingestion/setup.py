@@ -357,6 +357,11 @@ abs_base = {
     *path_spec_common,
 }
 
+azure_data_factory = {
+    "azure-identity>=1.21.0",
+    "azure-mgmt-datafactory>=9.0.0",
+}
+
 data_lake_profiling = {
     "pydeequ>=1.1.0",
     "pyspark~=3.5.6",
@@ -459,6 +464,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0",
     },
     "azure-ad": set(),
+    "azure-data-factory": azure_data_factory,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -797,6 +803,7 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "athena",
+            "azure-data-factory",
             "circuit-breaker",
             "clickhouse",
             "delta-lake",
@@ -834,6 +841,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
+        "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",

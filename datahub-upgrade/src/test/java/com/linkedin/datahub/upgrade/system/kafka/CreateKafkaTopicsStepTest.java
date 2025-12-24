@@ -13,6 +13,7 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.config.kafka.SetupConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -44,6 +45,7 @@ public class CreateKafkaTopicsStepTest {
 
     // Create real KafkaConfiguration with test data
     kafkaConfiguration = new KafkaConfiguration();
+    kafkaConfiguration.setProducer(new ProducerConfiguration());
     kafkaConfiguration.setBootstrapServers("localhost:9092");
 
     SetupConfiguration setupConfig = new SetupConfiguration();
