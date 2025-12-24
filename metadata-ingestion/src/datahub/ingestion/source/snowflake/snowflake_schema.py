@@ -1308,7 +1308,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     column_count = len(column_collection.columns)
                     logger.warning(
                         f"Found {column_count} columns for semantic view {schema_name}.{view_name} "
-                        f"but the view was not found in SHOW SEMANTIC VIEWS results. "
+                        f"but the view was not found in INFORMATION_SCHEMA.SEMANTIC_VIEWS. "
                         f"This may indicate a data inconsistency or permission issue."
                     )
                     continue
