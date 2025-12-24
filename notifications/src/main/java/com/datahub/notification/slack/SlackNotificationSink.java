@@ -1072,27 +1072,27 @@ public class SlackNotificationSink implements NotificationSink {
     final String assertionType = request.getMessage().getParameters().get("assertionType");
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String entityPath = request.getMessage().getParameters().get("entityPath");
-    final String alertIdRaw =
+    final String notificationIdRaw =
         (normalizedAssertionUrn != null
                 && assertionRunTimestampMillis != null
                 && assertionRunId != null)
             ? String.format(
                 "%s|%s|%s", normalizedAssertionUrn, assertionRunTimestampMillis, assertionRunId)
             : normalizedAssertionUrn;
-    final String alertParams =
+    final String notificationParams =
         String.format(
             "%s=%s&%s=%s&%s=%s",
             NotificationTracking.NOTIFICATION_QUERY_PARAM_TYPE,
             NotificationTracking.NotificationType.ASSERTION.getValue(),
             NotificationTracking.NOTIFICATION_QUERY_PARAM_ID,
-            urlEncode(alertIdRaw),
+            urlEncode(notificationIdRaw),
             NotificationTracking.NOTIFICATION_QUERY_PARAM_CHANNEL,
             NotificationTracking.NotificationChannel.SLACK.getValue());
-    final String entityUrl = String.format("%s%s?%s", this.baseUrl, entityPath, alertParams);
+    final String entityUrl = String.format("%s%s?%s", this.baseUrl, entityPath, notificationParams);
     final String resultsUrl =
         String.format(
             "%s%s/Validation/Assertions?assertion_urn=%s&%s",
-            this.baseUrl, entityPath, urlEncode(normalizedAssertionUrn), alertParams);
+            this.baseUrl, entityPath, urlEncode(normalizedAssertionUrn), notificationParams);
 
     final String result = request.getMessage().getParameters().get("result");
     final String resultReason = request.getMessage().getParameters().get("resultReason");

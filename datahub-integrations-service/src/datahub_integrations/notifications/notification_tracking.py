@@ -7,6 +7,8 @@ NOTIFICATION_QUERY_PARAM_CHANNEL = "notification_channel"
 
 class NotificationChannel(str, Enum):
     SLACK = "slack"
+    EMAIL = "email"
+    TEAMS = "teams"
 
 
 class NotificationType(str, Enum):

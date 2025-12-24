@@ -1185,8 +1185,7 @@ public class SlackNotificationSinkTest {
             NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
             NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
             NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
-            NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
-            NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE));
+            NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE));
   }
 
   // =========================================================================

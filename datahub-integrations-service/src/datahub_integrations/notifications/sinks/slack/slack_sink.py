@@ -30,6 +30,7 @@ from datahub_integrations.notifications.sinks.slack.send_slack_message import (
     update_messages,
 )
 from datahub_integrations.notifications.sinks.slack.template_utils import (
+    build_assertion_status_change_message,
     build_compliance_form_publish_parameters,
     build_incident_message,
     build_incident_status_change_message,
@@ -102,6 +103,9 @@ class SlackNotificationSink(NotificationSink):
             NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_incident_status_change_notification(
                 request
             ),
+            NotificationTemplateTypeClass.BROADCAST_ASSERTION_STATUS_CHANGE: lambda: self._send_assertion_status_change_notification(
+                request
+            ),
             NotificationTemplateTypeClass.BROADCAST_COMPLIANCE_FORM_PUBLISH: lambda: self._send_compliance_form_publish_notification(
                 request
             ),
@@ -126,6 +130,22 @@ class SlackNotificationSink(NotificationSink):
             logger.warning(
                 f"Unsupported template type {template_type} provided. Not sending notification."
             )
+
+    def _send_assertion_status_change_notification(
+        self, request: NotificationRequestClass
+    ) -> List[SlackMessageDetails]:
+        text, blocks, attachments = build_assertion_status_change_message(
+            request, self.identity_provider, self.slack_client, self.base_url
+        )
+        slack_recipients = self._get_slack_recipients(request)
+
+        return self._send_change_notification(
+            slack_recipients,
+            text,
+            blocks,
+            attachments,
+            RetryMode.ENABLED,
+        )
 
     def _send_new_incident_notification(
         self, request: NotificationRequestClass

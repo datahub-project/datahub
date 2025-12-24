@@ -16,6 +16,7 @@ from datahub_integrations.identity.identity_provider import (
     User,
 )
 from datahub_integrations.notifications.sinks.slack.template_utils import (
+    build_assertion_status_change_message,
     build_incident_message,
     build_incident_status_change_message,
     build_release_notification_message,
@@ -438,6 +439,95 @@ def test_incident_resolved_required_args_only_success(
     assert len(blocks) == 3  # title + note + divider
     assert len(attachments) == 1
     assert len(attachments[0]["blocks"]) == 5
+
+
+def test_build_assertion_status_change_message_matches_legacy_java_success_inferred(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+) -> None:
+    request = NotificationRequestClass(
+        recipients=[NotificationRecipientClass(id="U1", type="SLACK_DM")],
+        message=NotificationMessageClass(
+            template="BROADCAST_ASSERTION_STATUS_CHANGE",
+            parameters={
+                "assertionUrn": "urn:li:assertion:test",
+                "assertionRunId": "run-123",
+                "assertionRunTimestampMillis": "1700000000000",
+                "assertionType": "FIELD",
+                "entityName": "SampleName",
+                "entityPath": "/datasets/test",
+                "result": "SUCCESS",
+                "resultReason": "The expectations of the assertion were met.",
+                "description": "column x is greater than y",
+                "sourceType": "INFERRED",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_assertion_status_change_message(
+        request, identity_provider, mock_client, "http://localhost:9002"
+    )
+
+    expected = (
+        "*<http://localhost:9002/datasets/test?"
+        "notification_type=assertion&"
+        "notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&"
+        "notification_channel=slack|SampleName>*\n"
+        ":white_check_mark: *Smart Column Assertion* `column x is greater than y` has passed!\n"
+        "<http://localhost:9002/datasets/test/Validation/Assertions?"
+        "assertion_urn=urn%3Ali%3Aassertion%3Atest&"
+        "notification_type=assertion&"
+        "notification_id=urn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-123&"
+        "notification_channel=slack|View results>"
+    )
+
+    assert text == expected
+    assert blocks is None
+    assert attachments is None
+
+
+def test_build_assertion_status_change_message_matches_legacy_java_error_external_url(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+) -> None:
+    request = NotificationRequestClass(
+        recipients=[NotificationRecipientClass(id="U1", type="SLACK_DM")],
+        message=NotificationMessageClass(
+            template="BROADCAST_ASSERTION_STATUS_CHANGE",
+            parameters={
+                "assertionUrn": "urn:li:assertion:test?assertion_urn=urn:li:assertion:test",
+                "assertionRunId": "run-1",
+                "assertionRunTimestampMillis": "1700000000000",
+                "assertionType": "SQL",
+                "entityName": "SampleName",
+                "entityPath": "/datasets/test",
+                "result": "ERROR",
+                "resultReason": "Something went wrong",
+                "description": "my assertion",
+                "sourceType": "NATIVE",
+                "externalUrl": "https://example.com/result",
+                "externalPlatform": "dbt",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_assertion_status_change_message(
+        request, identity_provider, mock_client, "http://localhost:9002"
+    )
+
+    expected = (
+        "*<http://localhost:9002/datasets/test?"
+        "notification_type=assertion&"
+        "notification_id=urn%3Ali%3Aassertion%3Atest%3Fassertion_urn%3Durn%3Ali%3Aassertion%3Atest%7C1700000000000%7Crun-1&"
+        "notification_channel=slack|SampleName>*\n"
+        ":warning: *Custom SQL Assertion* `my assertion` has completed with errors!\n"
+        "> Something went wrong\n"
+        "<https://example.com/result|View results in dbt>"
+    )
+
+    assert text == expected
+    assert blocks is None
+    assert attachments is None
 
 
 def test_incident_reopened_success(

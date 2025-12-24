@@ -3,7 +3,13 @@ import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlencode
 
-from datahub.metadata.schema_classes import NotificationRequestClass
+from datahub.metadata.schema_classes import (
+    AssertionResultTypeClass,
+    AssertionSourceTypeClass,
+    AssertionTypeClass,
+    IncidentTypeClass,
+    NotificationRequestClass,
+)
 from loguru import logger
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -29,6 +35,7 @@ from datahub_integrations.notifications.notification_tracking import (
     NotificationChannel,
     NotificationType,
 )
+from datahub_integrations.notifications.utils import build_assertion_notification_id
 from datahub_integrations.slack.context import IncidentContext, IncidentSelectOption
 
 # Global Cache Storing Email Address to Slack Handle to reduce Queries to Slack.
@@ -118,29 +125,132 @@ def get_initial_stage_option(
 
 def map_incident_type(raw_type: str) -> str:
     type_mapping = {
-        "FRESHNESS": "Freshness",
-        "OPERATIONAL": "Operational",
-        "DATA_SCHEMA": "Schema",
-        "VOLUME": "Volume",
-        "FIELD": "Column",
-        "SQL": "Custom SQL",
+        IncidentTypeClass.FRESHNESS: "Freshness",
+        IncidentTypeClass.OPERATIONAL: "Operational",
+        IncidentTypeClass.DATA_SCHEMA: "Schema",
+        IncidentTypeClass.VOLUME: "Volume",
+        IncidentTypeClass.FIELD: "Column",
+        IncidentTypeClass.SQL: "Custom SQL",
     }
-    return type_mapping.get(
-        raw_type, raw_type
-    )  # Return original if not found (may be custom)
+    # Return original if not found (may be custom)
+    return type_mapping.get(raw_type, raw_type)
 
 
 def map_assertion_type(raw_type: Any | None) -> Any | None:
+    if raw_type is None:
+        return None
     type_mapping = {
-        "FRESHNESS": "Freshness",
-        "DATA_SCHEMA": "Schema",
-        "VOLUME": "Volume",
-        "FIELD": "Column",
-        "SQL": "Custom SQL",
+        AssertionTypeClass.DATASET: "External",
+        AssertionTypeClass.FRESHNESS: "Freshness",
+        AssertionTypeClass.DATA_SCHEMA: "Schema",
+        AssertionTypeClass.VOLUME: "Volume",
+        AssertionTypeClass.FIELD: "Column",
+        AssertionTypeClass.SQL: "Custom SQL",
     }
-    return (
-        type_mapping.get(raw_type) if raw_type else raw_type
-    )  # Return original if not found
+    return type_mapping.get(str(raw_type))
+
+
+def get_assertion_result_emoji(result: Any | None) -> str:
+    result_str = "" if result is None else str(result)
+    if result_str == AssertionResultTypeClass.SUCCESS:
+        return ":white_check_mark:"
+    if result_str == AssertionResultTypeClass.FAILURE:
+        return ":x:"
+    if result_str == AssertionResultTypeClass.ERROR:
+        return ":warning:"
+    return ""
+
+
+def get_assertion_result_string(result: Any | None) -> str:
+    result_str = "" if result is None else str(result)
+    if result_str == AssertionResultTypeClass.SUCCESS:
+        return "passed"
+    if result_str == AssertionResultTypeClass.FAILURE:
+        return "failed"
+    if result_str == AssertionResultTypeClass.ERROR:
+        return "completed with errors"
+    return "completed"
+
+
+def build_assertion_status_change_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    slack_client: WebClient,
+    url: str,
+) -> Tuple[str, Optional[Any], Optional[Any]]:
+    request_parameters = request.message.parameters or {}
+    assertion_urn = request_parameters.get("assertionUrn")
+    assertion_run_id = request_parameters.get("assertionRunId")
+    assertion_run_timestamp_millis = request_parameters.get(
+        "assertionRunTimestampMillis"
+    )
+    assertion_type = request_parameters.get("assertionType")
+    entity_name = request_parameters.get("entityName") or "Asset"
+    entity_path = request_parameters.get("entityPath") or ""
+    result = request_parameters.get("result") or ""
+    result_reason = request_parameters.get("resultReason") or ""
+    description = request_parameters.get("description") or assertion_urn or "Assertion"
+    maybe_external_url = request_parameters.get("externalUrl")
+    maybe_external_platform = request_parameters.get("externalPlatform")
+    maybe_source_type = request_parameters.get("sourceType")
+
+    if not assertion_urn:
+        return (
+            f"Assertion `{description}` status changed for *{entity_name}*.",
+            None,
+            None,
+        )
+
+    notification_id = build_assertion_notification_id(
+        assertion_urn=assertion_urn,
+        assertion_run_timestamp_millis=assertion_run_timestamp_millis,
+        assertion_run_id=assertion_run_id,
+    )
+    notification_query = urlencode(
+        {
+            NOTIFICATION_QUERY_PARAM_TYPE: NotificationType.ASSERTION.value,
+            NOTIFICATION_QUERY_PARAM_ID: notification_id,
+            NOTIFICATION_QUERY_PARAM_CHANNEL: NotificationChannel.SLACK.value,
+        }
+    )
+
+    entity_url = f"{url}{entity_path}?{notification_query}"
+    results_url = (
+        f"{url}{entity_path}/Validation/Assertions?"
+        + urlencode({"assertion_urn": assertion_urn})
+        + "&"
+        + notification_query
+    )
+
+    result_upper = str(result).upper()
+    result_emoji = get_assertion_result_emoji(result_upper)
+    result_string = get_assertion_result_string(result_upper)
+    assertion_type_name = map_assertion_type(assertion_type) or ""
+    assertion_type_text = (
+        f"Smart {assertion_type_name} Assertion"
+        if str(maybe_source_type) == AssertionSourceTypeClass.INFERRED
+        else f"{assertion_type_name} Assertion"
+    )
+    formatted_reason = (
+        ""
+        if result_upper == AssertionResultTypeClass.SUCCESS
+        else f"\n> {result_reason}"
+    )
+    results_link = (
+        (
+            f"<{maybe_external_url}|View results in {maybe_external_platform}>"
+            if maybe_external_platform is not None
+            else f"<{maybe_external_url}|View original results>"
+        )
+        if maybe_external_url is not None
+        else f"<{results_url}|View results>"
+    )
+    text = (
+        f"*<{entity_url}|{entity_name}>*\n"
+        f"{result_emoji} *{assertion_type_text}* `{description}` has {result_string}!{formatted_reason}\n"
+        f"{results_link}"
+    )
+    return text, None, None
 
 
 def create_incident_attachment(
