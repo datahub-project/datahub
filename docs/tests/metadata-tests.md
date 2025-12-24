@@ -265,7 +265,7 @@ Since test evaluation uses local services, the bottleneck is MCE Consumer throug
 - Adequate Kafka partition count on `MetadataChangeProposal_v1` topic
 - Sufficient MCE consumer capacity (embedded or standalone)
 
-For standalone MCE/MAE consumer deployment and Kafka configuration, see [Configuring Kafka](../how/kafka-config.md). For complete environment variable reference including `MCP_CONSUMER_ENABLED`, `MCL_CONSUMER_ENABLED`, and `KAFKA_LISTENER_CONCURRENCY`, see [Environment Variables](../deploy/environment-vars.md#component-configuration).
+For standalone MCE/MAE consumer deployment and Kafka configuration, see [Configuring Kafka](../how/kafka-config.md). For complete environment variable reference, see [Environment Variables](../deploy/environment-vars.md#component-configuration).
 
 ## FAQ and Troubleshooting
 
