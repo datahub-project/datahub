@@ -16,6 +16,8 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+from pydantic import Field
+
 from datahub.configuration import ConfigModel
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -26,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 class FilterTransformerConfig(ConfigModel):
     event_type: Union[str, List[str]]
-    event: Optional[Dict[str, Any]]
+    event: Optional[Dict[str, Any]] = Field(default=None)
 
 
 class FilterTransformer(Transformer):

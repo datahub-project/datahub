@@ -22,6 +22,7 @@ from confluent_kafka import KafkaError, KafkaException, TopicPartition
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 from prometheus_client import Counter, Gauge
+from pydantic import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -94,7 +95,7 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-    topic_routes: Optional[Dict[str, str]]
+    topic_routes: Optional[Dict[str, str]] = Field(default=None)
     async_commit_enabled: bool = False
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
