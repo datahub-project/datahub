@@ -371,8 +371,9 @@ class PowerBiDashboardSourceConfig(
         description="A mapping of table names to DataHub platform names for ODBC lineage. "
         "Use this to override the platform for specific tables when Athena queries data "
         "from federated sources (e.g., MySQL) via ODBC. "
-        "Table names should match the format after catalog stripping (database.table). "
-        "Example: {'my-schema.my_table': 'mysql'}",
+        "This override is applied AFTER catalog stripping for Athena tables, so use "
+        "2-part names (database.table), not 3-part names (catalog.database.table). "
+        "Example: {'analytics.users': 'mysql', 'reporting.orders': 'postgres'}",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(

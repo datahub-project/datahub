@@ -739,3 +739,79 @@ def test_odbc_table_platform_override_no_match():
         overridden_lineage.upstreams[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,my_schema.my_table,PROD)"
     )
+
+
+def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override():
+    """
+    Integration test: Verify catalog stripping and platform override work together
+    through the full query_lineage() path.
+
+    This tests the real-world scenario where:
+    1. Athena query has 3-part table name (catalog.database.table)
+    2. Catalog prefix is stripped to 2-part (database.table)
+    3. Platform is overridden from athena to mysql for federated tables
+    """
+    from datahub.ingestion.source.powerbi.config import (
+        DataPlatformPair,
+        PowerBiDashboardSourceConfig,
+    )
+    from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+        ResolvePlatformInstanceFromDatasetTypeMapping,
+    )
+    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
+    from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+
+    # Config with platform override for the 2-part table name (after catalog stripping)
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        dsn_to_platform_name={
+            "ThreadProdDataLake": "athena",
+        },
+        odbc_table_platform_override={
+            # Key is 2-part name AFTER catalog stripping
+            "normalized-data.normalized_accounts": "mysql",
+        },
+    )
+
+    table = Table(name="test_table", full_name="test_table")
+
+    odbc = OdbcLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+    )
+
+    platform_pair = DataPlatformPair(
+        datahub_data_platform_name="athena",
+        powerbi_data_platform_name="Amazon Athena",
+    )
+
+    # SQL query with 3-part table name (catalog.database.table)
+    sql_query = (
+        'SELECT * FROM "thread-prod-data"."normalized-data"."normalized_accounts"'
+    )
+
+    # Call the full query_lineage() method
+    result = odbc.query_lineage(
+        query=sql_query,
+        platform_pair=platform_pair,
+        server_name="athena-server",
+        dsn="ThreadProdDataLake",
+    )
+
+    # Verify the result
+    assert len(result.upstreams) == 1
+
+    # The URN should have:
+    # 1. Catalog stripped: thread-prod-data.normalized-data.normalized_accounts -> normalized-data.normalized_accounts
+    # 2. Platform overridden: athena -> mysql
+    assert (
+        result.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,normalized-data.normalized_accounts,PROD)"
+    )
