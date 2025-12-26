@@ -346,6 +346,7 @@ entities:
       - browsePathsV2
       - globalTags
       - glossaryTerms
+      - semanticContent
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
