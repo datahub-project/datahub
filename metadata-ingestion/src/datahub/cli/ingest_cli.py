@@ -247,6 +247,13 @@ def run(
     required=False,
     default=None,
 )
+@click.option(
+    "--extra-env",
+    type=str,
+    help='Environment variables as comma-separated KEY=VALUE pairs. e.g. "VAR1=value1,VAR2=value2"',
+    required=False,
+    default=None,
+)
 @upgrade.check_upgrade
 def deploy(
     name: Optional[str],
@@ -257,6 +264,7 @@ def deploy(
     schedule: Optional[str],
     time_zone: Optional[str],
     extra_pip: Optional[str],
+    extra_env: Optional[str],
     debug: bool = False,
 ) -> None:
     """
@@ -278,6 +286,7 @@ def deploy(
         time_zone=time_zone,
         extra_pip=extra_pip,
         debug=debug,
+        extra_env=extra_env,
     )
 
     # The updateIngestionSource endpoint can actually do upserts as well.

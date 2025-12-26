@@ -38,6 +38,7 @@ def deploy_source_vars(
     time_zone: Optional[str],
     extra_pip: Optional[str],
     debug: bool = False,
+    extra_env: Optional[str] = None,
 ) -> dict:
     pipeline_config = load_config_file(
         config,
@@ -101,6 +102,18 @@ def deploy_source_vars(
             variables.get("input", {}).get("config", {}).get("extraArgs", [])
         )
         extra_args_list.append({"key": "extra_pip_requirements", "value": extra_pip})
+        variables["input"]["config"]["extraArgs"] = extra_args_list
+
+    if extra_env is not None:
+        extra_args_list = (
+            variables.get("input", {}).get("config", {}).get("extraArgs", [])
+        )
+        # Parse comma-separated KEY=VALUE pairs into a JSON object
+        env_dict = {}
+        for pair in extra_env.split(","):
+            key, value = pair.split("=", 1)
+            env_dict[key] = value
+        extra_args_list.append({"key": "extra_env_vars", "value": json.dumps(env_dict)})
         variables["input"]["config"]["extraArgs"] = extra_args_list
 
     return variables
