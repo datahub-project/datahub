@@ -2751,3 +2751,28 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **4e8c0f182a** - feat(ingestion): add Azure Data Factory connector (#15499)
   *by Anush Kumar on 2025-12-23*
 
+
+## Upstream Merge Session - 2025-12-26 17:49:38
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 4
+- **Strategy**: stacked
+- **Started**: 2025-12-26 17:49:38
+
+### Commits Included in This Merge
+
+- **9743c0e693** - feat(ingest/snowflake): Add Snowflake Semantic View ingestion support (#15395)
+  *by kyungsoo-datahub <kyungsoo.lee@datahub.com> on 2025-12-24*
+
+- **772a94e260** - docs(metadata-tests): added tuning recommendation (#15761)
+  *by david-leifker <114954101+david-leifker@users.noreply.github.com> on 2025-12-24*
+
+- **523d919b19** - fix(log): message of checkV2TableExists (#15765)
+  *by nhuantho <91556274+nhuantho@users.noreply.github.com> on 2025-12-26*
+
+- **c0c21d2993** - feat(cli): add --env option to ingest deploy command (#15518)
+  *by Pedro Silva <pedro@acryl.io> on 2025-12-26*
