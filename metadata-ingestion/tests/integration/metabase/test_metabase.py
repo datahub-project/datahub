@@ -54,7 +54,7 @@ class MockResponse:
             self.json_data = data
         return self.json_data
 
-    def get(self, url):
+    def get(self, url, params=None):
         self.url = url
         return self
 
@@ -317,8 +317,8 @@ def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_m
             pipeline.raise_from_status()
         except PipelineExecutionError as exec_error:
             assert exec_error.args[0] == "Source reported errors"
-            assert len(exec_error.args[1].failures) == 1
-            assert list(exec_error.args[1].failures.keys())[0] == "metabase-dashboard"
+            # exec_error.args[1] is the failures LossyList directly
+            assert len(exec_error.args[1]) == 1
 
 
 def test_strip_template_expressions():

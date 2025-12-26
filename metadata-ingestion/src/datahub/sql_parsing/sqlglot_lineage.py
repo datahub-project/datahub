@@ -82,7 +82,6 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
-
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
 # If there's a change in their rules, we probably need to re-evaluate our list as well.
 assert len(sqlglot.optimizer.optimizer.RULES) == 14
@@ -221,6 +220,10 @@ class SqlParsingDebugInfo(_ParserBaseModel):
 
     table_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
     column_error: Optional[Exception] = pydantic.Field(default=None, exclude=True)
+
+    # Fallback parser statistics (for stored procedures)
+    num_statements_parsed: Optional[int] = pydantic.Field(default=None, exclude=True)
+    num_statements_failed: Optional[int] = pydantic.Field(default=None, exclude=True)
 
     @property
     def error(self) -> Optional[Exception]:
@@ -669,7 +672,7 @@ def _column_level_lineage(
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement = _try_extract_select(statement)
+        select_statement = _try_extract_select(statement, dialect=dialect)
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -1182,6 +1185,7 @@ def _extract_select_from_update(
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
+    dialect: Optional[sqlglot.Dialect] = None,
 ) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
@@ -1194,10 +1198,52 @@ def _try_extract_select(
             # If we're querying a table directly, wrap it in a SELECT.
             statement = sqlglot.exp.Select().select("*").from_(statement)
     elif isinstance(statement, sqlglot.exp.Insert):
-        # TODO Need to map column renames in the expressions part of the statement.
         # Preserve CTEs when extracting the SELECT expression from INSERT
         original_ctes = statement.ctes
-        statement = statement.expression  # Get the SELECT expression from the INSERT
+        select_statement = (
+            statement.expression
+        )  # Get the SELECT expression from the INSERT
+
+        # MSSQL-specific: Map INSERT column names to SELECT column names
+        # This fixes column lineage when INSERT columns != SELECT columns
+        # Example: INSERT INTO t (col_a) SELECT col_b FROM src
+        #   Should create: downstream=col_a, upstream=col_b
+        #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
+        if (
+            dialect
+            and is_dialect_instance(dialect, "tsql")
+            and statement.this
+            and hasattr(statement.this, "expressions")
+            and statement.this.expressions
+            and isinstance(select_statement, sqlglot.exp.Select)
+        ):
+            insert_columns = statement.this.expressions
+            select_expressions = select_statement.expressions
+
+            # Only apply mapping if column counts match
+            if len(insert_columns) == len(select_expressions):
+                # Create new SELECT with INSERT column names as explicit Alias nodes
+                # This ensures the alias survives sqlglot's optimizer
+                new_selects = []
+                for insert_col, select_expr in zip(insert_columns, select_expressions):
+                    insert_col_name = (
+                        insert_col.alias_or_name
+                        if hasattr(insert_col, "alias_or_name")
+                        else str(insert_col)
+                    )
+                    # Create an explicit Alias node: expr AS insert_col_name
+                    # The Alias node should survive optimization better than just setting alias property
+                    aliased_expr = sqlglot.exp.Alias(
+                        this=select_expr.copy(),
+                        alias=sqlglot.exp.to_identifier(insert_col_name),
+                    )
+                    new_selects.append(aliased_expr)
+
+                # Replace SELECT expressions with aliased versions
+                select_statement = select_statement.copy()
+                select_statement.set("expressions", new_selects)
+
+        statement = select_statement
         if isinstance(statement, sqlglot.exp.Query) and original_ctes:
             for cte in original_ctes:
                 statement = statement.with_(alias=cte.alias, as_=cte.this)

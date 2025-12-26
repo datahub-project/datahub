@@ -310,6 +310,12 @@ class SqlAggregatorReport(Report):
         default_factory=LossyDict
     )
 
+    # Stored Procedures.
+    num_procedures_failed: int = 0
+    procedure_parse_failures: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
+
     # SQL parsing (over all invocations).
     num_sql_parsed: int = 0
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -872,6 +878,12 @@ class SqlParsingAggregator(Closeable):
                 self.report.num_observed_queries_column_timeout += 1
 
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
+
+        # Register the first output table (standard single-query behavior).
+        # For stored procedures with multiple DML statements, each statement
+        # is added separately via add_observed_query, so each has one output.
+        downstream_urn = parsed.out_tables[0] if parsed.out_tables else None
+
         self.add_preparsed_query(
             PreparsedQuery(
                 query_id=query_fingerprint,
@@ -883,7 +895,7 @@ class SqlParsingAggregator(Closeable):
                 query_type=parsed.query_type,
                 query_type_props=parsed.query_type_props,
                 upstreams=parsed.in_tables,
-                downstream=parsed.out_tables[0] if parsed.out_tables else None,
+                downstream=downstream_urn,
                 column_lineage=parsed.column_lineage,
                 # TODO: We need a full list of columns referenced, not just the out tables.
                 column_usage=self._compute_upstream_fields(parsed),
@@ -985,7 +997,8 @@ class SqlParsingAggregator(Closeable):
         out_table = parsed.downstream
 
         # Register the query's lineage.
-        if (
+        # Check if output table is a temp table
+        is_temp = (
             is_known_temp_table
             or (
                 parsed.query_type.is_create()
@@ -996,7 +1009,9 @@ class SqlParsingAggregator(Closeable):
                 require_out_table_schema
                 and not self._schema_resolver.has_urn(out_table)
             )
-        ):
+        )
+
+        if is_temp:
             # Infer the schema of the output table and track it for later.
             if parsed.inferred_schema is not None:
                 self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
@@ -1381,11 +1396,14 @@ class SqlParsingAggregator(Closeable):
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        query_ids: OrderedSet[QueryId] = self._lineage_map.get(
+            downstream_urn, OrderedSet()
+        )
+
         if not self.is_allowed_table(downstream_urn):
             self.report.num_lineage_skipped_due_to_filters += 1
             return
 
-        query_ids = self._lineage_map[downstream_urn]
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
             for query_id in query_ids

@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.CDC_EVENT_CONSUMER_NAME;
+
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
@@ -7,6 +9,7 @@ import java.util.Arrays;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,7 +31,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
     matchIfMissing = true)
 public class CDCConsumerFactory {
 
-  @Bean(name = "cdcKafkaConsumer")
+  @Bean(name = CDC_EVENT_CONSUMER_NAME)
   @com.google.common.annotations.VisibleForTesting
   KafkaListenerContainerFactory<?> createCdcConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
@@ -45,10 +48,12 @@ public class CDCConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
-      consumerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfiguration.getConsumer().getBootstrapServers())
+            ? kafkaConfiguration.getConsumer().getBootstrapServers()
+            : kafkaConfiguration.getBootstrapServers();
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);
