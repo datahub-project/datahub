@@ -112,9 +112,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       return true;
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(server)) {
-      log.error(
-          "GMS is on a newer version than your storage layer. Please refer to "
-              + "https://docs.datahub.com/docs/advanced/no-code-upgrade to view the upgrade guide.");
+      log.error("Table metadata_aspect_v2 does not exist.");
       canWrite = false;
       return false;
     } else {
