@@ -311,6 +311,188 @@ WHERE TABLE_CATALOG = '{db_name}'
         """
 
     @staticmethod
+    def get_semantic_views_for_database(db_name: str) -> str:
+        # Query semantic views from dedicated INFORMATION_SCHEMA.SEMANTIC_VIEWS view
+        return f"""\
+SELECT
+  CATALOG as "SEMANTIC_VIEW_CATALOG",
+  SCHEMA as "SEMANTIC_VIEW_SCHEMA",
+  NAME as "SEMANTIC_VIEW_NAME",
+  COMMENT,
+  CREATED
+FROM "{db_name}".information_schema.semantic_views
+"""
+
+    @staticmethod
+    def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
+WHERE SCHEMA = '{schema_name}'
+"""
+
+    @staticmethod
+    def get_semantic_view_ddl(
+        db_name: str, schema_name: str, semantic_view_name: str
+    ) -> str:
+        """Generate query to get the DDL definition of a semantic view.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+
+    @staticmethod
+    def get_semantic_tables_for_database(db_name: str) -> str:
+        """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_tables
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_tables_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic tables for semantic views in a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT"
+FROM "{db_name}".information_schema.semantic_tables
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_database(db_name: str) -> str:
+        """Generate query to get all semantic dimensions for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic dimensions for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_database(db_name: str) -> str:
+        """Generate query to get all semantic facts for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic facts for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_database(db_name: str) -> str:
+        """Generate query to get all semantic metrics for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic metrics for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
     def columns_for_schema(
         schema_name: str,
         db_name: str,
