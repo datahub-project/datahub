@@ -292,19 +292,12 @@ project.afterEvaluate {
           bake_spec_target.name = "${project.name}-\${variants.tagSuffix}"
           bake_spec_target.matrix = [variants: []]
 
-          // Check if any variant has an explicit target
-          def hasExplicitTargets = extension.variants.get().any { variant, variantSpec -> variantSpec.target != null }
-
           extension.variants.get().each { variant, variantSpec ->
             if (matrixBuild || variant == extension.defaultVariant.get()) {
-                // Its not easy to merge common buildArgs and variant buildArgs with json format.
-                // So, we just add common buildArgs to matrix.
-                def matrixEntry = [ 'tagSuffix': "${variantSpec.suffix}", 'args': variantSpec.args + bake_spec_target.args]
-                // Add target to matrix if variant specifies one
-                if (variantSpec.target != null) {
-                  matrixEntry.target = variantSpec.target
-                }
-                bake_spec_target.matrix.variants.add(matrixEntry)
+                // Its not easy to merge common buildArgs and variant buildArgs with json format via bake spec.
+                // So, we just add common buildArgs to matrix. variantArgs are added to buildArgs so that variant specific overrides
+                // are added last and retained.
+                bake_spec_target.matrix.variants.add([ 'tagSuffix': "${variantSpec.suffix}", 'args': bake_spec_target.args + variantSpec.args ])
               }
           }
           // When variants are present, fix up tags to include the variant suffix
@@ -319,10 +312,6 @@ project.afterEvaluate {
           }
 
           bake_spec_target.args = "\${variants.args}"
-          // If variants have explicit targets, use them
-          if (hasExplicitTargets) {
-            bake_spec_target.target = "\${variants.target}"
-          }
 
         } else {
           if (project.hasProperty("shaTag")) {
