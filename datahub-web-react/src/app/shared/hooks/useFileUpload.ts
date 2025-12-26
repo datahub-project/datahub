@@ -1,15 +1,12 @@
 import { useApolloClient } from '@apollo/client';
 
 import { PRODUCT_ASSETS_FOLDER } from '@app/shared/constants';
-import useCreateFile from '@app/shared/hooks/useCreateFile';
+import useCreateFile, { S3_FILE_ID_NAME_SEPARATOR } from '@app/shared/hooks/useCreateFile';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
-
-// keep this consistent with same const in li-utils/src/main/java/com/linkedin/metadata/Constants.java
-const S3_FILE_ID_NAME_SEPARATOR = '__';
 
 interface Props {
     scenario: UploadDownloadScenario;

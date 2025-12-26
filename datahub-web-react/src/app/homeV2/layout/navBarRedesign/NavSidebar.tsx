@@ -38,6 +38,8 @@ import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeN
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { useGetIngestionLink } from '@app/sharedV2/ingestionSources/useGetIngestionLink';
+import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -106,7 +108,7 @@ const ScrollableContent = styled.div`
 `;
 
 const Footer = styled.div`
-    padding: 8px 8px 17px 8px;
+    padding: 8px 8px 17px 16px;
     border-top: 1px solid ${colors.gray[100]};
 `;
 
@@ -144,6 +146,9 @@ export const NavSidebar = () => {
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
+
+    const { hasIngestionSources } = useHasIngestionSources();
+    const ingestionLink = useGetIngestionLink(hasIngestionSources);
 
     const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showStructuredProperties =
@@ -302,7 +307,15 @@ export const NavSidebar = () => {
                         isHidden: !showDataSources,
                         icon: <Plugs />,
                         selectedIcon: <Plugs weight="fill" />,
-                        link: PageRoutes.INGESTION,
+                        link: ingestionLink,
+                        onClick: () => {
+                            if (ingestionLink === PageRoutes.INGESTION_CREATE) {
+                                analytics.event({
+                                    type: EventType.EnterIngestionFlowEvent,
+                                    entryPoint: 'nav_menu',
+                                });
+                            }
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

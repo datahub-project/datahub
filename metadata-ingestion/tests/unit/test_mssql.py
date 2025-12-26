@@ -38,8 +38,9 @@ def test_is_temp_table(mssql_source):
     # Test regular tables that should return False
     assert mssql_source.is_temp_table("test_db.dbo.regular_table") is False
 
-    # Test invalid table name format
-    assert mssql_source.is_temp_table("invalid_table_name") is False
+    # Test 1-part names - treated as aliases since they can't be verified
+    # Common TSQL aliases like "dst", "src" are 1-part names
+    assert mssql_source.is_temp_table("invalid_table_name") is True
 
 
 def test_detect_rds_environment_on_premises(mssql_source):
