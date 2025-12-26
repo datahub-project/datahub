@@ -164,7 +164,7 @@ class DataProcessInstancePatchBuilder(
         )
         return self
 
-    def set_input_edges(self, inputs: List[Edge]) -> "DataProcessInstancePatchBuilder":
+    def set_input_edges(self, input_edges: List[Edge]) -> "DataProcessInstancePatchBuilder":
         """
         Sets the inputEdges array, replacing any existing input edges.
 
@@ -178,7 +178,7 @@ class DataProcessInstancePatchBuilder(
             DataProcessInstanceInputClass.ASPECT_NAME,
             "add",
             path=("inputEdges",),
-            value=inputs,
+            value=input_edges,
         )
         return self
 
