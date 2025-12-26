@@ -1,24 +1,23 @@
 package com.linkedin.gms;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
+import java.io.File;
 import org.eclipse.jetty.server.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.core.env.Environment;
-
-import java.io.File;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class CommonApplicationConfigTest {
 
   private CommonApplicationConfig config;
   private Environment mockEnvironment;
 
-  @BeforeEach
+  @BeforeMethod
   public void setup() {
     config = new CommonApplicationConfig();
     mockEnvironment = mock(Environment.class);
@@ -80,8 +79,8 @@ public class CommonApplicationConfigTest {
 
     int requestHeaderSize = httpConfig.getRequestHeaderSize();
     assertEquals(
-            32768,
-            requestHeaderSize,
+        requestHeaderSize,
+        32768,
         "Request header size should be set to 32768 bytes for large JWT tokens");
   }
 
@@ -122,7 +121,7 @@ public class CommonApplicationConfigTest {
     factory.getServerCustomizers().forEach(sc -> sc.customize(server));
 
     ServerConnector connector = (ServerConnector) server.getConnectors()[0];
-    assertEquals(8080, connector.getPort(), "HTTP port should be set to 8080");
+    assertEquals(connector.getPort(), 8080, "HTTP port should be set to 8080");
   }
 
   @Test
@@ -167,7 +166,7 @@ public class CommonApplicationConfigTest {
     Connector[] connectors = server.getConnectors();
     assertNotNull(connectors, "Connectors should be configured");
     assertEquals(
-            1, connectors.length, "Should have exactly one connector (HTTP or HTTPS, not both)");
+        connectors.length, 1, "Should have exactly one connector (HTTP or HTTPS, not both)");
   }
 
   @Test
@@ -205,7 +204,7 @@ public class CommonApplicationConfigTest {
 
     ServerConnector connector = (ServerConnector) server.getConnectors()[0];
 
-    assertEquals(8443, connector.getPort());
+    assertEquals(connector.getPort(), 8443);
     assertNotNull(connector.getConnectionFactory("SSL"));
   }
 
