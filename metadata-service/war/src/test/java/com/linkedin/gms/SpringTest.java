@@ -2,6 +2,9 @@ package com.linkedin.gms;
 
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
+import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
+import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -26,7 +29,7 @@ import org.testng.annotations.Test;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = {
       "telemetry.enabledServer=true",
-      "spring.main.allow-bean-definition-overriding=true"
+      "spring.main.allow-bean-definition-overriding=true",
     })
 @ContextConfiguration(classes = {CommonApplicationConfig.class, SpringTest.TestBeans.class})
 public class SpringTest extends AbstractTestNGSpringContextTests {
@@ -34,12 +37,22 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
   // Mock Beans take precedence, we add these to avoid needing to configure data sources etc. while
   // still testing prod config
   @MockBean private Database database;
+
   @MockBean private BootstrapManager bootstrapManager;
+
   @MockBean private Clock clock;
+
   @MockBean private MetricUtils metricUtils;
 
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
+
+  // Mock semantic search factories to avoid needing full configuration
+  @MockBean private EmbeddingProviderFactory embeddingProviderFactory;
+
+  @MockBean private SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+
+  @MockBean private SemanticSearchServiceFactory semanticSearchServiceFactory;
 
   @Test
   public void testTelemetry() {
@@ -49,6 +62,7 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class TestBeans {
+
     @Bean
     public OperationContext systemOperationContext() {
       return TestOperationContexts.systemContextNoSearchAuthorization();

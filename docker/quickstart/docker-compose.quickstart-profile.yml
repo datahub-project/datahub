@@ -103,7 +103,7 @@ services:
     ports:
     - mode: ingress
       target: 8080
-      published: '8080'
+      published: ${DATAHUB_MAPPED_GMS_PORT:-8080}
       protocol: tcp
     volumes:
     - type: bind
@@ -147,7 +147,7 @@ services:
     ports:
     - mode: ingress
       target: 9002
-      published: '9002'
+      published: ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}
       protocol: tcp
     volumes:
     - type: bind
@@ -318,10 +318,6 @@ services:
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
-    deploy:
-      resources:
-        limits:
-          memory: '2147483648'
     environment:
       DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true

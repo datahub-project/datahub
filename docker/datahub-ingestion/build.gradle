@@ -12,6 +12,8 @@ ext {
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
     docker_version = "${versionTag}"  // Variants will add suffix to this tag
     python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
+    // Set to true to include Alpine variants in the build (e.g., -PincludeAlpineVariants=true)
+    include_alpine_variants = project.getProperties().getOrDefault("includeAlpineVariants", "false").toBoolean()
 
     revision = 12 // increment to trigger rebuild
 }
@@ -39,11 +41,20 @@ docker {
 
     defaultVariant = "full"
 
-    variants = [
-        "full": [suffix: "", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "full"]],
-        "slim": [suffix: "-slim", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "slim"]],
-        "locked": [suffix: "-locked", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "locked"]]
-        ]
+    // Base variants (Ubuntu-based)
+    def baseVariants = [
+        "full": [suffix: "", target: "final-full", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "full"]],
+        "slim": [suffix: "-slim", target: "final-slim", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "slim"]],
+        "locked": [suffix: "-locked", target: "final-locked", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "locked"]]
+    ]
+
+    // Alpine variants (only included when -PincludeAlpineVariants=true)
+    def alpineVariants = [
+        "slim-alpine": [suffix: "-slim-alpine", target: "final-slim-alpine", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "slim-alpine"]],
+        "locked-alpine": [suffix: "-locked-alpine", target: "final-locked-alpine", args: [RELEASE_VERSION: python_docker_version, APP_ENV: "locked-alpine"]]
+    ]
+
+    variants = include_alpine_variants ? baseVariants + alpineVariants : baseVariants
     // This task is intended to build the full image by default
     // Use dockerTarget property to select which variant to build
     def targetVariant = docker_target ?: defaultVariant.get()

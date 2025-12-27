@@ -108,6 +108,10 @@ export enum EntityCapabilityType {
      * Assigning an organization to a entity
      */
     ORGANIZATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
 }
 
 /**

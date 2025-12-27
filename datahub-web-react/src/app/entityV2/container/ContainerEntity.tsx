@@ -290,6 +290,7 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.ORGANIZATIONS,
             EntityCapabilityType.TEST,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 

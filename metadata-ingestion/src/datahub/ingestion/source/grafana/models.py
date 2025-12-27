@@ -11,50 +11,171 @@ References:
 import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 
 logger = logging.getLogger(__name__)
-# Grafana-specific type definitions for better type safety
-GrafanaQueryTarget = Dict[
-    str, Any
-]  # Query targets: refId, expr/query, datasource, hide, etc.
-GrafanaFieldConfig = Dict[
-    str, Any
-]  # Field config: defaults, overrides, display settings
-GrafanaTransformation = Dict[str, Any]  # Transformations: id, options
+
+# Type aliases for Grafana data structures
+GrafanaQueryTarget = Dict[str, Any]
+GrafanaFieldConfig = Dict[str, Any]  # Never None, always a dict (possibly empty)
+GrafanaTransformation = Dict[str, Any]
 
 
 class _GrafanaBaseModel(BaseModel):
-    model_config = ConfigDict(coerce_numbers_to_str=True)
+    model_config = ConfigDict(
+        coerce_numbers_to_str=True,
+        populate_by_name=True,
+        extra="ignore",
+    )
 
 
 class DatasourceRef(_GrafanaBaseModel):
     """Reference to a Grafana datasource."""
 
-    type: Optional[str] = None  # Datasource type (prometheus, mysql, postgres, etc.)
-    uid: Optional[str] = None  # Datasource unique identifier
-    name: Optional[str] = None  # Datasource display name
+    type: Optional[str] = None
+    uid: Optional[str] = None
+    name: Optional[str] = None
+
+
+class QueryInfo(_GrafanaBaseModel):
+    """Represents a query extracted from a Grafana panel."""
+
+    query: str
+    language: str
+
+    @field_validator("query")
+    @classmethod
+    def validate_query_not_empty(cls, v: str) -> str:
+        """Ensure query is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Query cannot be empty or whitespace-only")
+        return v.strip()
+
+    @field_validator("language")
+    @classmethod
+    def validate_language_not_empty(cls, v: str) -> str:
+        """Ensure language is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Language cannot be empty or whitespace-only")
+        return v.strip()
 
 
 class Panel(_GrafanaBaseModel):
     """Represents a Grafana dashboard panel."""
 
     id: str
-    title: str
+    title: Optional[str] = (
+        None  # Optional: text panels in Grafana v11+ don't have titles
+    )
     description: str = ""
     type: Optional[str] = None
-    # Query targets - each contains refId (A,B,C...), query/expr, datasource ref, etc.
     query_targets: List[GrafanaQueryTarget] = Field(
         default_factory=list, alias="targets"
     )
-    # Datasource reference - contains type, uid, name
     datasource_ref: Optional[DatasourceRef] = Field(default=None, alias="datasource")
-    # Field configuration - display settings, defaults, overrides
     field_config: GrafanaFieldConfig = Field(default_factory=dict, alias="fieldConfig")
-    # Data transformations - each contains id and transformation-specific options
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
+
+    @property
+    def safe_field_config(self) -> GrafanaFieldConfig:
+        """Get field_config, guaranteed to be a dict (never None)."""
+        return self.field_config or {}
+
+    @property
+    def safe_query_targets(self) -> List[GrafanaQueryTarget]:
+        """Get query_targets, guaranteed to be a list (never None)."""
+        return self.query_targets or []
+
+    @property
+    def safe_transformations(self) -> List[GrafanaTransformation]:
+        """Get transformations, guaranteed to be a list (never None)."""
+        return self.transformations or []
+
+    @staticmethod
+    def _ensure_dict_field(
+        data: Dict[str, Any], field_name: str, default: Dict[str, Any]
+    ) -> None:
+        """Ensure a field is a dict, converting None/invalid types to the default dict."""
+        value = data.get(field_name)
+        if value is None or not isinstance(value, dict):
+            data[field_name] = default
+        # If value exists and is already a dict, leave it as is
+
+    @staticmethod
+    def _ensure_list_field(
+        data: Dict[str, Any], field_name: str, default: List[Any]
+    ) -> None:
+        """Ensure a field is a list, converting None/invalid types to the default list."""
+        value = data.get(field_name)
+        if value is None or not isinstance(value, list):
+            data[field_name] = default
+        # If value exists and is already a list, leave it as is
+
+    @staticmethod
+    def _normalize_id_field(data: Dict[str, Any]) -> None:
+        """Convert integer ID to string and generate fallback ID if missing."""
+        if "id" not in data or data["id"] is None:
+            # Generate a deterministic fallback ID based on multiple panel properties
+            panel_type = data.get("type", "unknown")
+            title = data.get("title", "untitled")
+
+            # Include additional properties for uniqueness
+            grid_pos = data.get("gridPos", {})
+            x = grid_pos.get("x", 0)
+            y = grid_pos.get("y", 0)
+            w = grid_pos.get("w", 0)
+            h = grid_pos.get("h", 0)
+
+            # Create a deterministic identifier from multiple properties
+            # This ensures uniqueness even for panels with identical type/title
+            identifier_parts = [
+                panel_type,
+                title,
+                str(x),
+                str(y),
+                str(w),
+                str(h),  # Grid position for uniqueness
+            ]
+            identifier_string = "_".join(identifier_parts)
+
+            # Use hash for consistent ID generation across runs
+            fallback_id = f"{panel_type}_{abs(hash(identifier_string)) % 100000}"
+            data["id"] = fallback_id
+        elif isinstance(data["id"], int):
+            data["id"] = str(data["id"])
+
+    @model_validator(mode="before")
+    @classmethod
+    def ensure_panel_defaults(cls, data: Any) -> Dict[str, Any]:
+        """Set defaults for optional fields and normalize data types."""
+        if isinstance(data, dict):
+            result = dict(data)
+
+            # Set basic defaults - handle None values
+            if result.get("description") is None:
+                result["description"] = ""
+
+            # Handle datasource field - convert invalid types to None
+            datasource = result.get("datasource")
+            if isinstance(datasource, str):
+                # Handle template variables like '$datasource' or other string values
+                result["datasource"] = None
+            elif datasource is not None and not isinstance(datasource, dict):
+                # Handle any other invalid types
+                result["datasource"] = None
+
+            # Ensure complex fields are never None
+            cls._ensure_list_field(result, "targets", [])
+            cls._ensure_list_field(result, "transformations", [])
+            cls._ensure_dict_field(result, "fieldConfig", {})
+
+            # Normalize data types
+            cls._normalize_id_field(result)
+
+            return result
+        return data
 
 
 class Dashboard(_GrafanaBaseModel):
@@ -69,69 +190,105 @@ class Dashboard(_GrafanaBaseModel):
     timezone: Optional[str] = None
     refresh: Optional[str] = None
     schema_version: Optional[str] = Field(default=None, alias="schemaVersion")
-    folder_id: Optional[str] = Field(default=None, alias="meta.folderId")
+    folder_id: Optional[str] = None
     created_by: Optional[str] = None
 
     @staticmethod
-    def extract_panels(panels_data: List[Dict[str, Any]]) -> List[Panel]:
-        """Extract panels, including nested ones."""
+    def extract_panels(
+        panels_data: List[Dict[str, Any]], skip_text_panels: bool = False
+    ) -> List[Panel]:
+        """Extract panels, including nested ones, skipping invalid panels."""
         panels: List[Panel] = []
         for panel_data in panels_data:
-            if panel_data.get("type") == "row" and "panels" in panel_data:
-                panels.extend(
-                    Panel.model_validate(p)
-                    for p in panel_data["panels"]
-                    if p.get("type") != "row"
-                )
+            if panel_data.get("type") == "row" and panel_data.get("panels"):
+                for p in panel_data.get("panels", []):
+                    if p and p.get("type") != "row":
+                        if skip_text_panels and p.get("type") == "text":
+                            continue
+                        try:
+                            panels.append(Panel.model_validate(p))
+                        except Exception as e:
+                            logger.debug(
+                                f"Error parsing nested panel (id={p.get('id')}, type={p.get('type')}): {e}. "
+                                f"Panel data: {p}. Skipping this panel."
+                            )
+                            logger.warning(
+                                f"Skipping panel with validation errors (id={p.get('id')}, type={p.get('type')}): "
+                                f"Missing or invalid fields. Enable debug logging for details."
+                            )
             elif panel_data.get("type") != "row":
-                panels.append(Panel.model_validate(panel_data))
+                if skip_text_panels and panel_data.get("type") == "text":
+                    continue
+                try:
+                    panels.append(Panel.model_validate(panel_data))
+                except Exception as e:
+                    logger.debug(
+                        f"Error parsing panel (id={panel_data.get('id')}, type={panel_data.get('type')}): {e}. "
+                        f"Panel data: {panel_data}. Skipping this panel."
+                    )
+                    logger.warning(
+                        f"Skipping panel with validation errors (id={panel_data.get('id')}, type={panel_data.get('type')}): "
+                        f"Missing or invalid fields. Enable debug logging for details."
+                    )
         return panels
 
+    @staticmethod
+    def _set_dashboard_defaults(result: Dict[str, Any]) -> None:
+        """Set default values for optional dashboard fields."""
+        result.setdefault("tags", [])
+        result.setdefault("description", "")
+        result.setdefault("version", None)
+        result.setdefault("timezone", None)
+        result.setdefault("refresh", None)
+
+    @staticmethod
+    def _cleanup_dashboard_metadata(result: Dict[str, Any]) -> None:
+        """Remove internal metadata fields from dashboard data."""
+        result.pop("meta", None)
+        result.pop("_skip_text_panels", None)
+
+    @field_validator("refresh", mode="before")
     @classmethod
-    def model_validate(
-        cls,
-        obj: Any,
-        *,
-        strict: Optional[bool] = None,
-        from_attributes: Optional[bool] = None,
-        context: Optional[Any] = None,
-        by_alias: Optional[bool] = None,
-        by_name: Optional[bool] = None,
-    ) -> "Dashboard":
-        """Custom parsing to handle nested panel extraction."""
-        # Handle both direct dashboard data and nested structure with 'dashboard' key
-        dashboard_data = obj.get("dashboard", obj)
+    def convert_refresh_to_string(cls, v: Any) -> Optional[str]:
+        """Convert boolean refresh values to strings for compatibility."""
+        if isinstance(v, bool):
+            return str(v)
+        return v
 
-        _panel_data = dashboard_data.get("panels", [])
-        panels = []
-        try:
-            panels = cls.extract_panels(_panel_data)
-        except Exception as e:
-            logger.warning(
-                f"Error extracting panels from dashboard for dashboard panels {_panel_data} : {e}"
-            )
+    @model_validator(mode="before")
+    @classmethod
+    def extract_dashboard_data(cls, data: Any) -> Dict[str, Any]:
+        """Extract dashboard data from nested structure and process panels."""
+        if isinstance(data, dict):
+            dashboard_data = data.get("dashboard", data)
 
-        # Extract meta.folderId from nested structure
-        meta = dashboard_data.get("meta", {})
-        folder_id = meta.get("folderId")
+            _panel_data = dashboard_data.get("panels", [])
+            panels = []
 
-        # Create dashboard data without meta to avoid conflicts
-        dashboard_dict = {**dashboard_data, "panels": panels, "folder_id": folder_id}
-        if "meta" in dashboard_dict:
-            del dashboard_dict["meta"]
+            skip_text_panels = dashboard_data.get("_skip_text_panels", False)
 
-        # Handle refresh field type mismatch - convert boolean to string
-        if "refresh" in dashboard_dict and isinstance(dashboard_dict["refresh"], bool):
-            dashboard_dict["refresh"] = str(dashboard_dict["refresh"])
+            if _panel_data and all(isinstance(p, dict) for p in _panel_data):
+                try:
+                    panels = cls.extract_panels(_panel_data, skip_text_panels)
+                except Exception as e:
+                    logger.warning(f"Error extracting panels from dashboard: {e}")
+            else:
+                panels = _panel_data
 
-        return super().model_validate(
-            dashboard_dict,
-            strict=strict,
-            from_attributes=from_attributes,
-            context=context,
-            by_alias=by_alias,
-            by_name=by_name,
-        )
+            result = {**dashboard_data, "panels": panels}
+
+            if (meta := data.get("meta")) is not None:
+                # We only want to set folder_id and created_by from meta if we get it
+                # from json and not when creating Dashboard(uid=...) like in tests.
+                result["folder_id"] = meta.get("folderId")
+                result["created_by"] = meta.get("createdBy")
+
+            cls._set_dashboard_defaults(result)
+            cls._cleanup_dashboard_metadata(result)
+
+            return result
+
+        return data
 
 
 class Folder(_GrafanaBaseModel):
@@ -152,4 +309,4 @@ class DashboardContainerKey(ContainerKey):
     """Key for identifying a Grafana dashboard."""
 
     dashboard_id: str
-    folder_id: Optional[str] = None  # Reference to parent folder
+    folder_id: Optional[str] = None

@@ -276,7 +276,11 @@ public class AuthenticationController extends Controller {
     final JsonNode json = request.body().asJson();
     final String fullName = json.findPath(FULL_NAME).textValue();
     final String email = json.findPath(EMAIL).textValue();
-    final String title = json.findPath(TITLE).textValue();
+    // Title is optional - pass null if blank
+    final String title =
+        StringUtils.isBlank(json.findPath(TITLE).textValue())
+            ? null
+            : json.findPath(TITLE).textValue();
     final String password = json.findPath(PASSWORD).textValue();
     final String inviteToken = json.findPath(INVITE_TOKEN).textValue();
 
@@ -299,11 +303,6 @@ public class AuthenticationController extends Controller {
 
     if (StringUtils.isBlank(password)) {
       JsonNode invalidCredsJson = Json.newObject().put("message", "Password must not be empty.");
-      return Results.badRequest(invalidCredsJson);
-    }
-
-    if (StringUtils.isBlank(title)) {
-      JsonNode invalidCredsJson = Json.newObject().put("message", "Title must not be empty.");
       return Results.badRequest(invalidCredsJson);
     }
 

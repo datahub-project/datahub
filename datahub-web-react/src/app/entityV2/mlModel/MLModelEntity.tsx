@@ -262,6 +262,7 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.ORGANIZATIONS,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
     };
 }

@@ -476,6 +476,7 @@ public class Constants {
   // Knowledge Article
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
+  public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
