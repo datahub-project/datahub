@@ -2,7 +2,7 @@ import { BankOutlined } from '@ant-design/icons';
 import React from 'react';
 
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
-import { EntityType, Owner } from '@app/types.generated';
+import { EntityType, Owner } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {

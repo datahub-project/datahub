@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 
-import { EntityType } from '@app/types.generated';
+import { EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const OrganizationProfile = () => {

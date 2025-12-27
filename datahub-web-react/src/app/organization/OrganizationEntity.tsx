@@ -11,7 +11,7 @@ import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab'
 import { useGetOrganizationQuery } from '@graphql/organization.generated';
 import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
 import { Preview } from '@app/organization/preview/Preview';
-import { EntityType, Organization, SearchResult } from '@app/types.generated';
+import { EntityType, Organization, SearchResult } from '@src/types.generated';
 
 export class OrganizationEntity implements Entity<Organization> {
     type: EntityType = EntityType.Organization;

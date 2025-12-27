@@ -3,7 +3,7 @@ import React from 'react';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { EntityType, Owner } from '@app/types.generated';
+import { EntityType, Owner } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {

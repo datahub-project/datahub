@@ -12,7 +12,7 @@ import {
 import { AddOrganizationMembersModal } from '@app/organization/AddOrganizationMembersModal';
 import { CustomAvatar } from '@app/shared/avatar';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { CorpUser, EntityType } from '@app/types.generated';
+import { CorpUser, EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const ADD_MEMBER_STYLE = {

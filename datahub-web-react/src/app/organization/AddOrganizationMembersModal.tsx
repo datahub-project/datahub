@@ -9,7 +9,7 @@ import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
-import { CorpUser, Entity, EntityType } from '@app/types.generated';
+import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@src/utils/focus';
 

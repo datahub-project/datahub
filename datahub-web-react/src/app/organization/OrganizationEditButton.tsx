@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EditOrganizationDetailsModal } from '@app/organization/EditOrganizationDetailsModal';
-import { Organization } from '@app/types.generated';
+import { Organization } from '@src/types.generated';
 
 export const OrganizationEditButton = () => {
     const { entityData } = useEntityData();

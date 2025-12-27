@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import { EditOrganizationModal } from '@app/entity/shared/containers/profile/sidebar/Organization/EditOrganizationModal';
 import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
-import { EntityType } from '@app/types.generated';
+import { EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const OrganizationList = styled.div`

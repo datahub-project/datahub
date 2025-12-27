@@ -7,7 +7,7 @@ import { useRefetch } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useSetEntityOrganizationsMutation } from '@graphql/organization.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { EntityType } from '@app/types.generated';
+import { EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const LoadingWrapper = styled.div`
