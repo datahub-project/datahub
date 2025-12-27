@@ -45,6 +45,8 @@ public class QueryFilterRewriterChainFactory {
   @Bean
   @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(
       com.linkedin.metadata.entity.EntityService.class)
+  @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(
+      name = "systemEntityClient")
   public QueryFilterRewriter organizationFilterRewriter(
       @org.springframework.beans.factory.annotation.Qualifier("entityService")
           final com.linkedin.metadata.entity.EntityService<?> entityService,
