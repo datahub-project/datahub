@@ -8,7 +8,7 @@ import {
 } from '@graphql/mutations.generated';
 import { OrganizationPicker } from '@app/organization/OrganizationPicker';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { getModalDomContainer } from '@app/utils/focus';
+import { getModalDomContainer } from '@src/utils/focus';
 
 export enum OperationType {
     ADD,
