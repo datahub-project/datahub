@@ -24,7 +24,8 @@ record UserOrganizations {
   @Searchable = {
     "/*": {
       "fieldName": "organizations",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "queryByDefault": false
     }
   }
   organizations: array[Urn]

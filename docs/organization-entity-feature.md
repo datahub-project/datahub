@@ -20,6 +20,7 @@ The organization feature is built on DataHub's schema-first architecture:
 #### Core Aspects
 
 1. **OrganizationProperties** (`organizationProperties`)
+
    - `name`: Display name of the organization
    - `description`: Description of the organization
    - `logoUrl`: URL to organization logo
@@ -27,10 +28,12 @@ The organization feature is built on DataHub's schema-first architecture:
    - `created`: Audit stamp for creation time
 
 2. **OrganizationHierarchy** (`organizationHierarchy`)
+
    - `parent`: Optional parent organization URN
    - Enables hierarchical organization structures
 
 3. **Organizations** (`organizations`)
+
    - Array of organization URNs
    - Used to associate entities with organizations
    - Supports multiple organizations per entity
@@ -117,6 +120,7 @@ All resolvers are located in `datahub-graphql-core/src/main/java/com/linkedin/da
 **Multi-Tenant Isolation:**
 
 1. **OrganizationFilterRewriter**: Filters search queries to only return entities from user's organizations
+
    - System actors (`urn:li:corpuser:datahub`, `urn:li:corpuser:__datahub_system`) bypass filtering
    - Users without organizations see no entities (full isolation)
    - Users with organizations see entities from ANY of their organizations
@@ -405,7 +409,7 @@ Potential future improvements:
 
 ## Related Documentation
 
-- [DataHub Concepts](../what-is-datahub/datahub-concepts.md)
+- [DataHub Concepts](what-is-datahub/datahub-concepts.md)
 - [Metadata Model](../modeling/metadata-model.md)
 - [Access Policies](../authorization/access-policies-guide.md)
 - [GraphQL API](../api/graphql/getting-started.md)
