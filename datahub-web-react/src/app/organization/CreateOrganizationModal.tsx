@@ -1,7 +1,7 @@
 import { Form, Input, Modal, message } from 'antd';
 import React from 'react';
 
-import { useCreateOrganizationMutation } from '@app/graphql/organization.generated';
+import { useCreateOrganizationMutation } from '@graphql/organization.generated';
 
 interface Props {
     visible: boolean;

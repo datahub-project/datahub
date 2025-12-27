@@ -8,7 +8,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
-import { useGetOrganizationQuery } from '@app/graphql/organization.generated';
+import { useGetOrganizationQuery } from '@graphql/organization.generated';
 import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
 import { Preview } from '@app/organization/preview/Preview';
 import { EntityType, Organization, SearchResult } from '@app/types.generated';

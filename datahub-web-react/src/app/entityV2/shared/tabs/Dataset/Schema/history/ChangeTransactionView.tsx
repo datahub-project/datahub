@@ -108,7 +108,11 @@ export default function ChangeTransactionView({ transaction, platform, semanticV
                         {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
-                <div>{transaction?.changes?.map((change) => <ChangeEventComponent changeEvent={change} />)}</div>
+                <div>
+                    {transaction?.changes?.map((change) => (
+                        <ChangeEventComponent changeEvent={change} />
+                    ))}
+                </div>
             </ChangeTransactionMainContent>
         </ChangeTransactionContainer>
     );

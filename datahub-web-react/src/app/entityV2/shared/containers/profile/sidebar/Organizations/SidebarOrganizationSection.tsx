@@ -12,7 +12,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import {
     useAddEntityToOrganizationsMutation,
     useRemoveEntityFromOrganizationsMutation,
-} from '@app/graphql/mutations.generated';
+} from '@graphql/mutations.generated';
 import OrganizationPill from '@app/sharedV2/badges/OrganizationPill';
 
 const Content = styled.div`

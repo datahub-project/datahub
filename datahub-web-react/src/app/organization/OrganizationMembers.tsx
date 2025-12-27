@@ -8,7 +8,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import {
     useGetEntitiesByOrganizationQuery,
     useRemoveUserFromOrganizationsMutation,
-} from '@app/graphql/organization.generated';
+} from '@graphql/organization.generated';
 import { AddOrganizationMembersModal } from '@app/organization/AddOrganizationMembersModal';
 import { CustomAvatar } from '@app/shared/avatar';
 import { scrollToTop } from '@app/shared/searchUtils';

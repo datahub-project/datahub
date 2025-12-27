@@ -4,8 +4,8 @@ import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { useAddUserToOrganizationsMutation } from '@app/graphql/organization.generated';
-import { useGetSearchResultsLazyQuery } from '@app/graphql/search.generated';
+import { useAddUserToOrganizationsMutation } from '@graphql/organization.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';

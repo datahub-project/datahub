@@ -4,7 +4,7 @@ import React, { useRef } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { useGetSearchResultsLazyQuery } from '@app/graphql/search.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { Entity, EntityType } from '@app/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';

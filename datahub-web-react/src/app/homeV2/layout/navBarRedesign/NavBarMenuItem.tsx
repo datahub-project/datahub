@@ -9,7 +9,7 @@ import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
 import { Badge, Text, colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
-const StyledMenuItem = styled(Menu.Item) <{ $isCollapsed?: boolean }>`
+const StyledMenuItem = styled(Menu.Item)<{ $isCollapsed?: boolean }>`
     &&& {
         position: relative;
         padding: 4px 8px;
@@ -79,15 +79,15 @@ const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
 
     && svg {
         ${(props) =>
-        props.$isSelected
-            ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles['primary-color']};`
-            : 'color: #8088a3;'}
+            props.$isSelected
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles['primary-color']};`
+                : 'color: #8088a3;'}
         width: ${(props) => props.$size ?? 20}px;
         height: ${(props) => props.$size ?? 20}px;
     }
 `;
 
-const StyledText = styled(Text) <{ $isSelected?: boolean }>`
+const StyledText = styled(Text)<{ $isSelected?: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `

@@ -150,21 +150,21 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return [
             ...(showSummaryTab
                 ? [
-                    {
-                        name: 'Summary',
-                        component: SummaryTab,
-                        id: 'asset-summary-tab',
-                    },
-                ]
+                      {
+                          name: 'Summary',
+                          component: SummaryTab,
+                          id: 'asset-summary-tab',
+                      },
+                  ]
                 : []),
             ...(!showSummaryTab
                 ? [
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                    },
-                ]
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
                 : []),
             {
                 name: 'Related Assets',

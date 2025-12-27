@@ -21,7 +21,9 @@ export default function SampleValuesSection({ fieldProfile }: Props) {
                 content={fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
                     .slice(0, 3)
-                    .map((value) => <SampleValueTag value={value} />)}
+                    .map((value) => (
+                        <SampleValueTag value={value} />
+                    ))}
             />
             <StyledDivider dashed />
         </>

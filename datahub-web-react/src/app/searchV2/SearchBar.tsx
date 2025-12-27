@@ -33,7 +33,7 @@ import { EntityRegistry } from '@src/entityRegistryContext';
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '@types';
 
-const StyledAutoComplete = styled(AutoComplete) <{ $isShowNavBarRedesign?: boolean }>`
+const StyledAutoComplete = styled(AutoComplete)<{ $isShowNavBarRedesign?: boolean }>`
     width: 100%;
     max-width: ${(props) => (props.$isShowNavBarRedesign ? '632px' : '540px')};
 `;
@@ -51,13 +51,14 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
         `
         border-radius: 8px;
         &:focus-within {
-            border-color: ${props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.styles['primary-color']
-        };
+            border-color: ${
+                props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.styles['primary-color']
+            };
         }
     `}
 `;
 
-const StyledSearchBar = styled(Input) <{
+const StyledSearchBar = styled(Input)<{
     $textColor?: string;
     $placeholderColor?: string;
     viewsEnabled?: boolean;
@@ -72,8 +73,8 @@ const StyledSearchBar = styled(Input) <{
         border: 2px solid transparent;
         padding-right: 2.5px;
         ${(props) =>
-        !props.viewsEnabled &&
-        `
+            !props.viewsEnabled &&
+            `
         &:focus-within {
             border-color: ${props.theme.styles['primary-color']};
         }`}
@@ -81,7 +82,7 @@ const StyledSearchBar = styled(Input) <{
 
     > .ant-input::placeholder {
         color: ${(props) =>
-        props.$placeholderColor || (props.$isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
+            props.$placeholderColor || (props.$isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
     }
 
     > .ant-input {
@@ -111,7 +112,7 @@ const ViewSelectContainer = styled.div`
     }
 `;
 
-const SearchIcon = styled(SearchOutlined) <{ $isShowNavBarRedesign?: boolean }>`
+const SearchIcon = styled(SearchOutlined)<{ $isShowNavBarRedesign?: boolean }>`
     color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : '#dcdcdc')};
     ${(props) =>
         props.$isShowNavBarRedesign &&

@@ -1,7 +1,9 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tooltip } from '@components';
+
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import { EntityType } from '@types';
 
 const PillContainer = styled.div<{ clickable?: boolean }>`
@@ -15,7 +17,7 @@ const PillContainer = styled.div<{ clickable?: boolean }>`
     color: #262626;
     cursor: ${(props) => (props.clickable ? 'pointer' : 'default')};
     max-width: 100%;
-    
+
     &:hover {
         background-color: ${(props) => (props.clickable ? '#e8e8e8' : '#f5f5f5')};
     }
@@ -34,7 +36,7 @@ const CloseButton = styled.span`
     opacity: 0.6;
     font-size: 14px;
     line-height: 1;
-    
+
     &:hover {
         opacity: 1;
     }

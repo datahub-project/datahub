@@ -124,7 +124,9 @@ export const InteriorTitleContent = ({
                                     (sourceField) => sourceField?.fieldPath?.trim() === fieldPath.trim(),
                                 ).length || 0) > 0,
                         )
-                        .map((constraint) => <ForeignKeyLabel key={constraint?.name} />)}
+                        .map((constraint) => (
+                            <ForeignKeyLabel key={constraint?.name} />
+                        ))}
                 </>
             )}
         </FieldTitleWrapper>

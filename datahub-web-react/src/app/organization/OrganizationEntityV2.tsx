@@ -7,7 +7,7 @@ import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sid
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { useGetOrganizationQuery } from '@app/graphql/organization.generated';
+import { useGetOrganizationQuery } from '@graphql/organization.generated';
 import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
 import { OrganizationEntitiesTab } from '@app/organization/OrganizationEntitiesTab';
 import { OrganizationMembers } from '@app/organization/OrganizationMembers';

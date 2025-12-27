@@ -2,7 +2,7 @@ import { Button, Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { useListOrganizationsQuery } from '@app/graphql/organization.generated';
+import { useListOrganizationsQuery } from '@graphql/organization.generated';
 import { CreateOrganizationModal } from '@app/organization/CreateOrganizationModal';
 
 export const OrganizationsList = () => {

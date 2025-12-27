@@ -262,12 +262,12 @@ export class DatasetEntity implements Entity<Dataset> {
         return [
             ...(showSummaryTab
                 ? [
-                    {
-                        name: 'Summary',
-                        component: SummaryTab,
-                        icon: SUMMARY_TAB_ICON,
-                    },
-                ]
+                      {
+                          name: 'Summary',
+                          component: SummaryTab,
+                          icon: SUMMARY_TAB_ICON,
+                      },
+                  ]
                 : []),
             {
                 name: 'Columns',
@@ -290,12 +290,12 @@ export class DatasetEntity implements Entity<Dataset> {
             },
             ...(!showSummaryTab
                 ? [
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                    },
-                ]
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
                 : []),
             {
                 name: 'Preview',

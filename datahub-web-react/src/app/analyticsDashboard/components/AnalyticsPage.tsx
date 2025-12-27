@@ -134,7 +134,9 @@ export const AnalyticsPage = () => {
                 )}
                 {chartData?.getAnalyticsCharts
                     ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
-                    .map((chartGroup) => <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />)}
+                    .map((chartGroup) => (
+                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />
+                    ))}
             </>
             <>
                 {domainError && (

@@ -6,8 +6,8 @@ import DeleteDropdown from '@app/entity/shared/components/styled/search/action/D
 import DeprecationDropdown from '@app/entity/shared/components/styled/search/action/DeprecationDropdown';
 import DomainDropdown from '@app/entity/shared/components/styled/search/action/DomainsDropdown';
 import GlossaryTermDropdown from '@app/entity/shared/components/styled/search/action/GlossaryTermsDropdown';
-import OwnersDropdown from '@app/entity/shared/components/styled/search/action/OwnersDropdown';
 import OrganizationsDropdown from '@app/entity/shared/components/styled/search/action/OrganizationsDropdown';
+import OwnersDropdown from '@app/entity/shared/components/styled/search/action/OwnersDropdown';
 import TagsDropdown from '@app/entity/shared/components/styled/search/action/TagsDropdown';
 import { SelectActionGroups } from '@app/entity/shared/components/styled/search/types';
 import { EntityAndType } from '@app/entity/shared/types';

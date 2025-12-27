@@ -1,7 +1,7 @@
 import {
     AppWindow,
-    Buildings,
     BookBookmark,
+    Buildings,
     Gear,
     Globe,
     HardDrives,
@@ -69,7 +69,9 @@ const Content = styled.div<{ isCollapsed: boolean }>`
     height: 100%;
     width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
     max-width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
-    transition: width 250ms ease-in-out, max-width 250ms ease-in-out;
+    transition:
+        width 250ms ease-in-out,
+        max-width 250ms ease-in-out;
     overflow-x: hidden;
     overflow-y: auto;
 `;

@@ -5,7 +5,7 @@ import { handleBatchError } from '@app/entity/shared/utils';
 import {
     useAddEntityToOrganizationsMutation,
     useRemoveEntityFromOrganizationsMutation,
-} from '@app/graphql/mutations.generated';
+} from '@graphql/mutations.generated';
 import { OrganizationPicker } from '@app/organization/OrganizationPicker';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { getModalDomContainer } from '@app/utils/focus';

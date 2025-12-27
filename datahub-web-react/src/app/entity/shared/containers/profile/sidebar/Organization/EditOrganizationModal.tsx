@@ -5,8 +5,8 @@ import styled from 'styled-components';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { useSetEntityOrganizationsMutation } from '@app/graphql/organization.generated';
-import { useGetSearchResultsLazyQuery } from '@app/graphql/search.generated';
+import { useSetEntityOrganizationsMutation } from '@graphql/organization.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { EntityType } from '@app/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

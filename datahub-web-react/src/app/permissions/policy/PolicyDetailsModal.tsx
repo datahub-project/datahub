@@ -125,7 +125,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         }
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
-                <div>{actors?.resolvedOwnershipTypes?.map((type) => <PoliciesTag>{type.info.name}</PoliciesTag>)}</div>
+                <div>
+                    {actors?.resolvedOwnershipTypes?.map((type) => (
+                        <PoliciesTag>{type.info.name}</PoliciesTag>
+                    ))}
+                </div>
             );
         }
         return <PoliciesTag>Yes - All owners</PoliciesTag>;

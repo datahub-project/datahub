@@ -71,10 +71,13 @@ export default function UserProfile() {
     const userRoles: Array<EntityRelationship> =
         castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
     const userOrganizations: Array<EntityRelationship> =
-        castedCorpUser?.organizations?.map((org) => ({
-            entity: org,
-            type: 'IsMemberOf',
-        } as EntityRelationship)) || [];
+        castedCorpUser?.organizations?.map(
+            (org) =>
+                ({
+                    entity: org,
+                    type: 'IsMemberOf',
+                }) as EntityRelationship,
+        ) || [];
 
     // Routed Tabs Constants
     const getTabs = () => {

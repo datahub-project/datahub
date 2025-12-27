@@ -159,13 +159,13 @@ export class DomainEntity implements Entity<Domain> {
             },
             ...(!showSummaryTab
                 ? [
-                    {
-                        id: EntityProfileTab.DOCUMENTATION_TAB,
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                    },
-                ]
+                      {
+                          id: EntityProfileTab.DOCUMENTATION_TAB,
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
                 : []),
             {
                 id: EntityProfileTab.DATA_PRODUCTS_TAB,

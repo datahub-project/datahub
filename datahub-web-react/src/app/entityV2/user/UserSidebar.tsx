@@ -3,10 +3,10 @@ import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
 import { UserGroupSideBarSection } from '@app/entityV2/shared/sidebarSection/UserGroupSidebarSection';
 import { UserOwnershipSidebarSection } from '@app/entityV2/shared/sidebarSection/UserOwnershipSideBarSection';
-import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { SidebarData, UserProfileInfoCard } from '@app/entityV2/user/UserProfileInfoCard';
 
 import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
