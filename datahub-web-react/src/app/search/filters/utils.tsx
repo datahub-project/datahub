@@ -56,8 +56,8 @@ import {
     StructuredPropertyEntity,
 } from '@types';
 
-import DomainsIcon from '@images/domain.svg?react';
-import OrganizationsIcon from '@images/organization.svg?react';
+import DomainsIcon from '@src/images/domain.svg?react';
+import OrganizationsIcon from '@src/images/organization.svg?react';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
