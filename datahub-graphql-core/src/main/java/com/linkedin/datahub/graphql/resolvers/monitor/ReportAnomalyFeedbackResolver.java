@@ -113,7 +113,12 @@ public class ReportAnomalyFeedbackResolver
                     monitorUrn, Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME, anomalyEvent),
                 false);
             // best attempt to trigger retraining of the monitor
-            tryTriggerMonitorRetraining(monitorUrn);
+            MonitorUtils.forceRetrainAssertionMonitor(
+                queryContext.getOperationContext(),
+                _monitorService,
+                _entityClient,
+                monitorUrn,
+                assertionUrn);
             return MonitorMapper.mapMonitorAnomalyEvent(anomalyEvent);
           } catch (RemoteInvocationException exception) {
             throw new DataHubGraphQLException(
@@ -125,16 +130,5 @@ public class ReportAnomalyFeedbackResolver
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  private void tryTriggerMonitorRetraining(@Nonnull final Urn monitorUrn) {
-    try {
-      this._monitorService.retrainAssertionMonitor(monitorUrn);
-    } catch (Exception e) {
-      log.warn(
-          "Failed to trigger retraining for monitor {} after reporting anomaly feedback. Error: {}",
-          monitorUrn,
-          e.getMessage());
-    }
   }
 }

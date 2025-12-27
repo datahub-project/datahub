@@ -304,8 +304,13 @@ public class BulkUpdateAnomaliesResolver
             this._entityClient.batchIngestProposals(
                 queryContext.getOperationContext(), proposals, false);
 
-            // 5. Best attempt to trigger retraining of the monitor
-            tryTriggerMonitorRetraining(monitorUrn);
+            // 5. Best attempt to force retraining of the monitor
+            MonitorUtils.forceRetrainAssertionMonitor(
+                queryContext.getOperationContext(),
+                _monitorService,
+                _entityClient,
+                monitorUrn,
+                assertionUrn);
 
             // 6. Return mapped anomaly events
             return anomalyEvents.stream()
@@ -411,16 +416,5 @@ public class BulkUpdateAnomaliesResolver
                                                 OperationType.INSERT.name(),
                                                 OperationType.CREATE.name(),
                                                 OperationType.UPDATE.name()))))))));
-  }
-
-  private void tryTriggerMonitorRetraining(@Nonnull final Urn monitorUrn) {
-    try {
-      this._monitorService.retrainAssertionMonitor(monitorUrn);
-    } catch (Exception e) {
-      log.warn(
-          "Failed to trigger retraining for monitor {} after bulk updating anomaly feedback. Error: {}",
-          monitorUrn,
-          e.getMessage());
-    }
   }
 }

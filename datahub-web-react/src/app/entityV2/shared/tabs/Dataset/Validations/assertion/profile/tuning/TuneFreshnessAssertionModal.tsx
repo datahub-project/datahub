@@ -112,19 +112,20 @@ type Props = {
 };
 
 /**
- * Formats DateInterval enum to pluralized string
+ * Formats DateInterval enum to a singular/plural string based on the multiple.
  */
-const formatDateInterval = (interval: DateInterval): string => {
-    const mapping: Record<DateInterval, string> = {
-        [DateInterval.Second]: 'seconds',
-        [DateInterval.Minute]: 'minutes',
-        [DateInterval.Hour]: 'hours',
-        [DateInterval.Day]: 'days',
-        [DateInterval.Week]: 'weeks',
-        [DateInterval.Month]: 'months',
-        [DateInterval.Year]: 'years',
+const formatDateInterval = (interval: DateInterval, multiple: number): string => {
+    const singularMapping: Record<DateInterval, string> = {
+        [DateInterval.Second]: 'second',
+        [DateInterval.Minute]: 'minute',
+        [DateInterval.Hour]: 'hour',
+        [DateInterval.Day]: 'day',
+        [DateInterval.Week]: 'week',
+        [DateInterval.Month]: 'month',
+        [DateInterval.Year]: 'year',
     };
-    return mapping[interval] || interval.toLowerCase();
+    const singular = singularMapping[interval] || interval.toLowerCase();
+    return multiple === 1 ? singular : `${singular}s`;
 };
 
 /**
@@ -147,7 +148,7 @@ const extractFreshnessPrediction = (
     const { fixedInterval } = schedule;
     return {
         multiple: fixedInterval.multiple,
-        unit: formatDateInterval(fixedInterval.unit),
+        unit: formatDateInterval(fixedInterval.unit, fixedInterval.multiple),
     };
 };
 

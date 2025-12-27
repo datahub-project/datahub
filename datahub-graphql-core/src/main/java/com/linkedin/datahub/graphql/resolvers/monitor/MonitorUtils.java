@@ -30,12 +30,18 @@ import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersIn
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.utils.MonitorUrnUtils;
+import com.linkedin.monitor.AssertionEvaluationContext;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
+import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DataHubOperationSpec;
 import com.linkedin.monitor.DatasetFieldAssertionParameters;
@@ -46,12 +52,17 @@ import com.linkedin.monitor.DatasetSchemaAssertionParameters;
 import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
+import com.linkedin.monitor.EmbeddedAssertionArray;
+import com.linkedin.monitor.MonitorInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MonitorUtils {
 
   private static final String MONITORS_RELATIONSHIP_NAME = "Monitors";
@@ -288,6 +299,101 @@ public class MonitorUtils {
   }
 
   private MonitorUtils() {}
+
+  /**
+   * Clears prediction-related context (inference details / embedded assertions) for the primary
+   * assertion evaluation spec(s) on a monitor, in order to force retraining.
+   *
+   * <p>The executor enforces a minimum training interval based on {@code
+   * inferenceDetails.generatedAt}. Removing {@code inferenceDetails} ensures training is not
+   * skipped as "recently trained".
+   *
+   * <p>If {@code expectedAssertionUrn} is non-null and does not match the monitor's assertion spec,
+   * we will still clear the context to honor the "force" semantics, but we log a warning.
+   */
+  public static void clearPredictionContextForRetraining(
+      @Nonnull final MonitorInfo monitorInfo, @Nullable final Urn expectedAssertionUrn) {
+    if (monitorInfo.getAssertionMonitor() == null
+        || monitorInfo.getAssertionMonitor().getAssertions() == null
+        || monitorInfo.getAssertionMonitor().getAssertions().isEmpty()) {
+      return;
+    }
+
+    monitorInfo
+        .getAssertionMonitor()
+        .getAssertions()
+        .forEach(
+            (AssertionEvaluationSpec spec) -> {
+              if (spec == null) {
+                return;
+              }
+              if (expectedAssertionUrn != null
+                  && !expectedAssertionUrn.equals(spec.getAssertion())) {
+                log.warn(
+                    "Attempting to force retraining using assertion {}, but monitor spec points to {}. Clearing context anyway.",
+                    expectedAssertionUrn,
+                    spec.getAssertion() != null ? spec.getAssertion() : "null");
+              }
+
+              AssertionEvaluationContext evaluationContext =
+                  (spec.hasContext() ? spec.getContext() : null);
+              if (evaluationContext == null) {
+                evaluationContext = new AssertionEvaluationContext();
+                spec.setContext(evaluationContext);
+              }
+
+              evaluationContext
+                  .setEmbeddedAssertions(new EmbeddedAssertionArray())
+                  .setInferenceDetails(null, SetMode.REMOVE_IF_NULL);
+            });
+  }
+
+  /**
+   * Best-effort helper that:
+   *
+   * <ol>
+   *   <li>Fetches {@link MonitorInfo}
+   *   <li>Clears prediction context to force retraining
+   *   <li>Ingests updated {@code monitorInfo}
+   *   <li>Triggers retraining
+   * </ol>
+   *
+   * <p>All steps are best-effort; failures are logged and do not throw.
+   */
+  public static void forceRetrainAssertionMonitor(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MonitorService monitorService,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final Urn monitorUrn,
+      @Nullable final Urn expectedAssertionUrn) {
+    try {
+      final MonitorInfo monitorInfo = monitorService.getMonitorInfo(opContext, monitorUrn);
+      if (monitorInfo != null) {
+        clearPredictionContextForRetraining(monitorInfo, expectedAssertionUrn);
+
+        entityClient.ingestProposal(
+            opContext,
+            AspectUtils.buildMetadataChangeProposal(
+                monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo),
+            false);
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Failed to clear inference details for monitor {} (assertion {}) before retraining. Retraining may be skipped due to min training interval. Error: {}",
+          monitorUrn,
+          expectedAssertionUrn,
+          e.getMessage());
+    }
+
+    try {
+      monitorService.retrainAssertionMonitor(monitorUrn);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to trigger retraining for monitor {} after forcing prediction context reset. Error: {}",
+          monitorUrn,
+          e.getMessage());
+    }
+  }
 
   public static @Nonnull AssertionEvaluationParameters createFreshnessAssertionEvaluationParameters(
       @Nonnull DatasetFreshnessAssertionParametersInput datasetFreshnessParameters) {

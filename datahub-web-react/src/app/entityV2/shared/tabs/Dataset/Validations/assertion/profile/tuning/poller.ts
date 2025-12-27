@@ -6,6 +6,14 @@ import { GetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
 
 const POLLING_TIMEOUT_MS = 15000; // 15 seconds
 
+const hasValidGeneratedAt = (generatedAt: string | number | null | undefined): generatedAt is string | number => {
+    if (generatedAt === null || generatedAt === undefined) return false;
+    // When retraining is forced we may temporarily clear inferenceDetails (undefined) or set generatedAt=0.
+    // We only want to stop polling once the executor has written a real (non-zero) generatedAt for new predictions.
+    if (generatedAt === 0 || generatedAt === '0') return false;
+    return true;
+};
+
 /**
  * Hook to poll for new prediction generation after monitor settings update.
  * Compares generatedAt timestamps to determine when new predictions are available.
@@ -59,7 +67,12 @@ export const usePollForNewPredictions = (
 
     // Auto-stop polling when new predictions are detected (generatedAt changed)
     useEffect(() => {
-        if (isPolling && initialGeneratedAt !== null && currentGeneratedAt !== initialGeneratedAt) {
+        if (
+            isPolling &&
+            initialGeneratedAt !== null &&
+            hasValidGeneratedAt(currentGeneratedAt) &&
+            currentGeneratedAt !== initialGeneratedAt
+        ) {
             stopPolling();
         }
     }, [isPolling, currentGeneratedAt, initialGeneratedAt, stopPolling]);

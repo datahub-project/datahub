@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.linkedin.anomaly.MonitorAnomalyEvent;
+import com.linkedin.assertion.AssertionInferenceDetails;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +18,11 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.monitor.AssertionEvaluationContext;
+import com.linkedin.monitor.AssertionEvaluationSpec;
+import com.linkedin.monitor.AssertionEvaluationSpecArray;
+import com.linkedin.monitor.AssertionMonitor;
+import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -111,6 +117,16 @@ public class BulkUpdateAnomaliesResolverTest {
         .batchIngestProposals(
             any(OperationContext.class),
             Mockito.argThat(list -> list.size() == 3),
+            Mockito.eq(false));
+
+    // Verify we cleared inference details to force retraining
+    Mockito.verify(mockEntityClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.argThat(
+                proposal ->
+                    proposal.getEntityUrn().equals(TEST_MONITOR_URN)
+                        && proposal.getAspectName().equals(Constants.MONITOR_INFO_ASPECT_NAME)),
             Mockito.eq(false));
 
     // Verify retraining called
@@ -281,7 +297,22 @@ public class BulkUpdateAnomaliesResolverTest {
   }
 
   private MonitorService initMockMonitorService() {
-    return Mockito.mock(MonitorService.class);
+    MonitorService service = Mockito.mock(MonitorService.class);
+    // Provide a monitorInfo with an assertion spec context so the resolver can clear
+    // inferenceDetails.
+    MonitorInfo monitorInfo = new MonitorInfo();
+    AssertionMonitor assertionMonitor = new AssertionMonitor();
+    AssertionEvaluationSpec spec = new AssertionEvaluationSpec();
+    spec.setAssertion(TEST_ASSERTION_URN);
+    AssertionEvaluationContext evalContext = new AssertionEvaluationContext();
+    evalContext.setInferenceDetails(new AssertionInferenceDetails().setGeneratedAt(1234567890L));
+    spec.setContext(evalContext);
+    assertionMonitor.setAssertions(new AssertionEvaluationSpecArray(spec));
+    monitorInfo.setAssertionMonitor(assertionMonitor);
+
+    Mockito.when(service.getMonitorInfo(any(OperationContext.class), Mockito.eq(TEST_MONITOR_URN)))
+        .thenReturn(monitorInfo);
+    return service;
   }
 
   /**
