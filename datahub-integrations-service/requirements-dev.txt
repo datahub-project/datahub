@@ -802,9 +802,11 @@ langchain==1.0.5
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-langchain-core==1.0.4
+langchain-core==1.2.5
     # via
     #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
     #   langchain
     #   langchain-google-vertexai
     #   langchain-openai
@@ -1848,6 +1850,10 @@ urllib3==1.26.18
     #   pygithub
     #   requests
     #   sentry-sdk
+uuid-utils==0.12.0
+    # via
+    #   -r requirements.txt
+    #   langchain-core
 uvicorn==0.35.0
     # via
     #   -r requirements.txt

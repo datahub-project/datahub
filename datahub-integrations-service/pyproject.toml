@@ -50,6 +50,7 @@ dependencies = [
 	"beautifulsoup4>=4.13.5",
 	"json-repair",  # For parsing Bedrock's malformed JSON in structured output
 	# LLM provider abstractions via langchain
+	"langchain-core>=1.2.5",  # CVE-2025-68664: Serialization injection vulnerability
 	"langchain>=1.0.5",
 	"langchain-openai>=1.0.2",
 	"langchain-google-vertexai>=3.0.2",
