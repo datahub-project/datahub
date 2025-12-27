@@ -89,10 +89,12 @@ public class EntityRelationshipsResultResolverTest {
     existentEntity = new CorpUser();
     existentEntity.setUrn(existentUser.toString());
     existentEntity.setType(EntityType.CORP_USER);
+    existentEntity.setUsername("johndoe");
 
     softDeletedEntity = new CorpUser();
     softDeletedEntity.setUrn(softDeletedUser.toString());
     softDeletedEntity.setType(EntityType.CORP_USER);
+    softDeletedEntity.setUsername("deletedUser");
   }
 
   @Test
