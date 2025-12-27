@@ -63,6 +63,7 @@ export const changeSchedule = (values) => {
 
 export const verifyScheduleIsAppliedOnTable = (sourceName, scheduleText) => {
   cy.getWithTestId(`row-${sourceName}`)
+    .first()
     .scrollIntoView()
     .within(() => {
       cy.getWithTestId("schedule").should("contain", scheduleText);
@@ -104,7 +105,10 @@ export const updateIngestionSource = (
   cy.get("body .ant-dropdown-menu").contains("Edit").click();
   cy.waitForGraphQLOperation("getIngestionSource");
   cy.waitTextVisible("Edit Data Source");
-  cy.get('[data-testid="recipe-builder-next-button"]').scrollIntoView().click();
+  cy.get('[data-testid="recipe-builder-next-button"]')
+    .first()
+    .scrollIntoView()
+    .click();
   cy.waitTextVisible("Configure an Ingestion Schedule");
   if (options?.schedule) {
     changeSchedule(options?.schedule);
