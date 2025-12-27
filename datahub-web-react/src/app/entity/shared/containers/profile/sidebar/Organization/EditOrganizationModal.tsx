@@ -5,10 +5,11 @@ import styled from 'styled-components';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
+
 import { useSetEntityOrganizationsMutation } from '@graphql/organization.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { EntityType } from '@src/types.generated';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const LoadingWrapper = styled.div`
     padding: 8px;

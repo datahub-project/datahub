@@ -410,6 +410,6 @@ Potential future improvements:
 ## Related Documentation
 
 - [DataHub Concepts](what-is-datahub/datahub-concepts.md)
-- [Metadata Model](../modeling/metadata-model.md)
-- [Access Policies](../authorization/access-policies-guide.md)
-- [GraphQL API](../api/graphql/getting-started.md)
+- [Metadata Model](modeling/metadata-model.md)
+- [Access Policies](authorization/access-policies-guide.md)
+- [GraphQL API](api/graphql/getting-started.md)

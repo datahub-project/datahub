@@ -2,8 +2,9 @@ import { Button, Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { useListOrganizationsQuery } from '@graphql/organization.generated';
 import { CreateOrganizationModal } from '@app/organization/CreateOrganizationModal';
+
+import { useListOrganizationsQuery } from '@graphql/organization.generated';
 
 export const OrganizationsList = () => {
     const [page, setPage] = useState(1);

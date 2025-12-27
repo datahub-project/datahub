@@ -4,10 +4,11 @@ import React, { useRef } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
-import { Entity, EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Entity, EntityType } from '@src/types.generated';
+
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 
 const SelectInput = styled(Select)`
     width: 100%;

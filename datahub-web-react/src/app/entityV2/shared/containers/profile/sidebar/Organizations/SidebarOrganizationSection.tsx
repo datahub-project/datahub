@@ -9,11 +9,12 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import { AddOrganizationModal } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/AddOrganizationModal';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import OrganizationPill from '@app/sharedV2/badges/OrganizationPill';
+
 import {
     useAddEntityToOrganizationsMutation,
     useRemoveEntityFromOrganizationsMutation,
 } from '@graphql/mutations.generated';
-import OrganizationPill from '@app/sharedV2/badges/OrganizationPill';
 
 const Content = styled.div`
     display: flex;

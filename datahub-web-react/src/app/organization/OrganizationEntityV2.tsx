@@ -7,12 +7,13 @@ import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sid
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { useGetOrganizationQuery } from '@graphql/organization.generated';
 import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
 import { OrganizationEntitiesTab } from '@app/organization/OrganizationEntitiesTab';
 import { OrganizationMembers } from '@app/organization/OrganizationMembers';
 import { PreviewV2 } from '@app/organization/preview/PreviewV2';
 import { EntityType, Organization, SearchResult } from '@src/types.generated';
+
+import { useGetOrganizationQuery } from '@graphql/organization.generated';
 
 export class OrganizationEntityV2 implements Entity<Organization> {
     type: EntityType = EntityType.Organization;

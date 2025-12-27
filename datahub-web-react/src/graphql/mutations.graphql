@@ -156,7 +156,7 @@ mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
     removeBusinessAttribute(input: $input)
 }
 
-mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!)  {
+mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {
     updateDisplayProperties(urn: $urn, input: $input)
 }
 

@@ -2052,12 +2052,11 @@ fragment ingestionExecutionRequestFields on ExecutionRequest {
     }
 }
 
-
 fragment organizationsFields on Organization {
-  urn
-  type
-  properties {
-    name
-    description
-  }
+    urn
+    type
+    properties {
+        name
+        description
+    }
 }

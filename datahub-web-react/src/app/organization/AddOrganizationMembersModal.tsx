@@ -4,14 +4,15 @@ import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { useAddUserToOrganizationsMutation } from '@graphql/organization.generated';
-import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
-import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { getModalDomContainer } from '@src/utils/focus';
+
+import { useAddUserToOrganizationsMutation } from '@graphql/organization.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 
 type Props = {
     urn: string;

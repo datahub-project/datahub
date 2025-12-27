@@ -2,13 +2,14 @@ import { Button, Form, Modal, message } from 'antd';
 import React, { useState } from 'react';
 
 import { handleBatchError } from '@app/entity/shared/utils';
+import { OrganizationPicker } from '@app/organization/OrganizationPicker';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
+import { getModalDomContainer } from '@src/utils/focus';
+
 import {
     useAddEntityToOrganizationsMutation,
     useRemoveEntityFromOrganizationsMutation,
 } from '@graphql/mutations.generated';
-import { OrganizationPicker } from '@app/organization/OrganizationPicker';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { getModalDomContainer } from '@src/utils/focus';
 
 export enum OperationType {
     ADD,

@@ -5,15 +5,16 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { AddOrganizationMembersModal } from '@app/organization/AddOrganizationMembersModal';
+import { CustomAvatar } from '@app/shared/avatar';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { CorpUser, EntityType } from '@src/types.generated';
+
 import {
     useGetEntitiesByOrganizationQuery,
     useRemoveUserFromOrganizationsMutation,
 } from '@graphql/organization.generated';
-import { AddOrganizationMembersModal } from '@app/organization/AddOrganizationMembersModal';
-import { CustomAvatar } from '@app/shared/avatar';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { CorpUser, EntityType } from '@src/types.generated';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',

@@ -117,16 +117,12 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <LineageFilterSearch data={data} numMatches={numMatches} setNumMatches={setNumMatches} />
             <PillsWrapper>
                 <PillColumn>
-                    {platforms?.map((agg, index) => (
-                        <PlatformEntry agg={agg} key={agg[0]} index={index} />
-                    ))}
+                    {platforms?.map((agg, index) => <PlatformEntry agg={agg} key={agg[0]} index={index} />)}
                 </PillColumn>
                 <PillColumn>
                     {subtypes
                         ?.filter(([filterValue]) => !filterValue.toLocaleLowerCase().endsWith('query'))
-                        .map((agg, index) => (
-                            <SubtypeEntry agg={agg} key={agg[0]} index={index} />
-                        ))}
+                        .map((agg, index) => <SubtypeEntry agg={agg} key={agg[0]} index={index} />)}
                 </PillColumn>
             </PillsWrapper>
         </NodeWrapper>

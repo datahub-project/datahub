@@ -102,15 +102,17 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                     open={popoverVisible ? false : undefined}
                     title={
                         <TooltipTitleWrapper onClick={() => setPopoverVisible(true)}>
-                            {record?.tags?.slice(1, MAX_TAGS_FOR_HOVER).map((tag) => (
-                                <Tag
-                                    key={tag.urn}
-                                    tag={{ tag: tag.tag } as TagAssociation}
-                                    options={{ shouldNotOpenDrawerOnClick: true }}
-                                    maxWidth={120}
-                                    tagStyle={{ marginBottom: 4 }}
-                                />
-                            ))}
+                            {record?.tags
+                                ?.slice(1, MAX_TAGS_FOR_HOVER)
+                                .map((tag) => (
+                                    <Tag
+                                        key={tag.urn}
+                                        tag={{ tag: tag.tag } as TagAssociation}
+                                        options={{ shouldNotOpenDrawerOnClick: true }}
+                                        maxWidth={120}
+                                        tagStyle={{ marginBottom: 4 }}
+                                    />
+                                ))}
                             {(record?.tags?.length ?? 0) > MAX_TAGS_FOR_HOVER ? (
                                 <TooltipMoreText>+ {record.tags.length - MAX_TAGS_FOR_HOVER} more</TooltipMoreText>
                             ) : null}

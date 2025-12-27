@@ -8,10 +8,11 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
-import { useGetOrganizationQuery } from '@graphql/organization.generated';
 import { OrganizationDocumentationTab } from '@app/organization/OrganizationDocumentationTab';
 import { Preview } from '@app/organization/preview/Preview';
 import { EntityType, Organization, SearchResult } from '@src/types.generated';
+
+import { useGetOrganizationQuery } from '@graphql/organization.generated';
 
 export class OrganizationEntity implements Entity<Organization> {
     type: EntityType = EntityType.Organization;
