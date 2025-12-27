@@ -1,0 +1,103 @@
+query getOrganization($urn: String!) {
+  organization(urn: $urn) {
+    urn
+    type
+    id
+    properties {
+      name
+      description
+      logoUrl
+      createdTime
+    }
+    parent {
+        urn
+        properties {
+            name
+            description
+            logoUrl
+        }
+    }
+    children {
+        urn
+        properties {
+            name
+        }
+    }
+    ownership {
+      ...ownershipFields
+    }
+    institutionalMemory {
+      ...institutionalMemoryFields
+    }
+    privileges {
+      canManageEntity
+      canEditProperties
+      canEditDescription
+      canEditOwners
+      canEditTags
+      canEditGlossaryTerms
+      canEditLinks
+      canEditLineage
+    }
+  }
+}
+
+query listOrganizations($input: ListOrganizationsInput!) {
+  listOrganizations(input: $input) {
+    start
+    count
+    total
+    organizations {
+      urn
+      type
+      id
+      properties {
+        name
+        description
+      }
+    }
+  }
+}
+
+mutation createOrganization($input: CreateOrganizationInput!) {
+  createOrganization(input: $input)
+}
+
+mutation updateOrganization($urn: String!, $input: OrganizationUpdateInput!) {
+  updateOrganization(urn: $urn, input: $input)
+}
+
+mutation deleteOrganization($urn: String!) {
+  deleteOrganization(urn: $urn)
+}
+
+mutation setEntityOrganizations($entityUrn: String!, $organizationUrns: [String!]!) {
+  setEntityOrganizations(entityUrn: $entityUrn, organizationUrns: $organizationUrns)
+}
+
+mutation addUserToOrganizations($userUrn: String!, $organizationUrns: [String!]!) {
+  addUserToOrganizations(userUrn: $userUrn, organizationUrns: $organizationUrns)
+}
+
+mutation removeUserFromOrganizations($userUrn: String!, $organizationUrns: [String!]!) {
+  removeUserFromOrganizations(userUrn: $userUrn, organizationUrns: $organizationUrns)
+}
+
+query getEntitiesByOrganization($organizationUrn: String!, $entityTypes: [EntityType!], $start: Int, $count: Int) {
+  getEntitiesByOrganization(organizationUrn: $organizationUrn, entityTypes: $entityTypes, start: $start, count: $count) {
+    start
+    count
+    total
+    entities {
+      urn
+      type
+      ...entityDisplayNameFields
+      ... on CorpUser {
+        username
+        editableProperties {
+          pictureLink
+        }
+      }
+    }
+  }
+}

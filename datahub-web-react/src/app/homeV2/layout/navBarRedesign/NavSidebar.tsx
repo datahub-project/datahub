@@ -1,5 +1,6 @@
 import {
     AppWindow,
+    Buildings,
     BookBookmark,
     Gear,
     Globe,
@@ -51,7 +52,7 @@ const Container = styled.div`
     height: 100vh;
     background-color: ${colors.gray[1600]};
     display: flex;
-    flex: column;
+    flex-direction: column;
     align-items: center;
 `;
 
@@ -61,8 +62,10 @@ const Content = styled.div<{ isCollapsed: boolean }>`
     padding: 17px 8px 17px 16px;
     height: 100%;
     width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
-    transition: width 250ms ease-in-out;
+    max-width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
+    transition: width 250ms ease-in-out, max-width 250ms ease-in-out;
     overflow-x: hidden;
+    overflow-y: auto;
 `;
 
 const CustomLogo = styled.img`
@@ -82,6 +85,9 @@ const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 const MenuWrapper = styled.div`
     margin-top: 14px;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 `;
 
 export const NavSidebar = () => {
@@ -130,7 +136,7 @@ export const NavSidebar = () => {
         link: value.path,
         isHidden: false,
         isExternalLink: true,
-        key: `helpMenu${value.label}`,
+        key: `helpMenu${value.label} `,
     })) as NavBarMenuDropdownItemElement[];
 
     function handleHomeclick() {
@@ -165,7 +171,7 @@ export const NavSidebar = () => {
                         link: PageRoutes.GLOSSARY,
                         additionalLinksForPathMatching: entityRegistry
                             .getGlossaryEntities()
-                            .map((entity) => `/${entity.getPathName()}/:urn`),
+                            .map((entity) => `/ ${entity.getPathName()}/:urn`),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -202,6 +208,14 @@ export const NavSidebar = () => {
                         selectedIcon: <Globe weight="fill" />,
                         link: PageRoutes.DOMAINS,
                         additionalLinksForPathMatching: [`/${entityRegistry.getPathName(EntityType.Domain)}/:urn`],
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Organizations',
+                        key: 'organizations',
+                        icon: <Buildings />,
+                        selectedIcon: <Buildings weight="fill" />,
+                        link: PageRoutes.ORGANIZATIONS,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

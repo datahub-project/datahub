@@ -8,6 +8,7 @@ import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfi
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entity/shared/containers/profile/sidebar/Organization/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
@@ -134,6 +135,9 @@ export class ContainerEntity implements Entity<Container> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarOrganizationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -221,6 +225,7 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.ORGANIZATIONS,
         ]);
     };
 

@@ -61,7 +61,8 @@ public class GlossaryTermType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
-          ASSET_SETTINGS_ASPECT_NAME);
+          ASSET_SETTINGS_ASPECT_NAME,
+          ORGANIZATIONS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

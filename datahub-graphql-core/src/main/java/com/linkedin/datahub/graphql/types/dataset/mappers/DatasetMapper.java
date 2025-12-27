@@ -50,6 +50,7 @@ import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -64,6 +65,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.organization.Organizations;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.settings.asset.AssetSettings;
@@ -213,6 +215,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         ASSET_SETTINGS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
+    mappingHelper.mapToResult(
+        ORGANIZATIONS_ASPECT_NAME,
+        (dataset, dataMap) ->
+            dataset.setOrganizations(
+                OrganizationsAspectMapper.map(context, new Organizations(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);

@@ -9,6 +9,7 @@ import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdow
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entity/shared/containers/profile/sidebar/Organization/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
@@ -128,9 +129,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
         {
             component: SidebarDomainSection,
-            properties: {
-                hideOwnerType: true,
-            },
+        },
+        {
+            component: SidebarOrganizationSection,
         },
         {
             component: SidebarStructuredPropsSection,

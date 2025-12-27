@@ -1,0 +1,23 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.Urn
+import com.linkedin.metadata.aspect.OrganizationAspect
+
+/**
+ * A metadata snapshot for a specific Organization entity.
+ */
+@Entity = {
+  "name": "organization",
+  "keyAspect": "organizationKey"
+}
+record OrganizationSnapshot {
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: Urn
+
+  /**
+   * The list of metadata aspects associated with the Organization.
+   */
+  aspects: array[OrganizationAspect]
+}

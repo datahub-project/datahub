@@ -413,6 +413,15 @@ fragment documentationFields on Documentation {
     }
 }
 
+fragment entityOrganization on Organization {
+    urn
+    type
+    properties {
+        name
+        description
+    }
+}
+
 fragment nonRecursiveDatasetFields on Dataset {
     urn
     name
@@ -467,6 +476,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     domain {
         ...entityDomain
+    }
+    organizations {
+        ...entityOrganization
     }
     applications {
         ...entityApplication
@@ -776,6 +788,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     domain {
         ...entityDomain
     }
+    organizations {
+        ...entityOrganization
+    }
     applications {
         ...entityApplication
     }
@@ -857,6 +872,9 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     domain {
         ...entityDomain
     }
+    organizations {
+        ...entityOrganization
+    }
     ...entityDataProduct
     tags {
         ...globalTagsFields
@@ -929,6 +947,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     domain {
         ...entityDomain
+    }
+    organizations {
+        ...entityOrganization
     }
     applications {
         ...entityApplication
@@ -1134,6 +1155,9 @@ fragment nonRecursiveMLModel on MLModel {
     domain {
         ...entityDomain
     }
+    organizations {
+        ...entityOrganization
+    }
     applications {
         ...entityApplication
     }
@@ -1180,6 +1204,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     domain {
         ...entityDomain
+    }
+    organizations {
+        ...entityOrganization
     }
     applications {
         ...entityApplication
@@ -2023,4 +2050,14 @@ fragment ingestionExecutionRequestFields on ExecutionRequest {
             contentType
         }
     }
+}
+
+
+fragment organizationsFields on Organization {
+  urn
+  type
+  properties {
+    name
+    description
+  }
 }

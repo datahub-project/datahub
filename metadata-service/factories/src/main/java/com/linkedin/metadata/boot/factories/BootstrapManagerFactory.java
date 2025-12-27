@@ -21,6 +21,7 @@ import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
+import com.linkedin.metadata.boot.steps.RestoreOrganizationIndicesStep;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -61,6 +62,10 @@ public class BootstrapManagerFactory {
   @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService _entitySearchService;
+
+  @Autowired
+  @Qualifier("elasticSearchService")
+  private com.linkedin.metadata.search.elasticsearch.ElasticSearchService _elasticSearchService;
 
   @Autowired
   @Qualifier("searchService")
@@ -114,6 +119,8 @@ public class BootstrapManagerFactory {
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
+    final RestoreOrganizationIndicesStep restoreOrganizationIndicesStep =
+        new RestoreOrganizationIndicesStep(_elasticSearchService);
     final MigrateHomePageLinksStep migrateHomePageLinksStep =
         new MigrateHomePageLinksStep(_entityService, _entitySearchService);
 
@@ -121,6 +128,7 @@ public class BootstrapManagerFactory {
         new ArrayList<>(
             ImmutableList.of(
                 waitForSystemUpdateStep,
+                restoreOrganizationIndicesStep,
                 ingestPoliciesStep,
                 ingestDataPlatformInstancesStep,
                 _ingestRetentionPoliciesStep,

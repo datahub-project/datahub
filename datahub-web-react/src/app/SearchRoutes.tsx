@@ -18,6 +18,7 @@ import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
+import { OrganizationsList } from '@app/organization/OrganizationsList';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -94,6 +95,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
+                <Route path={PageRoutes.ORGANIZATIONS} render={() => <OrganizationsList />} />
                 <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route

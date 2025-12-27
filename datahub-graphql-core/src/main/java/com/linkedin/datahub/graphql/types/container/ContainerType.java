@@ -54,7 +54,8 @@ public class ContainerType
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
           Constants.ACCESS_ASPECT_NAME,
-          Constants.BROWSE_PATHS_V2_ASPECT_NAME);
+          Constants.BROWSE_PATHS_V2_ASPECT_NAME,
+          Constants.ORGANIZATIONS_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "container";

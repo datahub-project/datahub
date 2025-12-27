@@ -10,14 +10,16 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
-  // Use on specific MCP to request an synchronous index update avoid the kafka lag.
+  // Use on specific MCP to request an synchronous index update avoid the kafka
+  // lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
-      "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
+      "urn:li:corpuser:__datahub_system"; // DataHub internal service
+  // principal.
   // Actor ID for unauthenticated requests
   public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
   // Unauthenticated requests (no valid credentials provided).
@@ -117,6 +119,7 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
   public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
   public static final String DOCUMENT_ENTITY_NAME = "document";
+  public static final String ORGANIZATION_ENTITY_NAME = "organization";
 
   /** Aspects */
   // Common
@@ -300,6 +303,13 @@ public class Constants {
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // Organization
+  public static final String ORGANIZATION_KEY_ASPECT_NAME = "organizationKey";
+  public static final String ORGANIZATION_PROPERTIES_ASPECT_NAME = "organizationProperties";
+  public static final String ORGANIZATIONS_ASPECT_NAME = "organizations";
+  public static final String USER_ORGANIZATIONS_ASPECT_NAME = "userOrganizations";
+  public static final String ORGANIZATION_HIERARCHY_ASPECT_NAME = "organizationHierarchy";
 
   // ExternalRoleMetadata
   public static final String ROLE_ENTITY_NAME = "role";
@@ -497,9 +507,12 @@ public class Constants {
       "dataHubStepStateProperties";
 
   // Authorization
-  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
-  // the  spring property "authorization.restApiAuthorization" from application.yaml for
-  // consistency. The spring property can be initialized by this env var (among other methods).
+  // Do not use this env var directly to determine if REST API Auth is to be
+  // enabled. Instead, use
+  // the spring property "authorization.restApiAuthorization" from
+  // application.yaml for
+  // consistency. The spring property can be initialized by this env var (among
+  // other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names
@@ -556,7 +569,8 @@ public class Constants {
 
   public static final String RESTLI_SUCCESS = "success";
 
-  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues
+  // with
   // EntityPrivilegesResolver
   public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 

@@ -1,0 +1,32 @@
+namespace com.linkedin.organization
+
+import com.linkedin.common.Urn
+
+/**
+ * List of organizations an entity belongs to.
+ * This aspect enables multi-tenant isolation.
+ */
+@Aspect = {
+  "name": "organizations"
+}
+record Organizations {
+  /**
+   * Organizations this entity belongs to.
+   * Entities can belong to multiple organizations for cross-company collaboration.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "BelongsToOrganization",
+      "entityTypes": [ "organization" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "organizations",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasOrganizations",
+      "queryByDefault": false
+    }
+  }
+  organizations: array[Urn]
+}

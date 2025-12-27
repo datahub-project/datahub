@@ -15,6 +15,7 @@ import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityPro
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
@@ -120,6 +121,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SidebarNotesSection,
         },
         {
+            component: SidebarOrganizationSection,
+        },
+        {
             component: SidebarOwnerSection,
         },
         {
@@ -145,21 +149,21 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return [
             ...(showSummaryTab
                 ? [
-                      {
-                          name: 'Summary',
-                          component: SummaryTab,
-                          id: 'asset-summary-tab',
-                      },
-                  ]
+                    {
+                        name: 'Summary',
+                        component: SummaryTab,
+                        id: 'asset-summary-tab',
+                    },
+                ]
                 : []),
             ...(!showSummaryTab
                 ? [
-                      {
-                          name: 'Documentation',
-                          component: DocumentationTab,
-                          icon: FileOutlined,
-                      },
-                  ]
+                    {
+                        name: 'Documentation',
+                        component: DocumentationTab,
+                        icon: FileOutlined,
+                    },
+                ]
                 : []),
             {
                 name: 'Related Assets',

@@ -365,6 +365,22 @@ fragment autoCompleteFields on Entity {
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
     }
+    ... on Organization {
+        urn
+        type
+        properties {
+            name
+            description
+        }
+    }
+    ... on Organization {
+        urn
+        type
+        properties {
+            name
+            description
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -1140,6 +1156,14 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
+    }
+    ... on Organization {
+        urn
+        type
+        properties {
+            name
+            description
+        }
     }
     ... on SupportsVersions {
         versionProperties {

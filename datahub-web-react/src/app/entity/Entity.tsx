@@ -104,6 +104,10 @@ export enum EntityCapabilityType {
      * Assigning an application to a entity
      */
     APPLICATIONS,
+    /**
+     * Assigning an organization to a entity
+     */
+    ORGANIZATIONS,
 }
 
 /**

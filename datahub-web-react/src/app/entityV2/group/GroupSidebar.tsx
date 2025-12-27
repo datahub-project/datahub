@@ -8,6 +8,7 @@ import { GroupSidebarOwnersSection } from '@app/entityV2/group/GroupSidebarOwner
 import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 
 import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
 
@@ -64,6 +65,7 @@ export default function GroupSidebar({ sidebarData, refetch }: Props) {
                     urn={urn}
                     refetch={refetch}
                 />
+                <SidebarOrganizationSection />
             </Content>
         </SideBar>
     );

@@ -42,6 +42,21 @@ public class QueryFilterRewriterChainFactory {
         .build();
   }
 
+  @Bean
+  @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(
+      com.linkedin.metadata.entity.EntityService.class)
+  public QueryFilterRewriter organizationFilterRewriter(
+      @org.springframework.beans.factory.annotation.Qualifier("entityService")
+          final com.linkedin.metadata.entity.EntityService<?> entityService,
+      @org.springframework.beans.factory.annotation.Qualifier("entityRegistry")
+          final com.linkedin.metadata.models.registry.EntityRegistry entityRegistry) {
+    return new com.linkedin.metadata.search.elasticsearch.query.filter.OrganizationFilterRewriter(
+        com.linkedin.metadata.entity.EntityServiceAspectRetriever.builder()
+            .entityService(entityService)
+            .entityRegistry(entityRegistry)
+            .build());
+  }
+
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   @Bean
   public QueryFilterRewriteChain queryFilterRewriteChain(

@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.domain.DomainProperties;
@@ -29,6 +30,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
+import com.linkedin.organization.Organizations;
 import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nullable;
@@ -110,6 +112,13 @@ public class DomainMapper {
     if (envelopedAssetSettings != null) {
       result.setSettings(
           AssetSettingsMapper.map(new AssetSettings(envelopedAssetSettings.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedOrganizations = aspects.get(Constants.ORGANIZATIONS_ASPECT_NAME);
+    if (envelopedOrganizations != null) {
+      result.setOrganizations(
+          OrganizationsAspectMapper.map(
+              context, new Organizations(envelopedOrganizations.getValue().data())));
     }
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {

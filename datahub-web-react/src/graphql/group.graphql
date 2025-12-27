@@ -28,6 +28,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
         privileges {
             ...entityPrivileges
         }
+        organizations {
+            ...entityOrganization
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

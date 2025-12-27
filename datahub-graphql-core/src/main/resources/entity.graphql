@@ -115,6 +115,16 @@ type Query {
   domain(urn: String!): Domain
 
   """
+  Fetch an Organization by primary key (urn)
+  """
+  organization(urn: String!): Organization
+
+  """
+  List all Organizations
+  """
+  listOrganizations(input: ListOrganizationsInput!): ListOrganizationsResult
+
+  """
   Fetch an Assertion by primary key (urn)
   """
   assertion(urn: String!): Assertion
@@ -674,6 +684,21 @@ type Mutation {
   deleteDomain("The urn of the Domain to delete" urn: String!): Boolean
 
   """
+  Create an Organization and returns the resulting urn
+  """
+  createOrganization(input: CreateOrganizationInput!): String
+
+  """
+  Update an existing Organization
+  """
+  updateOrganization(urn: String!, input: OrganizationUpdateInput!): Boolean
+
+  """
+  Delete an Organization
+  """
+  deleteOrganization(urn: String!): Boolean
+
+  """
   Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
   """
   setDomain(entityUrn: String!, domainUrn: String!): Boolean
@@ -1113,6 +1138,11 @@ enum EntityType {
   A Domain containing Metadata Entities
   """
   DOMAIN
+
+  """
+  An Organization Entity
+  """
+  ORGANIZATION
 
   """
   The Dataset Entity
@@ -1765,6 +1795,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Dataset
   """
   domain: DomainAssociation
+
+  """
+  The organizations associated with the Dataset
+  """
+  organizations: [Organization]
 
   """
   The applications associated with the dataset
@@ -2468,6 +2503,11 @@ type GlossaryTerm implements Entity {
   urn: String!
 
   """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
+
+  """
   Ownership metadata of the glossary term
   """
   ownership: Ownership
@@ -3092,6 +3132,11 @@ type Container implements Entity {
   The primary key of the container
   """
   urn: String!
+
+  """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
 
   """
   A standard Entity Type
@@ -4283,6 +4328,11 @@ type CorpUser implements Entity {
   urn: String!
 
   """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
+
+  """
   The standard Entity Type
   """
   type: EntityType!
@@ -4796,6 +4846,11 @@ type CorpGroup implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Organizations that this group belongs to
+  """
+  organizations: [Organization]
 }
 
 """
@@ -6030,6 +6085,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The organizations associated with the Dashboard
+  """
+  organizations: [Organization]
+
+  """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
@@ -6292,6 +6352,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   The primary key of the Chart
   """
   urn: String!
+
+  """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
 
   """
   A standard Entity Type
@@ -6721,6 +6786,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   urn: String!
 
   """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
+
+  """
   A standard Entity Type
   """
   type: EntityType!
@@ -6967,6 +7037,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   The primary key of the Data Job
   """
   urn: String!
+
+  """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
 
   """
   A standard Entity Type
@@ -10306,6 +10381,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   urn: String!
 
   """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
+
+  """
   A standard Entity Type
   """
   type: EntityType!
@@ -10511,6 +10591,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   urn: String!
 
   """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
+
+  """
   A standard Entity Type
   """
   type: EntityType!
@@ -10703,6 +10788,11 @@ type MLFeature implements EntityWithRelationships & Entity {
   The primary key of the ML Feature
   """
   urn: String!
+
+  """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
 
   """
   A standard Entity Type
@@ -10975,6 +11065,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   urn: String!
 
   """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
+
+  """
   A standard Entity Type
   """
   type: EntityType!
@@ -11129,6 +11224,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   The primary key of the ML Feature Table
   """
   urn: String!
+
+  """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
 
   """
   A standard Entity Type
@@ -11629,6 +11729,11 @@ type Domain implements Entity {
   The primary key of the domain
   """
   urn: String!
+
+  """
+  The organizations that the entity belongs to
+  """
+  organizations: [Organization]
 
   """
   A standard Entity Type
@@ -14232,4 +14337,74 @@ type PolicyEvaluationDetail {
   The reason for deny for this policy
   """
   reason: String!
+}
+
+"""
+An Organization (Company) in DataHub
+"""
+type Organization implements Entity {
+  urn: String!
+  type: EntityType!
+  id: String!
+  properties: OrganizationProperties
+  ownership: Ownership
+  tags: GlobalTags
+  glossaryTerms: GlossaryTerms
+  institutionalMemory: InstitutionalMemory
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+  structuredProperties: StructuredProperties
+  forms: Forms
+  privileges: EntityPrivileges
+  parent: Organization
+  children: [Organization!]
+}
+
+"""
+Properties of an Organization
+"""
+type OrganizationProperties {
+  name: String!
+  description: String
+  logoUrl: String
+  createdTime: Long
+}
+
+"""
+Input for creating an organization
+"""
+input CreateOrganizationInput {
+  id: String!
+  name: String!
+  description: String
+  logoUrl: String
+  parentUrn: String
+}
+
+"""
+Input for updating an organization
+"""
+input OrganizationUpdateInput {
+  name: String
+  description: String
+  logoUrl: String
+  parentUrn: String
+}
+
+"""
+Input for listing organizations
+"""
+input ListOrganizationsInput {
+  start: Int!
+  count: Int!
+  filters: [FacetFilterInput!]
+}
+
+"""
+Result type for listing organizations
+"""
+type ListOrganizationsResult {
+  start: Int!
+  count: Int!
+  total: Int!
+  organizations: [Organization!]!
 }

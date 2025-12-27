@@ -14,6 +14,7 @@ import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarContentsSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOrganizationSection } from '@app/entityV2/shared/containers/profile/sidebar/Organizations/SidebarOrganizationSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
@@ -152,6 +153,9 @@ export class ContainerEntity implements Entity<Container> {
             component: SidebarContentsSection,
         },
         {
+            component: SidebarOrganizationSection,
+        },
+        {
             component: SidebarOwnerSection,
         },
         {
@@ -284,6 +288,7 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.ORGANIZATIONS,
             EntityCapabilityType.TEST,
         ]);
     };

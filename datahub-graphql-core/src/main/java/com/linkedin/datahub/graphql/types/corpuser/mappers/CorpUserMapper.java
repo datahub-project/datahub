@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.UserOrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
@@ -31,6 +32,7 @@ import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
+import com.linkedin.identity.UserOrganizations;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.structured.StructuredProperties;
 import java.util.List;
@@ -99,6 +101,11 @@ public class CorpUserMapper {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        USER_ORGANIZATIONS_ASPECT_NAME,
+        (corpUser, dataMap) ->
+            corpUser.setOrganizations(
+                UserOrganizationsAspectMapper.map(context, new UserOrganizations(dataMap))));
 
     mapCorpUserSettings(
         result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);

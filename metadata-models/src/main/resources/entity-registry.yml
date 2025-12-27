@@ -53,6 +53,7 @@ entities:
       - icebergCatalogInfo
       - logicalParent
       - assetSettings
+      - organizations
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -75,6 +76,7 @@ entities:
       - ownership
       - status
       - globalTags
+      - organizations
       - browsePaths
       - glossaryTerms
       - institutionalMemory
@@ -112,6 +114,7 @@ entities:
       - forms
       - subTypes
       - testResults
+      - organizations
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -137,6 +140,7 @@ entities:
       - container
       - mlTrainingRunProperties
   - name: chart
+    doc: A data chart produced from a data flow, dataset, or query.
     category: core
     keyAspect: chartKey
     searchGroup: primary
@@ -164,32 +168,34 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      - organizations
   - name: dashboard
+    doc: A dashboard reports visualization on top of datasets and data charts.
     keyAspect: dashboardKey
     searchGroup: primary
     aspects:
-      - domains
-      - applications
-      - container
-      - deprecation
-      - dashboardUsageStatistics
-      - inputFields
-      - subTypes
-      - embed
       - dashboardInfo
       - editableDashboardProperties
       - ownership
       - status
       - globalTags
-      - browsePaths
       - glossaryTerms
+      - browsePaths
       - institutionalMemory
+      - domains
+      - applications
+      - subTypes
       - dataPlatformInstance
       - browsePathsV2
       - structuredProperties
       - incidentsSummary
       - forms
       - testResults
+      - container
+      - deprecation
+      - dashboardUsageStatistics
+      - inputFields
+      - organizations
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -210,6 +216,7 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - testResults
+      - organizations
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -231,6 +238,7 @@ entities:
       - testResults
       - subTypes
       - slackUserInfo
+      - userOrganizations
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -238,15 +246,18 @@ entities:
     aspects:
       - corpGroupInfo
       - corpGroupEditableInfo
-      - globalTags
       - ownership
+      - deprecation
       - status
-      - origin
-      - roleMembership
+      - globalTags
+      - browsePaths
+      - browsePathsV2
       - structuredProperties
       - forms
+      - organizations
       - testResults
       - subTypes
+      - origin
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -261,6 +272,25 @@ entities:
       - testResults
       - displayProperties
       - assetSettings
+      - organizations
+  - name: organization
+    doc: An organization (company). Serves as a tenant boundary for multi-tenant isolation.
+    category: core
+    keyAspect: organizationKey
+    searchGroup: primary
+    aspects:
+      - organizationProperties
+      - organizationHierarchy
+      - organizations
+      - ownership
+      - institutionalMemory
+      - status
+      - globalTags
+      - glossaryTerms
+      - structuredProperties
+      - forms
+      - displayProperties
+      - dataPlatformInstance
   - name: container
     doc: A container of related data assets.
     category: core
@@ -272,20 +302,21 @@ entities:
       - dataPlatformInstance
       - subTypes
       - ownership
-      - deprecation
       - container
       - globalTags
       - glossaryTerms
       - institutionalMemory
       - browsePaths # unclear if this will be used
       - status
-      - domains
-      - applications
+      - deprecation
       - browsePathsV2
       - structuredProperties
       - forms
       - testResults
-      - access
+      - domains
+      - incidentsSummary
+      - applications
+      - organizations
   - name: tag
     category: core
     keyAspect: tagKey
@@ -296,26 +327,28 @@ entities:
       - deprecation
       - status
       - testResults
+      - organizations
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
     searchGroup: primary
     aspects:
       - glossaryTermInfo
-      - glossaryRelatedTerms
-      - institutionalMemory
-      - schemaMetadata
       - ownership
       - deprecation
-      - domains
-      - applications
-      - status
+      - schemaMetadata
+      - institutionalMemory
       - browsePaths
+      - glossaryRelatedTerms
+      - browsePathsV2
+      - status
       - structuredProperties
       - forms
+      - domains
+      - applications
       - testResults
-      - subTypes
-      - assetSettings
+      - incidentsSummary
+      - organizations
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -331,6 +364,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - organizations
   - name: document
     category: core
     keyAspect: documentKey
@@ -425,6 +459,7 @@ entities:
       - versionProperties
       - subTypes
       - container
+      - organizations
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -448,6 +483,7 @@ entities:
       - subTypes
       - container
       - institutionalMemory
+      - organizations
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -482,6 +518,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - organizations
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -504,6 +541,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - organizations
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey

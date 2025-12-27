@@ -14,12 +14,14 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.organization.mappers.OrganizationsAspectMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.key.CorpGroupKey;
+import com.linkedin.organization.Organizations;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -65,6 +67,11 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        ORGANIZATIONS_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setOrganizations(
+                OrganizationsAspectMapper.map(context, new Organizations(dataMap))));
     if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
       mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
     } else {

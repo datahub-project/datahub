@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.datahub.graphql.resolvers.organization.OrganizationAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
@@ -66,6 +67,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             case Constants.DOCUMENT_ENTITY_NAME:
               return getDocumentPrivileges(urn, context);
+            case Constants.ORGANIZATION_ENTITY_NAME:
+              return getOrganizationPrivileges(urn, context);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
@@ -168,6 +171,13 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     addCommonPrivileges(result, urn, context);
     // Document-specific: canManageEntity includes ability to delete/move documents
     result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
+    return result;
+  }
+
+  private EntityPrivileges getOrganizationPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanManageEntity(OrganizationAuthUtils.canManageOrganization(context, urn));
     return result;
   }
 

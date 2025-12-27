@@ -156,6 +156,14 @@ mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
     removeBusinessAttribute(input: $input)
 }
 
-mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {
+mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!)  {
     updateDisplayProperties(urn: $urn, input: $input)
+}
+
+mutation removeEntityFromOrganizations($entityUrn: String!, $organizationUrns: [String!]!) {
+    removeEntityFromOrganizations(entityUrn: $entityUrn, organizationUrns: $organizationUrns)
+}
+
+mutation addEntityToOrganizations($entityUrn: String!, $organizationUrns: [String!]!) {
+    addEntityToOrganizations(entityUrn: $entityUrn, organizationUrns: $organizationUrns)
 }
