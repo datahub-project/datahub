@@ -17,7 +17,6 @@ import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
-import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
 import { OrganizationsList } from '@app/organization/OrganizationsList';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
