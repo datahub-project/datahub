@@ -2776,3 +2776,25 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **c0c21d2993** - feat(cli): add --env option to ingest deploy command (#15518)
   *by Pedro Silva <pedro@acryl.io> on 2025-12-26*
+
+## Upstream Merge Session - 2025-12-27 17:34:41
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `acryl-main`
+- **Total Commits**: 3
+- **Strategy**: stacked
+- **Started**: 2025-12-27 17:34:41
+
+### Commits Included in This Merge
+
+- **f8dce1c444** - feat(docker): add Alpine-based variants for ingestion and actions images (#15764)
+  *by Esteban Gutierrez <esteban.gutierrez@acryl.io> on 2025-12-26*
+
+- **1d5e91f230** - docs(release-notes): Add initial release notes for upcoming version (#15767)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2025-12-26*
+
+- **dd53442500** - docs(observe): smart assertions profiling (#15750)
+  *by Jay <159848059+jayacryl@users.noreply.github.com> on 2025-12-26*
